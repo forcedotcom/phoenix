@@ -1,0 +1,491 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head><meta http-equiv="Content-Type" content="text/html;charset=utf-8" /><title>
+Functions
+</title><link rel="stylesheet" type="text/css" href="stylesheet.css" />
+<!-- [search] { -->
+<script type="text/javascript" src="navigation.js"></script>
+</head><body onload="highlightTab();">
+
+<div class="pageTitle">Phoenix Language Reference</div>
+<div>
+<p>Phoenix is a SQL layer over HBase delivered as an embedded JDBC driver.
+The top level commands, SQL syntax, built-in functions, and supported data types are documented in the separate tabs below.
+</p>
+<br/>
+</div>
+<div class="menu">
+<a id="grammarTab" class="inactiveTab" href="index.html">SQL Grammar</a>
+<a id="functionsTab" class="inactiveTab" href="functions.html">Functions</a>
+<a id="dataTypesTab" class="inactiveTab" href="datatypes.html">Data Types</a>
+</div>
+<div id="content" class="content">
+
+<!-- } -->
+<h3 id="functions">Aggregate Functions</h3>
+<!-- syntax-start
+<p class="notranslate">
+
+    <a href="#avg" >AVG</a><br />
+
+    <a href="#count" >COUNT</a><br />
+
+    <a href="#max" >MAX</a><br />
+
+    <a href="#min" >MIN</a><br />
+
+    <a href="#sum" >SUM</a><br />
+</p>
+syntax-end -->
+<!-- railroad-start -->
+<table class="notranslate index">
+    <tr>
+        <td class="index">
+            
+                <a href="#avg" >AVG</a><br />
+            
+                <a href="#count" >COUNT</a><br />
+                    </td><td class="index">
+            
+                <a href="#max" >MAX</a><br />
+            
+                <a href="#min" >MIN</a><br />
+                    </td><td class="index">
+            
+                <a href="#sum" >SUM</a><br />
+                    </td>
+    </tr>
+</table>
+<!-- railroad-end -->
+
+<h3>String Functions</h3>
+<!-- syntax-start
+<p class="notranslate">
+
+    <a href="#substr" >SUBSTR</a><br />
+
+    <a href="#trim" >TRIM</a><br />
+
+    <a href="#ltrim" >LTRIM</a><br />
+
+    <a href="#rtrim" >RTRIM</a><br />
+
+    <a href="#length" >LENGTH</a><br />
+
+    <a href="#regexp_substr" >REGEXP_SUBSTR</a><br />
+
+    <a href="#regexp_replace" >REGEXP_REPLACE</a><br />
+</p>
+syntax-end -->
+<!-- railroad-start -->
+<table class="notranslate index">
+    <tr>
+        <td class="index">
+            
+                <a href="#substr" >SUBSTR</a><br />
+            
+                <a href="#trim" >TRIM</a><br />
+            
+                <a href="#ltrim" >LTRIM</a><br />
+                    </td><td class="index">
+            
+                <a href="#rtrim" >RTRIM</a><br />
+            
+                <a href="#length" >LENGTH</a><br />
+            
+                <a href="#regexp_substr" >REGEXP_SUBSTR</a><br />
+                    </td><td class="index">
+            
+                <a href="#regexp_replace" >REGEXP_REPLACE</a><br />
+                    </td>
+    </tr>
+</table>
+<!-- railroad-end -->
+
+<h3>Time and Date Functions</h3>
+<!-- syntax-start
+<p class="notranslate">
+
+    <a href="#round" >ROUND</a><br />
+
+    <a href="#truncate" >TRUNCATE</a><br />
+
+    <a href="#to_char" >TO_CHAR</a><br />
+
+    <a href="#to_date" >TO_DATE</a><br />
+
+    <a href="#current_date" >CURRENT_DATE</a><br />
+
+    <a href="#current_time" >CURRENT_TIME</a><br />
+</p>
+syntax-end -->
+<!-- railroad-start -->
+<table class="notranslate index">
+    <tr>
+        <td class="index">
+            
+                <a href="#round" >ROUND</a><br />
+            
+                <a href="#truncate" >TRUNCATE</a><br />
+                    </td><td class="index">
+            
+                <a href="#to_char" >TO_CHAR</a><br />
+            
+                <a href="#to_date" >TO_DATE</a><br />
+                    </td><td class="index">
+            
+                <a href="#current_date" >CURRENT_DATE</a><br />
+            
+                <a href="#current_time" >CURRENT_TIME</a><br />
+                    </td>
+    </tr>
+</table>
+<!-- railroad-end -->
+
+
+<h3 id="avg" class="notranslate">AVG</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+AVG ( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">AVG ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+AVG ( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+syntax-end -->
+<p>The average (mean) value. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
+<p>Example:</p>
+<p class="notranslate">AVG(X)</p>
+
+<h3 id="count" class="notranslate">COUNT</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+COUNT( { * | { <a href="index.html#term">term</a> } } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COUNT (</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">*</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#term">term</a></code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+COUNT( { * | { <a href="index.html#term">term</a> } } )
+</pre>
+syntax-end -->
+<p>The count of all row, or of the non-null values. This method returns a long. If no rows are selected, the result is 0. Aggregates are only allowed in select statements.</p>
+<p>Example:</p>
+<p class="notranslate">COUNT(*)</p>
+
+<h3 id="max" class="notranslate">MAX</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+MAX(<a href="index.html#term">term</a>)
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MAX ( <a href="index.html#term">term</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+MAX(<a href="index.html#term">term</a>)
+</pre>
+syntax-end -->
+<p>The highest value. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
+<p>Example:</p>
+<p class="notranslate">MAX(NAME)</p>
+
+<h3 id="min" class="notranslate">MIN</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+MIN(<a href="index.html#term">term</a>)
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MIN ( <a href="index.html#term">term</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+MIN(<a href="index.html#term">term</a>)
+</pre>
+syntax-end -->
+<p>The lowest value. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
+<p>Example:</p>
+<p class="notranslate">MIN(NAME)</p>
+
+<h3 id="sum" class="notranslate">SUM</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+SUM( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SUM ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+SUM( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+syntax-end -->
+<p>The sum of all values. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
+<p>Example:</p>
+<p class="notranslate">SUM(X)</p>
+
+<h3 id="coalesce" class="notranslate">COALESCE</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COALESCE ( <a href="index.html#term">firstTerm</a> , <a href="index.html#term">secondTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
+</pre>
+syntax-end -->
+<p>Returns the value of the first argument if not null and the second argument otherwise. Useful to guarantee that a column in an <code>UPSERT SELECT</code> command will evaluate to a non null value.</p>
+<p>Example:</p>
+<p class="notranslate">COALESCE(last_update_date, CURRENT_DATE())</p>
+
+<h3 id="substr" class="notranslate">SUBSTR</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#int">startInt</a> [, <a href="index.html#int">lengthInt</a> ] )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SUBSTR ( <a href="index.html#term">stringTerm</a> , <a href="index.html#int">startInt</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#int">lengthInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#int">startInt</a> [, <a href="index.html#int">lengthInt</a> ] )
+</pre>
+syntax-end -->
+<p>Returns a substring of a string starting at the one-based position. If zero is used, the position is zero-based. If the start index is negative, then the start index is relative to the end of the string. The length is optional and if not supplied, the rest of the string will be returned.</p>
+<p>Example:</p>
+<p class="notranslate">SUBSTR(&#39;[Hello]&#39;, 2, 5)<br />SUBSTR(&#39;Hello World&#39;, -5)</p>
+
+<h3 id="trim" class="notranslate">TRIM</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+TRIM( <a href="index.html#term">stringTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TRIM ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+TRIM( <a href="index.html#term">stringTerm</a> )
+</pre>
+syntax-end -->
+<p>Removes leading and trailing spaces from the input string.</p>
+<p>Example:</p>
+<p class="notranslate">TRIM(&#39; &nbsp;Hello &nbsp;&#39;)</p>
+
+<h3 id="ltrim" class="notranslate">LTRIM</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+LTRIM( <a href="index.html#term">stringTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LTRIM ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+LTRIM( <a href="index.html#term">stringTerm</a> )
+</pre>
+syntax-end -->
+<p>Removes leading spaces from the input string.</p>
+<p>Example:</p>
+<p class="notranslate">LTRIM(&#39; &nbsp;Hello&#39;)</p>
+
+<h3 id="rtrim" class="notranslate">RTRIM</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+RTRIM( <a href="index.html#term">stringTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">RTRIM ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+RTRIM( <a href="index.html#term">stringTerm</a> )
+</pre>
+syntax-end -->
+<p>Removes trailing spaces from the input string.</p>
+<p>Example:</p>
+<p class="notranslate">RTRIM(&#39;Hello &nbsp;&nbsp;&#39;)</p>
+
+<h3 id="length" class="notranslate">LENGTH</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+LENGTH( <a href="index.html#term">stringTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LENGTH ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+LENGTH( <a href="index.html#term">stringTerm</a> )
+</pre>
+syntax-end -->
+<p>Returns the length of the string in characters.</p>
+<p>Example:</p>
+<p class="notranslate">LENGTH(&#39;Hello&#39;)</p>
+
+<h3 id="regexp_substr" class="notranslate">REGEXP_SUBSTR</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+REGEXP_SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#int">startInt</a> ] )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REGEXP_SUBSTR ( <a href="index.html#term">stringTerm</a> , <a href="index.html#string">patternString</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#int">startInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+REGEXP_SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#int">startInt</a> ] )
+</pre>
+syntax-end -->
+<p>Returns a substring of a string by applying a regular expression start from the offset of a one-based position. Just like with <code>SUBSTR</code>, if the start index is negative, then it is relative to the end of the string. If not specified, the start index defaults to 1.</p>
+<p>Example:</p>
+<p class="notranslate">REGEXP_SUBSTR(&#39;na1-appsrv35-sj35&#39;, &#39;[^-]+&#39;) evaluates to &#39;na1&#39;</p>
+
+<h3 id="regexp_replace" class="notranslate">REGEXP_REPLACE</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+REGEXP_REPLACE( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#string">replacementString</a> ] )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REGEXP_REPLACE ( <a href="index.html#term">stringTerm</a> , <a href="index.html#string">patternString</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">replacementString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+REGEXP_REPLACE( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#string">replacementString</a> ] )
+</pre>
+syntax-end -->
+<p>Returns a string by applying a regular expression and replacing the matches with the replacement string. If the replacement string is not specified, it defaults to an empty string.</p>
+<p>Example:</p>
+<p class="notranslate">REGEXP_REPLACE(&#39;abc123ABC&#39;, &#39;[0-9]+&#39;, &#39;#&#39;) evaluates to &#39;abc#ABC&#39;</p>
+
+<h3 id="round" class="notranslate">ROUND</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+ROUND(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#number">multiplierNumber</a>])
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ROUND ( <a href="index.html#term">timestampTerm</a> ,</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; DAY &apos;</code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; HOUR &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MINUTE &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; SECOND &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MILLISECOND &apos;</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#number">multiplierNumber</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+ROUND(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#number">multiplierNumber</a>])
+</pre>
+syntax-end -->
+<p>Rounds the timestamp to the nearest time unit specified. The multiplier is used to round to a multiple of a time unit (i.e. 10 minute) and defaults to 1 if not specified. This method returns a date.</p>
+<p>Example:</p>
+<p class="notranslate">ROUND(date, &#39;MINUTE&#39;, 30)<br />ROUND(time, &#39;HOUR&#39;)</p>
+
+<h3 id="truncate" class="notranslate">TRUNCATE</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+TRUNC(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#int">multiplierInt</a>])
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TRUNC ( <a href="index.html#term">timestampTerm</a> ,</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; DAY &apos;</code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; HOUR &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MINUTE &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; SECOND &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MILLISECOND &apos;</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#int">multiplierInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+TRUNC(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#int">multiplierInt</a>])
+</pre>
+syntax-end -->
+<p>Truncates the timestamp to the next time unit closer to 0. The multiplier is used to truncate to a multiple of a time unit (i.e. 10 minute) and defaults to 1 if not specified. This method returns a date.</p>
+<p>Example:</p>
+<p class="notranslate">TRUNCATE(timestamp, &#39;SECOND&#39;, 30)<br />TRUNCATE(date, &#39;DAY&#39;, 7)</p>
+
+<h3 id="to_char" class="notranslate">TO_CHAR</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+TO_CHAR( <a href="index.html#term">timestampTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_CHAR ( <a href="index.html#term">timestampTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+TO_CHAR( <a href="index.html#term">timestampTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+syntax-end -->
+<p>Formats a date, time or timestamp as a string. The most important format characters are: y year, M month, d day, H hour, m minute, s second. The default format string is <code>yyyy-MM-dd HH:mm:ss</code>. For details of the format, see <code>java.text.SimpleDateFormat</code>. This method returns a string.</p>
+<p>Example:</p>
+<p class="notranslate">TO_CHAR(TIMESTAMP, &#39;2001-02-03 04:05:06&#39;)</p>
+
+<h3 id="to_date" class="notranslate">TO_DATE</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+TO_DATE( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_DATE ( <a href="index.html#term">stringTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+TO_DATE( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+syntax-end -->
+<p>Parses a string and returns a date. The most important format characters are: y year, M month, d day, H hour, m minute, s second. The default format string is <code>yyyy-MM-dd HH:mm:ss</code>. For details of the format, see <code>java.text.SimpleDateFormat</code>.</p>
+<p>Example:</p>
+<p class="notranslate">TO_DATE(&#39;Sat, 3 Feb 2001 03:05:06 GMT&#39;, &#39;EEE, d MMM yyyy HH:mm:ss z&#39;)</p>
+
+<h3 id="current_date" class="notranslate">CURRENT_DATE</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+CURRENT_DATE()
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CURRENT_DATE ( )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+CURRENT_DATE()
+</pre>
+syntax-end -->
+<p>Returns the current server-side date, bound at the start of the execution of a query based on the current time on the region server owning the metadata of the table being queried.</p>
+<p>Example:</p>
+<p class="notranslate">CURRENT_DATE()</p>
+
+<h3 id="current_time" class="notranslate">CURRENT_TIME</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+CURRENT_TIME()
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CURRENT_TIME ( )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+CURRENT_TIME()
+</pre>
+syntax-end -->
+<p>Same as <code>CURRENT_DATE</code>(), except returns a value of type <code>TIME</code>. In either case, the underlying representation is the epoch time as a long value.</p>
+<p>Example:</p>
+<p class="notranslate">CURRENT_TIME()</p>
+
+<!-- [close] { -->
+</div>
+<!-- } --></body></html>
+
