@@ -1,6 +1,6 @@
 <h1>Phoenix JDBC Driver for HBase<br />
 <em><sup><sup>We put the SQL back in the NoSQL</sup></sup></em></h1>
-Phoenix is a SQL layer over HBase delivered as an embedded JDBC driver targeting low latency queries over HBase data. Tables are created and updated through DDL statements and stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key or as key value cells. The Phoenix query engine transforms your SQL query into one or more HBase scans and orchestrates their execution to produce standard JDBC result sets.
+Phoenix is a SQL layer over HBase delivered as an embedded JDBC driver targeting low latency queries over HBase data. Tables are created and updated through DDL statements and stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key or as key value cells. The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans and orchestrates their execution to produce standard JDBC result sets. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/Phoenix/).
 
 A Phoenix table can either be:
 
@@ -19,17 +19,12 @@ For example:
         Connection conn = DriverManager.getConnection("phoenix:jdbc:localhost");
 
 ## Transactions ##
-The DML commands of Phoenix (UPSERT and DELETE) batch pending changes to HBase tables on the client side. The changes are sent to the server when the transaction is committed and discarded when the transaction is rolled back. Phoenix does not providing any additional transactional semantics beyond what HBase supports when a batch of mutations is submitted to the server. If auto commit is turned on for a connection, then DML commands are immediately executed on the server. When possible, Phoenix executes the entire DML command on the server (in a coprocessor), so performance will improve.
+The DML commands of Phoenix ([UPSERT VALUES](http://forcedotcom.github.com/Phoenix/#upsert_values), [UPSERT SELECT](http://forcedotcom.github.com/Phoenix/#upsert_select) and [DELETE](http://forcedotcom.github.com/Phoenix/#delete)) batch pending changes to HBase tables on the client side. The changes are sent to the server when the transaction is committed and discarded when the transaction is rolled back. Phoenix does not providing any additional transactional semantics beyond what HBase supports when a batch of mutations is submitted to the server. If auto commit is turned on for a connection, then Phoenix will, whenver possible, execute the entire DML command through a coprocessor on the server-side, so performance will improve.
 
 ## Meta Data ##
 The catalog of tables, their columns, primary keys, and types may be retrieved via the java.sql metadata interfaces: DatabaseMetaData, ParameterMetaData, and ResultSetMetaData. For retrieving schemas, tables, and columns through the DatabaseMetaData interface, the schema pattern, table pattern, and column pattern are specified as in a LIKE expression (i.e. % and _ are wildcards escaped through the \ character). The table catalog argument to the metadata APIs deviates from a more standard relational database model, and instead is used to specify a column family name (in particular to see all columns in a given column family).
 
-Several basic shell scripts are provided for convenience:
-
-* psql to run one or more .SQL scripts, usually for the purpose of running DDL
-* pcsv to populate a Phoenix table from a CSV file
-
-For detailed documentation on the current level of SQL support, see the wiki. 
+For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/Phoenix/).
 
 ## System Requirements ##
 * HBase v 0.94.2 or higher
@@ -38,27 +33,13 @@ For detailed documentation on the current level of SQL support, see the wiki.
 ## Installation ##
 * Download the phoenix.jar
 * Put phoenix.jar into the lib directory of each region server for the cluster on which you'd like to use Phoenix. It must be on the classpath of HBase.
-* Add the following jars to the classpath of any Phoenix client:
-  * phoenix.jar
-  * antlr-3.2.jar
-  * opencsv-2.3.jar
-  * commons-configuration-1.6.jar
-  * commons-io-2.0.1.jar
-  * guava-11.0.2.jar
-  * hadoop-core-1.0.4.jar
-  * hbase-0.94.0-security.jar
-  * jackson-core-asl-1.8.8.jar
-  * jackson-mapper-asl-1.8.8.jar
-  * protobuf-java-2.4.0a.jar
-  * slf4j-api-1.4.3.jar
-  * slf4j-log4j12-1.4.3.jar
-  * zookeeper-3.4.3.jar
+* Add the phoenix-client.jar to the classpath of any Phoenix client:
 
 ## Getting Started ##
-A good way to experiment with Phoenix is to download and install a SQL client such as [Squirrel](http://squirrel-sql.sourceforge.net/)
+A good way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/)
 
-1. Copy the above Phoenix required client-side jars into the lib directory of Squirrel
-2. Start Squirrel and add new driver to Squirrel (Drivers -> New Driver)
+1. Copy the phoenix-client.jar into the lib directory of SQuirrel
+2. Start SQuirrel and add new driver to Squirrel (Drivers -> New Driver)
 3. In Add Driver dialog box, set Name to Phoenix
 4. Press List Drivers button and jdbc.PhoenixProdEmbeddedDriver should be automatically populated in Class Name textbox. Press OK to close this dialog.
 5. Switch to Alias tab and create new Alias (Aliases -> New Aliases)
@@ -67,4 +48,11 @@ A good way to experiment with Phoenix is to download and install a SQL client su
 8. Press Test (which should succeed if everything is setup correctly) and press OK to close.
 9. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
 
-You can now create tables, insert data, run queries, and inspect table metadata (i.e. list tables, their columns, primary keys, and types) directly in Squirrel.
+You can now issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types) directly in Squirrel.
+
+In addition, several basic shell scripts are also provided in the bin directory to execute SQL:
+
+* bin/psql.sh to run one or more .SQL scripts with the output sent to stdout
+* bin/pcsv.sh to populate a Phoenix table from a CSV file
+
+
