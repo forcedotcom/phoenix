@@ -1,6 +1,5 @@
 <h1>Phoenix JDBC Driver for HBase<br />
-<small><small><em style="font-weight:normal;">We put the SQL back in the NoSQL</em></small></small></h1>
-
+<em><sup><sup>We put the SQL back in the NoSQL</sup></sup></em></h1>
 Phoenix is a SQL layer over HBase delivered as an embedded JDBC driver targeting low latency queries over HBase data. Tables are created and updated through DDL statements and stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key or as key value cells. The Phoenix query engine transforms your SQL query into one or more HBase scans and orchestrates their execution to produce standard JDBC result sets.
 
 A Phoenix table can either be:
