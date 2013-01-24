@@ -32,11 +32,11 @@ For detailed documentation on the current level of SQL support, see our [languag
 
 ## Installation ##
 * Download the phoenix.jar
-* Put phoenix.jar into the lib directory of each region server for the cluster on which you'd like to use Phoenix. It must be on the classpath of HBase.
-* Add the phoenix-client.jar to the classpath of any Phoenix client:
+* Add the phoenix.jar to the classpath of any HBase region server. An easy way to do this is to copy it into the HBase lib directory.
+* Add the phoenix-client.jar to the classpath of any Phoenix client.
 
 ## Getting Started ##
-A good way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/)
+One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Here are the setup steps necessary:
 
 1. Copy the phoenix-client.jar into the lib directory of SQuirrel
 2. Start SQuirrel and add new driver to Squirrel (Drivers -> New Driver)
@@ -50,7 +50,7 @@ A good way to experiment with Phoenix is to download and install a SQL client su
 
 You can now issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types) directly in Squirrel.
 
-In addition, several basic shell scripts are also provided in the bin directory to execute SQL:
+In addition, several basic shell scripts are provided to allow for direct SQL execution:
 
 * bin/psql.sh to run one or more .SQL scripts with the output sent to stdout
 * bin/pcsv.sh to populate a Phoenix table from a CSV file
