@@ -1,0 +1,271 @@
+<!--
+  Copyright (c) 2013, Salesforce.com, Inc.
+  All rights reserved.
+  
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+  
+      Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+      Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+      Neither the name of Salesforce.com nor the names of its contributors may 
+      be used to endorse or promote products derived from this software without 
+      specific prior written permission.
+  
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
+  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+  <project name="search build" default="" basedir=".">
+    <description>
+	IMPORTANT BUILD TASKS
+	---------------------
+	hbase: Sync and compiles HBase
+	phoenix: Compiles Phoenix and generates phoenix-client.jar and phoenix.jar (should be copied to HBase/lib folder)
+	all: Combines the above hbase and phoenix target
+
+	OTHER TASKS
+	-----------
+	clean: Cleans Phoenix project
+	javadoc: Generates Phoenix JavaDoc
+    </description>
+    <path id="antcontrib.lib.path">
+        <pathelement location="${myant.home}/lib/ant-contrib-1.0b1.jar"/>
+    </path>
+    <taskdef resource="net/sf/antcontrib/antlib.xml" classpathref="antcontrib.lib.path"
+             loaderref="antcontrib.lib.path.loader"/>
+    <property name="loaded.custom.tasks" value="true"/>
+    <property file="default.properties" />
+    <property name="build.home" value="${devhome.dir}/build" />
+    <property name="myjava.home" value="${JAVA_HOME}" />
+    <property name="myant.home" value="${ANT_HOME}" />
+    <property name="m2_repo_abs" value="${user.home}/${M2_REPO}" />
+    <property name="config.dir" value="${devhome.dir}/conf"/>
+    <property name="java.dir" value="${devhome.dir}/java"/>
+    <property name="classes.dir" value="${java.dir}/classes"/>
+    <property name="src.dir" value="${java.dir}/src"/>
+    <property name="javadoc.dir" value="${devhome.dir}/javadoc"/>
+    <property name="srcgen.dir" value="${java.dir}/src-gen"/>
+    <property name="lib.dir" value="${java.dir}/lib"/>
+    <property name="libsrc.dir" value="${java.dir}/lib-src"/>
+    <property name="libgen.dir" value="${java.dir}/lib-gen"/>
+    <property name="libgensrc.dir" value="${java.dir}/lib-gen-src"/>
+    <property name="test.home" value="${devhome.dir}/test"/>
+    <property name="utest.java.dir" value="${test.home}/unit/java"/>
+    <property name="ftest.java.dir" value="${test.home}/func/java"/>
+    <property name="utest.classes.dir" value="${utest.java.dir}/classes"/>
+    <property name="ftest.classes.dir" value="${ftest.java.dir}/classes"/>
+    <property name="utest.src.dir" value="${utest.java.dir}/src"/>
+    <property name="ftest.src.dir" value="${ftest.java.dir}/src"/>
+    <property name="test.lib.dir" value="${utest.java.dir}/lib"/>
+    <property name="test.libsrc.dir" value="${utest.java.dir}/lib-src"/>
+    <property name="hbase.root" value="${hbase.root}" />
+    <property name="hbase.home" value="${hbase.home}" />
+    <property name="hbase.lib" value="${hbase.lib}" />
+    <property name="properties-loaded" value="true" />
+    <target name="init" unless="ran.init">
+        <tstamp/>
+        <mkdir dir="${classes.dir}"/>
+        <mkdir dir="${libgen.dir}"/>
+	<property name="ran.init" value="true"/>
+    </target>
+    <target name="setup" depends="init" description="Setup the paths used for compiling and running.">
+
+    	<path id="depend.jars">
+		<pathelement path="${classpath}"/>
+		<fileset dir="${hbase.lib}">
+			<include name="**/*.jar"/>
+		</fileset>
+		<fileset dir="${hbase.home}">
+			<include name="${hbase.version}.jar"/>
+		</fileset>
+		<fileset dir="${lib.dir}">
+			<include name="**/*.jar"/>
+		</fileset>
+	</path>
+    	<path id="local.jars">
+            <fileset dir="${lib.dir}">
+                <include name="*.jar"/>
+            </fileset>
+            <fileset dir="${libgen.dir}">
+                <include name="*.jar"/>
+            </fileset>
+	</path>
+	<path id="jars">
+		<path refid="local.jars"/>
+	</path>
+        <path id="compile.classpath">
+            <pathelement location="${classes.dir}"/>
+			<path refid="jars"/>
+        </path>
+        <path id="phoenixsqlgrammar.classpath">
+            <path refid="compile.classpath"/>
+        </path>
+    </target>
+    <target name="clean">
+      <delete dir="${srcgen.dir}"/>
+      <delete dir="${classes.dir}"/>
+      <delete dir="${javadoc.dir}"/>
+      <delete dir="${utest.classes.dir}"/>
+      <delete dir="${ftest.classes.dir}"/>
+      <delete failonerror="false">
+        <fileset dir="${log.dir}" includes="*.log"/>
+      </delete>
+    </target>
+    <target name="pre" depends="setup, checkPhoenixGrammar, generatePhoenixParser" 
+            description="All tasks that compile depends on should go in here. Anything that needs to be code generated before we compile" />
+    <property name="phoenixsqlgrammar.src" value="${srcgen.dir}/phoenix/parse" />
+    <property name="phoenixsqlgrammar.dir" value="${src.dir}/phoenix/parse" />
+    <property name="phoenix-version-number" value="1" />
+    <target name="phoenix" depends="compile, jar" description="Clean, Compiles Phoenix. Also generates doc and phoenix.jar" />
+    <target name="compile" depends="setup, pre" description="Compile the Phoenix Source" >
+      <javac includeantruntime="false" destdir="${classes.dir}">
+        <src path="${src.dir}" />
+        <src path="${srcgen.dir}"/>
+        <classpath refid="depend.jars"/>
+      </javac>
+    </target>
+    <target name="javadoc" depends="compile, setup" description="Build javadoc">
+      <mkdir dir="${javadoc.dir}"/>
+      <baseJavadocMacro srcdir="${src.dir}" destdir="${javadoc.dir}" classpathref="compile.classpath"/>
+    </target>
+    <target name="all" depends="hbase,phoenix" description="Sync HBase. Compile HBase and Phoenix.">
+      <shellscript shell="sh" dir="${hbase.root}">
+        echo &quot;BUILD COMPLETE. Jar is generated at the path listed above.&quot;
+	echo &quot;For Eclipse, import 2 projects using File > Import > General > Existing Project into Workspace > Select root directory:&quot;
+        echo &quot;   1. ${hbase.root}&quot;
+	echo &quot;   2. ${devhome.dir}&quot;
+        </shellscript>
+    </target>
+    <target name="hbase" description="Setup the paths used for compiling and running.">
+      <shellscript shell="sh" dir="${devhome.dir}">
+        if [ ${hbase-revision} = 'latest' ]; then 
+           svn checkout ${hbase.url} ${hbase.root}
+           else
+           svn checkout -r ${hbase-revision} ${hbase.url} ${hbase.root}
+        fi
+      </shellscript>
+      <shellscript shell="sh" dir="${hbase.root}">
+        mvn -DskipTests install;mvn eclipse:eclipse
+        cp ${devhome.dir}/build/.settings/org.eclipse.jdt.core.prefs ${hbase.root}/.settings
+	sed -i 's!kind=&quot;var&quot; path=&quot;M2_REPO!exported=&quot;true&quot; kind=&quot;lib&quot; path=&quot;M2_REPO!g' .classpath
+	sed -i 's!path=&quot;M2_REPO!path=&quot;${m2_repo_abs}!g' .classpath
+        </shellscript>
+    </target>
+    <target name="jar" depends="compile" description="make deployable jars">
+      <buildnumber/>
+      <jar destfile="${devhome.dir}/build/phoenix.jar"
+	 basedir="${devhome.dir}/java/classes"
+	 includes="**/*.class">
+        <manifest>
+          <attribute name="Main-Class" value="phoenix.util.PhoenixRuntime"/>
+          <attribute name="Version" value="${phoenix-version-number}.${build.number}" />
+        </manifest>
+      </jar>
+      <jar destfile="${devhome.dir}/build/phoenix-client.jar"
+	 basedir="${devhome.dir}/java/classes"
+	 includes="**/*.class">
+        <manifest>
+          <attribute name="Main-Class" value="phoenix.util.PhoenixRuntime"/>
+          <attribute name="Version" value="${phoenix-version-number}.${build.number}" />
+        </manifest>
+	<zipfileset src="${hbase.home}/${hbase.version}.jar" excludes="META-INF/*" />  
+	<zipfileset src="${hbase.lib}/commons-configuration-1.6.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/commons-io-2.1.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/commons-lang-2.5.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/commons-logging-1.1.1.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/guava-11.0.2.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/hadoop-core-1.0.3.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/jackson-core-asl-1.8.8.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/jackson-mapper-asl-1.8.8.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/protobuf-java-2.4.0a.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/slf4j-api-1.4.3.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/slf4j-log4j12-1.4.3.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/zookeeper-3.4.3.jar" excludes="META-INF/*" />
+	<zipfileset src="${hbase.lib}/log4j-1.2.16.jar" excludes="META-INF/*" />
+	<zipfileset src="${lib.dir}/antlr-3.2.jar" excludes="META-INF/*" />
+	<zipfileset src="${lib.dir}/opencsv-2.3.jar" excludes="META-INF/*" />
+      </jar>
+      <jar destfile="${devhome.dir}/build/phoenix-source.jar"
+	 basedir="${src.dir}"
+	 includes="**/*.java" />
+    </target>
+    <target name="testjar" description="make deployable test jars">
+      <jar destfile="${devhome.dir}/build/phoenix-test.jar">
+        <fileset dir="${utest.classes.dir}"/>
+        <fileset dir="${ftest.classes.dir}"/>
+      </jar>
+      <jar destfile="${devhome.dir}/build/phoenix-test-source.jar">
+        <fileset dir="${utest.src.dir}" includes="**/*.java"/>
+        <fileset dir="${ftest.src.dir}" includes="**/*.java"/>
+      </jar>
+    </target>
+    <target name="checkPhoenixGrammar">
+      <uptodate property="phoenixGrammar.uptodate">
+        <srcfiles dir="${phoenixsqlgrammar.dir}"/>
+        <mapper type="glob" from="PhoenixSQL.g" to="${phoenixsqlgrammar.src}/PhoenixSQLParser.after_sub"/>
+      </uptodate>
+    </target>
+    <target name="generatePhoenixParser" depends="setup" description="builds Phoenix SQL parser and lexer from grammar file"  unless="phoenixGrammar.uptodate">
+      <echo message="building Phoenix parser"/>
+      <mkdir dir="${phoenixsqlgrammar.src}" />
+      <java classname="org.antlr.Tool" fork="yes" classpathref="phoenixsqlgrammar.classpath" failonerror="true" maxmemory="128M">
+        <arg value="-o" />
+        <arg path="${phoenixsqlgrammar.src}" />
+        <arg path="${phoenixsqlgrammar.dir}/PhoenixSQL.g" />
+      </java>
+      <touch file="${phoenixsqlgrammar.src}/PhoenixSQLParser.java"/>
+      <replace file="${phoenixsqlgrammar.src}/PhoenixSQLParser.java">
+        <replacefilter token="public Token nextToken()" value='@Override public Token nextToken()'/>
+        <replacefilter token="public String getDescription()" value='@Override public String getDescription()'/>
+        <replacefilter token="public String getGrammarFileName()" value='@Override public String getGrammarFileName()' />
+        <replacefilter token="public String[] getTokenNames()" value='@Override public String[] getTokenNames()' />
+        <replacefilter token="protected Object recoverFromMismatchedToken(" value='@Override protected Object recoverFromMismatchedToken(' />
+        <replacefilter token="public Object recoverFromMismatchedSet(" value='@Override public Object recoverFromMismatchedSet(' />
+        <replacefilter token="public int specialStateTransition(" value='@Override public int specialStateTransition(' />
+        <replacefilter token="public final List&lt;FromNode&gt; join_specs()" value='@SuppressWarnings("null") public final List&lt;FromNode&gt; join_specs()'/>
+        <replacefilter token="import java.util.Stack;" value='// removed unused import java.util.Stack;' />
+        <replacefilter token="int LA57_12 = " value='' />
+      </replace>
+      <replace file="${phoenixsqlgrammar.src}/PhoenixSQLLexer.java">
+        <replacefilter token="public String getDescription()" value='@Override public String getDescription()' />
+        <replacefilter token="public String getGrammarFileName()" value='@Override public String getGrammarFileName()' />
+        <replacefilter token="public void mTokens()" value='@Override public void mTokens()' />
+        <replacefilter token="public int specialStateTransition(" value='@Override public int specialStateTransition(' />
+        <replacefilter token="import java.util.Stack;" value='// removed unused import java.util.Stack;' />
+        <replacefilter token="import java.util.List;" value='// removed unused import java.util.List;' />
+        <replacefilter token="import java.util.ArrayList;" value='// removed unused import java.util.ArrayList;' />
+      </replace>
+      <copy file="${phoenixsqlgrammar.src}/PhoenixSQLParser.java" tofile="${phoenixsqlgrammar.src}/PhoenixSQLParser.after_sub"/>
+      <echo message="Phoenix grammar parser complete"/>
+    </target>
+    <macrodef name="baseJavadocMacro">
+      <attribute name="srcdir" />
+      <attribute name="destdir" />
+      <attribute name="classpathref" default="compile.classpath" />
+      <sequential>
+        <mkdir dir="@{destdir}" />
+        <unzip src="${devhome.dir}/docs/hbase-0.94.0-javadoc.jar" dest="@{destdir}"/>
+        <javadoc sourcepath="@{srcdir}"
+                    destdir="@{destdir}"
+                    source="1.6"
+                    encoding="UTF8"
+                    overview="@{srcdir}/overview.html">
+          <link href="@{destdir}"/>
+          <link href="http://docs.oracle.com/javase/6/docs/api/"/>
+          <classpath refid="depend.jars"/>
+        </javadoc>
+      </sequential>
+    </macrodef>
+  </project>
+
+

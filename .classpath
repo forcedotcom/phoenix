@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" output="java/classes" path="java/src"/>
+	<classpathentry kind="src" path="java/src-gen"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry exported="true" kind="lib" path="java/lib/antlr-3.2.jar"/>
+	<classpathentry exported="true" kind="lib" path="java/lib/opencsv-2.3.jar"/>
+	<classpathentry exported="true" kind="src" path="/hbase"/>
+	<classpathentry kind="output" path="java/classes"/>
+</classpath>
