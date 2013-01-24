@@ -31,9 +31,14 @@ For detailed documentation on the current level of SQL support, see our [languag
 * JDK 6 or higher
 
 ## Installation ##
-* Download the phoenix.jar
+* Download two jars:
+  * [phoenix.jar](http://forcedotcom.github.com/Phoenix/downloads/phoenix.jar)
+  * [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/downloads/phoenix-client.jar)
 * Add the phoenix.jar to the classpath of any HBase region server. An easy way to do this is to copy it into the HBase lib directory.
-* Add the phoenix-client.jar to the classpath of any Phoenix client.
+* Add the phoenix-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
+  * phoenix.jar
+  * antlr-3.2.jar
+  * opencsv-2.3.jar
 
 ## Getting Started ##
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Here are the setup steps necessary:
