@@ -2,10 +2,10 @@
 <em><sup><sup>We put the SQL back in the NoSQL</sup></sup></em></h1>
 Phoenix is a SQL layer over HBase delivered as an embedded JDBC driver targeting low latency queries over HBase data. Tables are created and updated through DDL statements and stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key or as key value cells. The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans and orchestrates their execution to produce standard JDBC result sets. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/Phoenix/).
 
-A Phoenix table can either be:
+A Phoenix table is creaeted through the [CREATE TABLE](http://forcedotcom.github.com/Phoenix/#create) DDL command and can either be:
 
 1. built from scratch, in which case the HBase table and column families will be created automatically.
-2. mapped to an existing HBase table, by creating either a read-write TABLE or a read-only VIEW, with the caveat that the binary representation of the row key and key values must match that of the Phoenix data types (see Data Types tab for the detail on the binary representation).
+2. mapped to an existing HBase table, by creating either a read-write TABLE or a read-only VIEW, with the caveat that the binary representation of the row key and key values must match that of the Phoenix data types (see [Data Types reference](http://forcedotcom.github.com/Phoenix/datatypes.html) for the detail on the binary representation).
   * For a read-write TABLE, column families will be created automatically if they don't already exist. An empty key value will be added to the first column family of each existing row to minimize the size of the projection for queries.
   * For a read-only VIEW, all column families must already exist. The only change made to the HBase table will be the addition of the Phoenix coprocessors used for query processing. The primary use case for a VIEW is to transfer existing data into a Phoenix table, since data modification are not allowed on a VIEW and query performance will likely be less than as with a TABLE.
 
