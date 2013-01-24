@@ -31,7 +31,8 @@ For detailed documentation on the current level of SQL support, see our [languag
 * JDK 6 or higher
 
 ## Installation ##
-* Download two jars:
+To install a pre-built phoenix, use these directions
+* Download the following two jars:
   * [phoenix.jar](http://forcedotcom.github.com/Phoenix/downloads/phoenix.jar)
   * [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/downloads/phoenix-client.jar)
 * Add the phoenix.jar to the classpath of any HBase region server. An easy way to do this is to copy it into the HBase lib directory.
@@ -39,6 +40,8 @@ For detailed documentation on the current level of SQL support, see our [languag
   * phoenix.jar
   * antlr-3.2.jar
   * opencsv-2.3.jar
+
+Alternatively, you can build it yourself by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#building).
 
 ## Getting Started ##
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Here are the setup steps necessary:
