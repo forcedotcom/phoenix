@@ -55,4 +55,6 @@ In addition, several basic shell scripts are provided to allow for direct SQL ex
 * bin/psql.sh to run one or more .SQL scripts with the output sent to stdout
 * bin/pcsv.sh to populate a Phoenix table from a CSV file
 
+##Mailing List##
+Join our [Phoenix HBase](https://groups.google.com/forum/#!forum/phoenix-hbase) Google group and let us know if you have ideas or run into problems.
 
