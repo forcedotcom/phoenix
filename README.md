@@ -55,6 +55,9 @@ In addition, several basic shell scripts are provided to allow for direct SQL ex
 * bin/psql.sh to run one or more .SQL scripts with the output sent to stdout
 * bin/pcsv.sh to populate a Phoenix table from a CSV file
 
+## Samples ##
+The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. 
+
 ##Mailing List##
 Join our [Phoenix HBase](https://groups.google.com/forum/#!forum/phoenix-hbase) Google group and let us know if you have ideas or run into problems.
 
