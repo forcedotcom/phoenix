@@ -195,9 +195,6 @@
 	<zipfileset src="${lib.dir}/antlr-3.2.jar" excludes="META-INF/*" />
 	<zipfileset src="${lib.dir}/opencsv-2.3.jar" excludes="META-INF/*" />
       </jar>
-      <jar destfile="${devhome.dir}/build/phoenix-source.jar"
-	 basedir="${src.dir}"
-	 includes="**/*.java" />
     </target>
     <target name="testjar" description="make deployable test jars">
       <jar destfile="${devhome.dir}/build/phoenix-test.jar">

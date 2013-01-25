@@ -61,6 +61,20 @@ public class CSVUtil {
 	 */
 	public void upsert(String fileName) throws Exception {
 		CSVReader reader = new CSVReader(new FileReader(fileName));
+		System.out.println("Starting Upsert.\nTable: " + tableName + "\nCSV: " + fileName);
+		upsert(reader);
+	}
+
+		/**
+	 * Upserts data from CSV file. Data is batched up based on connection batch
+	 * size. Column PDataType is read from metadata and is used to convert
+	 * column value to correct type before upsert. Note: Column Names are
+	 * expected as first line of CSV file.
+	 * 
+	 * @param fileName
+	 * @throws Exception
+	 */
+	public void upsert(CSVReader reader) throws Exception {
 		ColumnInfo[] columns = generateColumnInfo(reader.readNext());
 		String upsertStatement = constructUpsertStatement(columns);
 		PreparedStatement stmt = conn.prepareStatement(upsertStatement);
@@ -68,8 +82,6 @@ public class CSVUtil {
 		int rowCount = 0;
 		int upsertBatchSize = conn.getUpsertBatchSize();
 		Object upsertValue = null;
-
-		System.out.println("Starting Upsert.\nTable: " + tableName + "\nCSV: " + fileName);
 
 		// Upsert data based on SqlType of each column
 		while ((nextLine = reader.readNext()) != null) {

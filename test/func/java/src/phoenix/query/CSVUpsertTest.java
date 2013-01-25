@@ -29,7 +29,6 @@ package phoenix.query;
 
 import static org.junit.Assert.*;
 
-import java.io.FileReader;
 import java.io.StringReader;
 import java.sql.*;
 
@@ -44,7 +43,16 @@ import phoenix.util.PhoenixRuntime;
 public class CSVUpsertTest extends BaseHBaseManagedTimeTest {
 	
 	private static final String TABLE = "STOCK_SYMBOL";
-	private static final String CSV_FILE = "../../../phoenix/main/examples/stock.csv";
+	private static final String CSV_VALUES = "SYMBOL, COMPANY\n" + 
+			"AAPL,APPLE Inc.\n" + 
+			"CRM,SALESFORCE\n" + 
+			"GOOG,Google\n" + 
+			"HOG,Harlet-Davidson Inc.\n" + 
+			"HPQ,Hewlett Packard\n" + 
+			"INTC,Intel\n" + 
+			"MSFT,Microsoft\n" + 
+			"WAG,Walgreens\n" + 
+			"WMT,Walmart\n";
     
     @Test
     public void testCSVUpsert() throws Exception {
@@ -54,13 +62,14 @@ public class CSVUpsertTest extends BaseHBaseManagedTimeTest {
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
         // Upsert CSV file
-        CSVUtil csvUtil = new CSVUtil(conn, TABLE); 
-        csvUtil.upsert(CSV_FILE);
+        CSVUtil csvUtil = new CSVUtil(conn, TABLE);
+		CSVReader reader = new CSVReader(new StringReader(CSV_VALUES));
+        csvUtil.upsert(reader);
 
         // Compare Phoenix ResultSet with CSV file content
         PreparedStatement statement = conn.prepareStatement("SELECT SYMBOL, COMPANY FROM " + TABLE);
         ResultSet phoenixResultSet = statement.executeQuery();
-        CSVReader reader = new CSVReader(new FileReader(CSV_FILE));
+        reader = new CSVReader(new StringReader(CSV_VALUES));
         reader.readNext();
         String[] csvData;
         while ((csvData = reader.readNext()) != null) {

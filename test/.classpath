@@ -4,6 +4,6 @@
     <classpathentry kind="src" output="func/java/classes" path="func/java/src"/>
     <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
     <classpathentry exported="true" kind="lib" path="unit/java/lib/junit-4.8.2.jar" sourcepath="unit/java/lib-src/junit-4.8.2-src.jar"/>
-    <classpathentry exported="true" kind="src" path="/main-phoenix"/>
+    <classpathentry exported="true" kind="src" path="/phoenix"/>
     <classpathentry kind="output" path="unit/java/classes"/>
 </classpath>

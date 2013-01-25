@@ -41,6 +41,7 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
     @Test
     public void testUpsertDateValues() throws Exception {
         long ts = nextTimestamp();
+        Date now = new Date(System.currentTimeMillis());
         ensureTableCreated(getUrl(),TestUtil.PTSDB_NAME,null, ts-2);
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1)); // Execute at timestamp 1
@@ -49,7 +50,6 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         PreparedStatement upsertStmt = conn.prepareStatement("upsert into ptsdb(inst,host,date) values('aaa','bbb',to_date('" + dateString + "'))");
         int rowsInserted = upsertStmt.executeUpdate();
         assertEquals(1, rowsInserted);
-        Date now = new Date(System.currentTimeMillis());
         upsertStmt = conn.prepareStatement("upsert into ptsdb(inst,host,date) values('ccc','ddd',current_date())");
         rowsInserted = upsertStmt.executeUpdate();
         assertEquals(1, rowsInserted);
