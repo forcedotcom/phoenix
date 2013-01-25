@@ -25,60 +25,56 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package phoenix.execute;
-
+package phoenix.jdbc;
 
 import java.sql.SQLException;
+import java.util.Properties;
 
-import phoenix.compile.OrderByCompiler.OrderBy;
-import phoenix.compile.*;
-import phoenix.coprocessor.ScanRegionObserver;
-import phoenix.iterate.*;
 import phoenix.query.ConnectionQueryServices;
-import phoenix.query.QueryConstants;
-import phoenix.query.Scanner;
-import phoenix.query.WrappedScanner;
-import phoenix.schema.TableRef;
+import phoenix.query.ConnectionlessQueryServicesImpl;
+import phoenix.query.QueryServices;
+import phoenix.query.functional.*;
 
 
 /**
  * 
- * Query plan for a basic table scan
- *
+ * JDBC Driver implementation of Phoenix for testing.
+ * To use this driver, specify test=true in url.
+ * 
  * @author jtaylor
  * @since 0.1
  */
-public class ScanPlan extends BasicQueryPlan {
+public class PhoenixTestEmbeddedDriver extends PhoenixEmbeddedDriver {
+    private final String url;
+    private final ConnectionQueryServices queryServices;
     
-    public ScanPlan(StatementContext context, TableRef table, RowProjector projection, Integer limit, OrderBy orderBy) {
-        super(context, table, projection, context.getBindManager().getParameterMetaData(), limit, orderBy);
-    }
-    
-    @Override
-    public boolean isAggregate() {
-        return false;
-    }
-    
-    @Override
-    protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
-        ResultIterator scanner;
-        // Either way, just use serial result iterator, instead of parallel one.
-        // When we get the pre-fetching ClientScanner, this will be better, but even
-        // without that, it's better not to run through the entire scan (which is
-        // what the parallel iterator does) in case there are a billion rows and we'll
-        // stop iterating after a few.
-        if (limit == null) {
-            scanner = new TableResultIterator(context, table);
-            scanner = new SerialLimitingResultIterator(scanner, Long.MAX_VALUE, RowCounter.UNLIMIT_ROW_COUNTER);
+    public PhoenixTestEmbeddedDriver(QueryServices services, String url, Properties props) throws SQLException {
+        super(services);
+        this.url = url;
+        String serverName = getZookeeperQuorum(url);
+        if (CONNECTIONLESS.equals(serverName)) {
+            queryServices =  new ConnectionlessQueryServicesImpl(services);
         } else {
-            scanner = new TableResultIterator(context, table);
-            scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
+            queryServices =  new ConnectionQueryServicesTestImpl(services, services.getConfig());
         }
-        if (!orderBy.getOrderingColumns().isEmpty()) {
-            scanner = new OrderedResultIterator(context, scanner, orderBy.getOrderingColumns());
-        }
-        context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
+        queryServices.init(url, props);
+    }
 
-        return new WrappedScanner(scanner, getProjector());
+    @Override
+    public boolean acceptsURL(String url) throws SQLException {
+        // Accept the url only if test=true attribute set
+        return super.acceptsURL(url) && url.contains(";test=true");
+    }
+
+    @Override // public for testing
+    public ConnectionQueryServices getConnectionQueryServices(String url, Properties info) throws SQLException {
+        // Tests must connect to only one server, the same one that was specified at init time
+        assert(this.url.equals(url));
+        return queryServices;
+    }
+    
+    @Override
+    public void close() throws SQLException {
+        queryServices.close();
     }
 }

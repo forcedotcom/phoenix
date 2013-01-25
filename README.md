@@ -36,10 +36,10 @@ To install a pre-built phoenix, use these directions
   * [phoenix.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix.jar)
   * [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-client.jar)
 * Add the phoenix.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
+* Restart all region servers.
 * Add the phoenix-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
   * phoenix.jar
   * antlr-3.2.jar
-  * opencsv-2.3.jar
 
 Alternatively, you can build it yourself by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#building).
 
@@ -51,7 +51,7 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 3. In Add Driver dialog box, set Name to Phoenix
 4. Press List Drivers button and jdbc.PhoenixProdEmbeddedDriver should be automatically populated in Class Name textbox. Press OK to close this dialog.
 5. Switch to Alias tab and create new Alias (Aliases -> New Aliases)
-6. In the dialog box, Name: <any name>, Driver: Phoenix, User Name: <anything>, Password: <anything>
+6. In the dialog box, Name: <any name>, Driver: Phoenix, User Name: _anything_, Password: _anything_
 7. Construct URL as follows: jdbc:phoenix:<zookeeper quorum server>. For example, to connect to a local HBase use: jdbc:phoenix:localhost
 8. Press Test (which should succeed if everything is setup correctly) and press OK to close.
 9. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
@@ -67,5 +67,7 @@ In addition, several basic shell scripts are provided to allow for direct SQL ex
 The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. 
 
 ##Mailing List##
-Join our [Phoenix HBase](https://groups.google.com/forum/#!forum/phoenix-hbase) Google group and let us know if you have ideas or run into problems.
+Join one or both of our Google groups:
+* [Phoenix HBase User](https://groups.google.com/forum/#!forum/phoenix-hbase-user) for users of Phoenix.
+* [Phoenix HBase Dev](https://groups.google.com/forum/#!forum/phoenix-hbase-dev) for developers of Phoenix.
 

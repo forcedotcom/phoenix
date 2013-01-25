@@ -35,7 +35,11 @@ import java.util.concurrent.Executor;
 
 import phoenix.execute.MutationState;
 import phoenix.jdbc.PhoenixStatement.PhoenixStatementParser;
-import phoenix.query.*;
+import phoenix.query.ConnectionQueryServices;
+import phoenix.query.MetaDataMutated;
+import phoenix.query.QueryConstants;
+import phoenix.query.QueryServices;
+import phoenix.query.QueryServicesOptions;
 import phoenix.schema.*;
 import phoenix.util.*;
 

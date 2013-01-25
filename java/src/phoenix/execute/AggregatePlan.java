@@ -36,7 +36,9 @@ import phoenix.compile.*;
 import phoenix.expression.Expression;
 import phoenix.expression.aggregator.Aggregators;
 import phoenix.iterate.*;
-import phoenix.query.*;
+import phoenix.query.ConnectionQueryServices;
+import phoenix.query.Scanner;
+import phoenix.query.WrappedScanner;
 import phoenix.schema.TableRef;
 
 
