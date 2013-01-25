@@ -85,9 +85,11 @@ public class ScanKey {
         if (upperRange.length > 0) {
             byte[] stopKey = upperRange;
             if (upperInclusive) { 
-                // Adjust stop key since hbase is always non inclusive for stop key
+                // Adjust stop key since HBase is always non inclusive for stop key
                 try {
-                    stopKey = ByteUtil.nextKey(stopKey);
+                    if (upperInclusive) { 
+                        stopKey = ByteUtil.nextKey(stopKey);
+                    }
                     scan.setStopRow(stopKey);
                 } catch (ScanKeyOverflowException e) {
                     // We do not need to set stop key since the stop key already hits
