@@ -45,6 +45,7 @@
              loaderref="antcontrib.lib.path.loader"/>
     <property name="loaded.custom.tasks" value="true"/>
     <property file="default.properties" />
+    <property name="devhome.dir" value="${basedir}/.." />
     <property name="build.home" value="${devhome.dir}/build" />
     <property name="myjava.home" value="${JAVA_HOME}" />
     <property name="myant.home" value="${ANT_HOME}" />
@@ -68,9 +69,9 @@
     <property name="ftest.src.dir" value="${ftest.java.dir}/src"/>
     <property name="test.lib.dir" value="${utest.java.dir}/lib"/>
     <property name="test.libsrc.dir" value="${utest.java.dir}/lib-src"/>
-    <property name="hbase.root" value="${hbase.root}" />
-    <property name="hbase.home" value="${hbase.home}" />
-    <property name="hbase.lib" value="${hbase.lib}" />
+    <property name="hbase.root" value="${devhome.dir}/../hbase" />
+    <property name="hbase.home" value="${hbase.root}/target/${hbase.version}/${hbase.version}" />
+    <property name="hbase.lib" value="${hbase.home}/lib" />
     <property name="properties-loaded" value="true" />
     <target name="init" unless="ran.init">
         <tstamp/>
