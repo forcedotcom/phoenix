@@ -84,19 +84,17 @@ public class ScanKey {
         }
         if (upperRange.length > 0) {
             byte[] stopKey = upperRange;
-            if (upperInclusive) { 
-                // Adjust stop key since HBase is always non inclusive for stop key
-                try {
-                    if (upperInclusive) { 
-                        stopKey = ByteUtil.nextKey(stopKey);
-                    }
-                    scan.setStopRow(stopKey);
-                } catch (ScanKeyOverflowException e) {
-                    // We do not need to set stop key since the stop key already hits
-                    // the upper limit. Incrementing it even more would cause an overflow
-                    // exception. Since this case is relatively rare, we do not deliberately
-                    // check for it, but rather catch the exception here and do nothing.
-                }
+            // Adjust stop key since HBase is always non inclusive for stop key
+            try {
+            	if (upperInclusive) { 
+            		stopKey = ByteUtil.nextKey(stopKey);
+            	}
+            	scan.setStopRow(stopKey);
+            } catch (ScanKeyOverflowException e) {
+            	// We do not need to set stop key since the stop key already hits
+            	// the upper limit. Incrementing it even more would cause an overflow
+            	// exception. Since this case is relatively rare, we do not deliberately
+            	// check for it, but rather catch the exception here and do nothing.
             }
         }
     }
