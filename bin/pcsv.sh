@@ -40,5 +40,5 @@ if [ -z "$3" ]
     usage;
 fi
 
-java -cp ../lib/phoenix-client.jar -Dlog4j.configuration=./log4j.properties phoenix.util.PhoenixRuntime CSV "$@"
+java -cp ../lib/phoenix-csvload.jar:../lib/phoenix-client.jar phoenix.util.CSVUtil "$@"
 

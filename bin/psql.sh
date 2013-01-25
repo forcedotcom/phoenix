@@ -40,5 +40,4 @@ if [ -z "$2" ]
     usage;
 fi
 
-java -cp ../lib/phoenix-client.jar -Dlog4j.configuration=./log4j.properties phoenix.util.PhoenixRuntime SQL "$@"
-
+java -jar ../lib/phoenix-client.jar "$@"

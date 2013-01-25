@@ -31,6 +31,7 @@ import java.io.FileReader;
 import java.sql.*;
 
 import phoenix.jdbc.PhoenixConnection;
+import phoenix.jdbc.PhoenixProdEmbeddedDriver;
 import phoenix.schema.PDataType;
 import au.com.bytecode.opencsv.CSVReader;
 
@@ -50,6 +51,26 @@ public class CSVUtil {
 		this.tableName = tableName;
 	}
 
+	/**
+	 * Main method for CSV Upsert. Usage: pcsv <connection-url> <tablename> <path-to-csv>
+	 * @param args
+	 */
+    public static void main(String [] args) {
+        if (args.length !=3) {
+            System.err.println("Usage: pcsv <connection-url> <tablename> <path-to-csv>");
+            return;
+        }
+        
+        try {
+            Class.forName(PhoenixProdEmbeddedDriver.class.getName());
+            PhoenixConnection conn = DriverManager.getConnection(args[0]).unwrap(PhoenixConnection.class);
+        	new CSVUtil(conn, args[1]).upsert(args[2]);
+
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
+	
 	/**
 	 * Upserts data from CSV file. Data is batched up based on connection batch
 	 * size. Column PDataType is read from metadata and is used to convert

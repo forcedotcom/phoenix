@@ -163,7 +163,7 @@
     </target>
     <target name="jar" depends="compile" description="make deployable jars">
       <buildnumber/>
-      <jar destfile="${devhome.dir}/build/phoenix.jar"
+      <jar destfile="${devhome.dir}/lib/phoenix.jar"
 	 basedir="${devhome.dir}/java/classes"
 	 includes="**/*.class">
         <manifest>
@@ -171,7 +171,7 @@
           <attribute name="Version" value="${phoenix-version-number}.${build.number}" />
         </manifest>
       </jar>
-      <jar destfile="${devhome.dir}/build/phoenix-client.jar"
+      <jar destfile="${devhome.dir}/lib/phoenix-client.jar"
 	 basedir="${devhome.dir}/java/classes"
 	 includes="**/*.class">
         <manifest>
@@ -193,15 +193,30 @@
 	<zipfileset src="${hbase.lib}/zookeeper-3.4.3.jar" excludes="META-INF/*" />
 	<zipfileset src="${hbase.lib}/log4j-1.2.16.jar" excludes="META-INF/*" />
 	<zipfileset src="${lib.dir}/antlr-3.2.jar" excludes="META-INF/*" />
+	<fileset file="${devhome.dir}/build/.settings/log4j.properties" />
+      </jar>
+      <jar destfile="${devhome.dir}/lib/phoenix-csvload.jar"
+	 basedir="${devhome.dir}/java/classes"
+	 includes="**/CSVUtil.class">
+        <manifest>
+          <attribute name="Main-Class" value="phoenix.util.CSVUtil"/>
+          <attribute name="Version" value="${phoenix-version-number}.${build.number}" />
+        </manifest>
 	<zipfileset src="${lib.dir}/opencsv-2.3.jar" excludes="META-INF/*" />
+	<fileset file="${devhome.dir}/build/.settings/log4j.properties" />
       </jar>
     </target>
+    <target name="sourcejar" description="make phoenix source jar">
+      <jar destfile="${devhome.dir}/lib/phoenix-source.jar"
+	 basedir="${src.dir}"
+	 includes="**/*.java" />
+    </target>
     <target name="testjar" description="make deployable test jars">
-      <jar destfile="${devhome.dir}/build/phoenix-test.jar">
+      <jar destfile="${devhome.dir}/lib/phoenix-test.jar">
         <fileset dir="${utest.classes.dir}"/>
         <fileset dir="${ftest.classes.dir}"/>
       </jar>
-      <jar destfile="${devhome.dir}/build/phoenix-test-source.jar">
+      <jar destfile="${devhome.dir}/lib/phoenix-test-source.jar">
         <fileset dir="${utest.src.dir}" includes="**/*.java"/>
         <fileset dir="${ftest.src.dir}" includes="**/*.java"/>
       </jar>
