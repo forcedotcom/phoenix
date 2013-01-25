@@ -64,7 +64,7 @@ public class ByteUtilTest {
             key = new byte[] {(byte)255};
             ByteUtil.nextKey(key);
             fail();
-        } catch (IllegalStateException e) {
+        } catch (ScanKeyOverflowException e) {
             assertTrue(e.getMessage().contains("Overflow trying to get next key"));
         }
     }
