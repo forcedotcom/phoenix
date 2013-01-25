@@ -33,6 +33,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import phoenix.schema.PDataType;
+import phoenix.schema.ScanKeyOverflowException;
 
 public class ByteUtilTest {
 
