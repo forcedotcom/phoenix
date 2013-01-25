@@ -33,9 +33,9 @@ For detailed documentation on the current level of SQL support, see our [languag
 ## Installation ##
 To install a pre-built phoenix, use these directions
 * Download the following two jars:
-  * [phoenix.jar](http://forcedotcom.github.com/Phoenix/downloads/phoenix.jar)
-  * [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/downloads/phoenix-client.jar)
-* Add the phoenix.jar to the classpath of any HBase region server. An easy way to do this is to copy it into the HBase lib directory.
+  * [phoenix.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix.jar)
+  * [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-client.jar)
+* Add the phoenix.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Add the phoenix-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
   * phoenix.jar
   * antlr-3.2.jar
