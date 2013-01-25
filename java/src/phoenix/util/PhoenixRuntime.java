@@ -83,7 +83,7 @@ public class PhoenixRuntime {
      * increment timestamp value.
      */
     public static void main(String [] args) {
-        if (args.length < 3) {
+        if (args.length < 2) {
             System.err.println("Usage: psql <connection-url> <path-to-sql-script>... \n " +
             				   "       pcsv <connection-url> <tablename> <path-to-csv>");
             return;
@@ -92,31 +92,19 @@ public class PhoenixRuntime {
         try {
             Properties props = new Properties();
             Class.forName(PhoenixProdEmbeddedDriver.class.getName());
-            PhoenixConnection conn = DriverManager.getConnection(args[1]).unwrap(PhoenixConnection.class);
-            
-            // Upserts CSV file
-            if (args[0].equalsIgnoreCase("CSV")) {
-            	if (args.length != 4) {
-            		System.err.println("Error: CSV file not specified.");
-            		return;
-            	}
-            	new CSVUtil(conn, args[2]).upsert(args[3]);
-            // Execute SQL script files
-            } else if (args[0].equalsIgnoreCase("SQL")) {
-	            for (int i = 2; i < args.length; i++) {
-	           		PhoenixRuntime.executeStatements(conn, new FileReader(args[i]), Collections.emptyList());
-	                Long scn = conn.getSCN();
-	                // If specifying SCN, increment it between processing files to allow
-	                // for later files to see earlier files tables.
-	                if (scn != null) {
-	                    scn++;
-	                    props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, scn.toString());
-	                    conn.close();
-	                    conn = DriverManager.getConnection(args[1], props).unwrap(PhoenixConnection.class);
-	                }
-	            }
-            } else {
-            	System.err.println("Error: First argument can only be CSV or SQL.");
+            PhoenixConnection conn = DriverManager.getConnection(args[0]).unwrap(PhoenixConnection.class);
+
+            for (int i = 1; i < args.length; i++) {
+           		PhoenixRuntime.executeStatements(conn, new FileReader(args[i]), Collections.emptyList());
+                Long scn = conn.getSCN();
+                // If specifying SCN, increment it between processing files to allow
+                // for later files to see earlier files tables.
+                if (scn != null) {
+                    scn++;
+                    props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, scn.toString());
+                    conn.close();
+                    conn = DriverManager.getConnection(args[0], props).unwrap(PhoenixConnection.class);
+                }
             }
         } catch (Throwable t) {
             t.printStackTrace();
