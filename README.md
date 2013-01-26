@@ -1,45 +1,33 @@
-<h1>Phoenix JDBC Driver for HBase<br />
-<em><sup><sup>We put the SQL back in the NoSQL</sup></sup></em></h1>
-Phoenix is a SQL layer over HBase delivered as an embedded JDBC driver targeting low latency queries over HBase data. Tables are created and updated through DDL statements and stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key or as key value cells. The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans and orchestrates their execution to produce standard JDBC result sets. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/Phoenix/).
+<h1>Phoenix: JDBC Driver for HBase<br />
+<em><sup><sup>'We put the SQL back in NoSQL'</sup></sup></em></h1>
+Phoenix is a SQL layer over HBase, delivered as an embedded JDBC driver. Phoenix targets low-latency queries (milliseconds), as opposed batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/Phoenix/), and read more on our [wiki](https://github.com/forcedotcom/Phoenix/wiki).
 
-A Phoenix table is creaeted through the [CREATE TABLE](http://forcedotcom.github.com/Phoenix/#create) DDL command and can either be:
+## How It Works ##
 
-1. built from scratch, in which case the HBase table and column families will be created automatically.
-2. mapped to an existing HBase table, by creating either a read-write TABLE or a read-only VIEW, with the caveat that the binary representation of the row key and key values must match that of the Phoenix data types (see [Data Types reference](http://forcedotcom.github.com/Phoenix/datatypes.html) for the detail on the binary representation).
-  * For a read-write TABLE, column families will be created automatically if they don't already exist. An empty key value will be added to the first column family of each existing row to minimize the size of the projection for queries.
-  * For a read-only VIEW, all column families must already exist. The only change made to the HBase table will be the addition of the Phoenix coprocessors used for query processing. The primary use case for a VIEW is to transfer existing data into a Phoenix table, since data modification are not allowed on a VIEW and query performance will likely be less than as with a TABLE.
+The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance]() on the order of milliseconds for small queries, or seconds for millions of rows. 
 
-Most commonly, an application will let HBase manage timestamps. However, under some circumstances, an application needs to control the timestamps itself. In this case, a long-valued "CurrentSCN" property may be specified at connection time to control timestamps for any DDL, DML, or query. This capability may be used to run snapshot queries against prior row values, since Phoenix uses the value of this connection property as the max timestamp of scans.
+Tables are created and altered through DDL statements, and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (with some minimal changes: see the [wiki](https://github.com/forcedotcom/Phoenix/wiki) for more details).
 
-The standard java.sql JDBC interfaces are supported: Connection, Statement, PreparedStatement, and ResultSet. The driver class is "phoenix.jdbc.PhoenixProdEmbeddedDriver" and the connection url is "phoenix:jdbc:" followed by the zookeeper quorum host name specification.
-
-For example:
+Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `phoenix.jdbc.PhoenixProdEmbeddedDriver`, and the connection url is `phoenix:jdbc:` followed by the zookeeper quorum hostname specification. For example:
 
         Class.forName("phoenix.jdbc.PhoenixProdEmbeddedDriver");
         Connection conn = DriverManager.getConnection("phoenix:jdbc:localhost");
 
-## Transactions ##
-The DML commands of Phoenix ([UPSERT VALUES](http://forcedotcom.github.com/Phoenix/#upsert_values), [UPSERT SELECT](http://forcedotcom.github.com/Phoenix/#upsert_select) and [DELETE](http://forcedotcom.github.com/Phoenix/#delete)) batch pending changes to HBase tables on the client side. The changes are sent to the server when the transaction is committed and discarded when the transaction is rolled back. Phoenix does not providing any additional transactional semantics beyond what HBase supports when a batch of mutations is submitted to the server. If auto commit is turned on for a connection, then Phoenix will, whenver possible, execute the entire DML command through a coprocessor on the server-side, so performance will improve.
-
-## Meta Data ##
-The catalog of tables, their columns, primary keys, and types may be retrieved via the java.sql metadata interfaces: DatabaseMetaData, ParameterMetaData, and ResultSetMetaData. For retrieving schemas, tables, and columns through the DatabaseMetaData interface, the schema pattern, table pattern, and column pattern are specified as in a LIKE expression (i.e. % and _ are wildcards escaped through the \ character). The table catalog argument to the metadata APIs deviates from a more standard relational database model, and instead is used to specify a column family name (in particular to see all columns in a given column family).
-
-For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/Phoenix/).
+For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/Phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/Phoenix/wiki).
 
 ## System Requirements ##
 * HBase v 0.94.2 or higher
 * JDK 6 or higher
 
 ## Installation ##
-To install a pre-built phoenix, use these directions
-* Download the following two jars:
-  * [phoenix.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix.jar)
-  * [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-client.jar)
+To install a pre-built phoenix, use these directions:
+
+* Download the following two jars: [phoenix.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix.jar) and [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-client.jar)
 * Add the phoenix.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
 * Add the phoenix-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
-  * phoenix.jar
-  * antlr-3.2.jar
+    * phoenix.jar
+    * antlr-3.2.jar
 
 Alternatively, you can build it yourself by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#building).
 
@@ -68,6 +56,6 @@ The best place to see samples are in our unit tests under test/func/java. These 
 
 ##Mailing List##
 Join one or both of our Google groups:
+
 * [Phoenix HBase User](https://groups.google.com/forum/#!forum/phoenix-hbase-user) for users of Phoenix.
 * [Phoenix HBase Dev](https://groups.google.com/forum/#!forum/phoenix-hbase-dev) for developers of Phoenix.
-
