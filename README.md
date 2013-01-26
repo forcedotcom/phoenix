@@ -4,7 +4,7 @@ Phoenix is a SQL layer over HBase, delivered as an embedded JDBC driver. Phoenix
 
 ## How It Works ##
 
-The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance]() on the order of milliseconds for small queries, or seconds for millions of rows. 
+The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance](https://github.com/forcedotcom/Phoenix/wiki/Performance) on the order of milliseconds for small queries, or seconds for millions of rows. 
 
 Tables are created and altered through DDL statements, and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (with some minimal changes: see the [wiki](https://github.com/forcedotcom/Phoenix/wiki) for more details).
 
