@@ -30,10 +30,10 @@ package phoenix.jdbc;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import phoenix.end2end.ConnectionQueryServicesTestImpl;
 import phoenix.query.ConnectionQueryServices;
 import phoenix.query.ConnectionlessQueryServicesImpl;
 import phoenix.query.QueryServices;
-import phoenix.query.functional.*;
 
 
 /**

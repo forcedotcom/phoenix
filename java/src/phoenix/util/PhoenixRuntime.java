@@ -84,8 +84,7 @@ public class PhoenixRuntime {
      */
     public static void main(String [] args) {
         if (args.length < 2) {
-            System.err.println("Usage: psql <connection-url> <path-to-sql-script>... \n " +
-            				   "       pcsv <connection-url> <tablename> <path-to-csv>");
+            System.err.println("Usage: psql <connection-url> <path-to-sql-script>...");
             return;
         }
         
