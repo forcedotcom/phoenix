@@ -31,7 +31,8 @@ import java.sql.*;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import phoenix.query.*;
+import phoenix.query.ConnectionQueryServices;
+import phoenix.query.QueryServices;
 import phoenix.util.PhoenixRuntime;
 import phoenix.util.SQLCloseable;
 

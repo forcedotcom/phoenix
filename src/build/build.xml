@@ -1,0 +1,38 @@
+<!-- Helper ant task to run the parser-generator since there is no good maven plugin for antlr3 :-/ -->
+<project name="phoenix">
+	<target name="generateParser" description="builds Phoenix SQL parser and lexer from grammar file">
+		<path id="classpath">
+			<fileset dir="${basedir}/java/lib/">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+		<echo message="Building Phoenix parser" />
+		<java classname="org.antlr.Tool" fork="yes" classpathref="classpath" failonerror="true" maxmemory="128M">
+			<arg value="-o" />
+			<arg path="${antlr-output.dir}/phoenix/parse" />
+			<arg path="${antlr-input.dir}/PhoenixSQL.g" />
+		</java>
+		<replace file="${sql-output.dir}/PhoenixSQLParser.java">
+			<replacefilter token="public Token nextToken()" value='@Override public Token nextToken()' />
+			<replacefilter token="public String getDescription()" value='@Override public String getDescription()' />
+			<replacefilter token="public String getGrammarFileName()" value='@Override public String getGrammarFileName()' />
+			<replacefilter token="public String[] getTokenNames()" value='@Override public String[] getTokenNames()' />
+			<replacefilter token="protected Object recoverFromMismatchedToken(" value='@Override protected Object recoverFromMismatchedToken(' />
+			<replacefilter token="public Object recoverFromMismatchedSet(" value='@Override public Object recoverFromMismatchedSet(' />
+			<replacefilter token="public int specialStateTransition(" value='@Override public int specialStateTransition(' />
+			<replacefilter token="public final List&lt;FromNode&gt; join_specs()" value='@SuppressWarnings("null") public final List&lt;FromNode&gt; join_specs()' />
+			<replacefilter token="import java.util.Stack;" value='// removed unused import java.util.Stack;' />
+			<replacefilter token="int LA57_12 = " value='' />
+		</replace>
+		<replace file="${sql-output.dir}/PhoenixSQLLexer.java">
+			<replacefilter token="public String getDescription()" value='@Override public String getDescription()' />
+			<replacefilter token="public String getGrammarFileName()" value='@Override public String getGrammarFileName()' />
+			<replacefilter token="public void mTokens()" value='@Override public void mTokens()' />
+			<replacefilter token="public int specialStateTransition(" value='@Override public int specialStateTransition(' />
+			<replacefilter token="import java.util.Stack;" value='// removed unused import java.util.Stack;' />
+			<replacefilter token="import java.util.List;" value='// removed unused import java.util.List;' />
+			<replacefilter token="import java.util.ArrayList;" value='// removed unused import java.util.ArrayList;' />
+		</replace>
+		<echo message="Phoenix grammar parser complete" />
+	</target>
+</project>

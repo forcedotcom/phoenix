@@ -38,7 +38,10 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
-import phoenix.query.*;
+import phoenix.query.ConnectionQueryServices;
+import phoenix.query.ConnectionQueryServicesImpl;
+import phoenix.query.ConnectionlessQueryServicesImpl;
+import phoenix.query.QueryServicesImpl;
 import phoenix.util.SQLCloseables;
 
 /**
