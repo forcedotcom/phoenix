@@ -67,14 +67,14 @@ public class StatsManagerImpl implements StatsManager {
         this(services, statsUpdateFrequencyMs, maxStatsAgeMs, TimeKeeper.SYSTEM);
     }
     
-    StatsManagerImpl(ConnectionQueryServices services, int statsUpdateFrequencyMs, int maxStatsAgeMs, TimeKeeper timeKeeper) {
+    public StatsManagerImpl(ConnectionQueryServices services, int statsUpdateFrequencyMs, int maxStatsAgeMs, TimeKeeper timeKeeper) {
         this.services = services;
         this.statsUpdateFrequencyMs = statsUpdateFrequencyMs;
         this.maxStatsAgeMs = maxStatsAgeMs;
         this.timeKeeper = timeKeeper;
     }
     
-    static interface TimeKeeper {
+    public static interface TimeKeeper {
         static final TimeKeeper SYSTEM = new TimeKeeper() {
             @Override
             public long currentTimeMillis() {
