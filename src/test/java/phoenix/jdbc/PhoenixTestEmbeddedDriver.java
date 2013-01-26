@@ -68,8 +68,6 @@ public class PhoenixTestEmbeddedDriver extends PhoenixEmbeddedDriver {
 
     @Override // public for testing
     public ConnectionQueryServices getConnectionQueryServices(String url, Properties info) throws SQLException {
-        // Tests must connect to only one server, the same one that was specified at init time
-        assert(this.url.equals(url));
         return queryServices;
     }
     

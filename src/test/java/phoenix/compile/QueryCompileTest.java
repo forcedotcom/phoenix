@@ -167,7 +167,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             // Select non agg column in aggregate query
             String query = "SELECT a_integer FROM atable WHERE organization_id=? HAVING a_integer = 5";
             Properties props = new Properties(TestUtil.TEST_PROPERTIES);
-            Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+            Connection conn = DriverManager.getConnection(getUrl(), props);
             try {
                 PreparedStatement statement = conn.prepareStatement(query);
                 statement.setString(1, "00D300000000XHP");
@@ -593,7 +593,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 "SELECT entity_id,organization_id FROM atable where A_STRING - 'transaction' < 0", };
 
         Properties props = new Properties(TestUtil.TEST_PROPERTIES);
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
         for (String query : queries) {
             try {
                 PreparedStatement statement = conn.prepareStatement(query);
@@ -613,7 +613,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testAmbiguousColumn() throws Exception {
         long ts = nextTimestamp();
         String query = "SELECT * from multi_cf G where RESPONSE_TIME = 2222";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
@@ -630,7 +630,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testTableAliasMatchesCFName() throws Exception {
         long ts = nextTimestamp();
         String query = "SELECT F.RESPONSE_TIME,G.RESPONSE_TIME from multi_cf G where G.RESPONSE_TIME-1 = F.RESPONSE_TIME";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
@@ -647,7 +647,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testCoelesceFunctionTypeMismatch() throws Exception {
         long ts = nextTimestamp();
         String query = "SELECT coalesce(x_integer,'foo') from atable";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
@@ -694,7 +694,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testStringConcatExpression() throws Exception {
         long ts = nextTimestamp();
         String query = "SELECT entity_id,a_string FROM atable where 2 || a_integer || ? like '2%'";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         byte []x=new byte[]{127,127,0,0};//Binary data
@@ -714,7 +714,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testDivideByBigDecimalZero() throws Exception {
         long ts = nextTimestamp();
         String query = "SELECT a_integer/x_integer/0.0 FROM atable";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Connection conn = DriverManager.getConnection(url);
         try {
             PreparedStatement statement = conn.prepareStatement(query);
@@ -731,7 +731,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testDivideByIntegerZero() throws Exception {
         long ts = nextTimestamp();
         String query = "SELECT a_integer/0 FROM atable";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Connection conn = DriverManager.getConnection(url);
         try {
             PreparedStatement statement = conn.prepareStatement(query);
@@ -749,7 +749,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testCreateNullableInPKMiddle() throws Exception {
         long ts = nextTimestamp();
         String query = "CREATE TABLE foo(i integer not null, j integer null, k integer not null)";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Connection conn = DriverManager.getConnection(url);
         try {
             PreparedStatement statement = conn.prepareStatement(query);
