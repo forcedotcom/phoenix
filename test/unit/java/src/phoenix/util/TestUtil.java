@@ -190,6 +190,13 @@ public class TestUtil {
         assertEquals(null,scan.getFilter());
     }
     
+    public static void assertEmptyScanKey(Scan scan) {
+        assertNull(scan.getFilter());
+        assertTrue(Bytes.compareTo(scan.getStartRow(),ByteUtil.EMPTY_BYTE_ARRAY) == 0);
+        assertTrue(Bytes.compareTo(scan.getStopRow(),ByteUtil.EMPTY_BYTE_ARRAY) == 0);
+        assertEquals(null,scan.getFilter());
+    }
+    
     /**
      * Does a deep comparison of two Results, down to the byte arrays.
      * @param res1 first result to compare

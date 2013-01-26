@@ -124,44 +124,86 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             if (rhs.getDataType() != lhs.getDataType()) {
                 if (rhs.getDataType().isCoercibleTo(lhs.getDataType(), rhsValue)) { // will convert 2.0 -> 2
                     children = Arrays.asList(children.get(0),LiteralExpression.newConstant(rhsValue,lhs.getDataType()));
-                } else if (rhs.getDataType() == PDataType.DECIMAL) {
-                    /*
-                     * We're comparing an int/long to a constant decimal with a fraction part.
-                     * We need the types to match in case this is used to form a key. To form the start/stop key,
-                     * we need to adjust the decimal by truncating it or taking its ceiling, depending on the comparison
-                     * operator, to get a whole number.
-                     */
-                    int increment = 0;
+                } else if (node.getFilterOp() == CompareOp.EQUAL) {
+                    return LiteralExpression.FALSE_EXPRESSION;
+                } else if (node.getFilterOp() == CompareOp.NOT_EQUAL) {
+                    return LiteralExpression.TRUE_EXPRESSION;
+                } else {
+                    switch(rhs.getDataType()) {
+                    case DECIMAL:
+                        /*
+                         * We're comparing an int/long to a constant decimal with a fraction part.
+                         * We need the types to match in case this is used to form a key. To form the start/stop key,
+                         * we need to adjust the decimal by truncating it or taking its ceiling, depending on the comparison
+                         * operator, to get a whole number.
+                         */
+                        int increment = 0;
+                        switch (node.getFilterOp()) {
+                        case GREATER_OR_EQUAL: 
+                        case LESS: // get next whole number
+                            increment = 1;
+                        default: // Else, we truncate the value
+                            BigDecimal bd = (BigDecimal)rhsValue;
+                            rhsValue = bd.longValue() + increment;
+                            children = Arrays.asList(children.get(0),LiteralExpression.newConstant(rhsValue,lhs.getDataType()));
+                            break;
+                        }
+                    case LONG:
+                        /*
+                         * We are comparing an int, unsigned_int to a long, or an unsigned_long to a negative long.
+                         * int has range of -2147483648 to 2147483647, and unsigned_int has a value range of 0 to 4294967295.
+                         * 
+                         * If lhs is int or unsigned_int, since we already determined that we cannot coerce the rhs 
+                         * to become the lfs, we know the value on the rhs is greater than lhs if it's positive, or smaller than
+                         * lhs if it's negative.
+                         * 
+                         * If lhs is an unsigned_long, then we know the rhs is definitely a negative long. rhs in this case
+                         * will always be bigger than rhs.
+                         */
+                        if (lhs.getDataType() == PDataType.INTEGER || 
+                            lhs.getDataType() == PDataType.UNSIGNED_INT) {
+                            switch (node.getFilterOp()) {
+                            case LESS:
+                            case LESS_OR_EQUAL:
+                                if ((Long)rhsValue > 0) {
+                                    return LiteralExpression.TRUE_EXPRESSION;
+                                } else {
+                                    return LiteralExpression.FALSE_EXPRESSION;
+                                }
+                            case GREATER:
+                            case GREATER_OR_EQUAL:
+                                if ((Long)rhsValue > 0) {
+                                    return LiteralExpression.FALSE_EXPRESSION;
+                                } else {
+                                    return LiteralExpression.TRUE_EXPRESSION;
+                                }
+                            }
+                        } else if (lhs.getDataType() == PDataType.UNSIGNED_LONG) {
+                            switch (node.getFilterOp()) {
+                            case LESS:
+                            case LESS_OR_EQUAL:
+                                return LiteralExpression.FALSE_EXPRESSION;
+                            case GREATER:
+                            case GREATER_OR_EQUAL:
+                                return LiteralExpression.TRUE_EXPRESSION;
+                            }
+                        }
+                    }
+                }
+                // Can't possibly be as long as the constant, then FALSE
+                Integer lhsMaxLength = lhs.getMaxLength();
+                if (lhsMaxLength != null && lhsMaxLength != children.get(1).getMaxLength()) {
                     switch (node.getFilterOp()) {
-                    case EQUAL: // Can't possibly be equal
-                        return LiteralExpression.FALSE_EXPRESSION;
-                    case NOT_EQUAL: // So always not equal
-                        return LiteralExpression.TRUE_EXPRESSION;
-                    case GREATER_OR_EQUAL: 
-                    case LESS: // get next whole number
-                        increment = 1;
-                    default: // Else, we truncate the value
-                        BigDecimal bd = (BigDecimal)rhsValue;
-                        rhsValue = bd.longValue() + increment;
-                        children = Arrays.asList(children.get(0),LiteralExpression.newConstant(rhsValue,lhs.getDataType()));
-                        break;
+                        case EQUAL:
+                            return LiteralExpression.FALSE_EXPRESSION;
+                        case NOT_EQUAL:
+                            return LiteralExpression.TRUE_EXPRESSION;
+                        default:
+                            break;
                     }
                 }
             }
-            // Can't possibly be as long as the constant, then FALSE
-            Integer lhsMaxLength = lhs.getMaxLength();
-            if (lhsMaxLength != null && lhsMaxLength != children.get(1).getMaxLength()) {
-                switch (node.getFilterOp()) {
-                    case EQUAL:
-                        return LiteralExpression.FALSE_EXPRESSION;
-                    case NOT_EQUAL:
-                        return LiteralExpression.TRUE_EXPRESSION;
-                    default:
-                        break;
-                }
-            }
         }
-        
         return new ComparisonExpression(node.getFilterOp(), children);
     }
 
@@ -664,17 +706,17 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
 
     @Override
-	public boolean visitEnter(SubtractParseNode node) throws SQLException {
-		return true;
-	}
+  public boolean visitEnter(SubtractParseNode node) throws SQLException {
+    return true;
+  }
 
     private static void throwTypeMismatch(ArithmeticParseNode node, PDataType type) throws SQLException {
         throw new SQLException("Type mismatch: " + type + " for expression " + node);
     }
     
-	@Override
-	public Expression visitLeave(SubtractParseNode node, List<Expression> children) throws SQLException {
-	    return visitLeave(node, children,
+  @Override
+  public Expression visitLeave(SubtractParseNode node, List<Expression> children) throws SQLException {
+      return visitLeave(node, children,
             new ArithmeticExpressionBinder() {
                 @Override
                 public PDatum getBindMetaData(int i, List<Expression> children, final Expression expression) {
@@ -778,8 +820,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         throw new IllegalStateException("Unexpected type: " + theType);
                     }
                 }
-    	    });
-	}
+          });
+  }
 
     @Override
     public boolean visitEnter(AddParseNode node) throws SQLException {
@@ -948,35 +990,35 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
     @Override
     public Expression visitLeave(StringConcatParseNode node, List<Expression> children) throws SQLException {
-    	final StringConcatExpression expression=new StringConcatExpression(children);
-    	for(int i = 0; i < children.size(); i++) {
-    		ParseNode childNode=node.getChildren().get(i);
-    		if(childNode instanceof BindParseNode)
-    		{
-    			context.getBindManager().addParamMetaData((BindParseNode)childNode,expression);
+      final StringConcatExpression expression=new StringConcatExpression(children);
+      for(int i = 0; i < children.size(); i++) {
+        ParseNode childNode=node.getChildren().get(i);
+        if(childNode instanceof BindParseNode)
+        {
+          context.getBindManager().addParamMetaData((BindParseNode)childNode,expression);
 
-    		}
-    		PDataType type=children.get(i).getDataType();
-    		if(type==PDataType.BINARY){
-    			throw new SQLException("Concatenation does not support "+ type +" in expression" + node);
-    		}
-    	}
-    	boolean isLiteralExpression = true;
-    	for(Expression child:children)
-    	{
-    		isLiteralExpression&=(child instanceof LiteralExpression);
-    	}
-    	ImmutableBytesWritable ptr = context.getTempPtr();
-    	if(isLiteralExpression){
-    		expression.evaluate(null,ptr);
-    		return LiteralExpression.newConstant(expression.getDataType().toObject(ptr));
-    	}
-    	
-    	return wrapGroupByExpression(expression);
+        }
+        PDataType type=children.get(i).getDataType();
+        if(type==PDataType.BINARY){
+          throw new SQLException("Concatenation does not support "+ type +" in expression" + node);
+        }
+      }
+      boolean isLiteralExpression = true;
+      for(Expression child:children)
+      {
+        isLiteralExpression&=(child instanceof LiteralExpression);
+      }
+      ImmutableBytesWritable ptr = context.getTempPtr();
+      if(isLiteralExpression){
+        expression.evaluate(null,ptr);
+        return LiteralExpression.newConstant(expression.getDataType().toObject(ptr));
+      }
+      
+      return wrapGroupByExpression(expression);
 
     }
     @Override
     public boolean visitEnter(StringConcatParseNode node) throws SQLException {
-    	return true;
+      return true;
     }
 }

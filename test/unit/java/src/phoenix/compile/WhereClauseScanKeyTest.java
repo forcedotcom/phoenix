@@ -30,6 +30,7 @@ package phoenix.compile;
 import static org.junit.Assert.*;
 import static phoenix.util.TestUtil.TEST_PROPERTIES;
 import static phoenix.util.TestUtil.assertDegenerate;
+import static phoenix.util.TestUtil.assertEmptyScanKey;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -51,19 +52,19 @@ import phoenix.util.ByteUtil;
 
 
 public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
-    
+
     private static void compileStatement(String query, Scan scan, List<Object> binds) throws SQLException {
         compileStatement(query, scan, binds, null, null);
     }
-    
+
     private static void compileStatement(String query, Scan scan, List<Object> binds, Integer limit) throws SQLException {
         compileStatement(query, scan, binds, limit, null);
     }
-    
+
     private static void compileStatement(String query, Scan scan, List<Object> binds, Set<Expression> extractedNodes) throws SQLException {
         compileStatement(query, scan, binds, null, extractedNodes);
     }
-    
+
     private static void compileStatement(String query, Scan scan, List<Object> binds, Integer limit, Set<Expression> extractedNodes) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
@@ -78,7 +79,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         statement = HavingCompiler.moveToWhereClause(statement, context, groupBy);
         WhereCompiler.compileWhereClause(context, statement.getWhere(), extractedNodes);
     }
-    
+
     @Test
     public void testSingleKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -91,7 +92,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
     }
-    
+
     @Test
     public void testConcatSingleKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -105,7 +106,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertEquals(0, scan.getStartRow().length);
         assertEquals(0, scan.getStopRow().length);
     }
-    
+
     @Test
     public void testLiteralConcatExpression() throws SQLException {
         String query = "select * from atable where null||'foo'||'bar' = 'foobar'";
@@ -117,7 +118,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertEquals(0, scan.getStartRow().length);
         assertEquals(0, scan.getStopRow().length);
     }
-    
+
     @Test
     public void testSingleKeyNotExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -130,7 +131,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertEquals(0, scan.getStartRow().length);
         assertEquals(0, scan.getStopRow().length);
     }
-    
+
     @Test
     public void testMultiKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -145,7 +146,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
+
     @Test
     public void testMultiKeyBindExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -160,7 +161,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
+
     @Test
     public void testOverlappingKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -176,7 +177,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
+
     @Test
     public void testTrailingSubstrExpression() throws SQLException {
         String tenantId = "0xD000000000001";
@@ -192,7 +193,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] stopRow = startRow;
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
     }
-    
+
     @Test
     public void testKeyRangeExpression1() throws SQLException {
         String tenantId = "000000000000001";
@@ -209,7 +210,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
         assertTrue(Bytes.compareTo(scan.getStopRow(), stopRow) == 0);
     }
-    
+
     @Test
     public void testKeyRangeExpression2() throws SQLException {
         String tenantId = "000000000000001";
@@ -226,7 +227,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
     }
-    
+
     @Test
     public void testKeyRangeExpression3() throws SQLException {
         String tenantId = "000000000000001";
@@ -243,7 +244,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
     }
-    
+
     @Test
     public void testKeyRangeExpression4() throws SQLException {
         String tenantId = "000000000000001";
@@ -334,7 +335,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
         assertDegenerate(scan);
     }
-    
+
     @Test
     public void testTopLevelOrKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -428,7 +429,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
             assertTrue(e.getMessage().contains("Type mismatch"));
         }
     }
-    
+
     @Test
     public void testLikeExtractAllKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -443,8 +444,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
-    
+
     @Test
     public void testLikeExtractAllAsEqKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -459,7 +459,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
+
     @Test
     public void testDegenerateLikeNoWildcard() throws SQLException {
         String tenantId = "000000000000001";
@@ -470,7 +470,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
         assertDegenerate(scan);
     }
-    
+
     @Test
     public void testLikeExtractKeyExpression2() throws SQLException {
         String tenantId = "000000000000001";
@@ -487,7 +487,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
+
     @Test
     public void testLikeOptKeyExpression() throws SQLException {
         String tenantId = "000000000000001";
@@ -658,8 +658,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
-    
+
     @Test
     public void testLikeNoOptKeyExpression2() throws SQLException {
         String tenantId = "000000000000001";
@@ -676,5 +675,102 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-    
+
+    /*
+     * The following 5 tests are testing the comparison in where clauses under the case when the rhs
+     * cannot be coerced into the lhs. We need to confirm the decision make by expression compilation
+     * returns correct decisions.
+     */
+    @Test
+    public void testValueComparisonInt() throws SQLException {
+        ensureTableCreated(getUrl(),"PKIntValueTest");
+        String query;
+        // int <-> long
+        // Case 1: int = long, comparison always false, key is degenerated.
+        query = "SELECT * FROM PKintValueTest where pk = " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysFalse(query);
+        // Case 2: int != long, comparison always true, no key set since we need to do a full
+        // scan all the time.
+        query = "SELECT * FROM PKintValueTest where pk != " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysTrue(query);
+        // Case 3: int > positive long, comparison always false;
+        query = "SELECT * FROM PKintValueTest where pk >= " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysFalse(query);
+        // Case 4: int <= Integer.MAX_VALUE < positive long, always true;
+        query = "SELECT * FROM PKintValueTest where pk <= " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysTrue(query);
+        // Case 5: int >= Integer.MIN_VALUE > negative long, always true;
+        query = "SELECT * FROM PKintValueTest where pk >= " + (Long.MIN_VALUE + 1);
+        assertQueryConditionAlwaysTrue(query);
+        // Case 6: int < negative long, comparison always false;
+        query = "SELECT * FROM PKintValueTest where pk <= " + (Long.MIN_VALUE + 1);
+        assertQueryConditionAlwaysFalse(query);
+    }
+
+    @Test
+    public void testValueComparisonUnsignedInt() throws SQLException {
+        ensureTableCreated(getUrl(), "PKUnsignedIntValueTest");
+        String query;
+        // unsigned_int <-> negative int/long
+        // Case 1: unsigned_int = negative int, always false;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk = -1";
+        assertQueryConditionAlwaysFalse(query);
+        // Case 2: unsigned_int != negative int, always true;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk != -1";
+        assertQueryConditionAlwaysTrue(query);
+        // Case 3: unsigned_int > negative int, always true;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk > " + (Long.MIN_VALUE + 1);
+        assertQueryConditionAlwaysTrue(query);
+        // Case 4: unsigned_int < negative int, always false;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk < " + + (Long.MIN_VALUE + 1);
+        assertQueryConditionAlwaysFalse(query);
+        // unsigned_int <-> big positive long
+        // Case 1: unsigned_int = big positive long, always false;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk = " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysFalse(query);
+        // Case 2: unsigned_int != big positive long, always true;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk != " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysTrue(query);
+        // Case 3: unsigned_int > big positive long, always false;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk >= " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysFalse(query);
+        // Case 4: unsigned_int < big positive long, always true;
+        query = "SELECT * FROM PKUnsignedIntValueTest where pk <= " + Long.MAX_VALUE;
+        assertQueryConditionAlwaysTrue(query);
+    }
+
+    @Test
+    public void testValueComparisonUnsignedLong() throws SQLException {
+        ensureTableCreated(getUrl(), "PKUnsignedLongValueTest");
+        String query;
+        // unsigned_long <-> positive int/long
+        // Case 1: unsigned_long = negative int/long, always false;
+        query = "SELECT * FROM PKUnsignedLongValueTest where pk = -1";
+        assertQueryConditionAlwaysFalse(query);
+        // Case 2: unsigned_long = negative int/long, always true;
+        query = "SELECT * FROM PKUnsignedLongValueTest where pk != " + (Long.MIN_VALUE + 1);
+        assertQueryConditionAlwaysTrue(query);
+        // Case 3: unsigned_long > negative int/long, always true;
+        query = "SELECT * FROM PKUnsignedLongValueTest where pk > -1";
+        assertQueryConditionAlwaysTrue(query);
+        // Case 4: unsigned_long < negative int/long, always false;
+        query = "SELECT * FROM PKUnsignedLongValueTest where pk < " + (Long.MIN_VALUE + 1);
+        assertQueryConditionAlwaysFalse(query);
+    }
+
+    private void assertQueryConditionAlwaysTrue(String query) throws SQLException {
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList();
+        Set<Expression> extractedNodes = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedNodes);
+        assertEmptyScanKey(scan);
+    }
+
+    private void assertQueryConditionAlwaysFalse(String query) throws SQLException {
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList();
+        Set<Expression> extractedNodes = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedNodes);
+        assertDegenerate(scan);
+    }
 }

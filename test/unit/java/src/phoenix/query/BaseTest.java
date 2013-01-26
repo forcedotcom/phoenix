@@ -165,6 +165,10 @@ public abstract class BaseTest {
                 "   (pk integer not null)");
         builder.put("PKBigIntValueTest", "create table PKBigIntValueTest" + 
                 "   (pk bigint not null)");
+        builder.put("PKUnsignedIntValueTest", "create table PKUnsignedIntValueTest" + 
+                "   (pk unsigned_int not null)");
+        builder.put("PKUnsignedLongValueTest", "create table PKUnsignedLongValueTest" + 
+                "   (pk unsigned_long not null)");
         builder.put("KVIntValueTest", "create table KVIntValueTest" + 
                 "   (pk integer not null)\n" +
                 "   cf(kv integer)\n");
