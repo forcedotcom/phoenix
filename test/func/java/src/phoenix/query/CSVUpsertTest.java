@@ -29,6 +29,7 @@ package phoenix.query;
 
 import static org.junit.Assert.*;
 
+import java.io.FileReader;
 import java.io.StringReader;
 import java.sql.*;
 
@@ -38,38 +39,32 @@ import au.com.bytecode.opencsv.CSVReader;
 
 import phoenix.jdbc.PhoenixConnection;
 import phoenix.util.CSVUtil;
+import phoenix.util.DateUtil;
 import phoenix.util.PhoenixRuntime;
 
 public class CSVUpsertTest extends BaseHBaseManagedTimeTest {
+
+	private static final String CSV_PATH = "../examples/";
+	private static final String STOCK_TABLE = "STOCK_SYMBOL";
+	private static final String STOCK_CSV_FILE = CSV_PATH + "stock.csv";
+	private static final String DATATYPE_TABLE = "DATATYPE";
+	private static final String DATATYPE_CSV_FILE = CSV_PATH + "datatypes.csv";    
 	
-	private static final String TABLE = "STOCK_SYMBOL";
-	private static final String CSV_VALUES = "SYMBOL, COMPANY\n" + 
-			"AAPL,APPLE Inc.\n" + 
-			"CRM,SALESFORCE\n" + 
-			"GOOG,Google\n" + 
-			"HOG,Harlet-Davidson Inc.\n" + 
-			"HPQ,Hewlett Packard\n" + 
-			"INTC,Intel\n" + 
-			"MSFT,Microsoft\n" + 
-			"WAG,Walgreens\n" + 
-			"WMT,Walmart\n";
-    
     @Test
     public void testCSVUpsert() throws Exception {
     	// Create table
-        String statements = "CREATE TABLE IF NOT EXISTS " + TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
         // Upsert CSV file
-        CSVUtil csvUtil = new CSVUtil(conn, TABLE);
-		CSVReader reader = new CSVReader(new StringReader(CSV_VALUES));
-        csvUtil.upsert(reader);
+        CSVUtil csvUtil = new CSVUtil(conn, STOCK_TABLE); 
+        csvUtil.upsert(STOCK_CSV_FILE);
 
         // Compare Phoenix ResultSet with CSV file content
-        PreparedStatement statement = conn.prepareStatement("SELECT SYMBOL, COMPANY FROM " + TABLE);
+        PreparedStatement statement = conn.prepareStatement("SELECT SYMBOL, COMPANY FROM " + STOCK_TABLE);
         ResultSet phoenixResultSet = statement.executeQuery();
-        reader = new CSVReader(new StringReader(CSV_VALUES));
+        CSVReader reader = new CSVReader(new FileReader(STOCK_CSV_FILE));
         reader.readNext();
         String[] csvData;
         while ((csvData = reader.readNext()) != null) {
@@ -78,7 +73,41 @@ public class CSVUpsertTest extends BaseHBaseManagedTimeTest {
         		assertEquals(csvData[i], phoenixResultSet.getString(i+1));
         	}
         }
+        assertFalse(phoenixResultSet.next());
+        conn.close();
+    }
+    
+    @Test
+    public void testAllDatatypes() throws Exception {
+    	// Create table
+        String statements = "CREATE TABLE IF NOT EXISTS " 
+        	    + DATATYPE_TABLE +
+        		" (CKEY VARCHAR NOT NULL) CF" +
+        		" (CVARCHAR VARCHAR, CINTEGER INTEGER, CDECIMAL DECIMAL, CUNSIGNED_INT UNSIGNED_INT, CBOOLEAN BOOLEAN, CBIGINT BIGINT, CUNSIGNED_LONG UNSIGNED_LONG, CTIME TIME, CDATE DATE);";
+        PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
+        PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
+        // Upsert CSV file
+        CSVUtil csvUtil = new CSVUtil(conn, DATATYPE_TABLE); 
+        csvUtil.upsert(DATATYPE_CSV_FILE);
+
+        // Compare Phoenix ResultSet with CSV file content
+		PreparedStatement statement = conn
+				.prepareStatement("SELECT CKEY, CVARCHAR, CINTEGER, CDECIMAL, CUNSIGNED_INT, CBOOLEAN, CBIGINT, CUNSIGNED_LONG, CTIME, CDATE FROM "
+						+ DATATYPE_TABLE);
+        ResultSet phoenixResultSet = statement.executeQuery();
+        CSVReader reader = new CSVReader(new FileReader(DATATYPE_CSV_FILE));
+        reader.readNext();
+        String[] csvData;
+        while ((csvData = reader.readNext()) != null) {
+        	assertTrue (phoenixResultSet.next());
+        	for (int i=0; i<csvData.length - 2; i++) {
+        		assertEquals(csvData[i], phoenixResultSet.getObject(i+1).toString().toUpperCase());
+        	}
+        	// special case for matching date, time values
+        	assertEquals(DateUtil.parseTime(csvData[8]), phoenixResultSet.getTime("CTIME"));
+        	assertEquals(DateUtil.parseDate(csvData[9]), phoenixResultSet.getDate("CDATE"));
+        }
         assertFalse(phoenixResultSet.next());
         conn.close();
     }
