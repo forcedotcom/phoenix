@@ -177,6 +177,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 } else {
                                     return LiteralExpression.TRUE_EXPRESSION;
                                 }
+                            default:
+                                break;
                             }
                         } else if (lhs.getDataType() == PDataType.UNSIGNED_LONG) {
                             switch (node.getFilterOp()) {
@@ -186,6 +188,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             case GREATER:
                             case GREATER_OR_EQUAL:
                                 return LiteralExpression.TRUE_EXPRESSION;
+                            default:
+                                break;
                             }
                         }
                     }
