@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<classpath>
-    <classpathentry kind="src" output="unit/java/classes" path="unit/java/src"/>
-    <classpathentry kind="src" output="func/java/classes" path="func/java/src"/>
-    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-    <classpathentry exported="true" kind="lib" path="unit/java/lib/junit-4.8.2.jar" sourcepath="unit/java/lib-src/junit-4.8.2-src.jar"/>
-    <classpathentry exported="true" kind="src" path="/phoenix"/>
-    <classpathentry kind="output" path="unit/java/classes"/>
-</classpath>

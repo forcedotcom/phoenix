@@ -36,7 +36,9 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import phoenix.compile.*;
 import phoenix.compile.OrderByCompiler.OrderBy;
 import phoenix.jdbc.PhoenixConnection;
-import phoenix.query.*;
+import phoenix.query.ConnectionQueryServices;
+import phoenix.query.DegenerateScanner;
+import phoenix.query.Scanner;
 import phoenix.schema.TableRef;
 import phoenix.util.ScanUtil;
 
