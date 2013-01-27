@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>hbase-phoenix</groupId>
+  <groupId>phoenix-hbase</groupId>
   <artifactId>phoenix</artifactId>
   <version>1.0</version>
   <name>Phoenix</name>
@@ -48,7 +48,7 @@
     <hadoop.version>1.0.4</hadoop.version>
     <junit.version>4.10</junit.version>
     <jackson.version>1.8.8</jackson.version>
-    <antlr.version>3.2</antlr.version>
+    <antlr.version>3.5</antlr.version>
     <opencsv.version>2.3</opencsv.version>
     <log4j.version>1.2.16</log4j.version>
     <slf4j-api.version>1.4.3.jar</slf4j-api.version>
@@ -264,11 +264,6 @@
     <dependency>
       <groupId>org.antlr</groupId>
       <artifactId>antlr-runtime</artifactId>
-      <version>${antlr.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.antlr</groupId>
-      <artifactId>stringtemplate</artifactId>
       <version>${antlr.version}</version>
     </dependency>
     <dependency>

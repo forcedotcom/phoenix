@@ -28,7 +28,7 @@
         <include>log4j:log4j</include>
         <include>org.apache.hbase:hbase*</include>
         <include>net.sf.opencsv:opencsv</include>
-        <include>org.antlr:antlr</include>
+        <include>org.antlr:antlr*</include>
         <!-- <include>*:jar:*</include> -->
       </includes>
     </dependencySet>
