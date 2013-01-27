@@ -117,8 +117,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         // convert at filter time. Since we normalize the select statement
         // to put constants on the LHS, we don't need to check the RHS.
         if (rhsValue != null) {
-            // TODO: look for rhsValue past the range of valid value and return TRUE/FALSE here
-            // TODO: if we can't coerce based on the value, we can usually determine if this is always TRUE or FALSE
             // Comparing an unsigned int/long against a negative int/long would be an example. We just need to take
             // into account the comparison operator.
             if (rhs.getDataType() != lhs.getDataType()) {
@@ -194,17 +192,17 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         }
                     }
                 }
-            }
-            // Can't possibly be as long as the constant, then FALSE
-            Integer lhsMaxLength = lhs.getMaxLength();
-            if (lhsMaxLength != null && lhsMaxLength != children.get(1).getMaxLength()) {
-                switch (node.getFilterOp()) {
-                    case EQUAL:
-                        return LiteralExpression.FALSE_EXPRESSION;
-                    case NOT_EQUAL:
-                        return LiteralExpression.TRUE_EXPRESSION;
-                    default:
-                        break;
+                // Can't possibly be as long as the constant, then FALSE
+                Integer lhsMaxLength = lhs.getMaxLength();
+                if (lhsMaxLength != null && lhsMaxLength != children.get(1).getMaxLength()) {
+                    switch (node.getFilterOp()) {
+                        case EQUAL:
+                            return LiteralExpression.FALSE_EXPRESSION;
+                        case NOT_EQUAL:
+                            return LiteralExpression.TRUE_EXPRESSION;
+                        default:
+                            break;
+                    }
                 }
             }
         }

@@ -45,12 +45,10 @@ import phoenix.query.QueryServices;
  * @since 0.1
  */
 public class PhoenixTestEmbeddedDriver extends PhoenixEmbeddedDriver {
-    private final String url;
     private final ConnectionQueryServices queryServices;
     
     public PhoenixTestEmbeddedDriver(QueryServices services, String url, Properties props) throws SQLException {
         super(services);
-        this.url = url;
         String serverName = getZookeeperQuorum(url);
         if (CONNECTIONLESS.equals(serverName)) {
             queryServices =  new ConnectionlessQueryServicesImpl(services);
