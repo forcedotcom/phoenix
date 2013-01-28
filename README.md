@@ -6,7 +6,7 @@ Phoenix is a SQL layer over HBase, delivered as an embedded JDBC driver. Phoenix
 
 The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance](https://github.com/forcedotcom/Phoenix/wiki/Performance) on the order of milliseconds for small queries, or seconds for millions of rows. 
 
-Tables are created and altered through DDL statements, and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (with some minimal changes: see the [wiki](https://github.com/forcedotcom/Phoenix/wiki) for more details).
+Tables are created and altered through [DDL statements](http://forcedotcom.github.com/Phoenix/#create), and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (with some minimal changes: see the [wiki](https://github.com/forcedotcom/Phoenix/wiki) for more details).
 
 Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `phoenix.jdbc.PhoenixProdEmbeddedDriver`, and the connection url is `phoenix:jdbc:` followed by the zookeeper quorum hostname specification. For example:
 
@@ -22,14 +22,15 @@ For detailed documentation on the current level of SQL support, see our [languag
 ## Installation ##
 To install a pre-built phoenix, use these directions:
 
-* Download the following two jars: [phoenix.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix.jar) and [phoenix-client.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-client.jar)
-* Add the phoenix.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
+* Download the following two jars: [phoenix-1.0.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-1.0.jar) and [phoenix-1.0-client.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-1.0-client.jar)
+* Add the phoenix-1.0.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
-* Add the phoenix-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
+* Add the phoenix-1.0-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
     * phoenix.jar
-    * antlr-3.2.jar
+    * antlr-3.5-complete.jar
+    * opencsv-2.3.jar
 
-Alternatively, you can build it yourself by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#building).
+Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#building).
 
 ## Getting Started ##
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Here are the setup steps necessary:
