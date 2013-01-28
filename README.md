@@ -35,7 +35,7 @@ To install a pre-built phoenix, use these directions:
 Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#building).
 
 ## Getting Started ##
-One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Here are the setup steps necessary:
+One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
 1. Copy the phoenix-client.jar into the lib directory of SQuirrel
 2. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
