@@ -43,7 +43,7 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 4. Press List Drivers button and phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
 5. Switch to Alias tab and create the new Alias (Aliases -> New Aliases)
 6. In the dialog box, Name: _any name_, Driver: Phoenix, User Name: _anything_, Password: _anything_
-7. Construct URL as follows: jdbc:phoenix:_zookeeper quorum server_. For example, to connect to a local HBase use: jdbc:phoenix:localhost
+7. Construct URL as follows: jdbc:phoenix: _zookeeper quorum server_. For example, to connect to a local HBase use: jdbc:phoenix:localhost
 8. Press Test (which should succeed if everything is setup correctly) and press OK to close.
 9. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
 
