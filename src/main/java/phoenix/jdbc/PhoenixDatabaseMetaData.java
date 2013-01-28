@@ -39,10 +39,8 @@ import phoenix.expression.BaseTerminalExpression;
 import phoenix.expression.RowKeyColumnExpression;
 import phoenix.expression.function.SqlTypeNameFunction;
 import phoenix.iterate.*;
-import phoenix.query.DelegateScanner;
-import phoenix.query.QueryConstants;
+import phoenix.query.*;
 import phoenix.query.Scanner;
-import phoenix.query.WrappedScanner;
 import phoenix.schema.*;
 import phoenix.schema.tuple.SingleKeyValueTuple;
 import phoenix.schema.tuple.Tuple;
@@ -229,23 +227,23 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
                 " where");
         String conjunction = " ";
         if (schemaPattern != null) {
-            buf.append(conjunction + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + schemaPattern + "'" ));
+            buf.append(conjunction + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
             conjunction = " and ";
         }
         if (tableNamePattern != null) {
-            buf.append(conjunction + TABLE_NAME_NAME + " like '" + tableNamePattern + "'" );
+            buf.append(conjunction + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
             conjunction = " and ";
         }
         if (catalog != null) { // if null, will pick up all columns
             if (catalog.length() == 0) { // will pick up only PK columns
                 buf.append(conjunction + TABLE_CAT_NAME + " is null");
             } else { // will pick up only KV columns
-                buf.append(conjunction + TABLE_CAT_NAME + " like '" + catalog + "'" );
+                buf.append(conjunction + TABLE_CAT_NAME + " like '" + SchemaUtil.normalizeIdentifier(catalog) + "'" );
             }
             conjunction = " and ";
         }
         if (columnNamePattern != null) {
-            buf.append(conjunction + COLUMN_NAME + " like '" + columnNamePattern + "'" );
+            buf.append(conjunction + COLUMN_NAME + " like '" + SchemaUtil.normalizeIdentifier(columnNamePattern) + "'" );
         } else {
             buf.append(conjunction + COLUMN_NAME + " is not null" );
         }
@@ -482,8 +480,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
                 "null as PK_NAME" +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where ");
-        buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + schema + "'" ));
-        buf.append(" and " + TABLE_NAME_NAME + " = '" + table + "'" );
+        buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
+        buf.append(" and " + TABLE_NAME_NAME + " = '" + SchemaUtil.normalizeIdentifier(table) + "'" );
         buf.append(" and " + COLUMN_NAME + " is not null" );
         buf.append(" and " + TABLE_CAT_NAME + " is null" );
         buf.append(" order by " + ORDINAL_POSITION);
@@ -605,7 +603,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null");
         if (schemaPattern != null) {
-            buf.append(" and " + TABLE_SCHEM_NAME + " like '" + schemaPattern + "'");
+            buf.append(" and " + TABLE_SCHEM_NAME + " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'");
         }
         buf.append(" group by " + TABLE_SCHEM_NAME);
         buf.append(" limit " + ROW_LIMIT); // limit to prevent parallelization: we don't need it here
@@ -707,10 +705,10 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null");
         if (schemaPattern != null) {
-            buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + schemaPattern + "'" ));
+            buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
         }
         if (tableNamePattern != null) {
-            buf.append(" and " + TABLE_NAME_NAME + " like '" + tableNamePattern + "'" );
+            buf.append(" and " + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
         }
         if (types != null && types.length > 0) {
             buf.append(" and " + TABLE_TYPE_NAME + " IN (");

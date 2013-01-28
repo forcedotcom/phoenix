@@ -34,7 +34,9 @@ import java.util.*;
 import org.apache.hadoop.hbase.client.Mutation;
 
 import phoenix.jdbc.PhoenixConnection;
-import phoenix.jdbc.PhoenixProdEmbeddedDriver;
+import phoenix.jdbc.PhoenixDriver;
+
+import com.google.common.collect.Lists;
 
 /**
  * 
@@ -73,28 +75,96 @@ public class PhoenixRuntime {
      * configuration properties
      */
     public static final String TENANT_ID_ATTRIB = "TenantId";
-
+    private static final String TABLE_OPTION = "-t";
+    private static final String HEADER_OPTION = "-h";
+    private static final String STRICT_OPTION = "-s";
+    private static final String HEADER_IN_LINE = "in-line";
+    private static final String SQL_FILE_EXT = ".sql";
+    private static final String CSV_FILE_EXT = ".csv";
+    
+    private static void usageError() {
+        System.err.println("Usage: psql [-t table-name] [-h comma-separated-column-names | in-line] <connection-url>  <path-to-sql-or-csv-file>...\n" +
+                "  By default, the name of the CSV file is used to determine the Phoenix table into which the CSV data is loaded\n" +
+                "  and the ordinal value of the columns determines the mapping.\n" +
+                "  -t overrides the table into which the CSV data is loaded\n" +
+                "  -h overrides the column names to which the CSV data maps\n" +
+                "     A special value of in-line indicating that the first line of the CSV file\n" +
+                "     determines the column to which the data maps.\n" +
+                "  -s uses strict mode by throwing an exception if a column name doesn't match during CSV loading.\n" +
+                "Examples:\n" +
+                "  psql jdbc:phoenix:localhost my_ddl.sql\n" +
+                "  psql jdbc:phoenix:localhost my_ddl.sql my_table.csv\n" +
+                "  psql jdbc:phoenix:my_cluster:1825 -t my_table my_table2012-Q3.csv\n" +
+                "  psql jdbc:phoenix:my_cluster -t my_table -h col1,col2,col3 my_table2012-Q3.csv\n"
+        );
+        System.exit(-1);
+    }
     /**
      * Provides a mechanism to run SQL scripts against, where the arguments are:
      * 1) connection URL string
-     * 2) one or more paths to SQL scripts
+     * 2) one or more paths to either SQL scripts or CSV files
      * If a CurrentSCN property is set on the connection URL, then it is incremented
      * between processing, with each file being processed by a new connection at the
      * increment timestamp value.
      */
     public static void main(String [] args) {
         if (args.length < 2) {
-            System.err.println("Usage: psql <connection-url> <path-to-sql-script>...");
-            return;
+            usageError();
         }
         
         try {
-            Properties props = new Properties();
-            Class.forName(PhoenixProdEmbeddedDriver.class.getName());
-            PhoenixConnection conn = DriverManager.getConnection(args[0]).unwrap(PhoenixConnection.class);
+            String tableName = null;
+            List<String> columns = null;
+            boolean isStrict = false;
 
-            for (int i = 1; i < args.length; i++) {
-           		PhoenixRuntime.executeStatements(conn, new FileReader(args[i]), Collections.emptyList());
+            int i = 0;
+            for (; i < args.length; i++) {
+                if (TABLE_OPTION.equals(args[i])) {
+                    if (++i == args.length || tableName != null) {
+                        usageError();
+                    }
+                    tableName = args[i];
+                } else if (HEADER_OPTION.equals(args[i])) {
+                    if (++i >= args.length || columns != null) {
+                        usageError();
+                    }
+                    String header = args[i];
+                    if (HEADER_IN_LINE.equals(header)) {
+                        columns = Collections.emptyList();
+                    } else {
+                        columns = Lists.newArrayList();
+                        StringTokenizer tokenizer = new StringTokenizer(header,",");
+                        while(tokenizer.hasMoreTokens()) {
+                            columns.add(tokenizer.nextToken());
+                        }
+                    }
+                } else if (STRICT_OPTION.equals(args[i])) {
+                    isStrict = true;
+                } else {
+                    break;
+                }
+            }
+            if (i == args.length) {
+                usageError();
+            }
+            
+            Properties props = new Properties();
+            Class.forName(PhoenixDriver.class.getName());
+            PhoenixConnection conn = DriverManager.getConnection(args[i++]).unwrap(PhoenixConnection.class);
+            
+            for (; i < args.length; i++) {
+                String fileName = args[i];
+                if (fileName.endsWith(SQL_FILE_EXT)) {
+               		PhoenixRuntime.executeStatements(conn, new FileReader(args[i]), Collections.emptyList());
+                } else if (fileName.endsWith(CSV_FILE_EXT)) {
+                    if (tableName == null) {
+                        tableName = fileName.substring(fileName.lastIndexOf(File.separatorChar) + 1, fileName.length()-CSV_FILE_EXT.length());
+                    }
+                    CSVLoader csvLoader = new CSVLoader(conn, tableName, columns, isStrict);
+                    csvLoader.upsert(fileName);
+                } else {
+                    usageError();
+                }
                 Long scn = conn.getSCN();
                 // If specifying SCN, increment it between processing files to allow
                 // for later files to see earlier files tables.

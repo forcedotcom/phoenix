@@ -40,7 +40,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.junit.AfterClass;
 
-import phoenix.jdbc.PhoenixTestEmbeddedDriver;
+import phoenix.jdbc.PhoenixTestDriver;
 import phoenix.schema.TableAlreadyExistsException;
 import phoenix.util.PhoenixRuntime;
 
@@ -191,14 +191,14 @@ public abstract class BaseTest {
         return timestamp;
     }
     
-    protected static PhoenixTestEmbeddedDriver driver;
+    protected static PhoenixTestDriver driver;
     private static int driverRefCount = 0;
 
     protected static synchronized void initDriver(QueryServices services, String url) throws Exception {
         if (driver == null) {
             if (driverRefCount == 0) {
                 driverRefCount++;
-                BaseTest.driver = new PhoenixTestEmbeddedDriver(services, url, TEST_PROPERTIES);
+                BaseTest.driver = new PhoenixTestDriver(services, url, TEST_PROPERTIES);
                 DriverManager.registerDriver(driver);
                 assertTrue(DriverManager.getDriver(url) == driver);
             }

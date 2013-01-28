@@ -168,6 +168,7 @@ public class OrderedResultIterator implements ResultIterator {
     private void init() throws SQLException {
         final int numSortKeys = orderingColumns.size();
         List<Expression> expressions = Lists.newArrayList(Collections2.transform(orderingColumns, TO_EXPRESSION));
+        // TODO: size
         List<ResultEntry> entries = Lists.newArrayList();
         try {
             for (Tuple result = delegate.next(); result != null; result = delegate.next()) {

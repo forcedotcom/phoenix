@@ -39,7 +39,7 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.junit.*;
 
 import phoenix.jdbc.PhoenixEmbeddedDriver;
-import phoenix.jdbc.PhoenixProdEmbeddedDriver;
+import phoenix.jdbc.PhoenixDriver;
 import phoenix.schema.PDataType;
 import phoenix.util.PhoenixRuntime;
 
@@ -50,17 +50,17 @@ public class ConnectionlessUpsertTest {
     
     @BeforeClass
     public static void registerDriver() throws ClassNotFoundException, SQLException {
-        Class.forName(PhoenixProdEmbeddedDriver.class.getName());
-        DriverManager.registerDriver(PhoenixProdEmbeddedDriver.INSTANCE);
-        assertTrue(DriverManager.getDriver(getUrl()) == PhoenixProdEmbeddedDriver.INSTANCE);
+        Class.forName(PhoenixDriver.class.getName());
+        DriverManager.registerDriver(PhoenixDriver.INSTANCE);
+        assertTrue(DriverManager.getDriver(getUrl()) == PhoenixDriver.INSTANCE);
     }
     
     @AfterClass
     public static void deregisterDriver() throws SQLException {
         try {
-            PhoenixProdEmbeddedDriver.INSTANCE.close();
+            PhoenixDriver.INSTANCE.close();
         } finally {
-            DriverManager.deregisterDriver(PhoenixProdEmbeddedDriver.INSTANCE);
+            DriverManager.deregisterDriver(PhoenixDriver.INSTANCE);
         }
     }
     
