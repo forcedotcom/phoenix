@@ -1,0 +1,728 @@
+"SECTION","TOPIC","SYNTAX","TEXT","EXAMPLE"
+"Commands","SELECT","
+SELECT selectExpression [,...] FROM tableExpression [ WHERE expression ]
+[ GROUP BY expression [,...] ] [ HAVING expression ]
+[ ORDER BY order [,...] ]
+[ LIMIT {bindParameter | number} ]
+","
+Selects data from a table.
+GROUP BY groups the the result by the given expression(s).
+HAVING filter rows after grouping.
+ORDER BY sorts the result by the given column(s) or expression(s) and is only allowed for aggregate
+queries or queries with a LIMIT clause.
+LIMIT limits the number of rows returned by the query (no limit if null or smaller than zero).
+Only single tables are currently supported - joins are currently not supported.
+
+","
+SELECT * FROM TEST;
+SELECT ID, COUNT(1) FROM TEST GROUP BY ID;
+SELECT NAME, SUM(VAL) FROM TEST GROUP BY NAME HAVING COUNT(1) > 2;
+SELECT 'ID' COL, MAX(ID) AS MAX FROM TEST;
+SELECT * FROM TEST LIMIT 1000;
+"
+"Commands","UPSERT VALUES","
+UPSERT INTO tableName [( columnName [,...] )] VALUES ( constantTerm [,...] )
+","
+Inserts if not present and updates otherwise the value in the table. The list of
+columns is optional and if not present, the values will map to the column in the
+order they are declared in the schema. The values must evaluate to constants.
+
+","
+UPSERT INTO TEST VALUES('foo','bar',3);
+UPSERT INTO TEST(NAME,ID) VALUES('foo',123);
+"
+"Commands","UPSERT SELECT","
+UPSERT INTO tableName [( columnName [,...] )] select
+","
+Inserts if not present and updates otherwise rows in the table based on the
+results of running another query. The values are set based on their matching
+position between the source and target tables. The list of columns is optional
+and if not present will map to the column in the order they are declared in the
+schema. If auto commit is on, and both a) the target
+table matches the source table, and b) the select performs no aggregation, then the population of the target table will
+be done completely on the server-side (with constraint violations logged, but otherwise ignored). Otherwise, data is
+buffered on the client and, if auto commit is on, committed in row batches as specified by the UpsertBatchSize
+connection property (or the phoenix.mutate.upsertBatchSize HBase config property which defaults to 10000 rows)
+
+","
+UPSERT INTO test.targetTable(col1, col2) SELECT col3, col4 FROM test.sourceTable WHERE col5 < 100
+UPSERT INTO foo SELECT * FROM bar;
+"
+"Commands","DELETE","
+DELETE FROM tableName [ WHERE expression ]
+","
+Deletes the rows selected by the where clause. If auto commit is on, the
+deletion is performed completely server-side.
+
+","
+DELETE FROM TEST;
+DELETE FROM TEST WHERE ID=123;
+DELETE FROM TEST WHERE NAME LIKE 'foo%';
+"
+
+"Commands","CREATE","
+CREATE { TABLE | VIEW } [IF NOT EXISTS] tableName
+( pkColumn [...] ) [tableOptions] [columnFamily [...]] [ SPLIT ON ( splitPoint [,...] ) ]
+","
+Creates a new table or view. For the creation of a table, the HBase table and any column families defined are created
+if they don't already exist (using uppercase names unless they are double quoted in which case they are case sensitive).
+Column families outside of the ones listed are not affected.
+At create time, an empty key value is added to the first column family of any existing rows. Upserts will also add this empty key value. This
+is done to improve query performance by having a key value column we can guarantee always being there (minimizing the amount of data that
+must be projected). Alternately, if a view is
+created, the HBase table and column families must already exist. No empty key value is added to existing rows and no
+data mutations are allowed - the view is read-only. Query performance for a view will not be as good as performance for
+a table. For a table only, HBase table and column configuration options may
+be passed through as key/value pairs to setup the HBase table as needed.
+
+","
+CREATE TABLE my_table ( id BIGINT not null, date DATE not null)
+CREATE TABLE my_schema.my_table ( pkCol1 char(10) not null) my_family ( kvCol1 varchar )
+CREATE TABLE my_schema.my_table ( pkCol1 char(10) not null, pkCol2 integer ) my_family ( kvCol1 varchar )
+CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null) MAX_FILESIZE=2000000 cf1 ( value integer ) DATA_BLOCK_ENCODING='NONE',VERSIONS=? split on (?, ?, ?)
+"
+
+"Commands","DROP","
+DROP {TABLE | VIEW} [IF EXISTS] tableName
+","
+Drops a table or view. When dropping a table, the data in the table is deleted. For a view, on the other hand, the data
+is not affected. Note that the schema is versioned, such that snapshot queries connecting at an earlier time stamp may
+still query against the dropped table.
+
+","
+DROP TABLE my_schema.my_table
+DROP VIEW my_view
+"
+
+"Commands","ALTER TABLE","
+ALTER TABLE tableName { { ADD [IF NOT EXISTS] { pkColumn | columnFamily }  } | { DROP COLUMN [IF EXISTS] [ columnFamilyName. ] columnName } }
+","
+Adds or removes a column from an existing table or view. When a column is dropped from a table, the data in
+that column is deleted as well. PK columns may not be dropped, and only nullable PK columns may be added. For a view,
+the data is not affected when a column is dropped. Note that creating or dropping columns
+only affects subsequent queries and data modifications. Snapshot queries that are connected at an earlier timestamp
+will still use the prior schema that was in place when the data was written.
+
+","
+ALTER TABLE my_schema.my_table ADD cf2 (dept_id char(10), dept_name varchar) VERSIONS=10
+ALTER TABLE my_table ADD parent_id char(15)
+ALTER TABLE my_table DROP COLUMN cf2.dept_id
+ALTER TABLE my_table DROP COLUMN dept_name
+ALTER TABLE my_table DROP COLUMN parent_id
+"
+
+"Commands","EXPLAIN","
+EXPLAIN {select|upsertSelect|delete}
+","
+Computes the logical steps necessary to execute the given command. Each step is represented as a string in a single column result set row.
+
+","
+EXPLAIN SELECT NAME, COUNT(*) FROM TEST GROUP BY NAME HAVING COUNT(*) > 2;
+EXPLAIN SELECT entity_id FROM CORE.CUSTOM_ENTITY_DATA WHERE organization_id='00D300000000XHP' AND SUBSTR(entity_id,1,3) = '002' AND created_date < CURRENT_DATE()-1;
+"
+
+"Other Grammar","Column Family","
+columnFamilyName ( { columnName dataType } [,...] ) [columnFamilyOptions]
+","
+Define a new column family and its columns. The column family is created
+in HBase if it doesn't already exist (using uppercase names by default
+unless double quoted).
+
+","
+my_family ( col1 varchar(1000) )
+cf (col1 integer, col2 char(20) )
+"
+
+"Other Grammar","Options","
+{name= {value | bindParameter}} [,...]
+","
+Sets an option on an HBase table or column by modifying the HBase table.
+
+","
+DATA_BLOCK_ENCODING='NONE',VERSIONS=10
+MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
+"
+
+"Other Grammar","PK Column","
+columnName dataType [[NOT] NULL]
+","
+Define a new primary key column. The column name is case insensitive by default and
+case sensitive if double quoted.
+
+","
+id char(15) not null
+key bigint null
+col1 integer
+"
+
+"Other Grammar","Select Expression","
+term [ [ AS ] columnAlias ]
+","
+An expression in a SELECT statement.
+","
+ID AS VALUE
+"
+
+"Other Grammar","Split Point","
+value | bindParameter
+
+","
+Defines a split point for a table. Use a bind parameter with
+preparedStatement.setBinary(int,byte[]) to supply arbitrary bytes.
+","
+'A'
+"
+
+"Other Grammar","Table Expression","
+{ [ schemaName. ] tableName } [ [ AS ] tableAlias ]
+","
+A reference to a table. Joins and sub queries are not currently supported.
+","
+PRODUCT_METRICS AS PM
+"
+
+"Other Grammar","Order","
+{ expression } [ ASC | DESC ] [ NULLS { FIRST | LAST } ]
+","
+Sorts the result by an expression. Only supported for queries that use GROUP BY.
+","
+NAME DESC NULLS LAST
+"
+
+"Other Grammar","Expression","
+andCondition [ { OR andCondition } [...] ]
+","
+Value or condition.
+","
+ID=1 OR NAME='Hi'
+"
+
+"Other Grammar","And Condition","
+condition [ { AND condition } [...] ]
+","
+Value or condition.
+","
+ID=1 AND NAME='Hi'
+"
+
+"Other Grammar","Condition","
+operand [ compare { operand }
+    | IN ( { constantOperand [,...] } )
+    | [ NOT ] LIKE operand
+    | IS [ NOT ] NULL ]
+    | NOT expression
+    | ( expression )
+","
+Boolean value or condition.
+When comparing with LIKE, the wildcards characters are ""_"" (any one character)
+and ""%"" (any characters). To search for the characters ""%"" and
+""_"", the characters need to be escaped. The escape character is "" \ "" (backslash).
+Patterns that end with an escape character are invalid and the expression returns NULL.
+","
+NAME LIKE 'Jo%'
+"
+
+"Other Grammar","Compare","
+<> | <= | >= | = | < | > | !=
+","
+Comparison operator. The operator != is the same as <>.
+","
+<>
+"
+
+"Other Grammar","Operand","
+summand [ { || } summand [...] ]
+","
+A string concatenation.
+","
+'foo'|| s
+"
+
+"Other Grammar","Summand","
+factor [ { + | - } factor [...] ]
+","
+An addition or subtraction of numeric or date type values
+","
+a + b
+a - b
+"
+
+"Other Grammar","Factor","
+term [ { * | / } term [...] ]
+","
+A multiplication or division.
+","
+c * d
+e / 5
+"
+
+"Other Grammar","Term","
+value
+    | bindParameter
+    | function
+    | case
+    | caseWhen
+    | ( operand )
+    | [ tableAlias. ] columnName
+","
+A value.
+","
+'Hello'
+"
+
+
+"Other Grammar","Bind Parameter","
+?
+    | :number
+","
+A parameters can be indexed, for example "":1"" meaning the first parameter.
+","
+:1
+?
+"
+
+"Other Grammar","Value","
+string | numeric | boolean | null
+","
+A literal value of any data type, or null.
+","
+10
+"
+
+"Other Grammar","Case","
+CASE term { WHEN expression THEN term } [...]
+[ ELSE expression ] END
+","
+Returns the first expression where the value is equal to the test expression. If
+no else part is specified, return NULL.
+","
+CASE CNT WHEN 0 THEN 'No' WHEN 1 THEN 'One' ELSE 'Some' END
+"
+
+"Other Grammar","Case When","
+CASE { WHEN expression THEN term} [...]
+[ ELSE term ] END
+","
+Returns the first expression where the condition is true. If no else part is
+specified, return NULL.
+","
+CASE WHEN CNT<10 THEN 'Low' ELSE 'High' END
+"
+
+"Other Grammar","Name","
+{ { A-Z|_  } [ { A-Z|_|0-9 } [...] ] } | quotedName
+","
+Unquoted names are not case sensitive. There is no maximum name length.
+","
+my_column
+"
+
+"Other Grammar","Quoted Name","
+""anythingExceptDoubleQuote""
+","
+Quoted names are case sensitive, and can contain spaces. There is no maximum
+name length. Two double quotes can be used to create a single double quote
+inside an identifier.
+","
+""first-name""
+"
+
+"Other Grammar","Alias","
+name
+","
+An alias is a name that is only valid in the context of the statement.
+","
+A
+"
+
+"Other Grammar","Null","
+NULL
+","
+NULL is a value without data type and means 'unknown value'.
+","
+NULL
+"
+
+"Other Grammar","Data Type","
+charType | varcharType | integerType | bigintType | decimalType | timestampType | dateType | timeType | unsignedLongType | unsignedIntType | binaryType
+","
+A type name.
+","
+CHAR(15)
+VARCHAR
+VARCHAR(1000)
+INTEGER
+"
+
+"Other Grammar","String","
+'anythingExceptSingleQuote'
+","
+A string starts and ends with a single quote. Two single quotes can be used to
+create a single quote inside a string.
+","
+'John''s car'
+"
+
+"Other Grammar","Boolean","
+TRUE | FALSE
+","
+A boolean value.
+","
+TRUE
+"
+
+"Other Grammar","Numeric","
+int | long | decimal
+","
+The data type of a numeric value is always the lowest possible for the given value.
+If the number contains a dot this is decimal; otherwise it is int, long, or decimal (depending on the value).
+","
+SELECT -10.05
+SELECT 5
+SELECT 12345678912345
+"
+
+"Other Grammar","Int","
+[ - ] number
+","
+The maximum integer number is 2147483647, the minimum is -2147483648.
+","
+10
+"
+
+"Other Grammar","Long","
+[ - ] number
+","
+Long numbers are between -9223372036854775808 and 9223372036854775807.
+","
+100000
+"
+
+"Other Grammar","Decimal","
+[ - ] { number [ . number ] }
+","
+A decimal number with fixed precision and scale.
+Internally, ""java.lang.BigDecimal"" is used.
+","
+SELECT -10.5
+"
+
+"Other Grammar","Number","
+0-9 [...]
+","
+The maximum length of the number depends on the data type used.
+","
+100
+"
+
+"Other Grammar","Comments","
+-- anythingUntilEndOfLine | // anythingUntilEndOfLine | /* anythingUntilEndComment */
+","
+Comments can be used anywhere in a command and are ignored by the database. Line
+comments end with a newline. Block comments cannot be nested, but can be
+multiple lines long.
+","
+// This is a comment
+"
+
+"Data Types","INTEGER Type","
+INTEGER
+","
+Possible values: -2147483648 to 2147483647.
+
+Mapped to ""java.lang.Integer"". The binary representation is a 4 byte
+integer with the sign bit flipped (for binary comparability).
+","
+INTEGER
+"
+
+"Data Types","UNSIGNED_INT Type","
+UNSIGNED_INT
+","
+Possible values: 0 to 2147483647.
+Mapped to ""java.lang.Integer"". The binary representation is a 4 byte
+integer, matching the HBase.toBytes(int) method.
+","
+UNSIGNED_INT
+"
+
+"Data Types","BIGINT Type","
+BIGINT
+","
+Possible values: -9223372036854775808 to 9223372036854775807.
+Mapped to ""java.lang.Long"". The binary representation is an 8 byte
+long with the sign bit flipped (for binary comparability).
+","
+BIGINT
+"
+
+"Data Types","UNSIGNED_LONG Type","
+UNSIGNED_LONG
+","
+Possible values: 0 to 9223372036854775807.
+Mapped to ""java.lang.Long"". The binary representation is an 8 byte
+integer, matching the HBase.toBytes(long) method.
+","
+UNSIGNED_LONG
+"
+
+"Data Types","DECIMAL Type","
+DECIMAL
+","
+Data type with fixed precision and scale. The maximum precision is 18 digits.
+Mapped to ""java.math.BigDecimal"". The binary representation is binary
+comparable, variable length format. When used in a row key, it is terminated
+with a null byte unless it is the last column.
+","
+DECIMAL
+"
+
+"Data Types","BOOLEAN Type","
+BOOLEAN
+","
+Possible values: TRUE and FALSE.
+
+Mapped to ""java.lang.Boolean"". The binary representation is a single byte with 0 for false and 1 for true
+","
+BOOLEAN
+"
+
+"Data Types","TIME Type","
+TIME
+","
+The time data type. The format is yyyy-MM-dd hh:mm:ss, with both the date
+and time parts maintained. Mapped to ""java.sql.Time"".
+The binary representation is an 8 byte long (the number of milliseconds from the epoch).
+","
+TIME
+"
+
+"Data Types","DATE Type","
+DATE
+","
+The date data type. The format is yyyy-MM-dd hh:mm:ss, with both the date
+and time parts maintained to a millisecond accuracy. Mapped to ""java.sql.Date"".
+The binary representation is an 8 byte long (the number of milliseconds from the epoch).
+","
+DATE
+"
+
+"Data Types","TIMESTAMP Type","
+TIMESTAMP
+","
+The timestamp data type. The format is yyyy-MM-dd hh:mm:ss[.nnnnnnnnn].
+Mapped to ""java.sql.Timestamp"" with an internal representation of the
+number of nanos from the epoch. The binary representation is 12 bytes:
+an 8 byte long for the epoch time plus a 4 byte integer for the nanos.
+
+","
+TIMESTAMP
+"
+
+"Data Types","VARCHAR Type","
+VARCHAR  [ ( precisionInt ) ]
+","
+A variable length String with an optional max byte length. The binary representation
+is UTF8 matching the HBase Bytes.toBytes(String) method. When used in a row key, it
+is terminated with a null byte unless it is the last column.
+
+Mapped to ""java.lang.String"".
+","
+VARCHAR
+VARCHAR(255)
+"
+
+"Data Types","CHAR Type","
+CHAR ( precisionInt )
+","
+A fixed length String with single-byte characters. The binary representation
+is UTF8 matching the HBase Bytes.toBytes(String) method.
+
+Mapped to ""java.lang.String"".
+","
+CHAR(10)
+"
+
+"Data Types","BINARY Type","
+BINARY
+","
+Raw byte array.
+
+Mapped to ""byte[]"".
+","
+BINARY
+"
+
+"Functions (Aggregate)","AVG","
+AVG ( { numericTerm } )
+","
+The average (mean) value.
+If no rows are selected, the result is NULL.
+Aggregates are only allowed in select statements.
+The returned value is of the same data type as the parameter.
+","
+AVG(X)
+"
+
+"Functions (Aggregate)","COUNT","
+COUNT( { * | { term } } )
+","
+The count of all row, or of the non-null values.
+This method returns a long.
+If no rows are selected, the result is 0.
+Aggregates are only allowed in select statements.
+","
+COUNT(*)
+"
+
+"Functions (Aggregate)","MAX","
+MAX(term)
+","
+The highest value.
+If no rows are selected, the result is NULL.
+Aggregates are only allowed in select statements.
+The returned value is of the same data type as the parameter.
+","
+MAX(NAME)
+"
+
+"Functions (Aggregate)","MIN","
+MIN(term)
+","
+The lowest value.
+If no rows are selected, the result is NULL.
+Aggregates are only allowed in select statements.
+The returned value is of the same data type as the parameter.
+","
+MIN(NAME)
+"
+
+"Functions (Aggregate)","SUM","
+SUM( { numericTerm } )
+","
+The sum of all values.
+If no rows are selected, the result is NULL.
+Aggregates are only allowed in select statements.
+The returned value is of the same data type as the parameter.
+","
+SUM(X)
+"
+
+"Functions (Time and Date)","ROUND","
+ROUND(timestampTerm, {'DAY' | 'HOUR' | 'MINUTE' | 'SECOND' | 'MILLISECOND'} [, multiplierNumber])
+","
+Rounds the timestamp to the nearest time unit specified. The multiplier is used to
+round to a multiple of a time unit (i.e. 10 minute) and defaults to 1 if not specified.
+This method returns a date.
+","
+ROUND(date, 'MINUTE', 30)
+ROUND(time, 'HOUR')
+"
+
+"Functions (Time and Date)","TRUNCATE","
+TRUNC(timestampTerm, {'DAY' | 'HOUR' | 'MINUTE' | 'SECOND' | 'MILLISECOND'} [, multiplierInt])
+","
+Truncates the timestamp to the next time unit closer to 0. The multiplier is used to
+truncate to a multiple of a time unit (i.e. 10 minute) and defaults to 1 if not specified.
+This method returns a date.
+","
+TRUNCATE(timestamp, 'SECOND', 30)
+TRUNCATE(date, 'DAY', 7)
+"
+
+"Functions (String)","SUBSTR","
+SUBSTR( stringTerm, startInt [, lengthInt ] )
+","
+Returns a substring of a string starting at the one-based position.
+If zero is used, the position is zero-based. If the start index is
+negative, then the start index is relative to the end of the string.
+The length is optional and if not supplied, the rest of the string
+will be returned.
+","
+SUBSTR('[Hello]', 2, 5)
+SUBSTR('Hello World', -5)
+"
+
+"Functions (String)","LENGTH","
+LENGTH( stringTerm )
+","
+Returns the length of the string in characters.
+","
+LENGTH('Hello')
+"
+
+"Functions (String)","REGEXP_SUBSTR","
+REGEXP_SUBSTR( stringTerm, patternString [, startInt ] )
+","
+Returns a substring of a string by applying a regular
+expression start from the offset of a one-based position. Just like with SUBSTR,
+if the start index is negative, then it is relative to the end of the string. If not
+specified, the start index defaults to 1.
+","
+REGEXP_SUBSTR('na1-appsrv35-sj35', '[^-]+') evaluates to 'na1'
+"
+
+"Functions (String)","REGEXP_REPLACE","
+REGEXP_REPLACE( stringTerm, patternString [, replacementString ] )
+","
+Returns a string by applying a regular expression and replacing the matches with the replacement
+string. If the replacement string is not specified, it defaults to an empty string.
+","
+REGEXP_REPLACE('abc123ABC', '[0-9]+', '#') evaluates to 'abc#ABC'
+"
+
+
+"Functions (Time and Date)","TO_CHAR","
+TO_CHAR( timestampTerm [, formatString] )
+","
+Formats a date, time or timestamp as a string.
+The most important format characters are:
+y year, M month, d day, H hour, m minute, s second.
+The default format string is ""yyyy-MM-dd HH:mm:ss"".
+For details of the format, see ""java.text.SimpleDateFormat"".
+This method returns a string.
+","
+TO_CHAR(TIMESTAMP, '2001-02-03 04:05:06')
+"
+
+"Functions (Time and Date)","TO_DATE","
+TO_DATE( stringTerm [, formatString] )
+","
+Parses a string and returns a date.
+The most important format characters are:
+y year, M month, d day, H hour, m minute, s second.
+The default format string is ""yyyy-MM-dd HH:mm:ss"".
+For details of the format, see ""java.text.SimpleDateFormat"".
+","
+TO_DATE('Sat, 3 Feb 2001 03:05:06 GMT', 'EEE, d MMM yyyy HH:mm:ss z')
+"
+
+"Functions (Time and Date)","CURRENT_DATE","
+CURRENT_DATE()
+","
+Returns the current server-side date, bound at the start of the execution
+of a query based on the current time on the region server owning the
+metadata of the table being queried.
+","
+CURRENT_DATE()
+"
+
+"Functions (Time and Date)","CURRENT_TIME","
+CURRENT_TIME()
+","
+Same as CURRENT_DATE(), except returns a value of type TIME. In either case,
+the underlying representation is the epoch time as a long value.
+","
+CURRENT_TIME()
+"
+
+
+"Functions (General)","COALESCE","
+COALESCE( firstTerm, secondTerm )
+","
+Returns the value of the first argument if not null and the second argument otherwise. Useful
+to guarantee that a column in an UPSERT SELECT command will evaluate to a non null value.
+","
+COALESCE(last_update_date, CURRENT_DATE())
+"
+
