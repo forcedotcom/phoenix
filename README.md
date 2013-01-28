@@ -37,7 +37,7 @@ Alternatively, you can build it yourself using maven by following these [build i
 ## Getting Started ##
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
-1. Copy the phoenix-client.jar into the lib directory of SQuirrel
+1. Copy the phoenix-1.0-client.jar into the lib directory of SQuirrel
 2. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
 3. In Add Driver dialog box, set Name to Phoenix
 4. Press List Drivers button and phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
@@ -49,10 +49,12 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 
 You can now issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types) directly in SQuirrel.
 
-In addition, a shell scripts is provided to allow for direct SQL execution and/or CSV loading:
+In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load CSV data directly. Here are few examples:
 
-* bin/psql.sh to run one or more .SQL scripts and/or load one or more .CSV
-
+        $ java -jar lib/phoenix-1.0-client.jar jdbc:phoenix:localhost examples/stock_symbol.sql
+        $ java -jar lib/phoenix-1.0-client.jar jdbc:phoenix:localhost examples/stock_symbol.sql examples/stock_symbol.csv
+        $ java -jar lib/phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date jdbc:phoenix:localhost *.csv
+        
 ## Samples ##
 The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. 
 
