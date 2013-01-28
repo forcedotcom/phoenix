@@ -56,6 +56,8 @@ In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load C
         $ java -jar lib/phoenix-1.0-client.jar jdbc:phoenix:localhost examples/stock_symbol.sql
         $ java -jar lib/phoenix-1.0-client.jar jdbc:phoenix:localhost examples/stock_symbol.sql examples/stock_symbol.csv
         $ java -jar lib/phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date jdbc:phoenix:localhost *.csv
+
+![psql](http://forcedotcom.github.com/Phoenix/images/psql.png)
         
 ## Samples ##
 The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. 
