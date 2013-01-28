@@ -32,7 +32,7 @@ To install a pre-built phoenix, use these directions:
     * antlr-3.5-complete.jar
     * opencsv-2.3.jar
 
-Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#building).
+Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
 
 ## Getting Started ##
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
