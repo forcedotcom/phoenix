@@ -21,6 +21,11 @@ For detailed documentation on the current level of SQL support, see our [languag
 * HBase v 0.94.2 or higher
 * JDK 6 or higher
 
+## Build Requirements ##
+* All the system requirements
+* Maven 3.X (https://maven.apache.org/)
+
+
 ## Installation ##
 To install a pre-built phoenix, use these directions:
 
@@ -33,6 +38,7 @@ To install a pre-built phoenix, use these directions:
     * opencsv-2.3.jar
 
 Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
+
 
 ## Getting Started ##
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
@@ -58,7 +64,36 @@ In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load C
         $ java -jar lib/phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date jdbc:phoenix:localhost *.csv
 
 ![psql](http://forcedotcom.github.com/Phoenix/images/psql.png)
-        
+
+## Maven ##
+
+Currently, Phoenix hosts its own maven repository in github. This is done for convience and will later be moved to a 'real' maven repository. You can add it to your mavenized project by adding the following to your pom:
+```
+ <repositories>
+   ...
+   <repository>
+      <id>phoenix-github</id>
+      <name>Phoenix Github Maven</name>
+      <url>http://github.com/forcedotcom/Phoenix/tree/maven-artifacts/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+    </repository>
+    ...
+  </repositories>
+  
+  <dependencies>
+    ...
+    <dependency>
+    	<groupId>com.salesforce</groupId>
+ 		<artifactId>phoenix</artifactId>
+  		<version>1.0-SNAPSHOT</version>
+     ...
+    </dependency>
+```
 ## Samples ##
 The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. 
 
