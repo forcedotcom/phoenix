@@ -79,25 +79,27 @@ public enum ExpressionType {
     SQLTypeNameFunction(SqlTypeNameFunction.class),
     RegexpSubstrFunction(RegexpSubstrFunction.class),
     StringConcatExpression(StringConcatExpression.class),
-    LengthFunction(LengthFunction.class);
-    
+    LengthFunction(LengthFunction.class),
+    LTrimFunction(LTrimFunction.class),
+    RTrimFunction(RTrimFunction.class);
+
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
     }
-    
+
     public Class<? extends Expression> getExpressionClass() {
         return clazz;
     }
-    
+
     private final Class<? extends Expression> clazz;
-    
+
     private static final Map<Class<? extends Expression>,ExpressionType> classToEnumMap = Maps.newHashMapWithExpectedSize(3);
     static {
         for (ExpressionType type : ExpressionType.values()) {
             classToEnumMap.put(type.clazz, type);
         }
     }
-    
+
     /**
      * Return the ExpressionType for a given Expression instance
      */
@@ -109,7 +111,6 @@ public enum ExpressionType {
         return type;
     }
 
-    
     /**
      * Instantiates a DataAccessor based on its DataAccessorType
      */
