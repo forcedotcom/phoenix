@@ -47,7 +47,7 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 8. Press Test (which should succeed if everything is setup correctly) and press OK to close.
 9. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
 
-You can now issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types) directly in SQuirrel.
+Through SQuirrel, can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 
 In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load CSV data directly. Here are few examples:
 
