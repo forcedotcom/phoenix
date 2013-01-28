@@ -1351,7 +1351,6 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             for (int i = 0; i < query.length; i++) {
-                System.out.println("!!!!!!!!!!!!!!!!!!!!!!" + query[i]);
                 PreparedStatement statement = conn.prepareStatement(query[i]);
                 ResultSet rs = statement.executeQuery();
                 assertTrue(rs.next());
