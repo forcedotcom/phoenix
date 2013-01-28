@@ -28,7 +28,7 @@ To install a pre-built phoenix, use these directions:
 * Add the phoenix-1.0.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
 * Add the phoenix-1.0-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
-    * phoenix.jar
+    * phoenix-1.0.jar
     * antlr-3.5-complete.jar
     * opencsv-2.3.jar
 
