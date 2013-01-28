@@ -40,6 +40,8 @@ import phoenix.schema.tuple.Tuple;
 import phoenix.util.ByteUtil;
 
 /**
+ * Implementation of the Trim(<string>) build-in function. It removes from both end of <string>
+ * space character and other function bytes in single byte utf8 characters set.
  * 
  * @author zhuang
  * @since 0.1

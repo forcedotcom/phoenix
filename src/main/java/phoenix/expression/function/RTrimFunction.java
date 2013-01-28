@@ -41,12 +41,8 @@ import phoenix.util.ByteUtil;
 
 /**
  * 
- * Implementation of the RTrim(<string>,<set>) build-in function. It removes from the
- * right end of of <string> all the characters contained in the <set> string. Phoenix
- * scans from the beginning <string> of its first character and remove all characters
- * that appear in <set> until reaching a character not in set, and then returns the
- * resulting substring. If <set> is not specified or is empty, the function will remove
- * all the trailing spaces from <string>
+ * Implementation of the RTrim(<string>) build-in function. It removes from the right end of
+ * <string> space character and other function bytes in single byte utf8 characters set 
  * 
  * @author zhuang
  * @since 0.1
