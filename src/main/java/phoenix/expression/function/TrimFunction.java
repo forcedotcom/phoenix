@@ -28,7 +28,7 @@
 package phoenix.expression.function;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
@@ -41,28 +41,21 @@ import phoenix.util.ByteUtil;
 
 /**
  * 
- * Implementation of the RTrim(<string>,<set>) build-in function. It removes from the
- * right end of of <string> all the characters contained in the <set> string. Phoenix
- * scans from the beginning <string> of its first character and remove all characters
- * that appear in <set> until reaching a character not in set, and then returns the
- * resulting substring. If <set> is not specified or is empty, the function will remove
- * all the trailing spaces from <string>
- * 
  * @author zhuang
  * @since 0.1
  */
-@BuiltInFunction(name=RTrimFunction.NAME, args={
-    @Argument(allowedTypes={PDataType.VARCHAR})})
-public class RTrimFunction extends ScalarFunction {
-    public static final String NAME = "RTRIM";
-    private static final byte SPACE_UTF8 = (byte) 0x20;
+@BuiltInFunction(name=TrimFunction.NAME, args={
+    @Argument(allowedTypes={PDataType.VARCHAR})} )
+public class TrimFunction extends ScalarFunction {
+    public static final String NAME = "TRIM";
+    private static final byte SPACE_UTF8 = 0x20;
     private static final byte SINGLE_BYTE_MASK = (byte) 0x80;
 
     private Integer maxLength;
 
-    public RTrimFunction() { }
+    public TrimFunction() { }
 
-    public RTrimFunction(List<Expression> children) throws SQLException {
+    public TrimFunction(List<Expression> children) throws SQLException {
         super(children);
         if (getStringExpression().getDataType().isFixedWidth()) {
             maxLength = getStringExpression().getMaxLength();
@@ -75,8 +68,6 @@ public class RTrimFunction extends ScalarFunction {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // Starting from the end of the byte, look for all single bytes at the end of the string
-        // that is below SPACE_UTF8 (space and control characters) or above (control chars).
         if (!getStringExpression().evaluate(tuple, ptr)) {
             return false;
         }
@@ -87,28 +78,24 @@ public class RTrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
-        int i = offset + length - 1;
-        for ( ; i >= offset; i--) {
-            if ((string[i] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[i] && string[i] != 0x7f) {
+        int end = offset + length - 1;
+        int head = offset;
+        for ( ; end >= offset; end--) {
+            if ((string[end] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[end] && string[end] != 0x7f) {
                 break;
             }
         }
-        if (i == offset - 1) {
+        if (end == head - 1) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-            return true;
+            return true; 
         }
-        ptr.set(string, offset, i - offset + 1);
+        for ( ; head < end; head++) {
+            if ((string[head] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[head] && string[head] != 0x7f) {
+                break;
+            }
+        }
+        ptr.set(string, head, end - head + 1);
         return true;
-    }
-
-    @Override
-    public boolean preservesOrder() {
-        return true;
-    }
-
-    @Override
-    public KeyFormationDirective getKeyFormationDirective() {
-        return KeyFormationDirective.TRAVERSE_AND_EXTRACT;
     }
 
     @Override

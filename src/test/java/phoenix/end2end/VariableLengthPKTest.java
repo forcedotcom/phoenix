@@ -1294,12 +1294,14 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         String query[] = {
             "SELECT rtrim('') FROM BTABLE LIMIT 1",
             "SELECT rtrim(' ') FROM BTABLE LIMIT 1",
+            "SELECT rtrim('   ') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc   ') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc   def') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc   def   ') FROM BTABLE LIMIT 1",
         };
         String result[] = {
+            null,
             null,
             null,
             "abc",
@@ -1331,6 +1333,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         String query[] = {
             "SELECT ltrim('') FROM BTABLE LIMIT 1",
             "SELECT ltrim(' ') FROM BTABLE LIMIT 1",
+            "SELECT ltrim('   ') FROM BTABLE LIMIT 1",
             "SELECT ltrim('abc') FROM BTABLE LIMIT 1",
             "SELECT ltrim('   abc') FROM BTABLE LIMIT 1",
             "SELECT ltrim('abc   def') FROM BTABLE LIMIT 1",
@@ -1339,8 +1342,54 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         String result[] = {
             null,
             null,
+            null,
             "abc",
             "abc",
+            "abc   def",
+            "abc   def",
+        };
+        assertEquals(query.length, result.length);
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            initTableValues(null, ts);
+            for (int i = 0; i < query.length; i++) {
+                PreparedStatement statement = conn.prepareStatement(query[i]);
+                ResultSet rs = statement.executeQuery();
+                assertTrue(rs.next());
+                assertEquals(query[i],result[i], rs.getString(1));
+                assertFalse(rs.next());
+            }
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testTrimFunction() throws Exception {
+        long ts = nextTimestamp();
+        String query[] = {
+            "SELECT trim('') FROM BTABLE LIMIT 1",
+            "SELECT trim(' ') FROM BTABLE LIMIT 1",
+            "SELECT trim('   ') FROM BTABLE LIMIT 1",
+            "SELECT trim('abc') FROM BTABLE LIMIT 1",
+            "SELECT trim('   abc') FROM BTABLE LIMIT 1",
+            "SELECT trim('abc   ') FROM BTABLE LIMIT 1",
+            "SELECT trim('abc   def') FROM BTABLE LIMIT 1",
+            "SELECT trim('   abc   def') FROM BTABLE LIMIT 1",
+            "SELECT trim('abc   def   ') FROM BTABLE LIMIT 1",
+            "SELECT trim('   abc   def   ') FROM BTABLE LIMIT 1",
+        };
+        String result[] = {
+            null,
+            null,
+            null,
+            "abc",
+            "abc",
+            "abc",
+            "abc   def",
+            "abc   def",
             "abc   def",
             "abc   def",
         };

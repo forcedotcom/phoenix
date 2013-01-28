@@ -81,7 +81,8 @@ public enum ExpressionType {
     StringConcatExpression(StringConcatExpression.class),
     LengthFunction(LengthFunction.class),
     LTrimFunction(LTrimFunction.class),
-    RTrimFunction(RTrimFunction.class);
+    RTrimFunction(RTrimFunction.class),
+    TrimFunction(TrimFunction.class);
 
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
