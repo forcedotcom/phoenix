@@ -23,17 +23,6 @@
       <id>apache release</id>
       <url>https://repository.apache.org/content/repositories/releases/</url>
     </repository>
-    <repository>
-      <id>apache non-releases</id>
-      <name>Apache non-releases</name>
-      <url>http://people.apache.org/~stack/m2/repository</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-    </repository>
   </repositories>
 
   <properties>
