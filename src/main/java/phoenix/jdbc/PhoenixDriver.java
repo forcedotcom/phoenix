@@ -38,10 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
-import phoenix.query.ConnectionQueryServices;
-import phoenix.query.ConnectionQueryServicesImpl;
-import phoenix.query.ConnectionlessQueryServicesImpl;
-import phoenix.query.QueryServicesImpl;
+import phoenix.query.*;
 import phoenix.util.SQLCloseables;
 
 /**
@@ -58,19 +55,19 @@ import phoenix.util.SQLCloseables;
  * @author jtaylor
  * @since 0.1
  */
-public final class PhoenixProdEmbeddedDriver extends PhoenixEmbeddedDriver {
+public final class PhoenixDriver extends PhoenixEmbeddedDriver {
     private static final String ZOOKEEPER_QUARUM_ATTRIB = "hbase.zookeeper.quorum";
-    public static final PhoenixProdEmbeddedDriver INSTANCE;
+    public static final PhoenixDriver INSTANCE;
     static {
         try {
-            DriverManager.registerDriver( INSTANCE = new PhoenixProdEmbeddedDriver() );
+            DriverManager.registerDriver( INSTANCE = new PhoenixDriver() );
         } catch (SQLException e) {
-            throw new IllegalStateException("Untable to register PhoenixProdEmbeddedDriver: " + e.getMessage());
+            throw new IllegalStateException("Untable to register " + PhoenixDriver.class.getName() + ": "+ e.getMessage());
         }
     }
     private final ConcurrentMap<String,ConnectionQueryServices> connectionQueryServicesMap = new ConcurrentHashMap<String,ConnectionQueryServices>(3);
 
-    public PhoenixProdEmbeddedDriver() { // for Squirrel
+    public PhoenixDriver() { // for Squirrel
         // Use production services implementation
         super(new QueryServicesImpl(withDefaults(HBaseConfiguration.create())));
     }

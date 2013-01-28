@@ -34,7 +34,7 @@ import java.util.*;
 import org.apache.hadoop.hbase.client.Mutation;
 
 import phoenix.jdbc.PhoenixConnection;
-import phoenix.jdbc.PhoenixProdEmbeddedDriver;
+import phoenix.jdbc.PhoenixDriver;
 
 import com.google.common.collect.Lists;
 
@@ -149,7 +149,7 @@ public class PhoenixRuntime {
             }
             
             Properties props = new Properties();
-            Class.forName(PhoenixProdEmbeddedDriver.class.getName());
+            Class.forName(PhoenixDriver.class.getName());
             PhoenixConnection conn = DriverManager.getConnection(args[i++]).unwrap(PhoenixConnection.class);
             
             for (; i < args.length; i++) {
