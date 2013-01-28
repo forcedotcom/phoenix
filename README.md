@@ -49,10 +49,9 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 
 You can now issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types) directly in SQuirrel.
 
-In addition, several basic shell scripts are provided to allow for direct SQL execution:
+In addition, a shell scripts is provided to allow for direct SQL execution and/or CSV loading:
 
-* bin/psql.sh to run one or more .SQL scripts with the output sent to stdout
-* bin/pcsv.sh to populate a Phoenix table from a CSV file
+* bin/psql.sh to run one or more .SQL scripts and/or load one or more .CSV
 
 ## Samples ##
 The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. 
