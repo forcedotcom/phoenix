@@ -47,74 +47,65 @@ import com.salesforce.phoenix.util.ByteUtil;
  */
 
 public class StringConcatExpression extends BaseCompoundExpression {
-	public StringConcatExpression() {
+    public StringConcatExpression() {
 
-	}
+    }
 
-	public StringConcatExpression(List<Expression> children) {
-		super(children);
-	}
+    public StringConcatExpression(List<Expression> children) {
+        super(children);
+    }
 
-	@Override
-	public String toString() {
-		StringBuilder buf = new StringBuilder("(");
-		for (int i = 0; i < children.size() - 1; i++) {
-			buf.append(children.get(i) + " || ");
-		}
-		buf.append(children.get(children.size()-1));
-		buf.append(')');
-		return buf.toString();
-	}
+    @Override
+    public String toString() {
+        StringBuilder buf = new StringBuilder("(");
+        for (int i = 0; i < children.size() - 1; i++) {
+            buf.append(children.get(i) + " || ");
+        }
+        buf.append(children.get(children.size()-1));
+        buf.append(')');
+        return buf.toString();
+    }
 
-	@Override
-	public final <T> T accept(ExpressionVisitor<T> visitor) {
-		List<T> l = acceptChildren(visitor, visitor.visitEnter(this));
-		T t = visitor.visitLeave(this, l);
-		if (t == null) {
-			t = visitor.defaultReturn(this, l);
-		}
-		return t;
-	}
+    @Override
+    public final <T> T accept(ExpressionVisitor<T> visitor) {
+        List<T> l = acceptChildren(visitor, visitor.visitEnter(this));
+        T t = visitor.visitLeave(this, l);
+        if (t == null) {
+            t = visitor.defaultReturn(this, l);
+        }
+        return t;
+    }
 
-	@Override
-	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-			
-		byte[] result = ByteUtil.EMPTY_BYTE_ARRAY;
-		for (int i=0; i<children.size(); i++) {
-			if (children.get(i).getDataType() == null || !children.get(i).evaluate(tuple,ptr)) {
-				continue;
-				}
-			PDataType childType = children.get(i).getDataType();
-			if (childType.isCoercibleTo(PDataType.VARCHAR)) {
-				result =ByteUtil.concat(result,ByteUtil.concat(ptr));
-			} else {
-				result= ByteUtil.concat(result,PDataType.VARCHAR.toBytes(childType.toObject(ptr).toString()));
-			}
-		}
-		ptr.set(result);
-		return true;
-	}
+    @Override
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        byte[] result = ByteUtil.EMPTY_BYTE_ARRAY;
+        for (int i=0; i<children.size(); i++) {
+            if (children.get(i).getDataType() == null || !children.get(i).evaluate(tuple,ptr)) {
+                continue;
+            }
+            PDataType childType = children.get(i).getDataType();
+            if (childType.isCoercibleTo(PDataType.VARCHAR)) {
+                result =ByteUtil.concat(result,ByteUtil.concat(ptr));
+            } else {
+                result= ByteUtil.concat(result,PDataType.VARCHAR.toBytes(childType.toObject(ptr).toString()));
+            }
+        }
+        ptr.set(result);
+        return true;
+    }
 
-	@Override
-	public PDataType getDataType() {
-		return PDataType.VARCHAR;
-		
-	}
-	  @Override
-	    public void readFields(DataInput input) throws IOException {
-	     
-	        super.readFields(input);
-	    }
+    @Override
+    public PDataType getDataType() {
+        return PDataType.VARCHAR;
+    }
 
-	    @Override
-	    public void write(DataOutput output) throws IOException {
-	     
-	        super.write(output);
-	    }
-	/*
-	@Override
-	public boolean preservesOrder() {
-			return children.get(0).isCoercibleTo(PDataType.VARCHAR)
-		}
-	 */
+    @Override
+    public void readFields(DataInput input) throws IOException {
+        super.readFields(input);
+    }
+
+    @Override
+    public void write(DataOutput output) throws IOException {
+        super.write(output);
+    }
 }
