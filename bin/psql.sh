@@ -26,4 +26,4 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ############################################################################
-java -Dlog4j.configuration=file:log4j.properties -jar ../target/phoenix-1.0-client.jar "$@"
+java -Dlog4j.configuration=file:log4j.properties -jar ../target/phoenix-1.0-SNAPSHOT-client.jar "$@"
