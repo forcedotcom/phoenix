@@ -119,15 +119,15 @@ tokens
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package phoenix.parse;
+package com.salesforce.phoenix.parse;
 
 ///CLOVER:OFF
 import com.google.common.collect.ImmutableMap;
 import java.math.BigDecimal;
 import java.util.Arrays;
-import phoenix.expression.function.CountAggregateFunction;
-import phoenix.query.QueryConstants;
-import phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.expression.function.CountAggregateFunction;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.util.SchemaUtil;
 }
 
 @lexer::header {
@@ -158,7 +158,7 @@ import phoenix.util.SchemaUtil;
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package phoenix.parse;
+package com.salesforce.phoenix.parse;
 ///CLOVER:OFF
 }
 
