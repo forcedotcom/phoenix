@@ -31,7 +31,9 @@ import java.lang.reflect.Constructor;
 import java.sql.SQLException;
 import java.util.*;
 
+import org.apache.hadoop.hbase.util.Pair;
 
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
@@ -222,6 +224,14 @@ public class ParseNodeFactory {
         return new ColumnDefName(familyName, columnName);
     }
 
+    public PropertyName propertyName(String propertyName) {
+        return new PropertyName(propertyName);
+    }
+
+    public PropertyName propertyName(String familyName, String propertyName) {
+        return new PropertyName(familyName, propertyName);
+    }
+
     public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, boolean isPK) {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, isPK);
     }
@@ -230,8 +240,8 @@ public class ParseNodeFactory {
         return new PrimaryKeyConstraint(name, columnNames);
     }
     
-    public CreateTableStatement createTable(TableName tableName, Map<String,Object> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
-        return new CreateTableStatement(tableName, props, columns, pkConstraint, familyProps, splits, readOnly, ifNotExists, bindCount);
+    public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
+        return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
     }
     
     public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {

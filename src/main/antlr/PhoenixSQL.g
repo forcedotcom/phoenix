@@ -86,7 +86,6 @@ tokens
     EXPLAIN='explain';
     VIEW='view';
     IF='if';
-    FAMILY='family';
     CONSTRAINT='constraint';
 }
 
@@ -123,6 +122,9 @@ package com.salesforce.phoenix.parse;
 
 ///CLOVER:OFF
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ListMultimap;
+import org.apache.hadoop.hbase.util.Pair;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
@@ -349,10 +351,10 @@ alterTable returns [AlterTableStatement ret]
 // Parse a create table statement.
 create_table returns [CreateTableStatement ret]
     :   CREATE (ro=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
-        (LPAREN cdefs=column_defs (pk=pk_constraint)? (fp=fam_props)? RPAREN)
-        (p=properties)?
+        (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
+        (p=fam_properties)?
         (SPLIT ON v=values)?
-        {ret = factory.createTable(t, p, cdefs, pk, fp, v, ro!=null, ex!=null, getBindCount()); }
+        {ret = factory.createTable(t, p, cdefs, pk, v, ro!=null, ex!=null, getBindCount()); }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
@@ -364,15 +366,20 @@ identifiers returns [List<String> ret]
     :  c = identifier {$ret.add(c);}  (COMMA c = identifier {$ret.add(c);} )*
 ;
 
-fam_props returns [Map<String,Map<String,Object>> ret]
-@init{ret = new HashMap<String,Map<String,Object>>(); }
-	:	(fp=fam_prop {$ret.putAll(fp);} )+
-	;
-	
-fam_prop returns [Map<String,Map<String,Object>> ret]
-	:	FAMILY	(n=identifier)? p=properties { $ret = ImmutableMap.<String,Map<String,Object>>of(n == null ? QueryConstants.ALL_FAMILY_PROPERTIES_KEY : SchemaUtil.normalizeIdentifier(n), p); }
-	;
-	
+fam_properties returns [ListMultimap<String,Pair<String,Object>> ret]
+@init{ret = ArrayListMultimap.<String,Pair<String,Object>>create(); }
+    :  p=fam_prop_name EQ v=prop_value {$ret.put(p.getFamilyName(),new Pair<String,Object>(p.getPropertyName(),v));}  (COMMA p=fam_prop_name EQ v=prop_value {$ret.put(p.getFamilyName(),new Pair<String,Object>(p.getPropertyName(),v));} )*
+    ;
+
+fam_prop_name returns [PropertyName ret]
+    :   propName=identifier {$ret = factory.propertyName(propName); }
+    |   familyName=identifier DOT propName=identifier {$ret = factory.propertyName(familyName, propName); }
+    ;
+    
+prop_value returns [Object ret]
+    :   l=literal { $ret = l.getValue(); }
+    ;
+    
 column_def_name returns [ColumnDefName ret]
     :   field=identifier {$ret = factory.columnDefName(field); }
     |   family=identifier DOT field=identifier {$ret = factory.columnDefName(family, field); }
@@ -392,19 +399,15 @@ alter_table returns [AlterTableStatement ret]
         {ret = ( c == null ? factory.addColumn(t, d, ex!=null, p) : factory.dropColumn(t, c, ex!=null) ); }
     ;
 
+prop_name returns [String ret]
+    :   p=identifier {$ret = p; }
+    ;
+    
 properties returns [Map<String,Object> ret]
 @init{ret = new HashMap<String,Object>(); }
     :  k=prop_name EQ v=prop_value {$ret.put(k,v);}  (COMMA k=prop_name EQ v=prop_value {$ret.put(k,v);} )*
     ;
 
-prop_name returns [String ret]
-    :   s=identifier { $ret = s; }
-    ;
-    
-prop_value returns [Object ret]
-    :   l=literal { $ret = l.getValue(); }
-    ;
-    
 column_defs returns [List<ColumnDef> ret]
 @init{ret = new ArrayList<ColumnDef>(); }
     :  v = column_def {$ret.add(v);}  (COMMA v = column_def {$ret.add(v);} )*

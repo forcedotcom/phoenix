@@ -33,6 +33,9 @@ import java.sql.*;
 import java.text.Format;
 import java.util.*;
 
+import org.apache.hadoop.hbase.util.Pair;
+
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
@@ -247,8 +250,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableCreateTableStatement extends CreateTableStatement implements ExecutableStatement {
-        ExecutableCreateTableStatement(TableName tableName, Map<String,Object> props, List<ColumnDef> columnDefs, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
-            super(tableName, props, columnDefs, pkConstraint, familyProps, splitNodes, isView, ifNotExists, bindCount);
+        ExecutableCreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columnDefs, PrimaryKeyConstraint pkConstraint, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
+            super(tableName, props, columnDefs, pkConstraint, splitNodes, isView, ifNotExists, bindCount);
         }
 
         @Override
@@ -530,8 +533,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateTableStatement createTable(TableName tableName, Map<String,Object> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
-            return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, familyProps, splits, readOnly, ifNotExists, bindCount);
+        public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
+            return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
         }
         
         @Override
