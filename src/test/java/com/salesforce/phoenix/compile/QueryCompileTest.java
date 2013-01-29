@@ -837,6 +837,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
+<<<<<<< HEAD
     public void testSubstrSetScanKey() throws Exception {
         String query = "SELECT inst FROM ptsdb WHERE substr(inst, 0, 3) = 'abc'";
         List<Object> binds = Collections.emptyList();
@@ -856,5 +857,9 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
         assertTrue(Bytes.compareTo(Bytes.toBytes("abc\1"), scan.getStopRow()) == 0);
         assertTrue(scan.getFilter() != null);
+=======
+    public void testRTrimFuncSetScanKey() throws Exception {
+        
+>>>>>>> improve trim test
     }
 }
