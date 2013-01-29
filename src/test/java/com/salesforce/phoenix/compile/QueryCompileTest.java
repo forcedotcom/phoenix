@@ -748,7 +748,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         }
     }
 
-
     @Test
     public void testCreateNullableInPKMiddle() throws Exception {
         long ts = nextTimestamp();
@@ -764,4 +763,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         }
     }
 
+    @Test
+    public void testRTrimFuncSetScanKey() throws Exception {
+        
+    }
 }
