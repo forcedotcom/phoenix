@@ -209,6 +209,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
+
     @Test
     public void testSkipMax() throws Exception {
         long ts = nextTimestamp();
@@ -471,7 +472,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.execute();
         conn.close();
     }
-    
+
     @Test
     public void testToStringOnDate() throws Exception {
         long ts = nextTimestamp();
@@ -616,7 +617,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         // Succeeds since we have an empty KV
         stmt.execute();
     }
-    
+
     // Broken, since we don't know if insert vs update. @Test
     public void testMissingKVColumn() throws Exception {
         long ts = nextTimestamp();
@@ -794,7 +795,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
-    
+
     @Test
     public void testMultiFixedLengthNull() throws Exception {
         long ts = nextTimestamp();
@@ -829,7 +830,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
-    
+
     @Test
     public void testSingleFixedLengthNull() throws Exception {
         long ts = nextTimestamp();
@@ -855,7 +856,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
-    
+
     @Test
     public void testMultiMixedTypeGroupBy() throws Exception {
         long ts = nextTimestamp();
@@ -894,7 +895,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
-    
+
     @Test
     public void testSubstrFunction() throws Exception {
         long ts = nextTimestamp();
@@ -904,13 +905,20 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT substr('ABC',2,4) FROM BTABLE LIMIT 1",
             "SELECT substr('ABC',1,1) FROM BTABLE LIMIT 1",
             "SELECT substr('ABC',0,1) FROM BTABLE LIMIT 1",
+            // Test for multibyte characters support.
+            "SELECT substr('ĎďĒ',0,1) FROM BTABLE LIMIT 1",
+            "SELECT substr('ĎďĒ',-1,1) FROM BTABLE LIMIT 1",
+            "SELECT substr('Ďďɚʍ',2,4) FROM BTABLE LIMIT 1",
         };
         String result[] = {
             "C",
             null,
             "BC",
             "A",
-            "A"
+            "A",
+            "Ď",
+            "Ē",
+            "ďɚʍ",
         };
         assertEquals(query.length,result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
@@ -948,6 +956,11 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT regexp_replace('abc123ABC', '[0-9]+', '#') FROM BTABLE LIMIT 1",
             "SELECT CASE WHEN regexp_replace('abcABC123', '[a-zA-Z]+') = '123' THEN '1' ELSE '2' END FROM BTABLE LIMIT 1",
             "SELECT A_STRING FROM BTABLE WHERE A_ID = regexp_replace('abcABC111', '[a-zA-Z]+') LIMIT 1", // 111
+            // Test for multibyte characters support.
+            "SELECT regexp_replace('Ďď Ēĕ ĜĞ ϗϘϛϢ', '[a-zA-Z]+') from BTABLE LIMIT 1",
+            "SELECT regexp_replace('Ďď Ēĕ ĜĞ ϗϘϛϢ', '[Ď-ě]+', '#') from BTABLE LIMIT 1",
+            "SELECT regexp_replace('Ďď Ēĕ ĜĞ ϗϘϛϢ', '.+', 'replacement') from BTABLE LIMIT 1",
+            "SELECT regexp_replace('Ďď Ēĕ ĜĞ ϗϘϛϢ', 'Ďď', 'DD') from BTABLE LIMIT 1",
         };
         String result[] = {
             null,
@@ -961,6 +974,10 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "abc#ABC",
             "1",
             "abc", // the first column
+            "Ďď Ēĕ ĜĞ ϗϘϛϢ",
+            "# # ĜĞ ϗϘϛϢ",
+            "replacement",
+            "DD Ēĕ ĜĞ ϗϘϛϢ",
         };
         assertEquals(query.length,result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
@@ -998,6 +1015,11 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT regexp_substr('123ABCabc', '\\\\D+', 7) FROM BTABLE LIMIT 1",
             "SELECT regexp_substr('na11-app5-26-sjl', '[^-]+', 0) FROM BTABLE LIMIT 1",
             "SELECT regexp_substr('na11-app5-26-sjl', '[^-]+') FROM BTABLE LIMIT 1",
+            // Test for multibyte characters support.
+            "SELECT regexp_substr('ĎďĒĕĜĞ', '.+') from BTABLE LIMIT 1",
+            "SELECT regexp_substr('ĎďĒĕĜĞ', '.+', 3) from BTABLE LIMIT 1",
+            "SELECT regexp_substr('ĎďĒĕĜĞ', '[a-zA-Z]+', 0) from BTABLE LIMIT 1",
+            "SELECT regexp_substr('ĎďĒĕĜĞ', '[Ď-ě]+', 3) from BTABLE LIMIT 1",
         };
         String result[] = {
             null,
@@ -1014,6 +1036,10 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "abc",
             "na11",
             "na11",
+            "ĎďĒĕĜĞ",
+            "ĒĕĜĞ",
+            null,
+            "Ēĕ",
         };
         assertEquals(query.length,result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
