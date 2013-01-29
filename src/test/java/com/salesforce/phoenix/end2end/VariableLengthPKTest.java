@@ -129,7 +129,10 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(1, "   def");
         stmt.execute();
         stmt.setString(1, "jkl   ");
+<<<<<<< HEAD
         stmt.setString(1, "jkl...");
+=======
+>>>>>>> improve trim and substr tests
         stmt.execute();
         stmt.setString(1, "   ghi   ");
         stmt.execute();
@@ -939,7 +942,6 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "ďĒ",
             "Ē",
             "ďɚʍ",
-            "jkl   ",
         };
         assertEquals(query.length,result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
