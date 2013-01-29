@@ -47,8 +47,8 @@
   <fileSets>
     <!-- Add the compiled classes so we can just run the jar immediately -->
     <fileSet>
-      <directory>${project.build.directory}/classes/phoenix</directory>
-      <outputDirectory>/phoenix</outputDirectory>
+      <directory>${project.build.directory}/classes/com</directory>
+      <outputDirectory>/com</outputDirectory>
       <fileMode>0755</fileMode>
       <directoryMode>0755</directoryMode>
     </fileSet>

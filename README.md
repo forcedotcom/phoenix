@@ -6,13 +6,13 @@ Become the standard means of accessing HBase data through a well-defined, indust
 
 ## How It Works ##
 
-The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance](https://github.com/forcedotcom/Phoenix/wiki/Performance) on the order of milliseconds for small queries, or seconds for millions of rows. 
+The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance](https://github.com/forcedotcom/Phoenix/wiki/Performance) on the order of milliseconds for small queries, or seconds for tens of millions of rows. 
 
 Tables are created and altered through [DDL statements](http://forcedotcom.github.com/Phoenix/#create), and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (see the [wiki](https://github.com/forcedotcom/Phoenix/wiki) for more details).
 
-Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `phoenix.jdbc.PhoenixDriver`, and the connection url is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification. For example:
+Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, and the connection url is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification. For example:
 
-        Class.forName("phoenix.jdbc.PhoenixDriver");
+        Class.forName("com.salesforce.phoenix.jdbc.PhoenixDriver");
         Connection conn = DriverManager.getConnection("jdbc:phoenix:localhost");
 
 For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/Phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/Phoenix/wiki).
@@ -46,14 +46,14 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 1. Copy the phoenix-1.0-client.jar into the lib directory of SQuirrel
 2. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
 3. In Add Driver dialog box, set Name to Phoenix
-4. Press List Drivers button and phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
+4. Press List Drivers button and com.salesforce.phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
 5. Switch to Alias tab and create the new Alias (Aliases -> New Aliases)
 6. In the dialog box, Name: _any name_, Driver: Phoenix, User Name: _anything_, Password: _anything_
 7. Construct URL as follows: jdbc:phoenix: _zookeeper quorum server_. For example, to connect to a local HBase use: jdbc:phoenix:localhost
 8. Press Test (which should succeed if everything is setup correctly) and press OK to close.
 9. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
 
-Through SQuirrel, can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
+Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 
 ![squirrel](http://forcedotcom.github.com/Phoenix/images/squirrel.png)
 
@@ -95,7 +95,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     </dependency>
 ```
 ## Samples ##
-The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. 
+The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. We also have some examples in the examples directory.
 
 ##Mailing List##
 Join one or both of our Google groups:

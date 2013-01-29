@@ -9,7 +9,7 @@
 		<echo message="Building Phoenix parser" />
 		<java classname="org.antlr.Tool" fork="yes" classpathref="classpath" failonerror="true" maxmemory="128M">
 			<arg value="-o" />
-			<arg path="${antlr-output.dir}/phoenix/parse" />
+			<arg path="${antlr-output.dir}/com/salesforce/phoenix/parse" />
 			<arg path="${antlr-input.dir}/PhoenixSQL.g" />
 		</java>
 		<echo message="Phoenix grammar parser complete" />

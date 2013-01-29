@@ -86,6 +86,8 @@ tokens
     EXPLAIN='explain';
     VIEW='view';
     IF='if';
+    FAMILY='family';
+    CONSTRAINT='constraint';
 }
 
 
@@ -117,13 +119,15 @@ tokens
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package phoenix.parse;
+package com.salesforce.phoenix.parse;
 
 ///CLOVER:OFF
-import java.util.Arrays;
+import com.google.common.collect.ImmutableMap;
 import java.math.BigDecimal;
-import phoenix.util.SchemaUtil;
-import phoenix.expression.function.CountAggregateFunction;
+import java.util.Arrays;
+import com.salesforce.phoenix.expression.function.CountAggregateFunction;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.util.SchemaUtil;
 }
 
 @lexer::header {
@@ -154,7 +158,7 @@ import phoenix.expression.function.CountAggregateFunction;
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package phoenix.parse;
+package com.salesforce.phoenix.parse;
 ///CLOVER:OFF
 }
 
@@ -345,13 +349,36 @@ alterTable returns [AlterTableStatement ret]
 // Parse a create table statement.
 create_table returns [CreateTableStatement ret]
     :   CREATE (ro=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
-        (LPAREN pk=key_column_defs RPAREN)
+        (LPAREN cdefs=column_defs (pk=pk_constraint)? (fp=fam_props)? RPAREN)
         (p=properties)?
-        cfs = cf_defs
         (SPLIT ON v=values)?
-        {ret = factory.createTable(t, p, pk, cfs, v, ro!=null, ex!=null, getBindCount()); }
+        {ret = factory.createTable(t, p, cdefs, pk, fp, v, ro!=null, ex!=null, getBindCount()); }
     ;
 
+pk_constraint returns [PrimaryKeyConstraint ret]
+	:	CONSTRAINT	n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
+	;
+	
+identifiers returns [List<String> ret]
+@init{ret = new ArrayList<String>(); }
+    :  c = identifier {$ret.add(c);}  (COMMA c = identifier {$ret.add(c);} )*
+;
+
+fam_props returns [Map<String,Map<String,Object>> ret]
+@init{ret = new HashMap<String,Map<String,Object>>(); }
+	:	(fp=fam_prop {$ret.putAll(fp);} )+
+	;
+	
+fam_prop returns [Map<String,Map<String,Object>> ret]
+	:	FAMILY	(n=identifier)? p=properties { $ret = ImmutableMap.<String,Map<String,Object>>of(n == null ? QueryConstants.ALL_FAMILY_PROPERTIES_KEY : SchemaUtil.normalizeIdentifier(n), p); }
+	;
+	
+column_def_name returns [ColumnDefName ret]
+    :   field=identifier {$ret = factory.columnDefName(field); }
+    |   family=identifier DOT field=identifier {$ret = factory.columnDefName(family, field); }
+    ;
+
+	
 // Parse a drop table statement.
 drop_table returns [DropTableStatement ret]
     :   DROP (ro=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
@@ -361,19 +388,8 @@ drop_table returns [DropTableStatement ret]
 // Parse an alter table statement.
 alter_table returns [AlterTableStatement ret]
     :   ALTER TABLE t=from_table_name
-        ( (DROP COLUMN (IF ex=EXISTS)? c=column_ref) | (ADD (IF NOT ex=EXISTS)? (cf=cf_def | d=key_column_def) ) )
-        {ret = ( c == null ? cf == null ? factory.addColumn(t, d, ex!=null) : factory.addColumnFamily(t,cf, ex!=null) : factory.dropColumn(t, c, ex!=null) ); }
-    ;
-
-cf_defs returns [List<ColumnFamilyDef> ret]
-@init{ret = new ArrayList<ColumnFamilyDef>(); }
-    :  (v = cf_def {$ret.add(v);} )*
-;
-
-cf_def returns [ColumnFamilyDef ret]
-    :   cf=identifier (LPAREN c=column_defs RPAREN)
-        (p=properties)?
-        {$ret = factory.columnFamilyDef(cf, c, p); }
+        ( (DROP COLUMN (IF ex=EXISTS)? c=column_ref) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) )
+        {ret = ( c == null ? factory.addColumn(t, d, ex!=null, p) : factory.dropColumn(t, c, ex!=null) ); }
     ;
 
 properties returns [Map<String,Object> ret]
@@ -395,17 +411,8 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   field=identifier dt=identifier (LPAREN l=NUMBER RPAREN)? 
-        {$ret = factory.columnDef(field, dt, true, l == null ? null : Integer.parseInt( l.getText() ) ); }
-    ;
-
-key_column_defs returns [List<ColumnDef> ret]
-@init{ret = new ArrayList<ColumnDef>(); }
-    :  v = key_column_def {$ret.add(v);}  (COMMA v = key_column_def {$ret.add(v);} )*
-;
-key_column_def returns [ColumnDef ret]
-    :   field=identifier dt=identifier (LPAREN l=NUMBER RPAREN)? (n=NOT? NULL)?
-        {$ret = factory.columnDef(field, dt, n==null, l == null ? null : Integer.parseInt( l.getText() ) ); }
+    :   c=column_def_name dt=identifier (LPAREN l=NUMBER RPAREN)?  (n=NOT? NULL)? (pk=PRIMARY KEY)?
+        {$ret = factory.columnDef(c, dt, n==null, l == null ? null : Integer.parseInt( l.getText() ), pk != null ); }
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
