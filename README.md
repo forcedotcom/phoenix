@@ -1,21 +1,21 @@
 <h1>Phoenix: JDBC Driver for HBase<br />
 <em><sup><sup>'We put the SQL back in the NoSQL'</sup></sup></em></h1>
-Phoenix is a SQL layer over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/Phoenix/), and read more on our [wiki](https://github.com/forcedotcom/Phoenix/wiki).
+Phoenix is a SQL layer over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), and read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki).
 ## Mission
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
 
 ## How It Works ##
 
-The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/Phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance](https://github.com/forcedotcom/Phoenix/wiki/Performance) on the order of milliseconds for small queries, or seconds for tens of millions of rows. 
+The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.com/phoenix/#select) into one or more HBase scans, and orchestrates their execution to produce standard JDBC result sets. Direct use of the HBase API, along with coprocessors and custom filters, results in [performance](https://github.com/forcedotcom/phoenix/wiki/Performance) on the order of milliseconds for small queries, or seconds for tens of millions of rows. 
 
-Tables are created and altered through [DDL statements](http://forcedotcom.github.com/Phoenix/#create), and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (see the [wiki](https://github.com/forcedotcom/Phoenix/wiki) for more details).
+Tables are created and altered through [DDL statements](http://forcedotcom.github.com/phoenix/#create), and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (see the [wiki](https://github.com/forcedotcom/phoenix/wiki) for more details).
 
 Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, and the connection url is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification. For example:
 
         Class.forName("com.salesforce.phoenix.jdbc.PhoenixDriver");
         Connection conn = DriverManager.getConnection("jdbc:phoenix:localhost");
 
-For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/Phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/Phoenix/wiki).
+For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/phoenix/wiki).
 
 ## System Requirements ##
 * HBase v 0.94.2 or higher
@@ -29,7 +29,7 @@ For detailed documentation on the current level of SQL support, see our [languag
 ## Installation ##
 To install a pre-built phoenix, use these directions:
 
-* Download the following two jars: [phoenix-1.0.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-1.0.jar) and [phoenix-1.0-client.jar](http://forcedotcom.github.com/Phoenix/lib/phoenix-1.0-client.jar)
+* Download the following two jars: [phoenix-1.0.jar](http://forcedotcom.github.com/phoenix/lib/phoenix-1.0.jar) and [phoenix-1.0-client.jar](http://forcedotcom.github.com/phoenix/lib/phoenix-1.0-client.jar)
 * Add the phoenix-1.0.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
 * Add the phoenix-1.0-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
