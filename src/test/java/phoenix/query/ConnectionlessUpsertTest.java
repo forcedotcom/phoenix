@@ -38,8 +38,8 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.junit.*;
 
-import phoenix.jdbc.PhoenixEmbeddedDriver;
 import phoenix.jdbc.PhoenixDriver;
+import phoenix.jdbc.PhoenixEmbeddedDriver;
 import phoenix.schema.PDataType;
 import phoenix.util.PhoenixRuntime;
 
@@ -66,12 +66,15 @@ public class ConnectionlessUpsertTest {
     
     @Test
     public void testConnectionlessUpsert() throws Exception {
-        String dmlStmt = "create table core.entity_history" +
-        "   (organization_id char(15) not null, \n" + 
+        String dmlStmt = "create table core.entity_history(\n" +
+        "    organization_id char(15) not null, \n" + 
         "    key_prefix char(3) not null,\n" +
-        "    entity_history_id char(12) not null)\n" + 
-        "    a(created_by varchar,\n" + 
-        "      created_date date)";
+        "    entity_history_id char(12) not null,\n" + 
+        "    created_by varchar,\n" + 
+        "    created_date date\n" +
+        "    CONSTRAINT pk PRIMARY KEY (organization_id, key_prefix, entity_history_id)\n" +
+        ")";
+        System.out.println(dmlStmt);
         Properties props = new Properties();
         Connection conn = DriverManager.getConnection(getUrl(), props);
         PreparedStatement statement = conn.prepareStatement(dmlStmt);

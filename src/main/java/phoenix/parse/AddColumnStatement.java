@@ -27,22 +27,18 @@
  ******************************************************************************/
 package phoenix.parse;
 
+import java.util.Collections;
+import java.util.Map;
+
 public class AddColumnStatement extends AlterTableStatement {
     private final ColumnDef columnDef;
-    private final ColumnFamilyDef columnFamilyDef;
     private final boolean ifNotExists;
+    private final Map<String,Object> props;
     
-    protected AddColumnStatement(TableName tableName, ColumnDef columnDef, boolean ifNotExists) {
+    protected AddColumnStatement(TableName tableName, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
         super(tableName);
         this.columnDef = columnDef;
-        this.columnFamilyDef = null;
-        this.ifNotExists = ifNotExists;
-    }
-
-    public AddColumnStatement(TableName tableName, ColumnFamilyDef columnFamilyDef, boolean ifNotExists) {
-        super(tableName);
-        this.columnFamilyDef = columnFamilyDef;
-        this.columnDef = null;
+        this.props = props == null ? Collections.<String,Object>emptyMap() : props;
         this.ifNotExists = ifNotExists;
     }
 
@@ -50,11 +46,11 @@ public class AddColumnStatement extends AlterTableStatement {
         return columnDef;
     }
 
-    public ColumnFamilyDef getColumnFamilyDef() {
-        return columnFamilyDef;
-    }
-
     public boolean ifNotExists() {
         return ifNotExists;
+    }
+
+    public Map<String,Object> getProps() {
+        return props;
     }
 }

@@ -82,6 +82,11 @@ public interface QueryConstants {
 
     public static final String EMPTY_COLUMN_NAME = "_0";
     public static final byte[] EMPTY_COLUMN_BYTES = Bytes.toBytes(EMPTY_COLUMN_NAME);
+    public static final String DEFAULT_COLUMN_FAMILY = EMPTY_COLUMN_NAME;
+    public static final PName DEFAULT_COLUMN_FAMILY_NAME = new PNameImpl(DEFAULT_COLUMN_FAMILY);
+    public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = DEFAULT_COLUMN_FAMILY_NAME.getBytes();
+    public static final String ALL_FAMILY_PROPERTIES_KEY = "";
+    public static final String SYSTEM_TABLE_PK_NAME = "pk";
     
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
@@ -89,14 +94,12 @@ public interface QueryConstants {
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
             TABLE_NAME_NAME + " VARCHAR NOT NULL," +
             COLUMN_NAME + " VARCHAR NULL," + // null only for table row
-            TABLE_CAT_NAME + " VARCHAR NULL)\n" + // using for CF - ensures uniqueness for columns
-            HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n" +
-            // KV columns
-            TABLE_FAMILY + "(" + 
+            TABLE_CAT_NAME + " VARCHAR NULL,\n" + // using for CF - ensures uniqueness for columns
             // Table metadata (will be null for column rows)
             TABLE_TYPE_NAME + " CHAR(1)," +
             REMARKS_NAME + " VARCHAR," +
             DATA_TYPE + " INTEGER," +
+            PK_NAME + " VARCHAR," +
             TYPE_NAME + " VARCHAR," +
             SELF_REFERENCING_COL_NAME_NAME + " VARCHAR," +
             REF_GENERATION_NAME + " VARCHAR," +
@@ -118,6 +121,8 @@ public interface QueryConstants {
             SCOPE_SCHEMA + " VARCHAR," +
             SCOPE_TABLE + " VARCHAR," +
             SOURCE_DATA_TYPE + " INTEGER," + // supposed to be SHORT
-            IS_AUTOINCREMENT + " VARCHAR)\n" +
-            HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS;
+            IS_AUTOINCREMENT + " VARCHAR\n" +
+            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + ")\n" +
+            "FAMILY " + HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ")\n" +
+            HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
 }

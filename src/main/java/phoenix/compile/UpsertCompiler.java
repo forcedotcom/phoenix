@@ -44,9 +44,7 @@ import phoenix.expression.function.CountAggregateFunction;
 import phoenix.iterate.ResultIterator;
 import phoenix.jdbc.*;
 import phoenix.parse.*;
-import phoenix.query.ConnectionQueryServices;
-import phoenix.query.QueryServices;
-import phoenix.query.QueryServicesOptions;
+import phoenix.query.*;
 import phoenix.query.Scanner;
 import phoenix.schema.*;
 import phoenix.schema.tuple.Tuple;
@@ -226,7 +224,7 @@ public class UpsertCompiler {
                     projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
                 }
                 // Build table from projectedColumns
-                PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), projectedColumns);
+                PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), projectedColumns);
                 
                 List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
                         NODE_FACTORY.aliasedNode(null, 

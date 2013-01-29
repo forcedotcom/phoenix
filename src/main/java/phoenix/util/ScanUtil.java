@@ -66,21 +66,34 @@ public class ScanUtil {
         return new ImmutableBytesWritable(tenantId);
     }
     
-    public static void intersectScanRange(Scan scan, byte[] startKey, byte[] stopKey) {
+    /**
+     * Intersects the scan start/stop row with the startKey and stopKey
+     * @param scan
+     * @param startKey
+     * @param stopKey
+     * @return false if the Scan cannot possibly return rows and true otherwise
+     */
+    public static boolean intersectScanRange(Scan scan, byte[] startKey, byte[] stopKey) {
+        boolean mayHaveRows = false;
         byte[] existingStartKey = scan.getStartRow();
         byte[] existingStopKey = scan.getStopRow();
         if (existingStartKey.length > 0) {
             if (startKey.length == 0 || Bytes.compareTo(existingStartKey, startKey) > 0) {
                 startKey = existingStartKey;
             }
+        } else {
+            mayHaveRows = true;
         }
         if (existingStopKey.length > 0) {
             if (stopKey.length == 0 || Bytes.compareTo(existingStopKey, stopKey) < 0) {
                 stopKey = existingStopKey;
             }
+        } else {
+            mayHaveRows = true;
         }
         scan.setStartRow(startKey);
         scan.setStopRow(stopKey);
+        return mayHaveRows || Bytes.compareTo(scan.getStartRow(), scan.getStopRow()) < 0;
     }
     
     public static void andFilter(Scan scan, Filter andWithFilter) {

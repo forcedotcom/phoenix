@@ -30,6 +30,7 @@ package phoenix.jdbc;
 import java.sql.*;
 import java.util.*;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -85,6 +86,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
     public static final String TYPE_NAME_NAME = "TYPE_NAME";
     public static final String SELF_REFERENCING_COL_NAME_NAME = "SELF_REFERENCING_COL_NAME";
     public static final String REF_GENERATION_NAME = "REF_GENERATION";
+    public static final String PK_NAME = "PK_NAME";
+    public static final byte[] PK_NAME_BYTES = Bytes.toBytes(PK_NAME);
     public static final String TABLE_SEQ_NUM = "TABLE_SEQ_NUM";
     public static final byte[] TABLE_SEQ_NUM_BYTES = Bytes.toBytes(TABLE_SEQ_NUM);
     public static final String COLUMN_COUNT = "COLUMN_COUNT";
@@ -110,8 +113,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
     public static final String SOURCE_DATA_TYPE = "SOURCE_DATA_TYPE";
     public static final String IS_AUTOINCREMENT = "IS_AUTOINCREMENT";
 
-    public static final String TABLE_FAMILY = QueryConstants.SINGLE_COLUMN_FAMILY_NAME.getString();
-    public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.SINGLE_COLUMN_FAMILY_NAME.getBytes();
+    public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getString();
+    public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getBytes();
     
     private static final int ROW_LIMIT = 1000000;
     private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList()));
@@ -471,18 +474,18 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
             return emptyResultSet;
         }
         final int keySeqPosition = 4;
+        final int pkNamePosition = 5;
         StringBuilder buf = new StringBuilder("select " + 
                 TABLE_CAT_NAME + "," + // use this column for column family name
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
                 COLUMN_NAME + "," +
-                "null as KEY_SEQ," + // TODO:
-                "null as PK_NAME" +
+                "null as KEY_SEQ," +
+                "PK_NAME" +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where ");
         buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
         buf.append(" and " + TABLE_NAME_NAME + " = '" + SchemaUtil.normalizeIdentifier(table) + "'" );
-        buf.append(" and " + COLUMN_NAME + " is not null" );
         buf.append(" and " + TABLE_CAT_NAME + " is null" );
         buf.append(" order by " + ORDINAL_POSITION);
         buf.append(" limit " + ROW_LIMIT);
@@ -491,6 +494,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
 
             @Override
             public PhoenixStatement newStatement(PhoenixConnection connection) {
+                final byte[] unsetValue = new byte[0];
+                final ImmutableBytesWritable pkNamePtr = new ImmutableBytesWritable(unsetValue);
                 final byte[] rowNumberHolder = new byte[PDataType.INTEGER.getMaxLength()];
                 return new PhoenixStatement(connection) {
                     @Override
@@ -514,6 +519,33 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
                                 },
                                 column.isCaseSensitive())
                         );
+                        column = columns.get(pkNamePosition);
+                        columns.set(pkNamePosition, new ExpressionProjector(column.getName(), column.getTableName(), 
+                                new BaseTerminalExpression() {
+                                    @Override
+                                    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+                                        if (pkNamePtr.get() == unsetValue) {
+                                            KeyValue kv = tuple.getValue(TABLE_FAMILY_BYTES, PK_NAME_BYTES);
+                                            if (kv == null) {
+                                                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                                                pkNamePtr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                                            } else {
+                                                ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
+                                                pkNamePtr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
+                                            }
+                                        } else {
+                                            ptr.set(pkNamePtr.get(),pkNamePtr.getOffset(),pkNamePtr.getLength());
+                                        }
+                                        return true;
+                                    }
+
+                                    @Override
+                                    public PDataType getDataType() {
+                                        return PDataType.VARCHAR;
+                                    }
+                                },
+                                column.isCaseSensitive())
+                        );
                         final RowProjector newProjector = new RowProjector(columns);
                         Scanner delegate = new DelegateScanner(scanner) {
                             @Override
@@ -527,7 +559,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
 
                                     @Override
                                     public Tuple next() throws SQLException {
-                                        PDataType.INTEGER.toBytes(++rowCount, rowNumberHolder, 0);
+                                        // Ignore first row, since it's the table row
+                                        PDataType.INTEGER.toBytes(rowCount++, rowNumberHolder, 0);
                                         return super.next();
                                     }
                                 };
@@ -541,7 +574,11 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, phoenix.jdbc.J
             }
             
         });
-        return stmt.executeQuery(buf.toString());
+        ResultSet rs = stmt.executeQuery(buf.toString());
+        if (rs.next()) { // Skip table row - we just use that to get the PK_NAME// Skip table row - we just use that to get the PK_NAME
+            rs.getString(pkNamePosition+1); // Hack to cause the statement to cache this value
+        }
+        return rs;
     }
 
     @Override

@@ -39,10 +39,8 @@ import phoenix.execute.MutationState;
 import phoenix.expression.RowKeyColumnExpression;
 import phoenix.iterate.MaterializedResultIterator;
 import phoenix.parse.*;
-import phoenix.query.QueryConstants;
-import phoenix.query.QueryServices;
+import phoenix.query.*;
 import phoenix.query.Scanner;
-import phoenix.query.WrappedScanner;
 import phoenix.schema.*;
 import phoenix.schema.tuple.SingleKeyValueTuple;
 import phoenix.schema.tuple.Tuple;
@@ -250,9 +248,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, phoenix.jdbc.J
     }
     
     private class ExecutableCreateTableStatement extends CreateTableStatement implements ExecutableStatement {
-        ExecutableCreateTableStatement(TableName tableName, Map<String,Object> props, List<ColumnDef> pkColumns,
-                List<ColumnFamilyDef> columnFamilies, List<ParseNode> splitNodes, boolean readOnly, boolean ifNotExists, int bindCount) {
-            super(tableName, props, pkColumns, columnFamilies, splitNodes, readOnly, ifNotExists, bindCount);
+        ExecutableCreateTableStatement(TableName tableName, Map<String,Object> props, List<ColumnDef> columnDefs, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
+            super(tableName, props, columnDefs, pkConstraint, familyProps, splitNodes, isView, ifNotExists, bindCount);
         }
 
         @Override
@@ -340,12 +337,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, phoenix.jdbc.J
 
     private class ExecutableAddColumnStatement extends AddColumnStatement implements ExecutableStatement {
 
-        ExecutableAddColumnStatement(TableName tableName, ColumnFamilyDef columnDef, boolean ifNotExists) {
-            super(tableName, columnDef, ifNotExists);
-        }
-
-        ExecutableAddColumnStatement(TableName tableName, ColumnDef columnDef, boolean ifNotExists) {
-            super(tableName, columnDef, ifNotExists);
+        ExecutableAddColumnStatement(TableName tableName, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
+            super(tableName, columnDef, ifNotExists, props);
         }
 
         @Override
@@ -538,18 +531,13 @@ public class PhoenixStatement implements Statement, SQLCloseable, phoenix.jdbc.J
         }
         
         @Override
-        public CreateTableStatement createTable(TableName tableName,  Map<String,Object> props, List<ColumnDef> pkColumns, List<ColumnFamilyDef> columnFamilies, List<ParseNode> splitNodes, boolean readOnly, boolean ifNotExists, int bindCount) {
-            return new ExecutableCreateTableStatement(tableName, props, pkColumns, columnFamilies, splitNodes, readOnly, ifNotExists, bindCount);
+        public CreateTableStatement createTable(TableName tableName, Map<String,Object> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
+            return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, familyProps, splits, readOnly, ifNotExists, bindCount);
         }
         
         @Override
-        public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists) {
-            return new ExecutableAddColumnStatement(tableName, columnDef, ifNotExists);
-        }
-        
-        @Override
-        public AddColumnStatement addColumnFamily(TableName tableName,  ColumnFamilyDef columnDef, boolean ifNotExists) {
-            return new ExecutableAddColumnStatement(tableName, columnDef, ifNotExists);
+        public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
+            return new ExecutableAddColumnStatement(tableName, columnDef, ifNotExists, props);
         }
         
         @Override

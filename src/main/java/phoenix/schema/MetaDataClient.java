@@ -48,8 +48,7 @@ import phoenix.parse.*;
 import phoenix.query.QueryConstants;
 import phoenix.util.SchemaUtil;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.*;
 
 public class MetaDataClient {
     private final PhoenixConnection connection;
@@ -111,6 +110,15 @@ public class MetaDataClient {
         return result.getMutationTime();
     }
     
+    private static final String CREATE_TABLE =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        TABLE_TYPE_NAME + "," +
+        TABLE_SEQ_NUM + "," +
+        COLUMN_COUNT + "," +
+        PK_NAME + 
+        ") VALUES (?, ?, ?, ?, ?, ?)";
     private static final String MUTATE_TABLE =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -155,10 +163,28 @@ public class MetaDataClient {
         colUpsert.setInt(8, column.getPosition()+1);
         colUpsert.execute();
     }
-    private PColumn newColumn(int position, PName familyName, ColumnDef def) throws SQLException {
+    
+    private PColumn newColumn(int position, ColumnDef def, Set<String> pkColumns) throws SQLException {
         try {
-            PColumn column = new PColumnImpl(new PNameImpl(def.getColumnName()),
-                    familyName, def.getDataType(), def.getMaxLength(), def.isNull(), position);
+            String columnName = def.getColumnDefName().getColumnName().getName();
+            PName familyName = null;
+            if (def.isPK() && !pkColumns.isEmpty() ) {
+                throw new SQLException("A column (" + columnName + ") may not be declared as a PRIMARY KEY when a PRIMARY KEY CONSTRAINT is present");
+            }
+            boolean isPK = def.isPK() || pkColumns.contains(columnName);
+            if (def.getColumnDefName().getFamilyName() != null) {
+                String family = def.getColumnDefName().getFamilyName().getName();
+                if (isPK) {
+                    throw new SQLException("A primary key column (" + columnName + ") may not have a family name (" + family + ")");
+                } else if (!def.isNull()) {
+                    throw new SQLException("A key/value column may not be declared as NOT NULL");
+                }
+                familyName = new PNameImpl(family);
+            } else if (!isPK) {
+                familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
+            }
+            PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName,
+                    def.getDataType(), def.getMaxLength(), def.isNull(), position);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);
@@ -178,37 +204,87 @@ public class MetaDataClient {
             TableName tableNameNode = statement.getTableName();
             String schemaName = tableNameNode.getSchemaName();
             String tableName = tableNameNode.getTableName();
+            
+            PrimaryKeyConstraint pkConstraint = statement.getPrimaryKeyConstraint();
+            String pkName = null;
+            Set<String> pkColumns = Collections.<String>emptySet();
+            Iterator<String> pkColumnsIterator = Iterators.emptyIterator();
+            if (pkConstraint != null) {
+                pkColumns = pkConstraint.getColumnNames();
+                pkColumnsIterator = pkColumns.iterator();
+                pkName = pkConstraint.getName();
+            }
     
-            List<PColumn> columns = Lists.newArrayListWithExpectedSize(10);
-            List<ColumnFamilyDef> cfDefs = statement.getColumnFamilies();
-            List<ColumnDef> pkDefs = statement.getPkColumns();
+            List<ColumnDef> colDefs = statement.getColumnDefs();
+            List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
             PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
             int columnOrdinal = 0;
-            for (ColumnDef pkDef : pkDefs) {
-                PColumn column = newColumn(columnOrdinal++,null,pkDef);
+            Map<String, PName> familyNames = Maps.newLinkedHashMap();
+            boolean isPK = false;
+            for (ColumnDef colDef : colDefs) {
+                if (colDef.isPK()) {
+                    if (isPK) {
+                        throw new SQLException("Only a single PRIMARY KEY constrain is allowed");
+                    }
+                    isPK = true;
+                }
+                PColumn column = newColumn(columnOrdinal++,colDef,pkColumns);
+                if (SchemaUtil.isPKColumn(column)) {
+                    // TODO: remove this constraint
+                    if (!pkColumns.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
+                        throw new SQLException("Order of columns in PRIMARY KEY constraint must match the order in which they're declared");
+                    }
+                }
                 columns.add(column);
-                if (pkDef.getDataType() == PDataType.BINARY && pkDefs.size() > 1) {
+                if (colDef.getDataType() == PDataType.BINARY && colDefs.size() > 1) {
                     throw new SQLException("The BINARY type may not be used as part of a multi-part row key");
                 }
+                if (column.getFamilyName() != null) {
+                    familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
+                }
+            }
+            if (!isPK && pkColumns.isEmpty()) {
+                throw new SQLException("A table must have a PRIMARY KEY");
             }
             
-            List<Pair<byte[],Map<String,Object>>> families = Lists.newArrayListWithExpectedSize(cfDefs.size());
-            for (ColumnFamilyDef cfDef : cfDefs) {
-                PName familyName = new PNameImpl(cfDef.getName());
-                if (isView && !cfDef.getProps().isEmpty()) {
-                    throw new SQLException("A VIEW may not contain column family configuration properties");
+            List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
+            Map<String,Object> commonFamilyProps = Collections.emptyMap();
+            if (statement.getFamilyProps() != null) {
+                if (statement.isView()) {
+                    throw new SQLException("Properties may not be defined for a VIEW");
                 }
-                families.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),cfDef.getProps()));
-                List<ColumnDef> cDefs = cfDef.getColumnDefs();
-                for (ColumnDef cDef : cDefs) {
-                    PColumn column = newColumn(columnOrdinal++,familyName,cDef);
-                    columns.add(column);
+                Map<String, Map<String,Object>> allFamilyProps = statement.getFamilyProps();
+                commonFamilyProps = statement.getFamilyProps().get(QueryConstants.ALL_FAMILY_PROPERTIES_KEY);
+                if (commonFamilyProps == null) {
+                    commonFamilyProps = Collections.emptyMap();
+                }
+                for (Map.Entry<String, Map<String,Object>> entry : allFamilyProps.entrySet()) {
+                    if (!entry.getKey().equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
+                        if (familyNames.get(entry.getKey()) == null) {
+                            throw new SQLException("Properties may not be defined for an unused family name (" + entry.getKey() + ")");
+                        }
+                    }
+                }
+            }
+                
+            for (PName familyName : familyNames.values()) {
+                Map<String,Object> familyProps = null;
+                if (statement.getFamilyProps() != null) {
+                    familyProps = statement.getFamilyProps().get(familyName.getString());
+                }
+                if (familyProps == null) {
+                    familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),commonFamilyProps));
+                } else {
+                    Map<String,Object> combinedFamilyProps = Maps.newHashMapWithExpectedSize(familyProps.size() + commonFamilyProps.size());
+                    combinedFamilyProps.putAll(commonFamilyProps);
+                    combinedFamilyProps.putAll(familyProps);
+                    familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),combinedFamilyProps));
                 }
             }
             
             // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
             if (tableType == PTableType.SYSTEM) {
-                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, columns);
+                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, QueryConstants.SYSTEM_TABLE_PK_NAME, columns);
                 connection.addTable(schemaName, table);
             }
             
@@ -216,18 +292,19 @@ public class MetaDataClient {
                 addColumnMutation(schemaName, tableName, column, colUpsert);
             }
             
-            PreparedStatement tableUpsert = connection.prepareStatement(MUTATE_TABLE);
+            PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
             tableUpsert.setString(1, schemaName);
             tableUpsert.setString(2, tableName);
             tableUpsert.setString(3, tableType.getSerializedValue());
             tableUpsert.setInt(4, 0);
             tableUpsert.setInt(5, columnOrdinal);
+            tableUpsert.setString(6, pkName);
             tableUpsert.execute();
             
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
     
-            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, statement.getProps(), families, splits);
+            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, statement.getProps(), familyPropList, splits);
             MutationCode code = result.getMutationCode();
             switch(code) {
             case TABLE_ALREADY_EXISTS:
@@ -242,7 +319,7 @@ public class MetaDataClient {
             case UNALLOWED_TABLE_MUTATION:
                 throw new SQLException("Not allowed to create " + SchemaUtil.getTableDisplayName(schemaName, tableName));
             default:
-                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, columns);
+                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, columns);
                 connection.addTable(schemaName, table);
                 if (tableType == PTableType.USER) {
                     connection.setAutoCommit(true);
@@ -376,27 +453,19 @@ public class MetaDataClient {
             while (true) {
                 int ordinalPosition = table.getColumns().size();
                     
-                List<PColumn> columns = Lists.newArrayListWithExpectedSize(3);
-                ColumnFamilyDef cfDef = statement.getColumnFamilyDef();
+                List<PColumn> columns = Lists.newArrayListWithExpectedSize(1);
+                ColumnDef colDef = statement.getColumnDef();
+                if (!colDef.isNull() && colDef.isPK()) {
+                    throw new SQLException("Only nullable PK columns may be added");
+                }
+                
                 PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
                 Pair<byte[],Map<String,Object>> family = null;
-                if (cfDef == null) {
-                    ColumnDef cdef = statement.getColumnDef();
-                    if (!cdef.isNull()) {
-                        throw new SQLException("Only nullable PK columns may be added");
-                    }
-                    PColumn column = newColumn(ordinalPosition++,null,cdef);
-                    addColumnMutation(schemaName, tableName, column, colUpsert);
-                    columns.add(column);
-                } else {
-                    PName familyName = new PNameImpl(cfDef.getName());
-                    List<ColumnDef> cDefs = cfDef.getColumnDefs();
-                    for (ColumnDef cDef : cDefs) {
-                        PColumn column = newColumn(ordinalPosition++,familyName,cDef);
-                        addColumnMutation(schemaName, tableName, column, colUpsert);
-                        columns.add(column);
-                    }
-                    family = new Pair<byte[],Map<String,Object>>(familyName.getBytes(),cfDef.getProps());
+                PColumn column = newColumn(ordinalPosition++,colDef,Collections.<String>emptySet());
+                addColumnMutation(schemaName, tableName, column, colUpsert);
+                columns.add(column);
+                if (column.getFamilyName() != null) {
+                    family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
                 }
                 final long seqNum = table.getSequenceNumber() + 1;
                 PreparedStatement tableUpsert = connection.prepareStatement(MUTATE_TABLE);
@@ -410,7 +479,7 @@ public class MetaDataClient {
                 final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
                 connection.rollback();
                 byte[] emptyCF = null;
-                if (table.getType() != PTableType.VIEW && cfDef != null && table.getColumnFamilies().isEmpty()) {
+                if (table.getType() != PTableType.VIEW && family != null && table.getColumnFamilies().isEmpty()) {
                     emptyCF = family.getFirst();
                 }
                 MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType() == PTableType.VIEW, family);

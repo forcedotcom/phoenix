@@ -177,4 +177,42 @@ public class MultiCfQueryExecTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
+    
+    @Test
+    public void testDefaultCFToDisambiguate() throws Exception {
+        long ts = nextTimestamp();
+        initTableValues(ts);
+        
+        String ddl = "ALTER TABLE multi_cf ADD response_time BIGINT";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 3);
+        Connection conn = DriverManager.getConnection(url);
+        conn.createStatement().execute(ddl);
+        conn.close();
+       
+        String dml = "upsert into " +
+        "MULTI_CF(" +
+        "    ID, " +
+        "    RESPONSE_TIME)" +
+        "VALUES ('000000000000003', 333)";
+        url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 4); // Run query at timestamp 5
+        conn = DriverManager.getConnection(url);
+        conn.createStatement().execute(dml);
+        conn.commit();
+        conn.close();
+
+        String query = "SELECT ID,RESPONSE_TIME from multi_cf where RESPONSE_TIME = 333";
+        url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        conn = DriverManager.getConnection(url);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals("000000000000003", rs.getString(1));
+            assertEquals(333, rs.getLong(2));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
 }

@@ -65,7 +65,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testCSVUpsert() throws Exception {
     	// Create table
-        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL PRIMARY KEY, COMPANY VARCHAR);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
@@ -94,7 +94,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testCSVUpsertWithColumns() throws Exception {
         // Create table
-        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL PRIMARY KEY, COMPANY VARCHAR);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
@@ -123,7 +123,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testCSVUpsertWithNoColumns() throws Exception {
         // Create table
-        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL PRIMARY KEY, COMPANY VARCHAR);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
@@ -151,7 +151,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testCSVUpsertWithBogusColumn() throws Exception {
         // Create table
-        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL PRIMARY KEY, COMPANY VARCHAR);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
@@ -178,7 +178,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testCSVUpsertWithAllColumn() throws Exception {
         // Create table
-        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL PRIMARY KEY, COMPANY VARCHAR);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
@@ -197,7 +197,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testCSVUpsertWithBogusColumnStrict() throws Exception {
         // Create table
-        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL) CF (COMPANY VARCHAR);";
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL PRIMARY KEY, COMPANY VARCHAR);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
@@ -218,8 +218,8 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     	// Create table
         String statements = "CREATE TABLE IF NOT EXISTS " 
         	    + DATATYPE_TABLE +
-        		" (CKEY VARCHAR NOT NULL) CF" +
-        		" (CVARCHAR VARCHAR, CINTEGER INTEGER, CDECIMAL DECIMAL, CUNSIGNED_INT UNSIGNED_INT, CBOOLEAN BOOLEAN, CBIGINT BIGINT, CUNSIGNED_LONG UNSIGNED_LONG, CTIME TIME, CDATE DATE);";
+        		" (CKEY VARCHAR NOT NULL PRIMARY KEY," +
+        		"  CVARCHAR VARCHAR, CINTEGER INTEGER, CDECIMAL DECIMAL, CUNSIGNED_INT UNSIGNED_INT, CBOOLEAN BOOLEAN, CBIGINT BIGINT, CUNSIGNED_LONG UNSIGNED_LONG, CTIME TIME, CDATE DATE);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         

@@ -67,6 +67,7 @@ public class PTableImpl implements PTable {
     private Map<byte[], PColumnFamily> familyByBytes;
     private Map<String, PColumnFamily> familyByString;
     private ListMultimap<String,PColumn> columnsByName;
+    private String pkName;
     
     public PTableImpl() {
     }
@@ -80,8 +81,8 @@ public class PTableImpl implements PTable {
         this.familyByString = Collections.emptyMap();
     }
 
-    public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns) {
-        init(name, type, timeStamp, sequenceNumber, columns);
+    public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
+        init(name, type, timeStamp, sequenceNumber, pkName, columns);
     }
     
     @Override
@@ -89,12 +90,13 @@ public class PTableImpl implements PTable {
         return name.getString();
     }
     
-    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns) {
+    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
         this.name = name;
         this.type = type;
         this.timeStamp = timeStamp;
         this.sequenceNumber = sequenceNumber;
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
+        this.pkName = pkName;
         List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
         PColumn[] allColumns = new PColumn[columns.size()];
         for (int i = 0; i < allColumns.length; i++) {
@@ -248,6 +250,12 @@ public class PTableImpl implements PTable {
             throw new ColumnNotFoundException(name);
         }
         if (size > 1) {
+            for (PColumn column : columns) {
+                if (QueryConstants.DEFAULT_COLUMN_FAMILY.equals(column.getFamilyName().getString())) {
+                    // Allow ambiguity with default column, since a user would not know how to prefix it.
+                    return column;
+                }
+            }
             throw new AmbiguousColumnException(name);
         }
         return columns.get(0);
@@ -292,10 +300,6 @@ public class PTableImpl implements PTable {
                     mutations.add(unsetValues);
                 }
             }
-            // This will never be the case, since at a minimum we're adding our emtpy KV
-//            if (mutations.isEmpty()) {
-//                throw new ConstraintViolationException(name.getString() + " row(" + Bytes.toStringBinary(key) + ") has no data");
-//            }
             return mutations;
         }
 
@@ -395,6 +399,8 @@ public class PTableImpl implements PTable {
         PTableType tableType = PTableType.values()[WritableUtils.readVInt(input)];
         long sequenceNumber = WritableUtils.readVLong(input);
         long timeStamp = input.readLong();
+        byte[] pkNameBytes = Bytes.readByteArray(input);
+        String pkName = pkNameBytes.length == 0 ? null : Bytes.toString(pkNameBytes);
         int nColumns = WritableUtils.readVInt(input);
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(nColumns);
         for (int i = 0; i < nColumns; i++) {
@@ -402,7 +408,7 @@ public class PTableImpl implements PTable {
             column.readFields(input);
             columns.add(column);
         }
-        init(tableName, tableType, timeStamp, sequenceNumber, columns);
+        init(tableName, tableType, timeStamp, sequenceNumber, pkName, columns);
     }
 
     @Override
@@ -411,6 +417,7 @@ public class PTableImpl implements PTable {
         WritableUtils.writeVInt(output, type.ordinal());
         WritableUtils.writeVLong(output, sequenceNumber);
         output.writeLong(timeStamp);
+        Bytes.writeByteArray(output, pkName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(pkName));
         WritableUtils.writeVInt(output, allColumns.size());
         for (int i = 0; i < allColumns.size(); i++) {
             PColumn column = allColumns.get(i);
@@ -435,5 +442,10 @@ public class PTableImpl implements PTable {
             throw new ColumnNotFoundException(name);
         }
         return columns.get(0);
+    }
+
+    @Override
+    public String getPKName() {
+        return pkName;
     }
 }

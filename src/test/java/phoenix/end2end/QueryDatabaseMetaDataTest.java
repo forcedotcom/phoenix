@@ -249,7 +249,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(null, rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("organization_id"), rs.getString("COLUMN_NAME"));
         assertEquals(1, rs.getInt("KEY_SEQ"));
-        assertEquals(null, rs.getString("PK_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("pk"), rs.getString("PK_NAME")); // TODO: this is on the table row
         
         assertTrue(rs.next());
         assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
@@ -257,7 +257,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(null, rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("key_prefix"), rs.getString("COLUMN_NAME"));
         assertEquals(2, rs.getInt("KEY_SEQ"));
-        assertEquals(null, rs.getString("PK_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("pk"), rs.getString("PK_NAME"));
         
         assertTrue(rs.next());
         assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
@@ -265,7 +265,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(null, rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("custom_entity_data_id"), rs.getString("COLUMN_NAME"));
         assertEquals(3, rs.getInt("KEY_SEQ"));
-        assertEquals(null, rs.getString("PK_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("pk"), rs.getString("PK_NAME"));
         
         assertFalse(rs.next());
         
@@ -311,12 +311,12 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),GROUPBYTEST_NAME);
-        assertEquals(SchemaUtil.normalizeIdentifier("s"), rs.getString("TABLE_CAT"));
+        assertEquals(PhoenixDatabaseMetaData.TABLE_FAMILY, rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("uri"), rs.getString("COLUMN_NAME"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),GROUPBYTEST_NAME);
-        assertEquals(SchemaUtil.normalizeIdentifier("s"), rs.getString("TABLE_CAT"));
+        assertEquals(PhoenixDatabaseMetaData.TABLE_FAMILY, rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("appcpu"), rs.getString("COLUMN_NAME"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
@@ -490,9 +490,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn1 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         String createStmt = "create view bogusTable" + 
-        "   (id char(1) not null)\n" + 
-        "    a(col1 integer)\n" +
-        "    d(col2 bigint)\n";
+        "   (id char(1) not null primary key,\n" + 
+        "    a.col1 integer,\n" +
+        "    d.col2 bigint)\n";
         try {
             conn1.createStatement().execute(createStmt);
             fail();
@@ -500,9 +500,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             // expected to fail b/c table doesn't exist
         }
         createStmt = "create view " + MDTEST_NAME + 
-                "   (id char(1) not null)\n" + 
-                "    a(col1 integer)\n" +
-                "    b(col2 bigint)\n";
+                "   (id char(1) not null primary key,\n" + 
+                "    a.col1 integer,\n" +
+                "    b.col2 bigint)\n";
         try {
             conn1.createStatement().execute(createStmt);
             fail();
@@ -510,9 +510,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             // expected to fail b/c cf a doesn't exist
         }
         createStmt = "create view " + MDTEST_NAME + 
-        "   (id char(1) not null)\n" + 
-        "    b(col1 integer)\n" +
-        "    c(col2 bigint)\n";
+        "   (id char(1) not null primary key,\n" + 
+        "    b.col1 integer,\n" +
+        "    c.col2 bigint)\n";
         try {
             conn1.createStatement().execute(createStmt);
             fail();
@@ -521,9 +521,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         }
 
         createStmt = "create view " + MDTEST_NAME + 
-        "   (id char(1) not null)\n" + 
-        "    b(col1 integer)\n" +
-        "    \"c\"(col2 bigint)\n";
+        "   (id char(1) not null primary key,\n" + 
+        "    b.col1 integer,\n" +
+        "    \"c\".col2 bigint)\n";
         // should be ok now
         conn1.createStatement().execute(createStmt);
         conn1.close();
@@ -597,7 +597,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn1 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD cf(z_integer integer)");
+        conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_integer integer");
         conn1.close();
  
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 6));
@@ -624,7 +624,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn1 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD newcf(z_integer integer)");
+        conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD newcf.z_integer integer");
         conn1.close();
  
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 6));
@@ -652,12 +652,12 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn1 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
-            conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_string varchar not null");
+            conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_string varchar not null primary key");
             fail();
         } catch (SQLException e) {
             assertTrue(e.getMessage().contains("Only nullable PK columns may be added"));
         }
-        conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_string varchar");
+        conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_string varchar primary key");
         conn1.close();
  
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 6));
@@ -705,7 +705,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
 
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 7));
         Connection conn7 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn7.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD cf(b_string VARCHAR)");
+        conn7.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD b_string VARCHAR");
         conn7.close();
     
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 8));

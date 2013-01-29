@@ -28,7 +28,8 @@
 package phoenix.compile;
 
 import static org.junit.Assert.*;
-import static phoenix.util.TestUtil.*;
+import static phoenix.util.TestUtil.TEST_PROPERTIES;
+import static phoenix.util.TestUtil.assertDegenerate;
 
 import java.sql.*;
 import java.util.*;
@@ -305,7 +306,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // Projects column family with not null column
         assertNull(scan.getFilter());
         assertEquals(1,scan.getFamilyMap().keySet().size());
-        assertTrue(Bytes.compareTo(Bytes.toBytes(SchemaUtil.normalizeIdentifier("a")),scan.getFamilyMap().keySet().iterator().next()) == 0);
+        assertTrue(Bytes.compareTo(Bytes.toBytes(SchemaUtil.normalizeIdentifier(QueryConstants.DEFAULT_COLUMN_FAMILY)),scan.getFamilyMap().keySet().iterator().next()) == 0);
     }
 
     @Test
@@ -317,7 +318,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         compileQuery(query, binds, scan);
         // Projects column family with not null column
         assertEquals(1,scan.getFamilyMap().keySet().size());
-        assertTrue(Bytes.compareTo(Bytes.toBytes(SchemaUtil.normalizeIdentifier("a")),scan.getFamilyMap().keySet().iterator().next()) == 0);
+        assertTrue(Bytes.compareTo(Bytes.toBytes(SchemaUtil.normalizeIdentifier(QueryConstants.DEFAULT_COLUMN_FAMILY)),scan.getFamilyMap().keySet().iterator().next()) == 0);
     }
 
     @Test
@@ -748,7 +749,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     @Test
     public void testCreateNullableInPKMiddle() throws Exception {
         long ts = nextTimestamp();
-        String query = "CREATE TABLE foo(i integer not null, j integer null, k integer not null)";
+        String query = "CREATE TABLE foo(i integer not null, j integer null, k integer not null CONSTRAINT pk PRIMARY KEY(i,j,k))";
         String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Connection conn = DriverManager.getConnection(url);
         try {

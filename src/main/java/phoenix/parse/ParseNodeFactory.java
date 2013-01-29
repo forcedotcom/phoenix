@@ -214,24 +214,28 @@ public class ParseNodeFactory {
         return new ColumnParseNode(tableName,name);
     }
     
-    public ColumnDef columnDef(String columnName, String sqlTypeName, boolean isNull, Integer maxLength) {
-        return new ColumnDef(columnName, sqlTypeName, isNull, maxLength);
+    public ColumnDefName columnDefName(String columnName) {
+        return new ColumnDefName(columnName);
     }
 
-    public ColumnFamilyDef columnFamilyDef(String familyName, List<ColumnDef> columns, Map<String,Object> props) {
-        return new ColumnFamilyDef(familyName, columns, props);
+    public ColumnDefName columnDefName(String familyName, String columnName) {
+        return new ColumnDefName(familyName, columnName);
     }
 
-    public CreateTableStatement createTable(TableName tableName, Map<String,Object> props, List<ColumnDef> pkColumns, List<ColumnFamilyDef> columnFamilies, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
-        return new CreateTableStatement(tableName, props, pkColumns, columnFamilies, splits, readOnly, ifNotExists, bindCount);
+    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, boolean isPK) {
+        return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, isPK);
+    }
+
+    public PrimaryKeyConstraint primaryKey(String name, List<String> columnNames) {
+        return new PrimaryKeyConstraint(name, columnNames);
     }
     
-    public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists) {
-        return new AddColumnStatement(tableName, columnDef, ifNotExists);
+    public CreateTableStatement createTable(TableName tableName, Map<String,Object> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
+        return new CreateTableStatement(tableName, props, columns, pkConstraint, familyProps, splits, readOnly, ifNotExists, bindCount);
     }
     
-    public AddColumnStatement addColumnFamily(TableName tableName, ColumnFamilyDef columnFamDef, boolean ifNotExists) {
-        return new AddColumnStatement(tableName, columnFamDef, ifNotExists);
+    public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
+        return new AddColumnStatement(tableName, columnDef, ifNotExists, props);
     }
     
     public DropColumnStatement dropColumn(TableName tableName,  ParseNode columnNode, boolean ifExists) {

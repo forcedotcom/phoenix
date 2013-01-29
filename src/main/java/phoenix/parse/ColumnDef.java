@@ -38,13 +38,14 @@ import phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class ColumnDef {
-    private final String columnName;
+    private final ColumnDefName columnDefName;
     private final PDataType dataType;
     private final boolean isNull;
     private final Integer maxLength;
+    private final boolean isPK;
     
-    ColumnDef(String columnName, String sqlTypeName, boolean isNull, Integer maxLength) {
-        this.columnName = SchemaUtil.normalizeIdentifier(columnName);
+    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, boolean isPK) {
+        this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;
         if (this.dataType == PDataType.CHAR) {
@@ -55,10 +56,11 @@ public class ColumnDef {
             maxLength = null;
         }
         this.maxLength = maxLength;
+        this.isPK = isPK;
     }
 
-    public String getColumnName() {
-        return columnName;
+    public ColumnDefName getColumnDefName() {
+        return columnDefName;
     }
 
     public PDataType getDataType() {
@@ -71,5 +73,9 @@ public class ColumnDef {
 
     public Integer getMaxLength() {
         return maxLength;
+    }
+
+    public boolean isPK() {
+        return isPK;
     }
 }

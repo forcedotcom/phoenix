@@ -99,10 +99,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue TABLE_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES);
     private static final KeyValue TABLE_SEQ_NUM_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TABLE_SEQ_NUM_BYTES);
     private static final KeyValue COLUMN_COUNT_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES);
+    private static final KeyValue PK_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, PK_NAME_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
-            COLUMN_COUNT_KV
+            COLUMN_COUNT_KV,
+            PK_NAME_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -110,6 +112,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int TABLE_TYPE_INDEX = TABLE_KV_COLUMNS.indexOf(TABLE_TYPE_KV);
     private static final int TABLE_SEQ_NUM_INDEX = TABLE_KV_COLUMNS.indexOf(TABLE_SEQ_NUM_KV);
     private static final int COLUMN_COUNT_INDEX = TABLE_KV_COLUMNS.indexOf(COLUMN_COUNT_KV);
+    private static final int PK_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(PK_NAME_KV);
     
     // KeyValues for Column
     private static final KeyValue COLUMN_SIZE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(COLUMN_SIZE));
@@ -187,7 +190,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 j++;
             }
         }
-        if (nFound < TABLE_KV_COLUMNS.size()) {
+        if (nFound < TABLE_KV_COLUMNS.size()-1 ||
+            (nFound == TABLE_KV_COLUMNS.size()-1 && tableKeyValues[PK_NAME_INDEX] != null) ) { // PK_NAME is optional
             throw new IllegalStateException("Didn't find expected expected key values for table row in metadata row");
         }
         KeyValue tableTypeKv = tableKeyValues[TABLE_TYPE_INDEX];
@@ -196,6 +200,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         long tableSeqNum = LongNative.getInstance().toLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), PDataType.LONG.getMaxLength());
         KeyValue columnCountKv = tableKeyValues[COLUMN_COUNT_INDEX];
         int columnCount = IntNative.getInstance().toInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset(), columnCountKv.getValueLength());
+        KeyValue pkNameKv = tableKeyValues[PK_NAME_INDEX];
+        String pkName = null;
+        if (pkNameKv != null) {
+            pkName = (String)PDataType.VARCHAR.toObject(pkNameKv.getBuffer(), pkNameKv.getValueOffset(), pkNameKv.getValueLength());
+        }
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         while (true) {
@@ -242,7 +251,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             columns.add(column);
         }
         
-        return new PTableImpl(tableName, tableType, timeStamp, tableSeqNum, columns);
+        return new PTableImpl(tableName, tableType, timeStamp, tableSeqNum, pkName, columns);
     }
     
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {

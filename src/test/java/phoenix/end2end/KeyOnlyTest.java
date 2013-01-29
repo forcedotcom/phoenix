@@ -61,7 +61,7 @@ public class KeyOnlyTest extends BaseClientMangedTimeTest {
         
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+6));
         Connection conn6 = DriverManager.getConnection(getUrl(), props);
-        conn6.createStatement().execute("ALTER TABLE KEYONLY ADD cf(s1 varchar)");
+        conn6.createStatement().execute("ALTER TABLE KEYONLY ADD s1 varchar");
         conn6.close();
         
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+7));

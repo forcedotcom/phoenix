@@ -58,7 +58,7 @@ import phoenix.schema.PTableImpl;
 public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final long VERSION = 2L;
     public static final long MIN_TABLE_TIMESTAMP = 0;
-    public static final int DEFAULT_MAX_META_DATA_VERSIONS = 10000;
+    public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
     
     public enum MutationCode {
         TABLE_ALREADY_EXISTS,

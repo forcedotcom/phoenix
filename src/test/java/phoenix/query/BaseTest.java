@@ -52,129 +52,138 @@ public abstract class BaseTest {
         ImmutableMap.Builder<String,String> builder = ImmutableMap.builder();
         builder.put(ATABLE_NAME,"create table " + ATABLE_NAME +
         		"   (organization_id char(15) not null, \n" + 
-        		"    entity_id char(15) not null)\n" + 
-        		"    cf(a_string varchar(100),\n" + 
-        		"       b_string varchar(100),\n" + 
-        		"       a_integer integer,\n" + 
-        		"       a_date date,\n" + 
-        		"       a_time time,\n" + 
-        		"       a_timestamp timestamp,\n" + 
-        		"       x_decimal decimal,\n" + 
-        		"       x_long bigint,\n" + 
-        		"       x_integer integer,\n" + 
-        		"       y_integer integer)");
+        		"    entity_id char(15) not null,\n" + 
+        		"    a_string varchar(100),\n" + 
+        		"    b_string varchar(100),\n" + 
+        		"    a_integer integer,\n" + 
+        		"    a_date date,\n" + 
+        		"    a_time time,\n" + 
+        		"    a_timestamp timestamp,\n" + 
+        		"    x_decimal decimal,\n" + 
+        		"    x_long bigint,\n" + 
+        		"    x_integer integer,\n" + 
+        		"    y_integer integer\n" +
+        		"    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
+        		")");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
         		"   (a_string varchar not null, \n" + 
                 "    a_id char(3) not null,\n" + 
                 "    b_string varchar not null, \n" + 
                 "    a_integer integer not null, \n" + 
-                "    c_string varchar(2) null)\n" + 
-                "    cf(b_integer integer,\n" + 
-                "       c_integer integer,\n" + 
-                "       d_string varchar(3),\n" + 
-                "       e_string char(10))");
+                "    c_string varchar(2) null,\n" + 
+                "    b_integer integer,\n" + 
+                "    c_integer integer,\n" + 
+                "    d_string varchar(3),\n" + 
+                "    e_string char(10)\n" +
+                "    CONSTRAINT my_pk PRIMARY KEY (a_string,a_id,b_string,a_integer,c_string))");
         builder.put(STABLE_NAME,"create table " + STABLE_NAME +
-                "   (id char(1) not null)\n" + 
-                "    cf(value integer)");
+                "   (id char(1) not null primary key,\n" + 
+                "    value integer)");
         builder.put(PTSDB_NAME,"create table " + PTSDB_NAME +
         		"   (inst varchar null,\n" + 
         		"    host varchar null,\n" + 
-        		"    date date not null)\n" + 
-        		"    a(val decimal)");
+        		"    date date not null,\n" + 
+        		"    val decimal\n" +
+        		"    CONSTRAINT pk PRIMARY KEY (inst, host, date))");
         builder.put(FUNKY_NAME,"create table " + FUNKY_NAME +
-        		"   (\"foo!\" varchar not null)\n" + 
-        		"    \"1\"(\"#@$\" varchar, \n" + 
-        		"        \"foo.bar-bas\" varchar, \n" + 
-        		"        \"Value\" integer,\n" +
-                "        \"VALUE\" integer,\n" +
-                "        \"value\" integer,\n" +
-        		"            \"_blah^\" varchar)"
+        		"   (\"foo!\" varchar not null primary key,\n" + 
+        		"    \"1\".\"#@$\" varchar, \n" + 
+        		"    \"1\".\"foo.bar-bas\" varchar, \n" + 
+        		"    \"1\".\"Value\" integer,\n" +
+                "    \"1\".\"VALUE\" integer,\n" +
+                "    \"1\".\"value\" integer,\n" +
+        		"    \"1\".\"_blah^\" varchar)"
         		);
         builder.put(KEYONLY_NAME,"create table " + KEYONLY_NAME +
-                "   (i1 integer not null, i2 integer not null)");
+                "   (i1 integer not null, i2 integer not null\n" +
+                "    CONSTRAINT pk PRIMARY KEY (i1,i2))");
         builder.put(MDTEST_NAME,"create table " + MDTEST_NAME +
-                "   (id char(1) not null)\n" + 
-                "    a(col1 integer)\n" +
-                     HConstants.VERSIONS + "=" + 1 + "," + HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE +  "'\n" +
-                "    b(col2 bigint)\n");
+                "   (id char(1) not null primary key,\n" + 
+                "    a.col1 integer,\n" +
+                "    b.col2 bigint\n" +
+                "    FAMILY a " + HConstants.VERSIONS + "=" + 1 + "," + HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE +  "')");
         builder.put(MULTI_CF_NAME,"create table " + MULTI_CF_NAME +
-        		"   (id char(15) not null)\n" + 
-        		"    a(unique_user_count integer)\n" + 
-        		"    b(unique_org_count integer)\n" + 
-        		"    c(db_cpu_utilization decimal)\n" + 
-        		"    d(transaction_count bigint)\n" + 
-        		"    e(cpu_utilization decimal)\n" + 
-        		"    f(response_time bigint)\n" +
-                "    g(response_time bigint)");
+        		"   (id char(15) not null primary key,\n" + 
+        		"    a.unique_user_count integer,\n" + 
+        		"    b.unique_org_count integer,\n" + 
+        		"    c.db_cpu_utilization decimal,\n" + 
+        		"    d.transaction_count bigint,\n" + 
+        		"    e.cpu_utilization decimal,\n" + 
+        		"    f.response_time bigint,\n" +
+                "    g.response_time bigint)");
         builder.put(GROUPBYTEST_NAME,"create table " + GROUPBYTEST_NAME +
-                "   (id varchar not null)\n" + 
-                "    s(uri varchar, appcpu integer)");
+                "   (id varchar not null primary key,\n" + 
+                "    uri varchar, appcpu integer)");
         builder.put(HBASE_NATIVE,"create table " + HBASE_NATIVE + 
                 "   (uint_key unsigned_int not null," +
                 "    ulong_key unsigned_long not null," +
-                "    string_key varchar not null)\n" +
-                "    \"1\"(uint_col unsigned_int," +
-                "          ulong_col unsigned_long)\n" +
+                "    string_key varchar not null,\n" +
+                "    \"1\".uint_col unsigned_int," +
+                "    \"1\".ulong_col unsigned_long" +
+                "    CONSTRAINT pk PRIMARY KEY (uint_key, ulong_key, string_key))\n" +
                      HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE + "'");
         builder.put(PRODUCT_METRICS_NAME,"create table " + PRODUCT_METRICS_NAME +
                 "   (organization_id char(15) not null," +
                 "    date date not null," +
                 "    feature char(1) not null," +
-                "    unique_users integer not null)\n" + 
-                "    a(db_utilization decimal,\n" + 
-                "      transactions bigint,\n" + 
-                "      cpu_utilization decimal,\n" + 
-                "      response_time bigint,\n" + 
-                "      io_time bigint,\n" + 
-                "      region varchar,\n" +
-                "      unset_column decimal)");
+                "    unique_users integer not null,\n" + 
+                "    db_utilization decimal,\n" + 
+                "    transactions bigint,\n" + 
+                "    cpu_utilization decimal,\n" + 
+                "    response_time bigint,\n" + 
+                "    io_time bigint,\n" + 
+                "    region varchar,\n" +
+                "    unset_column decimal\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, DATe, feature, UNIQUE_USERS))");
         builder.put(CUSTOM_ENTITY_DATA_FULL_NAME,"create table " + CUSTOM_ENTITY_DATA_FULL_NAME +
                 "   (organization_id char(15) not null, \n" + 
                 "    key_prefix char(3) not null,\n" +
-                "    custom_entity_data_id char(12) not null)\n" + 
-                "    a(created_by varchar,\n" + 
-                "      created_date date,\n" + 
-                "      currency_iso_code char(3),\n" + 
-                "      deleted char(1),\n" + 
-                "      division decimal,\n" + 
-                "      last_activity date,\n" + 
-                "      last_update date,\n" + 
-                "      last_update_by varchar,\n" + 
-                "      name varchar(240),\n" + 
-                "      owner varchar,\n" + 
-                "      record_type_id char(15),\n" + 
-                "      setup_owner varchar,\n" + 
-                "      system_modstamp date)\n" + 
-                "    b(val0 varchar,\n" + 
-                "      val1 varchar,\n" + 
-                "      val2 varchar,\n" + 
-                "      val3 varchar,\n" + 
-                "      val4 varchar,\n" + 
-                "      val5 varchar,\n" + 
-                "      val6 varchar,\n" + 
-                "      val7 varchar,\n" + 
-                "      val8 varchar,\n" + 
-                "      val9 varchar)");
+                "    custom_entity_data_id char(12) not null,\n" + 
+                "    created_by varchar,\n" + 
+                "    created_date date,\n" + 
+                "    currency_iso_code char(3),\n" + 
+                "    deleted char(1),\n" + 
+                "    division decimal,\n" + 
+                "    last_activity date,\n" + 
+                "    last_update date,\n" + 
+                "    last_update_by varchar,\n" + 
+                "    name varchar(240),\n" + 
+                "    owner varchar,\n" + 
+                "    record_type_id char(15),\n" + 
+                "    setup_owner varchar,\n" + 
+                "    system_modstamp date,\n" + 
+                "    b.val0 varchar,\n" + 
+                "    b.val1 varchar,\n" + 
+                "    b.val2 varchar,\n" + 
+                "    b.val3 varchar,\n" + 
+                "    b.val4 varchar,\n" + 
+                "    b.val5 varchar,\n" + 
+                "    b.val6 varchar,\n" + 
+                "    b.val7 varchar,\n" + 
+                "    b.val8 varchar,\n" + 
+                "    b.val9 varchar\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, key_prefix, custom_entity_data_id))");
         builder.put("IntKeyTest","create table IntKeyTest" +
-                "   (i integer not null)");
+                "   (i integer not null primary key)");
         builder.put("IntIntKeyTest","create table IntIntKeyTest" +
-                "   (i integer not null) a(j integer)");
+                "   (i integer not null primary key, j integer)");
         builder.put("LongInKeyTest","create table LongInKeyTest" +
-                "   (l bigint not null)");
+                "   (l bigint not null primary key)");
         builder.put("PKIntValueTest", "create table PKIntValueTest" + 
-                "   (pk integer not null)");
+                "   (pk integer not null primary key)");
         builder.put("PKBigIntValueTest", "create table PKBigIntValueTest" + 
-                "   (pk bigint not null)");
+                "   (pk bigint not null primary key)");
         builder.put("PKUnsignedIntValueTest", "create table PKUnsignedIntValueTest" + 
-                "   (pk unsigned_int not null)");
+                "   (pk unsigned_int not null primary key)");
         builder.put("PKUnsignedLongValueTest", "create table PKUnsignedLongValueTest" + 
-                "   (pk unsigned_long not null)");
+                "   (pk unsigned_long not null\n" +
+                "    CONSTRAINT pk PRIMARY KEY (unsigned_long))");
         builder.put("KVIntValueTest", "create table KVIntValueTest" + 
-                "   (pk integer not null)\n" +
-                "   cf(kv integer)\n");
+                "   (pk integer not null primary key,\n" +
+                "    kv integer)\n");
         builder.put("KVBigIntValueTest", "create table KVBigIntValueTest" + 
-                "   (pk integer not null)\n" +
-                "   cf(kv bigint)\n");
+                "   (pk integer not null primary key,\n" +
+                "    kv bigint)\n");
         tableDDLMap = builder.build();
     }
     

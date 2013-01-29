@@ -37,20 +37,22 @@ import com.google.common.collect.ImmutableList;
 public class CreateTableStatement implements SQLStatement {
     private final TableName tableName;
     private final PTableType tableType;
-    private final List<ColumnDef> pkColumns;
-    private final List<ColumnFamilyDef> columnFamilies;
+    private final List<ColumnDef> columns;
+    private final PrimaryKeyConstraint pkConstraint;
+    private final Map<String,Map<String,Object>> familyProps;
     private final List<ParseNode> splitNodes;
     private final int bindCount;
     private final Map<String,Object> props;
     private final boolean isView;
     private final boolean ifNotExists;
     
-    protected CreateTableStatement(TableName tableName, Map<String,Object> props, List<ColumnDef> pkColumns, List<ColumnFamilyDef> columnFamilies, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
+    protected CreateTableStatement(TableName tableName, Map<String,Object> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
         this.tableName = tableName;
         this.props = props == null ? Collections.<String,Object>emptyMap() : props;
         this.tableType = PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(tableName.getSchemaName()) ? PTableType.SYSTEM : isView ? PTableType.VIEW : PTableType.USER;
-        this.pkColumns = ImmutableList.copyOf(pkColumns);
-        this.columnFamilies = ImmutableList.copyOf(columnFamilies);
+        this.columns = ImmutableList.copyOf(columns);
+        this.pkConstraint = pkConstraint;
+        this.familyProps = familyProps;
         this.splitNodes = splitNodes == null ? Collections.<ParseNode>emptyList() : ImmutableList.copyOf(splitNodes);
         this.bindCount = bindCount;
         this.isView = isView;
@@ -66,12 +68,8 @@ public class CreateTableStatement implements SQLStatement {
         return tableName;
     }
 
-    public List<ColumnDef> getPkColumns() {
-        return pkColumns;
-    }
-
-    public List<ColumnFamilyDef> getColumnFamilies() {
-        return columnFamilies;
+    public List<ColumnDef> getColumnDefs() {
+        return columns;
     }
 
     public List<ParseNode> getSplitNodes() {
@@ -92,6 +90,14 @@ public class CreateTableStatement implements SQLStatement {
 
     public boolean ifNotExists() {
         return ifNotExists;
+    }
+
+    public PrimaryKeyConstraint getPrimaryKeyConstraint() {
+        return pkConstraint;
+    }
+
+    public Map<String,Map<String,Object>> getFamilyProps() {
+        return familyProps;
     }
 
 }

@@ -90,7 +90,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
 
     @Override
     public String toString() {
-        return Bytes.toStringBinary(cf) + QueryConstants.NAME_SEPARATOR + Bytes.toStringBinary(cq);
+        return (Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? "" : (Bytes.toStringBinary(cf) + QueryConstants.NAME_SEPARATOR)) + Bytes.toStringBinary(cq);
     }
 
     @Override

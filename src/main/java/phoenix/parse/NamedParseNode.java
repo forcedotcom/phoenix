@@ -27,7 +27,6 @@
  ******************************************************************************/
 package phoenix.parse;
 
-import phoenix.util.SchemaUtil;
 
 /**
  * 
@@ -37,19 +36,17 @@ import phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public abstract class NamedParseNode extends TerminalParseNode{
-    private final String name;
-    private final boolean isCaseSensitive;
+    private final NamedNode namedNode;
     
     NamedParseNode(String name) {
-        this.name = SchemaUtil.normalizeIdentifier(name);
-        this.isCaseSensitive = SchemaUtil.isCaseSensitive(name);
+        this.namedNode = new NamedNode(name);
     }
 
     public String getName() {
-        return name;
+        return namedNode.getName();
     }
 
     public boolean isCaseSensitive() {
-        return isCaseSensitive;
+        return namedNode.isCaseSensitive();
     }
 }

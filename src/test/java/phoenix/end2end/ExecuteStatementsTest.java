@@ -43,7 +43,6 @@ import phoenix.util.PhoenixRuntime;
 
 public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
     
-    // TODO: move this last once we delete data on a drop table command
     @Test
     public void testExecuteStatements() throws Exception {
         String tenantId = getOrganizationId();
@@ -51,16 +50,18 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
         String statements = 
             "create table if not exists " + ATABLE_NAME + // Shouldn't error out b/c of if not exists clause
             "   (organization_id char(15) not null, \n" + 
-            "    entity_id char(15) not null)\n" + 
-            "    cf(a_string varchar(100),\n" + 
-            "       b_string varchar(100));\n" + 
+            "    entity_id char(15) not null,\n" + 
+            "    a_string varchar(100),\n" + 
+            "    b_string varchar(100)\n" +
+            "    CONSTRAINT pk PRIMARY KEY (organization_id,entity_id));\n" + 
             "create table " + PTSDB_NAME +
             "   (inst varchar null,\n" + 
             "    host varchar null,\n" + 
-            "    date date not null)\n" + 
-            "    a(val decimal)\n" +
+            "    date date not null,\n" + 
+            "    val decimal\n" +
+            "    CONSTRAINT pk PRIMARY KEY (inst,host,date))\n" +
             "    split on (?,?,?);\n" +
-            "alter table " + PTSDB_NAME + " add if not exists a(val decimal);\n" +  // Shouldn't error out b/c of if not exists clause
+            "alter table " + PTSDB_NAME + " add if not exists val decimal;\n" +  // Shouldn't error out b/c of if not exists clause
             "alter table " + PTSDB_NAME + " drop column if exists blah;\n" +  // Shouldn't error out b/c of if exists clause
             "drop table if exists FOO.BAR;\n" + // Shouldn't error out b/c of if exists clause
             "UPSERT INTO " + PTSDB_NAME + "(date, val, host) " +

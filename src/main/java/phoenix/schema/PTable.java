@@ -54,6 +54,8 @@ public interface PTable extends Writable {
      */
     PTableType getType();
     
+    String getPKName();
+    
     /**
      * Get the PK columns ordered by position.
      * @return a list of the PK columns

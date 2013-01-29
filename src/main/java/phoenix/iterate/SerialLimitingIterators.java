@@ -45,6 +45,8 @@ import phoenix.schema.TableRef;
 import phoenix.util.SQLCloseables;
 import phoenix.util.ScanUtil;
 
+import com.google.common.collect.Lists;
+
 
 /**
  * 
@@ -60,57 +62,62 @@ public class SerialLimitingIterators extends ExplainTable implements ResultItera
 
     private final long limit;
     private final RowCounter rowCounter;
-    private final Set<HRegionInfo> regions;
+    private final List<Scan> regionScans;
 
     
     public SerialLimitingIterators(StatementContext context, TableRef table, long limit, RowCounter rowCounter) throws SQLException {
         super(context, table);
         this.limit = limit;
         this.rowCounter = rowCounter;
-        // TODO: intersect regions with scan and filter if out of range
-        this.regions = context.getConnection().getQueryServices().getAllTableRegions(this.table);
+        Set<HRegionInfo> regions = context.getConnection().getQueryServices().getAllTableRegions(this.table);
+        regionScans = Lists.newArrayListWithExpectedSize(regions.size());
+        for (HRegionInfo region : regions) {
+            Scan regionScan;
+            try {
+                regionScan = new Scan(context.getScan());
+            } catch (IOException e) {
+                throw new SQLException(e);
+            }
+            // Intersect with existing start/stop key
+            if (ScanUtil.intersectScanRange(regionScan, region.getStartKey(), region.getEndKey())) {
+                regionScans.add(regionScan);
+            }
+        }
     }
     
     @Override
     public List<PeekingResultIterator> getIterators() throws SQLException {
         ConnectionQueryServices services = context.getConnection().getQueryServices();
         Configuration config = services.getConfig();
+        List<PeekingResultIterator> iterators = new ArrayList<PeekingResultIterator>(regionScans.size());
+        MemoryManager mm = services.getMemoryManager();
+        int spoolThresholdBytes = config.getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, DEFAULT_SPOOL_THRESHOLD_BYTES);
+        boolean success = false;
+        long rowCount = 0;
         try {
-            List<PeekingResultIterator> iterators = new ArrayList<PeekingResultIterator>(regions.size());
-            MemoryManager mm = services.getMemoryManager();
-            int spoolThresholdBytes = config.getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, DEFAULT_SPOOL_THRESHOLD_BYTES);
-            boolean success = false;
-            long rowCount = 0;
-            try {
-                for (HRegionInfo region : regions) {
-                    Scan regionScan = new Scan(context.getScan());
-                    // Intersect with existing start/stop key
-                    ScanUtil.intersectScanRange(regionScan, region.getStartKey(), region.getEndKey());
-                    ScanUtil.andFilter(regionScan, new PageFilter(limit - rowCount));
-                    ResultIterator scanner = new TableResultIterator(context, this.table, regionScan);
-                    SpoolingResultIterator iterator = new SpoolingResultIterator(scanner, mm, spoolThresholdBytes, rowCounter);
-                    rowCount += iterator.getRowCount();
-                    iterators.add(iterator);
-                    assert(rowCount <= limit);
-                    if (rowCount == limit) {
-                        break;
-                    }
-                }
-                success = true;
-                return iterators;
-            } finally {
-                if (!success) {
-                    SQLCloseables.closeAllQuietly(iterators);
+            for (Scan regionScan : regionScans) {
+                ScanUtil.andFilter(regionScan, new PageFilter(limit - rowCount));
+                ResultIterator scanner = new TableResultIterator(context, this.table, regionScan);
+                SpoolingResultIterator iterator = new SpoolingResultIterator(scanner, mm, spoolThresholdBytes, rowCounter);
+                rowCount += iterator.getRowCount();
+                iterators.add(iterator);
+                assert(rowCount <= limit);
+                if (rowCount == limit) {
+                    break;
                 }
             }
-        } catch (IOException e) {
-            throw new SQLException(e);
+            success = true;
+            return iterators;
+        } finally {
+            if (!success) {
+                SQLCloseables.closeAllQuietly(iterators);
+            }
         }
     }
 
     @Override
     public int size() {
-        return regions.size();
+        return regionScans.size();
     }
 
 
