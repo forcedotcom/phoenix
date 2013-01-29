@@ -842,6 +842,9 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> Improve more tests for substr and rtrim
 =======
 >>>>>>> Improve more tests for substr and rtrim
 =======
@@ -867,6 +870,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         assertTrue(scan.getFilter() != null);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     public void testRTrimFuncSetScanKey() throws Exception {
         
@@ -883,5 +887,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testRTrimFuncSetScanKey() throws Exception {
         
 >>>>>>> improve trim test
+=======
+>>>>>>> Improve more tests for substr and rtrim
     }
 }
