@@ -75,7 +75,7 @@ public class SubstrFunction extends ScalarFunction {
         super(children);
         init();
     }
-    
+
     private void init() {
         isOffsetConstant = getOffsetExpression() instanceof LiteralExpression;
         isLengthConstant = getLengthExpression() instanceof LiteralExpression;
@@ -100,7 +100,7 @@ public class SubstrFunction extends ScalarFunction {
             }
         }
     }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         // TODO: multi-byte characters
@@ -110,7 +110,7 @@ public class SubstrFunction extends ScalarFunction {
         }
         LongNative longNative = (LongNative)offsetExpression.getDataType().getNative();
         int offset = (int)longNative.toLong(ptr);
-
+        
         int length = -1;
         if (hasLengthExpression) {
             Expression lengthExpression = getLengthExpression();
@@ -129,7 +129,7 @@ public class SubstrFunction extends ScalarFunction {
         }
         
         int strlen = ptr.getLength();
-
+        
         // Account for 1 versus 0-based offset
         offset = offset - (offset <= 0 ? 0 : 1);
         if (offset < 0) { // Offset < 0 means get from end
@@ -158,7 +158,7 @@ public class SubstrFunction extends ScalarFunction {
     public Integer getMaxLength() {
         return maxLength;
     }
-    
+
     @Override
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
@@ -176,7 +176,7 @@ public class SubstrFunction extends ScalarFunction {
     private Expression getLengthExpression() {
         return children.get(2);
     }
-    
+
     @Override
     public boolean preservesOrder() {
         if (isOffsetConstant) {
