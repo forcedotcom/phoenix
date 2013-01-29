@@ -840,6 +840,9 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> Improve more tests for substr and rtrim
 =======
 >>>>>>> Improve more tests for substr and rtrim
     public void testSubstrSetScanKey() throws Exception {
@@ -862,6 +865,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(Bytes.toBytes("abc\1"), scan.getStopRow()) == 0);
         assertTrue(scan.getFilter() != null);
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     public void testRTrimFuncSetScanKey() throws Exception {
         
@@ -872,5 +876,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testRTrimFuncSetScanKey() throws Exception {
         
 >>>>>>> improve trim test
+=======
+>>>>>>> Improve more tests for substr and rtrim
     }
 }
