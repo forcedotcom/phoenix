@@ -32,12 +32,12 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 import java.sql.*;
 import java.util.*;
 
+import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
-
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.*;
@@ -249,35 +249,43 @@ public class MetaDataClient {
             
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
             Map<String,Object> commonFamilyProps = Collections.emptyMap();
-            if (statement.getFamilyProps() != null) {
+            Map<String,Object> tableProps = Collections.emptyMap();
+            if (!statement.getProps().isEmpty()) {
                 if (statement.isView()) {
                     throw new SQLException("Properties may not be defined for a VIEW");
                 }
-                Map<String, Map<String,Object>> allFamilyProps = statement.getFamilyProps();
-                commonFamilyProps = statement.getFamilyProps().get(QueryConstants.ALL_FAMILY_PROPERTIES_KEY);
-                if (commonFamilyProps == null) {
-                    commonFamilyProps = Collections.emptyMap();
-                }
-                for (Map.Entry<String, Map<String,Object>> entry : allFamilyProps.entrySet()) {
-                    if (!entry.getKey().equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
-                        if (familyNames.get(entry.getKey()) == null) {
-                            throw new SQLException("Properties may not be defined for an unused family name (" + entry.getKey() + ")");
+                for (String familyName : statement.getProps().keySet()) {
+                    if (!familyName.equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
+                        if (familyNames.get(familyName) == null) {
+                            throw new SQLException("Properties may not be defined for an unused family name (" + familyName + ")");
                         }
+                    }
+                }
+                commonFamilyProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
+                tableProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
+                
+                Collection<Pair<String,Object>> props = statement.getProps().get(QueryConstants.ALL_FAMILY_PROPERTIES_KEY);
+                // Somewhat hacky way of determining if property is for HColumnDescriptor or HTableDescriptor
+                HColumnDescriptor defaultDescriptor = new HColumnDescriptor(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES);
+                for (Pair<String,Object> prop : props) {
+                    if (defaultDescriptor.getValue(prop.getFirst()) != null) {
+                        commonFamilyProps.put(prop.getFirst(), prop.getSecond());
+                    } else {
+                        tableProps.put(prop.getFirst(), prop.getSecond());
                     }
                 }
             }
                 
             for (PName familyName : familyNames.values()) {
-                Map<String,Object> familyProps = null;
-                if (statement.getFamilyProps() != null) {
-                    familyProps = statement.getFamilyProps().get(familyName.getString());
-                }
-                if (familyProps == null) {
+                Collection<Pair<String,Object>> props = statement.getProps().get(familyName.getString());
+                if (props.isEmpty()) {
                     familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),commonFamilyProps));
                 } else {
-                    Map<String,Object> combinedFamilyProps = Maps.newHashMapWithExpectedSize(familyProps.size() + commonFamilyProps.size());
+                    Map<String,Object> combinedFamilyProps = Maps.newHashMapWithExpectedSize(props.size() + commonFamilyProps.size());
                     combinedFamilyProps.putAll(commonFamilyProps);
-                    combinedFamilyProps.putAll(familyProps);
+                    for (Pair<String,Object> prop : props) {
+                        combinedFamilyProps.put(prop.getFirst(), prop.getSecond());
+                    }
                     familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),combinedFamilyProps));
                 }
             }
@@ -304,7 +312,7 @@ public class MetaDataClient {
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
     
-            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, statement.getProps(), familyPropList, splits);
+            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
             switch(code) {
             case TABLE_ALREADY_EXISTS:

@@ -39,8 +39,6 @@ import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
-import com.salesforce.phoenix.compile.QueryCompiler;
-import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.expression.aggregator.*;
@@ -82,6 +80,81 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             }
         } catch (SQLException e) {
             assertTrue(e.getMessage().contains("Parameter 2 is unbound"));
+        }
+    }
+
+    @Test
+    public void testMultiPKDef() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (pk1 integer not null primary key, pk2 bigint not null primary key)";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage().contains("Only a single PRIMARY KEY constrain is allowed"));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPKDefAndPKConstraint() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (pk integer not null primary key, col1 decimal, col2 decimal constraint my_pk primary key (col1,col2))";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage().contains("may not be declared as a PRIMARY KEY when a PRIMARY KEY CONSTRAINT is present"));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testFamilyNameInPK() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (a.pk integer not null primary key, col1 decimal, col2 decimal)";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage().contains("may not have a family name"));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testNoPK() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (pk integer not null, col1 decimal, col2 decimal)";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage().contains("A table must have a PRIMARY KEY"));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testUnknownFamilyNameInTableOption() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (pk integer not null primary key, a.col1 decimal, b.col2 decimal) c.my_property='foo'";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage().contains("Properties may not be defined for an unused family name"));
+        } finally {
+            conn.close();
         }
     }
 

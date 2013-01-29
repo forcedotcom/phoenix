@@ -62,7 +62,7 @@ DELETE FROM TEST WHERE NAME LIKE 'foo%';
 
 "Commands","CREATE","
 CREATE { TABLE | VIEW } [IF NOT EXISTS] tableName
-( column [,...] [constraint] [ familyOptions [...] ] )
+( column [,...] [constraint] )
 [tableOptions] [ SPLIT ON ( splitPoint [,...] ) ]
 ","
 Creates a new table or view. For the creation of a table, the HBase table and any column families referenced are created
@@ -78,9 +78,9 @@ be passed through as key/value pairs to setup the HBase table as needed.
 
 ","
 CREATE TABLE my_table ( id BIGINT not null primary key, date DATE not null)
-CREATE TABLE my_table ( id INTEGER not null primary key, date DATE not null, m.db_utilization DECIMAL, i.db_utilization FAMILY m DATA_BLOCK_ENCODING='DIFF')
+CREATE TABLE my_table ( id INTEGER not null primary key, date DATE not null, m.db_utilization DECIMAL, i.db_utilization) m.DATA_BLOCK_ENCODING='DIFF'
 CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null, txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )
-CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer FAMILY DATA_BLOCK_ENCODING='NONE',VERSIONS=? ) MAX_FILESIZE=2000000 split on (?, ?, ?)
+CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer) DATA_BLOCK_ENCODING='NONE',VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)
 "
 
 "Commands","DROP","
@@ -96,7 +96,7 @@ DROP VIEW my_view
 "
 
 "Commands","ALTER TABLE","
-ALTER TABLE tableName { { ADD [IF NOT EXISTS] column [familyOptions] } | { DROP COLUMN [IF EXISTS] [ familyName. ] columnName } }
+ALTER TABLE tableName { { ADD [IF NOT EXISTS] column [options] } | { DROP COLUMN [IF EXISTS] [ familyName. ] columnName } }
 ","
 Adds or removes a column from an existing table or view. When a column is dropped from a table, the data in
 that column is deleted as well. PK columns may not be dropped, and only nullable PK columns may be added. For a view,
@@ -132,21 +132,24 @@ Defines a multi-part primary key constraint.
 CONSTRAINT my_pk PRIMARY KEY (host,created_date)
 "
 
-"Other Grammar","Family Options","
-FAMILY [familyName] options
+"Other Grammar","Table Options","
+{ [familyName .] name= {value | bindParameter}} [,...]
 ","
-Sets an option on an HBase column descriptor by modifying the HBase table metadata.
-The options apply to the named family or if omitted to all families.
+Sets an option on an HBase table or column by modifying the respective HBase metadata.
+The option applies to the named family or if omitted to all families if the name
+references an HColumnDescriptor property. Otherwise, the option applies to the
+HTableDescriptor.
+
 
 ","
-FAMILY DATA_BLOCK_ENCODING='NONE'
-FAMILY d DATA_BLOCK_ENCODING='NONE',VERSIONS=?
+DATA_BLOCK_ENCODING='NONE',a.VERSIONS=10
+MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
 "
 
 "Other Grammar","Options","
 {name= {value | bindParameter}} [,...]
 ","
-Sets an option on an HBase table or column by modifying the HBase table.
+Sets an option on an HBase column by modifying the HColumnDescriptor.
 
 ","
 DATA_BLOCK_ENCODING='NONE',VERSIONS=10
@@ -651,6 +654,30 @@ will be returned.
 ","
 SUBSTR('[Hello]', 2, 5)
 SUBSTR('Hello World', -5)
+"
+
+"Functions (String)","TRIM","
+TRIM( stringTerm )
+","
+Removes leading and trailing spaces from the input string.
+","
+TRIM('  Hello  ')
+"
+
+"Functions (String)","LTRIM","
+LTRIM( stringTerm )
+","
+Removes leading spaces from the input string.
+","
+LTRIM('  Hello')
+"
+
+"Functions (String)","RTRIM","
+RTRIM( stringTerm )
+","
+Removes trailing spaces from the input string.
+","
+RTRIM('Hello   ')
 "
 
 "Functions (String)","LENGTH","

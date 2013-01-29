@@ -27,10 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
+import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.*;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.PTableType;
 
@@ -39,20 +41,18 @@ public class CreateTableStatement implements SQLStatement {
     private final PTableType tableType;
     private final List<ColumnDef> columns;
     private final PrimaryKeyConstraint pkConstraint;
-    private final Map<String,Map<String,Object>> familyProps;
     private final List<ParseNode> splitNodes;
     private final int bindCount;
-    private final Map<String,Object> props;
+    private final ListMultimap<String,Pair<String,Object>> props;
     private final boolean isView;
     private final boolean ifNotExists;
     
-    protected CreateTableStatement(TableName tableName, Map<String,Object> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, Map<String,Map<String,Object>> familyProps, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
+    protected CreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
         this.tableName = tableName;
-        this.props = props == null ? Collections.<String,Object>emptyMap() : props;
+        this.props = props == null ? ImmutableListMultimap.<String,Pair<String,Object>>of() : props;
         this.tableType = PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(tableName.getSchemaName()) ? PTableType.SYSTEM : isView ? PTableType.VIEW : PTableType.USER;
         this.columns = ImmutableList.copyOf(columns);
         this.pkConstraint = pkConstraint;
-        this.familyProps = familyProps;
         this.splitNodes = splitNodes == null ? Collections.<ParseNode>emptyList() : ImmutableList.copyOf(splitNodes);
         this.bindCount = bindCount;
         this.isView = isView;
@@ -80,7 +80,7 @@ public class CreateTableStatement implements SQLStatement {
         return tableType;
     }
 
-    public Map<String,Object> getProps() {
+    public ListMultimap<String,Pair<String,Object>> getProps() {
         return props;
     }
 
@@ -95,9 +95,4 @@ public class CreateTableStatement implements SQLStatement {
     public PrimaryKeyConstraint getPrimaryKeyConstraint() {
         return pkConstraint;
     }
-
-    public Map<String,Map<String,Object>> getFamilyProps() {
-        return familyProps;
-    }
-
 }

@@ -40,10 +40,8 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.junit.AfterClass;
 
-
 import com.google.common.collect.ImmutableMap;
 import com.salesforce.phoenix.jdbc.PhoenixTestDriver;
-import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
@@ -101,8 +99,8 @@ public abstract class BaseTest {
         builder.put(MDTEST_NAME,"create table " + MDTEST_NAME +
                 "   (id char(1) not null primary key,\n" + 
                 "    a.col1 integer,\n" +
-                "    b.col2 bigint\n" +
-                "    FAMILY a " + HConstants.VERSIONS + "=" + 1 + "," + HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE +  "')");
+                "    b.col2 bigint)\n" +
+                "    a." + HConstants.VERSIONS + "=" + 1 + "," + "a." + HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE +  "'");
         builder.put(MULTI_CF_NAME,"create table " + MULTI_CF_NAME +
         		"   (id char(15) not null primary key,\n" + 
         		"    a.unique_user_count integer,\n" + 
