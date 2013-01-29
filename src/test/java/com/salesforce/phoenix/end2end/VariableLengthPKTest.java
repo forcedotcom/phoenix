@@ -129,6 +129,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(1, "   def");
         stmt.execute();
         stmt.setString(1, "jkl   ");
+        stmt.setString(1, "jkl...");
         stmt.execute();
         stmt.setString(1, "   ghi   ");
         stmt.execute();
