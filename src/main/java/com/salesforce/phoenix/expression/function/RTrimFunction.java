@@ -95,7 +95,7 @@ public class RTrimFunction extends ScalarFunction {
 
     @Override
     public boolean preservesOrder() {
-        return false;
+        return true;
     }
 
     @Override
