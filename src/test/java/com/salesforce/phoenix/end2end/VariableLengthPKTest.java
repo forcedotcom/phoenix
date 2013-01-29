@@ -908,19 +908,19 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testSubstrFunction() throws Exception {
         long ts = nextTimestamp();
         String query[] = {
-//            "SELECT substr('ABC',-1,1) FROM BTABLE LIMIT 1",
-//            "SELECT substr('ABC',-4,1) FROM BTABLE LIMIT 1",
-//            "SELECT substr('ABC',2,4) FROM BTABLE LIMIT 1",
-//            "SELECT substr('ABC',1,1) FROM BTABLE LIMIT 1",
-//            "SELECT substr('ABC',0,1) FROM BTABLE LIMIT 1",
+            "SELECT substr('ABC',-1,1) FROM BTABLE LIMIT 1",
+            "SELECT substr('ABC',-4,1) FROM BTABLE LIMIT 1",
+            "SELECT substr('ABC',2,4) FROM BTABLE LIMIT 1",
+            "SELECT substr('ABC',1,1) FROM BTABLE LIMIT 1",
+            "SELECT substr('ABC',0,1) FROM BTABLE LIMIT 1",
             "SELECT A_STRING FROM BTABLE WHERE substr(A_STRING, 0, 3)='jkl'",
         };
         String result[] = {
-//            "C",
-//            null,
-//            "BC",
-//            "A",
-//            "A",
+            "C",
+            null,
+            "BC",
+            "A",
+            "A",
             "jkl   ",
         };
         assertEquals(query.length,result.length);
