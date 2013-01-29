@@ -238,7 +238,7 @@
                 <index>true</index>
                 <manifest>
                   <addClasspath>true</addClasspath>
-                  <mainClass>phoenix.util.PhoenixRuntime</mainClass>
+                  <mainClass>com.salesforce.phoenix.util.PhoenixRuntime</mainClass>
                   <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                   <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                 </manifest>
