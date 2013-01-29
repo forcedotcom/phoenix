@@ -841,6 +841,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> Improve more tests for substr and rtrim
 =======
@@ -878,5 +879,9 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
 >>>>>>> improve trim test
 =======
 >>>>>>> Improve more tests for substr and rtrim
+=======
+    public void testRTrimFuncSetScanKey() throws Exception {
+        
+>>>>>>> improve trim test
     }
 }
