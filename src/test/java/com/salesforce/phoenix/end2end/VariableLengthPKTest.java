@@ -927,7 +927,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT substr('ĎďĒ',2,2) FROM BTABLE LIMIT 1",
             "SELECT substr('ĎďĒ',-1,1) FROM BTABLE LIMIT 1",
             "SELECT substr('Ďďɚʍ',2,4) FROM BTABLE LIMIT 1",
-//            "SELECT A_STRING FROM BTABLE WHERE substr(A_STRING, 0, 3)='jkl'",
+            "SELECT A_STRING FROM BTABLE WHERE substr(A_STRING, 0, 3)='jkl'",
         };
         String result[] = {
             "C",
@@ -943,7 +943,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "ďĒ",
             "Ē",
             "ďɚʍ",
-//            "jkl   ",
+            "jkl   ",
         };
         assertEquals(query.length,result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
@@ -1371,6 +1371,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             for (int i = 0; i < query.length; i++) {
+                System.out.println(query[i]);
                 PreparedStatement statement = conn.prepareStatement(query[i]);
                 ResultSet rs = statement.executeQuery();
                 assertTrue(rs.next());
