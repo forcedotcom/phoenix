@@ -349,7 +349,7 @@ alterTable returns [AlterTableStatement ret]
 // Parse a create table statement.
 create_table returns [CreateTableStatement ret]
     :   CREATE (ro=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
-        (LPAREN cdefs=column_defs (pk=pk_constraint)? (fp=fam_properties)? RPAREN)
+        (LPAREN cdefs=column_defs (pk=pk_constraint)? (fp=fam_props)? RPAREN)
         (p=properties)?
         (SPLIT ON v=values)?
         {ret = factory.createTable(t, p, cdefs, pk, fp, v, ro!=null, ex!=null, getBindCount()); }
@@ -364,7 +364,12 @@ identifiers returns [List<String> ret]
     :  c = identifier {$ret.add(c);}  (COMMA c = identifier {$ret.add(c);} )*
 ;
 
-fam_properties returns [Map<String,Map<String,Object>> ret]
+fam_props returns [Map<String,Map<String,Object>> ret]
+@init{ret = new HashMap<String,Map<String,Object>>(); }
+	:	(fp=fam_prop {$ret.putAll(fp);} )+
+	;
+	
+fam_prop returns [Map<String,Map<String,Object>> ret]
 	:	FAMILY	(n=identifier)? p=properties { $ret = ImmutableMap.<String,Map<String,Object>>of(n == null ? QueryConstants.ALL_FAMILY_PROPERTIES_KEY : SchemaUtil.normalizeIdentifier(n), p); }
 	;
 	

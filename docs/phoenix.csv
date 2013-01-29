@@ -62,9 +62,10 @@ DELETE FROM TEST WHERE NAME LIKE 'foo%';
 
 "Commands","CREATE","
 CREATE { TABLE | VIEW } [IF NOT EXISTS] tableName
-( pkColumn [...] ) [tableOptions] [columnFamily [...]] [ SPLIT ON ( splitPoint [,...] ) ]
+( column [,...] [constraint] [ familyOptions [...] ] )
+[tableOptions] [ SPLIT ON ( splitPoint [,...] ) ]
 ","
-Creates a new table or view. For the creation of a table, the HBase table and any column families defined are created
+Creates a new table or view. For the creation of a table, the HBase table and any column families referenced are created
 if they don't already exist (using uppercase names unless they are double quoted in which case they are case sensitive).
 Column families outside of the ones listed are not affected.
 At create time, an empty key value is added to the first column family of any existing rows. Upserts will also add this empty key value. This
@@ -76,10 +77,10 @@ a table. For a table only, HBase table and column configuration options may
 be passed through as key/value pairs to setup the HBase table as needed.
 
 ","
-CREATE TABLE my_table ( id BIGINT not null, date DATE not null)
-CREATE TABLE my_schema.my_table ( pkCol1 char(10) not null) my_family ( kvCol1 varchar )
-CREATE TABLE my_schema.my_table ( pkCol1 char(10) not null, pkCol2 integer ) my_family ( kvCol1 varchar )
-CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null) MAX_FILESIZE=2000000 cf1 ( value integer ) DATA_BLOCK_ENCODING='NONE',VERSIONS=? split on (?, ?, ?)
+CREATE TABLE my_table ( id BIGINT not null primary key, date DATE not null)
+CREATE TABLE my_table ( id INTEGER not null primary key, date DATE not null, m.db_utilization DECIMAL, i.db_utilization FAMILY m DATA_BLOCK_ENCODING='DIFF')
+CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null, txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )
+CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer FAMILY DATA_BLOCK_ENCODING='NONE',VERSIONS=? ) MAX_FILESIZE=2000000 split on (?, ?, ?)
 "
 
 "Commands","DROP","
@@ -87,7 +88,7 @@ DROP {TABLE | VIEW} [IF EXISTS] tableName
 ","
 Drops a table or view. When dropping a table, the data in the table is deleted. For a view, on the other hand, the data
 is not affected. Note that the schema is versioned, such that snapshot queries connecting at an earlier time stamp may
-still query against the dropped table.
+still query against the dropped table, as the HBase table itself is not deleted.
 
 ","
 DROP TABLE my_schema.my_table
@@ -95,7 +96,7 @@ DROP VIEW my_view
 "
 
 "Commands","ALTER TABLE","
-ALTER TABLE tableName { { ADD [IF NOT EXISTS] { pkColumn | columnFamily }  } | { DROP COLUMN [IF EXISTS] [ columnFamilyName. ] columnName } }
+ALTER TABLE tableName { { ADD [IF NOT EXISTS] column [familyOptions] } | { DROP COLUMN [IF EXISTS] [ familyName. ] columnName } }
 ","
 Adds or removes a column from an existing table or view. When a column is dropped from a table, the data in
 that column is deleted as well. PK columns may not be dropped, and only nullable PK columns may be added. For a view,
@@ -104,9 +105,10 @@ only affects subsequent queries and data modifications. Snapshot queries that ar
 will still use the prior schema that was in place when the data was written.
 
 ","
-ALTER TABLE my_schema.my_table ADD cf2 (dept_id char(10), dept_name varchar) VERSIONS=10
-ALTER TABLE my_table ADD parent_id char(15)
-ALTER TABLE my_table DROP COLUMN cf2.dept_id
+ALTER TABLE my_schema.my_table ADD d.dept_id char(10) VERSIONS=10
+ALTER TABLE my_table ADD dept_name char(50)
+ALTER TABLE my_table ADD parent_id char(15) null primary key
+ALTER TABLE my_table DROP COLUMN d.dept_id
 ALTER TABLE my_table DROP COLUMN dept_name
 ALTER TABLE my_table DROP COLUMN parent_id
 "
@@ -121,16 +123,24 @@ EXPLAIN SELECT NAME, COUNT(*) FROM TEST GROUP BY NAME HAVING COUNT(*) > 2;
 EXPLAIN SELECT entity_id FROM CORE.CUSTOM_ENTITY_DATA WHERE organization_id='00D300000000XHP' AND SUBSTR(entity_id,1,3) = '002' AND created_date < CURRENT_DATE()-1;
 "
 
-"Other Grammar","Column Family","
-columnFamilyName ( { columnName dataType } [,...] ) [columnFamilyOptions]
+"Other Grammar","Constraint","
+CONSTRAINT constraintName PRIMARY KEY (columnName [,...])
 ","
-Define a new column family and its columns. The column family is created
-in HBase if it doesn't already exist (using uppercase names by default
-unless double quoted).
+Defines a multi-part primary key constraint.
 
 ","
-my_family ( col1 varchar(1000) )
-cf (col1 integer, col2 char(20) )
+CONSTRAINT my_pk PRIMARY KEY (host,created_date)
+"
+
+"Other Grammar","Family Options","
+FAMILY [familyName] options
+","
+Sets an option on an HBase column descriptor by modifying the HBase table metadata.
+The options apply to the named family or if omitted to all families.
+
+","
+FAMILY DATA_BLOCK_ENCODING='NONE'
+FAMILY d DATA_BLOCK_ENCODING='NONE',VERSIONS=?
 "
 
 "Other Grammar","Options","
@@ -143,16 +153,16 @@ DATA_BLOCK_ENCODING='NONE',VERSIONS=10
 MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
 "
 
-"Other Grammar","PK Column","
-columnName dataType [[NOT] NULL]
+"Other Grammar","Column","
+[familyName .] columnName dataType [[NOT] NULL] [PRIMARY KEY]
 ","
 Define a new primary key column. The column name is case insensitive by default and
 case sensitive if double quoted.
 
 ","
-id char(15) not null
-key bigint null
-col1 integer
+id char(15) not null primary key
+key integer null
+m.response_time bigint
 "
 
 "Other Grammar","Select Expression","
