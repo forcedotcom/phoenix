@@ -81,7 +81,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         ensureTableCreated(getUrl(),BTABLE_NAME,splits, ts-2);
         conn.setAutoCommit(false);
         
-            // Insert all rows at ts
+        // Insert all rows at ts
         stmt = conn.prepareStatement(
                 "upsert into " +
                 "BTABLE(" +
