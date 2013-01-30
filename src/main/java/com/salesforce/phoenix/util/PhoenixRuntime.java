@@ -83,7 +83,7 @@ public class PhoenixRuntime {
     private static final String CSV_FILE_EXT = ".csv";
     
     private static void usageError() {
-        System.err.println("Usage: psql [-t table-name] [-h comma-separated-column-names | in-line] <connection-url>  <path-to-sql-or-csv-file>...\n" +
+        System.err.println("Usage: psql [-t table-name] [-h comma-separated-column-names | in-line] <zookeeper>  <path-to-sql-or-csv-file>...\n" +
                 "  By default, the name of the CSV file is used to determine the Phoenix table into which the CSV data is loaded\n" +
                 "  and the ordinal value of the columns determines the mapping.\n" +
                 "  -t overrides the table into which the CSV data is loaded\n" +
@@ -92,10 +92,10 @@ public class PhoenixRuntime {
                 "     determines the column to which the data maps.\n" +
                 "  -s uses strict mode by throwing an exception if a column name doesn't match during CSV loading.\n" +
                 "Examples:\n" +
-                "  psql jdbc:phoenix:localhost my_ddl.sql\n" +
-                "  psql jdbc:phoenix:localhost my_ddl.sql my_table.csv\n" +
-                "  psql jdbc:phoenix:my_cluster:1825 -t my_table my_table2012-Q3.csv\n" +
-                "  psql jdbc:phoenix:my_cluster -t my_table -h col1,col2,col3 my_table2012-Q3.csv\n"
+                "  psql localhost my_ddl.sql\n" +
+                "  psql localhost my_ddl.sql my_table.csv\n" +
+                "  psql my_cluster:1825 -t my_table my_table2012-Q3.csv\n" +
+                "  psql my_cluster -t my_table -h col1,col2,col3 my_table2012-Q3.csv\n"
         );
         System.exit(-1);
     }
@@ -150,7 +150,8 @@ public class PhoenixRuntime {
             
             Properties props = new Properties();
             Class.forName(PhoenixDriver.class.getName());
-            PhoenixConnection conn = DriverManager.getConnection(args[i++]).unwrap(PhoenixConnection.class);
+            String connectionUrl = EMBEDDED_JDBC_PROTOCOL + args[i++];
+            PhoenixConnection conn = DriverManager.getConnection(connectionUrl).unwrap(PhoenixConnection.class);
             
             for (; i < args.length; i++) {
                 String fileName = args[i];
@@ -172,7 +173,7 @@ public class PhoenixRuntime {
                     scn++;
                     props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, scn.toString());
                     conn.close();
-                    conn = DriverManager.getConnection(args[0], props).unwrap(PhoenixConnection.class);
+                    conn = DriverManager.getConnection(connectionUrl, props).unwrap(PhoenixConnection.class);
                 }
             }
         } catch (Throwable t) {
