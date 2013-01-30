@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.salesforce</groupId>
   <artifactId>phoenix</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0</version>
   <name>Phoenix</name>
   <description>A SQL layer over HBase</description>
 
@@ -32,7 +32,7 @@
     good enough. We really ought to use the release plugin and push to maven, but meh... -->
   <!-- To publish a snapshot, have a checked out version of phoenix (in a folder called 
     'phoenix-maven') in the same directory as phoenix. For instance... ~/dev/ phoenix/ 
-    phoenix-maven/ Then switch to the 'maven-repository' branch in the other checkout. 
+    phoenix-maven/ Then switch to the 'maven-artifacts' branch in the other checkout. 
     Then from the root of this directory, run:
      $ mvn -DaltDeploymentRepository=snapshot-repo::default::file:../phoenix-maven/snapshots clean deploy -DskipTests
    
