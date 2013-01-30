@@ -565,7 +565,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(dateFormatter.format(D1), rs.getString(2));            
+            assertEquals(dateFormatter.format(D1), rs.getString(2));
         } finally {
             conn.close();
         }
@@ -929,7 +929,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT substr('ĎďĒ',2,2) FROM BTABLE LIMIT 1",
             "SELECT substr('ĎďĒ',-1,1) FROM BTABLE LIMIT 1",
             "SELECT substr('Ďďɚʍ',2,4) FROM BTABLE LIMIT 1",
-            "SELECT A_STRING FROM BTABLE WHERE substr(A_STRING, 0, 3)='jkl'",
+            "SELECT pk FROM VarcharKeyTest WHERE substr(pk, 0, 3)='jkl'",
         };
         String result[] = {
             "C",
@@ -1352,7 +1352,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT rtrim('abc   ') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc   def') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc   def   ') FROM BTABLE LIMIT 1",
-            "SELECT A_STRING FROM BTABLE WHERE rtrim(A_STRING)='jkl' LIMIT 1",
+            "SELECT pk FROM VarcharKeyTest WHERE rtrim(pk)='jkl' LIMIT 1",
         };
         String result[] = {
             null,
