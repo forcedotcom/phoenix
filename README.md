@@ -55,7 +55,7 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 
 Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 
-![squirrel](http://forcedotcom.github.com/Phoenix/images/squirrel.png)
+![squirrel](http://forcedotcom.github.com/phoenix/images/squirrel.png)
 
 <b> Command Line </b>
 
@@ -65,7 +65,7 @@ In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load C
         $ java -jar lib/phoenix-1.0-client.jar localhost examples/stock_symbol.sql examples/stock_symbol.csv
         $ java -jar lib/phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date localhost *.csv
 
-![psql](http://forcedotcom.github.com/Phoenix/images/psql.png)
+![psql](http://forcedotcom.github.com/phoenix/images/psql.png)
 
 ## Maven ##
 
