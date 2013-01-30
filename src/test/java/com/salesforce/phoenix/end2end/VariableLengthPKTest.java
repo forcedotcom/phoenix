@@ -1394,7 +1394,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT ltrim('abc   def') FROM BTABLE LIMIT 1",
             "SELECT ltrim('   abc   def') FROM BTABLE LIMIT 1",
             "SELECT ltrim('   ĎďĒ') FROM BTABLE LIMIT 1",
-            "SELECT A_STRING FROM BTABLE WHERE ltrim(A_STRING)='def' LIMIT 1",
+            "SELECT pk FROM VarcharKeyTest WHERE ltrim(pk)='def' LIMIT 1",
         };
         String result[] = {
             null,
@@ -1524,7 +1524,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT trim('abc   def   ') FROM BTABLE LIMIT 1",
             "SELECT trim('   abc   def   ') FROM BTABLE LIMIT 1",
             "SELECT trim('   ĎďĒ   ') FROM BTABLE LIMIT 1",
-            "SELECT A_STRING FROM BTABLE WHERE trim(A_STRING)='ghi'",
+            "SELECT pk FROM VarcharKeyTest WHERE trim(pk)='ghi'",
         };
         String result[] = {
             null,
