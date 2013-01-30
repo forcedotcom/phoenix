@@ -106,7 +106,7 @@ public class StringUtil {
         return sb.toString();
     }
 
-    public static int getBytesInChar(byte b) throws UnsupportedEncodingException {
+    private static int getBytesInChar(byte b) throws UnsupportedEncodingException {
         int c = b & 0xff;
         if ((c & BYTES_1_MASK) == 0)
             return 1;
@@ -153,15 +153,5 @@ public class StringUtil {
             }
         }
         return false;
-    }
-
-    public static int findFirstNonEmptyCharFromLeft() {
-        
-        return 0;
-    }
-    
-    public static int findFirstEmptyCharFromRight() {
-        
-        return 0;
     }
 }
