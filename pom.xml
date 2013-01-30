@@ -5,7 +5,7 @@
   <artifactId>phoenix</artifactId>
   <version>1.0-SNAPSHOT</version>
   <name>Phoenix</name>
-  <description>Phoenix JDBC driver for HBase</description>
+  <description>A SQL layer over HBase</description>
 
   <repositories>
     <repository>
