@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -54,8 +53,6 @@ import com.salesforce.phoenix.util.StringUtil;
     @Argument(allowedTypes={PDataType.VARCHAR})})
 public class RTrimFunction extends ScalarFunction {
     public static final String NAME = "RTRIM";
-    private static final byte SPACE_UTF8 = (byte) 0x20;
-    private static final int SINGLE_BYTE_MASK = 0x01 << 7;
 
 
     private Integer maxLength;
