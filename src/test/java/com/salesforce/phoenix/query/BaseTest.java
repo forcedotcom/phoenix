@@ -183,6 +183,8 @@ public abstract class BaseTest {
         builder.put("KVBigIntValueTest", "create table KVBigIntValueTest" + 
                 "   (pk integer not null primary key,\n" +
                 "    kv bigint)\n");
+        builder.put("VarcharKeyTest", "create table VarcharKeyTest" + 
+                "   (pk varchar not null primary key)");
         tableDDLMap = builder.build();
     }
     
