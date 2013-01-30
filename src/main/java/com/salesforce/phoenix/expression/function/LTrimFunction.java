@@ -87,7 +87,6 @@ public class LTrimFunction extends ScalarFunction {
         int length = ptr.getLength();
         int i = offset;
         for ( ; i < offset + length; i++) {
-            System.out.format("%02X %02X\n", string[i], string[i] & SINGLE_BYTE_MASK);
             if (((string[i] & SINGLE_BYTE_MASK) != 0) ||
                 ((string[i] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[i] && string[i] != 0x7f)) {
                 break;
