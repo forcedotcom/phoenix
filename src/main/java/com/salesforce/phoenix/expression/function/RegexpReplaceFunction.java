@@ -95,7 +95,7 @@ public class RegexpReplaceFunction extends ScalarFunction {
         }
         String sourceStr = (String)PDataType.VARCHAR.toObject(ptr);
         if (sourceStr == null) {
-        	return false;
+            return false;
         }
         String replaceStr;
         if (hasReplaceStr) {

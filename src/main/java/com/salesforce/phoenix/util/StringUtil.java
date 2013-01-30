@@ -132,6 +132,20 @@ public class StringUtil {
         return length;
     }
 
+    // Given an array of bytes containing encoding utf-8 encoded strings, the offset and a length
+    // parameter, return the actual index into the byte array which would represent a substring
+    // of <length> starting from the character at <offset>. We assume the <offset> is the start
+    // byte of an UTF-8 character.
+    public static int getByteLengthForUtf8SubStr(byte[] bytes, int offset, int length) throws UnsupportedEncodingException {
+        int byteLength = 0;
+        while(length > 0 && offset + byteLength < bytes.length) {
+            int charLength = getBytesInChar(bytes[offset + byteLength]);
+            byteLength += charLength;
+            length--;
+        }
+        return byteLength;
+    }
+
     public static boolean hasMultiByteChars(String s) {
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
