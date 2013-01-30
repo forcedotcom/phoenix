@@ -61,9 +61,9 @@ Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, in
 
 In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load CSV data directly. Here are few examples:
 
-        $ java -jar lib/phoenix-1.0-client.jar localhost examples/stock_symbol.sql
-        $ java -jar lib/phoenix-1.0-client.jar localhost examples/stock_symbol.sql examples/stock_symbol.csv
-        $ java -jar lib/phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date localhost *.csv
+        $ java -jar phoenix-1.0-client.jar localhost examples/stock_symbol.sql
+        $ java -jar phoenix-1.0-client.jar localhost examples/stock_symbol.sql examples/stock_symbol.csv
+        $ java -jar phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date localhost *.csv
 
 ![psql](http://forcedotcom.github.com/phoenix/images/psql.png)
 
