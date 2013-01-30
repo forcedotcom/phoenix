@@ -29,18 +29,18 @@ For detailed documentation on the current level of SQL support, see our [languag
 ## Installation ##
 To install a pre-built phoenix, use these directions:
 
-* Download the following two jars: [phoenix-1.0.jar](http://forcedotcom.github.com/phoenix/lib/phoenix-1.0.jar) and [phoenix-1.0-client.jar](http://forcedotcom.github.com/phoenix/lib/phoenix-1.0-client.jar)
+* Expand the following tar: [phoenix-1.0-install.tar](http://forcedotcom.github.com/phoenix/lib/phoenix-1.0-install.tar)
 * Add the phoenix-1.0.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
-* Add the phoenix-1.0-client.jar to the classpath of any Phoenix client. This jar includes the minimum set of required HBase jars, along with the following required phoenix jars
-    * phoenix-1.0.jar
-    * antlr-3.5-complete.jar
-    * opencsv-2.3.jar
+* Add the phoenix-1.0-client.jar to the classpath of any Phoenix client.
 
 Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
 
 
 ## Getting Started ##
+
+<b> Squirrel SQL Client </b>
+
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
 1. Copy the phoenix-1.0-client.jar into the lib directory of SQuirrel
@@ -55,15 +55,17 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 
 Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 
-![squirrel](http://forcedotcom.github.com/Phoenix/images/squirrel.png)
+![squirrel](http://forcedotcom.github.com/phoenix/images/squirrel.png)
+
+<b> Command Line </b>
 
 In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load CSV data directly. Here are few examples:
 
-        $ java -jar lib/phoenix-1.0-client.jar jdbc:phoenix:localhost examples/stock_symbol.sql
-        $ java -jar lib/phoenix-1.0-client.jar jdbc:phoenix:localhost examples/stock_symbol.sql examples/stock_symbol.csv
-        $ java -jar lib/phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date jdbc:phoenix:localhost *.csv
+        $ java -jar lib/phoenix-1.0-client.jar localhost examples/stock_symbol.sql
+        $ java -jar lib/phoenix-1.0-client.jar localhost examples/stock_symbol.sql examples/stock_symbol.csv
+        $ java -jar lib/phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date localhost *.csv
 
-![psql](http://forcedotcom.github.com/Phoenix/images/psql.png)
+![psql](http://forcedotcom.github.com/phoenix/images/psql.png)
 
 ## Maven ##
 
