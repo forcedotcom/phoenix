@@ -27,3 +27,7 @@ Use the m2e eclipse plugin and do Import->Maven Project and just pick the root '
 1. All tests 
 	$ mvn clean test
 
+## Javadocs
+===========
+Javadoc are generated in /target/site/apidocs
+	$ mvn site
