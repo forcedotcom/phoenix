@@ -39,7 +39,7 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 ## Getting Started ##
 
-** Squirrel SQL Client **
+<b> Squirrel SQL Client </b>
 
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
@@ -57,7 +57,7 @@ Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, in
 
 ![squirrel](http://forcedotcom.github.com/Phoenix/images/squirrel.png)
 
-** Command Line **
+<b> Command Line </b>
 
 In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load CSV data directly. Here are few examples:
 
