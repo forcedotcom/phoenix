@@ -27,8 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.DataInput;
-import java.io.IOException;
+import java.io.*;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -41,6 +40,7 @@ import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -75,7 +75,7 @@ public class SubstrFunction extends ScalarFunction {
         super(children);
         init();
     }
-    
+
     private void init() {
         isOffsetConstant = getOffsetExpression() instanceof LiteralExpression;
         isLengthConstant = getLengthExpression() instanceof LiteralExpression;
@@ -98,7 +98,7 @@ public class SubstrFunction extends ScalarFunction {
             }
         }
     }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         // TODO: multi-byte characters
@@ -108,7 +108,7 @@ public class SubstrFunction extends ScalarFunction {
         }
         LongNative longNative = (LongNative)offsetExpression.getDataType().getNative();
         int offset = (int)longNative.toLong(ptr);
-
+        
         int length = -1;
         if (hasLengthExpression) {
             Expression lengthExpression = getLengthExpression();
@@ -125,21 +125,28 @@ public class SubstrFunction extends ScalarFunction {
         if (!getStrExpression().evaluate(tuple, ptr)) {
             return false;
         }
-        
-        int strlen = ptr.getLength();
 
-        // Account for 1 versus 0-based offset
-        offset = offset - (offset <= 0 ? 0 : 1);
-        if (offset < 0) { // Offset < 0 means get from end
-            offset = strlen + offset;
-        }
-        if (offset < 0 || offset >= strlen) {
+        try {
+            int strlen = StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
+            
+            // Account for 1 versus 0-based offset
+            offset = offset - (offset <= 0 ? 0 : 1);
+            if (offset < 0) { // Offset < 0 means get from end
+                offset = strlen + offset;
+            }
+            if (offset < 0 || offset >= strlen) {
+                return false;
+            }
+            int maxLength = strlen - offset;
+            length = length == -1 ? maxLength : Math.min(length,maxLength);
+            
+            int byteOffset = StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset(), offset);
+            int byteLength = StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset() + byteOffset, length);
+            ptr.set(ptr.get(), ptr.getOffset() + byteOffset, byteLength);
+            return true;
+        } catch (UnsupportedEncodingException e) {
             return false;
         }
-        int maxLength = strlen - offset;
-        length = length == -1 ? maxLength : Math.min(length,maxLength);
-        ptr.set(ptr.get(), ptr.getOffset() + offset, length);
-        return true;
     }
 
     @Override
@@ -156,7 +163,7 @@ public class SubstrFunction extends ScalarFunction {
     public Integer getMaxLength() {
         return maxLength;
     }
-    
+
     @Override
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
@@ -174,7 +181,7 @@ public class SubstrFunction extends ScalarFunction {
     private Expression getLengthExpression() {
         return children.get(2);
     }
-    
+
     @Override
     public boolean preservesOrder() {
         if (isOffsetConstant) {
