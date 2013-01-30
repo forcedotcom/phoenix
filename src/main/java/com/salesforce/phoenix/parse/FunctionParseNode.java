@@ -320,6 +320,7 @@ public class FunctionParseNode extends CompoundParseNode {
         private final Set<String> allowedValues; // Enumeration of possible values
         private final LiteralExpression defaultValue;
         
+        @SuppressWarnings({ "unchecked", "rawtypes" })
         BuiltInFunctionArgInfo(Argument argument) {
             
             if (argument.enumeration().length() > 0) {
@@ -339,9 +340,8 @@ public class FunctionParseNode extends CompoundParseNode {
                 if (clazz == null || !clazz.isEnum()) {
                     throw new IllegalStateException("The enumeration annotation '" + argument.enumeration() + "' does not resolve to a enumeration class");
                 }
-                @SuppressWarnings("unchecked")
                 Class<? extends Enum> enumClass = (Class<? extends Enum>)clazz;
-                Enum[] enums = enumClass.getEnumConstants();
+				Enum[] enums = enumClass.getEnumConstants();
                 ImmutableSet.Builder<String> builder = ImmutableSet.builder();
                 for (Enum en : enums) {
                     builder.add(en.name());

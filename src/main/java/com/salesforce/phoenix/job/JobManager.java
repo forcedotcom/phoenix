@@ -36,12 +36,13 @@ import java.util.concurrent.*;
  * @author jtaylor
  * @since 0.1
  */
+@SuppressWarnings("rawtypes")
 public class JobManager<T> extends AbstractRoundRobinQueue<T> {
     public JobManager() {
         super(true); // true -> new producers move to front of queue; this reduces latency.
     }
 
-    @Override
+	@Override
     protected Object extractProducer(T o) {
         return ((JobFutureTask)o).getJobId();
     }        

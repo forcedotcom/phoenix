@@ -1368,6 +1368,33 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     }
 
     @Test
+    public void testSubstrFunctionOnRowKeyInWhere() throws Exception {
+        long ts = nextTimestamp();
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts);
+        Connection conn = DriverManager.getConnection(url);
+        conn.createStatement().execute("CREATE TABLE substr_test (s1 varchar not null, s2 varchar not null constraint pk primary key(s1,s2))");
+        conn.close();
+        
+        url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 2);
+        conn = DriverManager.getConnection(url);
+        conn.createStatement().execute("UPSERT INTO substr_test VALUES('abc','a')");
+        conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcd','b')");
+        conn.createStatement().execute("UPSERT INTO substr_test VALUES('abce','c')");
+        conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcde','d')");
+        conn.commit();
+        conn.close();
+    	
+        url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
+        conn = DriverManager.getConnection(url);
+        ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where substr(s1,1,4) = 'abcd'");
+        assertTrue(rs.next());
+        assertEquals("abcd",rs.getString(1));
+        assertTrue(rs.next());
+        assertEquals("abcde",rs.getString(1));
+        assertFalse(rs.next());
+    }
+    
+    @Test
     public void testTrimFunction() throws Exception {
         long ts = nextTimestamp();
         String query[] = {

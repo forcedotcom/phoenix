@@ -80,8 +80,9 @@ public class SQLCloseables {
      * @see SQLCloseables
      */
     static private class MultipleCausesSQLException extends SQLException {
+		private static final long serialVersionUID = 1L;
 
-        static SQLException fromSQLExceptions(Collection<? extends SQLException> exceptions) {
+		static SQLException fromSQLExceptions(Collection<? extends SQLException> exceptions) {
             if (exceptions == null || exceptions.isEmpty()) return null;
             if (exceptions.size() == 1) return Iterables.getOnlyElement(exceptions);
             

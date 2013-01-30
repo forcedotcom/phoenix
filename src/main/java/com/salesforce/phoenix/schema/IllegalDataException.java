@@ -35,6 +35,7 @@ package com.salesforce.phoenix.schema;
  * @since 0.1
  */
 public class IllegalDataException extends ConstraintViolationException {
+	private static final long serialVersionUID = 1L;
 
     public IllegalDataException() {
     }

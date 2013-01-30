@@ -33,6 +33,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 
 public class ConcurrentTableMutationException extends SQLException {
+	private static final long serialVersionUID = 1L;
     private final String schemaName;
     private final String tableName;
 

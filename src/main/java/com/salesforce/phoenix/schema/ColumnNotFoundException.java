@@ -41,6 +41,7 @@ import com.salesforce.phoenix.query.QueryConstants;
  * @since 0.1
  */
 public class ColumnNotFoundException extends SQLException {
+	private static final long serialVersionUID = 1L;
     private final String schemaName;
     private final String tableName;
     private final String columnName;

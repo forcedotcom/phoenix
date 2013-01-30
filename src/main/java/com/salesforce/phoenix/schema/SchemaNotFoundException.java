@@ -30,6 +30,7 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 public class SchemaNotFoundException extends SQLException {
+	private static final long serialVersionUID = 1L;
     private final String schemaName;
     
     public SchemaNotFoundException(String schemaName, String message) {

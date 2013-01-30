@@ -37,6 +37,7 @@ import com.salesforce.phoenix.schema.IllegalDataException;
 
 
 
+@SuppressWarnings("serial")
 public class DateUtil {
     public static final TimeZone DATE_TIME_ZONE = TimeZone.getTimeZone("GMT");
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss"; // This is the format the app sets in NLS settings for every connection.
@@ -45,7 +46,7 @@ public class DateUtil {
     private DateUtil() {
     }
     
-    public static Format getDateParser(String pattern) {
+	public static Format getDateParser(String pattern) {
         SimpleDateFormat format = new SimpleDateFormat(pattern) {
             @Override
             public java.util.Date parseObject(String source) throws ParseException {

@@ -36,6 +36,7 @@ package com.salesforce.phoenix.schema;
  * @since 180
  */
 public class ConstraintViolationException extends RuntimeException {
+	private static final long serialVersionUID = 1L;
 
     public ConstraintViolationException() {
     }

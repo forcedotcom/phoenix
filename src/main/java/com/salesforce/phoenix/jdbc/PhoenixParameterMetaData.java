@@ -103,7 +103,8 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
 
     @Override
     public boolean isSigned(int index) throws SQLException {
-        Class clazz = getParam(index).getDataType().getJavaClass();
+        @SuppressWarnings("rawtypes")
+		Class clazz = getParam(index).getDataType().getJavaClass();
         return Number.class.isInstance(clazz);
     }
 

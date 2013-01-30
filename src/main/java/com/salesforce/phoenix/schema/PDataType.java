@@ -50,6 +50,7 @@ import com.salesforce.phoenix.util.*;
  * 
  * TODO: cleanup implementation to reduce copy/paste duplication
  */
+@SuppressWarnings("rawtypes")
 public enum PDataType {
     VARCHAR("VARCHAR", Types.VARCHAR, String.class) {
         @Override
@@ -1460,7 +1461,7 @@ public enum PDataType {
 
     private final String sqlTypeName;
     private final int sqlType;
-    private final Class clazz;
+	private final Class clazz;
     private final byte[] clazzNameBytes;
     private final byte[] sqlTypeNameBytes;
 

@@ -40,6 +40,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class TableNotFoundException extends SQLException {
+	private static final long serialVersionUID = 1L;
     private final String schemaName;
     private final String tableName;
     

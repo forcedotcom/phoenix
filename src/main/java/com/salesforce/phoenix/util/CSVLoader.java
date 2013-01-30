@@ -154,7 +154,7 @@ public class CSVLoader {
 	 */
 	private ColumnInfo[] generateColumnInfo(List<String> columns)
 			throws SQLException {
-	    Map<String,Integer> columnNameToTypeMap = Maps.newHashMap();
+	    Map<String,Integer> columnNameToTypeMap = Maps.newLinkedHashMap();
         DatabaseMetaData dbmd = conn.getMetaData();
         String[] schemaAndTable = tableName.split("\\.");
         ResultSet rs = dbmd.getColumns(null, (schemaAndTable.length == 1 ? "" : schemaAndTable[0]),

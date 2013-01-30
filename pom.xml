@@ -56,7 +56,6 @@
     <!-- General Properties -->
     <antlr-input.dir>src/main/antlr</antlr-input.dir>
     <antlr-output.dir>target/generated-sources/antlr</antlr-output.dir>
-    <sql-output.dir>${antlr-output.dir}/phoenix/parse</sql-output.dir>
 
     <!-- Dependency versions -->
     <hbase.version>0.94.2</hbase.version>

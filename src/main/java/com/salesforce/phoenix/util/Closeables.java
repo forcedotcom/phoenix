@@ -70,15 +70,8 @@ public class Closeables {
         return ex;
     }
 
-    /**
-     * A subclass of {@link IOException} that allows you to chain multiple 
-     * causes together.
-     * 
-     * @author koliver
-     * @since 164
-     * @see Closeables
-     */
     static private class MultipleCausesIOException extends IOException {
+    	private static final long serialVersionUID = 1L;
 
         static IOException fromIOExceptions(Collection<? extends IOException> exceptions) {
             if (exceptions == null || exceptions.isEmpty()) return null;

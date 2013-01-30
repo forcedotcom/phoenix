@@ -38,6 +38,7 @@ import java.sql.SQLException;
  * @since 0.1
  */
 public class AmbiguousTableException extends SQLException {
+	private static final long serialVersionUID = 1L;
 
     public AmbiguousTableException() {
     }

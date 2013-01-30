@@ -209,7 +209,7 @@ public class WhereOptimizer {
         }
         
         // Tack on null byte if variable length, since otherwise we'd end up
-        // getting everything that starts wtih the start key, not just that
+        // getting everything that starts with the start key, not just that
         // is equal to the start key. Since LIKE is not variable length,
         // we wouldn't write this null byte.
         // Don't write a separator byte if we're at the last column since

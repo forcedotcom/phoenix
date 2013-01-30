@@ -35,6 +35,7 @@ package com.salesforce.phoenix.memory;
  * @since 0.1
  */
 public class InsufficientMemoryException extends RuntimeException {
+	private static final long serialVersionUID = 1L;
 
     public InsufficientMemoryException() {
     }

@@ -213,7 +213,8 @@ public class FromCompiler {
             throw new SQLFeatureNotSupportedException();
         }
     
-        private static final class Key extends Pair<String,String> {
+        @SuppressWarnings("serial")
+		private static final class Key extends Pair<String,String> {
             private Key(String schemaName, String tableName) {
                 super(schemaName,tableName);
             }

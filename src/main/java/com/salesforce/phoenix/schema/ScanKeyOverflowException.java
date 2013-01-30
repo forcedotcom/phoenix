@@ -36,6 +36,7 @@ package com.salesforce.phoenix.schema;
  * @since 0.1
  */
 public class ScanKeyOverflowException extends RuntimeException {
+	private static final long serialVersionUID = 1L;
 
     public ScanKeyOverflowException() { };
 

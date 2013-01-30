@@ -37,6 +37,7 @@ import java.sql.SQLException;
  * @since 0.1
  */
 public class ColumnFamilyNotFoundException extends SQLException {
+	private static final long serialVersionUID = 1L;
     private final String familyName;
     
     public ColumnFamilyNotFoundException(String familyName, String message) {
