@@ -57,7 +57,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     }
 
     protected static void initTableValues(byte[][] splits, long ts) throws Exception {
-        ensureTableCreated(getUrl(),PTSDB_NAME,splits, ts-2);
+        ensureTableCreated(getUrl(),PTSDB_NAME, splits, ts-2);
         
         // Insert all rows at ts
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
@@ -78,7 +78,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setBigDecimal(4, new BigDecimal(.5));
         stmt.execute();
         
-        ensureTableCreated(getUrl(),BTABLE_NAME,splits, ts-2);
+        ensureTableCreated(getUrl(),BTABLE_NAME, splits, ts-2);
         conn.setAutoCommit(false);
         
         // Insert all rows at ts
@@ -126,6 +126,11 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(7, null);
         stmt.execute();
         
+        ensureTableCreated(getUrl(),"VarcharKeyTest", splits, ts-2);
+        stmt = conn.prepareStatement(
+                "upsert into " +
+                "VarcharKeyTest(pk) " +
+                "VALUES (?)");
         stmt.setString(1, "   def");
         stmt.execute();
         stmt.setString(1, "jkl   ");
@@ -1386,7 +1391,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT ltrim('   abc') FROM BTABLE LIMIT 1",
             "SELECT ltrim('abc   def') FROM BTABLE LIMIT 1",
             "SELECT ltrim('   abc   def') FROM BTABLE LIMIT 1",
-            "SELECT A_STRING FROM BTABLE WHERE ltrim(A_STRING)='def' LIMIT 1",
+            "SELECT pk FROM VarcharKeyTest WHERE ltrim(pk)='def' LIMIT 1",
         };
         String result[] = {
             null,
@@ -1515,7 +1520,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT trim('   abc   def') FROM BTABLE LIMIT 1",
             "SELECT trim('abc   def   ') FROM BTABLE LIMIT 1",
             "SELECT trim('   abc   def   ') FROM BTABLE LIMIT 1",
-            "SELECT A_STRING FROM BTABLE WHERE trim(A_STRING)='ghi'",
+            "SELECT pk FROM VarcharKeyTest WHERE trim(pk)='ghi'",
         };
         String result[] = {
             null,
