@@ -87,17 +87,13 @@ public class RTrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
-        try {
-            int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
-            if (i == offset - 1) {
-                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-                return true;
-            }
-            ptr.set(string, offset, i - offset + 1);
+        int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
+        if (i == offset - 1) {
+            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return true;
-        } catch (UnsupportedEncodingException e) {
-            return false;
-        }
+            }
+        ptr.set(string, offset, i - offset + 1);
+        return true;
     }
 
     @Override

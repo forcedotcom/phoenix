@@ -53,8 +53,6 @@ import com.salesforce.phoenix.util.StringUtil;
     @Argument(allowedTypes={PDataType.VARCHAR})} )
 public class TrimFunction extends ScalarFunction {
     public static final String NAME = "TRIM";
-    private static final byte SPACE_UTF8 = 0x20;
-    private static final int SINGLE_BYTE_MASK = 0x01 << 7;
 
     private Integer maxLength;
 

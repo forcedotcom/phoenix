@@ -168,8 +168,7 @@ public class StringUtil {
         return i;
     }
 
-    public static int getFirstNonBlankCharIdxFromEnd(byte[] string, int offset, int length)
-            throws UnsupportedEncodingException {
+    public static int getFirstNonBlankCharIdxFromEnd(byte[] string, int offset, int length) {
         int i = offset + length - 1;
         for ( ; i >= offset; i--) {
             int b = string[i] & 0xff;
