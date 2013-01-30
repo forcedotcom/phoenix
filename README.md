@@ -1,4 +1,4 @@
-<h1>Phoenix: JDBC Driver for HBase<br />
+<h1>Phoenix: A SQL layer over HBase<br />
 <em><sup><sup>'We put the SQL back in the NoSQL'</sup></sup></em></h1>
 Phoenix is a SQL layer over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), and read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki).
 ## Mission
