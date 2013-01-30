@@ -80,7 +80,7 @@ public class SubstrFunction extends ScalarFunction {
         isOffsetConstant = getOffsetExpression() instanceof LiteralExpression;
         isLengthConstant = getLengthExpression() instanceof LiteralExpression;
         hasLengthExpression = !isLengthConstant || ((LiteralExpression)getLengthExpression()).getValue() != null;
-        isFixedWidth = (getStrExpression().getDataType().isFixedWidth() && isOffsetConstant) || (hasLengthExpression && isLengthConstant);
+        isFixedWidth = getStrExpression().getDataType().isFixedWidth();
         if (hasLengthExpression && isLengthConstant) {
             Integer maxLength = ((Number)((LiteralExpression)getLengthExpression()).getValue()).intValue();
             this.maxLength = maxLength >= 0 ? maxLength : 0;
@@ -127,7 +127,7 @@ public class SubstrFunction extends ScalarFunction {
         }
 
         try {
-            int strlen = StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
+            int strlen = isFixedWidth ? ptr.getLength() : StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
             
             // Account for 1 versus 0-based offset
             offset = offset - (offset <= 0 ? 0 : 1);
@@ -140,8 +140,8 @@ public class SubstrFunction extends ScalarFunction {
             int maxLength = strlen - offset;
             length = length == -1 ? maxLength : Math.min(length,maxLength);
             
-            int byteOffset = StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset(), offset);
-            int byteLength = StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset() + byteOffset, length);
+            int byteOffset = isFixedWidth ? offset : StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset(), offset);
+            int byteLength = isFixedWidth ? length : StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset() + byteOffset, length);
             ptr.set(ptr.get(), ptr.getOffset() + byteOffset, byteLength);
             return true;
         } catch (UnsupportedEncodingException e) {

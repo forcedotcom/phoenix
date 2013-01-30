@@ -164,7 +164,16 @@ public class WhereOptimizer {
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
             // set the start key to 'foo' but still need to match the regex at filter time.
-            extractNodes.addAll(keyExpr.getExtractNodes());
+            List<Expression> nodesToExtract = keyExpr.getExtractNodes();
+            extractNodes.addAll(nodesToExtract);
+            // Stop building start/stop key if not extracting the expression, since we can't
+            // know if the expression is using all of the column.
+            if (nodesToExtract.isEmpty()) {
+                isFullyQualifiedKey = false;
+                lastLowerVarLength = false;
+                lastUpperVarLength = false;
+            	break;
+            }
             
             /* 
              * If there is an unbound range with more key expressions to come then the
@@ -199,10 +208,14 @@ public class WhereOptimizer {
             if ( datum != backingDatum) {
                 if (!backingDatum.getDataType().isFixedWidth() && datum.getMaxLength() != null) {
                     isFullyQualifiedKey = false;
+                    lastLowerVarLength = false;
+                    lastUpperVarLength = false;
                     break;
                 }
                 if (!ObjectUtils.equals(backingDatum.getMaxLength(),datum.getMaxLength())) {
                     isFullyQualifiedKey = false;
+                    lastLowerVarLength = false;
+                    lastUpperVarLength = false;
                     break;
                 }
             }

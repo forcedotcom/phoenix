@@ -105,7 +105,7 @@ public class RTrimFunction extends ScalarFunction {
 
     @Override
     public KeyFormationDirective getKeyFormationDirective() {
-        return KeyFormationDirective.TRAVERSE_AND_EXTRACT;
+        return KeyFormationDirective.TRAVERSE_AND_LEAVE;
     }
 
     @Override
