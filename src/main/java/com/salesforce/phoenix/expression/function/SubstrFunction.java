@@ -80,7 +80,9 @@ public class SubstrFunction extends ScalarFunction {
         isOffsetConstant = getOffsetExpression() instanceof LiteralExpression;
         isLengthConstant = getLengthExpression() instanceof LiteralExpression;
         hasLengthExpression = !isLengthConstant || ((LiteralExpression)getLengthExpression()).getValue() != null;
-        isFixedWidth = (getStrExpression().getDataType().isFixedWidth() && isOffsetConstant) || (hasLengthExpression && isLengthConstant);
+        // If we have a constant length expression, we still may have variable length if the underlying string parameter is not fixed length.
+        // This is because we allow the offset and/or offset+length to exceed the string length which can lead to variable length results.
+        isFixedWidth = getStrExpression().getDataType().isFixedWidth() && ((hasLengthExpression && isLengthConstant) || isOffsetConstant);
         if (hasLengthExpression && isLengthConstant) {
             Integer maxLength = ((Number)((LiteralExpression)getLengthExpression()).getValue()).intValue();
             this.maxLength = maxLength >= 0 ? maxLength : 0;
