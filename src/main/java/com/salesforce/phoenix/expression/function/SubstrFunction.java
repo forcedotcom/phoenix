@@ -81,12 +81,16 @@ public class SubstrFunction extends ScalarFunction {
         isLengthConstant = getLengthExpression() instanceof LiteralExpression;
         hasLengthExpression = !isLengthConstant || ((LiteralExpression)getLengthExpression()).getValue() != null;
 <<<<<<< HEAD
+<<<<<<< HEAD
         isFixedWidth = getStrExpression().getDataType().isFixedWidth() && ((hasLengthExpression && isLengthConstant) || (!hasLengthExpression && isOffsetConstant));
 =======
         // If we have a constant length expression, we still may have variable length if the underlying string parameter is not fixed length.
         // This is because we allow the offset and/or offset+length to exceed the string length which can lead to variable length results.
         isFixedWidth = getStrExpression().getDataType().isFixedWidth() && ((hasLengthExpression && isLengthConstant) || isOffsetConstant);
 >>>>>>> Commented out previous change to fix substr not setting scankey correctly problem.
+=======
+        isFixedWidth = getStrExpression().getDataType().isFixedWidth() && ((hasLengthExpression && isLengthConstant) || (!hasLengthExpression && isOffsetConstant));
+>>>>>>> Resolve merge error.
         if (hasLengthExpression && isLengthConstant) {
             Integer maxLength = ((Number)((LiteralExpression)getLengthExpression()).getValue()).intValue();
             this.maxLength = maxLength >= 0 ? maxLength : 0;
@@ -131,10 +135,10 @@ public class SubstrFunction extends ScalarFunction {
         if (!getStrExpression().evaluate(tuple, ptr)) {
             return false;
         }
-
+        
         try {
-        	boolean isCharType = getStrExpression().getDataType() == PDataType.CHAR;
-        	int strlen = isCharType ? ptr.getLength() : StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
+            boolean isCharType = getStrExpression().getDataType() == PDataType.CHAR;
+            int strlen = isCharType ? ptr.getLength() : StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
             
             // Account for 1 versus 0-based offset
             offset = offset - (offset <= 0 ? 0 : 1);
