@@ -1437,7 +1437,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcde','d')");
         conn.commit();
         conn.close();
-    	
+        
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where substr(s1,1,4) = 'abcd'");
@@ -1447,7 +1447,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         assertEquals("abcde",rs.getString(1));
         assertFalse(rs.next());
     }
-    
+
     @Test
     public void testRTrimFunctionOnRowKeyInWhere() throws Exception {
         long ts = nextTimestamp();
@@ -1466,7 +1466,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcde','d')");
         conn.commit();
         conn.close();
-    	
+        
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where rtrim(s1) = 'abcd'");
@@ -1478,8 +1478,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         assertEquals("abcd  ",rs.getString(1));
         assertFalse(rs.next());
     }
-    
-    
+
     @Test
     public void testLikeFunctionOnRowKeyInWhere() throws Exception {
         long ts = nextTimestamp();
@@ -1497,7 +1496,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abce','d')");
         conn.commit();
         conn.close();
-    	
+        
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where s1 like 'abcd%1'");
@@ -1505,7 +1504,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         assertEquals("abcd-1",rs.getString(1));
         assertFalse(rs.next());
     }
-    
+
     @Test
     public void testTrimFunction() throws Exception {
         long ts = nextTimestamp();
