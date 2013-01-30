@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -38,6 +39,7 @@ import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -81,26 +83,18 @@ public class TrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
-        int end = offset + length - 1;
-        int head = offset;
-        for ( ; end >= offset; end--) {
-            if (((string[end] & SINGLE_BYTE_MASK) != 0) ||
-                ((string[end] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[end] && string[end] != 0x7f)) {
-                break;
+        try {
+            int end = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
+            if (end == offset - 1) {
+                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                return true; 
             }
+            int head = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length);
+            ptr.set(string, head, end - head + 1);
+            return true;
+        } catch (UnsupportedEncodingException e) {
+            return false;
         }
-        if (end == head - 1) {
-            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-            return true; 
-        }
-        for ( ; head < end; head++) {
-            if (((string[head] & SINGLE_BYTE_MASK) != 0) ||
-                    ((string[head] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[head] && string[head] != 0x7f)) {
-                break;
-            }
-        }
-        ptr.set(string, head, end - head + 1);
-        return true;
     }
 
     @Override

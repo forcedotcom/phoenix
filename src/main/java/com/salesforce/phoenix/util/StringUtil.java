@@ -33,6 +33,7 @@ import java.io.UnsupportedEncodingException;
 public class StringUtil {
     // Masks to determine how many bytes are in each character
     // From http://tools.ietf.org/html/rfc3629#section-3
+    private static final byte SPACE_UTF8 = 0x20;
     private static final int BYTES_1_MASK = 0xFF << 7; // 0xxxxxxx is a single byte char
     private static final int BYTES_2_MASK = 0xFF << 5; // 110xxxxx is a double byte char
     private static final int BYTES_3_MASK = 0xFF << 4; // 1110xxxx is a triple byte char
@@ -99,10 +100,10 @@ public class StringUtil {
             // we didn't match anything, so return the source string
             return s;
         }
-
+        
         // apppend the trailing portion
         sb.append(s.substring(lastMatch));
-
+        
         return sb.toString();
     }
 
@@ -154,4 +155,31 @@ public class StringUtil {
         }
         return false;
     }
+
+    public static int getFirstNonBlankCharIdxFromStart(byte[] string, int offset, int length)
+            throws UnsupportedEncodingException {
+        int i = offset;
+        for ( ; i < offset + length; i++) {
+            if ((getBytesInChar(string[i]) != 1 ||
+                (getBytesInChar(string[i]) == 1 && SPACE_UTF8 < string[i] && string[i] != 0x7f))) {
+                break;
+            }
+        }
+        return i;
+    }
+
+    public static int getFirstNonBlankCharIdxFromEnd(byte[] string, int offset, int length)
+            throws UnsupportedEncodingException {
+        int i = offset + length - 1;
+        for ( ; i >= offset; i--) {
+            int b = string[i] & 0xff;
+            if (((b & BYTES_1_MASK) != 0) ||
+                ((b & BYTES_1_MASK) == 0 && SPACE_UTF8 < b && b != 0x7f)) {
+                break;
+            }
+        }
+        return i;
+    }
+
+    
 }

@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -38,6 +39,7 @@ import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -53,8 +55,6 @@ import com.salesforce.phoenix.util.ByteUtil;
     @Argument(allowedTypes={PDataType.VARCHAR})})
 public class LTrimFunction extends ScalarFunction {
     public static final String NAME = "LTRIM";
-    private static final byte SPACE_UTF8 = 0x20;
-    private static final int SINGLE_BYTE_MASK = 0x01 << 7;
 
     private Integer maxLength;
 
@@ -85,19 +85,17 @@ public class LTrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
-        int i = offset;
-        for ( ; i < offset + length; i++) {
-            if (((string[i] & SINGLE_BYTE_MASK) != 0) ||
-                ((string[i] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[i] && string[i] != 0x7f)) {
-                break;
+        try {
+            int i = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length);
+            if (i == offset + length) {
+                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                return true;
             }
-        }
-        if (i == offset + length) {
-            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+            ptr.set(string, i, offset + length - i);
             return true;
+        } catch (UnsupportedEncodingException e) {
+            return false;
         }
-        ptr.set(string, i, offset + length - i);
-        return true;
     }
 
     @Override

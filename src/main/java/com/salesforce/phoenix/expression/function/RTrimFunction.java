@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -38,6 +39,7 @@ import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -85,19 +87,17 @@ public class RTrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
-        int i = offset + length - 1;
-        for ( ; i >= offset; i--) {
-            if (((string[i] & SINGLE_BYTE_MASK) != 0) ||
-                ((string[i] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[i] && string[i] != 0x7f)) {
-                break;
+        try {
+            int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
+            if (i == offset - 1) {
+                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                return true;
             }
-        }
-        if (i == offset - 1) {
-            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+            ptr.set(string, offset, i - offset + 1);
             return true;
+        } catch (UnsupportedEncodingException e) {
+            return false;
         }
-        ptr.set(string, offset, i - offset + 1);
-        return true;
     }
 
     @Override
