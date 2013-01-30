@@ -52,7 +52,7 @@ import com.salesforce.phoenix.util.ByteUtil;
 public class TrimFunction extends ScalarFunction {
     public static final String NAME = "TRIM";
     private static final byte SPACE_UTF8 = 0x20;
-    private static final byte SINGLE_BYTE_MASK = (byte) 0x80;
+    private static final int SINGLE_BYTE_MASK = 0x01 << 7;
 
     private Integer maxLength;
 
@@ -84,7 +84,8 @@ public class TrimFunction extends ScalarFunction {
         int end = offset + length - 1;
         int head = offset;
         for ( ; end >= offset; end--) {
-            if ((string[end] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[end] && string[end] != 0x7f) {
+            if (((string[end] & SINGLE_BYTE_MASK) != 0) ||
+                ((string[end] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[end] && string[end] != 0x7f)) {
                 break;
             }
         }
@@ -93,7 +94,8 @@ public class TrimFunction extends ScalarFunction {
             return true; 
         }
         for ( ; head < end; head++) {
-            if ((string[head] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[head] && string[head] != 0x7f) {
+            if (((string[head] & SINGLE_BYTE_MASK) != 0) ||
+                    ((string[head] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[head] && string[head] != 0x7f)) {
                 break;
             }
         }

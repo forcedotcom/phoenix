@@ -1336,6 +1336,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT rtrim('abc   ') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc   def') FROM BTABLE LIMIT 1",
             "SELECT rtrim('abc   def   ') FROM BTABLE LIMIT 1",
+            "SELECT rtrim('ĎďĒ   ') FROM BTABLE LIMIT 1",
         };
         String result[] = {
             null,
@@ -1345,6 +1346,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "abc",
             "abc   def",
             "abc   def",
+            "ĎďĒ",
         };
         assertEquals(query.length, result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
@@ -1375,6 +1377,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT ltrim('   abc') FROM BTABLE LIMIT 1",
             "SELECT ltrim('abc   def') FROM BTABLE LIMIT 1",
             "SELECT ltrim('   abc   def') FROM BTABLE LIMIT 1",
+            "SELECT ltrim('   ĎďĒ') FROM BTABLE LIMIT 1",
         };
         String result[] = {
             null,
@@ -1384,6 +1387,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "abc",
             "abc   def",
             "abc   def",
+            "ĎďĒ",
         };
         assertEquals(query.length, result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
@@ -1419,7 +1423,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcde','d')");
         conn.commit();
         conn.close();
-    	
+        
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where substr(s1,1,4) = 'abcd'");
@@ -1429,7 +1433,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         assertEquals("abcde",rs.getString(1));
         assertFalse(rs.next());
     }
-    
+
     @Test
     public void testRTrimFunctionOnRowKeyInWhere() throws Exception {
         long ts = nextTimestamp();
@@ -1448,7 +1452,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcde','d')");
         conn.commit();
         conn.close();
-    	
+        
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where rtrim(s1) = 'abcd'");
@@ -1460,8 +1464,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         assertEquals("abcd  ",rs.getString(1));
         assertFalse(rs.next());
     }
-    
-    
+
     @Test
     public void testLikeFunctionOnRowKeyInWhere() throws Exception {
         long ts = nextTimestamp();
@@ -1479,7 +1482,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abce','d')");
         conn.commit();
         conn.close();
-    	
+        
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where s1 like 'abcd%1'");
@@ -1487,7 +1490,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         assertEquals("abcd-1",rs.getString(1));
         assertFalse(rs.next());
     }
-    
+
     @Test
     public void testTrimFunction() throws Exception {
         long ts = nextTimestamp();
@@ -1502,6 +1505,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "SELECT trim('   abc   def') FROM BTABLE LIMIT 1",
             "SELECT trim('abc   def   ') FROM BTABLE LIMIT 1",
             "SELECT trim('   abc   def   ') FROM BTABLE LIMIT 1",
+            "SELECT trim('   ĎďĒ   ') FROM BTABLE LIMIT 1",
         };
         String result[] = {
             null,
@@ -1514,6 +1518,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             "abc   def",
             "abc   def",
             "abc   def",
+            "ĎďĒ",
         };
         assertEquals(query.length, result.length);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5

@@ -30,7 +30,6 @@ package com.salesforce.phoenix.util;
 import java.io.UnsupportedEncodingException;
 
 
-
 public class StringUtil {
     // Masks to determine how many bytes are in each character
     // From http://tools.ietf.org/html/rfc3629#section-3
@@ -106,8 +105,8 @@ public class StringUtil {
 
         return sb.toString();
     }
-    
-    private static int getBytesInChar(byte b) throws UnsupportedEncodingException {
+
+    public static int getBytesInChar(byte b) throws UnsupportedEncodingException {
         int c = b & 0xff;
         if ((c & BYTES_1_MASK) == 0)
             return 1;
@@ -154,5 +153,15 @@ public class StringUtil {
             }
         }
         return false;
+    }
+
+    public static int findFirstNonEmptyCharFromLeft() {
+        
+        return 0;
+    }
+    
+    public static int findFirstEmptyCharFromRight() {
+        
+        return 0;
     }
 }

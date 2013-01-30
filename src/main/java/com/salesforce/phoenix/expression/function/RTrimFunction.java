@@ -53,7 +53,8 @@ import com.salesforce.phoenix.util.ByteUtil;
 public class RTrimFunction extends ScalarFunction {
     public static final String NAME = "RTRIM";
     private static final byte SPACE_UTF8 = (byte) 0x20;
-    private static final byte SINGLE_BYTE_MASK = (byte) 0x80;
+    private static final int SINGLE_BYTE_MASK = 0x01 << 7;
+
 
     private Integer maxLength;
 
@@ -86,7 +87,8 @@ public class RTrimFunction extends ScalarFunction {
         int length = ptr.getLength();
         int i = offset + length - 1;
         for ( ; i >= offset; i--) {
-            if ((string[i] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[i] && string[i] != 0x7f) {
+            if (((string[i] & SINGLE_BYTE_MASK) != 0) ||
+                ((string[i] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[i] && string[i] != 0x7f)) {
                 break;
             }
         }
