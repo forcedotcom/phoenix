@@ -57,7 +57,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     }
 
     protected static void initTableValues(byte[][] splits, long ts) throws Exception {
-        ensureTableCreated(getUrl(),PTSDB_NAME,splits, ts-2);
+        ensureTableCreated(getUrl(),PTSDB_NAME, splits, ts-2);
         
         // Insert all rows at ts
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
@@ -78,7 +78,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setBigDecimal(4, new BigDecimal(.5));
         stmt.execute();
         
-        ensureTableCreated(getUrl(),BTABLE_NAME,splits, ts-2);
+        ensureTableCreated(getUrl(),BTABLE_NAME, splits, ts-2);
         conn.setAutoCommit(false);
         
         // Insert all rows at ts
@@ -126,6 +126,11 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(7, null);
         stmt.execute();
         
+        ensureTableCreated(getUrl(),"VarcharKeyTest", splits, ts-2);
+        stmt = conn.prepareStatement(
+                "upsert into " +
+                "VarcharKeyTest(pk) " +
+                "VALUES (?)");
         stmt.setString(1, "   def");
         stmt.execute();
         stmt.setString(1, "jkl   ");
