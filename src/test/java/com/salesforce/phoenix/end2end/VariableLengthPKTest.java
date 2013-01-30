@@ -126,7 +126,9 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(7, null);
         stmt.execute();
         
-        ensureTableCreated(getUrl(),"VarcharKeyTest", splits, ts-2);
+        String ddl = "create table VarcharKeyTest" + 
+            "   (pk varchar not null primary key)";
+        createTestTable(getUrl(), ddl, splits, ts-2);
         stmt = conn.prepareStatement(
                 "upsert into " +
                 "VarcharKeyTest(pk) " +

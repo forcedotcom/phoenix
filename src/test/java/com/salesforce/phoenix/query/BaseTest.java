@@ -168,39 +168,22 @@ public abstract class BaseTest {
                 "   (i integer not null primary key, j integer)");
         builder.put("LongInKeyTest","create table LongInKeyTest" +
                 "   (l bigint not null primary key)");
-        builder.put("PKIntValueTest", "create table PKIntValueTest" + 
-                "   (pk integer not null primary key)");
-        builder.put("PKBigIntValueTest", "create table PKBigIntValueTest" + 
-                "   (pk bigint not null primary key)");
-        builder.put("PKUnsignedIntValueTest", "create table PKUnsignedIntValueTest" + 
-                "   (pk unsigned_int not null primary key)");
-        builder.put("PKUnsignedLongValueTest", "create table PKUnsignedLongValueTest" + 
-                "   (pk unsigned_long not null\n" +
-                "    CONSTRAINT pk PRIMARY KEY (unsigned_long))");
-        builder.put("KVIntValueTest", "create table KVIntValueTest" + 
-                "   (pk integer not null primary key,\n" +
-                "    kv integer)\n");
-        builder.put("KVBigIntValueTest", "create table KVBigIntValueTest" + 
-                "   (pk integer not null primary key,\n" +
-                "    kv bigint)\n");
-        builder.put("VarcharKeyTest", "create table VarcharKeyTest" + 
-                "   (pk varchar not null primary key)");
         tableDDLMap = builder.build();
     }
-    
+
     private static final String ORG_ID = "00D300000000XHP";
-    
+
     protected static String getOrganizationId() {
         return ORG_ID;
     }
 
     private static long timestamp;
-    
+
     public static long nextTimestamp() {
         timestamp += 100;
         return timestamp;
     }
-    
+
     protected static PhoenixTestDriver driver;
     private static int driverRefCount = 0;
 
@@ -214,7 +197,7 @@ public abstract class BaseTest {
             }
         }
     }
-    
+
     // We need to deregister an already existing driver in order
     // to register a new one. We need to create a new one so that
     // we register the new one with the new Configuration instance.
@@ -239,11 +222,11 @@ public abstract class BaseTest {
             }
         }
     }
-        
+
     protected static void startServer(String url) throws Exception {
         initDriver(new QueryServicesTestImpl(), url);
     }
-    
+
     protected static void stopServer() throws Exception {
         destroyDriver();
     }
@@ -260,13 +243,17 @@ public abstract class BaseTest {
     protected static void ensureTableCreated(String url, String tableName, byte[][] splits) throws SQLException {
         ensureTableCreated(url, tableName, splits, null);
     }
-    
+
     protected static void ensureTableCreated(String url, String tableName, Long ts) throws SQLException {
         ensureTableCreated(url, tableName, null, ts);
     }
-    
+
     protected static void ensureTableCreated(String url, String tableName, byte[][] splits, Long ts) throws SQLException {
         String ddl = tableDDLMap.get(tableName);
+        createTestTable(url, ddl, splits, ts);
+    }
+
+    protected static void createTestTable(String url, String ddl, byte[][] splits, Long ts) throws SQLException {
         assertNotNull(ddl);
         StringBuilder buf = new StringBuilder(ddl);
         if (splits != null) {
@@ -294,6 +281,5 @@ public abstract class BaseTest {
         } finally {
             conn.close();
         }
-    }    
-
+    }
 }
