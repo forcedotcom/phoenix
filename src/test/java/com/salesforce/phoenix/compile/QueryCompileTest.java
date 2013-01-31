@@ -837,26 +837,14 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> Improve more tests for substr and rtrim
-=======
->>>>>>> Improve more tests for substr and rtrim
-=======
->>>>>>> Improve more tests for substr and rtrim
     public void testSubstrSetScanKey() throws Exception {
         String query = "SELECT inst FROM ptsdb WHERE substr(inst, 0, 3) = 'abc'";
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
         assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abc\1"), scan.getStopRow()) == 0);
-        assertTrue(scan.getFilter() != null);
+        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
+        assertTrue(scan.getFilter() == null); // Extracted.
     }
 
     @Test
@@ -866,28 +854,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
         assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abc\1"), scan.getStopRow()) == 0);
+        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
         assertTrue(scan.getFilter() != null);
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    public void testRTrimFuncSetScanKey() throws Exception {
-        
->>>>>>> improve trim test
-=======
->>>>>>> Improve more tests for substr and rtrim
-=======
-    public void testRTrimFuncSetScanKey() throws Exception {
-        
->>>>>>> improve trim test
-=======
->>>>>>> Improve more tests for substr and rtrim
-=======
-    public void testRTrimFuncSetScanKey() throws Exception {
-        
->>>>>>> improve trim test
-=======
->>>>>>> Improve more tests for substr and rtrim
     }
 }
