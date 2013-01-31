@@ -35,6 +35,7 @@ import java.util.Properties;
 
 import org.junit.Test;
 
+
 public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
 
     private static final long INTEGER_MIN_MINUS_ONE = (long)Integer.MIN_VALUE - 1;
@@ -44,7 +45,7 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
     public void testIntegerPK() throws Exception {
         int[] testNumbers = {Integer.MIN_VALUE, Integer.MIN_VALUE + 1,
                 -2, -1, 0, 1, 2, Integer.MAX_VALUE - 1, Integer.MAX_VALUE};
-        ensureTableCreated(getUrl(),"PKIntValueTest",null,null);
+        ensureTableCreated(getUrl(),"PKIntValueTest");
         Properties props = new Properties();
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         String upsert = "UPSERT INTO PKIntValueTest VALUES(?)";
@@ -130,7 +131,7 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
       // Long.MIN_VALUE+1 as the smallest value.
         long[] testNumbers = {Long.MIN_VALUE+1 , Long.MIN_VALUE+2 , 
                 -2L, -1L, 0L, 1L, 2L, Long.MAX_VALUE-1, Long.MAX_VALUE};
-        ensureTableCreated(getUrl(),"PKBigIntValueTest",null,null);
+        ensureTableCreated(getUrl(),"PKBigIntValueTest");
         Properties props = new Properties();
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         String upsert = "UPSERT INTO PKBigIntValueTest VALUES(?)";
@@ -213,7 +214,7 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
     public void testIntegerKV() throws Exception {
         int[] testNumbers = {Integer.MIN_VALUE, Integer.MIN_VALUE + 1, 
                 -2, -1, 0, 1, 2, Integer.MAX_VALUE - 1, Integer.MAX_VALUE};
-        ensureTableCreated(getUrl(),"KVIntValueTest",null,null);
+        ensureTableCreated(getUrl(),"KVIntValueTest");
         Properties props = new Properties();
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         String upsert = "UPSERT INTO KVIntValueTest VALUES(?, ?)";
@@ -296,7 +297,7 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         // Long.MIN_VALUE+1 as the smallest value.
         long[] testNumbers = {Long.MIN_VALUE+1, Long.MIN_VALUE+2, 
                 -2L, -1L, 0L, 1L, 2L, Long.MAX_VALUE-1, Long.MAX_VALUE};
-        ensureTableCreated(getUrl(),"KVBigIntValueTest",null,null);
+        ensureTableCreated(getUrl(),"KVBigIntValueTest");
         Properties props = new Properties();
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         String upsert = "UPSERT INTO KVBigIntValueTest VALUES(?,?)";

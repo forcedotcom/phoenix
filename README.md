@@ -90,9 +90,9 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
   <dependencies>
     ...
     <dependency>
-    	<groupId>com.salesforce</groupId>
- 		<artifactId>phoenix</artifactId>
-  		<version>1.0</version>
+        <groupId>com.salesforce</groupId>
+        <artifactId>phoenix</artifactId>
+        <version>1.0</version>
      ...
     </dependency>
 ```
