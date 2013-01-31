@@ -125,10 +125,10 @@ public class SubstrFunction extends ScalarFunction {
         if (!getStrExpression().evaluate(tuple, ptr)) {
             return false;
         }
-
+        
         try {
-        	boolean isCharType = getStrExpression().getDataType() == PDataType.CHAR;
-        	int strlen = isCharType ? ptr.getLength() : StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
+            boolean isCharType = getStrExpression().getDataType() == PDataType.CHAR;
+            int strlen = isCharType ? ptr.getLength() : StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
             
             // Account for 1 versus 0-based offset
             offset = offset - (offset <= 0 ? 0 : 1);

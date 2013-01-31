@@ -821,7 +821,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         }
     }
 
-
     @Test
     public void testCreateNullableInPKMiddle() throws Exception {
         long ts = nextTimestamp();
@@ -837,4 +836,25 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         }
     }
 
+    @Test
+    public void testSubstrSetScanKey() throws Exception {
+        String query = "SELECT inst FROM ptsdb WHERE substr(inst, 0, 3) = 'abc'";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        compileQuery(query, binds, scan);
+        assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
+        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
+        assertTrue(scan.getFilter() == null); // Extracted.
+    }
+
+    @Test
+    public void testRTrimSetScanKey() throws Exception {
+        String query = "SELECT inst FROM ptsdb WHERE rtrim(inst) = 'abc'";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        compileQuery(query, binds, scan);
+        assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
+        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
+        assertTrue(scan.getFilter() != null);
+    }
 }
