@@ -38,6 +38,7 @@ import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -52,8 +53,7 @@ import com.salesforce.phoenix.util.ByteUtil;
     @Argument(allowedTypes={PDataType.VARCHAR})})
 public class RTrimFunction extends ScalarFunction {
     public static final String NAME = "RTRIM";
-    private static final byte SPACE_UTF8 = (byte) 0x20;
-    private static final byte SINGLE_BYTE_MASK = (byte) 0x80;
+
 
     private Integer maxLength;
 
@@ -84,16 +84,11 @@ public class RTrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
-        int i = offset + length - 1;
-        for ( ; i >= offset; i--) {
-            if ((string[i] & SINGLE_BYTE_MASK) == 0 && SPACE_UTF8 < string[i] && string[i] != 0x7f) {
-                break;
-            }
-        }
+        int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
         if (i == offset - 1) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return true;
-        }
+            }
         ptr.set(string, offset, i - offset + 1);
         return true;
     }
