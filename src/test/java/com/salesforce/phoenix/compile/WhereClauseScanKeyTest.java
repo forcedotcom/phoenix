@@ -674,7 +674,6 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
     }
-
     /*
      * The following 5 tests are testing the comparison in where clauses under the case when the rhs
      * cannot be coerced into the lhs. We need to confirm the decision make by expression compilation

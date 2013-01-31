@@ -168,6 +168,21 @@ public abstract class BaseTest {
                 "   (i integer not null primary key, j integer)");
         builder.put("LongInKeyTest","create table LongInKeyTest" +
                 "   (l bigint not null primary key)");
+        builder.put("PKIntValueTest", "create table PKIntValueTest" + 
+                "   (pk integer not null primary key)");
+        builder.put("PKBigIntValueTest", "create table PKBigIntValueTest" + 
+                "   (pk bigint not null primary key)");
+        builder.put("PKUnsignedIntValueTest", "create table PKUnsignedIntValueTest" + 
+                "   (pk unsigned_int not null primary key)");
+        builder.put("PKUnsignedLongValueTest", "create table PKUnsignedLongValueTest" + 
+                "   (pk unsigned_long not null\n" +
+                "    CONSTRAINT pk PRIMARY KEY (unsigned_long))");
+        builder.put("KVIntValueTest", "create table KVIntValueTest" + 
+                "   (pk integer not null primary key,\n" +
+                "    kv integer)\n");
+        builder.put("KVBigIntValueTest", "create table KVBigIntValueTest" + 
+                "   (pk integer not null primary key,\n" +
+                "    kv bigint)\n");
         tableDDLMap = builder.build();
     }
 
@@ -251,6 +266,10 @@ public abstract class BaseTest {
     protected static void ensureTableCreated(String url, String tableName, byte[][] splits, Long ts) throws SQLException {
         String ddl = tableDDLMap.get(tableName);
         createTestTable(url, ddl, splits, ts);
+    }
+
+    protected static void createTestTable(String url, String ddl) throws SQLException {
+        createTestTable(url, ddl, null, null);
     }
 
     protected static void createTestTable(String url, String ddl, byte[][] splits, Long ts) throws SQLException {
