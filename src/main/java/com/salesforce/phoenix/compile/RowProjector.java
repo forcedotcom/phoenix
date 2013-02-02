@@ -71,7 +71,7 @@ public class RowProjector {
             reverseIndex.put(colProjector.getName(), position);
         }
         this.allCaseSensitive = allCaseSensitive;
-        this.someCaseSensitive = allCaseSensitive;
+        this.someCaseSensitive = someCaseSensitive;
     }
     
     public List<? extends ColumnProjector> getColumnProjectors() {
