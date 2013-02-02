@@ -58,6 +58,7 @@ import com.salesforce.phoenix.util.SQLCloseables;
  */
 public final class PhoenixDriver extends PhoenixEmbeddedDriver {
     private static final String ZOOKEEPER_QUARUM_ATTRIB = "hbase.zookeeper.quorum";
+    private static final String ZOOKEEPER_PORT = "hbase.zookeeper.property.clientPort";
     public static final PhoenixDriver INSTANCE;
     static {
         try {
@@ -83,6 +84,7 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
     @Override
     protected ConnectionQueryServices getConnectionQueryServices(String url, Properties info) throws SQLException {
         String serverName = getZookeeperQuorum(url);
+        String serverPort = getZookeeperPort(serverName);
         ConnectionQueryServices connectionQueryServices = connectionQueryServicesMap.get(serverName);
         if (connectionQueryServices == null) {
             if (CONNECTIONLESS.equals(serverName)) {
@@ -90,6 +92,9 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
             } else {
                 Configuration childConfig = HBaseConfiguration.create(getQueryServices().getConfig());
                 childConfig.set(ZOOKEEPER_QUARUM_ATTRIB, serverName);
+                if (serverPort != null) {
+                	childConfig.set(ZOOKEEPER_PORT, serverPort);
+                }
                 connectionQueryServices = new ConnectionQueryServicesImpl(getQueryServices(), childConfig);
             }
             connectionQueryServices.init(url, info);

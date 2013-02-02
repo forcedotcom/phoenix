@@ -86,6 +86,14 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
         throw new SQLException("Zookeeper quorum not found in connection url \"" + url +"\"");
     }
     
+    protected static String getZookeeperPort(String server) throws SQLException {
+        int startIndex = server.lastIndexOf(':');
+        if (startIndex == -1) {
+        	return null;
+        }
+        return server.substring(startIndex + 1, server.length());
+    }
+    
     @Override
     public boolean acceptsURL(String url) throws SQLException {
         return !url.startsWith(DNC_PROTOCOL) && url.startsWith(PhoenixRuntime.EMBEDDED_JDBC_PROTOCOL);
