@@ -25,45 +25,45 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.exception;
 
-import java.sql.SQLException;
-
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
 
 /**
+ * Various SQLException code.
  * 
- * Exception thrown when a column name is used without being qualified with an alias
- * and more than one table contains that column.
+ * @author zhuang
+ * @since 1.0
  *
- * @author jtaylor
- * @since 0.1
  */
-public class AmbiguousColumnException extends SQLException {
-    private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.AMBIGUOUS_COLUMN;
+public enum PhoenixExceptionCodeEnum {
 
-    public AmbiguousColumnException() {
-        super(code.getMessage(), code.getSQLState());
+    /** 
+     * Warinings
+     */
+    CURSOR_OPERATION_CONFLICT("01001", "Cursor operation conflict"),
+    DISCONNECT_ERROR("01002", "Disconnect error"),
+    DATA_TRUNCATED("01004", "Data truncated"),
+    
+    /**
+     * Syntax Error or Access Rule Violation
+     */
+    AMBIGUOUS_COLUMN("42702", "Column reference ambiguous or duplicate names"),
+    ;
+
+    private final String sqlState;
+    private final String message;
+
+    private PhoenixExceptionCodeEnum(String sqlState, String message) {
+        this.sqlState = sqlState;
+        this.message = message;
     }
 
-    public AmbiguousColumnException(String message) {
-        super(message, code.getSQLState());
+    public String getSQLState() {
+        return sqlState;
     }
 
-    public AmbiguousColumnException(String message, String sqlState) {
-        super(message, sqlState);
+    public String getMessage() {
+        return message;
     }
 
-    public AmbiguousColumnException(Throwable cause) {
-        super(code.getMessage(), code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, Throwable cause) {
-        super(message, code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, String sqlState, Throwable cause) {
-        super(message, sqlState, cause);
-    }
 }
