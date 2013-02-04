@@ -52,14 +52,16 @@ public enum PhoenixExceptionCodeEnum {
     /**
      * Syntax Error or Access Rule Violation (42)
      */
-    AMBIGUOUS_TABLE("42000", "Table name exists in more than one table schema and is used without being qualified"),
-    AMBIGUOUS_COLUMN("42702", "Column reference ambiguous or duplicate names"),
+    AMBIGUOUS_TABLE("42000", "Table name exists in more than one table schema and is used without being qualified."),
+    AMBIGUOUS_COLUMN("42702", "Column reference ambiguous or duplicate names."),
     COLUMN_DUPLICATE("42702", "A column reference is ambiguous, because of duplicate names."),
     COLUMN_EXIST_IN_DEF("42711", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
-    COLUMN_NOT_FOUND("42703", "Undefined column"),
-    COLUMN_FAMILY_NOT_FOUND("42703", "Undefined column family"),
+    COLUMN_NOT_FOUND("42703", "Undefined column."),
+    COLUMN_FAMILY_NOT_FOUND("42703", "Undefined column family."),
     TABLE_UNDEFINED("42P01", "Table undefined."),
-    TABLE_DEPLUCATE("42P07", "Table already exist.")
+    TABLE_DEPLUCATE("42P07", "Table already exist."),
+    READ_ONLY_TABLE("42000", "Table is read only."),
+    SCHEMA_NOT_FOUND("42Y07", "Schema not found.")
     ;
 
     private final String sqlState;
