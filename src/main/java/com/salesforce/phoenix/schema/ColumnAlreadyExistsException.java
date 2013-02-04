@@ -29,29 +29,37 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
 import com.salesforce.phoenix.query.QueryConstants;
 
 
 /**
  * 
- * Exception thrown when a table name could not be found in the schema
+ * Exception thrown when a column already exists.
  *
  * @author jtaylor
  * @since 0.1
  */
 public class ColumnAlreadyExistsException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.COLUMN_EXIST;
     private final String schemaName;
     private final String tableName;
     private final String columnName;
-    
+
     public ColumnAlreadyExistsException(String schemaName, String tableName, String columnName) {
-        super(schemaName + QueryConstants.NAME_SEPARATOR +  tableName  + QueryConstants.NAME_SEPARATOR + columnName + " already exists");
+        this(schemaName, tableName, columnName, code.getSQLState());
+    }
+
+    public ColumnAlreadyExistsException(String schemaName, String tableName, String columnName, String sqlState) {
+        super(schemaName + QueryConstants.NAME_SEPARATOR + tableName + 
+                QueryConstants.NAME_SEPARATOR + columnName + " already exists", 
+                sqlState);
         this.schemaName = schemaName;
         this.tableName = tableName;
         this.columnName = columnName;
     }
-    
+
     public String getTableName() {
         return tableName;
     }

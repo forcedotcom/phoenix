@@ -44,6 +44,7 @@ import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
+import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
@@ -496,7 +497,8 @@ public class MetaDataClient {
                     if (code == MutationCode.COLUMN_ALREADY_EXISTS) {
                         connection.addTable(schemaName, result.getTable());
                         if (!statement.ifNotExists()) {
-                            throw new ColumnAlreadyExistsException(schemaName, tableName, SchemaUtil.findExistingColumn(result.getTable(), columns));
+                            throw new ColumnAlreadyExistsException(schemaName, tableName, SchemaUtil.findExistingColumn(result.getTable(), columns)
+                                    , PhoenixExceptionCodeEnum.COLUMN_EXIST_IN_TABLE_DEFINITION.getSQLState());
                         }
                         return new MutationState(0,connection);
                     }
