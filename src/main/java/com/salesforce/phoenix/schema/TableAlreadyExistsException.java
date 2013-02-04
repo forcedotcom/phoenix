@@ -29,6 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -40,16 +41,21 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class TableAlreadyExistsException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.TABLE_DEPLUCATE;
     private final String schemaName;
     private final String tableName;
-    
+
     public TableAlreadyExistsException(String schemaName, String tableName) {
-        super(SchemaUtil.getTableDisplayName(schemaName, tableName) + " already exists");
+        this(schemaName, tableName, code.getSQLState());
+    }
+
+    public TableAlreadyExistsException(String schemaName, String tableName, String sqlState) {
+        super(SchemaUtil.getTableDisplayName(schemaName, tableName) + " already exists", sqlState);
         this.tableName = tableName;
         this.schemaName = schemaName;
     }
-    
+
     public String getTableName() {
         return tableName;
     }

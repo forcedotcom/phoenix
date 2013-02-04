@@ -498,7 +498,7 @@ public class MetaDataClient {
                         connection.addTable(schemaName, result.getTable());
                         if (!statement.ifNotExists()) {
                             throw new ColumnAlreadyExistsException(schemaName, tableName, SchemaUtil.findExistingColumn(result.getTable(), columns)
-                                    , PhoenixExceptionCodeEnum.COLUMN_EXIST_IN_TABLE_DEFINITION.getSQLState());
+                                    , PhoenixExceptionCodeEnum.COLUMN_EXIST_IN_DEF.getSQLState());
                         }
                         return new MutationState(0,connection);
                     }

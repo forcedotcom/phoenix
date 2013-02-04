@@ -38,21 +38,28 @@ package com.salesforce.phoenix.exception;
 public enum PhoenixExceptionCodeEnum {
 
     /** 
-     * Warinings (01X)
+     * Warinings (01)
      */
     CURSOR_OPERATION_CONFLICT("01001", "Cursor operation conflict"),
     DISCONNECT_ERROR("01002", "Disconnect error"),
     DATA_TRUNCATED("01004", "Data truncated"),
     
     /**
-     * Syntax Error or Access Rule Violation (42X)
+     * Constraint Violation (23)
+     */
+    CONCURRENT_TABLE_MUTATION("23000", "Concurrent modification to table."),
+    
+    /**
+     * Syntax Error or Access Rule Violation (42)
      */
     AMBIGUOUS_TABLE("42000", "Table name exists in more than one table schema and is used without being qualified"),
     AMBIGUOUS_COLUMN("42702", "Column reference ambiguous or duplicate names"),
-    COLUMN_EXIST("42702", "A column reference is ambiguous, because of duplicate names."),
-    COLUMN_EXIST_IN_TABLE_DEFINITION("42711", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
+    COLUMN_DUPLICATE("42702", "A column reference is ambiguous, because of duplicate names."),
+    COLUMN_EXIST_IN_DEF("42711", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
     COLUMN_NOT_FOUND("42703", "Undefined column"),
-    COLUMN_FAMILY_NOT_FOUND("42703", "Undefined column family")
+    COLUMN_FAMILY_NOT_FOUND("42703", "Undefined column family"),
+    TABLE_UNDEFINED("42P01", "Table undefined."),
+    TABLE_DEPLUCATE("42P07", "Table already exist.")
     ;
 
     private final String sqlState;

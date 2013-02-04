@@ -42,7 +42,7 @@ import com.salesforce.phoenix.query.QueryConstants;
  */
 public class ColumnAlreadyExistsException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.COLUMN_EXIST;
+    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.COLUMN_EXIST_IN_DEF;
     private final String schemaName;
     private final String tableName;
     private final String columnName;

@@ -47,7 +47,11 @@ public class ColumnNotFoundException extends SQLException {
     private final String schemaName;
     private final String tableName;
     private final String columnName;
-    
+
+    public ColumnNotFoundException(String schemaName, String tableName, String familyName, String columnName) {
+        this(schemaName, tableName, familyName, columnName, code.getSQLState());
+    }
+
     public ColumnNotFoundException(String schemaName, String tableName, String columnName) {
         this(schemaName, tableName, null, columnName, code.getSQLState());
     }

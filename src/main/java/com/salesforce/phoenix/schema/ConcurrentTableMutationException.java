@@ -29,20 +29,26 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
 public class ConcurrentTableMutationException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.CONCURRENT_TABLE_MUTATION;
     private final String schemaName;
     private final String tableName;
 
     public ConcurrentTableMutationException(String schemaName, String tableName) {
-        super("Concurrent modification to table " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+        this(schemaName, tableName, code.getSQLState());
+    }
+
+    public ConcurrentTableMutationException(String schemaName, String tableName, String sqlState) {
+        super("Concurrent modification to table " + SchemaUtil.getTableDisplayName(schemaName, tableName), sqlState);
         this.schemaName = schemaName;
         this.tableName = tableName;
     }
-    
+
     public String getTableName() {
         return tableName;
     }
