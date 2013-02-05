@@ -27,6 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
+import java.sql.SQLException;
+
+import com.salesforce.phoenix.util.SchemaUtil;
+
 
 /**
  * Various SQLException code.
@@ -43,6 +47,16 @@ public enum PhoenixExceptionCodeEnum {
     CURSOR_OPERATION_CONFLICT("01001", "Cursor operation conflict"),
     DISCONNECT_ERROR("01002", "Disconnect error"),
     DATA_TRUNCATED("01004", "Data truncated"),
+    
+    /**
+     * Connection Exception (08)
+     */
+    IO_EXCEPTION("08000", "Connection closed by unknown interrupt.."),
+    
+    /**
+     * Data Exception (22)
+     */
+    ILLEGAL_DATA("22000", "Illegal Data."),
     
     /**
      * Constraint Violation (23)
@@ -82,6 +96,11 @@ public enum PhoenixExceptionCodeEnum {
     @Override
     public String toString() {
         return "SQLException! SQLState(" + sqlState + "): " + message;
+    }
+
+    public static SQLException generateSQLException(Exception e, PhoenixExceptionCodeEnum code) {
+        return new SQLException(SchemaUtil.generateSQLErrorMessage(e.getMessage(), code),
+                code.getSQLState(), e);
     }
 
 }

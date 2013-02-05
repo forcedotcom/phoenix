@@ -44,6 +44,7 @@ import org.apache.hadoop.io.WritableUtils;
 import org.xerial.snappy.Snappy;
 
 import com.google.common.collect.ImmutableSet;
+import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -333,7 +334,7 @@ public class HashCacheClient {
             chunk.resize(compressedSize);
             return new ImmutableBytesWritable(compressed,0,compressedSize);
         } catch (IOException e) {
-            throw new SQLException(e);
+            throw PhoenixExceptionCodeEnum.generateSQLException(e, PhoenixExceptionCodeEnum.IO_EXCEPTION);
         }
     }
 }
