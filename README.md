@@ -29,7 +29,7 @@ For detailed documentation on the current level of SQL support, see our [languag
 ## Installation ##
 To install a pre-built phoenix, use these directions:
 
-* Expand the following tar: [phoenix-1.0-install.tar](http://forcedotcom.github.com/phoenix/lib/phoenix-1.0-install.tar)
+* Expand the following tar: [phoenix-1.0-install.tar](http://phoenix-bin.github.com/client/phoenix-1.0-install.tar)
 * Add the phoenix-1.0.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
 * Add the phoenix-1.0-client.jar to the classpath of any Phoenix client.
