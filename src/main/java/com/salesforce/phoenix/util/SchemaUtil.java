@@ -168,7 +168,6 @@ public class SchemaUtil {
         return name.toUpperCase();
     }
 
-
     public static boolean isCaseSensitive(String name) {
         return name.length() > 0 && name.charAt(0)=='"';
     }
@@ -342,5 +341,24 @@ public class SchemaUtil {
 
     public static boolean isMetaTable(byte[] tableName) {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
+    }
+    
+    /**
+     * Utility method to generate a useful exception message. It requires at least 2 string argument, 
+     * the sqlState and a message. It then can take in more information about the exception. It should
+     * be passed in the order of specificity. For example, schemaName, tableName, familyName, columnName. 
+     */
+    public static String generateSQLErrorMessage(String sqlState, String message, String... info) {
+        StringBuilder builder = new StringBuilder("Exception caught. SQLState(").append(sqlState)
+                .append("): ").append(message).append(" Coordinate info: ");
+        for (int i=0; i<info.length; i++) {
+            if (info[i] != null) {
+                builder.append(info[i]);
+                if (i != info.length - 1) {
+                    builder.append(QueryConstants.NAME_SEPARATOR);
+                }
+            }
+        }
+        return builder.toString();
     }
 }
