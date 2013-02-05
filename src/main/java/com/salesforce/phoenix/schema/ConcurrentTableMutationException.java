@@ -40,11 +40,9 @@ public class ConcurrentTableMutationException extends SQLException {
     private final String tableName;
 
     public ConcurrentTableMutationException(String schemaName, String tableName) {
-        this(schemaName, tableName, code.getSQLState());
-    }
-
-    public ConcurrentTableMutationException(String schemaName, String tableName, String sqlState) {
-        super("Concurrent modification to table " + SchemaUtil.getTableDisplayName(schemaName, tableName), sqlState);
+        super(SchemaUtil.generateSQLErrorMessage(code.getSQLState(), 
+                "Concurrent modification to table " + SchemaUtil.getTableDisplayName(schemaName, tableName)), 
+                code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;
     }
