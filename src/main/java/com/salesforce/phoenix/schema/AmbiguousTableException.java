@@ -30,7 +30,6 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
  * 
@@ -45,26 +44,26 @@ public class AmbiguousTableException extends SQLException {
     private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.AMBIGUOUS_TABLE;
 
     public AmbiguousTableException() {
-        super(SchemaUtil.generateSQLErrorMessage(code), code.getSQLState());
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState());
     }
 
     public AmbiguousTableException(String message) {
-        super(SchemaUtil.generateSQLErrorMessage(message, code), code.getSQLState());
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState());
     }
 
     public AmbiguousTableException(String message, String sqlState) {
-        super(SchemaUtil.generateSQLErrorMessage(message, code), sqlState);
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState);
     }
 
     public AmbiguousTableException(Throwable cause) {
-        super(SchemaUtil.generateSQLErrorMessage(code), code.getSQLState(), cause);
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState(), cause);
     }
 
     public AmbiguousTableException(String message, Throwable cause) {
-        super(SchemaUtil.generateSQLErrorMessage(message, code), code.getSQLState(), cause);
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState(), cause);
     }
 
     public AmbiguousTableException(String message, String sqlState, Throwable cause) {
-        super(SchemaUtil.generateSQLErrorMessage(message, code), sqlState, cause);
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState, cause);
     }
 }

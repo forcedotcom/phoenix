@@ -30,7 +30,6 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -48,7 +47,7 @@ public class ColumnAlreadyExistsException extends SQLException {
     private final String columnName;
 
     public ColumnAlreadyExistsException(String schemaName, String tableName, String columnName) {
-        super(SchemaUtil.generateSQLErrorMessage(code, schemaName, tableName, columnName),
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code, schemaName, tableName, columnName),
                 code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;

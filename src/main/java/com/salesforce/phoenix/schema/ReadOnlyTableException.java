@@ -30,7 +30,6 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
  * 
@@ -44,19 +43,19 @@ public class ReadOnlyTableException extends SQLException {
     private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.READ_ONLY_TABLE;
 
     public ReadOnlyTableException() {
-        super(SchemaUtil.generateSQLErrorMessage(code), code.getSQLState());
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState());
     }
 
     public ReadOnlyTableException(String message) {
-        super(SchemaUtil.generateSQLErrorMessage(message, code), code.getSQLState());
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState());
     }
 
     public ReadOnlyTableException(Throwable cause) {
-        super(SchemaUtil.generateSQLErrorMessage(code), code.getSQLState(), cause);
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState(), cause);
     }
 
     public ReadOnlyTableException(String message, Throwable cause) {
-        super(SchemaUtil.generateSQLErrorMessage(message, code), code.getSQLState(), cause);
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState(), cause);
     }
 
 }

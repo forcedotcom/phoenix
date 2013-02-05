@@ -30,7 +30,6 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -57,7 +56,7 @@ public class ColumnNotFoundException extends SQLException {
     }
 
     public ColumnNotFoundException(String schemaName, String tableName, String familyName, String columnName) {
-        super(SchemaUtil.generateSQLErrorMessage(code, schemaName, tableName, familyName, columnName),
+        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code, schemaName, tableName, familyName, columnName),
                 code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;

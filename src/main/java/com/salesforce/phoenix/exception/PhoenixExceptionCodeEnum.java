@@ -29,7 +29,7 @@ package com.salesforce.phoenix.exception;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.query.QueryConstants;
 
 
 /**
@@ -98,8 +98,43 @@ public enum PhoenixExceptionCodeEnum {
         return "SQLException! SQLState(" + sqlState + "): " + message;
     }
 
+    /**
+     * Utility method to generate a useful exception message. It requires at least 2 string argument, 
+     * the sqlState and a message. It then can take in more information about the exception. It should
+     * be passed in the order of specificity. For example, schemaName, tableName, familyName, columnName. 
+     */
+    public static String generateSQLErrorMessage(PhoenixExceptionCodeEnum code, String... info) {
+        return generateSQLErrorMessage(null, code, info);
+    }
+
+    public static String generateSQLErrorMessage(String message, PhoenixExceptionCodeEnum code, String... info) {
+        StringBuilder builder = new StringBuilder("SQLException. SQLState(").append(code.toString());
+        if (message != null) {
+            builder.append(" Message: ").append(message);
+        }
+        builder.append(" Coordinate info: ");
+        for (int i=0; i<info.length; i++) {
+            if (info[i] != null) {
+                builder.append(info[i]);
+                if (i != info.length - 1) {
+                    builder.append(QueryConstants.NAME_SEPARATOR);
+                }
+            }
+        }
+        return builder.toString();
+    }
+
+    /**
+     * Utility method to transform a SQLException into containing our formatted error messages and
+     * use the SQLState code defined in this enumeration.
+     */
     public static SQLException generateSQLException(Exception e, PhoenixExceptionCodeEnum code) {
-        return new SQLException(SchemaUtil.generateSQLErrorMessage(e.getMessage(), code),
+        return new SQLException(generateSQLErrorMessage(e.getMessage(), code),
+                code.getSQLState(), e);
+    }
+
+    public static SQLException generateSQLException(Exception e, PhoenixExceptionCodeEnum code, String... info) {
+        return new SQLException(generateSQLErrorMessage(e.getMessage(), code, info),
                 code.getSQLState(), e);
     }
 
