@@ -79,4 +79,9 @@ public enum PhoenixExceptionCodeEnum {
         return message;
     }
 
+    @Override
+    public String toString() {
+        return "SQLException! SQLState(" + sqlState + "): " + message;
+    }
+
 }

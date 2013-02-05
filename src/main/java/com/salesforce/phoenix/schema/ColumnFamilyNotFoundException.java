@@ -45,7 +45,7 @@ public class ColumnFamilyNotFoundException extends SQLException {
     private final String familyName;
 
     public ColumnFamilyNotFoundException(String familyName, String message) {
-        super(SchemaUtil.generateSQLErrorMessage(code.getSQLState(), message, familyName), code.getSQLState());
+        super(SchemaUtil.generateSQLErrorMessage(code, message, familyName), code.getSQLState());
         this.familyName = familyName;
     }
 

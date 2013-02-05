@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -342,15 +343,22 @@ public class SchemaUtil {
     public static boolean isMetaTable(byte[] tableName) {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
     }
-    
+
     /**
      * Utility method to generate a useful exception message. It requires at least 2 string argument, 
      * the sqlState and a message. It then can take in more information about the exception. It should
      * be passed in the order of specificity. For example, schemaName, tableName, familyName, columnName. 
      */
-    public static String generateSQLErrorMessage(String sqlState, String message, String... info) {
-        StringBuilder builder = new StringBuilder("Exception caught. SQLState(").append(sqlState)
-                .append("): ").append(message).append(" Coordinate info: ");
+    public static String generateSQLErrorMessage(PhoenixExceptionCodeEnum code, String... info) {
+        return generateSQLErrorMessage(null, code, info);
+    }
+
+    public static String generateSQLErrorMessage(String message, PhoenixExceptionCodeEnum code, String... info) {
+        StringBuilder builder = new StringBuilder("SQLException. SQLState(").append(code.toString());
+        if (message != null) {
+            builder.append(" Message: ").append(message);
+        }
+        builder.append(" Coordinate info: ");
         for (int i=0; i<info.length; i++) {
             if (info[i] != null) {
                 builder.append(info[i]);
@@ -361,4 +369,5 @@ public class SchemaUtil {
         }
         return builder.toString();
     }
+
 }
