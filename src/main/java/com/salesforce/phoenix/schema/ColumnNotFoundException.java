@@ -28,8 +28,10 @@
 package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
+import java.util.HashMap;
 
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionLocationInfo;
 
 
 /**
@@ -42,21 +44,18 @@ import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
  */
 public class ColumnNotFoundException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.COLUMN_NOT_FOUND;
+    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.COLUMN_NOT_FOUND;
     private final String schemaName;
     private final String tableName;
     private final String columnName;
-
-    public ColumnNotFoundException(String schemaName, String tableName, String columnName) {
-        this(schemaName, tableName, null, columnName);
-    }
 
     public ColumnNotFoundException(String columnName) {
         this(null, null, null, columnName);
     }
 
     public ColumnNotFoundException(String schemaName, String tableName, String familyName, String columnName) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code, schemaName, tableName, familyName, columnName),
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code, 
+                new SQLExceptionLocationInfo().setSchemaName(schemaName).setTableName(tableName).setFamilyName(familyName).setColumnName(columnName)),
                 code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;

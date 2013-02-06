@@ -169,7 +169,7 @@ public class MetaDataClient {
             String columnName = def.getColumnDefName().getColumnName().getName();
             PName familyName = null;
             if (def.isPK() && !pkColumns.isEmpty() ) {
-                throw new SQLException("A column (" + columnName + ") may not be declared as a PRIMARY KEY when a PRIMARY KEY CONSTRAINT is present");
+                throw new PrimaryKeyAlreadyExistException(columnName);
             }
             boolean isPK = def.isPK() || pkColumns.contains(columnName);
             if (def.getColumnDefName().getFamilyName() != null) {

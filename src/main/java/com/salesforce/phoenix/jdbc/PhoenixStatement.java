@@ -39,7 +39,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
@@ -634,7 +634,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         try {
             parser = new PhoenixStatementParser(sql, new ExecutableNodeFactory());
         } catch (IOException e) {
-            throw PhoenixExceptionCodeEnum.generateSQLException(e, PhoenixExceptionCodeEnum.IO_EXCEPTION); // Impossible
+            throw SQLExceptionCodeEnum.generateSQLException(e, SQLExceptionCodeEnum.IO_EXCEPTION); // Impossible
         }
         ExecutableStatement statement = parser.parseStatement();
         return statement;

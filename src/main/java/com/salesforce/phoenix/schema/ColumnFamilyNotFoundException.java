@@ -29,7 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 
 /**
  * 
@@ -40,11 +40,11 @@ import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
  */
 public class ColumnFamilyNotFoundException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.COLUMN_FAMILY_NOT_FOUND;
+    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.COLUMN_FAMILY_NOT_FOUND;
     private final String familyName;
 
     public ColumnFamilyNotFoundException(String familyName, String message) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code, message, familyName), code.getSQLState());
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code, message, familyName), code.getSQLState());
         this.familyName = familyName;
     }
 

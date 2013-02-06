@@ -29,7 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 
 /**
  * 
@@ -41,29 +41,29 @@ import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
  */
 public class AmbiguousTableException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.AMBIGUOUS_TABLE;
+    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.AMBIGUOUS_TABLE;
 
     public AmbiguousTableException() {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState());
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState());
     }
 
     public AmbiguousTableException(String message) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState());
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState());
     }
 
     public AmbiguousTableException(String message, String sqlState) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState);
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState);
     }
 
     public AmbiguousTableException(Throwable cause) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState(), cause);
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState(), cause);
     }
 
     public AmbiguousTableException(String message, Throwable cause) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState(), cause);
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState(), cause);
     }
 
     public AmbiguousTableException(String message, String sqlState, Throwable cause) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState, cause);
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState, cause);
     }
 }

@@ -37,7 +37,7 @@ import org.apache.hadoop.hbase.client.Scan;
 
 import com.google.common.io.Closeables;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -65,7 +65,7 @@ public class TableResultIterator extends ExplainTable implements ResultIterator 
             delegate = new ScanningResultIterator(htable.getScanner(scan));
         } catch (IOException e) {
             Closeables.closeQuietly(htable);
-            throw PhoenixExceptionCodeEnum.generateSQLException(e, PhoenixExceptionCodeEnum.IO_EXCEPTION);
+            throw SQLExceptionCodeEnum.generateSQLException(e, SQLExceptionCodeEnum.IO_EXCEPTION);
         }
     }
 

@@ -29,15 +29,15 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 
 public class SchemaNotFoundException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.SCHEMA_NOT_FOUND;
+    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.SCHEMA_NOT_FOUND;
     private final String schemaName;
 
     public SchemaNotFoundException(String schemaName) {
-        super(PhoenixExceptionCodeEnum.generateSQLErrorMessage(code, schemaName), code.getSQLState());
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code, schemaName), code.getSQLState());
         this.schemaName = schemaName;
     }
 
