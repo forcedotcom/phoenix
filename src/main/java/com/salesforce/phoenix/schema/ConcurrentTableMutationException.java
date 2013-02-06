@@ -30,7 +30,7 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 
 public class ConcurrentTableMutationException extends SQLException {
@@ -40,7 +40,7 @@ public class ConcurrentTableMutationException extends SQLException {
     private final String tableName;
 
     public ConcurrentTableMutationException(String schemaName, String tableName) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage("Concurrent modification to table " + SchemaUtil.getTableDisplayName(schemaName, tableName), code), 
+        super(SQLExceptionInfo.getNewInfoObject(code).setSchemaName(schemaName).setTableName(tableName).toString(), 
                 code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;

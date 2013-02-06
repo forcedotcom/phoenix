@@ -30,7 +30,7 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionLocationInfo;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 
 /**
@@ -51,7 +51,7 @@ public class TableNotFoundException extends SQLException {
     }
 
     public TableNotFoundException(String schemaName, String tableName) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code, SQLExceptionLocationInfo.getNewInfoObject().setSchemaName(schemaName).setTableName(tableName)),
+        super(SQLExceptionInfo.getNewInfoObject(code).setSchemaName(schemaName).setTableName(tableName).toString(),
                 code.getSQLState());
         this.tableName = tableName;
         this.schemaName = schemaName;

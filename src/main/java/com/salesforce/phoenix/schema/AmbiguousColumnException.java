@@ -30,6 +30,7 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
  * 
@@ -44,26 +45,26 @@ public class AmbiguousColumnException extends SQLException {
     private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.AMBIGUOUS_COLUMN;
 
     public AmbiguousColumnException() {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState());
+        super(SQLExceptionInfo.getNewInfoObject(code).toString(), code.getSQLState());
     }
 
     public AmbiguousColumnException(String message) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState());
+        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState());
     }
 
     public AmbiguousColumnException(String message, String sqlState) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState);
+        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), sqlState);
     }
 
     public AmbiguousColumnException(Throwable cause) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code), code.getSQLState(), cause);
+        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(cause.getMessage()).toString(), code.getSQLState(), cause);
     }
 
     public AmbiguousColumnException(String message, Throwable cause) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), code.getSQLState(), cause);
+        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState(), cause);
     }
 
     public AmbiguousColumnException(String message, String sqlState, Throwable cause) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code), sqlState, cause);
+        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), sqlState, cause);
     }
 }

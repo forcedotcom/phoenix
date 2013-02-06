@@ -37,6 +37,7 @@ import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -120,15 +121,15 @@ public class StatsManagerImpl implements StatsManager {
             }
             tableStatsMap.put(table, new PTableStats(timeKeeper.currentTimeMillis(),minKey,maxKey));
         } catch (IOException e) {
-            sqlE = SQLExceptionCodeEnum.generateSQLException(e, SQLExceptionCodeEnum.IO_EXCEPTION);
+            sqlE = SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);
         } finally {
             try {
                 hTable.close();
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new SQLException(e);
+                    sqlE = SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);
                 } else {
-                    sqlE.setNextException(new SQLException(e));
+                    sqlE.setNextException(SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e));
                 }
             } finally {
                 if (sqlE != null) {

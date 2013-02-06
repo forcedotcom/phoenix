@@ -44,6 +44,8 @@ import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
@@ -175,9 +177,11 @@ public class MetaDataClient {
             if (def.getColumnDefName().getFamilyName() != null) {
                 String family = def.getColumnDefName().getFamilyName().getName();
                 if (isPK) {
-                    throw new SQLException("A primary key column (" + columnName + ") may not have a family name (" + family + ")");
+                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PRIMARY_KEY_WITH_FAMILY_NAME)
+                        .setColumnName(columnName).setFamilyName(family).genExceptionObject();
                 } else if (!def.isNull()) {
-                    throw new SQLException("A key/value column may not be declared as NOT NULL");
+                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.KEY_VALUE_NOT_NULL)
+                        .setColumnName(columnName).setFamilyName(family).genExceptionObject();
                 }
                 familyName = new PNameImpl(family);
             } else if (!isPK) {

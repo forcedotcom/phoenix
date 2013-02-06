@@ -27,12 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import java.sql.SQLException;
-import java.util.*;
-import java.util.Map.Entry;
-
-import com.salesforce.phoenix.query.QueryConstants;
-
 
 /**
  * Various SQLException code.
@@ -77,6 +71,9 @@ public enum SQLExceptionCodeEnum {
     READ_ONLY_TABLE("42000", "Table is read only."),
     SCHEMA_NOT_FOUND("42Y07", "Schema not found."),
     PRIMARY_KEY_ALREADY_EXISTS("42889", "The table already has a primary key."),
+    PRIMARY_KEY_WITH_FAMILY_NAME("42000", "Primary key should not have a family name."),
+    KEY_VALUE_NOT_NULL("42000", "A key/value column may not be declared as NOT NULL"),
+    VIEW_WITH_TABLE_CONFI("4200", "A VIEW may not contain table configuration properties"),
     ;
 
     private final String sqlState;
@@ -98,48 +95,6 @@ public enum SQLExceptionCodeEnum {
     @Override
     public String toString() {
         return "SQLException! SQLState(" + sqlState + "): " + message;
-    }
-
-    /**
-     * Utility method to generate a useful exception message. It requires at least 2 string argument, 
-     * the sqlState and a message. It then can take in more information about the exception. It should
-     * be passed in the order of specificity. For example, schemaName, tableName, familyName, columnName. 
-     */
-    public static String generateSQLErrorMessage(SQLExceptionCodeEnum code) {
-        return generateSQLErrorMessage(null, code, null);
-    }
-
-    public static String generateSQLErrorMessage(String message, SQLExceptionCodeEnum code) {
-        return generateSQLErrorMessage(message, code, null);
-    }
-
-    public static String generateSQLErrorMessage(SQLExceptionCodeEnum code, SQLExceptionLocationInfo info) {
-        return generateSQLErrorMessage(null, code, info);
-    }
-
-    public static String generateSQLErrorMessage(String message, SQLExceptionCodeEnum code, SQLExceptionLocationInfo info) {
-        StringBuilder builder = new StringBuilder("SQLException. SQLState(").append(code.toString());
-        if (message != null) {
-            builder.append(" ").append(message);
-        }
-        if (info != null) {
-            builder.append(" ").append(info.toString());
-        }
-        return builder.toString();
-    }
-
-    /**
-     * Utility method to transform a SQLException into containing our formatted error messages and
-     * use the SQLState code defined in this enumeration.
-     */
-    public static SQLException generateSQLException(Exception e, SQLExceptionCodeEnum code) {
-        return new SQLException(generateSQLErrorMessage(e.getMessage(), code),
-                code.getSQLState(), e);
-    }
-
-    public static SQLException generateSQLException(Exception e, SQLExceptionCodeEnum code, SQLExceptionLocationInfo info) {
-        return new SQLException(generateSQLErrorMessage(e.getMessage(), code, info),
-                code.getSQLState(), e);
     }
 
 }

@@ -30,7 +30,7 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionLocationInfo;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
  * 
@@ -45,7 +45,7 @@ public class ColumnFamilyNotFoundException extends SQLException {
     private final String familyName;
 
     public ColumnFamilyNotFoundException(String familyName, String message) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code, SQLExceptionLocationInfo.getNewInfoObject().setFamilyName(familyName)),
+        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).setFamilyName(familyName).toString(),
                 code.getSQLState());
         this.familyName = familyName;
     }
