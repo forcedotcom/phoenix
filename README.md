@@ -104,3 +104,4 @@ Join one or both of our Google groups:
 
 * [Phoenix HBase User](https://groups.google.com/forum/#!forum/phoenix-hbase-user) for users of Phoenix.
 * [Phoenix HBase Dev](https://groups.google.com/forum/#!forum/phoenix-hbase-dev) for developers of Phoenix.
+[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/8438f3b844208e09a811699265666a8d "githalytics.com")](http://githalytics.com/forcedotcom/phoenix.git)
