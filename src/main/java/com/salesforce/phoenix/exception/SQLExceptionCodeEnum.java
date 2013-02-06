@@ -39,14 +39,14 @@ public enum SQLExceptionCodeEnum {
     /** 
      * Warnings (01)
      */
-    CURSOR_OPERATION_CONFLICT("01001", "Cursor operation conflict"),
-    DISCONNECT_ERROR("01002", "Disconnect error"),
-    DATA_TRUNCATED("01004", "Data truncated"),
+    CURSOR_OPERATION_CONFLICT("01001", "Cursor operation conflict."),
+    DISCONNECT_ERROR("01002", "Disconnect error."),
+    DATA_TRUNCATED("01004", "Data truncated."),
     
     /**
      * Connection Exception (08)
      */
-    IO_EXCEPTION("08000", "Connection closed by unknown interrupt.."),
+    IO_EXCEPTION("08000", "Connection closed by unknown interrupt."),
     
     /**
      * Data Exception (22)
@@ -70,15 +70,15 @@ public enum SQLExceptionCodeEnum {
     TABLE_DEPLUCATE("42P07", "Table already exists."),
     READ_ONLY_TABLE("42000", "Table is read only."),
     SCHEMA_NOT_FOUND("42Y07", "Schema not found."),
-    PRIMARY_KEY_MISSING("42888", "The table does not have a primary key"),
+    PRIMARY_KEY_MISSING("42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS("42889", "The table already has a primary key."),
     PRIMARY_KEY_WITH_FAMILY_NAME("42000", "Primary key should not have a family name."),
-    KEY_VALUE_NOT_NULL("42000", "A key/value column may not be declared as NOT NULL"),
-    VIEW_WITH_TABLE_CONFIG("42000", "A VIEW may not contain table configuration properties"),
-    VIEW_WITH_PROPERTIES("42000", "Properties may not be defined for a VIEW"),
-    PRIMARY_KEY_OUT_OF_ORDER("42000", "Order of columns in PRIMARY KEY constraint must match the order in which they're declared"),
-    NO_BINARY_IN_ROW_KEY("42000", "The BINARY type may not be used as part of a multi-part row key"),
-    PROPERTIES_FOR_FAMILY("42000","Properties may not be defined for an unused family name.")
+    KEY_VALUE_NOT_NULL("42000", "A key/value column may not be declared as NOT NULL."),
+    VIEW_WITH_TABLE_CONFIG("42000", "A VIEW may not contain table configuration properties."),
+    VIEW_WITH_PROPERTIES("42000", "Properties may not be defined for a VIEW."),
+    PRIMARY_KEY_OUT_OF_ORDER("42000", "Order of columns in PRIMARY KEY constraint must match the order in which they're declared."),
+    NO_BINARY_IN_ROW_KEY("42000", "The BINARY type may not be used as part of a multi-part row key."),
+    PROPERTIES_FOR_FAMILY("42000","Properties may not be defined for an unused family name."),
     ;
 
     private final String sqlState;
