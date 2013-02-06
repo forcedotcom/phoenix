@@ -30,6 +30,7 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionLocationInfo;
 
 public class SchemaNotFoundException extends SQLException {
     private static final long serialVersionUID = 1L;
@@ -37,7 +38,8 @@ public class SchemaNotFoundException extends SQLException {
     private final String schemaName;
 
     public SchemaNotFoundException(String schemaName) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code, schemaName), code.getSQLState());
+        super(SQLExceptionCodeEnum.generateSQLErrorMessage(code, SQLExceptionLocationInfo.getNewInfoObject().setColumnName(schemaName)),
+                code.getSQLState());
         this.schemaName = schemaName;
     }
 

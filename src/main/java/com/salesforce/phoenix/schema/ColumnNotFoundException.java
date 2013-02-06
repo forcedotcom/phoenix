@@ -55,7 +55,7 @@ public class ColumnNotFoundException extends SQLException {
 
     public ColumnNotFoundException(String schemaName, String tableName, String familyName, String columnName) {
         super(SQLExceptionCodeEnum.generateSQLErrorMessage(code, 
-                new SQLExceptionLocationInfo().setSchemaName(schemaName).setTableName(tableName).setFamilyName(familyName).setColumnName(columnName)),
+                SQLExceptionLocationInfo.getNewInfoObject().setSchemaName(schemaName).setTableName(tableName).setFamilyName(familyName).setColumnName(columnName)),
                 code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;

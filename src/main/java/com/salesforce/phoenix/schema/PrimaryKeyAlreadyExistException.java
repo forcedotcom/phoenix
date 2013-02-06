@@ -27,30 +27,24 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
-
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionLocationInfo;
+
 
 /**
  * 
- * Exception thrown when a family name could not be found in the schema
- *
- * @author jtaylor
- * @since 0.1
+ * Exception thrown when a column already has a primary key. It is a child class of 
+ * {@link com.salesforce.phoenix.schema.ColumnAlreadyExistsException}.
+ * 
+ * @author zhuang
+ * @since 1.1
+ * 
  */
-public class ColumnFamilyNotFoundException extends SQLException {
+public class PrimaryKeyAlreadyExistException extends ColumnAlreadyExistsException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.COLUMN_FAMILY_NOT_FOUND;
-    private final String familyName;
+    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.PRIMARY_KEY_ALREADY_EXISTS;
 
-    public ColumnFamilyNotFoundException(String familyName, String message) {
-        super(SQLExceptionCodeEnum.generateSQLErrorMessage(message, code, SQLExceptionLocationInfo.getNewInfoObject().setFamilyName(familyName)),
-                code.getSQLState());
-        this.familyName = familyName;
+    public PrimaryKeyAlreadyExistException(String columnName) {
+        super(null, code, columnName, null, null);
     }
 
-    public String getFamilyName() {
-        return familyName;
-    }
 }
