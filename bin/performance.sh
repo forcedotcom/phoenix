@@ -39,9 +39,10 @@ table="performance_$2"
 ddl="ddl.sql"
 data="data.csv"
 qry="query.sql"
-generatorurl="http://phoenix-bin.github.com/client/performance/"
-generatorjar="generatedata.jar"
-execute="java -Dlog4j.configuration=file:log4j.properties -jar ../target/phoenix-*-client.jar -t $table $zookeeper "
+jarpath="../target"
+clientjar="$jarpath/phoenix-*-client.jar"
+testjar="$jarpath/phoenix-*-tests.jar"
+execute="java -Dlog4j.configuration=file:log4j.properties -jar $clientjar -t $table $zookeeper "
 timedexecute="time -p $execute"
 function usage {
 	echo "Performance script arguments not specified. Usage: performance.sh <zookeeper> <row count>"
@@ -60,7 +61,6 @@ function cleartempfiles {
 	delfile $ddl
 	delfile $data
 	delfile $qry
-	delfile $generatorjar
 }
 function delfile {
 	if [ -f $1 ]; then rm $1 ;fi;
@@ -76,12 +76,12 @@ clear
 echo "Phoenix Performance Evaluation Script 1.0";echo "-----------------------------------------"
 if [ -z "$2" ] 
 then usage; fi;
-echo "Generating data..."
-curl -silent -O "$generatorurl$generatorjar"
-java -jar generatedata.jar $rowcount
-echo "Creating performance table..."
+echo ""; echo "Creating performance table..."
 echo $createtable > $ddl; $execute "$ddl"
 echo ""; echo "Upserting $rowcount rows...";echo "==========================="
+echo "Generating data..."
+java -jar $testjar $rowcount
+echo ""
 $timedexecute $data
 
 # Write real,user,sys time on console for the following queries
