@@ -54,11 +54,11 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 public class MetaDataClient {
     private final PhoenixConnection connection;
-    
+
     public MetaDataClient(PhoenixConnection connection) {
         this.connection = connection;
     }
-    
+
     /**
      * Update the cache with the latest as of the connection scn.
      * @param schemaName
@@ -111,7 +111,7 @@ public class MetaDataClient {
         }
         return result.getMutationTime();
     }
-    
+
     private static final String CREATE_TABLE =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -148,8 +148,7 @@ public class MetaDataClient {
         TABLE_CAT_NAME + "," +
         ORDINAL_POSITION +
         ") VALUES (?, ?, ?, ?, ?)";
-        
-    
+
     private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert) throws SQLException {
         colUpsert.setString(1, schemaName);
         colUpsert.setString(2, tableName);
@@ -165,7 +164,7 @@ public class MetaDataClient {
         colUpsert.setInt(8, column.getPosition()+1);
         colUpsert.execute();
     }
-    
+
     private PColumn newColumn(int position, ColumnDef def, Set<String> pkColumns) throws SQLException {
         try {
             String columnName = def.getColumnDefName().getColumnName().getName();
@@ -194,12 +193,12 @@ public class MetaDataClient {
             throw new SQLException(e);
         }
     }
-            
+
     public MutationState createTable(CreateTableStatement statement, byte[][] splits) throws SQLException {
         PTableType tableType = statement.getTableType();
         boolean isView = tableType == PTableType.VIEW;
         if (isView && !statement.getProps().isEmpty()) {
-            throw new SQLException("A VIEW may not contain table configuration properties");
+            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.VIEW_WITH_TABLE_CONFIG).genExceptionObject();
         }
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -218,7 +217,7 @@ public class MetaDataClient {
                 pkColumnsIterator = pkColumns.iterator();
                 pkName = pkConstraint.getName();
             }
-    
+            
             List<ColumnDef> colDefs = statement.getColumnDefs();
             List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
             PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
@@ -228,7 +227,7 @@ public class MetaDataClient {
             for (ColumnDef colDef : colDefs) {
                 if (colDef.isPK()) {
                     if (isPK) {
-                        throw new SQLException("Only a single PRIMARY KEY constrain is allowed");
+                        throw new PrimaryKeyAlreadyExistException(colDef.getColumnDefName().getColumnName().getName());
                     }
                     isPK = true;
                 }
@@ -236,19 +235,22 @@ public class MetaDataClient {
                 if (SchemaUtil.isPKColumn(column)) {
                     // TODO: remove this constraint
                     if (!pkColumns.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
-                        throw new SQLException("Order of columns in PRIMARY KEY constraint must match the order in which they're declared");
+                        throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PRIMARY_KEY_OUT_OF_ORDER)
+                            .setSchemaName(schemaName).setTableName(tableName).setColumnName(column.getName().getString()).genExceptionObject();
                     }
                 }
                 columns.add(column);
                 if (colDef.getDataType() == PDataType.BINARY && colDefs.size() > 1) {
-                    throw new SQLException("The BINARY type may not be used as part of a multi-part row key");
+                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.NO_BINARY_IN_ROW_KEY)
+                        .setSchemaName(schemaName).setTableName(tableName).setColumnName(column.getName().getString()).genExceptionObject();
                 }
                 if (column.getFamilyName() != null) {
                     familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
                 }
             }
             if (!isPK && pkColumns.isEmpty()) {
-                throw new SQLException("A table must have a PRIMARY KEY");
+                throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PRIMARY_KEY_MISSING)
+                    .setSchemaName(schemaName).setTableName(tableName).genExceptionObject();
             }
             
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
@@ -256,12 +258,13 @@ public class MetaDataClient {
             Map<String,Object> tableProps = Collections.emptyMap();
             if (!statement.getProps().isEmpty()) {
                 if (statement.isView()) {
-                    throw new SQLException("Properties may not be defined for a VIEW");
+                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.VIEW_WITH_PROPERTIES).genExceptionObject();
                 }
                 for (String familyName : statement.getProps().keySet()) {
                     if (!familyName.equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
                         if (familyNames.get(familyName) == null) {
-                            throw new SQLException("Properties may not be defined for an unused family name (" + familyName + ")");
+                            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PROPERTIES_FOR_FAMILY)
+                                .setFamilyName(familyName).genExceptionObject();
                         }
                     }
                 }
@@ -315,7 +318,7 @@ public class MetaDataClient {
             
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
-    
+            
             MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
             switch(code) {
@@ -351,7 +354,7 @@ public class MetaDataClient {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
-    
+
     public MutationState dropTable(DropTableStatement statement) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -398,7 +401,7 @@ public class MetaDataClient {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
-    
+
     private PTable getLatestTable(String schemaName, String tableName) throws SQLException {
         boolean retried = false;
         PTable table = null;
@@ -420,7 +423,7 @@ public class MetaDataClient {
         }
         return table;
     }
-    
+
     private MutationCode processMutationResult(String schemaName, String tableName, MetaDataMutationResult result) throws SQLException {
         final MutationCode mutationCode = result.getMutationCode();
         switch (mutationCode) {
@@ -449,7 +452,7 @@ public class MetaDataClient {
         }
         return mutationCode;
     }
-    
+
     public MutationState addColumn(AddColumnStatement statement) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -527,7 +530,7 @@ public class MetaDataClient {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
-    
+
     public MutationState dropColumn(DropColumnStatement statement) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -573,7 +576,7 @@ public class MetaDataClient {
                     buf.append(" = ?");
                     binds.add(familyName = columnToDrop.getFamilyName().getString());
                 }
-    
+                
                 PreparedStatement colDelete = connection.prepareStatement(buf.toString());
                 for (int i = 0; i < binds.size(); i++) {
                     colDelete.setString(i+1, binds.get(i));
