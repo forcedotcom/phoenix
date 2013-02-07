@@ -48,15 +48,7 @@ public class ColumnAlreadyExistsException extends SQLException {
     private final String columnName;
 
     public ColumnAlreadyExistsException(String schemaName, String tableName, String columnName) {
-        this(null, code, schemaName, tableName, columnName);
-    }
-
-    public ColumnAlreadyExistsException(String message, String schemaName, String tableName, String columnName) {
-        this(message, code, schemaName, tableName, columnName);
-    }
-
-    public ColumnAlreadyExistsException(String message, SQLExceptionCodeEnum code, String schemaName, String tableName, String columnName) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(message).setColumnName(columnName)
+        super(new SQLExceptionInfo.Builder(code).setColumnName(columnName)
                 .setSchemaName(schemaName).setTableName(tableName).build().toString(),
                 code.getSQLState());
         this.schemaName = schemaName;
