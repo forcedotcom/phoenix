@@ -29,6 +29,8 @@ package com.salesforce.phoenix.exception;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.util.SchemaUtil;
+
 
 /**
  * Object serves as a closure of all coordinate information for SQLException messages.
@@ -47,54 +49,79 @@ public class SQLExceptionInfo {
     public static final String COLUMN_NAME = "columnName";
     public static final String LINE_NUMBER = "lineNumber";
 
-    private SQLExceptionCodeEnum code; // Should always have one.
-    private String message;
-    private String schemaName;
-    private String tableName;
-    private String familyName;
-    private String columnName;
-    private String lineNumber;
+    private final Throwable rootCause;
+    private final SQLExceptionCodeEnum code; // Should always have one.
+    private final String message;
+    private final String schemaName;
+    private final String tableName;
+    private final String familyName;
+    private final String columnName;
+    private final String lineNumber;
 
-    private SQLExceptionInfo(SQLExceptionCodeEnum code) {
-        this.code = code;
+    public static class Builder {
+
+        private Throwable rootCause;
+        private SQLExceptionCodeEnum code; // Should always have one.
+        private String message;
+        private String schemaName;
+        private String tableName;
+        private String familyName;
+        private String columnName;
+        private String lineNumber;
+
+        public Builder(SQLExceptionCodeEnum code) {
+            this.code = code;
+        }
+
+        public Builder setRootCause(Throwable t) {
+            this.rootCause = t;
+            return this;
+        }
+
+        public Builder setMessage(String message) {
+            this.message = message;
+            return this;
+        }
+
+        public Builder setSchemaName(String schemaName) {
+            this.schemaName = schemaName;
+            return this;
+        }
+
+        public Builder setTableName(String tableName) {
+            this.tableName = tableName;
+            return this;
+        }
+
+        public Builder setFamilyName(String familyName) {
+            this.familyName = familyName;
+            return this;
+        }
+
+        public Builder setColumnName(String columnName) {
+            this.columnName = columnName;
+            return this;
+        }
+
+        public Builder setLineNumber(String lineNumber) {
+            this.lineNumber = lineNumber;
+            return this;
+        }
+
+        public SQLExceptionInfo build() {
+            return new SQLExceptionInfo(this);
+        }
     }
 
-    public SQLExceptionInfo setMessage(String message) {
-        this.message = message;
-        return this;
-    }
-    
-    public SQLExceptionInfo setSchemaName(String schemaName) {
-        this.schemaName = schemaName;
-        return this;
-    }
-
-    public SQLExceptionInfo setTableName(String tableName) {
-        this.tableName = tableName;
-        return this;
-    }
-
-    public SQLExceptionInfo setFamilyName(String familyName) {
-        this.familyName = familyName;
-        return this;
-    }
-
-    public SQLExceptionInfo setColumnName(String columnName) {
-        this.columnName = columnName;
-        return this;
-    }
-
-    public SQLExceptionInfo setLineNumber(String lineNumber) {
-        this.lineNumber = lineNumber;
-        return this;
-    }
-
-    public SQLException genExceptionObject() {
-        return new SQLException(toString(), code.getSQLState());
-    }
-
-    public SQLException genWrappedException(Throwable e) {
-        return new SQLException(toString(), code.getSQLState(), e);
+    private SQLExceptionInfo(Builder builder) {
+        code = builder.code;
+        rootCause = builder.rootCause;
+        message = builder.message;
+        schemaName = builder.schemaName;
+        tableName = builder.tableName;
+        familyName = builder.familyName;
+        columnName = builder.columnName;
+        lineNumber = builder.lineNumber;
     }
 
     @Override
@@ -106,25 +133,30 @@ public class SQLExceptionInfo {
         if (message != null) {
             builder.append(" ").append(message);
         }
-        if (schemaName != null) {
-            builder.append(" ").append(SCHEMA_NAME).append("=").append(schemaName).append(";");
-        }
-        if (tableName != null) {
-            builder.append(" ").append(TABLE_NAME).append("=").append(tableName).append(";");
-        }
-        if (familyName != null) {
-            builder.append(" ").append(FAMILY_NAME).append("=").append(familyName).append(";");
-        }
+        
+        String columnDisplayName = SchemaUtil.getColumnDisplayName(schemaName, tableName, familyName, columnName);
         if (columnName != null) {
-            builder.append(" ").append(COLUMN_NAME).append("=").append(columnName).append(";");
+            builder.append(" ").append(COLUMN_NAME).append("=").append(columnDisplayName);
+        } else if (familyName != null) {
+            builder.append(" ").append(FAMILY_NAME).append("=").append(columnDisplayName);
+        } else if (tableName != null) {
+            builder.append(" ").append(TABLE_NAME).append("=").append(columnDisplayName);
+        } else if (schemaName != null) {
+            builder.append(" ").append(SCHEMA_NAME).append("=").append(columnDisplayName);
         }
+        
         if (lineNumber != null) {
             builder.append(" ").append(LINE_NUMBER).append("=").append(lineNumber).append(";");
         }
         return builder.toString();
     }
 
-    public static SQLExceptionInfo getNewInfoObject(SQLExceptionCodeEnum code) {
-        return new SQLExceptionInfo(code);
+    public SQLException buildException() {
+        if (rootCause != null) {
+            return new SQLException(toString(), code.getSQLState(), rootCause);
+        } else {
+            return new SQLException(toString(), code.getSQLState());
+        }
     }
+
 }

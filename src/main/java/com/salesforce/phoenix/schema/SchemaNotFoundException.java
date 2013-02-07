@@ -38,7 +38,7 @@ public class SchemaNotFoundException extends SQLException {
     private final String schemaName;
 
     public SchemaNotFoundException(String schemaName) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setSchemaName(schemaName).toString(),
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).build().toString(),
                 code.getSQLState());
         this.schemaName = schemaName;
     }

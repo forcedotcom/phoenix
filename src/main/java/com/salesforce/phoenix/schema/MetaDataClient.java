@@ -170,17 +170,18 @@ public class MetaDataClient {
             String columnName = def.getColumnDefName().getColumnName().getName();
             PName familyName = null;
             if (def.isPK() && !pkColumns.isEmpty() ) {
-                throw new PrimaryKeyAlreadyExistException(columnName);
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PRIMARY_KEY_ALREADY_EXISTS)
+                    .setColumnName(columnName).build().buildException();
             }
             boolean isPK = def.isPK() || pkColumns.contains(columnName);
             if (def.getColumnDefName().getFamilyName() != null) {
                 String family = def.getColumnDefName().getFamilyName().getName();
                 if (isPK) {
-                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PRIMARY_KEY_WITH_FAMILY_NAME)
-                        .setColumnName(columnName).setFamilyName(family).genExceptionObject();
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PRIMARY_KEY_WITH_FAMILY_NAME)
+                        .setColumnName(columnName).setFamilyName(family).build().buildException();
                 } else if (!def.isNull()) {
-                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.KEY_VALUE_NOT_NULL)
-                        .setColumnName(columnName).setFamilyName(family).genExceptionObject();
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.KEY_VALUE_NOT_NULL)
+                        .setColumnName(columnName).setFamilyName(family).build().buildException();
                 }
                 familyName = new PNameImpl(family);
             } else if (!isPK) {
@@ -198,7 +199,7 @@ public class MetaDataClient {
         PTableType tableType = statement.getTableType();
         boolean isView = tableType == PTableType.VIEW;
         if (isView && !statement.getProps().isEmpty()) {
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.VIEW_WITH_TABLE_CONFIG).genExceptionObject();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.VIEW_WITH_TABLE_CONFIG).build().buildException();
         }
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -227,7 +228,8 @@ public class MetaDataClient {
             for (ColumnDef colDef : colDefs) {
                 if (colDef.isPK()) {
                     if (isPK) {
-                        throw new PrimaryKeyAlreadyExistException(colDef.getColumnDefName().getColumnName().getName());
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PRIMARY_KEY_ALREADY_EXISTS)
+                            .setColumnName(colDef.getColumnDefName().getColumnName().getName()).build().buildException();
                     }
                     isPK = true;
                 }
@@ -235,22 +237,22 @@ public class MetaDataClient {
                 if (SchemaUtil.isPKColumn(column)) {
                     // TODO: remove this constraint
                     if (!pkColumns.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
-                        throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PRIMARY_KEY_OUT_OF_ORDER)
-                            .setSchemaName(schemaName).setTableName(tableName).setColumnName(column.getName().getString()).genExceptionObject();
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
+                            .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                     }
                 }
                 columns.add(column);
                 if (colDef.getDataType() == PDataType.BINARY && colDefs.size() > 1) {
-                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.NO_BINARY_IN_ROW_KEY)
-                        .setSchemaName(schemaName).setTableName(tableName).setColumnName(column.getName().getString()).genExceptionObject();
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.BINARY_IN_ROW_KEY).setSchemaName(schemaName)
+                        .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                 }
                 if (column.getFamilyName() != null) {
                     familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
                 }
             }
             if (!isPK && pkColumns.isEmpty()) {
-                throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PRIMARY_KEY_MISSING)
-                    .setSchemaName(schemaName).setTableName(tableName).genExceptionObject();
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PRIMARY_KEY_MISSING)
+                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
             
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
@@ -258,13 +260,13 @@ public class MetaDataClient {
             Map<String,Object> tableProps = Collections.emptyMap();
             if (!statement.getProps().isEmpty()) {
                 if (statement.isView()) {
-                    throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.VIEW_WITH_PROPERTIES).genExceptionObject();
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.VIEW_WITH_PROPERTIES).build().buildException();
                 }
                 for (String familyName : statement.getProps().keySet()) {
                     if (!familyName.equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
                         if (familyNames.get(familyName) == null) {
-                            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.PROPERTIES_FOR_FAMILY)
-                                .setFamilyName(familyName).genExceptionObject();
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PROPERTIES_FOR_FAMILY)
+                                .setFamilyName(familyName).build().buildException();
                         }
                     }
                 }

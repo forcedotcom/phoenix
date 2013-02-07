@@ -259,7 +259,7 @@ public class HashCacheClient {
         try {
             locations = MetaScanner.allTableRegions(services.getConfig(), iterateOverTableName, false);
         } catch (IOException e) {
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
         }
         Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
         for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
@@ -334,7 +334,7 @@ public class HashCacheClient {
             chunk.resize(compressedSize);
             return new ImmutableBytesWritable(compressed,0,compressedSize);
         } catch (IOException e) {
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
         }
     }
 }

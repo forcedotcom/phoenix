@@ -44,19 +44,21 @@ public class ReadOnlyTableException extends SQLException {
     private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.READ_ONLY_TABLE;
 
     public ReadOnlyTableException() {
-        super(SQLExceptionInfo.getNewInfoObject(code).toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
     }
 
     public ReadOnlyTableException(String message) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage(message).toString(), code.getSQLState());
     }
 
     public ReadOnlyTableException(Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(cause.getMessage()).toString(), code.getSQLState(), cause);
+        super(new SQLExceptionInfo.Builder(code).setRootCause(cause).build().toString(),
+                code.getSQLState(), cause);
     }
 
     public ReadOnlyTableException(String message, Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState(), cause);
+        super(new SQLExceptionInfo.Builder(code).setRootCause(cause).setMessage(message).toString(),
+                code.getSQLState(), cause);
     }
 
 }

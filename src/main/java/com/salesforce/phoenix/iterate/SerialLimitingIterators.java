@@ -78,7 +78,8 @@ public class SerialLimitingIterators extends ExplainTable implements ResultItera
             try {
                 regionScan = new Scan(context.getScan());
             } catch (IOException e) {
-                throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);            }
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+            }
             // Intersect with existing start/stop key
             if (ScanUtil.intersectScanRange(regionScan, region.getStartKey(), region.getEndKey())) {
                 regionScans.add(regionScan);

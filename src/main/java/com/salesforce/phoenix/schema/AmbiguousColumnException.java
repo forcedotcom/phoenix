@@ -45,26 +45,16 @@ public class AmbiguousColumnException extends SQLException {
     private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.AMBIGUOUS_COLUMN;
 
     public AmbiguousColumnException() {
-        super(SQLExceptionInfo.getNewInfoObject(code).toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
     }
 
-    public AmbiguousColumnException(String message) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState());
+    public AmbiguousColumnException(String columnName) {
+        super(new SQLExceptionInfo.Builder(code).setColumnName(columnName).build().toString(),
+                code.getSQLState());
     }
 
-    public AmbiguousColumnException(String message, String sqlState) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), sqlState);
-    }
-
-    public AmbiguousColumnException(Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(cause.getMessage()).toString(), code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, String sqlState, Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), sqlState, cause);
+    public AmbiguousColumnException(String columnName, Throwable cause) {
+        super(new SQLExceptionInfo.Builder(code).setColumnName(columnName).build().toString(),
+                code.getSQLState(), cause);
     }
 }

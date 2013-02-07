@@ -635,7 +635,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         try {
             parser = new PhoenixStatementParser(sql, new ExecutableNodeFactory());
         } catch (IOException e) {
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);        }
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+        }
         ExecutableStatement statement = parser.parseStatement();
         return statement;
     }

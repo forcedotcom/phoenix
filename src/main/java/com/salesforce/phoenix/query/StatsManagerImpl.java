@@ -121,15 +121,15 @@ public class StatsManagerImpl implements StatsManager {
             }
             tableStatsMap.put(table, new PTableStats(timeKeeper.currentTimeMillis(),minKey,maxKey));
         } catch (IOException e) {
-            sqlE = SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);
+            sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
         } finally {
             try {
                 hTable.close();
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);
+                    sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
                 } else {
-                    sqlE.setNextException(SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e));
+                    sqlE.setNextException(new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException());
                 }
             } finally {
                 if (sqlE != null) {

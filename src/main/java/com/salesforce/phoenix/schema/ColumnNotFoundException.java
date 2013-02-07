@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
-import java.util.HashMap;
 
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
@@ -54,7 +53,8 @@ public class ColumnNotFoundException extends SQLException {
     }
 
     public ColumnNotFoundException(String schemaName, String tableName, String familyName, String columnName) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setSchemaName(schemaName).setTableName(tableName).setFamilyName(familyName).setColumnName(columnName).toString(),
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName)
+                .setFamilyName(familyName).setColumnName(columnName).build().toString(),
                 code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;

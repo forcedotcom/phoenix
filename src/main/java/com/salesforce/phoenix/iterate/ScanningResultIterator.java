@@ -58,7 +58,8 @@ public class ScanningResultIterator implements ResultIterator {
             Result result = scanner.next();
             return result == null ? null : new ResultTuple(result);
         } catch (IOException e) {
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);        }
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+        }
     }
 
     @Override

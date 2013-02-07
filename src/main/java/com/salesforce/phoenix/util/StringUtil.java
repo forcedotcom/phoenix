@@ -29,6 +29,8 @@ package com.salesforce.phoenix.util;
 
 import java.io.UnsupportedEncodingException;
 
+import org.apache.hadoop.hbase.util.Bytes;
+
 
 public class StringUtil {
     // Masks to determine how many bytes are in each character
@@ -180,5 +182,12 @@ public class StringUtil {
         return i;
     }
 
-    
+    // A toBytes function backed up HBase's utility function, but would accept null input, in which
+    // case it returns an empty byte array.
+    public static byte[] toBytes(String input) {
+        if (input == null) {
+            return ByteUtil.EMPTY_BYTE_ARRAY;
+        }
+        return Bytes.toBytes(input);
+    }
 }

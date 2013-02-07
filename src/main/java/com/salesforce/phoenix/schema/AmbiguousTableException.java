@@ -45,26 +45,16 @@ public class AmbiguousTableException extends SQLException {
     private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.AMBIGUOUS_TABLE;
 
     public AmbiguousTableException() {
-        super(SQLExceptionInfo.getNewInfoObject(code).toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
     }
 
-    public AmbiguousTableException(String message) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState());
+    public AmbiguousTableException(String tableName) {
+        super(new SQLExceptionInfo.Builder(code).setTableName(tableName).toString(),
+                code.getSQLState());
     }
 
-    public AmbiguousTableException(String message, String sqlState) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), sqlState);
-    }
-
-    public AmbiguousTableException(Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(cause.getMessage()).toString(), code.getSQLState(), cause);
-    }
-
-    public AmbiguousTableException(String message, Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), code.getSQLState(), cause);
-    }
-
-    public AmbiguousTableException(String message, String sqlState, Throwable cause) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).toString(), sqlState, cause);
+    public AmbiguousTableException(String tableName, Throwable cause) {
+        super(new SQLExceptionInfo.Builder(code).setTableName(tableName).toString(),
+                code.getSQLState(), cause);
     }
 }

@@ -66,7 +66,8 @@ public class TableResultIterator extends ExplainTable implements ResultIterator 
             delegate = new ScanningResultIterator(htable.getScanner(scan));
         } catch (IOException e) {
             Closeables.closeQuietly(htable);
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e)
+                .build().buildException();
         }
     }
 

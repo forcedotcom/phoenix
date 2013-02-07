@@ -186,7 +186,7 @@ public class SchemaUtil {
         l3.addAll(l2);
         return l3;
     }
-    
+
     /**
      * Get the key used in the Phoenix metadata row for a table definition
      * @param schemaName
@@ -196,11 +196,11 @@ public class SchemaUtil {
     public static byte[] getTableKey(byte[] schemaName, byte[] tableName) {
         return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY);
     }
-    
+
     public static byte[] getTableKey(String schemaName, String tableName) {
         return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY);
     }
-    
+
     public static String getTableDisplayName(String schemaName, String tableName) {
         return Bytes.toStringBinary(getTableName(schemaName,tableName));
     }
@@ -213,6 +213,12 @@ public class SchemaUtil {
         return Bytes.toStringBinary(tableName);
     }
 
+    public static String getColumnDisplayName(String schemaName, String tableName, String familyName, String columnName) {
+        return Bytes.toStringBinary(getColumnName(
+                StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 
+                StringUtil.toBytes(familyName), StringUtil.toBytes(columnName)));
+    }
+
     /**
      * Get the HTable name for a given schemaName and tableName
      * @param schemaName
@@ -222,24 +228,38 @@ public class SchemaUtil {
     public static byte[] getTableName(String tableName) {
         return getTableName(null, tableName);
     }
-    
+
     public static byte[] getTableName(String schemaName, String tableName) {
         if (schemaName == null || schemaName.length() == 0) {
-            return getTableName(Bytes.toBytes(tableName));
+            return getTableName(StringUtil.toBytes(tableName));
         }
-        return getTableName(Bytes.toBytes(schemaName),Bytes.toBytes(tableName));
+        return getTableName(StringUtil.toBytes(schemaName),StringUtil.toBytes(tableName));
     }
+
     public static byte[] getTableName(byte[] tableName) {
         return getTableName(null, tableName);
     }
-    
+
     public static byte[] getTableName(byte[] schemaName, byte[] tableName) {
-        if (schemaName == null || schemaName.length == 0) {
-            return tableName;
-        }
-        return ByteUtil.concat(schemaName, QueryConstants.NAME_SEPARATOR_BYTES, tableName);
+        return concatTwoNames(schemaName, tableName);
     }
-    
+
+    public static byte[] getColumnName(byte[] schemaName, byte[] tableName, byte[] familyName, byte[] columnName) {
+        byte[] tableNamePart = concatTwoNames(schemaName, tableName);
+        byte[] columnNamePart = concatTwoNames(familyName, columnName);
+        return concatTwoNames(tableNamePart, columnNamePart);
+    }
+
+    private static byte[] concatTwoNames(byte[] nameOne, byte[] nameTwo) {
+        if (nameOne == null || nameOne.length == 0) {
+            return nameTwo;
+        } else if ((nameTwo == null || nameTwo.length == 0)) {
+            return nameOne;
+        } else {
+            return ByteUtil.concat(nameOne, QueryConstants.NAME_SEPARATOR_BYTES, nameTwo);
+        }
+    }
+
     public static int getVarCharLength(byte[] buf, int keyOffset, int maxLength) {
         int length=0;
         while (length < maxLength && buf[keyOffset+length] != QueryConstants.SEPARATOR_BYTE) {
@@ -316,7 +336,7 @@ public class SchemaUtil {
             metaConnection.close();
         }
     }
-    
+
     public static String toString(byte[][] values) {
         if (values == null) {
             return "null";
@@ -334,7 +354,7 @@ public class SchemaUtil {
         boolean isString = type.isCoercibleTo(PDataType.VARCHAR);
         return isString ? ("'" + type.toObject(value).toString() + "'") : type.toObject(value).toString();
     }
-    
+
     public static byte[] getEmptyColumnFamily(List<PColumnFamily> families) {
         return families.isEmpty() ? QueryConstants.EMPTY_COLUMN_BYTES : families.get(0).getName().getBytes();
     }

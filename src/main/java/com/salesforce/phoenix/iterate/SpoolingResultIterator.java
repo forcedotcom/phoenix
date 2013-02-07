@@ -104,7 +104,8 @@ public class SpoolingResultIterator implements PeekingResultIterator {
             }
             success = true;
         } catch (IOException e) {
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);        } finally {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+        } finally {
             try {
                 scanner.close();
             } finally {
@@ -271,7 +272,9 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 init();
                 return next;
             } catch (IOException e) {
-                throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);            }
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION)
+                    .setRootCause(e).build().buildException();
+            }
         }
     
         @Override
@@ -282,7 +285,9 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 advance();
                 return current;
             } catch (IOException e) {
-                throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.IO_EXCEPTION).genWrappedException(e);            }
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION)
+                .setRootCause(e).build().buildException();
+            }
         }
         
         @Override

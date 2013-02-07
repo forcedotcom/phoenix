@@ -112,7 +112,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             }
             return new LiteralExpression(value, type, b);
         } catch (IllegalDataException e) {
-            throw SQLExceptionInfo.getNewInfoObject(SQLExceptionCodeEnum.ILLEGAL_DATA).genWrappedException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.ILLEGAL_DATA).setRootCause(e).build().buildException();
         }
     }
     

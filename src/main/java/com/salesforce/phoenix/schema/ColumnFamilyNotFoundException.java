@@ -44,8 +44,8 @@ public class ColumnFamilyNotFoundException extends SQLException {
     private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.COLUMN_FAMILY_NOT_FOUND;
     private final String familyName;
 
-    public ColumnFamilyNotFoundException(String familyName, String message) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setMessage(message).setFamilyName(familyName).toString(),
+    public ColumnFamilyNotFoundException(String familyName) {
+        super(new SQLExceptionInfo.Builder(code).setFamilyName(familyName).toString(),
                 code.getSQLState());
         this.familyName = familyName;
     }

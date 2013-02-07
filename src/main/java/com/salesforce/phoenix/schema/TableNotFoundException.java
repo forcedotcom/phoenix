@@ -51,7 +51,7 @@ public class TableNotFoundException extends SQLException {
     }
 
     public TableNotFoundException(String schemaName, String tableName) {
-        super(SQLExceptionInfo.getNewInfoObject(code).setSchemaName(schemaName).setTableName(tableName).toString(),
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
                 code.getSQLState());
         this.tableName = tableName;
         this.schemaName = schemaName;

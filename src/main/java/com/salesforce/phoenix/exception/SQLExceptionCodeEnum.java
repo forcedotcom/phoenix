@@ -39,14 +39,12 @@ public enum SQLExceptionCodeEnum {
     /** 
      * Warnings (01)
      */
-    CURSOR_OPERATION_CONFLICT("01001", "Cursor operation conflict."),
     DISCONNECT_ERROR("01002", "Disconnect error."),
-    DATA_TRUNCATED("01004", "Data truncated."),
     
     /**
      * Connection Exception (08)
      */
-    IO_EXCEPTION("08000", "Connection closed by unknown interrupt."),
+    IO_EXCEPTION("08000", "Unexpected IO exception."),
     
     /**
      * Data Exception (22)
@@ -65,20 +63,25 @@ public enum SQLExceptionCodeEnum {
     AMBIGUOUS_COLUMN("42702", "Column reference ambiguous or duplicate names."),
     COLUMN_EXIST_IN_DEF("42711", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
     COLUMN_NOT_FOUND("42703", "Undefined column."),
-    COLUMN_FAMILY_NOT_FOUND("42703", "Undefined column family."),
     TABLE_UNDEFINED("42P01", "Table undefined."),
-    TABLE_DEPLUCATE("42P07", "Table already exists."),
+    TABLE_ALREADY_EXIST("42P07", "Table already exists."),
     READ_ONLY_TABLE("42000", "Table is read only."),
     SCHEMA_NOT_FOUND("42Y07", "Schema not found."),
     PRIMARY_KEY_MISSING("42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS("42889", "The table already has a primary key."),
-    PRIMARY_KEY_WITH_FAMILY_NAME("42000", "Primary key should not have a family name."),
-    KEY_VALUE_NOT_NULL("42000", "A key/value column may not be declared as NOT NULL."),
-    VIEW_WITH_TABLE_CONFIG("42000", "A VIEW may not contain table configuration properties."),
-    VIEW_WITH_PROPERTIES("42000", "Properties may not be defined for a VIEW."),
-    PRIMARY_KEY_OUT_OF_ORDER("42000", "Order of columns in PRIMARY KEY constraint must match the order in which they're declared."),
-    NO_BINARY_IN_ROW_KEY("42000", "The BINARY type may not be used as part of a multi-part row key."),
+    // HBase and Phoenix specific implementation defined sub-classes.
+    // Column family related exceptions.
+    COLUMN_FAMILY_NOT_FOUND("42I01", "Undefined column family."),
     PROPERTIES_FOR_FAMILY("42000","Properties may not be defined for an unused family name."),
+    // Primary/row key related exceptions.
+    PRIMARY_KEY_WITH_FAMILY_NAME("42J01", "Primary key should not have a family name."),
+    PRIMARY_KEY_OUT_OF_ORDER("42J02", "Order of columns in PRIMARY KEY constraint must match the order in which they're declared."),
+    BINARY_IN_ROW_KEY("42000", "The BINARY type may not be used as part of a multi-part row key."),
+    // Key/value column related errors
+    KEY_VALUE_NOT_NULL("42K01", "A key/value column may not be declared as NOT NULL."),
+    // View related errors.
+    VIEW_WITH_TABLE_CONFIG("42L01", "A VIEW may not contain table configuration properties."),
+    VIEW_WITH_PROPERTIES("42L02", "Properties may not be defined for a VIEW."),
     ;
 
     private final String sqlState;
