@@ -76,7 +76,7 @@ public enum SQLExceptionCodeEnum {
     // Primary/row key related exceptions.
     PRIMARY_KEY_WITH_FAMILY_NAME("42J01", "Primary key should not have a family name."),
     PRIMARY_KEY_OUT_OF_ORDER("42J02", "Order of columns in PRIMARY KEY constraint must match the order in which they're declared."),
-    BINARY_IN_ROW_KEY("42000", "The BINARY type may not be used as part of a multi-part row key."),
+    BINARY_IN_ROW_KEY("42J03", "The BINARY type may not be used as part of a multi-part row key."),
     // Key/value column related errors
     KEY_VALUE_NOT_NULL("42K01", "A key/value column may not be declared as NOT NULL."),
     // View related errors.
