@@ -36,6 +36,8 @@ import java.util.concurrent.Executor;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixStatement.PhoenixStatementParser;
 import com.salesforce.phoenix.query.*;
@@ -505,7 +507,9 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLException(this.getClass().getName() + " not unwrappable from " + iface.getName());
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CLASS_NOT_UNWRAPPABLE)
+                .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
+                .build().buildException();
         }
         return (T)this;
     }

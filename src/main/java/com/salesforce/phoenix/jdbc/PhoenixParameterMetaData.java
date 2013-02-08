@@ -29,6 +29,8 @@ package com.salesforce.phoenix.jdbc;
 
 import java.sql.*;
 
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
@@ -52,11 +54,14 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
  
     private PDatum getParam(int index) throws SQLException {
         if (index <= 0 || index > params.length) {
-            throw new SQLException("Parameter index of " + index + " out of bounds. Must be between 1 and " + params.length);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INDEX_OUT_OF_BOUND)
+                .setMessage("Parameter index of " + index + " out of bounds. Must be between 1 and " + params.length)
+                .build().buildException();
         }
         PDatum param = params[index-1];
         if (param == null) {
-            throw new SQLException("Parameter at index " + index + " is unbound");
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARAM_VALUE_UNBOUND)
+                .setMessage("Parameter at index " + index + " is unbound").build().buildException();
         }
         return param;
     }
@@ -117,7 +122,9 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLException(this.getClass().getName() + " not unwrappable from " + iface.getName());
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CLASS_NOT_UNWRAPPABLE)
+                .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
+                .build().buildException();
         }
         return (T)this;
     }
@@ -125,7 +132,9 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
     public void addParam(BindParseNode bind, PDatum datum) throws SQLException {
         PDatum bindDatum = params[bind.getIndex()];
         if (bindDatum != null && bindDatum.getDataType() != null && !datum.getDataType().isCoercibleTo(bindDatum.getDataType())) {
-            throw new SQLException("Type mismatch: " + datum.getDataType() + " and " + bindDatum.getDataType());
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_TYPE_MISMATCH)
+                .setMessage("Type mismatch: " + datum.getDataType() + " and " + bindDatum.getDataType())
+                .build().buildException();
         }
         params[bind.getIndex()] = datum;
     }

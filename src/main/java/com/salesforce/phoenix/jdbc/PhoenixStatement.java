@@ -146,7 +146,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public int executeUpdate() throws SQLException {
-            throw new SQLException("executeUpdate may not be used for queries: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeUpdate may not be used for queries: " + this).build().buildException();
         }
 
         @Override
@@ -190,7 +191,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLException("executeQuery may not be used for upsert: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeQuery may not be used for upsert: " + this).build().buildException();
         }
 
         @Override
@@ -224,7 +226,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLException("executeQuery may not be used for delete: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeQuery may not be used for delete: " + this).build().buildException();
         }
 
         @Override
@@ -258,7 +261,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLException("executeQuery may not be used for CREATE TABLE: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeQuery may not be used for CREATE TABLE: " + this).build().buildException();
         }
 
         @Override
@@ -298,7 +302,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLException("executeQuery may not be used for DROP TABLE: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeQuery may not be used for DROP TABLE: " + this).build().buildException();
         }
 
         @Override
@@ -347,7 +352,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLException("executeQuery may not be used for ALTER TABLE: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeQuery may not be used for ALTER TABLE: " + this).build().buildException();
         }
 
         @Override
@@ -396,7 +402,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLException("executeQuery may not be used for ALTER TABLE: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeQuery may not be used for ALTER TABLE: " + this).build().buildException();
         }
 
         @Override
@@ -502,7 +509,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public int executeUpdate() throws SQLException {
-            throw new SQLException("executeUpdate may not be used for explain: " + this);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
+                .setMessage("executeQuery may not be used for ALTER TABLE: " + this).build().buildException();
         }
 
         @Override
@@ -624,7 +632,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         int i = 0;
         for (Object param : getParameters()) {
             if (param == UNBOUND_PARAMETER) {
-                throw new SQLException("Parameter " + (i + 1) + " is unbound");
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARAM_VALUE_UNBOUND)
+                    .setMessage("Parameter " + (i + 1) + " is unbound").build().buildException();
             }
             i++;
         }
@@ -846,7 +855,9 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLException(this.getClass().getName() + " not unwrappable from " + iface.getName());
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CLASS_NOT_UNWRAPPABLE)
+                .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
+                .build().buildException();
         }
         return (T)this;
     }
