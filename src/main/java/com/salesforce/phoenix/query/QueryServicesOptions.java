@@ -42,15 +42,15 @@ import com.salesforce.phoenix.util.DateUtil;
  */
 public class QueryServicesOptions {
     
-    private static final int DEFAULT_KEEP_ALIVE_MS = 1000;
-    private static final int DEFAULT_THREAD_POOL_SIZE = 20;
-    private static final int DEFAULT_QUEUE_SIZE = 250;
-    private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
-    private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 50; // 50m
-    private static final long DEFAULT_MAX_MEMORY_BYTES = 1024 * 1024 * 400; // 400m
-    private static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
-    private static final int DEFAULT_MAX_ORG_MEMORY_PERC = 30;
-    private static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
+	public static final int DEFAULT_KEEP_ALIVE_MS = 1000;
+	public static final int DEFAULT_THREAD_POOL_SIZE = 20;
+	public static final int DEFAULT_QUEUE_SIZE = 250;
+	public static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
+	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 50; // 50m
+	public static final long DEFAULT_MAX_MEMORY_BYTES = 1024 * 1024 * 400; // 400m
+	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
+	public static final int DEFAULT_MAX_ORG_MEMORY_PERC = 100;
+	public static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
     public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 8;
     public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 12;
     public static final String DEFAULT_DATE_FORMAT = DateUtil.DEFAULT_DATE_FORMAT;
