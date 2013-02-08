@@ -92,7 +92,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("Only a single PRIMARY KEY constrain is allowed"));
+            assertTrue(e.getMessage().contains("SQLState(42889): The table already has a primary key. columnName=PK2"));
         } finally {
             conn.close();
         }
@@ -107,7 +107,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("may not be declared as a PRIMARY KEY when a PRIMARY KEY CONSTRAINT is present"));
+            assertTrue(e.getMessage().contains("SQLState(42889): The table already has a primary key. columnName=PK"));
         } finally {
             conn.close();
         }
@@ -122,7 +122,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("may not have a family name"));
+            assertTrue(e.getMessage().contains("SQLState(42J01): Primary key should not have a family name. columnName=A.PK"));
         } finally {
             conn.close();
         }
@@ -137,7 +137,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("A table must have a PRIMARY KEY"));
+            assertTrue(e.getMessage().contains("SQLState(42888): The table does not have a primary key. tableName=FOO"));
         } finally {
             conn.close();
         }
@@ -459,7 +459,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) { // TODO: use error codes
-            assertTrue(e.getMessage().contains("CHAR types may only contain single byte characters"));
+            assertTrue(e.getMessage().contains("SQLState(22000): Illegal Data."));
+            assertTrue(e.getCause().getMessage().contains("CHAR types may only contain single byte characters"));
         }
     }
 

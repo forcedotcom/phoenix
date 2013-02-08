@@ -108,7 +108,7 @@ public enum SQLExceptionCodeEnum {
 
     @Override
     public String toString() {
-        return "SQLException! SQLState(" + sqlState + "): " + message;
+        return "SQLState(" + sqlState + "): " + message;
     }
 
 }

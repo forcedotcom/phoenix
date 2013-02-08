@@ -126,7 +126,7 @@ public class SQLExceptionInfo {
 
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder("SQLException.");
+        StringBuilder builder = new StringBuilder("SQLException! ");
         if (code != null) {
             builder.append(code.toString());
         }
