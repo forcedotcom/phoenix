@@ -108,7 +108,7 @@ public enum SQLExceptionCodeEnum {
     /**
      * Implementation defined class. Phoenix internal error. (INT).
      */
-    INTERNAL_ERROR("INT00", "Internal error.") // General error, should have a message for details.
+    INTERNAL_ERROR("INT00", "Internal error."), // General error, should have a message for details.
     CANNOT_CALL_METHOD_ON_TYPE("INT01", "Cannot call method on the argument type."),
     MALFORMED_URL("INT02", "Malformed URL."),
     CLASS_NOT_UNWRAPPABLE("INT03", "Class not unwrappable"),

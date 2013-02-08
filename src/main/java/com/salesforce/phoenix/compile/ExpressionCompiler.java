@@ -89,7 +89,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         final Expression rhs = children.get(1);
         if ( rhs.getDataType() != null && lhs.getDataType() != null && 
             !lhs.getDataType().isComparableTo(rhs.getDataType())) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CONVERT_TYPE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TYPE_MISMATCH)
                 .setMessage(lhs.getDataType() + " and " + rhs.getDataType() + " for expression " + node)
                 .build().buildException();
         }
@@ -516,7 +516,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         ParseNode childNode = node.getChildren().get(0);
         Expression child = children.get(0);
         if (!PDataType.BOOLEAN.isCoercibleTo(child.getDataType())) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CONVERT_TYPE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TYPE_MISMATCH)
                 .setMessage(PDataType.BOOLEAN + " and " + child.getDataType() + " for expression " + node)
                 .build().buildException();
         }

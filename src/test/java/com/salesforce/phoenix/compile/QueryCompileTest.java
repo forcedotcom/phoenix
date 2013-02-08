@@ -459,7 +459,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) { // TODO: use error codes
-            assertTrue(e.getMessage().contains("SQLState(22000): Illegal Data."));
+            assertTrue(e.getMessage().contains("SQLState(22000): Illegal data."));
             assertTrue(e.getCause().getMessage().contains("CHAR types may only contain single byte characters"));
         }
     }
@@ -678,7 +678,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 statement.executeQuery();
                 fail(query);
             } catch (SQLException e) {
-                if (e.getMessage().contains("Type mismatch")) {
+                if (e.getMessage().contains("SQLState(22005): Type mismatch.")) {
                     continue;
                 }
                 throw new SQLException("Didn't find type mismatch: " + query,e);
