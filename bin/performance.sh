@@ -39,10 +39,16 @@ table="performance_$2"
 ddl="ddl.sql"
 data="data.csv"
 qry="query.sql"
-jarpath="../target"
-clientjar="$jarpath/phoenix-*-client.jar"
-testjar="$jarpath/phoenix-*-tests.jar"
-execute="java -Dlog4j.configuration=file:log4j.properties -jar $clientjar -t $table $zookeeper "
+
+# Phoenix client jar. To generate new jars: $ mvn package -DskipTests
+phoenix_jar_path="../target"
+phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
+testjar="$phoenix_jar_path/phoenix-*-tests.jar"
+
+# HBase configuration folder path (where hbase-site.xml reside) for HBase/Phoenix client side property override
+hbase_config_path="."
+
+execute="java -cp "$hbase_config_path:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties com.salesforce.phoenix.util.PhoenixRuntime -t $table $zookeeper "
 timedexecute="time -p $execute"
 function usage {
 	echo "Performance script arguments not specified. Usage: performance.sh <zookeeper> <row count>"
@@ -55,7 +61,7 @@ function queryex {
 	echo "Query: $2"
 	echo "======================================================================================"
 	echo $2>$qry;$timedexecute $qry
-	echo "-----------------------------------"
+	echo "--------------------------------------------------------------------------------------"
 }
 function cleartempfiles {
 	delfile $ddl
@@ -66,7 +72,7 @@ function delfile {
 	if [ -f $1 ]; then rm $1 ;fi;
 }
 
-# DDLs and queries
+# Create Table DDL
 createtable="CREATE TABLE IF NOT EXISTS $table (HOST CHAR(2) NOT NULL,DOMAIN VARCHAR NOT NULL,
 FEATURE VARCHAR NOT NULL,DATE DATE NOT NULL,USAGE.CORE BIGINT,USAGE.DB BIGINT,STATS.ACTIVE_VISITOR 
 INTEGER CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE));"

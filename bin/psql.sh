@@ -26,4 +26,12 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ############################################################################
-java -Dlog4j.configuration=file:log4j.properties -jar ../target/phoenix-*-client.jar "$@"
+
+# Phoenix client jar. To generate new jars: $ mvn package -DskipTests
+phoenix_jar_path="../target"
+phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
+
+# HBase configuration folder path (where hbase-site.xml reside) for HBase/Phoenix client side property override
+hbase_config_path="."
+
+java -cp "$hbase_config_path:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties com.salesforce.phoenix.util.PhoenixRuntime "$@"
