@@ -25,45 +25,46 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.util;
 
-import java.sql.SQLException;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.Random;
 
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
-
-/**
- * 
- * Exception thrown when a column name is used without being qualified with an alias
- * and more than one table contains that column.
- *
- * @author jtaylor
- * @since 0.1
- */
-public class AmbiguousColumnException extends SQLException {
-    private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.AMBIGUOUS_COLUMN;
-
-    public AmbiguousColumnException() {
-        super(code.getMessage(), code.getSQLState());
-    }
-
-    public AmbiguousColumnException(String message) {
-        super(message, code.getSQLState());
-    }
-
-    public AmbiguousColumnException(String message, String sqlState) {
-        super(message, sqlState);
-    }
-
-    public AmbiguousColumnException(Throwable cause) {
-        super(code.getMessage(), code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, Throwable cause) {
-        super(message, code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, String sqlState, Throwable cause) {
-        super(message, sqlState, cause);
-    }
+public class GeneratePerformanceData {
+	private static final String FILENAME = "data.csv";
+	
+	public static void main(String[] args) throws FileNotFoundException, IOException {
+		String[] host = {"NA","CS","EU"};
+		String[] domain = {"Salesforce.com","Apple.com","Google.com"};
+		String[] feature = {"Login","Report","Dashboard"};
+		Calendar now = GregorianCalendar.getInstance();
+		FileOutputStream fostream = new FileOutputStream(FILENAME);
+		Random random = new Random();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		if (args.length < 1) {
+			System.out.println("Row count must be specified as argument");
+			return;
+		}
+		int rowCount = Integer.parseInt(args[0]);
+		for (int i=0; i<rowCount; i++) {
+			now.add(Calendar.SECOND, 1);
+			fostream.write((host[random.nextInt(host.length)] + "," + 
+					        domain[random.nextInt(domain.length)] + "," + 
+					        feature[random.nextInt(feature.length)] + "," + 
+					        sdf.format(now.getTime()) + "," + 
+					        random.nextInt(500) + "," + 
+					        random.nextInt(2000)+"," + 
+					        random.nextInt(10000) + 
+					        "\n").getBytes());
+		    if (i % 10000 == 0) {
+		    	System.out.print(".");
+		    }
+		}
+		fostream.close();
+	}
 }

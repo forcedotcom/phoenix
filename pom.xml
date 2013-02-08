@@ -172,6 +172,13 @@
             <goals>
               <goal>test-jar</goal>
             </goals>
+            <configuration>
+              <archive>
+                <manifest>
+                  <mainClass>com.salesforce.phoenix.util.GeneratePerformanceData</mainClass>
+                </manifest>
+              </archive>
+            </configuration>
           </execution>
         </executions>
         <configuration>
