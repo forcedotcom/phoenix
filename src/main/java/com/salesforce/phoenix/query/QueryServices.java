@@ -40,48 +40,104 @@ import com.salesforce.phoenix.util.SQLCloseable;
 /**
  * 
  * Interface to group together services needed during querying.  The
- * following parameters may be set in {@link org.apache.hadoop.conf.Configuration}:
- *
- *   - phoenix.query.maxGlobalMemoryBytes: total amount of memory that all threads
- *     may use.  Only course grain memory usage is tracked, mainly accounting for
- *     memory usage in the hash join cache and the intermediate map for group by
- *     aggregation.  When this limit is reached clients block when attempting to
- *     get more memory, essentially throttling memory usage.  One way to calculate
- *     what it should be set to is to take a percentage of the maximum heap size.
- *   - phoenix.query.maxGlobalMemoryWaitMs: maximum amount of time that a client
- *     will block while waiting for more memory to become available.  After this
- *     amount of time, a memory.InsufficientMemoryException is thrown.
- *   - phoenix.query.maxOrgMemoryPercentage: maximum percentage of 
- *     phoenix.query.maxGlobalMemoryBytes that any one org is allowed to consume.
- *     After this percentage, a memory.InsufficientMemoryException is thrown.
- *   - phoenix.coprocessor.maxGlobalMemoryBytes: similar to and defaulted to
- *     phoenix.query.maxGlobalMemoryBytes but for memory consumption by coprocessors.
- *   - phoenix.coprocessor.maxGlobalMemoryWaitMs: similar to and defaulted to
- *     phoenix.query.maxGlobalMemoryBytes but for memory consumption by coprocessors.
- *   - phoenix.coprocessor.maxOrgMemoryPercentage: similar and defaulted to
- *     phoenix.query.maxGlobalMemoryBytes but for memory consumption by coprocessors.
- *   - phoenix.coprocessor.maxHashCacheTimeToLiveMs:  maximum amount of time in
- *     milliseconds that a hash cache will be available during coprocessing.
- *   - phoenix.query.maxHashCacheBytes: max size in bytes of a hash cache.
- *   - phoenix.query.targetConcurrency: target concurrent threads to use for a query.
- *     It serves as a soft limit on how many scans a query can split into. A hard
- *     limit is imposed by phoenix.query.maxConcurrency.  
- *     This value should not exceed phoenix.query.maxConcurrency.
- *   - phoenix.query.maxConcurrency: maximum concurrent threads to use for a query.
- *     See phoenix.query.targetConcurrency for more details.
- *   - phoenix.query.dateFormat: to specify the default pattern to use to convert
- *     a date to/from a string, whether through the TO_CHAR(<date>) or TO_DATE(<dateAsString>) functions, or through
- *     resultSet.getString("DATE_COLUMN"). The default is {@link com.salesforce.phoenix.util.DateUtil#DEFAULT_DATE_FORMAT}
- *   - phoenix.query.statsUpdateFrequency: the frequency in milliseconds at which each table stats
- *     will be updated.
- *   - phoenix.query.maxStatsAge: the maximum age of stats in milliseconds after which they no longer will
- *     be used (i.e. the stats could not be updated at phoenix.query.statsUpdateFrequency for this length of
- *     time, so the stats are considered no longer accurate enough to use).
- *   - phoenix.mutate.maxSize: the maximum number of rows that may be collected in {@link com.salesforce.phoenix.execute.MutationState}
- *     before a commit or rollback are called. The default is {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MUTATION_SIZE}.
- *     For better performance and to circumvent this limit, set {@link java.sql.Connection#setAutoCommit(boolean)} to TRUE.
- *     In this case, mutations (upserts and deletes) will be performed on the server side without returning data back
- *     to the client.
+ * following parameters may be set in
+ * {@link org.apache.hadoop.conf.Configuration}:
+ * <ul>
+ *   <li><strong>phoenix.query.timeoutMs</strong>: number of milliseconds
+ *   after which a query will timeout on the client. Defaults to
+ *   {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_THREAD_TIMEOUT_MS}.</li>
+ *   <li><strong>phoenix.query.keepAliveMs</strong>: when the number of
+ *     threads is greater than the core in the client side thread pool
+ *     executor, this is the maximum time in milliseconds that excess idle
+ *     threads will wait for a new tasks before terminating. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_KEEP_ALIVE_MS}.</li>
+ *   <li><strong>phoenix.query.threadPoolSize</strong>: number of threads
+ *     in client side thread pool executor. As the number of machines/cores
+ *     in the cluster grows, this value should be increased. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_THREAD_POOL_SIZE}.</li>
+ *   <li><strong>phoenix.query.queueSize</strong>: max queue depth of the
+ *     bounded round robin backing the client side thread pool executor,
+ *     beyond which attempts to queue additional work cause the client to
+ *     block. If zero, a SynchronousQueue is used of the bounded round
+ *     robin queue. Defaults to 
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_QUEUE_SIZE}.</li>
+ *   <li><strong>phoenix.query.spoolThresholdBytes</strong>: threshold
+ *     size in bytes after which results from parallel executed aggregate
+ *     query results are spooled to disk. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_SPOOL_THRESHOLD_BYTES}.</li>
+ *   <li><strong>phoenix.query.maxGlobalMemoryBytes</strong>: total amount
+ *     of memory that all threads may use.  Only course grain memory usage
+ *     is tracked, mainly accounting for memory usage in the hash join cache
+ *     and the intermediate map for group by aggregation.  When this limit
+ *     is reached clients block when attempting to get more memory,
+ *     essentially throttling memory usage.  One way to calculate what it
+ *     should be set to is to take a percentage of the maximum heap size.
+ *     Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MEMORY_BYTES}.</li>
+ *   <li><strong>phoenix.query.maxGlobalMemoryWaitMs</strong>: maximum
+ *     amount of time that a client will block while waiting for more memory
+ *     to become available.  After this amount of time, a
+ *     {@link com.salesforce.phoenix.memory.InsufficientMemoryException} is
+ *     thrown. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MEMORY_WAIT_MS}.</li>
+ *   <li><strong>phoenix.query.maxOrgMemoryPercentage</strong>: maximum
+ *     percentage of phoenix.query.maxGlobalMemoryBytes that any one tenant
+ *     is allowed to consume. After this percentage, a
+ *     {@link com.salesforce.phoenix.memory.InsufficientMemoryException} is
+ *     thrown. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_ORG_MEMORY_PERC}.</li>
+ *   <li><strong>phoenix.coprocessor.maxGlobalMemoryBytes</strong>: similar
+ *     to and defaulted to phoenix.query.maxGlobalMemoryBytes but for memory
+ *     consumption by coprocessors.</li>
+ *   <li><strong>phoenix.coprocessor.maxGlobalMemoryWaitMs</strong>: similar
+ *     to and defaulted to phoenix.query.maxGlobalMemoryWaitMs but for memory
+ *     consumption by coprocessors.</li>
+ *   <li><strong>phoenix.coprocessor.maxOrgMemoryPercentage</strong>: similar
+ *     and defaulted to phoenix.query.maxOrgMemoryPercentage but for memory
+ *     consumption by coprocessors.</li>
+ *   <li><strong>phoenix.query.targetConcurrency</strong>: target concurrent
+ *     threads to use for a query. It serves as a soft limit on the number of
+ *     scans into which a query may be split. A hard limit is imposed by
+ *     phoenix.query.maxConcurrency (which should not be exceeded by this
+ *     value). Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_TARGET_QUERY_CONCURRENCY}.</li>
+ *   <li><strong>phoenix.query.maxConcurrency</strong>: maximum concurrent
+ *     threads to use for a query. It servers as a hard limit on the number
+ *     of scans into which a query may be split. A soft limit is imposed by
+ *     phoenix.query.targetConcurrency. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_QUERY_CONCURRENCY}.</li>
+ *   <li><strong>phoenix.query.dateFormat</strong>: default pattern to use
+ *     for convertion of a date to/from a string, whether through the
+ *     TO_CHAR(<date>) or TO_DATE(<dateAsString>) functions, or through
+ *     resultSet.getString(<date-column>). Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_DATE_FORMAT}.</li>
+ *   <li><strong>phoenix.query.statsUpdateFrequency</strong>: the frequency
+ *     in milliseconds at which each table stats will be updated. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_STATS_UPDATE_FREQ_MS}.</li>
+ *   <li><strong>phoenix.query.maxStatsAge</strong>: the maximum age of
+ *     stats in milliseconds after which they no longer will be used (i.e.
+ *     if the stats could not be updated for this length of time, the stats
+ *     are considered too old and thus no longer accurate enough to use).
+ *     Defaults to {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_STATS_AGE_MS}.</li>
+ *   <li><strong>phoenix.mutate.maxSize</strong>: the maximum number of rows
+ *     that may be collected in {@link com.salesforce.phoenix.execute.MutationState}
+ *     before a commit or rollback must be called. For better performance and to
+ *     circumvent this limit, set {@link java.sql.Connection#setAutoCommit(boolean)}
+ *     to TRUE, in which case, mutations (upserts and deletes) are performed
+ *     on the server side without returning data back to the client. Defaults
+ *     to {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MUTATION_SIZE}.</li>
+ *   <li><strong>phoenix.mutate.upsertBatchSize</strong>: the number of rows
+ *     that are batched together and automatically committed during an
+ *     UPSERT SELECT call when {@link java.sql.Connection#setAutoCommit(boolean)}
+ *     is TRUE and the entire operation may not be performed on the server side
+ *     (due to either the source and target table being different or the SELECT
+ *     query performing aggregation). Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_UPSERT_BATCH_SIZE}.</li>
+ *   <li><strong>phoenix.query.regionBoundaryCacheTTL</strong>: the time-to-live
+ *     in milliseconds of the region boundary cache used to guide the split
+ *     points for query parallelization. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS}.</li>
+ *   </ul>
  *     
  * @author jtaylor
  * @since 0.1
@@ -93,7 +149,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String QUEUE_SIZE_ATTRIB = "phoenix.query.queueSize";
     public static final String THREAD_TIMEOUT_MS_ATTRIB = "phoenix.query.timeoutMs";
     public static final String SPOOL_THRESHOLD_BYTES_ATTRIB = "phoenix.query.spoolThresholdBytes";
-    public static final String MAX_HTABLE_POOL_SIZE_ATTRIB = "phoenix.query.htablePoolSize";
+    
     public static final String MAX_MEMORY_BYTES_ATTRIB = "phoenix.query.maxGlobalMemoryBytes";
     public static final String MAX_MEMORY_WAIT_MS_ATTRIB = "phoenix.query.maxGlobalMemoryWaitMs";
     public static final String MAX_ORG_MEMORY_PERC_ATTRIB = "phoenix.query.maxOrgMemoryPercentage";
@@ -108,6 +164,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String SCAN_CACHE_SIZE_ATTRIB = "hbase.client.scanner.caching";
     public static final String MAX_MUTATION_SIZE_ATTRIB = "phoenix.mutate.maxSize";
     public static final String UPSERT_BATCH_SIZE_ATTRIB = "phoenix.mutate.upsertBatchSize";
+    public static final String REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB = "phoenix.query.regionBoundaryCacheTTL";
 
     public static final int DEFAULT_SCAN_CACHE_SIZE = 1000;
     

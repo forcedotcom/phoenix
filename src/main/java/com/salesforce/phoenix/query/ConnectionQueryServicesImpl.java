@@ -65,9 +65,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
     private static final int INITIAL_CHILD_SERVICES_CAPACITY = 100;
     private static final int DEFAULT_OUT_OF_ORDER_MUTATIONS_WAIT_TIME_MS = 1000;
-    // Cache the region boundary metadata for this number of seconds.
-    // The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
-    private static final int REGION_BOUNDARIES_CACHE_TTL_SECS = 60; // TODO: from config
     private final Configuration config;
     private final HConnection connection;
     private final StatsManager statsManager;
@@ -102,7 +99,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
          * keep a cache of HRegionInfo objects
          */
         tableRegionCache = CacheBuilder.newBuilder().
-            expireAfterAccess(REGION_BOUNDARIES_CACHE_TTL_SECS, TimeUnit.SECONDS)
+            expireAfterAccess(this.getConfig().getLong(QueryServices.REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB,QueryServicesOptions.DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS), TimeUnit.MILLISECONDS)
             .removalListener(new RemovalListener<TableRef, SortedSet<HRegionInfo>>(){
                 @Override
                 public void onRemoval(RemovalNotification<TableRef, SortedSet<HRegionInfo>> notification) {

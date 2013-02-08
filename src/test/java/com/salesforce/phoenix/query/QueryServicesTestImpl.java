@@ -51,7 +51,6 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final long DEFAULT_MAX_MEMORY_BYTES = 1024 * 1024 * 100; // 5m
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000*5; //5min
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024; // 1m
-    private static final int DEFAULT_MAX_HTABLE_POOL_SIZE = 100;
     private static final int DEFAULT_MAX_MEMORY_WAIT_MS = 0;
     private static final int DEFAULT_MAX_ORG_MEMORY_PERC = 100;
     private static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 60000 * 10; // 10min (to prevent age-out of hash cache during debugging)
@@ -70,7 +69,6 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setMaxMemoryBytes(DEFAULT_MAX_MEMORY_BYTES)
                 .setThreadTimeoutMs(DEFAULT_THREAD_TIMEOUT_MS)
                 .setSpoolThresholdBytes(DEFAULT_SPOOL_THRESHOLD_BYTES)
-                .setMaxHTablePoolSize(DEFAULT_MAX_HTABLE_POOL_SIZE)
                 .setMaxMemoryWaitMs(DEFAULT_MAX_MEMORY_WAIT_MS)
                 .setMaxOrgMemoryPerc(DEFAULT_MAX_ORG_MEMORY_PERC)
                 .setMaxHashCacheSize(DEFAULT_MAX_HASH_CACHE_SIZE)

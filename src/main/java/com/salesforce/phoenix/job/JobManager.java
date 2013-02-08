@@ -38,8 +38,8 @@ import java.util.concurrent.*;
  */
 @SuppressWarnings("rawtypes")
 public class JobManager<T> extends AbstractRoundRobinQueue<T> {
-    public JobManager() {
-        super(true); // true -> new producers move to front of queue; this reduces latency.
+    public JobManager(int maxSize) {
+        super(maxSize, true); // true -> new producers move to front of queue; this reduces latency.
     }
 
 	@Override
@@ -56,7 +56,7 @@ public class JobManager<T> extends AbstractRoundRobinQueue<T> {
         if (queueSize == 0) {
             queue = new SynchronousQueue<Runnable>(); // Specialized for 0 length.
         } else {
-            queue = new JobManager<Runnable>();
+            queue = new JobManager<Runnable>(queueSize);
         }
         ThreadFactory threadFactory = Executors.defaultThreadFactory();
         // For thread pool, set core threads = max threads -- we don't ever want to exceed core threads, but want to go up to core threads *before* using the queue.

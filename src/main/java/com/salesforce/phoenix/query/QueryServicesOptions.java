@@ -47,22 +47,20 @@ public class QueryServicesOptions {
     private static final int DEFAULT_QUEUE_SIZE = 250;
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 50; // 50m
-    private static final int DEFAULT_MAX_HTABLE_POOL_SIZE = 1000;
     private static final long DEFAULT_MAX_MEMORY_BYTES = 1024 * 1024 * 400; // 400m
     private static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
     private static final int DEFAULT_MAX_ORG_MEMORY_PERC = 30;
     private static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
     public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 8;
-    public static final int DEFAULT_MAX_QUERY_CONCURRRENCY = 12;
+    public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 12;
     public static final String DEFAULT_DATE_FORMAT = DateUtil.DEFAULT_DATE_FORMAT;
     public static final int DEFAULT_STATS_UPDATE_FREQ_MS = 15 * 60000; // 15min
     public static final int DEFAULT_MAX_STATS_AGE_MS = 24 * 60 * 60000; // 1 day
     public static final boolean DEFAULT_CALL_QUEUE_ROUND_ROBIN = true; 
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
-    /**
-     * Default value used for the batch size of an UPSERT/SELECT command.
-     */
-    public final static int DEFAULT_UPSERT_BATCH_SIZE = 10000;
+    public final static int DEFAULT_UPSERT_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT
+	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
+	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 60000; // How long to cache region boundary info for parallelization calculation
     
     private final Configuration config;
     
@@ -77,19 +75,19 @@ public class QueryServicesOptions {
             .setIfUnset(QUEUE_SIZE_ATTRIB, DEFAULT_QUEUE_SIZE)
             .setIfUnset(THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS)
             .setIfUnset(SPOOL_THRESHOLD_BYTES_ATTRIB, DEFAULT_SPOOL_THRESHOLD_BYTES)
-            .setIfUnset(MAX_HTABLE_POOL_SIZE_ATTRIB, DEFAULT_MAX_HTABLE_POOL_SIZE)
             .setIfUnset(MAX_MEMORY_BYTES_ATTRIB, DEFAULT_MAX_MEMORY_BYTES)
             .setIfUnset(MAX_MEMORY_WAIT_MS_ATTRIB, DEFAULT_MAX_MEMORY_WAIT_MS)
             .setIfUnset(MAX_ORG_MEMORY_PERC_ATTRIB, DEFAULT_MAX_ORG_MEMORY_PERC)
             .setIfUnset(MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE)
             .setIfUnset(SCAN_CACHE_SIZE_ATTRIB, DEFAULT_SCAN_CACHE_SIZE)
             .setIfUnset(TARGET_QUERY_CONCURRENCY_ATTRIB, DEFAULT_TARGET_QUERY_CONCURRENCY)
-            .setIfUnset(MAX_QUERY_CONCURRENCY_ATTRIB, DEFAULT_MAX_QUERY_CONCURRRENCY)
+            .setIfUnset(MAX_QUERY_CONCURRENCY_ATTRIB, DEFAULT_MAX_QUERY_CONCURRENCY)
             .setIfUnset(DATE_FORMAT_ATTRIB, DEFAULT_DATE_FORMAT)
             .setIfUnset(STATS_UPDATE_FREQ_MS_ATTRIB, DEFAULT_STATS_UPDATE_FREQ_MS)
             .setIfUnset(CALL_QUEUE_ROUND_ROBIN_ATTRIB, DEFAULT_CALL_QUEUE_ROUND_ROBIN)
             .setIfUnset(MAX_MUTATION_SIZE_ATTRIB, DEFAULT_MAX_MUTATION_SIZE)
             .setIfUnset(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_UPSERT_BATCH_SIZE)
+            .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
             ;
     }
     
@@ -136,10 +134,6 @@ public class QueryServicesOptions {
     
     public QueryServicesOptions setSpoolThresholdBytes(int spoolThresholdBytes) {
         return set(SPOOL_THRESHOLD_BYTES_ATTRIB, spoolThresholdBytes);
-    }
-    
-    public QueryServicesOptions setMaxHTablePoolSize(int maxHTablePoolSize) {
-        return set(MAX_HTABLE_POOL_SIZE_ATTRIB, maxHTablePoolSize);
     }
     
     public QueryServicesOptions setMaxMemoryBytes(long maxMemoryBytes) {
@@ -190,6 +184,10 @@ public class QueryServicesOptions {
         return set(UPSERT_BATCH_SIZE_ATTRIB, upsertBatchSize);
     }
     
+    public QueryServicesOptions setRegionBoundaryCacheTTLMs(int regionBoundaryCacheTTL) {
+        return set(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, regionBoundaryCacheTTL);
+    }
+    
     private QueryServicesOptions set(String name, boolean value) {
         config.set(name, Boolean.toString(value));
         return this;
@@ -236,5 +234,9 @@ public class QueryServicesOptions {
 
     public int getUpsertBatchSize() {
         return config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_UPSERT_BATCH_SIZE);
+    }
+    
+    public int getRegionBoundaryCacheTTLMs() {
+        return config.getInt(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS);
     }
 }
