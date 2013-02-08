@@ -59,6 +59,12 @@ public enum SQLExceptionCodeEnum {
     CONCURRENT_TABLE_MUTATION("23000", "Concurrent modification to table."),
     
     /**
+     * Invalid Cursor State (24)
+     */
+    CURSOR_BEFORE_FIRST_ROW("24015","Cursor before first tow."),
+    CURSOR_PAST_LAST_ROW("24016", "Cursor past last row."),
+    
+    /**
      * Syntax Error or Access Rule Violation (42)
      */
     AMBIGUOUS_TABLE("42000", "Table name exists in more than one table schema and is used without being qualified."),
@@ -93,6 +99,18 @@ public enum SQLExceptionCodeEnum {
     UNEXPECTED_MUTATION_CODE("42M03", "Unexpected mutation code."),
     // Phoenix specific operator errors.
     TYPE_NOT_SUPPORTED_FOR_OPERATOR("42N01", "The operator does not support the operand type."),
+    
+    /**
+     * Implementation defined class. Execution exceptions (XCL). 
+     */
+    RESULTSET_CLOSED("XCL01", "ResultSet is closed."),
+    
+    /**
+     * Implementation defined class. Phoenix internal error. (INT).
+     */
+    CANNOT_CALL_METHOD_ON_TYPE("INT01", "Cannot call method on the argument type."),
+    MALFORMED_URL("INT02", "Malformed URL."),
+    CLASS_NOT_UNWRAPPABLE("INT03", "Class not unwrappable"),
     ;
 
     private final String sqlState;
