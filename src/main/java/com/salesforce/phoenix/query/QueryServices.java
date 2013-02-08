@@ -128,10 +128,12 @@ import com.salesforce.phoenix.util.SQLCloseable;
  *     to {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MUTATION_SIZE}.</li>
  *   <li><strong>phoenix.mutate.upsertBatchSize</strong>: the number of rows
  *     that are batched together and automatically committed during an
- *     UPSERT SELECT call when {@link java.sql.Connection#setAutoCommit(boolean)}
- *     is TRUE and the entire operation may not be performed on the server side
+ *     UPSERT SELECT call when a) {@link java.sql.Connection#setAutoCommit(boolean)}
+ *     is TRUE and b) the entire operation may not be performed on the server side
  *     (due to either the source and target table being different or the SELECT
- *     query performing aggregation). Defaults to
+ *     query performing aggregation). This property may be overridden at connection
+ *     time by specifying a {@link com.salesforce.phoenix.util.PhoenixRuntime#UPSERT_BATCH_SIZE_ATTRIB}
+ *     property value. Defaults to
  *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_UPSERT_BATCH_SIZE}.</li>
  *   <li><strong>phoenix.query.regionBoundaryCacheTTL</strong>: the time-to-live
  *     in milliseconds of the region boundary cache used to guide the split
