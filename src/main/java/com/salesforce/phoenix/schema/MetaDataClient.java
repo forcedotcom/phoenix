@@ -334,7 +334,8 @@ public class MetaDataClient {
                 // TODO: add table if in result?
                 throw new NewerTableAlreadyExistsException(schemaName, tableName);
             case UNALLOWED_TABLE_MUTATION:
-                throw new SQLException("Not allowed to create " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CREATE_TABLE)
+                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, columns);
                 connection.addTable(schemaName, table);
@@ -376,9 +377,10 @@ public class MetaDataClient {
                 }
                 break;
             case NEWER_TABLE_FOUND:
-                throw new SQLException("Newer table already exists for " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+                throw new NewerTableAlreadyExistsException(schemaName, tableName);
             case UNALLOWED_TABLE_MUTATION:
-                throw new SQLException("Not allowed to drop " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CREATE_TABLE)
+                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 try {
                     connection.removeTable(schemaName, tableName);
@@ -433,7 +435,8 @@ public class MetaDataClient {
             connection.removeTable(schemaName, tableName);
             throw new TableNotFoundException(schemaName, tableName);
         case UNALLOWED_TABLE_MUTATION:
-            throw new SQLException("Not allowed to mutate " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_MUTATE_TABLE)
+                .setSchemaName(schemaName).setTableName(tableName).build().buildException();
         case COLUMN_ALREADY_EXISTS:
         case COLUMN_NOT_FOUND:
             break;
@@ -444,13 +447,15 @@ public class MetaDataClient {
             if (result.getTable() != null) {
                 connection.addTable(schemaName, result.getTable());
             }
-            throw new SQLException("Newer table already exists for " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            throw new NewerTableAlreadyExistsException(schemaName, tableName);
         case NO_PK_COLUMNS:
-            throw new SQLException("Must have at least one PK column for " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PRIMARY_KEY_MISSING)
+                .setSchemaName(schemaName).setTableName(tableName).build().buildException();
         case TABLE_ALREADY_EXISTS:
             break;
         default:
-            throw new SQLException("Unexpected mutation code result of " + mutationCode);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.UNEXPECTED_MUTATION_CODE).setSchemaName(schemaName)
+                .setTableName(tableName).setMessage("mutation code: " + mutationCode).build().buildException();
         }
         return mutationCode;
     }
@@ -473,7 +478,8 @@ public class MetaDataClient {
                 List<PColumn> columns = Lists.newArrayListWithExpectedSize(1);
                 ColumnDef colDef = statement.getColumnDef();
                 if (!colDef.isNull() && colDef.isPK()) {
-                    throw new SQLException("Only nullable PK columns may be added");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
+                        .setColumnName(colDef.getColumnDefName().getColumnName().getName()).build().buildException();
                 }
                 
                 PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
@@ -557,7 +563,8 @@ public class MetaDataClient {
                 TableRef tableRef = columnRef.getTableRef();
                 PColumn columnToDrop = columnRef.getColumn();
                 if (SchemaUtil.isPKColumn(columnToDrop)) {
-                    throw new SQLException("PK columns may not be dropped");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_DROP_PK)
+                        .setColumnName(columnToDrop.getName().getString()).build().buildException();
                 }
                 int columnCount = table.getColumns().size() - 1;
                 String familyName = null;
