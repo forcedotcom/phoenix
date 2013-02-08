@@ -49,7 +49,9 @@ public enum SQLExceptionCodeEnum {
     /**
      * Data Exception (22)
      */
-    ILLEGAL_DATA("22000", "Illegal Data."),
+    ILLEGAL_DATA("22000", "Illegal data."),
+    DIVIDE_BY_ZERO("22012", "Divide by zero."),
+    TYPE_MISMATCH("22005", "Type mismatch."),
     
     /**
      * Constraint Violation (23)
@@ -68,6 +70,7 @@ public enum SQLExceptionCodeEnum {
     READ_ONLY_TABLE("42000", "Table is read only."),
     SCHEMA_NOT_FOUND("42Y07", "Schema not found."),
     CANNOT_DROP_PK("42817", "Primary key Column may not be dropped."),
+    CANNOT_CONVERT_TYPE("42846", "Cannot convert type."),
     PRIMARY_KEY_MISSING("42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS("42889", "The table already has a primary key."),
     // HBase and Phoenix specific implementation defined sub-classes.
@@ -88,6 +91,8 @@ public enum SQLExceptionCodeEnum {
     CANNOT_CREATE_TABLE("42M01", "Not allowed to create table."),
     CANNOT_MUTATE_TABLE("42M02", "Not allowed to mutate table."),
     UNEXPECTED_MUTATION_CODE("42M03", "Unexpected mutation code."),
+    // Phoenix specific operator errors.
+    TYPE_NOT_SUPPORTED_FOR_OPERATOR("42N01", "The operator does not support the operand type."),
     ;
 
     private final String sqlState;
