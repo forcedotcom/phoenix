@@ -681,7 +681,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 if (e.getMessage().contains("SQLState(22005): Type mismatch.")) {
                     continue;
                 }
-                throw new SQLException("Didn't find type mismatch: " + query,e);
+                throw new IllegalStateException("Didn't find type mismatch: " + query,e);
             }
         }
     }

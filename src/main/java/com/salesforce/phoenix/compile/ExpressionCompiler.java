@@ -838,8 +838,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateSubtractExpression(children);
                 } else {
-                    throw new IllegalStateException("Unexpected type: "
-                            + theType);
+                    throwTypeMismatch(node, theType);
                 }
             }
         });

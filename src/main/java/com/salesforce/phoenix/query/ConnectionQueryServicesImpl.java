@@ -52,6 +52,8 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
@@ -87,10 +89,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             this.connection = HConnectionManager.createConnection(config);
         } catch (ZooKeeperConnectionException e) {
-            throw new SQLException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CONNECT_TO_ZOOKEEPER)
+                .setRootCause(e).build().buildException();
         }
         if (this.connection.isClosed()) { // TODO: why the heck doesn't this throw above?
-            throw new SQLException("Unable to establish connection");
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_ESTABLISH_CONNECTION).build().buildException();
         }
         // TODO: should we track connection wide memory usage or just org-wide usage?
         // If connection-wide, create a MemoryManager here, otherwise just use the one from the delegate
@@ -149,7 +152,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             connection.close();
         } catch (IOException e) {
-            throw new SQLException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
         }
         finally {
             super.close();
@@ -182,7 +185,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             return tableRegionCache.get(table);
         } catch (ExecutionException e) {
-            throw new SQLException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.GET_TABLE_REGIONS_FAIL)
+                .setRootCause(e).build().buildException();
         }
     }
 
@@ -247,7 +251,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     }
                     latestMetaDataLock.wait(waitTime);
                 } catch (InterruptedException e) {
-                    throw new SQLException(e);
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERRUPTED_EXCEPTION)
+                        .setRootCause(e).build().buildException();
                 }
             }
             latestMetaData = metaData;
@@ -387,7 +392,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), phoenixJarPath, 1, null);
             }
         } catch (IOException e) {
-            throw new SQLException(e);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
         }
         return descriptor;
     }
@@ -416,7 +421,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
                 admin.enableTable(tableName);
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
-                sqlE = new SQLException(e);
+                sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TABLE_UNDEFINED).setRootCause(e).build().buildException();
             }
         } catch (IOException e) {
             sqlE = new SQLException(e);
@@ -427,9 +432,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new SQLException(e);
+                    sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
                 } else {
-                    sqlE.setNextException(new SQLException(e));
+                    sqlE.setNextException(new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException());
                 }
             } finally {
                 if (sqlE != null) {
@@ -589,8 +594,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         if (isIncompatible) {
             buf.setLength(buf.length()-1);
             throw new SQLException(buf.toString());
-        }        
+        }
     }
+
     /**
      * Invoke meta data coprocessor with one retry if the key was found to not be in the regions
      * (due to a table split)

@@ -45,6 +45,8 @@ public enum SQLExceptionCodeEnum {
      * Connection Exception (08)
      */
     IO_EXCEPTION("08000", "Unexpected IO exception."),
+    CANNOT_ESTABLISH_CONNECTION("08004", "Unable to establish connection."),
+    CANNOT_CONNECT_TO_ZOOKEEPER("08005", "Cannot connect to Zookeeper."),
     
     /**
      * Data Exception (22)
@@ -99,11 +101,14 @@ public enum SQLExceptionCodeEnum {
     UNEXPECTED_MUTATION_CODE("42M03", "Unexpected mutation code."),
     // Phoenix specific operator errors.
     TYPE_NOT_SUPPORTED_FOR_OPERATOR("42N01", "The operator does not support the operand type."),
+    // Syntax error
+    AGGREGATE_IN_GROUP_BY("42Y26", "Aggregate expressions may not be used in GROUP BY."),
     
     /**
      * Implementation defined class. Execution exceptions (XCL). 
      */
     RESULTSET_CLOSED("XCL01", "ResultSet is closed."),
+    GET_TABLE_REGIONS_FAIL("XCL02", "Cannot get all table regions"),
     
     /**
      * Implementation defined class. Phoenix internal error. (INT).
@@ -115,6 +120,7 @@ public enum SQLExceptionCodeEnum {
     INDEX_OUT_OF_BOUND("INT04", "Index out of bound."),
     PARAM_VALUE_UNBOUND("INT05", "Parameter value unbound"),
     INTERNAL_TYPE_MISMATCH("INT06", "Type mismatch."),
+    INTERRUPTED_EXCEPTION("INT07", "Interrupted exception."),
     ;
 
     private final String sqlState;
