@@ -656,8 +656,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_string varchar not null primary key");
             fail();
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
-            assertTrue(e.getMessage().contains("SQLState(42J04): Only nullable PK columns maybe added to rowkeys. columnName=Z_STRING"));
+            assertTrue(e.getMessage().contains("SQLState(42J04): Only nullable columns may be added to a multi-part row key."));
         }
         conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_string varchar primary key");
         conn1.close();
@@ -731,7 +730,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMN entity_id");
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42817): Primary key Column may not be dropped. columnName=ENTITY_ID"));
+            assertTrue(e.getMessage().contains("SQLState(42817): Primary key column may not be dropped."));
         }
         conn1.close();
     }
@@ -797,7 +796,6 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMN y_integer");
             fail();
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
             assertTrue(e.getMessage().contains("SQLState(42P07): Table already exists. tableName=ATABLE"));
         }
         conn5.close();

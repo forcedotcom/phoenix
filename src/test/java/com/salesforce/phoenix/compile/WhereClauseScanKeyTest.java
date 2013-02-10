@@ -425,7 +425,6 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
             compileStatement(query, scan, binds);
             fail();
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
             assertTrue(e.getMessage().contains("Type mismatch"));
         }
     }

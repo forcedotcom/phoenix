@@ -96,9 +96,8 @@ public enum SQLExceptionCodeEnum {
     VIEW_WITH_TABLE_CONFIG("42L01", "A VIEW may not contain table configuration properties."),
     VIEW_WITH_PROPERTIES("42L02", "Properties may not be defined for a view."),
     // Table related errors that are not in standard code.
-    CANNOT_CREATE_TABLE("42M01", "Not allowed to create table."),
-    CANNOT_MUTATE_TABLE("42M02", "Not allowed to mutate table."),
-    UNEXPECTED_MUTATION_CODE("42M03", "Unexpected mutation code."),
+    CANNOT_MUTATE_TABLE("42M01", "Not allowed to mutate table."),
+    UNEXPECTED_MUTATION_CODE("42M02", "Unexpected mutation code."),
     // Syntax error
     TYPE_NOT_SUPPORTED_FOR_OPERATOR("42Y01", "The operator does not support the operand type."),
     AGGREGATE_IN_GROUP_BY("42Y26", "Aggregate expressions may not be used in GROUP BY."),

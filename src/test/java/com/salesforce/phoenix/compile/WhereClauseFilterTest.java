@@ -264,7 +264,6 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
             compileStatement(context, statement, resolver, binds, scan, 1, null);
             fail();
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
             assertTrue(e.getMessage().contains("Type mismatch"));
         }
     }

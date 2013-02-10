@@ -379,7 +379,7 @@ public class MetaDataClient {
             case NEWER_TABLE_FOUND:
                 throw new NewerTableAlreadyExistsException(schemaName, tableName);
             case UNALLOWED_TABLE_MUTATION:
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CREATE_TABLE)
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 try {
