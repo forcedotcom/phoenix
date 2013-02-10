@@ -118,7 +118,6 @@ public enum SQLExceptionCodeEnum {
     CLASS_NOT_UNWRAPPABLE("INT03", "Class not unwrappable"),
     INDEX_OUT_OF_BOUND("INT04", "Index out of bound."),
     PARAM_VALUE_UNBOUND("INT05", "Parameter value unbound"),
-    INTERNAL_TYPE_MISMATCH("INT06", "Type mismatch."),
     INTERRUPTED_EXCEPTION("INT07", "Interrupted exception."),
     ;
 

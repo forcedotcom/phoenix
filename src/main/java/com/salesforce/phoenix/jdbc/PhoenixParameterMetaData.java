@@ -34,6 +34,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 
 
 
@@ -132,9 +133,7 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
     public void addParam(BindParseNode bind, PDatum datum) throws SQLException {
         PDatum bindDatum = params[bind.getIndex()];
         if (bindDatum != null && bindDatum.getDataType() != null && !datum.getDataType().isCoercibleTo(bindDatum.getDataType())) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_TYPE_MISMATCH)
-                .setMessage("Type mismatch: " + datum.getDataType() + " and " + bindDatum.getDataType())
-                .build().buildException();
+            throw new TypeMismatchException(datum.getDataType(), bindDatum.getDataType());
         }
         params[bind.getIndex()] = datum;
     }
