@@ -146,8 +146,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public int executeUpdate() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeUpdate may not be used for queries: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException(this.toString());
         }
 
         @Override
@@ -191,8 +190,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeQuery may not be used for upsert: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException("upsert", this.toString());
         }
 
         @Override
@@ -226,8 +224,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeQuery may not be used for delete: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException("delete", this.toString());
         }
 
         @Override
@@ -261,8 +258,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeQuery may not be used for CREATE TABLE: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException("CREATE TABLE", this.toString());
         }
 
         @Override
@@ -302,8 +298,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeQuery may not be used for DROP TABLE: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException("DROP TABLE", this.toString());
         }
 
         @Override
@@ -352,8 +347,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeQuery may not be used for ALTER TABLE: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException("ALTER TABLE", this.toString());
         }
 
         @Override
@@ -402,8 +396,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeQuery may not be used for ALTER TABLE: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException("ALTER TABLE", this.toString());
         }
 
         @Override
@@ -509,8 +502,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public int executeUpdate() throws SQLException {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERNAL_ERROR)
-                .setMessage("executeQuery may not be used for ALTER TABLE: " + this).build().buildException();
+            throw new ExecuteQueryNotApplicableException("ALTER TABLE", this.toString());
         }
 
         @Override

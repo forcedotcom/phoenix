@@ -108,6 +108,7 @@ public enum SQLExceptionCodeEnum {
      */
     RESULTSET_CLOSED("XCL01", "ResultSet is closed."),
     GET_TABLE_REGIONS_FAIL("XCL02", "Cannot get all table regions"),
+    EXECUTE_QUERY_NOT_APPLICABLE("XCL03", "executeQuery may not be used for this command."),
     
     /**
      * Implementation defined class. Phoenix internal error. (INT).
