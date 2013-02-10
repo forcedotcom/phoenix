@@ -77,7 +77,7 @@ public enum SQLExceptionCodeEnum {
     TABLE_ALREADY_EXIST("42P07", "Table already exists."),
     READ_ONLY_TABLE("42000", "Table is read only."),
     SCHEMA_NOT_FOUND("42Y07", "Schema not found."),
-    CANNOT_DROP_PK("42817", "Primary key Column may not be dropped."),
+    CANNOT_DROP_PK("42817", "Primary key column may not be dropped."),
     CANNOT_CONVERT_TYPE("42846", "Cannot convert type."),
     PRIMARY_KEY_MISSING("42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS("42889", "The table already has a primary key."),
@@ -87,22 +87,22 @@ public enum SQLExceptionCodeEnum {
     PROPERTIES_FOR_FAMILY("42I02","Properties may not be defined for an unused family name."),
     // Primary/row key related exceptions.
     PRIMARY_KEY_WITH_FAMILY_NAME("42J01", "Primary key should not have a family name."),
-    PRIMARY_KEY_OUT_OF_ORDER("42J02", "Order of columns in PRIMARY KEY constraint must match the order in which they're declared."),
+    PRIMARY_KEY_OUT_OF_ORDER("42J02", "Order of columns in primary key constraint must match the order in which they're declared."),
     BINARY_IN_ROW_KEY("42J03", "The BINARY type may not be used as part of a multi-part row key."),
-    NOT_NULLABLE_COLUMN_IN_ROW_KEY("42J04", "Only nullable PK columns maybe added to rowkeys."),
+    NOT_NULLABLE_COLUMN_IN_ROW_KEY("42J04", "Only nullable columns may be added to a multi-part row key."),
     // Key/value column related errors
-    KEY_VALUE_NOT_NULL("42K01", "A key/value column may not be declared as NOT NULL."),
+    KEY_VALUE_NOT_NULL("42K01", "A key/value column may not be declared as not null."),
     // View related errors.
     VIEW_WITH_TABLE_CONFIG("42L01", "A VIEW may not contain table configuration properties."),
-    VIEW_WITH_PROPERTIES("42L02", "Properties may not be defined for a VIEW."),
+    VIEW_WITH_PROPERTIES("42L02", "Properties may not be defined for a view."),
     // Table related errors that are not in standard code.
     CANNOT_CREATE_TABLE("42M01", "Not allowed to create table."),
     CANNOT_MUTATE_TABLE("42M02", "Not allowed to mutate table."),
     UNEXPECTED_MUTATION_CODE("42M03", "Unexpected mutation code."),
-    // Phoenix specific operator errors.
-    TYPE_NOT_SUPPORTED_FOR_OPERATOR("42N01", "The operator does not support the operand type."),
     // Syntax error
+    TYPE_NOT_SUPPORTED_FOR_OPERATOR("42Y01", "The operator does not support the operand type."),
     AGGREGATE_IN_GROUP_BY("42Y26", "Aggregate expressions may not be used in GROUP BY."),
+    AGGREGATE_WITH_NOT_GROUP_BY_COLUMN("42Y27", "Aggregate may not contain columns not in GROUP BY."),
     
     /**
      * Implementation defined class. Execution exceptions (XCL). 

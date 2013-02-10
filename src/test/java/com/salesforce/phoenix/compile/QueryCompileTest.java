@@ -273,7 +273,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             } finally {
                 conn.close();
             }
-        } catch (SQLException e) { // TODO: use error codes
+        } catch (SQLException e) {
             assertTrue(e.getMessage().contains("Case expressions must have common type"));
         }
     }

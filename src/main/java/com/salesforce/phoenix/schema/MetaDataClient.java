@@ -334,7 +334,7 @@ public class MetaDataClient {
                 // TODO: add table if in result?
                 throw new NewerTableAlreadyExistsException(schemaName, tableName);
             case UNALLOWED_TABLE_MUTATION:
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CREATE_TABLE)
+                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, columns);

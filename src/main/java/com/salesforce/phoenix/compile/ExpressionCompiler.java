@@ -89,9 +89,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         final Expression rhs = children.get(1);
         if ( rhs.getDataType() != null && lhs.getDataType() != null && 
             !lhs.getDataType().isComparableTo(rhs.getDataType())) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TYPE_MISMATCH)
-                .setMessage(lhs.getDataType() + " and " + rhs.getDataType() + " for expression " + node)
-                .build().buildException();
+            throw new TypeMismatchException(lhs.getDataType(), rhs.getDataType(), node.toString());
         }
         if (lhsNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhs);
@@ -370,7 +368,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         // and we didn't just wrap our column reference
         // then we're mixing aggregate and non aggregate expressions in the same exxpression
         if (isAggregate && aggregateFunction == null && wrappedExpression == expression) {
-            throwNonAggExpressionInAggException(expression.toString());            
+            throwNonAggExpressionInAggException(expression.toString());
         }
         return wrappedExpression;
     }
@@ -516,9 +514,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         ParseNode childNode = node.getChildren().get(0);
         Expression child = children.get(0);
         if (!PDataType.BOOLEAN.isCoercibleTo(child.getDataType())) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TYPE_MISMATCH)
-                .setMessage(PDataType.BOOLEAN + " and " + child.getDataType() + " for expression " + node)
-                .build().buildException();
+            throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), node.toString());
         }
         if (childNode instanceof BindParseNode) { // TODO: valid/possibe?
             context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
@@ -719,11 +715,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         return true;
     }
 
-    private static void throwTypeMismatch(ArithmeticParseNode node, PDataType type) throws SQLException {
-        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TYPE_MISMATCH)
-            .setMessage(type + " for expression " + node).build().buildException();
-    }
-
     @Override
     public Expression visitLeave(SubtractParseNode node,
             List<Expression> children) throws SQLException {
@@ -826,7 +817,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.LONG;
                         }
                     } else {
-                        throwTypeMismatch(node, type);
+                        throw new TypeMismatchException(type, node.toString());
                     }
                 }
                 if (theType == PDataType.DECIMAL) {
@@ -838,7 +829,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateSubtractExpression(children);
                 } else {
-                    throwTypeMismatch(node, theType);
+                    throw new TypeMismatchException(theType, node.toString());
                 }
             }
         });
@@ -886,7 +877,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             continue; 
                         } else if (type.isCoercibleTo(PDataType.DATE)) {
                             if (foundDate) {
-                                throwTypeMismatch(node, type);
+                                throw new TypeMismatchException(type, node.toString());
                             }
                             theType = type;
                             foundDate = true;
@@ -899,7 +890,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 theType = PDataType.LONG;
                             }
                         } else {
-                            throwTypeMismatch(node, type);
+                            throw new TypeMismatchException(type, node.toString());
                         }
                     }
                     if (theType == PDataType.DECIMAL) {
@@ -911,7 +902,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     } else if (theType.isCoercibleTo(PDataType.DATE)) {
                         return new DateAddExpression( children);
                     } else {
-                        throw new IllegalStateException("Unexpected type: " + theType);
+                        throw new TypeMismatchException(theType, node.toString());
                     }
                 }
             });
@@ -939,7 +930,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.LONG;
                         }
                     } else {
-                        throwTypeMismatch(node, type);
+                        throw new TypeMismatchException(type, node.toString());
                     }
                 }
                 switch (theType) {
@@ -991,7 +982,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.LONG;
                         }
                     } else {
-                        throwTypeMismatch(node, type);
+                        throw new TypeMismatchException(type, node.toString());
                     }
                 }
                 switch (theType) {
@@ -1007,7 +998,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
 
     public static void throwNonAggExpressionInAggException(String nonAggregateExpression) throws SQLException {
-        throw new SQLException("Aggregate query may not contain column that do not appear in the GROUP BY: " + nonAggregateExpression);
+        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.AGGREGATE_WITH_NOT_GROUP_BY_COLUMN)
+            .setMessage(nonAggregateExpression).build().buildException();
     }
 
     @Override
