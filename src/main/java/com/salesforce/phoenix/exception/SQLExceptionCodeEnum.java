@@ -116,7 +116,7 @@ public enum SQLExceptionCodeEnum {
     CANNOT_CALL_METHOD_ON_TYPE("INT01", "Cannot call method on the argument type."),
     MALFORMED_URL("INT02", "Malformed URL."),
     CLASS_NOT_UNWRAPPABLE("INT03", "Class not unwrappable"),
-    INDEX_OUT_OF_BOUND("INT04", "Index out of bound."),
+    PARAM_INDEX_OUT_OF_BOUND("INT04", "Parameter position is out of range."),
     PARAM_VALUE_UNBOUND("INT05", "Parameter value unbound"),
     INTERRUPTED_EXCEPTION("INT07", "Interrupted exception."),
     ;

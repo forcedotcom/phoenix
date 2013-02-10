@@ -55,8 +55,8 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
  
     private PDatum getParam(int index) throws SQLException {
         if (index <= 0 || index > params.length) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INDEX_OUT_OF_BOUND)
-                .setMessage("Parameter index of " + index + " out of bounds. Must be between 1 and " + params.length)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARAM_INDEX_OUT_OF_BOUND)
+                .setMessage("The index is " + index + ". Must be between 1 and " + params.length)
                 .build().buildException();
         }
         PDatum param = params[index-1];
