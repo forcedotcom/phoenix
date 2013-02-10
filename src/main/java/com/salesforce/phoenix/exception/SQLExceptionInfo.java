@@ -111,6 +111,11 @@ public class SQLExceptionInfo {
         public SQLExceptionInfo build() {
             return new SQLExceptionInfo(this);
         }
+
+        @Override
+        public String toString() {
+            return code.toString();
+        }
     }
 
     private SQLExceptionInfo(Builder builder) {
