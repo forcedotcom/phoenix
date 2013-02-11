@@ -36,8 +36,7 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -104,7 +103,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
             }
             success = true;
         } catch (IOException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+            throw new PhoenixIOException(e);
         } finally {
             try {
                 scanner.close();
@@ -272,8 +271,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 init();
                 return next;
             } catch (IOException e) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION)
-                    .setRootCause(e).build().buildException();
+                throw new PhoenixIOException(e);
             }
         }
     
@@ -285,8 +283,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 advance();
                 return current;
             } catch (IOException e) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION)
-                .setRootCause(e).build().buildException();
+                throw new PhoenixIOException(e);
             }
         }
         

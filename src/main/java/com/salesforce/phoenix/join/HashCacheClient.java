@@ -44,8 +44,7 @@ import org.apache.hadoop.io.WritableUtils;
 import org.xerial.snappy.Snappy;
 
 import com.google.common.collect.ImmutableSet;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -259,7 +258,7 @@ public class HashCacheClient {
         try {
             locations = MetaScanner.allTableRegions(services.getConfig(), iterateOverTableName, false);
         } catch (IOException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+            throw new PhoenixIOException(e);
         }
         Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
         for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
@@ -334,7 +333,7 @@ public class HashCacheClient {
             chunk.resize(compressedSize);
             return new ImmutableBytesWritable(compressed,0,compressedSize);
         } catch (IOException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+            throw new PhoenixIOException(e);
         }
     }
 }

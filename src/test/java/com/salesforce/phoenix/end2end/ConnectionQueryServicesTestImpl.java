@@ -38,8 +38,7 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.*;
 
@@ -107,11 +106,9 @@ public class ConnectionQueryServicesTestImpl extends ConnectionQueryServicesImpl
                     htable.close();
                 } catch (IOException e) {
                     if (sqlE == null) {
-                        sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e)
-                                .build().buildException();
+                        sqlE = new PhoenixIOException(e);
                     } else {
-                        sqlE.setNextException(new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION)
-                            .setRootCause(e).build().buildException());
+                        sqlE.setNextException(new PhoenixIOException(e));
                     }
                 } finally {
                     if (sqlE != null) {

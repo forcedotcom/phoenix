@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
@@ -247,9 +248,9 @@ public class MutationState implements SQLCloseable {
                     hTable.close();
                 } catch (IOException e) {
                     if (sqlE != null) {
-                        sqlE.setNextException(new SQLException(e));
+                        sqlE.setNextException(new PhoenixIOException(e));
                     } else {
-                        sqlE = new SQLException(e);
+                        sqlE = new PhoenixIOException(e)
                     }
                 } finally {
                     if (sqlE != null) {

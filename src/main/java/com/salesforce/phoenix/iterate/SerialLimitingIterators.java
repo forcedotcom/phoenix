@@ -39,8 +39,7 @@ import org.apache.hadoop.hbase.filter.PageFilter;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
@@ -78,7 +77,7 @@ public class SerialLimitingIterators extends ExplainTable implements ResultItera
             try {
                 regionScan = new Scan(context.getScan());
             } catch (IOException e) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+                throw new PhoenixIOException(e);
             }
             // Intersect with existing start/stop key
             if (ScanUtil.intersectScanRange(regionScan, region.getStartKey(), region.getEndKey())) {

@@ -52,8 +52,7 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
@@ -152,7 +151,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             connection.close();
         } catch (IOException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+            throw new PhoenixIOException(e);
         }
         finally {
             super.close();
@@ -392,7 +391,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), phoenixJarPath, 1, null);
             }
         } catch (IOException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+            throw new PhoenixIOException(e);
         }
         return descriptor;
     }
@@ -424,7 +423,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TABLE_UNDEFINED).setRootCause(e).build().buildException();
             }
         } catch (IOException e) {
-            sqlE = new SQLException(e);
+            sqlE = new PhoenixIOException(e);
         } finally {
             try {
                 if (admin != null) {
@@ -432,9 +431,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException();
+                    sqlE = new PhoenixIOException(e);
                 } else {
-                    sqlE.setNextException(new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.IO_EXCEPTION).setRootCause(e).build().buildException());
+                    sqlE.setNextException(new PhoenixIOException(e));
                 }
             } finally {
                 if (sqlE != null) {
@@ -528,7 +527,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
             return true;
         } catch (IOException e) {
-            sqlE = new SQLException(e);
+            sqlE = new PhoenixIOException(e);
         } finally {
             try {
                 if (admin != null) {
