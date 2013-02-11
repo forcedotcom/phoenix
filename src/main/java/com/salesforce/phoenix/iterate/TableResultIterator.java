@@ -77,7 +77,7 @@ public class TableResultIterator extends ExplainTable implements ResultIterator 
             try {
                 htable.close();
             } catch (IOException e) {
-                throw new SQLException(e);
+                throw new PhoenixIOException(e);
             }
         }
     }
