@@ -42,6 +42,10 @@ public class ArgumentTypeMismatchException extends SQLException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.TYPE_MISMATCH;
 
+    public ArgumentTypeMismatchException(PDataType expected, PDataType actual, String location) {
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());
+    }
+
     public ArgumentTypeMismatchException(String expected, String actual, String location) {
         super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());
     }
