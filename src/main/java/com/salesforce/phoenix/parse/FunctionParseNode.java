@@ -38,11 +38,14 @@ import org.apache.http.annotation.Immutable;
 
 import com.google.common.collect.ImmutableSet;
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.AggregateFunction;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -195,16 +198,18 @@ public class FunctionParseNode extends CompoundParseNode {
                         }
                     }
                     if (!isCoercible) {
-                        throw new SQLException("Type mismatch for " + info.getName() + " argument " + (i + 1) + ": expected one of " + Arrays.toString(args[i].getAllowedTypes()) + " and got " + children.get(i).getDataType());
+                        throw new TypeMismatchException(Arrays.toString(args[i].getAllowedTypes()),
+                                children.get(i).getDataType().toString(), "argument " + (i + 1));
                     }
                 }
                 if (args[i].isConstant() && ! (children.get(i) instanceof LiteralExpression) ) {
-                    throw new SQLException("Expected constant for " + info.getName() + " argument " + (i + 1) + " but got " + children.get(i));
+                    throw new TypeMismatchException("constant", children.get(i).toString(), info.getName() + " argument " + (i + 1));
                 }
                 if (!args[i].getAllowedValues().isEmpty()) {
                     Object value = ((LiteralExpression)children.get(i)).getValue();
                     if (!args[i].getAllowedValues().contains(value.toString().toUpperCase())) {
-                        throw new SQLException("Expected one of " + args[i].getAllowedValues()  + " for " + info.getName() + " argument " + (i + 1) + " and got '" + value + "'");
+                        throw new TypeMismatchException(Arrays.toString(args[i].getAllowedValues().toArray(new String[0])), 
+                                value.toString(), info.getName() + " argument " + (i + 1));
                     }
                 }
             }

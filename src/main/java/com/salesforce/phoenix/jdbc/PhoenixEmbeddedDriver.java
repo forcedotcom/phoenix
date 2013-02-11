@@ -31,6 +31,8 @@ import java.sql.*;
 import java.util.Properties;
 import java.util.logging.Logger;
 
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -83,7 +85,8 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
         if (endIndex > begIndex) {
             return url.substring(begIndex, endIndex);
         }
-        throw new SQLException("Zookeeper quorum not found in connection url \"" + url +"\"");
+        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CONNECT_TO_ZOOKEEPER)
+            .setMessage("connection url: " + url).build().buildException();
     }
     
     protected static String getZookeeperPort(String server) throws SQLException {

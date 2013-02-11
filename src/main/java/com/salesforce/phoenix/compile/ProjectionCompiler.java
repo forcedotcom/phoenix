@@ -131,7 +131,7 @@ public class ProjectionCompiler {
                     // during expression evaluation and then convert back to INTEGER on UPSERT SELECT (and we don't have
                     // (an actual value we can specifically check against).
                     if (expression.getDataType() != null && !expression.getDataType().isComparableTo(targetType)) {
-                        throw new SQLException("Type mismatch: " + expression.getDataType() + " and " + targetType + " for column " + targetColumns[index]);
+                        throw new TypeMismatchException(expression.getDataType(), targetType, "column: " + targetColumns[index]);
                     }
                     expression = CoerceExpression.create(expression, targetType);
                 }

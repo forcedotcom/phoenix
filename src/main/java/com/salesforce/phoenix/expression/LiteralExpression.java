@@ -37,8 +37,7 @@ import org.apache.hadoop.io.WritableUtils;
 import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.IllegalDataException;
-import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -102,7 +101,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         }
         PDataType actualType = PDataType.fromLiteral(value);
         if (!actualType.isCoercibleTo(type, value)) {
-            throw new SQLException("Type mismatch: " + type + " and " + actualType + " for " + value);
+            throw new TypeMismatchException(type, actualType, value.toString());
         }
         value = type.toObject(value, actualType);
         try {

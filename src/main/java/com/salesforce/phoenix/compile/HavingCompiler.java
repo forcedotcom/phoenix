@@ -31,6 +31,8 @@ import java.sql.SQLException;
 import java.util.*;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
+import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.*;
@@ -56,7 +58,7 @@ public class HavingCompiler {
             return null;
         }
         if (!expressionBuilder.isAggregate()) {
-            throw new SQLException("Only aggregate expressions may not be used in the HAVING clause");
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.ONLY_AGGREGATE_IN_HAVING_CLAUSE).build().buildException();
         }
         context.setAggregate(true);
         return expression;

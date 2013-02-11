@@ -33,28 +33,16 @@ import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
- * Exception thrown when we try to convert one type into a different incompatible type.
+ * Exception thrown when we try to use use an argument that has the wrong type. 
  * 
  * @author zhuang
  * @since 1.0
  */
-public class TypeMismatchException extends SQLException {
+public class ArgumentTypeMismatchException extends SQLException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.TYPE_MISMATCH;
 
-    public TypeMismatchException(PDataType type, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(type + " for " + location).build().toString(), code.getSQLState());
-    }
-
-    public TypeMismatchException(PDataType lhs, PDataType rhs) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs).build().toString(), code.getSQLState());
-    }
-
-    public TypeMismatchException(PDataType lhs, PDataType rhs, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState());
-    }
-
-    public TypeMismatchException(String lhs, String rhs, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState());
+    public ArgumentTypeMismatchException(String expected, String actual, String location) {
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());
     }
 }

@@ -452,7 +452,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if ( rhs.getDataType() != null && lhs.getDataType() != null && 
             !lhs.getDataType().isCoercibleTo(rhs.getDataType())  && 
             !rhs.getDataType().isCoercibleTo(lhs.getDataType())) {
-            throw new SQLException("Type mismatch: " + lhs.getDataType() + " and " + rhs.getDataType() + " for expression " + node);
+            throw new TypeMismatchException(lhs.getDataType(), rhs.getDataType(), node.toString());
         }
         if (lhsNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhs);

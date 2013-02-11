@@ -77,6 +77,7 @@ public enum SQLExceptionCodeEnum {
     READ_ONLY_TABLE("42000", "Table is read only."),
     CANNOT_DROP_PK("42817", "Primary key column may not be dropped."),
     CANNOT_CONVERT_TYPE("42846", "Cannot convert type."),
+    UNSUPPORTED_ORDER_BY_QUERY("42878", "ORDER BY only allowed for limited or aggregate queries"),
     PRIMARY_KEY_MISSING("42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS("42889", "The table already has a primary key."),
     // HBase and Phoenix specific implementation defined sub-classes.
@@ -106,6 +107,7 @@ public enum SQLExceptionCodeEnum {
     AGGREGATE_IN_GROUP_BY("42Y26", "Aggregate expressions may not be used in GROUP BY."),
     AGGREGATE_IN_WHERE("42Y26", "Aggregate may not be used in WHERE."),
     AGGREGATE_WITH_NOT_GROUP_BY_COLUMN("42Y27", "Aggregate may not contain columns not in GROUP BY."),
+    ONLY_AGGREGATE_IN_HAVING_CLAUSE("42Y26", "Only aggregate maybe used in the HAVING clause."),
     UPSERT_COLUMN_NUMBERS_MISMATCH("42Y60", "Number of columns upserting must match number of values."),
     
     /**
