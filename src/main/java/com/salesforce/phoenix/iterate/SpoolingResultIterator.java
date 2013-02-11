@@ -294,7 +294,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                     reachedEnd();
                 }
             } catch (IOException e) {
-                throw new SQLException(e);
+                throw new PhoenixIOException(e);
             }
         }
 

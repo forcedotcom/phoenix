@@ -250,7 +250,7 @@ public class MutationState implements SQLCloseable {
                     if (sqlE != null) {
                         sqlE.setNextException(new PhoenixIOException(e));
                     } else {
-                        sqlE = new PhoenixIOException(e)
+                        sqlE = new PhoenixIOException(e);
                     }
                 } finally {
                     if (sqlE != null) {

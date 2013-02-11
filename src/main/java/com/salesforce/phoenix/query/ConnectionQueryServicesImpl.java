@@ -588,11 +588,13 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
         } catch (Throwable t) {
             // This is the case if the "phoenix.jar" is not on the classpath of HBase on the region server
-            throw new SQLException("Compatibility check between client and server failed. Ensure that " + QueryConstants.DEFAULT_COPROCESS_PATH + " is put on the classpath of HBase in every region server: " + t.getMessage(), t);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INCOMPATIBLE_CLIENT_SERVER_JAR).setRootCause(t)
+                .setMessage("Ensure that " + QueryConstants.DEFAULT_COPROCESS_PATH + " is put on the classpath of HBase in every region server: " + t.getMessage())
+                .build().buildException();
         }
         if (isIncompatible) {
             buf.setLength(buf.length()-1);
-            throw new SQLException(buf.toString());
+            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.OUTDATED_JARS).setMessage(buf.toString()).build().buildException();
         }
     }
 
