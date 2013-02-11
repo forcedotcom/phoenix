@@ -100,7 +100,7 @@ public enum SQLExceptionCodeEnum {
     TABLE_UNDEFINED("42M03", "Table undefined."),
     TABLE_ALREADY_EXIST("42M04", "Table already exists."),
     // Parser error
-    
+    PARSER_ERROR("42P00", "Parser error."),
     // Syntax error
     TYPE_NOT_SUPPORTED_FOR_OPERATOR("42Y01", "The operator does not support the operand type."),
     SCHEMA_NOT_FOUND("42Y07", "Schema not found."),
