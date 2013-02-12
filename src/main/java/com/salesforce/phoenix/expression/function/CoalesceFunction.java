@@ -32,6 +32,8 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
@@ -59,15 +61,16 @@ public class CoalesceFunction extends ScalarFunction {
 
     public CoalesceFunction() {
     }
-    
+
     public CoalesceFunction(List<Expression> children) throws SQLException {
         super(children);
         if (!children.get(1).getDataType().isCoercibleTo(children.get(0).getDataType())) {
-            throw new SQLException("Type mismatch for " + getName() + ": expected " 
-                    + children.get(0).getDataType() + ", but got " + children.get(1).getDataType());
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
+                .setMessage(getName() + " expected " + children.get(0).getDataType() + ", but got " + children.get(1).getDataType())
+                .build().buildException();
         }
     }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (children.get(0).evaluate(tuple, ptr)) {
@@ -80,7 +83,7 @@ public class CoalesceFunction extends ScalarFunction {
     public PDataType getDataType() {
         return children.get(0).getDataType();
     }
-    
+
     @Override
     public Integer getMaxLength() {
         Integer maxLength1 = children.get(0).getMaxLength();
@@ -97,7 +100,7 @@ public class CoalesceFunction extends ScalarFunction {
     public boolean isNullable() {
         return children.get(0).isNullable() && children.get(1).isNullable();
     }
-    
+
     @Override
     public String getName() {
         return NAME;

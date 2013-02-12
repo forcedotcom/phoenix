@@ -29,7 +29,8 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 
 /**
@@ -40,26 +41,26 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class TableNotFoundException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.TABLE_UNDEFINED;
     private final String schemaName;
     private final String tableName;
-    
+
+    public TableNotFoundException(String tableName) {
+        this(null, tableName);
+    }
+
     public TableNotFoundException(String schemaName, String tableName) {
-        super(SchemaUtil.getTableDisplayName(schemaName, tableName) + " not found");
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
+                code.getSQLState());
         this.tableName = tableName;
         this.schemaName = schemaName;
     }
-    
-    public TableNotFoundException(String tableName) {
-        super(SchemaUtil.getTableDisplayName(null, tableName) + " not found");
-        this.tableName = tableName;
-        this.schemaName = null;
-    }
-    
+
     public String getTableName() {
         return tableName;
     }
-    
+
     public String getSchemaName() {
         return schemaName;
     }

@@ -29,6 +29,9 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
+
 /**
  * 
  * Exception thrown when a family name could not be found in the schema
@@ -37,14 +40,16 @@ import java.sql.SQLException;
  * @since 0.1
  */
 public class ColumnFamilyNotFoundException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.COLUMN_FAMILY_NOT_FOUND;
     private final String familyName;
-    
-    public ColumnFamilyNotFoundException(String familyName, String message) {
-        super(message);
+
+    public ColumnFamilyNotFoundException(String familyName) {
+        super(new SQLExceptionInfo.Builder(code).setFamilyName(familyName).toString(),
+                code.getSQLState());
         this.familyName = familyName;
     }
-    
+
     public String getFamilyName() {
         return familyName;
     }

@@ -44,6 +44,8 @@ import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
@@ -52,11 +54,11 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 public class MetaDataClient {
     private final PhoenixConnection connection;
-    
+
     public MetaDataClient(PhoenixConnection connection) {
         this.connection = connection;
     }
-    
+
     /**
      * Update the cache with the latest as of the connection scn.
      * @param schemaName
@@ -109,7 +111,7 @@ public class MetaDataClient {
         }
         return result.getMutationTime();
     }
-    
+
     private static final String CREATE_TABLE =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -146,8 +148,7 @@ public class MetaDataClient {
         TABLE_CAT_NAME + "," +
         ORDINAL_POSITION +
         ") VALUES (?, ?, ?, ?, ?)";
-        
-    
+
     private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert) throws SQLException {
         colUpsert.setString(1, schemaName);
         colUpsert.setString(2, tableName);
@@ -163,21 +164,24 @@ public class MetaDataClient {
         colUpsert.setInt(8, column.getPosition()+1);
         colUpsert.execute();
     }
-    
+
     private PColumn newColumn(int position, ColumnDef def, Set<String> pkColumns) throws SQLException {
         try {
             String columnName = def.getColumnDefName().getColumnName().getName();
             PName familyName = null;
             if (def.isPK() && !pkColumns.isEmpty() ) {
-                throw new SQLException("A column (" + columnName + ") may not be declared as a PRIMARY KEY when a PRIMARY KEY CONSTRAINT is present");
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_ALREADY_EXISTS)
+                    .setColumnName(columnName).build().buildException();
             }
             boolean isPK = def.isPK() || pkColumns.contains(columnName);
             if (def.getColumnDefName().getFamilyName() != null) {
                 String family = def.getColumnDefName().getFamilyName().getName();
                 if (isPK) {
-                    throw new SQLException("A primary key column (" + columnName + ") may not have a family name (" + family + ")");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_WITH_FAMILY_NAME)
+                        .setColumnName(columnName).setFamilyName(family).build().buildException();
                 } else if (!def.isNull()) {
-                    throw new SQLException("A key/value column may not be declared as NOT NULL");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.KEY_VALUE_NOT_NULL)
+                        .setColumnName(columnName).setFamilyName(family).build().buildException();
                 }
                 familyName = new PNameImpl(family);
             } else if (!isPK) {
@@ -190,12 +194,12 @@ public class MetaDataClient {
             throw new SQLException(e);
         }
     }
-            
+
     public MutationState createTable(CreateTableStatement statement, byte[][] splits) throws SQLException {
         PTableType tableType = statement.getTableType();
         boolean isView = tableType == PTableType.VIEW;
         if (isView && !statement.getProps().isEmpty()) {
-            throw new SQLException("A VIEW may not contain table configuration properties");
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_TABLE_CONFIG).build().buildException();
         }
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -214,7 +218,7 @@ public class MetaDataClient {
                 pkColumnsIterator = pkColumns.iterator();
                 pkName = pkConstraint.getName();
             }
-    
+            
             List<ColumnDef> colDefs = statement.getColumnDefs();
             List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
             PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
@@ -224,7 +228,8 @@ public class MetaDataClient {
             for (ColumnDef colDef : colDefs) {
                 if (colDef.isPK()) {
                     if (isPK) {
-                        throw new SQLException("Only a single PRIMARY KEY constrain is allowed");
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_ALREADY_EXISTS)
+                            .setColumnName(colDef.getColumnDefName().getColumnName().getName()).build().buildException();
                     }
                     isPK = true;
                 }
@@ -232,19 +237,22 @@ public class MetaDataClient {
                 if (SchemaUtil.isPKColumn(column)) {
                     // TODO: remove this constraint
                     if (!pkColumns.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
-                        throw new SQLException("Order of columns in PRIMARY KEY constraint must match the order in which they're declared");
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
+                            .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                     }
                 }
                 columns.add(column);
                 if (colDef.getDataType() == PDataType.BINARY && colDefs.size() > 1) {
-                    throw new SQLException("The BINARY type may not be used as part of a multi-part row key");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.BINARY_IN_ROW_KEY).setSchemaName(schemaName)
+                        .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                 }
                 if (column.getFamilyName() != null) {
                     familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
                 }
             }
             if (!isPK && pkColumns.isEmpty()) {
-                throw new SQLException("A table must have a PRIMARY KEY");
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
+                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
             
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
@@ -252,12 +260,13 @@ public class MetaDataClient {
             Map<String,Object> tableProps = Collections.emptyMap();
             if (!statement.getProps().isEmpty()) {
                 if (statement.isView()) {
-                    throw new SQLException("Properties may not be defined for a VIEW");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
                 }
                 for (String familyName : statement.getProps().keySet()) {
                     if (!familyName.equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
                         if (familyNames.get(familyName) == null) {
-                            throw new SQLException("Properties may not be defined for an unused family name (" + familyName + ")");
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PROPERTIES_FOR_FAMILY)
+                                .setFamilyName(familyName).build().buildException();
                         }
                     }
                 }
@@ -311,7 +320,7 @@ public class MetaDataClient {
             
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
-    
+            
             MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
             switch(code) {
@@ -325,7 +334,8 @@ public class MetaDataClient {
                 // TODO: add table if in result?
                 throw new NewerTableAlreadyExistsException(schemaName, tableName);
             case UNALLOWED_TABLE_MUTATION:
-                throw new SQLException("Not allowed to create " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, columns);
                 connection.addTable(schemaName, table);
@@ -347,7 +357,7 @@ public class MetaDataClient {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
-    
+
     public MutationState dropTable(DropTableStatement statement) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -367,9 +377,10 @@ public class MetaDataClient {
                 }
                 break;
             case NEWER_TABLE_FOUND:
-                throw new SQLException("Newer table already exists for " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+                throw new NewerTableAlreadyExistsException(schemaName, tableName);
             case UNALLOWED_TABLE_MUTATION:
-                throw new SQLException("Not allowed to drop " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 try {
                     connection.removeTable(schemaName, tableName);
@@ -394,7 +405,7 @@ public class MetaDataClient {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
-    
+
     private PTable getLatestTable(String schemaName, String tableName) throws SQLException {
         boolean retried = false;
         PTable table = null;
@@ -416,7 +427,7 @@ public class MetaDataClient {
         }
         return table;
     }
-    
+
     private MutationCode processMutationResult(String schemaName, String tableName, MetaDataMutationResult result) throws SQLException {
         final MutationCode mutationCode = result.getMutationCode();
         switch (mutationCode) {
@@ -424,7 +435,8 @@ public class MetaDataClient {
             connection.removeTable(schemaName, tableName);
             throw new TableNotFoundException(schemaName, tableName);
         case UNALLOWED_TABLE_MUTATION:
-            throw new SQLException("Not allowed to mutate " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                .setSchemaName(schemaName).setTableName(tableName).build().buildException();
         case COLUMN_ALREADY_EXISTS:
         case COLUMN_NOT_FOUND:
             break;
@@ -435,17 +447,19 @@ public class MetaDataClient {
             if (result.getTable() != null) {
                 connection.addTable(schemaName, result.getTable());
             }
-            throw new SQLException("Newer table already exists for " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            throw new NewerTableAlreadyExistsException(schemaName, tableName);
         case NO_PK_COLUMNS:
-            throw new SQLException("Must have at least one PK column for " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
+                .setSchemaName(schemaName).setTableName(tableName).build().buildException();
         case TABLE_ALREADY_EXISTS:
             break;
         default:
-            throw new SQLException("Unexpected mutation code result of " + mutationCode);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNEXPECTED_MUTATION_CODE).setSchemaName(schemaName)
+                .setTableName(tableName).setMessage("mutation code: " + mutationCode).build().buildException();
         }
         return mutationCode;
     }
-    
+
     public MutationState addColumn(AddColumnStatement statement) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -464,7 +478,8 @@ public class MetaDataClient {
                 List<PColumn> columns = Lists.newArrayListWithExpectedSize(1);
                 ColumnDef colDef = statement.getColumnDef();
                 if (!colDef.isNull() && colDef.isPK()) {
-                    throw new SQLException("Only nullable PK columns may be added");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
+                        .setColumnName(colDef.getColumnDefName().getColumnName().getName()).build().buildException();
                 }
                 
                 PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
@@ -523,7 +538,7 @@ public class MetaDataClient {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
-    
+
     public MutationState dropColumn(DropColumnStatement statement) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -548,7 +563,8 @@ public class MetaDataClient {
                 TableRef tableRef = columnRef.getTableRef();
                 PColumn columnToDrop = columnRef.getColumn();
                 if (SchemaUtil.isPKColumn(columnToDrop)) {
-                    throw new SQLException("PK columns may not be dropped");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_DROP_PK)
+                        .setColumnName(columnToDrop.getName().getString()).build().buildException();
                 }
                 int columnCount = table.getColumns().size() - 1;
                 String familyName = null;
@@ -569,7 +585,7 @@ public class MetaDataClient {
                     buf.append(" = ?");
                     binds.add(familyName = columnToDrop.getFamilyName().getString());
                 }
-    
+                
                 PreparedStatement colDelete = connection.prepareStatement(buf.toString());
                 for (int i = 0; i < binds.size(); i++) {
                     colDelete.setString(i+1, binds.get(i));

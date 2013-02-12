@@ -38,6 +38,8 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
@@ -162,7 +164,9 @@ public class UpsertCompiler {
         }
         
         if (nValuesToSet != columnIndexesToBe.length) {
-            throw new SQLException("Number of columns(" + columnIndexesToBe.length + ") must match number of values(" + nValuesToSet + ")");
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH)
+                .setMessage("Numbers of columns: " + columnIndexesToBe.length + ". Number of values: " + nValuesToSet)
+                .build().buildException();
         }
         
         final int[] columnIndexes = columnIndexesToBe;
@@ -339,13 +343,13 @@ public class UpsertCompiler {
             final byte[][] values = new byte[nValuesToSet][];
             for (ParseNode valueNode : valueNodes) {
                 if (!valueNode.isConstant()) {
-                    throw new SQLException("Value in UPSERT must evaluate to a constant");
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
                 }
                 PColumn column = allColumns.get(columnIndexes[nodeIndex]);
                 expressionBuilder.setColumn(column);
                 LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
                 if (literalExpression.getDataType() != null && !literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue(), literalExpression.getBytes())) {
-                    throw new SQLException("Type mismatch: " + literalExpression.getDataType() + " and " + column.getDataType() + " for value of " + literalExpression + " in column " + column);
+                    throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
                 }
                 byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType());
                 values[nodeIndex] = byteValue;

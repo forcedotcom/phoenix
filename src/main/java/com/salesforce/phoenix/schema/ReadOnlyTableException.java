@@ -29,6 +29,9 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
+
 /**
  * 
  * Exception thrown when an attempt is made to modify or write to a read-only table.
@@ -37,21 +40,25 @@ import java.sql.SQLException;
  * @since 0.1
  */
 public class ReadOnlyTableException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.READ_ONLY_TABLE;
 
     public ReadOnlyTableException() {
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
     }
 
     public ReadOnlyTableException(String message) {
-        super(message);
+        super(new SQLExceptionInfo.Builder(code).setMessage(message).toString(), code.getSQLState());
     }
 
     public ReadOnlyTableException(Throwable cause) {
-        super(cause);
+        super(new SQLExceptionInfo.Builder(code).setRootCause(cause).build().toString(),
+                code.getSQLState(), cause);
     }
 
     public ReadOnlyTableException(String message, Throwable cause) {
-        super(message, cause);
+        super(new SQLExceptionInfo.Builder(code).setRootCause(cause).setMessage(message).toString(),
+                code.getSQLState(), cause);
     }
 
 }

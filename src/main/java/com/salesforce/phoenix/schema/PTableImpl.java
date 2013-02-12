@@ -362,7 +362,7 @@ public class PTableImpl implements PTable {
     public PColumnFamily getColumnFamily(String familyName) throws ColumnFamilyNotFoundException {
         PColumnFamily family = familyByString.get(familyName);
         if (family == null) {
-            throw new ColumnFamilyNotFoundException(familyName, "Column family not found: '" + familyName + "'");
+            throw new ColumnFamilyNotFoundException(familyName);
         }
         return family;
     }
@@ -372,7 +372,7 @@ public class PTableImpl implements PTable {
         PColumnFamily family = familyByBytes.get(familyBytes);
         if (family == null) {
             String familyName = Bytes.toString(familyBytes);
-            throw new ColumnFamilyNotFoundException(familyName, "Column family not found: '" + familyName + "'");
+            throw new ColumnFamilyNotFoundException(familyName);
         }
         return family;
     }

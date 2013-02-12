@@ -31,6 +31,8 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.schema.PDatum;
@@ -56,11 +58,10 @@ import com.salesforce.phoenix.schema.PDatum;
 public class BindManager {
     private final List<Object> binds;
     private final PhoenixParameterMetaData bindMetaData;
-    
+
     public BindManager(List<Object> binds, int bindCount) {
         this.binds = binds;
         this.bindMetaData = new PhoenixParameterMetaData(bindCount);
-;
     }
 
     public ParameterMetaData getParameterMetaData() {
@@ -70,11 +71,12 @@ public class BindManager {
     public Object getBindValue(BindParseNode node) throws SQLException {
         int index = node.getIndex();
         if (index < 0 || index >= binds.size()) {
-            throw new SQLException("Index of bind out of bounds(0-" + (binds.size()-1) +"): " + index);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_INDEX_OUT_OF_BOUND)
+                .setMessage("binds size: " + binds.size() + "; index: " + index).build().buildException();
         }
         return binds.get(index);
     }
-    
+
     public void addParamMetaData(BindParseNode bind, PDatum column) throws SQLException {
         bindMetaData.addParam(bind,column);
     }

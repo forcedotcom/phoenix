@@ -35,6 +35,8 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -73,7 +75,9 @@ public class CaseExpression extends BaseCompoundExpression {
             } else if (returnType.isCoercibleTo(childType)) {
                 returnType = childType;
             } else {
-                throw new SQLException("Case expressions must have common type: " + returnType + " cannot be coerced to " + childType);
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
+                    .setMessage("Case expressions must have common type: " + returnType + " cannot be coerced to " + childType)
+                    .build().buildException();
             }
         }
         // If we found an "unknown" child type and the return type is a number

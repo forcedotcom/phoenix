@@ -35,6 +35,8 @@ import java.util.*;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.OrderByNode;
@@ -97,7 +99,7 @@ public class OrderByCompiler {
                     if (context.isAggregate()) {
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
                     } else if (limit == null) {
-                        throw new SQLException("ORDER BY only allowed for limited or aggregate queries");
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNSUPPORTED_ORDER_BY_QUERY).build().buildException();
                     }
                 }
                 OrderingColumn col = new OrderingColumn(node, expression);

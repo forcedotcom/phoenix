@@ -39,6 +39,7 @@ import org.apache.hadoop.io.WritableUtils;
 import org.apache.http.annotation.Immutable;
 import org.xerial.snappy.Snappy;
 
+import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.util.*;
@@ -108,7 +109,7 @@ public class TenantCacheImpl implements TenantCache {
             hashCaches.put(joinId, wrapper);
             return wrapper.getHashCache();
         } catch (IOException e) {
-            throw new SQLException(e);
+            throw new PhoenixIOException(e);
         }
     }
     

@@ -36,6 +36,8 @@ import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.parse.*;
@@ -87,7 +89,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         final Expression rhs = children.get(1);
         if ( rhs.getDataType() != null && lhs.getDataType() != null && 
             !lhs.getDataType().isComparableTo(rhs.getDataType())) {
-            throw new SQLException("Type mismatch: " + lhs.getDataType() + " and " + rhs.getDataType() + " for expression " + node);
+            throw new TypeMismatchException(lhs.getDataType(), rhs.getDataType(), node.toString());
         }
         if (lhsNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhs);
@@ -366,7 +368,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         // and we didn't just wrap our column reference
         // then we're mixing aggregate and non aggregate expressions in the same exxpression
         if (isAggregate && aggregateFunction == null && wrappedExpression == expression) {
-            throwNonAggExpressionInAggException(expression.toString());            
+            throwNonAggExpressionInAggException(expression.toString());
         }
         return wrappedExpression;
     }
@@ -450,7 +452,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if ( rhs.getDataType() != null && lhs.getDataType() != null && 
             !lhs.getDataType().isCoercibleTo(rhs.getDataType())  && 
             !rhs.getDataType().isCoercibleTo(lhs.getDataType())) {
-            throw new SQLException("Type mismatch: " + lhs.getDataType() + " and " + rhs.getDataType() + " for expression " + node);
+            throw new TypeMismatchException(lhs.getDataType(), rhs.getDataType(), node.toString());
         }
         if (lhsNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhs);
@@ -512,7 +514,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         ParseNode childNode = node.getChildren().get(0);
         Expression child = children.get(0);
         if (!PDataType.BOOLEAN.isCoercibleTo(child.getDataType())) {
-            throw new SQLException("Type mismatch: " + PDataType.BOOLEAN + " and " + child.getDataType() + " for expression " + node);
+            throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), node.toString());
         }
         if (childNode instanceof BindParseNode) { // TODO: valid/possibe?
             context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
@@ -709,122 +711,129 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
 
     @Override
-  public boolean visitEnter(SubtractParseNode node) throws SQLException {
-    return true;
-  }
-
-    private static void throwTypeMismatch(ArithmeticParseNode node, PDataType type) throws SQLException {
-        throw new SQLException("Type mismatch: " + type + " for expression " + node);
+    public boolean visitEnter(SubtractParseNode node) throws SQLException {
+        return true;
     }
-    
-  @Override
-  public Expression visitLeave(SubtractParseNode node, List<Expression> children) throws SQLException {
-      return visitLeave(node, children,
-            new ArithmeticExpressionBinder() {
-                @Override
-                public PDatum getBindMetaData(int i, List<Expression> children, final Expression expression) {
-                    final PDataType type;
-                    // If we're binding the first parameter and the second parameter is a date
-                    // we know that the first parameter must be a date type too.
-                    if (i == 0 && (type=children.get(1).getDataType()) != null && type.isCoercibleTo(PDataType.DATE)) {
-                        return new PDatum() {
-                            @Override
-                            public boolean isNullable() {
-                                return expression.isNullable();
-                            }
-                            @Override
-                            public PDataType getDataType() {
-                                return type;
-                            }
-                            @Override
-                            public Integer getMaxLength() {
-                                return type.getMaxLength();
-                            }
-                        };
-                    } else if (expression.getDataType() != null && expression.getDataType().isCoercibleTo(PDataType.DATE)) {
-                        return new PDatum() { // Same as with addition
-                            @Override
-                            public boolean isNullable() {
-                                return expression.isNullable();
-                            }
-                            @Override
-                            public PDataType getDataType() {
-                                return PDataType.DECIMAL;
-                            }
-                            @Override
-                            public Integer getMaxLength() {
-                                return null;
-                            }
-                        };
-                     }
-                    // Otherwise just go with what was calculated for the expression
-                    return expression;
+
+    @Override
+    public Expression visitLeave(SubtractParseNode node,
+            List<Expression> children) throws SQLException {
+        return visitLeave(node, children, new ArithmeticExpressionBinder() {
+            @Override
+            public PDatum getBindMetaData(int i, List<Expression> children,
+                    final Expression expression) {
+                final PDataType type;
+                // If we're binding the first parameter and the second parameter
+                // is a date
+                // we know that the first parameter must be a date type too.
+                if (i == 0 && (type = children.get(1).getDataType()) != null
+                        && type.isCoercibleTo(PDataType.DATE)) {
+                    return new PDatum() {
+                        @Override
+                        public boolean isNullable() {
+                            return expression.isNullable();
+                        }
+                        @Override
+                        public PDataType getDataType() {
+                            return type;
+                        }
+                        @Override
+                        public Integer getMaxLength() {
+                            return type.getMaxLength();
+                        }
+                    };
+                } else if (expression.getDataType() != null
+                        && expression.getDataType().isCoercibleTo(
+                                PDataType.DATE)) {
+                    return new PDatum() { // Same as with addition
+                        @Override
+                        public boolean isNullable() {
+                            return expression.isNullable();
+                        }
+                        @Override
+                        public PDataType getDataType() {
+                            return PDataType.DECIMAL;
+                        }
+                        @Override
+                        public Integer getMaxLength() {
+                            return null;
+                        }
+                    };
                 }
-            },
-            new ArithmeticExpressionFactory() {
-                @Override
-                public Expression create(ArithmeticParseNode node, List<Expression> children) throws SQLException {
-                    int i = 0;
-                    PDataType theType = null;
-                    PDataType type1 = children.get(0).getDataType();
-                    PDataType type2 = children.get(1).getDataType();
-                    // TODO: simplify this special case for DATE conversion
-                    /**
-                     * For date1-date2, we want to coerce to a LONG because this cannot be compared against
-                     * another date. It has essentially become a number.
-                     * For date1-5, we want to preserve the DATE type because this can still be compared against
-                     * another date and cannot be multiplied or divided.
-                     * Any other time occurs is an error. For example, 5-date1 is an error
-                     * The nulls occur if we have bind variables
-                     */
-                    boolean isType1Date = type1 != null && type1.isCoercibleTo(PDataType.DATE);
-                    boolean isType2Date = type2 != null && type2.isCoercibleTo(PDataType.DATE);
-                    if (isType1Date || isType2Date) {
-                        if (isType1Date && isType2Date) {
-                            i = 2;
+                // Otherwise just go with what was calculated for the expression
+                return expression;
+            }
+        }, new ArithmeticExpressionFactory() {
+            @Override
+            public Expression create(ArithmeticParseNode node,
+                    List<Expression> children) throws SQLException {
+                int i = 0;
+                PDataType theType = null;
+                PDataType type1 = children.get(0).getDataType();
+                PDataType type2 = children.get(1).getDataType();
+                // TODO: simplify this special case for DATE conversion
+                /**
+                 * For date1-date2, we want to coerce to a LONG because this
+                 * cannot be compared against another date. It has essentially
+                 * become a number. For date1-5, we want to preserve the DATE
+                 * type because this can still be compared against another date
+                 * and cannot be multiplied or divided. Any other time occurs is
+                 * an error. For example, 5-date1 is an error The nulls occur if
+                 * we have bind variables
+                 */
+                boolean isType1Date = type1 != null
+                        && type1.isCoercibleTo(PDataType.DATE);
+                boolean isType2Date = type2 != null
+                        && type2.isCoercibleTo(PDataType.DATE);
+                if (isType1Date || isType2Date) {
+                    if (isType1Date && isType2Date) {
+                        i = 2;
+                        theType = PDataType.LONG;
+                    } else if (isType1Date && type2 != null
+                            && type2.isCoercibleTo(PDataType.DECIMAL)) {
+                        i = 2;
+                        theType = PDataType.DATE;
+                    } else if (type1 == null || type2 == null) {
+                        /*
+                         * FIXME: Could be either a Date or BigDecimal, but we
+                         * don't know if we're comparing to a date or a number
+                         * which would be rdisambiguate it.
+                         */
+                        i = 2;
+                        theType = null;
+                    }
+                }
+                for (; i < children.size(); i++) {
+                    PDataType type = children.get(i).getDataType();
+                    if (type == null) {
+                        continue;
+                    } else if (type == PDataType.DECIMAL) {
+                        if (theType == null
+                                || !theType.isCoercibleTo(PDataType.DATE)) {
+                            theType = PDataType.DECIMAL;
+                        }
+                    } else if (type.isCoercibleTo(PDataType.LONG)) {
+                        if (theType == null) {
                             theType = PDataType.LONG;
-                        } else if (isType1Date && type2 != null && type2.isCoercibleTo(PDataType.DECIMAL)) {
-                            i = 2;
-                            theType = PDataType.DATE;
-                        } else if (type1 == null || type2 == null){
-                            /*
-                             * FIXME: Could be either a Date or BigDecimal, but  we don't know if we're
-                             * comparing to a date or a number which would be rdisambiguate it.
-                             */
-                            i = 2;
-                            theType = null;
                         }
-                    }
-                    for(; i < children.size(); i++) {
-                        PDataType type = children.get(i).getDataType();
-                        if (type == null) {
-                            continue;
-                        } else if (type == PDataType.DECIMAL) {
-                            if (theType == null || !theType.isCoercibleTo(PDataType.DATE)) {
-                                theType = PDataType.DECIMAL;
-                            }
-                        } else if (type.isCoercibleTo(PDataType.LONG)) {
-                            if (theType == null) {
-                                theType = PDataType.LONG;
-                            }
-                        } else {
-                            throwTypeMismatch(node, type);
-                        }
-                    }
-                    if (theType == PDataType.DECIMAL) {
-                        return new DecimalSubtractExpression( children);
-                    } else if (theType == PDataType.LONG) {
-                        return new LongSubtractExpression( children);
-                    } else if (theType == null) {
-                        return LiteralExpression.newConstant(null, theType);
-                    } else if (theType.isCoercibleTo(PDataType.DATE)) {
-                        return new DateSubtractExpression( children);
                     } else {
-                        throw new IllegalStateException("Unexpected type: " + theType);
+                        throw new TypeMismatchException(type, node.toString());
                     }
                 }
-          });
-  }
+                if (theType == PDataType.DECIMAL) {
+                    return new DecimalSubtractExpression(children);
+                } else if (theType == PDataType.LONG) {
+                    return new LongSubtractExpression(children);
+                } else if (theType == null) {
+                    return LiteralExpression.newConstant(null, theType);
+                } else if (theType.isCoercibleTo(PDataType.DATE)) {
+                    return new DateSubtractExpression(children);
+                } else {
+                    throw new TypeMismatchException(theType, node.toString());
+                }
+            }
+        });
+    }
 
     @Override
     public boolean visitEnter(AddParseNode node) throws SQLException {
@@ -868,7 +877,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             continue; 
                         } else if (type.isCoercibleTo(PDataType.DATE)) {
                             if (foundDate) {
-                                throwTypeMismatch(node, type);
+                                throw new TypeMismatchException(type, node.toString());
                             }
                             theType = type;
                             foundDate = true;
@@ -881,7 +890,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 theType = PDataType.LONG;
                             }
                         } else {
-                            throwTypeMismatch(node, type);
+                            throw new TypeMismatchException(type, node.toString());
                         }
                     }
                     if (theType == PDataType.DECIMAL) {
@@ -893,7 +902,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     } else if (theType.isCoercibleTo(PDataType.DATE)) {
                         return new DateAddExpression( children);
                     } else {
-                        throw new IllegalStateException("Unexpected type: " + theType);
+                        throw new TypeMismatchException(theType, node.toString());
                     }
                 }
             });
@@ -921,7 +930,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.LONG;
                         }
                     } else {
-                        throwTypeMismatch(node, type);
+                        throw new TypeMismatchException(type, node.toString());
                     }
                 }
                 switch (theType) {
@@ -949,11 +958,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 LiteralExpression literal = (LiteralExpression)child;
                 if (literal.getDataType() == PDataType.DECIMAL) {
                     if (PDataType.DECIMAL.compareTo(literal.getValue(), BigDecimal.ZERO) == 0) {
-                        throw new SQLException("Divide by zero");
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DIVIDE_BY_ZERO).build().buildException();
                     }
                 } else {
                     if (literal.getDataType().compareTo(literal.getValue(), 0L, PDataType.LONG) == 0) {
-                        throw new SQLException("Divide by zero");
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DIVIDE_BY_ZERO).build().buildException();
                     }
                 }
             }
@@ -973,7 +982,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.LONG;
                         }
                     } else {
-                        throwTypeMismatch(node, type);
+                        throw new TypeMismatchException(type, node.toString());
                     }
                 }
                 switch (theType) {
@@ -989,39 +998,38 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
 
     public static void throwNonAggExpressionInAggException(String nonAggregateExpression) throws SQLException {
-        throw new SQLException("Aggregate query may not contain column that do not appear in the GROUP BY: " + nonAggregateExpression);
+        throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_WITH_NOT_GROUP_BY_COLUMN)
+            .setMessage(nonAggregateExpression).build().buildException();
     }
+
     @Override
     public Expression visitLeave(StringConcatParseNode node, List<Expression> children) throws SQLException {
-      final StringConcatExpression expression=new StringConcatExpression(children);
-      for(int i = 0; i < children.size(); i++) {
-        ParseNode childNode=node.getChildren().get(i);
-        if(childNode instanceof BindParseNode)
-        {
-          context.getBindManager().addParamMetaData((BindParseNode)childNode,expression);
-
+        final StringConcatExpression expression=new StringConcatExpression(children);
+        for (int i = 0; i < children.size(); i++) {
+            ParseNode childNode=node.getChildren().get(i);
+            if(childNode instanceof BindParseNode) {
+                context.getBindManager().addParamMetaData((BindParseNode)childNode,expression);
+            }
+            PDataType type=children.get(i).getDataType();
+            if(type==PDataType.BINARY){
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.TYPE_NOT_SUPPORTED_FOR_OPERATOR)
+                    .setMessage("Concatenation does not support "+ type +" in expression" + node).build().buildException();
+            }
         }
-        PDataType type=children.get(i).getDataType();
-        if(type==PDataType.BINARY){
-          throw new SQLException("Concatenation does not support "+ type +" in expression" + node);
+        boolean isLiteralExpression = true;
+        for (Expression child:children) {
+            isLiteralExpression&=(child instanceof LiteralExpression);
         }
-      }
-      boolean isLiteralExpression = true;
-      for(Expression child:children)
-      {
-        isLiteralExpression&=(child instanceof LiteralExpression);
-      }
-      ImmutableBytesWritable ptr = context.getTempPtr();
-      if(isLiteralExpression){
-        expression.evaluate(null,ptr);
-        return LiteralExpression.newConstant(expression.getDataType().toObject(ptr));
-      }
-      
-      return wrapGroupByExpression(expression);
-
+        ImmutableBytesWritable ptr = context.getTempPtr();
+        if (isLiteralExpression) {
+            expression.evaluate(null,ptr);
+            return LiteralExpression.newConstant(expression.getDataType().toObject(ptr));
+        }
+        return wrapGroupByExpression(expression);
     }
+
     @Override
     public boolean visitEnter(StringConcatParseNode node) throws SQLException {
-      return true;
+        return true;
     }
 }
