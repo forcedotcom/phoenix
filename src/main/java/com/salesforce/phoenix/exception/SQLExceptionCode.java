@@ -47,7 +47,6 @@ public enum SQLExceptionCode {
      */
     IO_EXCEPTION("08000", "Unexpected IO exception."),
     CANNOT_ESTABLISH_CONNECTION("08004", "Unable to establish connection."),
-    CANNOT_CONNECT_TO_ZOOKEEPER("08005", "Cannot connect to Zookeeper."),
     
     /**
      * Data Exception (22)
