@@ -32,7 +32,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
@@ -65,7 +65,7 @@ public class CoalesceFunction extends ScalarFunction {
     public CoalesceFunction(List<Expression> children) throws SQLException {
         super(children);
         if (!children.get(1).getDataType().isCoercibleTo(children.get(0).getDataType())) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CONVERT_TYPE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
                 .setMessage(getName() + " expected " + children.get(0).getDataType() + ", but got " + children.get(1).getDataType())
                 .build().buildException();
         }

@@ -29,7 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
@@ -41,7 +41,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class ReadOnlyTableException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.READ_ONLY_TABLE;
+    private static SQLExceptionCode code = SQLExceptionCode.READ_ONLY_TABLE;
 
     public ReadOnlyTableException() {
         super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());

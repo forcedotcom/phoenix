@@ -37,7 +37,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
@@ -1262,7 +1262,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CLASS_NOT_UNWRAPPABLE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CLASS_NOT_UNWRAPPABLE)
                 .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
                 .build().buildException();
         }

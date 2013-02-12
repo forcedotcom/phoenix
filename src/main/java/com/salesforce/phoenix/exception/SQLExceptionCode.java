@@ -34,7 +34,7 @@ package com.salesforce.phoenix.exception;
  * @author zhuang
  * @since 1.0
  */
-public enum SQLExceptionCodeEnum {
+public enum SQLExceptionCode {
 
     /** 
      * Warnings (01)
@@ -137,7 +137,7 @@ public enum SQLExceptionCodeEnum {
     private final String sqlState;
     private final String message;
 
-    private SQLExceptionCodeEnum(String sqlState, String message) {
+    private SQLExceptionCode(String sqlState, String message) {
         this.sqlState = sqlState;
         this.message = message;
     }

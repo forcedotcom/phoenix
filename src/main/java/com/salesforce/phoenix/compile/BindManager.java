@@ -31,7 +31,7 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.parse.BindParseNode;
@@ -71,7 +71,7 @@ public class BindManager {
     public Object getBindValue(BindParseNode node) throws SQLException {
         int index = node.getIndex();
         if (index < 0 || index >= binds.size()) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.BIND_INDEX_OUT_OF_BOUND)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.BIND_INDEX_OUT_OF_BOUND)
                 .setMessage("binds size: " + binds.size() + "; index: " + index).build().buildException();
         }
         return binds.get(index);

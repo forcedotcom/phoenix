@@ -85,11 +85,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             this.connection = HConnectionManager.createConnection(config);
         } catch (ZooKeeperConnectionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CONNECT_TO_ZOOKEEPER)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONNECT_TO_ZOOKEEPER)
                 .setRootCause(e).build().buildException();
         }
         if (this.connection.isClosed()) { // TODO: why the heck doesn't this throw above?
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_ESTABLISH_CONNECTION).build().buildException();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION).build().buildException();
         }
         // TODO: should we track connection wide memory usage or just org-wide usage?
         // If connection-wide, create a MemoryManager here, otherwise just use the one from the delegate
@@ -181,7 +181,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             return tableRegionCache.get(table);
         } catch (ExecutionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.GET_TABLE_REGIONS_FAIL)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.GET_TABLE_REGIONS_FAIL)
                 .setRootCause(e).build().buildException();
         }
     }
@@ -247,7 +247,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     }
                     latestMetaDataLock.wait(waitTime);
                 } catch (InterruptedException e) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INTERRUPTED_EXCEPTION)
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
                         .setRootCause(e).build().buildException();
                 }
             }
@@ -417,7 +417,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
                 admin.enableTable(tableName);
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
-                sqlE = new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TABLE_UNDEFINED).setRootCause(e).build().buildException();
+                sqlE = new SQLExceptionInfo.Builder(SQLExceptionCode.TABLE_UNDEFINED).setRootCause(e).build().buildException();
             }
         } catch (IOException e) {
             sqlE = new PhoenixIOException(e);
@@ -585,13 +585,13 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
         } catch (Throwable t) {
             // This is the case if the "phoenix.jar" is not on the classpath of HBase on the region server
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.INCOMPATIBLE_CLIENT_SERVER_JAR).setRootCause(t)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INCOMPATIBLE_CLIENT_SERVER_JAR).setRootCause(t)
                 .setMessage("Ensure that " + QueryConstants.DEFAULT_COPROCESS_PATH + " is put on the classpath of HBase in every region server: " + t.getMessage())
                 .build().buildException();
         }
         if (isIncompatible) {
             buf.setLength(buf.length()-1);
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.OUTDATED_JARS).setMessage(buf.toString()).build().buildException();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.OUTDATED_JARS).setMessage(buf.toString()).build().buildException();
         }
     }
 

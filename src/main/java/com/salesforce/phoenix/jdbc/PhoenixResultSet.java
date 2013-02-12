@@ -41,7 +41,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.compile.ColumnProjector;
 import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.query.Scanner;
@@ -172,16 +172,16 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
 
     private void checkOpen() throws SQLException {
         if (isClosed) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.RESULTSET_CLOSED).build().buildException();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.RESULTSET_CLOSED).build().buildException();
         }
     }
 
     private void checkCursorState() throws SQLException {
         checkOpen();
         if (currentRow == BEFORE_FIRST) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CURSOR_BEFORE_FIRST_ROW).build().buildException();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CURSOR_BEFORE_FIRST_ROW).build().buildException();
         }else if (currentRow == null) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CURSOR_PAST_LAST_ROW).build().buildException();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CURSOR_PAST_LAST_ROW).build().buildException();
         }
     }
 
@@ -247,7 +247,7 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
         case DECIMAL:
             return !BIG_DECIMAL_FALSE.equals(value);
         default:
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CANNOT_CALL_METHOD_ON_TYPE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CALL_METHOD_ON_TYPE)
                 .setMessage("Method: getBoolean; Type:" + type).build().buildException();
         }
     }
@@ -629,7 +629,7 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
         try {
             return new URL(value);
         } catch (MalformedURLException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.MALFORMED_URL).setRootCause(e).build().buildException();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_URL).setRootCause(e).build().buildException();
         }
     }
 
@@ -1176,7 +1176,7 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CLASS_NOT_UNWRAPPABLE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CLASS_NOT_UNWRAPPABLE)
                 .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
                 .build().buildException();
         }

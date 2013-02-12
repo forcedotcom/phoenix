@@ -38,7 +38,7 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
@@ -164,7 +164,7 @@ public class UpsertCompiler {
         }
         
         if (nValuesToSet != columnIndexesToBe.length) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.UPSERT_COLUMN_NUMBERS_MISMATCH)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH)
                 .setMessage("Numbers of columns: " + columnIndexesToBe.length + ". Number of values: " + nValuesToSet)
                 .build().buildException();
         }
@@ -343,7 +343,7 @@ public class UpsertCompiler {
             final byte[][] values = new byte[nValuesToSet][];
             for (ParseNode valueNode : valueNodes) {
                 if (!valueNode.isConstant()) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
                 }
                 PColumn column = allColumns.get(columnIndexes[nodeIndex]);
                 expressionBuilder.setColumn(column);

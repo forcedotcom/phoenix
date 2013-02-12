@@ -34,7 +34,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.*;
@@ -111,7 +111,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             }
             return new LiteralExpression(value, type, b);
         } catch (IllegalDataException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.ILLEGAL_DATA).setRootCause(e).build().buildException();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.ILLEGAL_DATA).setRootCause(e).build().buildException();
         }
     }
     

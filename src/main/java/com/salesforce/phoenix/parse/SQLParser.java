@@ -33,7 +33,7 @@ import java.sql.SQLFeatureNotSupportedException;
 
 import org.antlr.runtime.*;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
@@ -88,7 +88,7 @@ public class SQLParser {
             SQLStatement statement = parser.nextStatement();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
                 .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
@@ -106,7 +106,7 @@ public class SQLParser {
             SQLStatement statement = parser.statement();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
                 .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
@@ -124,7 +124,7 @@ public class SQLParser {
             SelectStatement statement = parser.query();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
                 .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         }
     }
@@ -138,7 +138,7 @@ public class SQLParser {
             UpsertStatement statement = parser.upsert();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
                 .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         }
     }
@@ -152,7 +152,7 @@ public class SQLParser {
             LiteralParseNode literalNode = parser.literal();
             return literalNode;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
                 .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         }
     }

@@ -623,7 +623,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         int i = 0;
         for (Object param : getParameters()) {
             if (param == UNBOUND_PARAMETER) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARAM_VALUE_UNBOUND)
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
                     .setMessage("Parameter " + (i + 1) + " is unbound").build().buildException();
             }
             i++;
@@ -846,7 +846,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CLASS_NOT_UNWRAPPABLE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CLASS_NOT_UNWRAPPABLE)
                 .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
                 .build().buildException();
         }

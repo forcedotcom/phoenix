@@ -50,7 +50,7 @@ public class SQLExceptionInfo {
     public static final String LINE_NUMBER = "lineNumber";
 
     private final Throwable rootCause;
-    private final SQLExceptionCodeEnum code; // Should always have one.
+    private final SQLExceptionCode code; // Should always have one.
     private final String message;
     private final String schemaName;
     private final String tableName;
@@ -61,7 +61,7 @@ public class SQLExceptionInfo {
     public static class Builder {
 
         private Throwable rootCause;
-        private SQLExceptionCodeEnum code; // Should always have one.
+        private SQLExceptionCode code; // Should always have one.
         private String message;
         private String schemaName;
         private String tableName;
@@ -69,7 +69,7 @@ public class SQLExceptionInfo {
         private String columnName;
         private String lineNumber;
 
-        public Builder(SQLExceptionCodeEnum code) {
+        public Builder(SQLExceptionCode code) {
             this.code = code;
         }
 

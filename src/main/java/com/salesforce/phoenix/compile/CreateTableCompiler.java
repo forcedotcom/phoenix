@@ -34,7 +34,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.LiteralExpression;
@@ -61,7 +61,7 @@ public class CreateTableCompiler {
         for (int i = 0; i < splits.length; i++) {
             ParseNode node = splitNodes.get(i);
             if (!node.isConstant()) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.SPLIT_POINT_NOT_CONSTANT)
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.SPLIT_POINT_NOT_CONSTANT)
                     .setMessage("Node: " + node).build().buildException();
             }
             LiteralExpression expression = (LiteralExpression)node.accept(expressionCompiler);

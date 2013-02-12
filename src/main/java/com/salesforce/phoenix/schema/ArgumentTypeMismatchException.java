@@ -29,7 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
@@ -40,7 +40,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class ArgumentTypeMismatchException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.TYPE_MISMATCH;
+    private static SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
 
     public ArgumentTypeMismatchException(PDataType expected, PDataType actual, String location) {
         super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());

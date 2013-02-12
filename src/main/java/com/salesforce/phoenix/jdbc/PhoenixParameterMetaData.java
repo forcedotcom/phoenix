@@ -29,7 +29,7 @@ package com.salesforce.phoenix.jdbc;
 
 import java.sql.*;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.schema.PDataType;
@@ -55,13 +55,13 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
  
     private PDatum getParam(int index) throws SQLException {
         if (index <= 0 || index > params.length) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARAM_INDEX_OUT_OF_BOUND)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_INDEX_OUT_OF_BOUND)
                 .setMessage("The index is " + index + ". Must be between 1 and " + params.length)
                 .build().buildException();
         }
         PDatum param = params[index-1];
         if (param == null) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARAM_VALUE_UNBOUND)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
                 .setMessage("Parameter at index " + index + " is unbound").build().buildException();
         }
         return param;
@@ -123,7 +123,7 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.CLASS_NOT_UNWRAPPABLE)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CLASS_NOT_UNWRAPPABLE)
                 .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
                 .build().buildException();
         }

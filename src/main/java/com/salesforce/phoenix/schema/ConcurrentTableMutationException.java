@@ -29,13 +29,13 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 
 public class ConcurrentTableMutationException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCodeEnum code = SQLExceptionCodeEnum.CONCURRENT_TABLE_MUTATION;
+    private static SQLExceptionCode code = SQLExceptionCode.CONCURRENT_TABLE_MUTATION;
     private final String schemaName;
     private final String tableName;
 

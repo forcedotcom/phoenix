@@ -36,7 +36,7 @@ import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.exception.SQLExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
@@ -958,11 +958,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 LiteralExpression literal = (LiteralExpression)child;
                 if (literal.getDataType() == PDataType.DECIMAL) {
                     if (PDataType.DECIMAL.compareTo(literal.getValue(), BigDecimal.ZERO) == 0) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.DIVIDE_BY_ZERO).build().buildException();
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DIVIDE_BY_ZERO).build().buildException();
                     }
                 } else {
                     if (literal.getDataType().compareTo(literal.getValue(), 0L, PDataType.LONG) == 0) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.DIVIDE_BY_ZERO).build().buildException();
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DIVIDE_BY_ZERO).build().buildException();
                     }
                 }
             }
@@ -998,7 +998,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
 
     public static void throwNonAggExpressionInAggException(String nonAggregateExpression) throws SQLException {
-        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.AGGREGATE_WITH_NOT_GROUP_BY_COLUMN)
+        throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_WITH_NOT_GROUP_BY_COLUMN)
             .setMessage(nonAggregateExpression).build().buildException();
     }
 
@@ -1012,7 +1012,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             }
             PDataType type=children.get(i).getDataType();
             if(type==PDataType.BINARY){
-                throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.TYPE_NOT_SUPPORTED_FOR_OPERATOR)
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.TYPE_NOT_SUPPORTED_FOR_OPERATOR)
                     .setMessage("Concatenation does not support "+ type +" in expression" + node).build().buildException();
             }
         }
