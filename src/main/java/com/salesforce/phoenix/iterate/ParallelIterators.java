@@ -120,7 +120,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         final int targetConcurrency = config.getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB,
                 QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY);
         final int maxConcurrency = config.getInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB,
-                QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRRENCY);
+                QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY);
 
         Preconditions.checkArgument(targetConcurrency >= 1, "Invalid target concurrency: " + targetConcurrency);
         Preconditions.checkArgument(maxConcurrency >= targetConcurrency , "Invalid max concurrency: " + maxConcurrency);

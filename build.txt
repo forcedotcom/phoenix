@@ -7,7 +7,7 @@ Phoenix uses Maven (3.X) to build all its necessary resources.
 =======================
 
 1. To re-generate the antlr based files:
-	$ mvn generate-sources
+	$ mvn process-sources
 
 2. To build the jars
 	$ mvn package
@@ -31,3 +31,9 @@ Use the m2e eclipse plugin and do Import->Maven Project and just pick the root '
 ===========
 Javadoc are generated in /target/site/apidocs
 	$ mvn site
+
+## Findbugs
+===========
+Findbugs report is generated in /target/site
+	$ mvn site
+	

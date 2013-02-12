@@ -29,10 +29,10 @@ For detailed documentation on the current level of SQL support, see our [languag
 ## Installation ##
 To install a pre-built phoenix, use these directions:
 
-* Expand the following tar: [phoenix-1.0-install.tar](http://forcedotcom.github.com/phoenix/lib/phoenix-1.0-install.tar)
-* Add the phoenix-1.0.jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
+* Download and expand the latest phoenix-[version]-install.tar from [download page](https://github.com/forcedotcom/phoenix/wiki/Download)
+* Add the phoenix-[version].jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
-* Add the phoenix-1.0-client.jar to the classpath of any Phoenix client.
+* Add the phoenix-[version]-client.jar to the classpath of any Phoenix client.
 
 Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
 
@@ -43,7 +43,7 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
-1. Copy the phoenix-1.0-client.jar into the lib directory of SQuirrel
+1. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel
 2. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
 3. In Add Driver dialog box, set Name to Phoenix
 4. Press List Drivers button and com.salesforce.phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
@@ -59,11 +59,11 @@ Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, in
 
 <b> Command Line </b>
 
-In addition, you can use the phoenix-1.0-client.jar to execute SQL and/or load CSV data directly. Here are few examples:
+In addition, you can use the bin/psql.sh to execute SQL and/or load CSV data directly. Here are few examples:
 
-        $ java -jar phoenix-1.0-client.jar localhost examples/stock_symbol.sql
-        $ java -jar phoenix-1.0-client.jar localhost examples/stock_symbol.sql examples/stock_symbol.csv
-        $ java -jar phoenix-1.0-client.jar -t stock_symbol -h symbol,price,date localhost *.csv
+	$ psql.sh localhost ../examples/stock_symbol.sql
+        $ psql.sh localhost localhost ../examples/web_stat.sql ../examples/web_stat.csv ../examples/web_stat_queries.sql
+        $ psql.sh -t stock_symbol -h symbol,price,date localhost ../examples/stock_symbol.sql
 
 ![psql](http://forcedotcom.github.com/phoenix/images/psql.png)
 
@@ -104,3 +104,4 @@ Join one or both of our Google groups:
 
 * [Phoenix HBase User](https://groups.google.com/forum/#!forum/phoenix-hbase-user) for users of Phoenix.
 * [Phoenix HBase Dev](https://groups.google.com/forum/#!forum/phoenix-hbase-dev) for developers of Phoenix.
+[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/8438f3b844208e09a811699265666a8d "githalytics.com")](http://githalytics.com/forcedotcom/phoenix.git)

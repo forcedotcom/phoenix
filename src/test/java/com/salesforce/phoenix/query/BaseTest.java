@@ -205,10 +205,10 @@ public abstract class BaseTest {
     protected static synchronized void initDriver(QueryServices services, String url) throws Exception {
         if (driver == null) {
             if (driverRefCount == 0) {
-                driverRefCount++;
                 BaseTest.driver = new PhoenixTestDriver(services, url, TEST_PROPERTIES);
                 DriverManager.registerDriver(driver);
                 assertTrue(DriverManager.getDriver(url) == driver);
+                driverRefCount++;
             }
         }
     }
