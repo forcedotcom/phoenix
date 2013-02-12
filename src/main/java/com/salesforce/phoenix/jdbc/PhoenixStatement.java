@@ -145,7 +145,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public int executeUpdate() throws SQLException {
-            throw new ExecuteQueryNotApplicableException(this.toString());
+            throw new ExecuteUpdateNotApplicableException(this.toString());
         }
 
         @Override
@@ -501,7 +501,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public int executeUpdate() throws SQLException {
-            throw new ExecuteQueryNotApplicableException("ALTER TABLE", this.toString());
+            throw new ExecuteUpdateNotApplicableException("ALTER TABLE", this.toString());
         }
 
         @Override

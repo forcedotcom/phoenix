@@ -349,7 +349,7 @@ public class UpsertCompiler {
                 expressionBuilder.setColumn(column);
                 LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
                 if (literalExpression.getDataType() != null && !literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue(), literalExpression.getBytes())) {
-                    throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + "in column " + column);
+                    throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
                 }
                 byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType());
                 values[nodeIndex] = byteValue;

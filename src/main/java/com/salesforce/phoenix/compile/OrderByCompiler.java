@@ -99,8 +99,7 @@ public class OrderByCompiler {
                     if (context.isAggregate()) {
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
                     } else if (limit == null) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.UNSUPPORTED_ORDER_BY_QUERY)
-                            .build().buildException();
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.UNSUPPORTED_ORDER_BY_QUERY).build().buildException();
                     }
                 }
                 OrderingColumn col = new OrderingColumn(node, expression);

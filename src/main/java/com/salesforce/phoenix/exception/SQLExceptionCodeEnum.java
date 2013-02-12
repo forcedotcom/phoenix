@@ -116,6 +116,7 @@ public enum SQLExceptionCodeEnum {
     RESULTSET_CLOSED("XCL01", "ResultSet is closed."),
     GET_TABLE_REGIONS_FAIL("XCL02", "Cannot get all table regions"),
     EXECUTE_QUERY_NOT_APPLICABLE("XCL03", "executeQuery may not be used."),
+    EXECUTE_UPDATE_NOT_APPLICABLE("XCL03", "executeUpdate may not be used."),
     SPLIT_POINT_NOT_CONSTANT("XCL04", "Split points must be constants."),
     
     /**
