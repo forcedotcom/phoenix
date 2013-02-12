@@ -196,7 +196,7 @@ public class FunctionParseNode extends CompoundParseNode {
                     }
                     if (!isCoercible) {
                         throw new ArgumentTypeMismatchException(Arrays.toString(args[i].getAllowedTypes()),
-                                children.get(i).getDataType().toString(), "argument " + (i + 1));
+                                children.get(i).getDataType().toString(), info.getName() + " argument " + (i + 1));
                     }
                 }
                 if (args[i].isConstant() && ! (children.get(i) instanceof LiteralExpression) ) {

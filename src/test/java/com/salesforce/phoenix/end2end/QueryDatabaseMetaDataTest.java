@@ -796,7 +796,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMN y_integer");
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42P07): Table already exists. tableName=ATABLE"));
+            assertTrue(e.getMessage().contains("SQLState(42M04): Table already exists. tableName=ATABLE"));
         }
         conn5.close();
     }

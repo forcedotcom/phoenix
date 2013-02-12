@@ -83,7 +83,8 @@ public class ExtendedQueryExecTest extends BaseClientMangedTimeTest {
             statement.executeQuery();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("Type mismatch for TO_DATE argument"));
+            System.out.println(e.getMessage());
+            assertTrue(e.getMessage().contains("Type mismatch. expected: [VARCHAR] but was: DATE at TO_DATE"));
         } finally {
             conn.close();
         }

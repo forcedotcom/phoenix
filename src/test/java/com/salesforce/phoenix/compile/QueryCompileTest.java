@@ -214,7 +214,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("Aggregate expressions may not be used"));
+            assertTrue(e.getMessage().contains("SQLState(42Y26): Aggregate may not be used in WHERE."));
         }
     }
 
@@ -254,7 +254,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("Only aggregate expressions may not be used in the HAVING clause"));
+            assertTrue(e.getMessage().contains("SQLState(42Y26): Only aggregate maybe used in the HAVING clause."));
         }
     }
 
@@ -733,7 +733,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.executeQuery();
             fail();
         } catch (SQLException e) { // expected
-            assertTrue(e.getMessage().contains("Type mismatch for COALESCE"));
+            assertTrue(e.getMessage().contains("SQLState(42846): Cannot convert type. COALESCE expected INTEGER, but got VARCHAR"));
         } finally {
             conn.close();
         }
