@@ -36,6 +36,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -119,15 +120,15 @@ public class StatsManagerImpl implements StatsManager {
             }
             tableStatsMap.put(table, new PTableStats(timeKeeper.currentTimeMillis(),minKey,maxKey));
         } catch (IOException e) {
-            sqlE = new SQLException(e);
+            sqlE = new PhoenixIOException(e);
         } finally {
             try {
                 hTable.close();
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new SQLException(e);
+                    sqlE = new PhoenixIOException(e);
                 } else {
-                    sqlE.setNextException(new SQLException(e));
+                    sqlE.setNextException(new PhoenixIOException(e));
                 }
             } finally {
                 if (sqlE != null) {

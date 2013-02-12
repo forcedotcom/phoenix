@@ -32,32 +32,21 @@ import java.sql.SQLException;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
-
 /**
+ * Exception thrown when we try to use use an argument that has the wrong type. 
  * 
- * Exception thrown when a table name could not be found in the schema
- *
- * @author jtaylor
- * @since 0.1
+ * @author zhuang
+ * @since 1.0
  */
-public class TableAlreadyExistsException extends SQLException {
+public class ArgumentTypeMismatchException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.TABLE_ALREADY_EXIST;
-    private final String schemaName;
-    private final String tableName;
+    private static SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
 
-    public TableAlreadyExistsException(String schemaName, String tableName) {
-        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
-                code.getSQLState());
-        this.tableName = tableName;
-        this.schemaName = schemaName;
+    public ArgumentTypeMismatchException(PDataType expected, PDataType actual, String location) {
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());
     }
 
-    public String getTableName() {
-        return tableName;
-    }
-
-    public String getSchemaName() {
-        return schemaName;
+    public ArgumentTypeMismatchException(String expected, String actual, String location) {
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());
     }
 }

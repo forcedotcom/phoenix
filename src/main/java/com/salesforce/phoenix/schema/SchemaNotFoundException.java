@@ -29,17 +29,18 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
+
 public class SchemaNotFoundException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.SCHEMA_NOT_FOUND;
     private final String schemaName;
-    
-    public SchemaNotFoundException(String schemaName, String message) {
-        super(message);
-        this.schemaName = schemaName;
-    }
-    
+
     public SchemaNotFoundException(String schemaName) {
-        this(schemaName, schemaName + " not found");
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).build().toString(),
+                code.getSQLState());
+        this.schemaName = schemaName;
     }
 
     public String getSchemaName() {

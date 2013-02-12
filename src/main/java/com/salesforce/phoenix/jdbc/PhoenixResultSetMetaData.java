@@ -31,6 +31,8 @@ import java.sql.*;
 
 import com.salesforce.phoenix.compile.ColumnProjector;
 import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 
@@ -209,7 +211,9 @@ public class PhoenixResultSetMetaData implements ResultSetMetaData {
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (!iface.isInstance(this)) {
-            throw new SQLException(this.getClass().getName() + " not unwrappable from " + iface.getName());
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CLASS_NOT_UNWRAPPABLE)
+                .setMessage(this.getClass().getName() + " not unwrappable from " + iface.getName())
+                .build().buildException();
         }
         return (T)this;
     }

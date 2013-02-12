@@ -34,6 +34,8 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -59,7 +61,8 @@ public class CreateTableCompiler {
         for (int i = 0; i < splits.length; i++) {
             ParseNode node = splitNodes.get(i);
             if (!node.isConstant()) {
-                throw new SQLException("Split points must be constants: " + node);
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.SPLIT_POINT_NOT_CONSTANT)
+                    .setMessage("Node: " + node).build().buildException();
             }
             LiteralExpression expression = (LiteralExpression)node.accept(expressionCompiler);
             splits[i] = expression.getBytes();

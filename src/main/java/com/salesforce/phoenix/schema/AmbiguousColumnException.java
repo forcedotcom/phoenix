@@ -29,7 +29,8 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
  * 
@@ -41,29 +42,19 @@ import com.salesforce.phoenix.exception.PhoenixExceptionCodeEnum;
  */
 public class AmbiguousColumnException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static PhoenixExceptionCodeEnum code = PhoenixExceptionCodeEnum.AMBIGUOUS_COLUMN;
+    private static SQLExceptionCode code = SQLExceptionCode.AMBIGUOUS_COLUMN;
 
     public AmbiguousColumnException() {
-        super(code.getMessage(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
     }
 
-    public AmbiguousColumnException(String message) {
-        super(message, code.getSQLState());
+    public AmbiguousColumnException(String columnName) {
+        super(new SQLExceptionInfo.Builder(code).setColumnName(columnName).build().toString(),
+                code.getSQLState());
     }
 
-    public AmbiguousColumnException(String message, String sqlState) {
-        super(message, sqlState);
-    }
-
-    public AmbiguousColumnException(Throwable cause) {
-        super(code.getMessage(), code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, Throwable cause) {
-        super(message, code.getSQLState(), cause);
-    }
-
-    public AmbiguousColumnException(String message, String sqlState, Throwable cause) {
-        super(message, sqlState, cause);
+    public AmbiguousColumnException(String columnName, Throwable cause) {
+        super(new SQLExceptionInfo.Builder(code).setColumnName(columnName).build().toString(),
+                code.getSQLState(), cause);
     }
 }

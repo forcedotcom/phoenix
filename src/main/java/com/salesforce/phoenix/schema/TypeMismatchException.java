@@ -25,45 +25,36 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.exception;
+package com.salesforce.phoenix.schema;
 
+import java.sql.SQLException;
+
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
- * Various SQLException code.
+ * Exception thrown when we try to convert one type into a different incompatible type.
  * 
  * @author zhuang
  * @since 1.0
- *
  */
-public enum PhoenixExceptionCodeEnum {
+public class TypeMismatchException extends SQLException {
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
 
-    /** 
-     * Warinings
-     */
-    CURSOR_OPERATION_CONFLICT("01001", "Cursor operation conflict"),
-    DISCONNECT_ERROR("01002", "Disconnect error"),
-    DATA_TRUNCATED("01004", "Data truncated"),
-    
-    /**
-     * Syntax Error or Access Rule Violation
-     */
-    AMBIGUOUS_COLUMN("42702", "Column reference ambiguous or duplicate names"),
-    ;
-
-    private final String sqlState;
-    private final String message;
-
-    private PhoenixExceptionCodeEnum(String sqlState, String message) {
-        this.sqlState = sqlState;
-        this.message = message;
+    public TypeMismatchException(PDataType type, String location) {
+        super(new SQLExceptionInfo.Builder(code).setMessage(type + " for " + location).build().toString(), code.getSQLState());
     }
 
-    public String getSQLState() {
-        return sqlState;
+    public TypeMismatchException(PDataType lhs, PDataType rhs) {
+        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs).build().toString(), code.getSQLState());
     }
 
-    public String getMessage() {
-        return message;
+    public TypeMismatchException(PDataType lhs, PDataType rhs, String location) {
+        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState());
     }
 
+    public TypeMismatchException(String lhs, String rhs, String location) {
+        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState());
+    }
 }

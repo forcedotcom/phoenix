@@ -44,6 +44,7 @@ import org.apache.hadoop.io.WritableUtils;
 import org.xerial.snappy.Snappy;
 
 import com.google.common.collect.ImmutableSet;
+import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -70,7 +71,6 @@ public class HashCacheClient {
     private final byte[] iterateOverTableName;
     private final byte[] tenantId;
     private final ConnectionQueryServices services;
-    
 
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
@@ -258,7 +258,7 @@ public class HashCacheClient {
         try {
             locations = MetaScanner.allTableRegions(services.getConfig(), iterateOverTableName, false);
         } catch (IOException e) {
-            throw new SQLException(e);
+            throw new PhoenixIOException(e);
         }
         Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
         for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
@@ -333,7 +333,7 @@ public class HashCacheClient {
             chunk.resize(compressedSize);
             return new ImmutableBytesWritable(compressed,0,compressedSize);
         } catch (IOException e) {
-            throw new SQLException(e);
+            throw new PhoenixIOException(e);
         }
     }
 }

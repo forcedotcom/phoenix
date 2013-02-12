@@ -25,39 +25,17 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.exception;
 
+import java.io.IOException;
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
-
-
-/**
- * 
- * Exception thrown when a table name could not be found in the schema
- *
- * @author jtaylor
- * @since 0.1
- */
-public class TableAlreadyExistsException extends SQLException {
+public class PhoenixIOException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.TABLE_ALREADY_EXIST;
-    private final String schemaName;
-    private final String tableName;
+    private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
 
-    public TableAlreadyExistsException(String schemaName, String tableName) {
-        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
-                code.getSQLState());
-        this.tableName = tableName;
-        this.schemaName = schemaName;
+    public PhoenixIOException(IOException e) {
+        super(new SQLExceptionInfo.Builder(SQLExceptionCode.IO_EXCEPTION).setRootCause(e).build().toString(), code.getSQLState(), e);
     }
 
-    public String getTableName() {
-        return tableName;
-    }
-
-    public String getSchemaName() {
-        return schemaName;
-    }
 }

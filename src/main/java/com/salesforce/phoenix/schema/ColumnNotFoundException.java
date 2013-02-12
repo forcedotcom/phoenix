@@ -29,7 +29,8 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 
 /**
@@ -41,26 +42,25 @@ import com.salesforce.phoenix.query.QueryConstants;
  * @since 0.1
  */
 public class ColumnNotFoundException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.COLUMN_NOT_FOUND;
     private final String schemaName;
     private final String tableName;
     private final String columnName;
-    
-    public ColumnNotFoundException(String schemaName, String tableName, String columnName) {
-        this(schemaName, tableName, null, columnName);
-    }
 
     public ColumnNotFoundException(String columnName) {
         this(null, null, null, columnName);
     }
 
     public ColumnNotFoundException(String schemaName, String tableName, String familyName, String columnName) {
-        super((schemaName == null ? "" : schemaName + QueryConstants.NAME_SEPARATOR) +  (tableName == null ? "" : tableName + QueryConstants.NAME_SEPARATOR) + columnName + " not found" + (familyName == null ? "" : " in family " + familyName));
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName)
+                .setFamilyName(familyName).setColumnName(columnName).build().toString(),
+                code.getSQLState());
         this.schemaName = schemaName;
         this.tableName = tableName;
         this.columnName = columnName;
     }
-    
+
     public String getTableName() {
         return tableName;
     }
@@ -72,5 +72,4 @@ public class ColumnNotFoundException extends SQLException {
     public String getColumnName() {
         return columnName;
     }
-    
 }

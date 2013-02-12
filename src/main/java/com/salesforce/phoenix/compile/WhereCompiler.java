@@ -38,6 +38,8 @@ import org.apache.hadoop.hbase.filter.Filter;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.visitor.KeyValueExpressionVisitor;
 import com.salesforce.phoenix.filter.*;
@@ -83,7 +85,7 @@ public class WhereCompiler {
         WhereExpressionCompiler whereCompiler = new WhereExpressionCompiler(context);
         Expression expression = where.accept(whereCompiler);
         if (whereCompiler.isAggregate()) {
-            throw new SQLException("Aggregate expressions may not be used in this statement");
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
         }
         expression = WhereOptimizer.pushKeyExpressionsToScan(context, expression, extractedNodes);
         setScanFilter(context, expression, whereCompiler.disambiguateWithFamily);

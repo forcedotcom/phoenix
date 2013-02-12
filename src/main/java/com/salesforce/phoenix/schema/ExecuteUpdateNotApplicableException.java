@@ -32,32 +32,15 @@ import java.sql.SQLException;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
-
-/**
- * 
- * Exception thrown when a table name could not be found in the schema
- *
- * @author jtaylor
- * @since 0.1
- */
-public class TableAlreadyExistsException extends SQLException {
+public class ExecuteUpdateNotApplicableException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.TABLE_ALREADY_EXIST;
-    private final String schemaName;
-    private final String tableName;
+    private static SQLExceptionCode code = SQLExceptionCode.EXECUTE_QUERY_NOT_APPLICABLE;
 
-    public TableAlreadyExistsException(String schemaName, String tableName) {
-        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
-                code.getSQLState());
-        this.tableName = tableName;
-        this.schemaName = schemaName;
+    public ExecuteUpdateNotApplicableException(String query) {
+        super(new SQLExceptionInfo.Builder(code).setMessage("Query: " + query).build().toString(), code.getSQLState());
     }
 
-    public String getTableName() {
-        return tableName;
-    }
-
-    public String getSchemaName() {
-        return schemaName;
+    public ExecuteUpdateNotApplicableException(String command, String statement) {
+        super(new SQLExceptionInfo.Builder(code).setMessage("Command: " + command + ". Statement: " + statement).build().toString(), code.getSQLState());
     }
 }

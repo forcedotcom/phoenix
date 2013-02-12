@@ -29,6 +29,9 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
+
 /**
  * 
  * Exception thrown when a table name is used without being qualified with an alias
@@ -38,21 +41,20 @@ import java.sql.SQLException;
  * @since 0.1
  */
 public class AmbiguousTableException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.AMBIGUOUS_TABLE;
 
     public AmbiguousTableException() {
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
     }
 
-    public AmbiguousTableException(String message) {
-        super(message);
+    public AmbiguousTableException(String tableName) {
+        super(new SQLExceptionInfo.Builder(code).setTableName(tableName).toString(),
+                code.getSQLState());
     }
 
-    public AmbiguousTableException(Throwable cause) {
-        super(cause);
+    public AmbiguousTableException(String tableName, Throwable cause) {
+        super(new SQLExceptionInfo.Builder(code).setTableName(tableName).toString(),
+                code.getSQLState(), cause);
     }
-
-    public AmbiguousTableException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
 }

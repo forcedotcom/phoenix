@@ -152,7 +152,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
             WhereCompiler.getWhereClause(context, statement.getWhere());
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("Type mismatch"));
+            assertTrue(e.getMessage().contains("SQLState(22005): Type mismatch."));
         }
     }
 }

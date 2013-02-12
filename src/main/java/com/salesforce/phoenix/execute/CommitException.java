@@ -30,7 +30,7 @@ package com.salesforce.phoenix.execute;
 import java.sql.SQLException;
 
 public class CommitException extends SQLException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
     private final MutationState uncommittedState;
     private final MutationState committedState;
 
