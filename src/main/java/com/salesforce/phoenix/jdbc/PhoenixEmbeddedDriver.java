@@ -85,8 +85,8 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
         if (endIndex > begIndex) {
             return url.substring(begIndex, endIndex);
         }
-        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONNECT_TO_ZOOKEEPER)
-            .setMessage("connection url: " + url).build().buildException();
+        throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_ZOOKEEPER_URL)
+            .setMessage(url).build().buildException();
     }
     
     protected static String getZookeeperPort(String server) throws SQLException {

@@ -40,6 +40,7 @@ public enum SQLExceptionCode {
      * Warnings (01)
      */
     DISCONNECT_ERROR("01002", "Disconnect error."),
+    MALFORMED_ZOOKEEPER_URL("01501", "Malformed Zookeeper connection url."),
     
     /**
      * Connection Exception (08)
@@ -127,7 +128,6 @@ public enum SQLExceptionCode {
     MALFORMED_URL("INT02", "Malformed URL."),
     CLASS_NOT_UNWRAPPABLE("INT03", "Class not unwrappable"),
     PARAM_INDEX_OUT_OF_BOUND("INT04", "Parameter position is out of range."),
-    BIND_INDEX_OUT_OF_BOUND("INT04", "Index of bind out of bounds."),
     PARAM_VALUE_UNBOUND("INT05", "Parameter value unbound"),
     INTERRUPTED_EXCEPTION("INT07", "Interrupted exception."),
     INCOMPATIBLE_CLIENT_SERVER_JAR("INT08", "Incompatible jars detected between client and server."),

@@ -71,7 +71,7 @@ public class BindManager {
     public Object getBindValue(BindParseNode node) throws SQLException {
         int index = node.getIndex();
         if (index < 0 || index >= binds.size()) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.BIND_INDEX_OUT_OF_BOUND)
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_INDEX_OUT_OF_BOUND)
                 .setMessage("binds size: " + binds.size() + "; index: " + index).build().buildException();
         }
         return binds.get(index);
