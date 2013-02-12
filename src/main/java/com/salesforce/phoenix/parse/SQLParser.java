@@ -107,7 +107,7 @@ public class SQLParser {
             return statement;
         } catch (RecognitionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
-            .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
@@ -125,7 +125,7 @@ public class SQLParser {
             return statement;
         } catch (RecognitionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
-            .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         }
     }
     
@@ -139,7 +139,7 @@ public class SQLParser {
             return statement;
         } catch (RecognitionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
-            .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         }
     }
     
@@ -153,7 +153,7 @@ public class SQLParser {
             return literalNode;
         } catch (RecognitionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCodeEnum.PARSER_ERROR).setRootCause(e)
-            .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
         }
     }
 
