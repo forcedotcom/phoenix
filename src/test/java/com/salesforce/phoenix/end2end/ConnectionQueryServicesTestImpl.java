@@ -99,6 +99,8 @@ public class ConnectionQueryServicesTestImpl extends ConnectionQueryServicesImpl
                       return null;
                     }
                   });
+            } catch (IOException e) {
+                throw new PhoenixIOException(e);
             } catch (Throwable e) {
                 sqlE = new SQLException(e);
             } finally {
