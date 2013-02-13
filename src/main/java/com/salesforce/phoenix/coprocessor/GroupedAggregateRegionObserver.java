@@ -244,7 +244,9 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 byte[] value = aggregators.toBytes(rowAggregators);
                 
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Adding new distinct group: " + Bytes.toStringBinary(key.get(),key.getOffset(), key.getLength()) + " with aggregators " + rowAggregators + " value = " + Bytes.toStringBinary(value));
+                    logger.debug("Adding new distinct group: " + Bytes.toStringBinary(key.get(),key.getOffset(), key.getLength()) + 
+                            " with aggregators " + Arrays.asList(rowAggregators).toString() + 
+                            " value = " + Bytes.toStringBinary(value));
                 }
                 KeyValue keyValue = KeyValueUtil.newKeyValue(key.get(),key.getOffset(), key.getLength(),SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value, 0, value.length);
                 aggResults.add(keyValue);
