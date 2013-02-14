@@ -81,7 +81,7 @@ public class GroupedAggregatingResultIterator implements AggregatingResultIterat
         }
         Aggregator[] rowAggregators = aggregators.getAggregators();
         aggregators.reset(rowAggregators);
-        while (result != null) {
+        while (true) {
             aggregators.aggregate(rowAggregators, result);
             Tuple nextResult = resultIterator.peek();
             if (nextResult == null || !TupleUtil.equals(result, nextResult, tempPtr)) {

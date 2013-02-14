@@ -36,35 +36,38 @@ import java.util.GregorianCalendar;
 import java.util.Random;
 
 public class GeneratePerformanceData {
-	private static final String FILENAME = "data.csv";
-	
-	public static void main(String[] args) throws FileNotFoundException, IOException {
-		String[] host = {"NA","CS","EU"};
-		String[] domain = {"Salesforce.com","Apple.com","Google.com"};
-		String[] feature = {"Login","Report","Dashboard"};
-		Calendar now = GregorianCalendar.getInstance();
-		FileOutputStream fostream = new FileOutputStream(FILENAME);
-		Random random = new Random();
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		if (args.length < 1) {
-			System.out.println("Row count must be specified as argument");
-			return;
-		}
-		int rowCount = Integer.parseInt(args[0]);
-		for (int i=0; i<rowCount; i++) {
-			now.add(Calendar.SECOND, 1);
-			fostream.write((host[random.nextInt(host.length)] + "," + 
-					        domain[random.nextInt(domain.length)] + "," + 
-					        feature[random.nextInt(feature.length)] + "," + 
-					        sdf.format(now.getTime()) + "," + 
-					        random.nextInt(500) + "," + 
-					        random.nextInt(2000)+"," + 
-					        random.nextInt(10000) + 
-					        "\n").getBytes());
-		    if (i % 10000 == 0) {
-		    	System.out.print(".");
-		    }
-		}
-		fostream.close();
-	}
+    private static final String FILENAME = "data.csv";
+
+    public static void main(String[] args) throws FileNotFoundException, IOException {
+        String[] host = {"NA","CS","EU"};
+        String[] domain = {"Salesforce.com","Apple.com","Google.com"};
+        String[] feature = {"Login","Report","Dashboard"};
+        Calendar now = GregorianCalendar.getInstance();
+        FileOutputStream fostream = new FileOutputStream(FILENAME);
+        try {
+            Random random = new Random();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            if (args.length < 1) {
+                System.out.println("Row count must be specified as argument");
+                return;
+            }
+            int rowCount = Integer.parseInt(args[0]);
+            for (int i=0; i<rowCount; i++) {
+                now.add(Calendar.SECOND, 1);
+                fostream.write((host[random.nextInt(host.length)] + "," + 
+                        domain[random.nextInt(domain.length)] + "," + 
+                        feature[random.nextInt(feature.length)] + "," + 
+                        sdf.format(now.getTime()) + "," + 
+                        random.nextInt(500) + "," + 
+                        random.nextInt(2000)+"," + 
+                        random.nextInt(10000) + 
+                        "\n").getBytes());
+                if (i % 10000 == 0) {
+                    System.out.print(".");
+                }
+            }
+        } finally {
+            fostream.close();
+        }
+    }
 }

@@ -131,14 +131,10 @@ public class SQLExceptionInfo {
 
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder("SQLException! ");
-        if (code != null) {
-            builder.append(code.toString());
-        }
+        StringBuilder builder = new StringBuilder(code.toString());
         if (message != null) {
             builder.append(" ").append(message);
         }
-        
         String columnDisplayName = SchemaUtil.getColumnDisplayName(schemaName, tableName, familyName, columnName);
         if (columnName != null) {
             builder.append(" ").append(COLUMN_NAME).append("=").append(columnDisplayName);
@@ -149,7 +145,6 @@ public class SQLExceptionInfo {
         } else if (schemaName != null) {
             builder.append(" ").append(SCHEMA_NAME).append("=").append(columnDisplayName);
         }
-        
         if (lineNumber != null) {
             builder.append(" ").append(LINE_NUMBER).append("=").append(lineNumber).append(";");
         }
