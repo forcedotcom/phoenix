@@ -18,7 +18,7 @@ Applications interact with Phoenix through a standard JDBC interface; all the us
 For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/phoenix/wiki).
 
 ## System Requirements ##
-* HBase v 0.94.2 or higher
+* HBase v 0.94.2 (support for v 0.94.4 and above coming soon)
 * JDK 6 or higher
 
 ## Build Requirements ##
