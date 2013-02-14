@@ -532,9 +532,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new SQLException(e);
+                    sqlE = new PhoenixIOException(e);
                 } else {
-                    sqlE.setNextException(new SQLException(e));
+                    sqlE.setNextException(new PhoenixIOException(e));
                 }
             } finally {
                 if (sqlE != null) {
@@ -623,6 +623,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
                 return result;
             }
+        } catch (IOException e) {
+            throw new PhoenixIOException(e);
         } catch (Throwable t) {
             throw new SQLException(t);
         }
