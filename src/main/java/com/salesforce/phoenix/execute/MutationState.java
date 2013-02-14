@@ -33,15 +33,12 @@ import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.util.Bytes;
-
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.salesforce.phoenix.exception.*;
+import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
@@ -143,9 +140,8 @@ public class MutationState implements SQLCloseable {
     }
     
     /**
-     * Get the list of HBase mutations for the tables with uncommitted data. For each HBase table,
-     * the rows are sorted in ascending row key order.
-     * @return list of row key ordered HBase mutations
+     * Get the unsorted list of HBase mutations for the tables with uncommitted data.
+     * @return list of HBase mutations for uncommitted data.
      */
     public List<Mutation> toMutations() {
         Long scn = connection.getSCN();
@@ -156,27 +152,11 @@ public class MutationState implements SQLCloseable {
             Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> entry = iterator.next();
             PTable table = entry.getKey().getTable();
             List<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>> rowMutations = new ArrayList<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>>(entry.getValue().entrySet());
-            // TODO: Measure using TreeSet versus copy and sort over HashMap
-            Collections.sort(rowMutations, new Comparator<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>>() {
-                @Override
-                public int compare(Entry<ImmutableBytesPtr, Map<PColumn, byte[]>> o1,
-                        Entry<ImmutableBytesPtr, Map<PColumn, byte[]>> o2) {
-                    ImmutableBytesPtr ptr1 = o1.getKey();
-                    ImmutableBytesPtr ptr2 = o2.getKey();
-                    return Bytes.compareTo(ptr1.get(), ptr1.getOffset(), ptr1.getLength(), ptr2.get(), ptr2.getOffset(), ptr2.getLength());
-                }
-            });
             addRowMutations(table, rowMutations.iterator(), timestamp, mutations);
-        }
-        // The KVs must be in the expected order for the HFile to be happy
-        for (Mutation m : mutations) {
-            for (List<KeyValue> kvs : m.getFamilyMap().values()) {
-                Collections.sort(kvs, KeyValue.COMPARATOR);
-            }
         }
         return mutations;
     }
-    
+        
     /**
      * Validates that the meta data is still valid based on the current server time
      * and returns the server time to use for the upsert for each table.
