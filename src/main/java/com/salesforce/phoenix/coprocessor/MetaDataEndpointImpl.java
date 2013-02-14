@@ -356,7 +356,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         try {
             // Disallow deletion of a system table
             // TODO: better to check KV, but this is our only system table for now
-            if (TYPE_SCHEMA.equals(Bytes.toString(schemaName)) && TYPE_TABLE.equals(Bytes.toString(tableName))) {
+            if (Bytes.compareTo(TYPE_SCHEMA_BYTES, schemaName) == 0 && Bytes.compareTo(TYPE_TABLE_BYTES, tableName) == 0) {
                 return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
             }
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
@@ -459,7 +459,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         try {
             // Disallow deletion of a system table
             // TODO: better to check KV, but this is our only system table for now
-            if (TYPE_SCHEMA.equals(Bytes.toString(schemaName)) && TYPE_TABLE.equals(Bytes.toString(tableName))) {
+            if (Bytes.compareTo(TYPE_SCHEMA_BYTES, schemaName) == 0 && Bytes.compareTo(TYPE_TABLE_BYTES, tableName) == 0) {
                 return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
             }
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
