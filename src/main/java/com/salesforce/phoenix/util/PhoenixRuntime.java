@@ -31,6 +31,7 @@ import java.io.*;
 import java.sql.*;
 import java.util.*;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
 
 
@@ -204,13 +205,23 @@ public class PhoenixRuntime {
     }
     
     /**
-     * Get the list of uncommitted HBase mutations for the connection. Currently used to write an
+     * Get the list of uncommitted KeyValues for the connection. Currently used to write an
      * Phoenix-compliant HFile from a map/reduce job.
      * @param conn an open JDBC connection
      * @return the list of HBase mutations for uncommitted data
      * @throws SQLException 
      */
-    public static List<Mutation> getUncommittedMutations(Connection conn) throws SQLException {
-        return conn.unwrap(PhoenixConnection.class).getMutationState().toMutations();
+    public static List<KeyValue> getUncommittedData(Connection conn) throws SQLException {
+        List<Mutation> mutations = conn.unwrap(PhoenixConnection.class).getMutationState().toMutations();
+        List<KeyValue> keyValues = Lists.newArrayListWithExpectedSize(mutations.size() * 5); // Guess-timate 5 key values per row
+        for (Mutation mutation : mutations) {
+        	for (List<KeyValue> keyValueList : mutation.getFamilyMap().values()) {
+        		for (KeyValue keyValue : keyValueList) {
+        			keyValues.add(keyValue);
+        		}
+        	}
+        }
+        Collections.sort(keyValues, KeyValue.COMPARATOR);
+        return keyValues;
     }
 }

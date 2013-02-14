@@ -36,7 +36,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.*;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
@@ -376,16 +375,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
         }
         // The phoenix jar must be available on HBase classpath
-        Path phoenixJarPath = new Path(QueryConstants.DEFAULT_COPROCESS_PATH);
         try {
-            descriptor.addCoprocessor(ScanRegionObserver.class.getName(), phoenixJarPath, 1, null);
-            descriptor.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), phoenixJarPath, 1, null);
-            descriptor.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), phoenixJarPath, 1, null);
-            descriptor.addCoprocessor(HashJoiningRegionObserver.class.getName(), phoenixJarPath, 1, null);
+            descriptor.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
+            descriptor.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
+            descriptor.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
+            descriptor.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
             // Setup split policy on Phoenix metadata table to ensure that the key values of a Phoenix table
             // stay on the same region.
             if (SchemaUtil.isMetaTable(tableName)) {
-                descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), phoenixJarPath, 1, null);
+                descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), null, 1, null);
             }
         } catch (IOException e) {
             throw new PhoenixIOException(e);

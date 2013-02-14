@@ -119,6 +119,10 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         boolean hasMore;
         boolean hasAny = false;
         MultiKeyValueTuple result = new MultiKeyValueTuple();
+        if (logger.isInfoEnabled()) {
+        	logger.info("Starting ungrouped coprocessor scan " + scan);
+        }
+        long rowCount = 0;
         do {
             List<KeyValue> results = new ArrayList<KeyValue>();
             // Results are potentially returned even when the return value of s.next is false
@@ -126,6 +130,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
             // ones returned
             hasMore = s.next(results) && !s.isFilterDone();
             if (!results.isEmpty()) {
+            	rowCount++;
                 result.setKeyValues(results);
                 try {
                     if (isDelete) {
@@ -186,6 +191,10 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
             }
         } while (hasMore);
         
+        if (logger.isInfoEnabled()) {
+        	logger.info("Finished scanning " + rowCount + " rows for ungrouped coprocessor scan " + scan);
+        }
+
         if (!mutations.isEmpty()) {
             @SuppressWarnings("unchecked")
             Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
