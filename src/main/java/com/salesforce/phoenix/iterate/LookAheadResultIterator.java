@@ -29,14 +29,13 @@ package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
 
-import org.apache.hadoop.hbase.client.Result;
-
+import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
 abstract public class LookAheadResultIterator implements PeekingResultIterator {
-    private final static Result UNINITIALIZED = new Result();
-    private Tuple next;
+    private final static Tuple UNINITIALIZED = new ResultTuple();
+    private Tuple next = UNINITIALIZED;
     
     abstract protected Tuple advance() throws SQLException;
     

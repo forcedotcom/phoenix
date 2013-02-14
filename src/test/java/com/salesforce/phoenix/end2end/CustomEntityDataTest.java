@@ -206,7 +206,7 @@ public class CustomEntityDataTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initTableValues(tenantId, getDefaultSplits(getOrganizationId()), ts);
-        String query = new String("SELECT KEY_PREFIX||CUSTOM_ENTITY_DATA_ID FROM CORE.CUSTOM_ENTITY_DATA where '00A'||val0 LIKE '00A2%'");
+        String query = "SELECT KEY_PREFIX||CUSTOM_ENTITY_DATA_ID FROM CORE.CUSTOM_ENTITY_DATA where '00A'||val0 LIKE '00A2%'";
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
