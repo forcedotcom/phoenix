@@ -268,7 +268,7 @@ public class ProjectionCompiler {
         @Override
         protected ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
             ColumnRef ref = super.resolveColumn(node);
-            isCaseSensitive &= node.isCaseSensitive();
+            isCaseSensitive = isCaseSensitive && node.isCaseSensitive();
             return ref;
         }
         
