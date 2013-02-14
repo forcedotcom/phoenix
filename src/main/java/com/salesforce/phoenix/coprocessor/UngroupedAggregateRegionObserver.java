@@ -174,7 +174,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                         Set<Long> timeStamps = Sets.newHashSetWithExpectedSize(results.size());
                         for (KeyValue kv : results) {
                             long kvts = kv.getTimestamp();
-                            if (!timeStamps.contains(kv)) {
+                            if (!timeStamps.contains(kvts)) {
                                 Put put = new Put(kv.getRow());
                                 put.add(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES, kvts, ByteUtil.EMPTY_BYTE_ARRAY);
                                 mutations.add(new Pair<Mutation,Integer>(put,null));

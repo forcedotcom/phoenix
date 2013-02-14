@@ -79,9 +79,9 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         // Copy so client cannot change
         this.info = info == null ? new Properties() : new Properties(info);
         this.services = services;
-        this.scn = JDBCUtil.getCurrentSCN(url, info);
-        this.tenantId = JDBCUtil.getTenantId(url, info);
-        this.upsertBatchSize = JDBCUtil.getUpsertBatchSize(url, info, services.getConfig());
+        this.scn = JDBCUtil.getCurrentSCN(url, this.info);
+        this.tenantId = JDBCUtil.getTenantId(url, this.info);
+        this.upsertBatchSize = JDBCUtil.getUpsertBatchSize(url, this.info, services.getConfig());
         datePattern = services.getConfig().get(QueryServices.DATE_FORMAT_ATTRIB, DateUtil.DEFAULT_DATE_FORMAT);
         int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         Format dateTimeFormat = DateUtil.getDateFormatter(datePattern);

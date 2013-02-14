@@ -206,7 +206,7 @@ public class PDataTypeTest {
         for (int i = 0; i < values.size(); i++) {
             BigDecimal expected = values.get(i);
             byte[] bytes = PDataType.DECIMAL.toBytes(values.get(i));
-            if (bytes == null);
+            assertNotNull("bytes converted from values should not be null!", bytes);
             BigDecimal actual = (BigDecimal)PDataType.DECIMAL.toObject(byteValues.get(i));
             assertTrue("For " + i + " expected " + expected + " but got " + actual,expected.round(PDataType.DEFAULT_MATH_CONTEXT).compareTo(actual.round(PDataType.DEFAULT_MATH_CONTEXT))==0);
         }

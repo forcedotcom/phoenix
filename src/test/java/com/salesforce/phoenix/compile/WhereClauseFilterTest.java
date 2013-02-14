@@ -119,8 +119,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         Filter filter = scan.getFilter();
         assertNull(filter);
-        assertEquals(scan.getStartRow(),KeyRange.EMPTY_RANGE.getLowerRange());
-        assertEquals(scan.getStopRow(),KeyRange.EMPTY_RANGE.getUpperRange());
+        
+        assertArrayEquals(scan.getStartRow(),KeyRange.EMPTY_RANGE.getLowerRange());
+        assertArrayEquals(scan.getStopRow(),KeyRange.EMPTY_RANGE.getUpperRange());
     }
     
     @Test
