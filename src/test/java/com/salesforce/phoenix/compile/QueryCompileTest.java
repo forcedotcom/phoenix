@@ -62,6 +62,9 @@ import com.salesforce.phoenix.util.*;
  * @author jtaylor
  * @since 0.1
  */
+@edu.umd.cs.findbugs.annotations.SuppressWarnings(
+        value="RV_RETURN_VALUE_IGNORED",
+        justification="Test code.")
 public class QueryCompileTest extends BaseConnectionlessQueryTest {
 
     @Test
