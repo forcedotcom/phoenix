@@ -1882,6 +1882,9 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         }
     }
     
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="RV_RETURN_VALUE_IGNORED",
+            justification="Test code.")
     @Test
     public void testValidArithmetic() throws Exception {
         long ts = nextTimestamp();

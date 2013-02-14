@@ -69,6 +69,9 @@ public class ExtendedQueryExecTest extends BaseClientMangedTimeTest {
         }
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="RV_RETURN_VALUE_IGNORED",
+            justification="Test code.")
     @Test
     public void testTypeMismatchToDateFunctionBind() throws Exception {
         long ts = nextTimestamp();

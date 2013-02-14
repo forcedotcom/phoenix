@@ -152,7 +152,7 @@ public class ProjectionCompiler {
                     }
                 }
                 String columnAlias = aliasedNode.getAlias();
-                boolean isCaseSensitive = (node != null && aliasedNode.isCaseSensitve()) || selectVisitor.isCaseSensitive;
+                boolean isCaseSensitive = aliasedNode.isCaseSensitve() || selectVisitor.isCaseSensitive;
                 String name = columnAlias == null ? node.toString() : columnAlias;
                 projectedColumns.add(new ExpressionProjector(name, table.getName().getString(), expression, isCaseSensitive));
             }

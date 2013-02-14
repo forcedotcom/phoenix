@@ -245,6 +245,9 @@ public abstract class ValueSchema {
         return true;
     }
     
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL",
+            justification="Returns null by design.")
     protected Boolean positionPtr(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
         if (position >= getFieldCount()) {
             return null;
