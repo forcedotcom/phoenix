@@ -197,7 +197,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 }
                 // Can't possibly be as long as the constant, then FALSE
                 Integer lhsMaxLength = lhs.getMaxLength();
-                if (lhsMaxLength != null && lhsMaxLength != children.get(1).getMaxLength()) {
+                if (lhsMaxLength != null && !lhsMaxLength.equals(children.get(1).getMaxLength())) {
                     switch (node.getFilterOp()) {
                         case EQUAL:
                             return LiteralExpression.FALSE_EXPRESSION;

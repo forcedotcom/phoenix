@@ -338,7 +338,7 @@ public class GroupByCompiler {
             ColumnRef ref = super.resolveColumn(node);
             // If we encounter any non PK column, then we can't aggregate on-the-fly
             // because the distinct groups have no correlation to the KV column value
-            isRowKeyOrderedGrouping &= SchemaUtil.isPKColumn(ref.getColumn());
+            isRowKeyOrderedGrouping = isRowKeyOrderedGrouping && SchemaUtil.isPKColumn(ref.getColumn());
             if (columnPosition == null) {
                 columnPosition = ref.getColumnPosition();
             } else if (columnPosition != ref.getColumnPosition()) {
