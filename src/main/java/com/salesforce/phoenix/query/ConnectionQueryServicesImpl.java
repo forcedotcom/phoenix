@@ -124,7 +124,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public HTableInterface getTable(byte[] tableName) throws SQLException {
         try {
-            return new HTable(tableName, connection, getExecutor());
+            return HTableFactoryProvider.getHTableFactory().getTable(tableName, connection, getExecutor());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
