@@ -154,6 +154,9 @@ public class GroupByCaseTest extends BaseClientMangedTimeTest {
         conn.close();
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="RV_RETURN_VALUE_IGNORED",
+            justification="Test code.")
     private void executeQuery(Connection conn, String query) throws SQLException {
         PreparedStatement st = conn.prepareStatement(query);
         st.executeQuery();

@@ -91,6 +91,9 @@ abstract public class BooleanExpressionFilter extends FilterBase {
         return expression.toString();
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL",
+            justification="Returns null by design.")
     protected Boolean evaluate(Tuple input) {
         try {
             if (!expression.evaluate(input, tempPtr)) {

@@ -177,7 +177,7 @@ public class HavingCompiler {
         @Override
         public boolean visitEnter(FunctionParseNode node) throws SQLException {
             boolean isAggregate = node.isAggregate();
-            this.hasNoAggregateFunctions &= !isAggregate;
+            this.hasNoAggregateFunctions = this.hasNoAggregateFunctions && !isAggregate;
             return !isAggregate;
         }
 

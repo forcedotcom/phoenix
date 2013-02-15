@@ -70,7 +70,7 @@ public class ValueBitSetTest {
     
     private static void setValueBitSet(KeyValueSchema schema, ValueBitSet valueSet) {
         for (int i = 0; i < schema.getFieldCount() - schema.getMinNullable(); i++) {
-            if (i % 2 == 1) {
+            if ((i & 1) == 1) {
                 valueSet.set(i);
             }
         }
