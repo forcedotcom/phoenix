@@ -39,6 +39,8 @@ import java.util.ServiceLoader;
  */
 public class HTableFactoryProvider {
 
+    private static final HTableFactory DEFAULT = new HTableFactory.HTableFactoryImpl();
+
     public static HTableFactory getHTableFactory() {
         ServiceLoader<HTableFactory> loader = ServiceLoader.load(HTableFactory.class);
         for (HTableFactory factory : loader) {
@@ -48,7 +50,7 @@ public class HTableFactoryProvider {
     }
 
     private static HTableFactory getDefaultHTableFactory() {
-        return new HTableFactory.HTableFactoryImpl();
+        return DEFAULT;
     }
 
 }

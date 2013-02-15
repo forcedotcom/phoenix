@@ -51,7 +51,7 @@ public interface HTableFactory {
     HTableInterface getTable(byte[] tableName, HConnection connection, ExecutorService pool) throws IOException;
 
     /**
-     * Default implementations.  Uses standard HBase HTables.
+     * Default implementation.  Uses standard HBase HTables.
      */
     static class HTableFactoryImpl implements HTableFactory {
         @Override
