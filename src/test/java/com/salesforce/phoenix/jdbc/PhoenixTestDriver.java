@@ -31,8 +31,8 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import com.salesforce.phoenix.end2end.ConnectionQueryServicesTestImpl;
-import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver;
 import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 
@@ -49,8 +49,8 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
     
     public PhoenixTestDriver(QueryServices services, String url, Properties props) throws SQLException {
         super(services);
-        String serverName = getZookeeperQuorum(url);
-        if (CONNECTIONLESS.equals(serverName)) {
+        ConnectionInfo connInfo = getConnectionInfo(url);
+        if (PhoenixRuntime.CONNECTIONLESS.equals(connInfo.getZookeeperQuorum())) {
             queryServices =  new ConnectionlessQueryServicesImpl(services);
         } else {
             queryServices =  new ConnectionQueryServicesTestImpl(services, services.getConfig());
@@ -61,7 +61,7 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
     @Override
     public boolean acceptsURL(String url) throws SQLException {
         // Accept the url only if test=true attribute set
-        return super.acceptsURL(url) && url.contains(";test=true");
+        return super.acceptsURL(url) && (url.endsWith(";test=true") || url.contains(";test=true;"));
     }
 
     @Override // public for testing

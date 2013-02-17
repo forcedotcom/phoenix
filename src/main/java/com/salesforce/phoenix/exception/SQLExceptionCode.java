@@ -36,16 +36,11 @@ package com.salesforce.phoenix.exception;
  */
 public enum SQLExceptionCode {
 
-    /** 
-     * Warnings (01)
-     */
-    DISCONNECT_ERROR("01002", "Disconnect error."),
-    MALFORMED_ZOOKEEPER_URL("01501", "Malformed Zookeeper connection url."),
-    
     /**
      * Connection Exception (08)
      */
     IO_EXCEPTION("08000", "Unexpected IO exception."),
+    MALFORMED_CONNECTION_URL("08001", "Malformed connection url."),
     CANNOT_ESTABLISH_CONNECTION("08004", "Unable to establish connection."),
     
     /**
@@ -54,7 +49,8 @@ public enum SQLExceptionCode {
     ILLEGAL_DATA("22000", "Illegal data."),
     DIVIDE_BY_ZERO("22012", "Divide by zero."),
     TYPE_MISMATCH("22005", "Type mismatch."),
-    VALUE_IN_UPSERT_NOT_CONSTANT("22008", "Values in UPSERT must evaluate to a constant"),
+    VALUE_IN_UPSERT_NOT_CONSTANT("22008", "Values in UPSERT must evaluate to a constant."),
+    MALFORMED_URL("22009", "Malformed URL."),
     
     /**
      * Constraint Violation (23)
@@ -80,6 +76,7 @@ public enum SQLExceptionCode {
     UNSUPPORTED_ORDER_BY_QUERY("42878", "ORDER BY only allowed for limited or aggregate queries"),
     PRIMARY_KEY_MISSING("42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS("42889", "The table already has a primary key."),
+    
     // HBase and Phoenix specific implementation defined sub-classes.
     // Column family related exceptions.
     COLUMN_FAMILY_NOT_FOUND("42I01", "Undefined column family."),
@@ -92,7 +89,7 @@ public enum SQLExceptionCode {
     // Key/value column related errors
     KEY_VALUE_NOT_NULL("42K01", "A key/value column may not be declared as not null."),
     // View related errors.
-    VIEW_WITH_TABLE_CONFIG("42L01", "A VIEW may not contain table configuration properties."),
+    VIEW_WITH_TABLE_CONFIG("42L01", "A view may not contain table configuration properties."),
     VIEW_WITH_PROPERTIES("42L02", "Properties may not be defined for a view."),
     // Table related errors that are not in standard code.
     CANNOT_MUTATE_TABLE("42M01", "Not allowed to mutate table."),
@@ -122,9 +119,7 @@ public enum SQLExceptionCode {
     /**
      * Implementation defined class. Phoenix internal error. (INT).
      */
-    INTERNAL_ERROR("INT00", "Internal error."), // General error, should have a message for details.
     CANNOT_CALL_METHOD_ON_TYPE("INT01", "Cannot call method on the argument type."),
-    MALFORMED_URL("INT02", "Malformed URL."),
     CLASS_NOT_UNWRAPPABLE("INT03", "Class not unwrappable"),
     PARAM_INDEX_OUT_OF_BOUND("INT04", "Parameter position is out of range."),
     PARAM_VALUE_UNBOUND("INT05", "Parameter value unbound"),

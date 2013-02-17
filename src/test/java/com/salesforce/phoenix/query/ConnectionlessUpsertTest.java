@@ -36,15 +36,15 @@ import java.util.Properties;
 import org.apache.hadoop.hbase.KeyValue;
 import org.junit.*;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixDriver;
-import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 public class ConnectionlessUpsertTest {
     private static String getUrl() {
-        return PhoenixRuntime.EMBEDDED_JDBC_PROTOCOL + PhoenixEmbeddedDriver.CONNECTIONLESS;
+        return PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + PhoenixRuntime.CONNECTIONLESS;
     }
     
     @BeforeClass
@@ -112,5 +112,16 @@ public class ConnectionlessUpsertTest {
         conn.rollback(); // to clear the list of mutations for the next
     }
 
+    
+    @Test
+    public void testNoConnectionInfo() throws Exception {
+        try {
+            DriverManager.getConnection(PhoenixRuntime.JDBC_PROTOCOL);
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.MALFORMED_CONNECTION_URL.getSQLState(),e.getSQLState());
+        }
+    }
+    
 
 }

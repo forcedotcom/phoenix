@@ -29,6 +29,7 @@ package com.salesforce.phoenix.jdbc;
 
 import java.sql.*;
 import java.util.Properties;
+import java.util.StringTokenizer;
 import java.util.logging.Logger;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
@@ -51,8 +52,10 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
     /**
      * The protocol for Phoenix Network Client 
      */ 
-    private final static String DNC_PROTOCOL = PhoenixRuntime.EMBEDDED_JDBC_PROTOCOL + "//";
-    public final static String CONNECTIONLESS = "none";
+    private final static String DNC_JDBC_PROTOCOL_SUFFIX = "//";
+    private static final String TERMINATOR = "" + PhoenixRuntime.JDBC_PROTOCOL_TERMINATOR;
+    private static final String DELIMITERS = TERMINATOR + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR;
+
     private final static DriverPropertyInfo[] EMPTY_INFO = new DriverPropertyInfo[0];
     public final static String MAJOR_VERSION_PROP = "DriverMajorVersion";
     public final static String MINOR_VERSION_PROP = "DriverMinorVersion";
@@ -74,32 +77,76 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
     public QueryServices getQueryServices() {
         return services;
     }
-            
-    
-    protected static String getZookeeperQuorum(String url) throws SQLException {
-        int endIndex = url.indexOf(';');
-        endIndex = endIndex == -1 ? url.length() : endIndex;
-        // Search for next semicolon, not colon, so we pickup the entire URL(s) including the port (W-1443268)
-        // TODO: test case for this
-        int begIndex = PhoenixRuntime.EMBEDDED_JDBC_PROTOCOL.length();
-        if (endIndex > begIndex) {
-            return url.substring(begIndex, endIndex);
+     
+    protected static ConnectionInfo getConnectionInfo(String url) throws SQLException {
+        StringTokenizer tokenizer = new StringTokenizer(url.substring(PhoenixRuntime.JDBC_PROTOCOL.length()),DELIMITERS, true);
+        int i = 0;
+        boolean isMalformedUrl = false;
+        String[] tokens = new String[3];
+        String token = null;
+        while (tokenizer.hasMoreTokens() && !(token=tokenizer.nextToken()).equals(TERMINATOR) && tokenizer.hasMoreTokens() && i < tokens.length) {
+            token = tokenizer.nextToken();
+            // This would mean we have an empty string for a token which is illegal
+            if (DELIMITERS.contains(token)) {
+                isMalformedUrl = true;
+                break;
+            }
+            tokens[i++] = token;
         }
-        throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_ZOOKEEPER_URL)
+        Integer port = null;
+        if (!isMalformedUrl) {
+            if (tokenizer.hasMoreTokens() && !TERMINATOR.equals(token)) {
+                isMalformedUrl = true;
+            } else if (i > 1) {
+                try {
+                    port = Integer.parseInt(tokens[1]);
+                    isMalformedUrl = port < 0;
+                } catch (NumberFormatException e) {
+                    // If we have 3 tokens, then the second one must be a port.
+                    // If we only have 2 tokens, the second one might be the root node:
+                    // Assume that is the case if we get a NumberFormatException
+                    if (! (isMalformedUrl = i == 3) ) {
+                        tokens[2] = tokens[1];
+                    }
+                    
+                }
+            }
+        }
+        if (isMalformedUrl) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
             .setMessage(url).build().buildException();
-    }
-    
-    protected static String getZookeeperPort(String server) throws SQLException {
-        int startIndex = server.lastIndexOf(':');
-        if (startIndex == -1) {
-        	return null;
         }
-        return server.substring(startIndex + 1, server.length());
+        return new ConnectionInfo(tokens[0],port,tokens[2]);
     }
     
     @Override
     public boolean acceptsURL(String url) throws SQLException {
-        return !url.startsWith(DNC_PROTOCOL) && url.startsWith(PhoenixRuntime.EMBEDDED_JDBC_PROTOCOL);
+        if (url.startsWith(PhoenixRuntime.JDBC_PROTOCOL)) {
+            // A connection string of "jdbc:phoenix" is supported, since
+            // all the connection information can potentially be gotten
+            // out of the HBase config file
+            if (url.length() == PhoenixRuntime.JDBC_PROTOCOL.length()) {
+                return true;
+            }
+            // Same as above, except for "jdbc:phoenix;prop=<value>..."
+            if (PhoenixRuntime.JDBC_PROTOCOL_TERMINATOR == url.charAt(PhoenixRuntime.JDBC_PROTOCOL.length())) {
+                return true;
+            }
+            if (PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR == url.charAt(PhoenixRuntime.JDBC_PROTOCOL.length())) {
+                int protoLength = PhoenixRuntime.JDBC_PROTOCOL.length() + 1;
+                // A connection string of "jdbc:phoenix:" matches this driver,
+                // but will end up as a MALFORMED_CONNECTION_URL exception later.
+                if (url.length() == protoLength) {
+                    return true;
+                }
+                // A connection string of the form "jdbc:phoenix://" means that
+                // the driver is remote which isn't supported, so return false.
+                if (!url.startsWith(DNC_JDBC_PROTOCOL_SUFFIX, protoLength)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
@@ -154,5 +201,69 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
 
     @Override
     public void close() throws SQLException {
+    }
+    
+    /**
+     * 
+     * Class to encapsulate connection info for HBase
+     *
+     * @author jtaylor
+     * @since 0.1.1
+     */
+    protected static class ConnectionInfo {
+        private final Integer port;
+        private final String rootNode;
+        private final String zookeeperQuorum;
+        
+        protected ConnectionInfo(String zookeeperQuorum, Integer port, String rootNode) {
+            this.zookeeperQuorum = zookeeperQuorum;
+            this.port = port;
+            this.rootNode = rootNode;
+        }
+
+        public String getZookeeperQuorum() {
+            return zookeeperQuorum;
+        }
+
+        public Integer getPort() {
+            return port;
+        }
+
+        public String getRootNode() {
+            return rootNode;
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((zookeeperQuorum == null) ? 0 : zookeeperQuorum.hashCode());
+            result = prime * result + ((port == null) ? 0 : port.hashCode());
+            result = prime * result + ((rootNode == null) ? 0 : rootNode.hashCode());
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
+            ConnectionInfo other = (ConnectionInfo)obj;
+            if (zookeeperQuorum == null) {
+                if (other.zookeeperQuorum != null) return false;
+            } else if (!zookeeperQuorum.equals(other.zookeeperQuorum)) return false;
+            if (port == null) {
+                if (other.port != null) return false;
+            } else if (!port.equals(other.port)) return false;
+            if (rootNode == null) {
+                if (other.rootNode != null) return false;
+            } else if (!rootNode.equals(other.rootNode)) return false;
+            return true;
+        }
+        
+        @Override
+        public String toString() {
+            return zookeeperQuorum + (port == null ? "" : ":" + port) + (rootNode == null ? "" : ":" + rootNode);
+        }
     }
 }

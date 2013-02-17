@@ -43,11 +43,9 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.filter.*;
-import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
 
 
 
@@ -83,7 +81,7 @@ public class TestUtil {
 
     public static final long MILLIS_IN_DAY = 1000 * 60 * 60 * 24;
     public static final String PHOENIX_JDBC_URL = "jdbc:phoenix:localhost;test=true";
-    public static final String PHOENIX_CONNECTIONLESS_JDBC_URL = "jdbc:phoenix:" + PhoenixEmbeddedDriver.CONNECTIONLESS  + ";test=true";
+    public static final String PHOENIX_CONNECTIONLESS_JDBC_URL = PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + PhoenixRuntime.CONNECTIONLESS  + ";test=true";
     
     public static final String TEST_SCHEMA_FILE_NAME = "config" + File.separator + "test-schema.xml";
     public static final String CED_SCHEMA_FILE_NAME = "config" + File.separator + "schema.xml";

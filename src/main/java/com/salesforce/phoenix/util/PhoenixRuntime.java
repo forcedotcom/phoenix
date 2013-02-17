@@ -34,7 +34,6 @@ import java.util.*;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
 
-
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDriver;
@@ -54,10 +53,16 @@ public class PhoenixRuntime {
      * and DDL, and DML will use this as t he timestamp for key values.
      */
     public static final String CURRENT_SCN_ATTRIB = "CurrentSCN";
+
     /**
      * Root for the JDBC URL that the Phoenix accepts accepts.
      */
-    public final static String EMBEDDED_JDBC_PROTOCOL = "jdbc:phoenix:";
+    public final static String JDBC_PROTOCOL = "jdbc:phoenix";
+    public final static char JDBC_PROTOCOL_TERMINATOR = ';';
+    public final static char JDBC_PROTOCOL_SEPARATOR = ':';
+    
+    @Deprecated
+    public final static String EMBEDDED_JDBC_PROTOCOL = PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR;
     
     /**
      * Use this connection property to control the number of rows that are
@@ -76,6 +81,14 @@ public class PhoenixRuntime {
      * configuration properties
      */
     public static final String TENANT_ID_ATTRIB = "TenantId";
+
+    /**
+     * Use this as the zookeeper quorum name to have a connection-less connection. This enables
+     * Phoenix-compatible HFiles to be created in a map/reduce job by creating tables,
+     * upserting data into them, and getting the uncommitted state through {@link #getUncommittedData(Connection)}
+     */
+    public final static String CONNECTIONLESS = "none";
+    
     private static final String TABLE_OPTION = "-t";
     private static final String HEADER_OPTION = "-h";
     private static final String STRICT_OPTION = "-s";
@@ -151,7 +164,7 @@ public class PhoenixRuntime {
             
             Properties props = new Properties();
             Class.forName(PhoenixDriver.class.getName());
-            String connectionUrl = EMBEDDED_JDBC_PROTOCOL + args[i++];
+            String connectionUrl = JDBC_PROTOCOL + JDBC_PROTOCOL_SEPARATOR + args[i++];
             PhoenixConnection conn = DriverManager.getConnection(connectionUrl).unwrap(PhoenixConnection.class);
             
             for (; i < args.length; i++) {
