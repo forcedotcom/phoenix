@@ -77,6 +77,10 @@
     <!-- Plugin versions -->
     <maven-eclipse-plugin.version>2.8</maven-eclipse-plugin.version>
     <maven-build-helper-plugin.version>1.7</maven-build-helper-plugin.version>
+    
+    <!-- Set default encoding so multi-byte tests work correctly on the Mac -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
 
   <build>
