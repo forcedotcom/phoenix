@@ -88,7 +88,7 @@ public interface QueryConstants {
     public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = DEFAULT_COLUMN_FAMILY_NAME.getBytes();
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
     public static final String SYSTEM_TABLE_PK_NAME = "pk";
-    
+
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
@@ -126,4 +126,13 @@ public interface QueryConstants {
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
+
+    public static final String STATS_METADATA = 
+            "CREATE TABLE" + STAT_SCHEMA + ".\"" + STAT_TABLE + "\"(\n" +
+            SCHEMA_NAME + " VARCHAR NOT NULL" +
+            TABLE_NAME + " VARCHAR NOT NULL" +
+            SPLIT_POINTS + " BINARY" +
+            MIN_KEY + " BINARY" + 
+            MAX_KEY + " BINARY" +
+            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMAY KEY (" + SCHEMA_NAME + "," + TABLE_NAME + "))\n";
 }
