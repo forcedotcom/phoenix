@@ -30,10 +30,16 @@ package com.salesforce.phoenix.coprocessor;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 
 public abstract class BaseRegionScanner implements RegionScanner {
+
+    @Override
+    public boolean isFilterDone() {
+        return false; 
+    }
 
     @Override
     public boolean next(List<KeyValue> results, String metric) throws IOException {
@@ -43,5 +49,29 @@ public abstract class BaseRegionScanner implements RegionScanner {
     @Override
     public boolean next(List<KeyValue> result, int limit, String metric) throws IOException {
         return next(result);
+    }
+    @Override
+    public boolean next(List<KeyValue> result, int limit) throws IOException {
+        return next(result);
+    }
+    
+    @Override
+    public boolean reseek(byte[] row) throws IOException {
+        throw new DoNotRetryIOException("Unsupported");
+    }
+
+    @Override
+    public long getMvccReadPoint() {
+        return Long.MAX_VALUE;
+    }
+
+    @Override
+    public boolean nextRaw(List<KeyValue> result, String metric) throws IOException {
+        return next(result, metric);
+    }
+
+    @Override
+    public boolean nextRaw(List<KeyValue> result, int limit, String metric) throws IOException {
+        return next(result, limit, metric);
     }
 }

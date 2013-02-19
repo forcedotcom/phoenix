@@ -39,7 +39,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-
 import com.google.common.collect.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.*;
@@ -354,7 +353,7 @@ public class PTableImpl implements PTable {
         public void delete() {
             setValues = new Put(key);
             unsetValues = new Delete(key);
-            deleteRow = new Delete(key,ts,null);
+            deleteRow = new Delete(key,ts);
         }
     }
 

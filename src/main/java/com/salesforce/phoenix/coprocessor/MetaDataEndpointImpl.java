@@ -46,7 +46,6 @@ import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 
-
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
@@ -400,7 +399,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 }
                 List<Mutation> rowsToDelete = Lists.newArrayListWithExpectedSize(10);
                 do {
-                    Delete delete = new Delete(results.get(0).getRow(), clientTimeStamp, null);
+                    Delete delete = new Delete(results.get(0).getRow(), clientTimeStamp);
                     rowsToDelete.add(delete);
                     results.clear();
                     scanner.next(results);

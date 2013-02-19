@@ -32,7 +32,8 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import java.io.*;
 import java.util.*;
 
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
@@ -238,31 +239,6 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 done = true;
                 results.add(aggKeyValue);
                 return false;
-            }
-
-            @Override
-            public boolean next(List<KeyValue> result, int limit) throws IOException {
-                return next(result);
-            }
-
-			@Override
-			public boolean reseek(byte[] row) throws IOException {
-                throw new DoNotRetryIOException("Unsupported");
-			}
-
-            @Override
-            public long getMvccReadPoint() {
-                return Long.MAX_VALUE;
-            }
-
-            @Override
-            public boolean nextRaw(List<KeyValue> result, String metric) throws IOException {
-                return next(result, metric);
-            }
-
-            @Override
-            public boolean nextRaw(List<KeyValue> result, int limit, String metric) throws IOException {
-                return next(result, limit, metric);
             }
         };
         return scanner;

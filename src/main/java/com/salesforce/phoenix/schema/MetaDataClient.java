@@ -367,7 +367,7 @@ public class MetaDataClient {
             String tableName = tableNameNode.getTableName();
             byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
             Long scn = connection.getSCN();
-            List<Mutation> tableMetaData = Collections.<Mutation>singletonList(new Delete(key, scn == null ? HConstants.LATEST_TIMESTAMP : scn, null));
+            List<Mutation> tableMetaData = Collections.<Mutation>singletonList(new Delete(key, scn == null ? HConstants.LATEST_TIMESTAMP : scn));
             MetaDataMutationResult result = connection.getQueryServices().dropTable(tableMetaData, statement.isView());
             MutationCode code = result.getMutationCode();
             switch(code) {

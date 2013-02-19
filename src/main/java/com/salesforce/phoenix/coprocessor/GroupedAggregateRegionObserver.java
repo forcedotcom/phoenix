@@ -268,11 +268,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 }
     
                 @Override
-                public boolean isFilterDone() {
-                    return false;
-                }
-    
-                @Override
                 public void close() throws IOException {
                     try {
                         s.close();
@@ -287,31 +282,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     results.add(aggResults.get(index));
                     index++;
                     return index < aggResults.size();
-                }
-    
-                @Override
-                public boolean next(List<KeyValue> result, int limit) throws IOException {
-                    return next(result);
-                }
-
-                @Override
-                public boolean reseek(byte[] row) throws IOException {
-                    throw new DoNotRetryIOException("Unsupported");
-                }
-
-                @Override
-                public long getMvccReadPoint() {
-                    return Long.MAX_VALUE;
-                }
-
-                @Override
-                public boolean nextRaw(List<KeyValue> result, String metric) throws IOException {
-                    return next(result, metric);
-                }
-
-                @Override
-                public boolean nextRaw(List<KeyValue> result, int limit, String metric) throws IOException {
-                    return next(result, limit, metric);
                 }
             };
             success = true;
@@ -337,11 +307,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             @Override
             public HRegionInfo getRegionInfo() {
                 return s.getRegionInfo();
-            }
-
-            @Override
-            public boolean isFilterDone() {
-                return false; 
             }
 
             @Override
@@ -404,31 +369,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 }
                 currentKey = null;
                 return false;
-            }
-
-            @Override
-            public boolean next(List<KeyValue> result, int limit) throws IOException {
-                return next(result);
-            }
-            
-            @Override
-            public boolean reseek(byte[] row) throws IOException {
-                throw new DoNotRetryIOException("Unsupported");
-            }
-
-            @Override
-            public long getMvccReadPoint() {
-                return Long.MAX_VALUE;
-            }
-
-            @Override
-            public boolean nextRaw(List<KeyValue> result, String metric) throws IOException {
-                return next(result, metric);
-            }
-
-            @Override
-            public boolean nextRaw(List<KeyValue> result, int limit, String metric) throws IOException {
-                return next(result, limit, metric);
             }
         };
     }
