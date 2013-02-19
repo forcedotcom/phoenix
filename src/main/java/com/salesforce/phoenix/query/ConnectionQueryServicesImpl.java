@@ -564,7 +564,17 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         return true; // will never make it here
     }
 
+    /**
+     * FIXME: Temporary code to convert tables to 0.94.4 format (i.e. no jar specified
+     * in coprocessor definition). This is necessary because of a change in
+     * HBase behavior between 0.94.3 and 0.94.4. Once everyone has been upgraded
+     * this code can be removed.
+     * @throws SQLException
+     */
     private void upgradeTablesFrom0_94_2to0_94_4() throws SQLException {
+        if (logger.isInfoEnabled()) {
+            logger.info("Upgrading tables from HBase 0.94.2 to 0.94.4+");
+        }
         HBaseAdmin admin = null;
         try {
             admin = new HBaseAdmin(this.getConfig());
