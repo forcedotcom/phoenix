@@ -27,6 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.util.List;
+import java.util.SortedSet;
+
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.client.Scan;
+
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.TableRef;
+
 
 /**
  * Parallel iterator that would split the region depending on the statistics collected
@@ -36,5 +46,10 @@ package com.salesforce.phoenix.iterate;
  */
 public class StatBasedParallelIteratorRegionSpliter implements
         ParallelIteratorRegionSpliter {
+
+    @Override
+    public List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
+        return null;
+    }
 
 }

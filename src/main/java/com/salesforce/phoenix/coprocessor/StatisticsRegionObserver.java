@@ -38,4 +38,6 @@ import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
  */
 public class StatisticsRegionObserver extends BaseRegionObserver {
 
+    
+
 }

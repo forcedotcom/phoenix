@@ -67,7 +67,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 100; // 100K
 
-    private static final Function<HRegionInfo, KeyRange> TO_KEY_RANGE = new Function<HRegionInfo, KeyRange>() {
+    static final Function<HRegionInfo, KeyRange> TO_KEY_RANGE = new Function<HRegionInfo, KeyRange>() {
         @Override
         public KeyRange apply(HRegionInfo region) {
             return KeyRange.getKeyRange(region);
@@ -115,7 +115,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
      * @return the key ranges that should be scanned in parallel
      */
     // exposed for tests
-    public static List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan,SortedSet<HRegionInfo> allTableRegions) {
+    public static List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
         Configuration config = services.getConfig();
         final int targetConcurrency = config.getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB,
                 QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY);
