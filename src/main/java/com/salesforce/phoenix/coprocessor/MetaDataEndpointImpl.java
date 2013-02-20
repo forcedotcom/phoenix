@@ -399,6 +399,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 }
                 List<Mutation> rowsToDelete = Lists.newArrayListWithExpectedSize(10);
                 do {
+                    @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
                     Delete delete = new Delete(results.get(0).getRow(), clientTimeStamp);
                     rowsToDelete.add(delete);
                     results.clear();

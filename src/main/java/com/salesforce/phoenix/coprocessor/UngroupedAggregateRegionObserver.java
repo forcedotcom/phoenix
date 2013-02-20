@@ -136,7 +136,9 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                     result.setKeyValues(results);
                     try {
                         if (isDelete) {
-                            mutations.add(new Pair<Mutation,Integer>(new Delete(results.get(0).getRow(),ts),null));
+                            @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
+                            Delete delete = new Delete(results.get(0).getRow(),ts);
+                            mutations.add(new Pair<Mutation,Integer>(delete,null));
                         } else if (isUpsert) {
                             Arrays.fill(values, null);
                             int i = 0;

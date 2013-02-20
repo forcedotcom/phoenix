@@ -353,7 +353,9 @@ public class PTableImpl implements PTable {
         public void delete() {
             setValues = new Put(key);
             unsetValues = new Delete(key);
-            deleteRow = new Delete(key,ts);
+            @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
+            Delete delete = new Delete(key,ts);
+            deleteRow = delete;
         }
     }
 
