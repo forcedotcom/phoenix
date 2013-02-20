@@ -111,7 +111,8 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
             put.add(family, uintCol, ts-4, Bytes.toBytes(5000));
             put.add(family, ulongCol, ts-4, Bytes.toBytes(50000L));
             mutations.add(put);
-            Delete del = new Delete(key, ts-2, null);
+            @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
+            Delete del = new Delete(key, ts-2);
             mutations.add(del);
             put = new Put(key);
             put.add(family, uintCol, ts, Bytes.toBytes(2000));

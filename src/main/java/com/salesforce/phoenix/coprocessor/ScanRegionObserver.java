@@ -131,6 +131,30 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
                 return s.reseek(row);
             }
             
+            @Override
+            public long getMvccReadPoint() {
+                return s.getMvccReadPoint();
+            }
+
+            @Override
+            public boolean nextRaw(List<KeyValue> result, String metric) throws IOException {
+                try {
+                    return s.nextRaw(result, metric);
+                } catch (Throwable t) {
+                    ServerUtil.throwIOException(c.getEnvironment().getRegion().getRegionNameAsString(), t);
+                    return false; // impossible
+                }
+            }
+
+            @Override
+            public boolean nextRaw(List<KeyValue> result, int limit, String metric) throws IOException {
+                try {
+                    return s.nextRaw(result, limit, metric);
+                } catch (Throwable t) {
+                    ServerUtil.throwIOException(c.getEnvironment().getRegion().getRegionNameAsString(), t);
+                    return false; // impossible
+                }
+            }
         };
     }
 

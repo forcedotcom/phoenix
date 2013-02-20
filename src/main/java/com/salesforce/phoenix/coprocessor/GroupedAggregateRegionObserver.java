@@ -37,7 +37,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.regionserver.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
@@ -200,36 +200,43 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             int estValueSize = aggregators.getSize();
             MultiKeyValueTuple result = new MultiKeyValueTuple();
             Map<ImmutableBytesWritable, Aggregator[]> aggregateMap = new HashMap<ImmutableBytesWritable, Aggregator[]>(estDistVals);
-            do {
-                List<KeyValue> results = new ArrayList<KeyValue>();
-                // Results are potentially returned even when the return value of s.next is false
-                // since this is an indication of whether or not there are more values after the
-                // ones returned
-                hasMore = s.next(results) && !s.isFilterDone();
-                if (!results.isEmpty()) {
-                    result.setKeyValues(results);
-                    ImmutableBytesWritable key = getKey(expressions, result);
-                    Aggregator[] rowAggregators = aggregateMap.get(key);
-                    if (rowAggregators == null) {
-                        // If Aggregators not found for this distinct value, clone our original one (we need one per distinct value)
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("Adding new aggregate bucket for row key " + Bytes.toStringBinary(key.get(),key.getOffset(),key.getLength()));
+            HRegion region = c.getEnvironment().getRegion();
+            MultiVersionConsistencyControl.setThreadReadPoint(s.getMvccReadPoint());
+            region.startRegionOperation();
+            try {
+                do {
+                    List<KeyValue> results = new ArrayList<KeyValue>();
+                    // Results are potentially returned even when the return value of s.next is false
+                    // since this is an indication of whether or not there are more values after the
+                    // ones returned
+                    hasMore = s.nextRaw(results, null) && !s.isFilterDone();
+                    if (!results.isEmpty()) {
+                        result.setKeyValues(results);
+                        ImmutableBytesWritable key = getKey(expressions, result);
+                        Aggregator[] rowAggregators = aggregateMap.get(key);
+                        if (rowAggregators == null) {
+                            // If Aggregators not found for this distinct value, clone our original one (we need one per distinct value)
+                            if (logger.isDebugEnabled()) {
+                                logger.debug("Adding new aggregate bucket for row key " + Bytes.toStringBinary(key.get(),key.getOffset(),key.getLength()));
+                            }
+                            aggregateMap.put(key, rowAggregators = aggregators.newAggregators());
                         }
-                        aggregateMap.put(key, rowAggregators = aggregators.newAggregators());
+                        // Aggregate values here
+                        aggregators.aggregate(rowAggregators, result);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Row passed filters: " + results + ", aggregated values: " + Arrays.asList(rowAggregators));
+                        }
+                            
+                        if (aggregateMap.size() > estDistVals) { // increase allocation
+                            estDistVals *= 3/2;
+                            estSize = sizeOfUnorderedGroupByMap(estDistVals, estValueSize);
+                            chunk.resize(estSize);
+                        }
                     }
-                    // Aggregate values here
-                    aggregators.aggregate(rowAggregators, result);
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Row passed filters: " + results + ", aggregated values: " + Arrays.asList(rowAggregators));
-                    }
-                        
-                    if (aggregateMap.size() > estDistVals) { // increase allocation
-                        estDistVals *= 3/2;
-                        estSize = sizeOfUnorderedGroupByMap(estDistVals, estValueSize);
-                        chunk.resize(estSize);
-                    }
-                }
-            } while (hasMore);
+                } while (hasMore);
+            } finally {
+                region.closeRegionOperation();
+            }
     
             // Compute final allocation
             estSize = sizeOfUnorderedGroupByMap(aggregateMap.size(), estValueSize);
@@ -261,11 +268,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 }
     
                 @Override
-                public boolean isFilterDone() {
-                    return false;
-                }
-    
-                @Override
                 public void close() throws IOException {
                     try {
                         s.close();
@@ -281,16 +283,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     index++;
                     return index < aggResults.size();
                 }
-    
-                @Override
-                public boolean next(List<KeyValue> result, int limit) throws IOException {
-                    return next(result);
-                }
-
-                @Override
-                public boolean reseek(byte[] row) throws IOException {
-                    throw new DoNotRetryIOException("Unsupported");
-                }
             };
             success = true;
             return scanner;
@@ -304,7 +296,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
      * Used for an aggregate query in which the key order match the group by key order. In this case, we can do the
      * aggregation as we scan, by detecting when the group by key changes.
      */
-    private RegionScanner scanOrdered(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, final List<Expression> expressions, final ServerAggregators aggregators) {
+    private RegionScanner scanOrdered(final ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, final List<Expression> expressions, final ServerAggregators aggregators) {
         
         if (logger.isDebugEnabled()) {
             logger.debug("Grouped aggregation over ordered rows with scan " + scan + ", group by " + expressions + ", aggregators " + aggregators);
@@ -315,11 +307,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             @Override
             public HRegionInfo getRegionInfo() {
                 return s.getRegionInfo();
-            }
-
-            @Override
-            public boolean isFilterDone() {
-                return false; 
             }
 
             @Override
@@ -334,25 +321,32 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 MultiKeyValueTuple result = new MultiKeyValueTuple();
                 ImmutableBytesWritable key = null;
                 Aggregator[] rowAggregators = aggregators.getAggregators();
-                do {
-                    List<KeyValue> kvs = new ArrayList<KeyValue>();
-                    // Results are potentially returned even when the return value of s.next is false
-                    // since this is an indication of whether or not there are more values after the
-                    // ones returned
-                    hasMore = s.next(kvs) && !s.isFilterDone();
-                    if (!kvs.isEmpty()) {
-                        result.setKeyValues(kvs);
-                        key = getKey(expressions, result);
-                        aggBoundary = currentKey != null && currentKey.compareTo(key) != 0;
-                        if (!aggBoundary) {
-                            aggregators.aggregate(rowAggregators, result);
-                            if (logger.isDebugEnabled()) {
-                                logger.debug("Row passed filters: " + kvs + ", aggregated values: " + Arrays.asList(rowAggregators));
+                HRegion region = c.getEnvironment().getRegion();
+                MultiVersionConsistencyControl.setThreadReadPoint(s.getMvccReadPoint());
+                region.startRegionOperation();
+                try {
+                    do {
+                        List<KeyValue> kvs = new ArrayList<KeyValue>();
+                        // Results are potentially returned even when the return value of s.next is false
+                        // since this is an indication of whether or not there are more values after the
+                        // ones returned
+                        hasMore = s.nextRaw(kvs, null) && !s.isFilterDone();
+                        if (!kvs.isEmpty()) {
+                            result.setKeyValues(kvs);
+                            key = getKey(expressions, result);
+                            aggBoundary = currentKey != null && currentKey.compareTo(key) != 0;
+                            if (!aggBoundary) {
+                                aggregators.aggregate(rowAggregators, result);
+                                if (logger.isDebugEnabled()) {
+                                    logger.debug("Row passed filters: " + kvs + ", aggregated values: " + Arrays.asList(rowAggregators));
+                                }
+                                currentKey = key;
                             }
-                            currentKey = key;
                         }
-                    }
-                } while (hasMore && !aggBoundary);
+                    } while (hasMore && !aggBoundary);
+                } finally {
+                    region.closeRegionOperation();
+                }
                 
                 if (currentKey != null) {
                     byte[] value = aggregators.toBytes(rowAggregators);
@@ -375,16 +369,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 }
                 currentKey = null;
                 return false;
-            }
-
-            @Override
-            public boolean next(List<KeyValue> result, int limit) throws IOException {
-                return next(result);
-            }
-            
-            @Override
-            public boolean reseek(byte[] row) throws IOException {
-                throw new DoNotRetryIOException("Unsupported");
             }
         };
     }

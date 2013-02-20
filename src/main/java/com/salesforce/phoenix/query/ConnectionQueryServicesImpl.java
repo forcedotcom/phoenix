@@ -30,7 +30,7 @@ package com.salesforce.phoenix.query;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME;
 
 import java.io.IOException;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
@@ -58,8 +58,7 @@ import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.TableNotFoundException;
-import com.salesforce.phoenix.util.JDBCUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 public class ConnectionQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices {
     private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
@@ -480,8 +479,19 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                         newDesc.addFamily(cd);
                     }
                 }
+                boolean removePhoenixJarPath = false;
                 if (isMetaTable) {
-                    checkClientServerCompatibility();
+                    /*
+                     *  FIXME: remove this once everyone has been upgraded to v 0.94.4+
+                     *  This hack checks to see if we've got "phoenix.jar" specified as
+                     *  the jar file path. We need to set this to null in this case due
+                     *  to a change in behavior of HBase.
+                     */
+                    String value = existingDesc.getValue("coprocessor$1");
+                    removePhoenixJarPath = (value != null && value.startsWith("phoenix.jar"));
+                    if (!removePhoenixJarPath) {
+                        checkClientServerCompatibility();
+                    }
                 }
                 // Update metadata of table
                 // TODO: Take advantage of online schema change ability by setting "hbase.online.schema.update.enable" to true
@@ -489,6 +499,17 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 // TODO: What if not all existing column families are present?
                 admin.modifyTable(tableName, newDesc);
                 admin.enableTable(tableName);
+                /*
+                 *  FIXME: remove this once everyone has been upgraded to v 0.94.4+
+                 * We've detected that the SYSTEM.TABLE needs to be upgraded, so let's
+                 * query and update all tables here.
+                 */
+                if (removePhoenixJarPath) {
+                    // Do the compatibility check here, now that the SYSTEM.TABLE
+                    // has been changed so that the endpoint coprocessor will work again.
+                    checkClientServerCompatibility();
+                    upgradeTablesFrom0_94_2to0_94_4();
+                }
                 return false;
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
             }
@@ -541,6 +562,72 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
         }
         return true; // will never make it here
+    }
+
+    /**
+     * FIXME: Temporary code to convert tables to 0.94.4 format (i.e. no jar specified
+     * in coprocessor definition). This is necessary because of a change in
+     * HBase behavior between 0.94.3 and 0.94.4. Once everyone has been upgraded
+     * this code can be removed.
+     * @throws SQLException
+     */
+    private void upgradeTablesFrom0_94_2to0_94_4() throws SQLException {
+        if (logger.isInfoEnabled()) {
+            logger.info("Upgrading tables from HBase 0.94.2 to 0.94.4+");
+        }
+        HBaseAdmin admin = null;
+        try {
+            admin = new HBaseAdmin(this.getConfig());
+            int defaultPort = 2181;
+            String quorum = this.config.get("hbase.zookeeper.quorum");
+            int port = this.config.getInt("hbase.zookeeper.property.clientPort", defaultPort);
+            String url = PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + quorum + (port == defaultPort ? "" : PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + port);
+            Connection conn = DriverManager.getConnection(url);
+            try {
+                DatabaseMetaData metaData = conn.getMetaData();
+                ResultSet rs = metaData.getTables(null, null, null, new String[] {PTableType.USER.getSerializedValue(), PTableType.VIEW.getSerializedValue()});
+                while (rs.next()) {
+                    String schemaName = rs.getString(2);
+                    String tableName = rs.getString(3);
+                    byte[] table = SchemaUtil.getTableName(schemaName, tableName);
+                    try {
+                        HTableDescriptor existingDesc = admin.getTableDescriptor(table);
+                        existingDesc.removeCoprocessor(ScanRegionObserver.class.getName());
+                        existingDesc.removeCoprocessor(UngroupedAggregateRegionObserver.class.getName());
+                        existingDesc.removeCoprocessor(GroupedAggregateRegionObserver.class.getName());
+                        existingDesc.removeCoprocessor(HashJoiningRegionObserver.class.getName());
+                        existingDesc.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
+                        existingDesc.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
+                        existingDesc.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
+                        existingDesc.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
+                        boolean wasEnabled = admin.isTableEnabled(table);
+                        if (wasEnabled) {
+                            admin.disableTable(table);
+                        }
+                        admin.modifyTable(table, existingDesc);
+                        if (wasEnabled) {
+                            admin.enableTable(table);
+                        }
+                    } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
+                        logger.error("Unable to convert " + SchemaUtil.getTableDisplayName(schemaName, tableName), e);
+                    } catch (IOException e) {
+                        logger.error("Unable to convert " + SchemaUtil.getTableDisplayName(schemaName, tableName), e);
+                    }
+                }
+            } finally {
+                conn.close();
+            }
+        } catch (MasterNotRunningException e) {
+            throw new SQLException(e);
+        } catch (ZooKeeperConnectionException e) {
+            throw new SQLException(e);
+        } finally {
+            try {
+                admin.close();
+            } catch (IOException e) {
+                throw new SQLException(e);
+            }
+        }
     }
 
     private boolean isCompatible(Long serverVersion) {
