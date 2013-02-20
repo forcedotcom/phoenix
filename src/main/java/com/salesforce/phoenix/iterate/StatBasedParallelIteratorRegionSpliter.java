@@ -44,8 +44,7 @@ import com.salesforce.phoenix.schema.TableRef;
  * 
  * @author zhuang
  */
-public class StatBasedParallelIteratorRegionSpliter implements
-        ParallelIteratorRegionSpliter {
+public class StatBasedParallelIteratorRegionSpliter implements ParallelIteratorRegionSpliter {
 
     @Override
     public List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
