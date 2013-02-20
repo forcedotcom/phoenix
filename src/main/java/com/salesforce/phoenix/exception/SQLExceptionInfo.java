@@ -153,9 +153,9 @@ public class SQLExceptionInfo {
 
     public SQLException buildException() {
         if (rootCause != null) {
-            return new SQLException(toString(), code.getSQLState(), rootCause);
+            return new SQLException(toString(), code.getSQLState(), code.getErrorCode(), rootCause);
         } else {
-            return new SQLException(toString(), code.getSQLState());
+            return new SQLException(toString(), code.getSQLState(), code.getErrorCode(), null);
         }
     }
 

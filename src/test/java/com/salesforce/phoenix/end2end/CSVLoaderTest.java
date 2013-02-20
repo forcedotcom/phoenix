@@ -190,7 +190,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
             csvUtil.upsert(reader);
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42703): Undefined column. columnName=STOCK_SYMBOL.[FOO, BAR]"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 504 (42703): Undefined column. columnName=STOCK_SYMBOL.[FOO, BAR]"));
         }
         conn.close();
     }
@@ -209,7 +209,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
             csvUtil.upsert(reader);
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42703): Undefined column. columnName=STOCK_SYMBOL.BOGUS"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 504 (42703): Undefined column. columnName=STOCK_SYMBOL.BOGUS"));
         }
         conn.close();
     }
