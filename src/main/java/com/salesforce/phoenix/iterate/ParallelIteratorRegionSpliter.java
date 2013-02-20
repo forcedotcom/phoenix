@@ -27,6 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.util.List;
+import java.util.SortedSet;
+
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.client.Scan;
+
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.TableRef;
+
 
 /**
  * Interface for strategies determining how to split regions in ParallelIterators.
@@ -35,4 +45,5 @@ package com.salesforce.phoenix.iterate;
  */
 public interface ParallelIteratorRegionSpliter {
 
+    public List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions);
 }

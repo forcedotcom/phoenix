@@ -25,19 +25,17 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.coprocessor;
-
-import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
+package com.salesforce.phoenix.iterate;
 
 
 /**
- * Observer that collects statistics of each region's key distributioin and store them into
- * the statistics system table for future usage.
+ * Factory class for the Region Spliter used by the project.
  * 
  * @author zhuang
  */
-public class StatisticsRegionObserver extends BaseRegionObserver {
+public class ParallelIteratorRegionSpliterFactory {
 
-    
-
+    public ParallelIteratorRegionSpliter getSpliter() {
+        return DefaultParallelIteratorRegionSpliter.getInstance();
+    }
 }
