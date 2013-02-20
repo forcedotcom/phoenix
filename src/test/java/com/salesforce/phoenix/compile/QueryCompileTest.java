@@ -95,7 +95,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42889): The table already has a primary key. columnName=PK2"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 510 (42889): The table already has a primary key. columnName=PK2"));
         } finally {
             conn.close();
         }
@@ -110,7 +110,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42889): The table already has a primary key. columnName=PK"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 510 (42889): The table already has a primary key. columnName=PK"));
         } finally {
             conn.close();
         }
@@ -125,7 +125,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42J01): Primary key should not have a family name. columnName=A.PK"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1003 (42J01): Primary key should not have a family name. columnName=A.PK"));
         } finally {
             conn.close();
         }
@@ -140,7 +140,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42888): The table does not have a primary key. tableName=FOO"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 509 (42888): The table does not have a primary key. tableName=FOO"));
         } finally {
             conn.close();
         }
@@ -177,7 +177,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y27): Aggregate may not contain columns not in GROUP BY."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_INTEGER"));
         }
     }
     
@@ -197,7 +197,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y27): Aggregate may not contain columns not in GROUP BY."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_INTEGER"));
         }
     }
     
@@ -217,7 +217,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y26): Aggregate may not be used in WHERE."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1017 (42Y26): Aggregate may not be used in WHERE."));
         }
     }
 
@@ -237,7 +237,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y27): Aggregate may not contain columns not in GROUP BY."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_INTEGER"));
         }
     }
 
@@ -257,7 +257,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y26): Only aggregate maybe used in the HAVING clause."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1019 (42Y26): Only aggregate maybe used in the HAVING clause."));
         }
     }
 
@@ -462,7 +462,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(22000): Illegal data."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 201 (22000): Illegal data."));
             assertTrue(e.getCause().getMessage().contains("CHAR types may only contain single byte characters"));
         }
     }
@@ -482,7 +482,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y27): Aggregate may not contain columns not in GROUP BY."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY."));
         }
     }
 
@@ -520,7 +520,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y27): Aggregate may not contain columns not in GROUP BY."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_STRING"));
         }
     }
 
@@ -539,7 +539,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y27): Aggregate may not contain columns not in GROUP BY."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_STRING"));
         }
     }
 
@@ -558,7 +558,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("SQLState(42Y27): Aggregate may not contain columns not in GROUP BY."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. B_STRING"));
         }
     }
 
@@ -681,10 +681,10 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 statement.executeQuery();
                 fail(query);
             } catch (SQLException e) {
-                if (e.getMessage().contains("SQLState(22005): Type mismatch.")) {
+                if (e.getMessage().contains("ERROR 203 (22005): Type mismatch.")) {
                     continue;
                 }
-                throw new IllegalStateException("Didn't find type mismatch: " + query,e);
+                throw new IllegalStateException("Didn't find type mismatch: " + query, e);
             }
         }
     }
@@ -736,7 +736,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.executeQuery();
             fail();
         } catch (SQLException e) { // expected
-            assertTrue(e.getMessage().contains("SQLState(42846): Cannot convert type. COALESCE expected INTEGER, but got VARCHAR"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 507 (42846): Cannot convert type. COALESCE expected INTEGER, but got VARCHAR"));
         } finally {
             conn.close();
         }
