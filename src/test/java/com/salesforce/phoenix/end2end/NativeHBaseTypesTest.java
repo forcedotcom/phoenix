@@ -73,11 +73,7 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
             HColumnDescriptor columnDescriptor =  new HColumnDescriptor(FAMILY_NAME);
             columnDescriptor.setKeepDeletedCells(true);
             descriptor.addFamily(columnDescriptor);
-            if (SPLITS == null) {
-                admin.createTable(descriptor);
-            } else {
-                admin.createTable(descriptor, SPLITS);
-            }
+            admin.createTable(descriptor, SPLITS);
             initTableValues();
         } finally {
             admin.close();
