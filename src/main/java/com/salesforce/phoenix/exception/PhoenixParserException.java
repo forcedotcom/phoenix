@@ -40,11 +40,11 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
 
     public PhoenixParserException(RecognitionException e, PhoenixSQLParser parser) {
         super(new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(getParserMessage(e, parser)).build().toString(),
+                .setMessage(getErrorMessage(e, parser)).build().toString(),
                 code.getSQLState(), code.getErrorCode(), e);
     }
 
-    public static String getParserMessage(RecognitionException e, PhoenixSQLParser parser) {
+    public static String getErrorMessage(RecognitionException e, PhoenixSQLParser parser) {
         // Change this method to generate our own message.
         return parser.getErrorMessage(e,parser.getTokenNames());
     }
