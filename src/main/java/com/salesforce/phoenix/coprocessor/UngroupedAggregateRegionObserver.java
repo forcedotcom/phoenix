@@ -32,19 +32,18 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import java.io.*;
 import java.util.*;
 
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.regionserver.HRegion;
-import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.regionserver.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -123,73 +122,81 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         	logger.info("Starting ungrouped coprocessor scan " + scan);
         }
         long rowCount = 0;
-        do {
-            List<KeyValue> results = new ArrayList<KeyValue>();
-            // Results are potentially returned even when the return value of s.next is false
-            // since this is an indication of whether or not there are more values after the
-            // ones returned
-            hasMore = s.next(results) && !s.isFilterDone();
-            if (!results.isEmpty()) {
-            	rowCount++;
-                result.setKeyValues(results);
-                try {
-                    if (isDelete) {
-                        mutations.add(new Pair<Mutation,Integer>(new Delete(results.get(0).getRow(),ts,null),null));
-                    } else if (isUpsert) {
-                        Arrays.fill(values, null);
-                        int i = 0;
-                        for (; i < projectedTable.getPKColumns().size(); i++) {
-                            if (selectExpressions.get(i).evaluate(result, ptr)) {
-                                values[i] = ptr.copyBytes();
-                            }
-                        }
-                        projectedTable.newKey(ptr, values);
-                        PRow row = projectedTable.newRow(ts, ptr);
-                        for (; i < projectedTable.getColumns().size(); i++) {
-                            if (selectExpressions.get(i).evaluate(result, ptr)) {
-                                row.setValue(projectedTable.getColumns().get(i), ptr.copyBytes());
-                            }
-                        }
-                        for (Mutation mutation : row.toRowMutations()) {
-                            mutations.add(new Pair<Mutation,Integer>(mutation,null));
-                        }
-                    } else if (deleteCF != null && deleteCQ != null) {
-                        // No need to search for delete column, since we project only it
-                        // if no empty key value is being set
-                        if (emptyCF == null || result.getValue(deleteCF, deleteCQ) != null) {
-                            Delete delete = new Delete(results.get(0).getRow());
-                            delete.deleteColumns(deleteCF,  deleteCQ, ts);
+        MultiVersionConsistencyControl.setThreadReadPoint(s.getMvccReadPoint());
+        region.startRegionOperation();
+        try {
+            do {
+                List<KeyValue> results = new ArrayList<KeyValue>();
+                // Results are potentially returned even when the return value of s.next is false
+                // since this is an indication of whether or not there are more values after the
+                // ones returned
+                hasMore = s.nextRaw(results, null) && !s.isFilterDone();
+                if (!results.isEmpty()) {
+                	rowCount++;
+                    result.setKeyValues(results);
+                    try {
+                        if (isDelete) {
+                            @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
+                            Delete delete = new Delete(results.get(0).getRow(),ts);
                             mutations.add(new Pair<Mutation,Integer>(delete,null));
-                        }
-                    }
-                    if (emptyCF != null) {
-                        /*
-                         * If we've specified an emptyCF, then we need to insert an empty
-                         * key value "retroactively" for any key value that is visible at
-                         * the timestamp that the DDL was issued. Key values that are not
-                         * visible at this timestamp will not ever be projected up to
-                         * scans past this timestamp, so don't need to be considered.
-                         * We insert one empty key value per row per timestamp.
-                         */
-                        Set<Long> timeStamps = Sets.newHashSetWithExpectedSize(results.size());
-                        for (KeyValue kv : results) {
-                            long kvts = kv.getTimestamp();
-                            if (!timeStamps.contains(kvts)) {
-                                Put put = new Put(kv.getRow());
-                                put.add(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES, kvts, ByteUtil.EMPTY_BYTE_ARRAY);
-                                mutations.add(new Pair<Mutation,Integer>(put,null));
+                        } else if (isUpsert) {
+                            Arrays.fill(values, null);
+                            int i = 0;
+                            for (; i < projectedTable.getPKColumns().size(); i++) {
+                                if (selectExpressions.get(i).evaluate(result, ptr)) {
+                                    values[i] = ptr.copyBytes();
+                                }
+                            }
+                            projectedTable.newKey(ptr, values);
+                            PRow row = projectedTable.newRow(ts, ptr);
+                            for (; i < projectedTable.getColumns().size(); i++) {
+                                if (selectExpressions.get(i).evaluate(result, ptr)) {
+                                    row.setValue(projectedTable.getColumns().get(i), ptr.copyBytes());
+                                }
+                            }
+                            for (Mutation mutation : row.toRowMutations()) {
+                                mutations.add(new Pair<Mutation,Integer>(mutation,null));
+                            }
+                        } else if (deleteCF != null && deleteCQ != null) {
+                            // No need to search for delete column, since we project only it
+                            // if no empty key value is being set
+                            if (emptyCF == null || result.getValue(deleteCF, deleteCQ) != null) {
+                                Delete delete = new Delete(results.get(0).getRow());
+                                delete.deleteColumns(deleteCF,  deleteCQ, ts);
+                                mutations.add(new Pair<Mutation,Integer>(delete,null));
                             }
                         }
+                        if (emptyCF != null) {
+                            /*
+                             * If we've specified an emptyCF, then we need to insert an empty
+                             * key value "retroactively" for any key value that is visible at
+                             * the timestamp that the DDL was issued. Key values that are not
+                             * visible at this timestamp will not ever be projected up to
+                             * scans past this timestamp, so don't need to be considered.
+                             * We insert one empty key value per row per timestamp.
+                             */
+                            Set<Long> timeStamps = Sets.newHashSetWithExpectedSize(results.size());
+                            for (KeyValue kv : results) {
+                                long kvts = kv.getTimestamp();
+                                if (!timeStamps.contains(kvts)) {
+                                    Put put = new Put(kv.getRow());
+                                    put.add(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES, kvts, ByteUtil.EMPTY_BYTE_ARRAY);
+                                    mutations.add(new Pair<Mutation,Integer>(put,null));
+                                }
+                            }
+                        }
+                    } catch (ConstraintViolationException e) {
+                        // Log and ignore in count
+                        logger.error("Failed to create row in " + region.getRegionNameAsString() + " with values " + SchemaUtil.toString(values), e);
+                        continue;
                     }
-                } catch (ConstraintViolationException e) {
-                    // Log and ignore in count
-                    logger.error("Failed to create row in " + region.getRegionNameAsString() + " with values " + SchemaUtil.toString(values), e);
-                    continue;
+                    aggregators.aggregate(rowAggregators, result);
+                    hasAny = true;
                 }
-                aggregators.aggregate(rowAggregators, result);
-                hasAny = true;
-            }
-        } while (hasMore);
+            } while (hasMore);
+        } finally {
+            region.closeRegionOperation();
+        }
         
         if (logger.isInfoEnabled()) {
         	logger.info("Finished scanning " + rowCount + " rows for ungrouped coprocessor scan " + scan);
@@ -235,17 +242,6 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 results.add(aggKeyValue);
                 return false;
             }
-
-            @Override
-            public boolean next(List<KeyValue> result, int limit) throws IOException {
-                return next(result);
-            }
-
-			@Override
-			public boolean reseek(byte[] row) throws IOException {
-                throw new DoNotRetryIOException("Unsupported");
-			}
-
         };
         return scanner;
     }

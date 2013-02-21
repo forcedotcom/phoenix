@@ -34,7 +34,6 @@ import java.util.*;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.Pair;
 
-
 import com.google.common.collect.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
@@ -121,7 +120,12 @@ public class FromCompiler {
         @Override
         protected TableRef createTableRef(String alias, String schemaName, String tableName) throws SQLException {
             long timeStamp = Math.abs(client.updateCache(schemaName, tableName));
-            PSchema theSchema = connection.getPMetaData().getSchema(schemaName);
+            PSchema theSchema = null;
+            try {
+                theSchema = connection.getPMetaData().getSchema(schemaName);
+            } catch (SchemaNotFoundException e) { // Rethrow with more info
+                throw new TableNotFoundException(schemaName, tableName);
+            }
             PTable theTable = theSchema.getTable(tableName);
             TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
             return tableRef;
@@ -136,7 +140,12 @@ public class FromCompiler {
         
         @Override
         protected TableRef createTableRef(String alias, String schemaName, String tableName) throws SQLException {
-            PSchema theSchema = connection.getPMetaData().getSchema(schemaName);
+            PSchema theSchema = null;
+            try {
+                theSchema = connection.getPMetaData().getSchema(schemaName);
+            } catch (SchemaNotFoundException e) { // Rethrow with more info
+                throw new TableNotFoundException(schemaName, tableName);
+            }
             PTable theTable = theSchema.getTable(tableName);
             TableRef tableRef = new TableRef(alias, theTable, theSchema, HConstants.LATEST_TIMESTAMP);
             return tableRef;
