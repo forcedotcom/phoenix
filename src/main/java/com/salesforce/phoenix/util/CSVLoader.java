@@ -84,7 +84,7 @@ public class CSVLoader {
 	 * column value to correct type before upsert. Note: Column Names are
 	 * expected as first line of CSV file.
 	 * 
-	 * @param fileName
+	 * @param reader CSVReader instance
 	 * @throws Exception
 	 */
 	public void upsert(CSVReader reader) throws Exception {

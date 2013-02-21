@@ -67,7 +67,6 @@ public interface ColumnProjector {
      * Get the value of the column, coercing it if necessary to the specified type
      * @param tuple the row containing the column
      * @param type the type to which to coerce the binary value
-     * @param ptr TODO
      * @param ptr used to retrieve the value
      * @return the object representation of the column value.
      * @throws SQLException

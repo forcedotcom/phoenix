@@ -106,7 +106,7 @@ public interface PTable extends Writable {
 
     /**
      * Creates a new row at the specified timestamp using the key
-     * for the PK values (from {@link #newKey(ImmutableBytesWritable, byte[]...)}
+     * for the PK values (from {@link #newKey(ImmutableBytesWritable, byte[][])}
      * and the optional key values specified using values.
      * @param ts the timestamp that the key value will have when committed
      * @param key the row key of the key value
@@ -119,7 +119,7 @@ public interface PTable extends Writable {
     PRow newRow(long ts, ImmutableBytesWritable key, byte[]... values);
     
     /**
-     * Creates a new row for the PK values (from {@link #newKey(ImmutableBytesWritable, byte[]...)}
+     * Creates a new row for the PK values (from {@link #newKey(ImmutableBytesWritable, byte[][])}
      * and the optional key values specified using values. The timestamp of the key value
      * will be set by the HBase server.
      * @param key the row key of the key value

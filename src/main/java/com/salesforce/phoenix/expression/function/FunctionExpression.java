@@ -101,7 +101,7 @@ public abstract class FunctionExpression extends BaseCompoundExpression {
      * Zero-based index of child expression that determines the potential column used to form the row key during optimization.
      * For example, SUBSTR(prefix,1,3), the first child expression (prefix) would determine the row key column used to
      * help form the scan start/stop key
-     * @return
+     * @return int
      */
     public int getKeyFormationTraversalIndex() {
         return 0;

@@ -87,7 +87,7 @@ public class GlobalCache extends TenantCacheImpl {
      * used in which case a global tenant cache is returned.
      * @param config the HBase configuration
      * @param tenantId the tenant ID or null if not applicable.
-     * @return
+     * @return TenantCache
      */
     public static TenantCache getTenantCache(Configuration config, ImmutableBytesWritable tenantId) {
         GlobalCache globalCache = GlobalCache.getInstance(config);

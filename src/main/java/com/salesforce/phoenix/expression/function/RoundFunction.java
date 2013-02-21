@@ -50,7 +50,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * an even increment.  Usage:
  * ROUND(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,<optional integer multiplier>)
  * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
- * The function returns a {@link com.salesforce.phoenix.schema.PDataType.DATE}
+ * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
  *
  * @author jtaylor
  * @since 0.1

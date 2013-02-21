@@ -55,8 +55,7 @@ public class AggregateRowCounter implements RowCounter {
     /**
      * Construct an AggregateRowCounter that is used to short circuit scans with a rownum limit by
      * calculating the row count from aggregated query results.
-     * @param valueSchema the schema of the row result value.
-     * @param rowCountExpression expression that calculates the row count from a given row result
+     * @param aggregators aggregators
      */
     public AggregateRowCounter(Aggregators aggregators) {
         this.schema = aggregators.getValueSchema();

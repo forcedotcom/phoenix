@@ -70,7 +70,7 @@ public class ServerAggregators extends Aggregators {
     
     /**
      * Serialize an Aggregator into a byte array
-     * @param aggregator the aggregator to serialize
+     * @param aggFuncs list of aggregator to serialize
      * @return serialized byte array respresentation of aggregator
      */
     public static byte[] serialize(List<SingleAggregateFunction> aggFuncs, int minNullableIndex) {

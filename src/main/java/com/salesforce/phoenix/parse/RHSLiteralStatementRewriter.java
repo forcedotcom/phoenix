@@ -45,7 +45,6 @@ public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
     /**
      * Rewrite the select statement by filtering out expression nodes from the WHERE clause
      * @param statement the select statement from which to filter.
-     * @param removeNodes expression nodes to filter out of WHERE clause.
      * @return new select statement
      * @throws SQLException 
      */

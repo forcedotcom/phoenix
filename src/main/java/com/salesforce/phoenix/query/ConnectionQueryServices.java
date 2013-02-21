@@ -47,7 +47,7 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     /**
      * Get (and create if necessary) a child QueryService for a given tenantId.
      * The QueryService will be cached for the lifetime of the parent QueryService
-     * @param childId the organization ID
+     * @param tenantId the organization ID
      * @return the child QueryService
      */
     public ConnectionQueryServices getChildQueryServices(ImmutableBytesWritable tenantId);

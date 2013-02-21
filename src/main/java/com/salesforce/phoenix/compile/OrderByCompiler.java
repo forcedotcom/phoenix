@@ -75,7 +75,7 @@ public class OrderByCompiler {
      * @param context the query context for tracking various states
      * associated with the given select statement
      * @param limit 
-     * @param groupByExpressions the list of columns in the GROUP BY clause
+     * @param groupBy the list of columns in the GROUP BY clause
      * @return the list of columns in the ORDER BY clause
      * @throws SQLException
      */

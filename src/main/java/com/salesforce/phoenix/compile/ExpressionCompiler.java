@@ -301,8 +301,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     /**
      * Add a Function expression to the expression manager.
      * Derived classes may use this as a hook to trap all function additions.
-     * @param node a function expression node
-     * @param children the child expression arguments to the function expression node.
      * @return a Function expression
      * @throws SQLException if the arguments are invalid for the function.
      */
@@ -311,6 +309,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
     
     @Override
+    /**
+     * @param node a function expression node
+     * @param children the child expression arguments to the function expression node.
+     */
     public Expression visitLeave(FunctionParseNode node, List<Expression> children) throws SQLException {
         children = node.validate(children, context);
         FunctionExpression func = node.create(children, context);

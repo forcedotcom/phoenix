@@ -54,7 +54,6 @@ public class RowProjector {
     /**
      * Construct RowProjector based on a list of ColumnProjectors.
      * @param columnProjectors ordered list of ColumnProjectors corresponding to projected columns in SELECT clause
-     * @param rowCountExpression Expression used to calculate the row count from the result returned by the server-side
      * aggregating coprocessor. Only required in the case of an aggregate query with a limit clause and otherwise may
      * be null.
      */
