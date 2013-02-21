@@ -348,7 +348,7 @@ public class QueryParserTest {
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \",\" at line 1, column 10."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \",\" at line 1, column 10."));
         }
         try {
             SQLParser parser = new SQLParser(new StringReader(
@@ -356,7 +356,7 @@ public class QueryParserTest {
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \"from\" at line 1, column 15."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"from\" at line 1, column 15."));
         }
     }
 
@@ -368,7 +368,7 @@ public class QueryParserTest {
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \"selects\" at line 1, column 1."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"selects\" at line 1, column 1."));
         }
         try {
             SQLParser parser = new SQLParser(new StringReader(
@@ -376,7 +376,7 @@ public class QueryParserTest {
                     "whera e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \"e\" at line 2, column 7."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"e\" at line 2, column 7."));
         }
     }
 }
