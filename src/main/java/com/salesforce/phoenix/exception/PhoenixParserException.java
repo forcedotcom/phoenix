@@ -29,23 +29,29 @@ package com.salesforce.phoenix.exception;
 
 import java.sql.SQLSyntaxErrorException;
 
-import org.antlr.runtime.RecognitionException;
+import org.antlr.runtime.*;
 
-import com.salesforce.phoenix.parse.PhoenixSQLParser;
 
 
 public class PhoenixParserException extends SQLSyntaxErrorException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.PARSER_ERROR;
 
-    public PhoenixParserException(RecognitionException e, PhoenixSQLParser parser) {
+    public PhoenixParserException(RecognitionException e) {
         super(new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(getErrorMessage(e, parser)).build().toString(),
+                .setMessage(getErrorMessage(e)).build().toString(),
                 code.getSQLState(), code.getErrorCode(), e);
     }
 
-    public static String getErrorMessage(RecognitionException e, PhoenixSQLParser parser) {
-        // Change this method to generate our own message.
-        return parser.getErrorMessage(e,parser.getTokenNames());
+    public static String getLine(RecognitionException e) {
+        return Integer.toString(e.token.getLine());
+    }
+
+    public static String getColumn(RecognitionException e) {
+        return Integer.toString(e.token.getCharPositionInLine() + 1);
+    }
+
+    public static String getErrorMessage(RecognitionException e) {
+        return "Encountered \"" + e.token.getText() + "\" at line " + getLine(e) + ", column " + getColumn(e) + ".";
     }
 }

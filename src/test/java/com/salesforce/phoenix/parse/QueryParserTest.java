@@ -348,7 +348,7 @@ public class QueryParserTest {
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,10)','"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \",\" at line 1, column 10."));
         }
         try {
             SQLParser parser = new SQLParser(new StringReader(
@@ -356,7 +356,7 @@ public class QueryParserTest {
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,15)'from'"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \"from\" at line 1, column 15."));
         }
     }
 
@@ -368,7 +368,7 @@ public class QueryParserTest {
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,1)'selects'"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \"selects\" at line 1, column 1."));
         }
         try {
             SQLParser parser = new SQLParser(new StringReader(
@@ -376,7 +376,7 @@ public class QueryParserTest {
                     "whera e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token (2,7): e"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntx error. Encountered \"e\" at line 2, column 7."));
         }
     }
 }

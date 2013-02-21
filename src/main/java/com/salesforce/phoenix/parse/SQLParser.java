@@ -88,7 +88,7 @@ public class SQLParser {
             SQLStatement statement = parser.nextStatement();
             return statement;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw new PhoenixParserException(e);
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
@@ -105,7 +105,7 @@ public class SQLParser {
             SQLStatement statement = parser.statement();
             return statement;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw new PhoenixParserException(e);
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
@@ -122,7 +122,7 @@ public class SQLParser {
             SelectStatement statement = parser.query();
             return statement;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw new PhoenixParserException(e);
         }
     }
 
@@ -135,7 +135,7 @@ public class SQLParser {
             UpsertStatement statement = parser.upsert();
             return statement;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw new PhoenixParserException(e);
         }
     }
 
@@ -148,7 +148,7 @@ public class SQLParser {
             LiteralParseNode literalNode = parser.literal();
             return literalNode;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw new PhoenixParserException(e);
         }
     }
 
