@@ -35,7 +35,8 @@ package com.salesforce.phoenix.iterate;
  */
 public class ParallelIteratorRegionSpliterFactory {
 
-    public ParallelIteratorRegionSpliter getSpliter() {
+    public static ParallelIteratorRegionSpliter getSpliter() {
         return DefaultParallelIteratorRegionSpliter.getInstance();
     }
+
 }

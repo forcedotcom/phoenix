@@ -76,10 +76,10 @@ public class DefaultParallelIteratorRegionSpliter implements ParallelIteratorReg
                 QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY);
         final int maxConcurrency = config.getInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB,
                 QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY);
-
+        
         Preconditions.checkArgument(targetConcurrency >= 1, "Invalid target concurrency: " + targetConcurrency);
         Preconditions.checkArgument(maxConcurrency >= targetConcurrency , "Invalid max concurrency: " + maxConcurrency);
-
+        
         // the splits are computed as follows:
         //
         // let's suppose:
@@ -100,12 +100,12 @@ public class DefaultParallelIteratorRegionSpliter implements ParallelIteratorReg
         // distributed across regions, using this scheme compensates for regions that
         // have more rows than others, by applying tighter splits and therefore spawning
         // off more scans over the overloaded regions.
-
+        
         List<HRegionInfo> regions = ParallelIterators.filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());
         if (regions.isEmpty()) {
             return Collections.emptyList();
         }
-
+        
         int splitsPerRegion = regions.size() >= targetConcurrency ? 1 : (regions.size() > targetConcurrency / 2 ? maxConcurrency : targetConcurrency) / regions.size();
         ListMultimap<Long,KeyRange> keyRangesPerRegion = ArrayListMultimap.create(regions.size(),regions.size() * splitsPerRegion);;
         if (regions.size() >= targetConcurrency) {
@@ -114,7 +114,7 @@ public class DefaultParallelIteratorRegionSpliter implements ParallelIteratorReg
             }
         } else {
             assert splitsPerRegion >= 2 : "Splits per region has to be greater than 2";
-
+            
             // Maintain bucket for each server and then returns KeyRanges in round-robin
             // order to ensure all servers are utilized.
             for (HRegionInfo region : regions) {
@@ -142,7 +142,7 @@ public class DefaultParallelIteratorRegionSpliter implements ParallelIteratorReg
                         continue;
                     }
                 }
-
+                
                 byte[][] boundaries = null;
                 // Both startKey and stopKey will be empty the first time
                 if (Bytes.compareTo(startKey, stopKey) >= 0 || (boundaries = Bytes.split(startKey, stopKey, splitsPerRegion - 1)) == null) {
@@ -183,4 +183,5 @@ public class DefaultParallelIteratorRegionSpliter implements ParallelIteratorReg
         } while (!done);
         return splits;
     }
+
 }
