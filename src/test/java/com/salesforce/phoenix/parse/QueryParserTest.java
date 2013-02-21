@@ -339,4 +339,15 @@ public class QueryParserTest {
         parser.parseStatement();
     }
 
+    @Test
+    public void testParsingBadStatement() throws Exception {
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a,, from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
 }
