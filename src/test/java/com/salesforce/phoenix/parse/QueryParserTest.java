@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.StringReader;
@@ -339,4 +340,15 @@ public class QueryParserTest {
         parser.parseStatement();
     }
 
+    @Test
+    public void testParsingBadStatement() throws Exception {
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a,, from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,10)',' lineNumber=1;"));
+        }
+    }
 }
