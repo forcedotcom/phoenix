@@ -183,7 +183,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
             compileStatement(query,binds);
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("SQLState(42Y26): Only aggregate maybe used in the HAVING clause."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1019 (42Y26): Only aggregate maybe used in the HAVING clause."));
         }
     }
 }

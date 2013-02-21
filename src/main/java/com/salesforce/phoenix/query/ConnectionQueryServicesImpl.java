@@ -27,10 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
-import java.sql.*;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
@@ -39,6 +40,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
@@ -58,7 +61,8 @@ import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.TableNotFoundException;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.JDBCUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class ConnectionQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices {
     private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
@@ -505,10 +509,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                  * query and update all tables here.
                  */
                 if (removePhoenixJarPath) {
-                    // Do the compatibility check here, now that the SYSTEM.TABLE
-                    // has been changed so that the endpoint coprocessor will work again.
+                    upgradeTablesFrom0_94_2to0_94_4(admin);
+                    // Do the compatibility check here, now that the jar path has been corrected.
+                    // This will work with the new and the old jar, so do the compatibility check now.
                     checkClientServerCompatibility();
-                    upgradeTablesFrom0_94_2to0_94_4();
                 }
                 return false;
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
@@ -571,61 +575,52 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      * this code can be removed.
      * @throws SQLException
      */
-    private void upgradeTablesFrom0_94_2to0_94_4() throws SQLException {
+    private void upgradeTablesFrom0_94_2to0_94_4(HBaseAdmin admin) throws IOException {
         if (logger.isInfoEnabled()) {
             logger.info("Upgrading tables from HBase 0.94.2 to 0.94.4+");
         }
-        HBaseAdmin admin = null;
-        try {
-            admin = new HBaseAdmin(this.getConfig());
-            int defaultPort = 2181;
-            String quorum = this.config.get("hbase.zookeeper.quorum");
-            int port = this.config.getInt("hbase.zookeeper.property.clientPort", defaultPort);
-            String url = PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + quorum + (port == defaultPort ? "" : PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + port);
-            Connection conn = DriverManager.getConnection(url);
-            try {
-                DatabaseMetaData metaData = conn.getMetaData();
-                ResultSet rs = metaData.getTables(null, null, null, new String[] {PTableType.USER.getSerializedValue(), PTableType.VIEW.getSerializedValue()});
-                while (rs.next()) {
-                    String schemaName = rs.getString(2);
-                    String tableName = rs.getString(3);
-                    byte[] table = SchemaUtil.getTableName(schemaName, tableName);
-                    try {
-                        HTableDescriptor existingDesc = admin.getTableDescriptor(table);
-                        existingDesc.removeCoprocessor(ScanRegionObserver.class.getName());
-                        existingDesc.removeCoprocessor(UngroupedAggregateRegionObserver.class.getName());
-                        existingDesc.removeCoprocessor(GroupedAggregateRegionObserver.class.getName());
-                        existingDesc.removeCoprocessor(HashJoiningRegionObserver.class.getName());
-                        existingDesc.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
-                        existingDesc.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
-                        existingDesc.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
-                        existingDesc.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
-                        boolean wasEnabled = admin.isTableEnabled(table);
-                        if (wasEnabled) {
-                            admin.disableTable(table);
-                        }
-                        admin.modifyTable(table, existingDesc);
-                        if (wasEnabled) {
-                            admin.enableTable(table);
-                        }
-                    } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
-                        logger.error("Unable to convert " + SchemaUtil.getTableDisplayName(schemaName, tableName), e);
-                    } catch (IOException e) {
-                        logger.error("Unable to convert " + SchemaUtil.getTableDisplayName(schemaName, tableName), e);
+        /* Use regular HBase scan instead of query because the jar on the server may
+         * not be compatible (we don't know yet) and this is our one chance to do
+         * the conversion automatically.
+         */
+        Scan scan = new Scan();
+        scan.addColumn(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES);
+        // Add filter so that we only get the table row and not the column rows
+        scan.setFilter(new SingleColumnValueFilter(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.INTEGER.toBytes(0)));
+        HTableInterface table = HTableFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
+        ResultScanner scanner = table.getScanner(scan);
+        Result result = null;
+        while ((result = scanner.next()) != null) {
+            byte[] rowKey = result.getRow();
+            byte[][] rowKeyMetaData = new byte[2][];
+            getVarChars(rowKey, rowKeyMetaData);
+            byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
+            byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+            byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
+            if (!SchemaUtil.isMetaTable(tableName)) {
+                try {
+                    HTableDescriptor existingDesc = admin.getTableDescriptor(tableName);
+                    existingDesc.removeCoprocessor(ScanRegionObserver.class.getName());
+                    existingDesc.removeCoprocessor(UngroupedAggregateRegionObserver.class.getName());
+                    existingDesc.removeCoprocessor(GroupedAggregateRegionObserver.class.getName());
+                    existingDesc.removeCoprocessor(HashJoiningRegionObserver.class.getName());
+                    existingDesc.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
+                    existingDesc.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
+                    existingDesc.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
+                    existingDesc.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
+                    boolean wasEnabled = admin.isTableEnabled(tableName);
+                    if (wasEnabled) {
+                        admin.disableTable(tableName);
                     }
+                    admin.modifyTable(tableName, existingDesc);
+                    if (wasEnabled) {
+                        admin.enableTable(tableName);
+                    }
+                } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
+                    logger.error("Unable to convert " + Bytes.toString(tableName), e);
+                } catch (IOException e) {
+                    logger.error("Unable to convert " + Bytes.toString(tableName), e);
                 }
-            } finally {
-                conn.close();
-            }
-        } catch (MasterNotRunningException e) {
-            throw new SQLException(e);
-        } catch (ZooKeeperConnectionException e) {
-            throw new SQLException(e);
-        } finally {
-            try {
-                admin.close();
-            } catch (IOException e) {
-                throw new SQLException(e);
             }
         }
     }
