@@ -108,7 +108,7 @@ public class PTableImpl implements PTable {
             columnsByName.put(column.getName().getString(), column);
         }
         this.pkColumns = ImmutableList.copyOf(pkColumns);
-        this.allColumns = ImmutableList.copyOf(allColumns);
+        this.allColumns = ImmutableList.copyOf(Arrays.asList(allColumns));
         
         // Two pass so that column order in column families matches overall column order
         // and to ensure that column family order is constant
@@ -138,7 +138,7 @@ public class PTableImpl implements PTable {
             familyByString.put(family.getName().getString(), family);
             familyByBytes.put(family.getName().getBytes(), family);
         }
-        this.families = ImmutableList.copyOf(families);
+        this.families = ImmutableList.copyOf(Arrays.asList(families));
         this.familyByBytes = familyByBytes.build();
         this.familyByString = familyByString.build();
     }
