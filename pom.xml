@@ -105,17 +105,17 @@
             <lifecycleMappingMetadata>
               <pluginExecutions>
                 <pluginExecution>
-                	<pluginExecutionFilter>
-                		<groupId>org.antlr</groupId>
-                		<artifactId>antlr3-maven-plugin</artifactId>
-                		<versionRange>[3.5,)</versionRange>
-                		<goals>
-                			<goal>antlr</goal>
-                		</goals>
-                	</pluginExecutionFilter>
-                	<action>
-                		<ignore></ignore>
-                	</action>
+                  <pluginExecutionFilter>
+                    <groupId>org.antlr</groupId>
+                      <artifactId>antlr3-maven-plugin</artifactId>
+                      <versionRange>[3.5,)</versionRange>
+                      <goals>
+                        <goal>antlr</goal>
+                      </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
                 </pluginExecution>
               </pluginExecutions>
             </lifecycleMappingMetadata>
@@ -159,8 +159,8 @@
           </execution>
         </executions>
         <configuration>
-			<outputDirectory>${antlr-output.dir}/com/salesforce/phoenix/parse</outputDirectory>
-		</configuration>      
+          <outputDirectory>${antlr-output.dir}/com/salesforce/phoenix/parse</outputDirectory>
+        </configuration>      
       </plugin>
       <!-- Run with -Dmaven.test.skip.exec=true to build -tests.jar without running 
         tests (this is needed for upstream projects whose tests need this jar simply for 
@@ -323,6 +323,26 @@
       <groupId>net.sf.opencsv</groupId>
       <artifactId>opencsv</artifactId>
       <version>${opencsv.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.0.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>1.3.2</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>14.0-rc3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.xerial.snappy</groupId>
+      <artifactId>snappy-java</artifactId>
+      <version>1.0.4.1</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
