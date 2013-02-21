@@ -32,7 +32,6 @@ import java.sql.SQLSyntaxErrorException;
 import org.antlr.runtime.*;
 
 
-
 public class PhoenixParserException extends SQLSyntaxErrorException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.PARSER_ERROR;
