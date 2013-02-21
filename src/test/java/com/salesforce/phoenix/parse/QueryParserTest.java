@@ -341,14 +341,42 @@ public class QueryParserTest {
     }
 
     @Test
-    public void testParsingBadStatement() throws Exception {
+    public void testParsingStatementWithExtraToken() throws Exception {
         try {
             SQLParser parser = new SQLParser(new StringReader(
                     "select a,, from b\n" +
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,10)',' lineNumber=1;"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,10)','"));
+        }
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a from from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,15)'from'"));
+        }
+    }
+
+    @Test
+    public void testParsingStatementWithMispellToken() throws Exception {
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "selects a from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token: (1,1)'selects'"));
+        }
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a from b\n" +
+                    "whera e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Parser error. unexpected token (2,7): e"));
         }
     }
 }

@@ -47,7 +47,6 @@ public class SQLExceptionInfo {
     public static final String TABLE_NAME = "tableName";
     public static final String FAMILY_NAME = "familyName";
     public static final String COLUMN_NAME = "columnName";
-    public static final String LINE_NUMBER = "lineNumber";
 
     private final Throwable rootCause;
     private final SQLExceptionCode code; // Should always have one.
@@ -56,7 +55,6 @@ public class SQLExceptionInfo {
     private final String tableName;
     private final String familyName;
     private final String columnName;
-    private final String lineNumber;
 
     public static class Builder {
 
@@ -67,7 +65,6 @@ public class SQLExceptionInfo {
         private String tableName;
         private String familyName;
         private String columnName;
-        private String lineNumber;
 
         public Builder(SQLExceptionCode code) {
             this.code = code;
@@ -103,11 +100,6 @@ public class SQLExceptionInfo {
             return this;
         }
 
-        public Builder setLineNumber(String lineNumber) {
-            this.lineNumber = lineNumber;
-            return this;
-        }
-
         public SQLExceptionInfo build() {
             return new SQLExceptionInfo(this);
         }
@@ -126,7 +118,6 @@ public class SQLExceptionInfo {
         tableName = builder.tableName;
         familyName = builder.familyName;
         columnName = builder.columnName;
-        lineNumber = builder.lineNumber;
     }
 
     @Override
@@ -144,9 +135,6 @@ public class SQLExceptionInfo {
             builder.append(" ").append(TABLE_NAME).append("=").append(columnDisplayName);
         } else if (schemaName != null) {
             builder.append(" ").append(SCHEMA_NAME).append("=").append(columnDisplayName);
-        }
-        if (lineNumber != null) {
-            builder.append(" ").append(LINE_NUMBER).append("=").append(lineNumber).append(";");
         }
         return builder.toString();
     }
