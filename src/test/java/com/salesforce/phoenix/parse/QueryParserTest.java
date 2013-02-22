@@ -294,8 +294,6 @@ public class QueryParserTest {
             parser.parseStatement();
             fail();
         } catch (SQLException e) {
-            // Is this the right message to expect?
-            System.out.println(e.getMessage());
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 604 (42P00): Syntax error. Unknown function: BOGUS_FUNCTION"));
         }
     }
