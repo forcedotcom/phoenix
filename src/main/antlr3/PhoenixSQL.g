@@ -213,8 +213,19 @@ package com.salesforce.phoenix.parse;
         return Integer.toString(anonBindNum++);
     }
 
-    protected Object recoverFromMismatchedToken(IntStream input, int ttype, BitSet follow) throws RecognitionException {
-        throw new MismatchedTokenException(ttype, input);
+    protected Object recoverFromMismatchedToken(IntStream input, int ttype, BitSet follow)
+        throws RecognitionException {
+        RecognitionException e = null;
+        // if next token is what we are looking for then "delete" this token
+        if (mismatchIsUnwantedToken(input, ttype)) {
+            e = new UnwantedTokenException(ttype, input);
+        } else if (mismatchIsMissingToken(input, follow)) {
+            Object inserted = getMissingSymbol(input, e, ttype, follow);
+            e = new MissingTokenException(ttype, input, inserted);
+        } else {
+            e = new MismatchedTokenException(ttype, input);
+        }
+        throw e;
     }
 
     public Object recoverFromMismatchedSet(IntStream input, RecognitionException e, BitSet follow)

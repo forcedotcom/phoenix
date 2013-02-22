@@ -30,6 +30,7 @@ package com.salesforce.phoenix.exception;
 import java.io.IOException;
 import java.sql.SQLException;
 
+
 public class PhoenixIOException extends SQLException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
