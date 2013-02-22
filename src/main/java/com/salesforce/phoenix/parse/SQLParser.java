@@ -33,8 +33,7 @@ import java.sql.SQLFeatureNotSupportedException;
 
 import org.antlr.runtime.*;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.exception.*;
 
 /**
  * 
@@ -45,12 +44,13 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class SQLParser {
     private static final ParseNodeFactory DEFAULT_NODE_FACTORY = new ParseNodeFactory();
-    
+
     private final PhoenixSQLParser parser;
-    
+
     public SQLParser(String query) {
         this(query,DEFAULT_NODE_FACTORY);
     }
+
     public SQLParser(String query, ParseNodeFactory factory) {
         PhoenixSQLLexer lexer;
         try {
@@ -62,21 +62,21 @@ public class SQLParser {
         parser = new PhoenixSQLParser(cts);
         parser.setParseNodeFactory(factory);
     }
-    
+
     public SQLParser(Reader queryReader, ParseNodeFactory factory) throws IOException {
         PhoenixSQLLexer lexer = new PhoenixSQLLexer(new CaseInsensitiveReaderStream(queryReader));
         CommonTokenStream cts = new CommonTokenStream(lexer);
         parser = new PhoenixSQLParser(cts);
         parser.setParseNodeFactory(factory);
     }
-    
+
     public SQLParser(Reader queryReader) throws IOException {
         PhoenixSQLLexer lexer = new PhoenixSQLLexer(new CaseInsensitiveReaderStream(queryReader));
         CommonTokenStream cts = new CommonTokenStream(lexer);
         parser = new PhoenixSQLParser(cts);
         parser.setParseNodeFactory(DEFAULT_NODE_FACTORY);
     }
-    
+
     /**
      * Parses the input as a series of semicolon-terminated SQL statements.
      * @throws SQLException 
@@ -88,15 +88,14 @@ public class SQLParser {
             SQLStatement statement = parser.nextStatement();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+            throw new PhoenixParserException(e, parser);
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
             throw new SQLException(e);
         }
     }
-    
+
     /**
      * Parses the input as a SQL select or upsert statement.
      * @throws SQLException 
@@ -106,15 +105,14 @@ public class SQLParser {
             SQLStatement statement = parser.statement();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+            throw new PhoenixParserException(e, parser);
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
             throw new SQLException(e);
         }
     }
-    
+
     /**
      * Parses the input as a SQL select statement.
      * @throws SQLException 
@@ -124,11 +122,10 @@ public class SQLParser {
             SelectStatement statement = parser.query();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+            throw new PhoenixParserException(e, parser);
         }
     }
-    
+
     /**
      * Parses the input as a SQL upsert statement.
      * @throws SQLException 
@@ -138,11 +135,10 @@ public class SQLParser {
             UpsertStatement statement = parser.upsert();
             return statement;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+            throw new PhoenixParserException(e, parser);
         }
     }
-    
+
     /**
      * Parses the input as a SQL literal
      * @throws SQLException 
@@ -152,8 +148,7 @@ public class SQLParser {
             LiteralParseNode literalNode = parser.literal();
             return literalNode;
         } catch (RecognitionException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(parser.getErrorMessage(e,parser.getTokenNames())).build().buildException();
+            throw new PhoenixParserException(e, parser);
         }
     }
 
