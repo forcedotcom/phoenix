@@ -44,7 +44,7 @@ public class ChildQueryServices extends DelegateConnectionQueryServices {
     
     public ChildQueryServices(ConnectionQueryServices services) {
         super(services);
-        int maxOrgMemPerc = getConfig().getInt(MAX_ORG_MEMORY_PERC_ATTRIB, DEFAULT_MAX_ORG_MEMORY_PERC);
+        int maxOrgMemPerc = getConfig().getInt(MAX_TENANT_MEMORY_PERC_ATTRIB, DEFAULT_MAX_ORG_MEMORY_PERC);
         this.memoryManager = new ChildMemoryManager(services.getMemoryManager(), maxOrgMemPerc);
     }
 

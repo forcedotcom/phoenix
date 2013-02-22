@@ -271,19 +271,4 @@ public class MemoryManagerTest {
         assertTrue(rmm3.getAvailableMemory() == rmm3.getMaxMemory());
         assertTrue(rmm4.getAvailableMemory() == rmm4.getMaxMemory());
     }
-
-    @Test
-    public void testLargeGlobalMemory() throws Exception {
-        long maxMemoryBytes = 8589934592L;  // Bigger than an int
-        // Calculation in ChildMemoryManager that will overflow an int
-        assertTrue(maxMemoryBytes > Integer.MAX_VALUE);
-        MemoryManager gmm = new GlobalMemoryManager(maxMemoryBytes,1);
-        ChildMemoryManager rmm = new ChildMemoryManager(gmm,100);
-        MemoryChunk chunk = rmm.allocate(maxMemoryBytes);
-        assertTrue(rmm.getAvailableMemory() == 0);
-        assertTrue(gmm.getAvailableMemory() == 0);
-        chunk.close();
-        assertTrue(rmm.getAvailableMemory() == maxMemoryBytes);
-        assertTrue(gmm.getAvailableMemory() == maxMemoryBytes);
-    }
 }
