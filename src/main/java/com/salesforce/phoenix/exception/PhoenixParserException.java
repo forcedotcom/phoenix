@@ -37,7 +37,7 @@ import com.salesforce.phoenix.parse.PhoenixSQLParser;
 public class PhoenixParserException extends SQLSyntaxErrorException {
     private static final long serialVersionUID = 1L;
 
-    public PhoenixParserException(RecognitionException e, PhoenixSQLParser parser) {
+    public PhoenixParserException(Exception e, PhoenixSQLParser parser) {
         super(new SQLExceptionInfo.Builder(getErrorCode(e)).setRootCause(e)
                 .setMessage(getErrorMessage(e, parser)).build().toString(),
                 getErrorCode(e).getSQLState(), getErrorCode(e).getErrorCode(), e);
@@ -55,7 +55,7 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
         return "line " + getLine(e) + ", column " + getColumn(e) + ".";
     }
 
-    public static String getErrorMessage(RecognitionException e, PhoenixSQLParser parser) {
+    public static String getErrorMessage(Exception e, PhoenixSQLParser parser) {
         String[] tokenNames = parser.getTokenNames();
         String msg;
         if (e instanceof MissingTokenException) {
@@ -66,7 +66,7 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
             } else {
                 tokenName = tokenNames[mte.expecting];
             }
-            msg = "Missing \""+ tokenName +"\" at "+ getTokenLocation(e);
+            msg = "Missing \""+ tokenName +"\" at "+ getTokenLocation(mte);
         } else if (e instanceof UnwantedTokenException) {
             UnwantedTokenException ute = (UnwantedTokenException)e;
             String tokenName;
@@ -76,7 +76,7 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
                 tokenName = tokenNames[ute.expecting];
             }
             msg = "Unexpected input. Expecting \"" + tokenName + "\", got \"" + ute.getUnexpectedToken().getText() 
-                    + "\" at " + getTokenLocation(e);
+                    + "\" at " + getTokenLocation(ute);
         } else if (e instanceof MismatchedTokenException) {
             MismatchedTokenException mte = (MismatchedTokenException)e;
             String tokenName;
@@ -86,20 +86,28 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
                 tokenName = tokenNames[mte.expecting];
             }
             msg = "Mismatched input. Expecting \"" + tokenName + "\", got \"" + mte.token.getText()
-                    + "\" at " + getTokenLocation(e);
+                    + "\" at " + getTokenLocation(mte);
+        } else if (e instanceof RecognitionException){
+            RecognitionException re = (RecognitionException) e;
+            msg = "Encountered \"" + re.token.getText() + "\" at " + getTokenLocation(re);
+        } else if (e instanceof UnknownFunctionException) {
+            UnknownFunctionException ufe = (UnknownFunctionException) e;
+            msg = "Unknown function: \"" + ufe.getFuncName() + "\".";
         } else {
-            msg = "Encountered \"" + e.token.getText() + "\" at " + getTokenLocation(e);
+            msg = e.getMessage();
         }
         return msg;
     }
 
-    public static SQLExceptionCode getErrorCode(RecognitionException e) {
+    public static SQLExceptionCode getErrorCode(Exception e) {
         if (e instanceof MissingTokenException) {
             return SQLExceptionCode.MISSING_TOKEN;
         } else if (e instanceof UnwantedTokenException) {
             return SQLExceptionCode.UNWANTED_TOKEN;
         } else if (e instanceof MismatchedTokenException) {
             return SQLExceptionCode.MISMATCHED_TOKEN;
+        } else if (e instanceof UnknownFunctionException) {
+            return SQLExceptionCode.UNKNOWN_FUNCTION;
         } else {
             return SQLExceptionCode.PARSER_ERROR;
         }

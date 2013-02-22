@@ -27,16 +27,19 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import java.sql.SQLException;
-
-
-public class UnknownFunctionException extends SQLException {
+/**
+ * Thrown by ParseNodeFactory when it could not identify a node as a valid function.
+ */
+public class UnknownFunctionException extends RuntimeException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.UNKNOWN_FUNCTION;
+    private final String funcName;
 
-    public UnknownFunctionException(IllegalArgumentException e) {
-        super(new SQLExceptionInfo.Builder(SQLExceptionCode.UNKNOWN_FUNCTION).setRootCause(e)
-                .setMessage("Unknown function: " + e.getMessage()).build().toString(),
-                code.getSQLState(), code.getErrorCode(), e);
+    public UnknownFunctionException(String funcName) {
+        super();
+        this.funcName = funcName;
+    }
+
+    public String getFuncName() {
+        return funcName;
     }
 }

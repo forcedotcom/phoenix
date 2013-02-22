@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.exception.UnknownFunctionException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.function.*;
@@ -161,7 +162,7 @@ public class ParseNodeFactory {
         initBuiltInFunctionMap();
         BuiltInFunctionInfo info = BUILT_IN_FUNCTION_MAP.get(new BuiltInFunctionKey(normalizedName,children.size()));
         if (info == null) {
-            throw new IllegalArgumentException(normalizedName);
+            throw new UnknownFunctionException(normalizedName);
         }
         return info;
     }
