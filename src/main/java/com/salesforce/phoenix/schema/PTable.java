@@ -142,9 +142,4 @@ public interface PTable extends Writable {
      * the row key
      */
     int newKey(ImmutableBytesWritable key, byte[][] values);
-
-    /**
-     * Return an approximate of 
-     */
-//    List<KeyRange> getKeyRangeSplit();
 }

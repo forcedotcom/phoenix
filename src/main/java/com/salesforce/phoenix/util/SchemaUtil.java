@@ -328,7 +328,6 @@ public class SchemaUtil {
         try {
             Statement metaStatement = metaConnection.createStatement();
             metaStatement.executeUpdate(QueryConstants.CREATE_METADATA);
-            metaStatement.executeUpdate(QueryConstants.STATS_METADATA);
         } catch (TableAlreadyExistsException e) {
         } finally {
             metaConnection.close();
