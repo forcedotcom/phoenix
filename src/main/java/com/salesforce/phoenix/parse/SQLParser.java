@@ -92,7 +92,7 @@ public class SQLParser {
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
-            throw new SQLException(e);
+            throw new PhoenixParserException(e, parser);
         }
     }
 
@@ -108,10 +108,8 @@ public class SQLParser {
             throw new PhoenixParserException(e, parser);
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
-        } catch (UnknownFunctionException e) {
-            throw new PhoenixParserException(e, parser);
         } catch (RuntimeException e) {
-            throw new SQLException(e);
+            throw new PhoenixParserException(e, parser);
         }
     }
 
