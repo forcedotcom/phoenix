@@ -33,6 +33,8 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
+import com.salesforce.phoenix.query.KeyRange;
+
 
 /**
  * Definition of a Phoenix table
@@ -53,27 +55,27 @@ public interface PTable extends Writable {
      * @return the table type
      */
     PTableType getType();
-    
+
     String getPKName();
-    
+
     /**
      * Get the PK columns ordered by position.
      * @return a list of the PK columns
      */
     List<PColumn> getPKColumns();
-    
+
     /**
      * Get all columns ordered by position.
      * @return a list of all columns
      */
     List<PColumn> getColumns();
-    
+
     /**
      * @return A list of the column families of this table
      *  ordered by position.
      */
     List<PColumnFamily> getColumnFamilies();
-        
+
     /**
      * Get the column family with the given name
      * @param family the column family name
@@ -117,7 +119,7 @@ public interface PTable extends Writable {
      * constraint
      */
     PRow newRow(long ts, ImmutableBytesWritable key, byte[]... values);
-    
+
     /**
      * Creates a new row for the PK values (from {@link #newKey(ImmutableBytesWritable, byte[][])}
      * and the optional key values specified using values. The timestamp of the key value
@@ -130,7 +132,7 @@ public interface PTable extends Writable {
      * constraint
      */
     PRow newRow(ImmutableBytesWritable key, byte[]... values);
-    
+
     /**
      * Formulates a row key using the values provided. The values must be in
      * the same order as {@link #getPKColumns()}.
