@@ -109,7 +109,10 @@ public enum SQLExceptionCode {
     UPSERT_COLUMN_NUMBERS_MISMATCH(1020, "42Y60", "Number of columns upserting must match number of values."),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
-    PARSER_ERROR(601, "42P00", "Parser error."),
+    PARSER_ERROR(601, "42P00", "Syntax error."),
+    MISSING_TOKEN(602, "42P00", "Syntax error."),
+    UNWANTED_TOKEN(603, "42P00", "Syntax error."),
+    MISMATCHED_TOKEN(603, "42P00", "Syntax error."),
     
     /**
      * Implementation defined class. Execution exceptions (errorcode 11, sqlstate XCL). 

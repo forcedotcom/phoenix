@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.StringReader;
@@ -339,4 +340,63 @@ public class QueryParserTest {
         parser.parseStatement();
     }
 
+    @Test
+    public void testParsingStatementWithMispellToken() throws Exception {
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "selects a from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"selects\" at line 1, column 1."));
+        }
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a froms b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \"b\" at line 1, column 16."));
+        }
+    }
+
+    @Test
+    public void testParsingStatementWithExtraToken() throws Exception {
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a,, from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \",\" at line 1, column 10."));
+        }
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a from from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"from\" at line 1, column 15."));
+        }
+    }
+
+    @Test
+    public void testParsingStatementWithMissingToken() throws Exception {
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \"where\" at line 2, column 1."));
+        }
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a from b\n" +
+                    "where d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"d\" at line 2, column 7."));
+        }
+    }
 }

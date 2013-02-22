@@ -296,8 +296,9 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             } finally {
                 conn.close();
             }
-        } catch (SQLException e) { // TODO: use error codes
-            assertTrue(e.getMessage().contains("unexpected token"));
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+            assertTrue(e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"CASE\" at line 1, column 58."));
         }
     }
 
