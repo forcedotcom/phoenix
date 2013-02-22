@@ -66,7 +66,7 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
             } else {
                 tokenName = tokenNames[mte.expecting];
             }
-            msg = "missing \""+ tokenName +"\" at "+ getTokenLocation(e);
+            msg = "Missing \""+ tokenName +"\" at "+ getTokenLocation(e);
         } else if (e instanceof UnwantedTokenException) {
             UnwantedTokenException ute = (UnwantedTokenException)e;
             String tokenName;
