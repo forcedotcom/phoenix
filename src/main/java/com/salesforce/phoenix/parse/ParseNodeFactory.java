@@ -161,7 +161,7 @@ public class ParseNodeFactory {
         initBuiltInFunctionMap();
         BuiltInFunctionInfo info = BUILT_IN_FUNCTION_MAP.get(new BuiltInFunctionKey(normalizedName,children.size()));
         if (info == null) {
-            throw new RuntimeException("Unknown function '" + normalizedName + "'");
+            throw new IllegalArgumentException(normalizedName);
         }
         return info;
     }

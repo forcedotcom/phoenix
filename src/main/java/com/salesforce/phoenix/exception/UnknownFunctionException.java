@@ -27,17 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import java.io.IOException;
 import java.sql.SQLException;
 
 
-public class PhoenixIOException extends SQLException {
+public class UnknownFunctionException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
+    private static SQLExceptionCode code = SQLExceptionCode.UNKNOWN_FUNCTION;
 
-    public PhoenixIOException(IOException e) {
-        super(new SQLExceptionInfo.Builder(SQLExceptionCode.IO_EXCEPTION).setRootCause(e).build().toString(),
+    public UnknownFunctionException(IllegalArgumentException e) {
+        super(new SQLExceptionInfo.Builder(SQLExceptionCode.UNKNOWN_FUNCTION).setRootCause(e)
+                .setMessage("Unknown function: " + e.getMessage()).build().toString(),
                 code.getSQLState(), code.getErrorCode(), e);
     }
-
 }

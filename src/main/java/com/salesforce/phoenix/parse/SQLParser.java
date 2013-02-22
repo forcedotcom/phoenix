@@ -108,6 +108,8 @@ public class SQLParser {
             throw new PhoenixParserException(e, parser);
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
+        } catch (IllegalArgumentException e) {
+            throw new UnknownFunctionException(e);
         } catch (RuntimeException e) {
             throw new SQLException(e);
         }

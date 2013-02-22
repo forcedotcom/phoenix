@@ -252,7 +252,7 @@ public class QueryParserTest {
             "and rownum <= 2000\n" +
             "and (ind.organization_id = '000000000000000')\n" +
             "and (ind.key_prefix = '00T')\n" +
-            "and (ind.name_type = 't'))"
+            "and (ind.name_type = 't')"
             ));
         try {
             parser.parseStatement();
@@ -270,7 +270,7 @@ public class QueryParserTest {
             "and rownum <= 2000\n" +
             "and (ind.organization_id = '000000000000000')\n" +
             "and (ind.key_prefix = '00T')\n" +
-            "and (ind.name_type = 't'))"
+            "and (ind.name_type = 't')"
             ));
         try {
             parser.parseStatement();
@@ -283,19 +283,20 @@ public class QueryParserTest {
     @Test
     public void testUnknownFunction() throws Exception {
         SQLParser parser = new SQLParser(new StringReader(
-            "select /*gatherSlowStats*/ trim(ind.key_prefix) from core.search_name_lookup ind\n" +
+            "select /*gatherSlowStats*/ bogus_function(ind.key_prefix) from core.search_name_lookup ind\n" +
             "where (ind.name = 'X')\n" +
             "and rownum <= 2000\n" +
             "and (ind.organization_id = '000000000000000')\n" +
             "and (ind.key_prefix = '00T')\n" +
-            "and (ind.name_type = 't'))"
+            "and (ind.name_type = 't')"
             ));
         try {
             parser.parseStatement();
             fail();
         } catch (SQLException e) {
             // Is this the right message to expect?
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Unexpected input. Expecting \"EOF\", got \")\" at line 6, column 26."));
+            System.out.println(e.getMessage());
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 604 (42P00): Syntax error. Unknown function: BOGUS_FUNCTION"));
         }
     }
 
