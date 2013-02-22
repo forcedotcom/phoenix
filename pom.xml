@@ -272,6 +272,9 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration> 
           <quiet>true</quiet>
+          <links>
+            <link>http://hbase.apache.org/apidocs/</link>
+          </links>
         </configuration>
         <executions>
           <execution>
