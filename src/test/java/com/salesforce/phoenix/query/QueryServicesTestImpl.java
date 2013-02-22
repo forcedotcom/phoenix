@@ -48,7 +48,7 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000*5; //5min
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024; // 1m
     private static final int DEFAULT_MAX_MEMORY_WAIT_MS = 0;
-    private static final int DEFAULT_MAX_ORG_MEMORY_PERC = 100;
+    private static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
     private static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 60000 * 10; // 10min (to prevent age-out of hash cache during debugging)
     private static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*10;  // 10 Mb
     private static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 4;
@@ -66,7 +66,7 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setThreadTimeoutMs(DEFAULT_THREAD_TIMEOUT_MS)
                 .setSpoolThresholdBytes(DEFAULT_SPOOL_THRESHOLD_BYTES)
                 .setMaxMemoryWaitMs(DEFAULT_MAX_MEMORY_WAIT_MS)
-                .setMaxTenantMemoryPerc(DEFAULT_MAX_ORG_MEMORY_PERC)
+                .setMaxTenantMemoryPerc(DEFAULT_MAX_TENANT_MEMORY_PERC)
                 .setMaxHashCacheSize(DEFAULT_MAX_HASH_CACHE_SIZE)
                 .setTargetQueryConcurrency(DEFAULT_TARGET_QUERY_CONCURRENCY)
                 .setMaxQueryConcurrency(DEFAULT_MAX_QUERY_CONCURRENCY)
@@ -76,7 +76,7 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
     public QueryServicesTestImpl(QueryServicesOptions options) {
         super(options);
         getConfig().setIfUnset(QueryServices.MAX_HASH_CACHE_TIME_TO_LIVE_MS, Integer.toString(DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS));
-        getConfig().setInt("hbase.master.info.port", -1);
+        getConfig().setInt("hbase.master.info.port", -1); // To allow tests to run while local hbase is running too
         getConfig().setInt("hbase.regionserver.info.port", -1);
     }    
 }
