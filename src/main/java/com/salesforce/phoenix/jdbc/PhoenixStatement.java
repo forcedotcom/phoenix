@@ -713,7 +713,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     @Override
     public int getFetchSize() throws SQLException {
-        return connection.getQueryServices().getConfig().getInt(QueryServices.SCAN_CACHE_SIZE_ATTRIB, QueryServices.DEFAULT_SCAN_CACHE_SIZE);
+        return connection.getQueryServices().getConfig().getInt(QueryServices.SCAN_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_SCAN_CACHE_SIZE);
     }
 
     @Override

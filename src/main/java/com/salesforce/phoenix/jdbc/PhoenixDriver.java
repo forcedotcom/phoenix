@@ -87,12 +87,53 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
     @Override
     protected ConnectionQueryServices getConnectionQueryServices(String url, Properties info) throws SQLException {
         ConnectionInfo connInfo = getConnectionInfo(url);
-        ConnectionQueryServices connectionQueryServices = connectionQueryServicesMap.get(connInfo);
+        String zookeeperQuorum = connInfo.getZookeeperQuorum();
+        Integer port = connInfo.getPort();
+        String rootNode = connInfo.getRootNode();
+        boolean isConnectionless = false;
+        // Normalize connInfo so that a url explicitly specifying versus implicitly inheriting
+        // the default values will both share the same ConnectionQueryServices.
+        Configuration globalConfig = getQueryServices().getConfig();
+        if (zookeeperQuorum == null) {
+            zookeeperQuorum = globalConfig.get(ZOOKEEPER_QUARUM_ATTRIB);
+            if (zookeeperQuorum == null) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+                .setMessage(url).build().buildException();
+            }
+        }
+        isConnectionless = PhoenixRuntime.CONNECTIONLESS.equals(zookeeperQuorum);
+
+        if (port == null) {
+            if (!isConnectionless) {
+                String portStr = globalConfig.get(ZOOKEEPER_PORT_ATTRIB);
+                if (portStr != null) {
+                    try {
+                        port = Integer.parseInt(portStr);
+                    } catch (NumberFormatException e) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+                        .setMessage(url).build().buildException();
+                    }
+                }
+            }
+        } else if (isConnectionless) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+            .setMessage("Port may not be specified when using the connectionless url \"" + url + "\"").build().buildException();
+        }
+        if (rootNode == null) {
+            if (!isConnectionless) {
+                rootNode = globalConfig.get(ZOOKEEPER_ROOT_NODE_ATTRIB);
+            }
+        } else if (isConnectionless) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+            .setMessage("Root node may not be specified when using the connectionless url \"" + url + "\"").build().buildException();
+        }
+        ConnectionInfo normalizedConnInfo = new ConnectionInfo(zookeeperQuorum, port, rootNode);
+        ConnectionQueryServices connectionQueryServices = connectionQueryServicesMap.get(normalizedConnInfo);
         if (connectionQueryServices == null) {
-            if (PhoenixRuntime.CONNECTIONLESS.equals(connInfo.getZookeeperQuorum())) {
+            if (isConnectionless) {
                 connectionQueryServices = new ConnectionlessQueryServicesImpl(getQueryServices());
             } else {
-                Configuration childConfig = HBaseConfiguration.create(getQueryServices().getConfig());
+                Configuration childConfig = HBaseConfiguration.create(globalConfig);
                 if (connInfo.getZookeeperQuorum() != null) {
                     childConfig.set(ZOOKEEPER_QUARUM_ATTRIB, connInfo.getZookeeperQuorum());
                 } else if (childConfig.get(ZOOKEEPER_QUARUM_ATTRIB) == null) {
@@ -108,7 +149,7 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
                 connectionQueryServices = new ConnectionQueryServicesImpl(getQueryServices(), childConfig);
             }
             connectionQueryServices.init(url, info);
-            ConnectionQueryServices prevValue = connectionQueryServicesMap.putIfAbsent(connInfo, connectionQueryServices);
+            ConnectionQueryServices prevValue = connectionQueryServicesMap.putIfAbsent(normalizedConnInfo, connectionQueryServices);
             if (prevValue != null) {
                 connectionQueryServices = prevValue;
             }

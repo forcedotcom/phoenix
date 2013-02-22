@@ -36,6 +36,8 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.memory.ChildMemoryManager;
 import com.salesforce.phoenix.memory.GlobalMemoryManager;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
@@ -49,21 +51,11 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
  * @since 0.1
  */
 public class GlobalCache extends TenantCacheImpl {
-    public static final String MAX_CP_ORG_MEMORY_PERC_ATTRIB = "phoenix.coprocessor.maxOrgMemoryPercentage";
-    public static final String MAX_CP_MEMORY_WAIT_MS_ATTRIB = "phoenix.coprocessor.maxGlobalMemoryWaitMs";
-    public static final String MAX_CP_MEMORY_BYTES_ATTRIB = "phoenix.coprocessor.maxGlobalMemoryBytes";
-    public static final String MAX_HASH_CACHE_TIME_TO_LIVE_MS = "phoenix.coprocessor.maxHashCacheTimeToLiveMs";
     public static final String HASH_CACHE_AGE_OUT_THREAD_NAME = "PhoenixHashCacheAgeOutThread";
-    
-    public static final int MAX_COPROCESSOR_MEMORY_BYTES = 1024 * 1024 * 500; // 500 M
-    public static final int MAX_COPROCESSOR_MEMORY_WAIT_MS = 1000; // 1 sec
-    public static final int MAX_ORG_MEMORY_PERCENTAGE = 30; // 30%
-    public static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 30000; // 30 sec (with no activity)
-    
     private static volatile GlobalCache INSTANCE = null; 
     
     private final Configuration config;
-    private final ConcurrentMap<ImmutableBytesWritable,TenantCache> perOrgCacheMap = new ConcurrentHashMap<ImmutableBytesWritable,TenantCache>();
+    private final ConcurrentMap<ImmutableBytesWritable,TenantCache> perTenantCacheMap = new ConcurrentHashMap<ImmutableBytesWritable,TenantCache>();
     // Cache for lastest PTable for a given Phoenix table
     private final ConcurrentHashMap<ImmutableBytesPtr,PTable> metaDataCacheMap = new ConcurrentHashMap<ImmutableBytesPtr,PTable>();
     
@@ -97,9 +89,10 @@ public class GlobalCache extends TenantCacheImpl {
     
     private GlobalCache(Configuration config) {
         super(Executors.newSingleThreadScheduledExecutor(),
-              new GlobalMemoryManager(config.getLong(GlobalCache.MAX_CP_MEMORY_BYTES_ATTRIB, config.getInt(MAX_MEMORY_BYTES_ATTRIB, MAX_COPROCESSOR_MEMORY_BYTES)),
-                                      config.getInt(GlobalCache.MAX_CP_MEMORY_WAIT_MS_ATTRIB, config.getInt(MAX_MEMORY_WAIT_MS_ATTRIB, MAX_COPROCESSOR_MEMORY_BYTES))),
-              config.getInt(GlobalCache.MAX_HASH_CACHE_TIME_TO_LIVE_MS, config.getInt(MAX_HASH_CACHE_TIME_TO_LIVE_MS, MAX_ORG_MEMORY_PERCENTAGE)));
+              new GlobalMemoryManager(Runtime.getRuntime().totalMemory() * 
+                                          config.getInt(MAX_MEMORY_PERC_ATTRIB, QueryServicesOptions.DEFAULT_MAX_MEMORY_PERC) / 100,
+                                      config.getInt(MAX_MEMORY_WAIT_MS_ATTRIB, QueryServicesOptions.DEFAULT_MAX_MEMORY_WAIT_MS)),
+              config.getInt(QueryServices.MAX_HASH_CACHE_TIME_TO_LIVE_MS, QueryServicesOptions.DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS));
         this.config = config;
     }
     
@@ -113,12 +106,12 @@ public class GlobalCache extends TenantCacheImpl {
      * @return the existing or newly created TenantCache
      */
     public TenantCache getChildTenantCache(ImmutableBytesWritable tenantId) {
-        TenantCache tenantCache = perOrgCacheMap.get(tenantId);
+        TenantCache tenantCache = perTenantCacheMap.get(tenantId);
         if (tenantCache == null) {
-            int maxOrgMemoryPerc = config.getInt(GlobalCache.MAX_CP_ORG_MEMORY_PERC_ATTRIB, config.getInt(MAX_ORG_MEMORY_PERC_ATTRIB, MAX_ORG_MEMORY_PERCENTAGE));
-            int maxHashCacheTimeToLive = config.getInt(GlobalCache.MAX_HASH_CACHE_TIME_TO_LIVE_MS, config.getInt(MAX_HASH_CACHE_TIME_TO_LIVE_MS, MAX_ORG_MEMORY_PERCENTAGE));
-            TenantCacheImpl newTenantCache = new TenantCacheImpl(getTimerExecutor(), new ChildMemoryManager(getMemoryManager(), maxOrgMemoryPerc), maxHashCacheTimeToLive);
-            tenantCache = perOrgCacheMap.putIfAbsent(tenantId, newTenantCache);
+            int maxTenantMemoryPerc = config.getInt(MAX_TENANT_MEMORY_PERC_ATTRIB, QueryServicesOptions.DEFAULT_MAX_TENANT_MEMORY_PERC);
+            int maxHashCacheTimeToLive = config.getInt(QueryServices.MAX_HASH_CACHE_TIME_TO_LIVE_MS, QueryServicesOptions.DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS);
+            TenantCacheImpl newTenantCache = new TenantCacheImpl(getTimerExecutor(), new ChildMemoryManager(getMemoryManager(), maxTenantMemoryPerc), maxHashCacheTimeToLive);
+            tenantCache = perTenantCacheMap.putIfAbsent(tenantId, newTenantCache);
             if (tenantCache == null) {
                 tenantCache = newTenantCache;
             }

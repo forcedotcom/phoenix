@@ -65,36 +65,25 @@ import com.salesforce.phoenix.util.SQLCloseable;
  *     size in bytes after which results from parallel executed aggregate
  *     query results are spooled to disk. Defaults to
  *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_SPOOL_THRESHOLD_BYTES}.</li>
- *   <li><strong>phoenix.query.maxGlobalMemoryBytes</strong>: total amount
- *     of memory that all threads may use.  Only course grain memory usage
- *     is tracked, mainly accounting for memory usage in the hash join cache
- *     and the intermediate map for group by aggregation.  When this limit
- *     is reached clients block when attempting to get more memory,
- *     essentially throttling memory usage.  One way to calculate what it
- *     should be set to is to take a percentage of the maximum heap size.
- *     Defaults to
- *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MEMORY_BYTES}.</li>
+ *   <li><strong>phoenix.query.maxGlobalMemoryPercentage</strong>: percentage of total 
+ *     memory ({@link java.lang.Runtime.getRuntime()#totalMemory}) that all threads
+ *     may use. Only course grain memory usage is tracked, mainly accounting for memory
+ *     usage in the intermediate map built during group by aggregation.  When this limit
+ *     is reached the clients block attempting to get more memory, essentially throttling 
+ *     memory usage. Defaults to
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MEMORY_PERC}.</li>
  *   <li><strong>phoenix.query.maxGlobalMemoryWaitMs</strong>: maximum
  *     amount of time that a client will block while waiting for more memory
  *     to become available.  After this amount of time, a
  *     {@link com.salesforce.phoenix.memory.InsufficientMemoryException} is
  *     thrown. Defaults to
  *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MEMORY_WAIT_MS}.</li>
- *   <li><strong>phoenix.query.maxOrgMemoryPercentage</strong>: maximum
- *     percentage of phoenix.query.maxGlobalMemoryBytes that any one tenant
+ *   <li><strong>phoenix.query.maxTenantMemoryPercentage</strong>: maximum
+ *     percentage of phoenix.query.maxGlobalMemoryPercentage that any one tenant
  *     is allowed to consume. After this percentage, a
  *     {@link com.salesforce.phoenix.memory.InsufficientMemoryException} is
  *     thrown. Defaults to
- *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_ORG_MEMORY_PERC}.</li>
- *   <li><strong>phoenix.coprocessor.maxGlobalMemoryBytes</strong>: similar
- *     to and defaulted to phoenix.query.maxGlobalMemoryBytes but for memory
- *     consumption by coprocessors.</li>
- *   <li><strong>phoenix.coprocessor.maxGlobalMemoryWaitMs</strong>: similar
- *     to and defaulted to phoenix.query.maxGlobalMemoryWaitMs but for memory
- *     consumption by coprocessors.</li>
- *   <li><strong>phoenix.coprocessor.maxOrgMemoryPercentage</strong>: similar
- *     and defaulted to phoenix.query.maxOrgMemoryPercentage but for memory
- *     consumption by coprocessors.</li>
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_TENANT_MEMORY_PERC}.</li>
  *   <li><strong>phoenix.query.targetConcurrency</strong>: target concurrent
  *     threads to use for a query. It serves as a soft limit on the number of
  *     scans into which a query may be split. A hard limit is imposed by
@@ -127,13 +116,12 @@ import com.salesforce.phoenix.util.SQLCloseable;
  *     on the server side without returning data back to the client. Defaults
  *     to {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MUTATION_SIZE}.</li>
  *   <li><strong>phoenix.mutate.upsertBatchSize</strong>: the number of rows
- *     that are batched together and automatically committed during an
- *     UPSERT SELECT call when a) {@link java.sql.Connection#setAutoCommit(boolean)}
- *     is TRUE and b) the entire operation may not be performed on the server side
- *     (due to either the source and target table being different or the SELECT
- *     query performing aggregation). This property may be overridden at connection
- *     time by specifying a {@link com.salesforce.phoenix.util.PhoenixRuntime#UPSERT_BATCH_SIZE_ATTRIB}
- *     property value. Defaults to
+ *     that are batched together and automatically committed during the execution
+ *     of an UPSERT SELECT or DELETE statement. This property may be overridden at
+ *     connection time by specifying a {@link com.salesforce.phoenix.util.PhoenixRuntime#UPSERT_BATCH_SIZE_ATTRIB}
+ *     property value. Note that overriding in this manner does not affect the
+ *     batch size used by the coprocessor when these statements are executed
+ *     completely on the server side. Defaults to
  *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_UPSERT_BATCH_SIZE}.</li>
  *   <li><strong>phoenix.query.regionBoundaryCacheTTL</strong>: the time-to-live
  *     in milliseconds of the region boundary cache used to guide the split
@@ -152,23 +140,23 @@ public interface QueryServices extends SQLCloseable {
     public static final String THREAD_TIMEOUT_MS_ATTRIB = "phoenix.query.timeoutMs";
     public static final String SPOOL_THRESHOLD_BYTES_ATTRIB = "phoenix.query.spoolThresholdBytes";
     
-    public static final String MAX_MEMORY_BYTES_ATTRIB = "phoenix.query.maxGlobalMemoryBytes";
+    public static final String MAX_MEMORY_PERC_ATTRIB = "phoenix.query.maxGlobalMemoryPercentage";
     public static final String MAX_MEMORY_WAIT_MS_ATTRIB = "phoenix.query.maxGlobalMemoryWaitMs";
-    public static final String MAX_ORG_MEMORY_PERC_ATTRIB = "phoenix.query.maxOrgMemoryPercentage";
+    public static final String MAX_TENANT_MEMORY_PERC_ATTRIB = "phoenix.query.maxTenantMemoryPercentage";
     public static final String MAX_HASH_CACHE_SIZE_ATTRIB = "phoenix.query.maxHashCacheBytes";
     public static final String TARGET_QUERY_CONCURRENCY_ATTRIB = "phoenix.query.targetConcurrency";
     public static final String MAX_QUERY_CONCURRENCY_ATTRIB = "phoenix.query.maxConcurrency";
     public static final String DATE_FORMAT_ATTRIB = "phoenix.query.dateFormat";
     public static final String STATS_UPDATE_FREQ_MS_ATTRIB = "phoenix.query.statsUpdateFrequency";
-    public static final String CALL_QUEUE_PRODUCER_ATTRIB_NAME = "CALL_QUEUE_PRODUCER";
     public static final String MAX_STATS_AGE_MS_ATTRIB = "phoenix.query.maxStatsAge";
     public static final String CALL_QUEUE_ROUND_ROBIN_ATTRIB = "ipc.server.callqueue.roundrobin";
     public static final String SCAN_CACHE_SIZE_ATTRIB = "hbase.client.scanner.caching";
     public static final String MAX_MUTATION_SIZE_ATTRIB = "phoenix.mutate.maxSize";
     public static final String UPSERT_BATCH_SIZE_ATTRIB = "phoenix.mutate.upsertBatchSize";
     public static final String REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB = "phoenix.query.regionBoundaryCacheTTL";
+    public static final String MAX_HASH_CACHE_TIME_TO_LIVE_MS = "phoenix.coprocessor.maxHashCacheTimeToLiveMs";
 
-    public static final int DEFAULT_SCAN_CACHE_SIZE = 1000;
+    public static final String CALL_QUEUE_PRODUCER_ATTRIB_NAME = "CALL_QUEUE_PRODUCER";
     
     /**
      * Get executor service used for parallel scans

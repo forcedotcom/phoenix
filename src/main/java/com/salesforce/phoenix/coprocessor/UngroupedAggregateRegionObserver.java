@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.coprocessor;
 
 import static com.salesforce.phoenix.query.QueryConstants.*;
+import static com.salesforce.phoenix.query.QueryServices.UPSERT_BATCH_SIZE_ATTRIB;
 
 import java.io.*;
 import java.util.*;
@@ -51,6 +52,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
 import com.salesforce.phoenix.util.*;
@@ -73,6 +75,12 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
     public static final String DELETE_CF = "DeleteCF";
     public static final String EMPTY_CF = "EmptyCF";
     
+    private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations) throws IOException {
+        @SuppressWarnings("unchecked")
+        Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
+        // TODO: should we use the one that is all or none?
+        region.batchMutate(mutations.toArray(mutationArray));
+    }
     
     @Override
     protected RegionScanner doPostScannerOpen(final ObserverContext<RegionCoprocessorEnvironment> c, final Scan scan, final RegionScanner s) throws IOException {
@@ -106,12 +114,14 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
             emptyCF = scan.getAttribute(EMPTY_CF);
         }
         
+        int batchSize = 0;
         long ts = scan.getTimeRange().getMax();
         HRegion region = c.getEnvironment().getRegion();
         List<Pair<Mutation,Integer>> mutations = Collections.emptyList();
         if (isDelete || isUpsert || (deleteCQ != null && deleteCF != null) || emptyCF != null) {
             // TODO: size better
             mutations = Lists.newArrayListWithExpectedSize(1024);
+            batchSize = c.getEnvironment().getConfiguration().getInt(UPSERT_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_UPSERT_BATCH_SIZE);
         }
         Aggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
         Aggregator[] rowAggregators = aggregators.getAggregators();
@@ -185,6 +195,11 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                 }
                             }
                         }
+                        // Commit in batches based on UPSERT_BATCH_SIZE_ATTRIB in config
+                        if (!mutations.isEmpty() && batchSize > 0 && mutations.size() % batchSize == 0) {
+                            commitBatch(region,mutations);
+                            mutations.clear();
+                        }
                     } catch (ConstraintViolationException e) {
                         // Log and ignore in count
                         logger.error("Failed to create row in " + region.getRegionNameAsString() + " with values " + SchemaUtil.toString(values), e);
@@ -203,10 +218,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         }
 
         if (!mutations.isEmpty()) {
-            @SuppressWarnings("unchecked")
-            Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
-            // TODO: should we use the one that is all or none?
-            region.batchMutate(mutations.toArray(mutationArray));
+            commitBatch(region,mutations);
         }
 
         final boolean hadAny = hasAny;

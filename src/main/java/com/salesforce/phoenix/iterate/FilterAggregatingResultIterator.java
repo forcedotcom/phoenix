@@ -30,7 +30,6 @@ package com.salesforce.phoenix.iterate;
 import java.sql.SQLException;
 import java.util.List;
 
-import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;

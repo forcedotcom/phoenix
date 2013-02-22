@@ -47,9 +47,9 @@ public class QueryServicesOptions {
 	public static final int DEFAULT_QUEUE_SIZE = 250;
 	public static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
 	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 50; // 50m
-	public static final long DEFAULT_MAX_MEMORY_BYTES = 1024 * 1024 * 400; // 400m
+	public static final int DEFAULT_MAX_MEMORY_PERC = 20; // 20% of heap
 	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
-	public static final int DEFAULT_MAX_ORG_MEMORY_PERC = 100;
+	public static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
 	public static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
     public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 8;
     public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 12;
@@ -61,6 +61,8 @@ public class QueryServicesOptions {
     public final static int DEFAULT_UPSERT_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
 	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 60000; // How long to cache region boundary info for parallelization calculation
+    public static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 30000; // 30 sec (with no activity)
+    public static final int DEFAULT_SCAN_CACHE_SIZE = 1000;
     
     private final Configuration config;
     
@@ -75,9 +77,9 @@ public class QueryServicesOptions {
             .setIfUnset(QUEUE_SIZE_ATTRIB, DEFAULT_QUEUE_SIZE)
             .setIfUnset(THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS)
             .setIfUnset(SPOOL_THRESHOLD_BYTES_ATTRIB, DEFAULT_SPOOL_THRESHOLD_BYTES)
-            .setIfUnset(MAX_MEMORY_BYTES_ATTRIB, DEFAULT_MAX_MEMORY_BYTES)
+            .setIfUnset(MAX_MEMORY_PERC_ATTRIB, DEFAULT_MAX_MEMORY_PERC)
             .setIfUnset(MAX_MEMORY_WAIT_MS_ATTRIB, DEFAULT_MAX_MEMORY_WAIT_MS)
-            .setIfUnset(MAX_ORG_MEMORY_PERC_ATTRIB, DEFAULT_MAX_ORG_MEMORY_PERC)
+            .setIfUnset(MAX_TENANT_MEMORY_PERC_ATTRIB, DEFAULT_MAX_TENANT_MEMORY_PERC)
             .setIfUnset(MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE)
             .setIfUnset(SCAN_CACHE_SIZE_ATTRIB, DEFAULT_SCAN_CACHE_SIZE)
             .setIfUnset(TARGET_QUERY_CONCURRENCY_ATTRIB, DEFAULT_TARGET_QUERY_CONCURRENCY)
@@ -136,16 +138,16 @@ public class QueryServicesOptions {
         return set(SPOOL_THRESHOLD_BYTES_ATTRIB, spoolThresholdBytes);
     }
     
-    public QueryServicesOptions setMaxMemoryBytes(long maxMemoryBytes) {
-        return set(MAX_MEMORY_BYTES_ATTRIB, maxMemoryBytes);
+    public QueryServicesOptions setMaxMemoryPerc(int maxMemoryPerc) {
+        return set(MAX_MEMORY_PERC_ATTRIB, maxMemoryPerc);
     }
     
     public QueryServicesOptions setMaxMemoryWaitMs(int maxMemoryWaitMs) {
         return set(MAX_MEMORY_WAIT_MS_ATTRIB, maxMemoryWaitMs);
     }
     
-    public QueryServicesOptions setMaxOrgMemoryPerc(int maxOrgMemoryPerc) {
-        return set(MAX_ORG_MEMORY_PERC_ATTRIB, maxOrgMemoryPerc);
+    public QueryServicesOptions setMaxTenantMemoryPerc(int maxTenantMemoryPerc) {
+        return set(MAX_TENANT_MEMORY_PERC_ATTRIB, maxTenantMemoryPerc);
     }
     
     public QueryServicesOptions setMaxHashCacheSize(long maxHashCacheSize) {
@@ -220,12 +222,12 @@ public class QueryServicesOptions {
         return config.getInt(QUEUE_SIZE_ATTRIB, DEFAULT_QUEUE_SIZE);
     }
     
-    public long getMaxMemoryBytesMs() {
-        return config.getLong(MAX_MEMORY_BYTES_ATTRIB, DEFAULT_MAX_MEMORY_BYTES);
+    public int getMaxMemoryPerc() {
+        return config.getInt(MAX_MEMORY_PERC_ATTRIB, DEFAULT_MAX_MEMORY_PERC);
     }
     
     public int getMaxMemoryWaitMs() {
-        return config.getInt(MAX_MEMORY_BYTES_ATTRIB, DEFAULT_MAX_MEMORY_WAIT_MS);
+        return config.getInt(MAX_MEMORY_WAIT_MS_ATTRIB, DEFAULT_MAX_MEMORY_WAIT_MS);
     }
 
     public int getMaxMutateSize() {

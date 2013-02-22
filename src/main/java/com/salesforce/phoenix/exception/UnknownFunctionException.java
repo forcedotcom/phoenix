@@ -27,17 +27,19 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import java.io.IOException;
-import java.sql.SQLException;
-
-
-public class PhoenixIOException extends SQLException {
+/**
+ * Thrown by ParseNodeFactory when it could not identify a node as a valid function.
+ */
+public class UnknownFunctionException extends RuntimeException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
+    private final String funcName;
 
-    public PhoenixIOException(IOException e) {
-        super(new SQLExceptionInfo.Builder(SQLExceptionCode.IO_EXCEPTION).setRootCause(e).build().toString(),
-                code.getSQLState(), code.getErrorCode(), e);
+    public UnknownFunctionException(String funcName) {
+        super();
+        this.funcName = funcName;
     }
 
+    public String getFuncName() {
+        return funcName;
+    }
 }

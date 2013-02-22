@@ -113,6 +113,7 @@ public enum SQLExceptionCode {
     MISSING_TOKEN(602, "42P00", "Syntax error."),
     UNWANTED_TOKEN(603, "42P00", "Syntax error."),
     MISMATCHED_TOKEN(603, "42P00", "Syntax error."),
+    UNKNOWN_FUNCTION(604, "42P00", "Syntax error."),
     
     /**
      * Implementation defined class. Execution exceptions (errorcode 11, sqlstate XCL). 
