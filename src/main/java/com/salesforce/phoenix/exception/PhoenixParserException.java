@@ -93,7 +93,7 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
         return msg;
     }
 
-    public static SQLExceptionCode getErrorCode(Exception e) {
+    public static SQLExceptionCode getErrorCode(RecognitionException e) {
         if (e instanceof MissingTokenException) {
             return SQLExceptionCode.MISSING_TOKEN;
         } else if (e instanceof UnwantedTokenException) {
