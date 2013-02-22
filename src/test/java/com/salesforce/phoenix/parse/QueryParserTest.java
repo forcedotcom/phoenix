@@ -341,6 +341,26 @@ public class QueryParserTest {
     }
 
     @Test
+    public void testParsingStatementWithMispellToken() throws Exception {
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "selects a from b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"selects\" at line 1, column 1."));
+        }
+        try {
+            SQLParser parser = new SQLParser(new StringReader(
+                    "select a froms b\n" +
+                    "where e = d\n"));
+            parser.parseStatement();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \"b\" at line 1, column 16."));
+        }
+    }
+
+    @Test
     public void testParsingStatementWithExtraToken() throws Exception {
         try {
             SQLParser parser = new SQLParser(new StringReader(
@@ -361,22 +381,22 @@ public class QueryParserTest {
     }
 
     @Test
-    public void testParsingStatementWithMispellToken() throws Exception {
+    public void testParsingStatementWithMissingToken() throws Exception {
         try {
             SQLParser parser = new SQLParser(new StringReader(
-                    "selects a from b\n" +
+                    "select a b\n" +
                     "where e = d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"selects\" at line 1, column 1."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \"where\" at line 2, column 1."));
         }
         try {
             SQLParser parser = new SQLParser(new StringReader(
                     "select a from b\n" +
-                    "whera e = d\n"));
+                    "where d\n"));
             parser.parseStatement();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"e\" at line 2, column 7."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"d\" at line 2, column 7."));
         }
     }
 }

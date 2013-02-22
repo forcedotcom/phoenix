@@ -31,15 +31,16 @@ import java.sql.SQLSyntaxErrorException;
 
 import org.antlr.runtime.*;
 
+import com.salesforce.phoenix.parse.PhoenixSQLParser;
+
 
 public class PhoenixParserException extends SQLSyntaxErrorException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.PARSER_ERROR;
 
-    public PhoenixParserException(RecognitionException e) {
-        super(new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR).setRootCause(e)
-                .setMessage(getErrorMessage(e)).build().toString(),
-                code.getSQLState(), code.getErrorCode(), e);
+    public PhoenixParserException(RecognitionException e, PhoenixSQLParser parser) {
+        super(new SQLExceptionInfo.Builder(getErrorCode(e)).setRootCause(e)
+                .setMessage(getErrorMessage(e, parser)).build().toString(),
+                getErrorCode(e).getSQLState(), getErrorCode(e).getErrorCode(), e);
     }
 
     public static String getLine(RecognitionException e) {
@@ -50,7 +51,57 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
         return Integer.toString(e.token.getCharPositionInLine() + 1);
     }
 
-    public static String getErrorMessage(RecognitionException e) {
-        return "Encountered \"" + e.token.getText() + "\" at line " + getLine(e) + ", column " + getColumn(e) + ".";
+    public static String getTokenLocation(RecognitionException e) {
+        return "line " + getLine(e) + ", column " + getColumn(e) + ".";
+    }
+
+    public static String getErrorMessage(RecognitionException e, PhoenixSQLParser parser) {
+        String[] tokenNames = parser.getTokenNames();
+        String msg;
+        if (e instanceof MissingTokenException) {
+            MissingTokenException mte = (MissingTokenException)e;
+            String tokenName;
+            if (mte.expecting== Token.EOF) {
+                tokenName = "EOF";
+            } else {
+                tokenName = tokenNames[mte.expecting];
+            }
+            msg = "missing \""+ tokenName +"\" at "+ getTokenLocation(e);
+        } else if (e instanceof UnwantedTokenException) {
+            UnwantedTokenException ute = (UnwantedTokenException)e;
+            String tokenName;
+            if (ute.expecting== Token.EOF) {
+                tokenName = "EOF";
+            } else {
+                tokenName = tokenNames[ute.expecting];
+            }
+            msg = "Unexpected input. Expecting \"" + tokenName + "\", got \"" + ute.getUnexpectedToken().getText() 
+                    + "\" at " + getTokenLocation(e);
+        } else if (e instanceof MismatchedTokenException) {
+            MismatchedTokenException mte = (MismatchedTokenException)e;
+            String tokenName;
+            if (mte.expecting== Token.EOF) {
+                tokenName = "EOF";
+            } else {
+                tokenName = tokenNames[mte.expecting];
+            }
+            msg = "Mismatched input. Expecting \"" + tokenName + "\", got \"" + mte.token.getText()
+                    + "\" at " + getTokenLocation(e);
+        } else {
+            msg = "Encountered \"" + e.token.getText() + "\" at " + getTokenLocation(e);
+        }
+        return msg;
+    }
+
+    public static SQLExceptionCode getErrorCode(RecognitionException e) {
+        if (e instanceof MissingTokenException) {
+            return SQLExceptionCode.MISSING_TOKEN;
+        } else if (e instanceof UnwantedTokenException) {
+            return SQLExceptionCode.UNWANTED_TOKEN;
+        } else if (e instanceof MismatchedTokenException) {
+            return SQLExceptionCode.MISMATCHED_TOKEN;
+        } else {
+            return SQLExceptionCode.PARSER_ERROR;
+        }
     }
 }
