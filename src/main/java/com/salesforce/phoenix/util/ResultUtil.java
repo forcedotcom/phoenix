@@ -49,7 +49,6 @@ public class ResultUtil {
     /**
      * Return a pointer into a potentially much bigger byte buffer that points to the key of a Result.
      * @param r
-     * @return
      */
     public static ImmutableBytesWritable getKey(Result r) {
         return getKey(r, 0);
@@ -69,7 +68,6 @@ public class ResultUtil {
      * in all of our keys.
      * @param r
      * @param offset offset added to start of key and subtracted from key length (to select subset of key bytes)
-     * @return
      */
     public static ImmutableBytesWritable getKey(Result r, int offset) {
         return new ImmutableBytesWritable(getRawBytes(r), getKeyOffset(r) + offset, getKeyLength(r) - offset);
@@ -149,7 +147,6 @@ public class ResultUtil {
      * Binary search for latest column value without allocating memory in the process
      * @param r
      * @param searchTerm
-     * @return
      */
     public static KeyValue getColumnLatest(Result r, KeyValue searchTerm) {
         KeyValue [] kvs = r.raw(); // side effect possibly.

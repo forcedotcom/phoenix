@@ -29,10 +29,11 @@ package com.salesforce.phoenix.execute;
 
 
 import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.iterate.*;
@@ -53,6 +54,7 @@ public class AggregatePlan extends BasicQueryPlan {
     private final GroupBy groupBy;
     private final Expression having;
     private final int maxRows;
+    private List<KeyRange> splits;
 
     public AggregatePlan(StatementContext context, TableRef table, RowProjector projector, Integer limit,
             GroupBy groupBy, Expression having, OrderBy orderBy, int maxRows) {
@@ -69,10 +71,17 @@ public class AggregatePlan extends BasicQueryPlan {
     }
     
     @Override
+    public List<KeyRange> getSplits() {
+        return splits;
+    }
+    
+    @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
         ResultIterators iterators;
         if (limit == null) {
-            iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
+            ParallelIterators parallelIterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
+            iterators = parallelIterators;
+            splits = parallelIterators.getSplits();
         } else {
             iterators = new SerialLimitingIterators(context, table, limit, new AggregateRowCounter(aggregators));            
         }

@@ -268,19 +268,19 @@
         </executions>
       </plugin>
       <plugin>
-            <artifactId>maven-javadoc-plugin</artifactId>
-            <version>2.6.1</version>
-            <configuration>
-              <docfilessubdirs>true</docfilessubdirs>
-            </configuration>
-            <executions>
-              <execution>
-                <phase>site</phase>
-                <goals>
-                  <goal>javadoc</goal>
-                </goals>
-              </execution>
-            </executions>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration> 
+          <quiet>true</quiet>
+        </configuration>
+        <executions>
+          <execution>
+          <id>attach-javadocs</id>
+          <goals>
+            <goal>jar</goal>
+	  </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
           <groupId>org.apache.maven.plugins</groupId>

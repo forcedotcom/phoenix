@@ -32,6 +32,7 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.sql.*;
+import java.util.List;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -39,6 +40,8 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -1943,4 +1946,24 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         	}
         }
     }
+    
+    @Test
+    public void testStartKeyStopKey() throws SQLException {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("CREATE TABLE start_stop_test (pk char(2) not null primary key) SPLIT ON ('EA','EZ')");
+        conn.close();
+        
+        String query = "select count(*) from start_stop_test where pk >= 'EA' and pk < 'EZ'";
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        conn = DriverManager.getConnection(getUrl(), props);
+        Statement statement = conn.createStatement();
+        statement.execute(query);
+        PhoenixStatement pstatement = statement.unwrap(PhoenixStatement.class);
+        List<KeyRange>splits = pstatement.getQueryPlan().getSplits();
+        assertTrue(splits.size() > 0);
+    }
+
 }

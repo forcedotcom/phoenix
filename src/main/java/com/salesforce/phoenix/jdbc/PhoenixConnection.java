@@ -275,7 +275,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     /**
      * Back-door way to inject processing into walking through a result set
      * @param statementFactory
-     * @return
+     * @return PhoenixStatement
      * @throws SQLException
      */
     public PhoenixStatement createStatement(PhoenixStatementFactory statementFactory) throws SQLException {

@@ -46,8 +46,6 @@ public interface Aggregator extends Expression {
      * Incrementally aggregate the value with the current row
      * @param tuple the result containing all the key values of the row
      * @param ptr the bytes pointer to the underlying result
-     * @return true if the child expression of the aggregator was 
-     *  able to be evaluated and false otherwise.
      */
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr);
     

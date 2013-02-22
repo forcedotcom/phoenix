@@ -82,7 +82,6 @@ public class FromCompiler {
      * Iterate through the nodes in the FROM clause to build a column resolver used to
      * lookup a column given the name and alias.
      * @param statement the select statement
-     * @param schema the schema
      * @return the column resolver
      * @throws SQLException 
      * @throws SQLFeatureNotSupportedException if unsupported constructs appear in the FROM

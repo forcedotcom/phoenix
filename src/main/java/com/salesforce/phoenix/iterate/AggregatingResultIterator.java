@@ -41,7 +41,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public interface AggregatingResultIterator extends ResultIterator {
     /**
      * Provides a means of re-aggregating a result row. For
-     * scanners that need to look ahead (i.e. {@link phoenix.execute.iterate.OrderedAggregatingResultIterator.OrderByResultScanner}
+     * scanners that need to look ahead (i.e. {@link com.salesforce.phoenix.iterate.OrderedAggregatingResultIterator}
      * @param result the row to re-aggregate
      */
     void aggregate(Tuple result);

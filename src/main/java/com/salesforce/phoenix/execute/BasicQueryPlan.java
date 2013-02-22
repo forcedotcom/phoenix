@@ -95,10 +95,10 @@ public abstract class BasicQueryPlan implements QueryPlan {
         return childServices;
     }
     
-    /**
-     * Sets up an id used to do round robin queue processing on the server
-     * @param scan
-     */
+//    /**
+//     * Sets up an id used to do round robin queue processing on the server
+//     * @param scan
+//     */
 //    private void setProducer(Scan scan) {
 //        byte[] producer = Bytes.toBytes(UUID.randomUUID().toString());
 //        scan.setAttribute(HBaseServer.CALL_QUEUE_PRODUCER_ATTRIB_NAME, producer);

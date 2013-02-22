@@ -14,7 +14,7 @@ Phoenix uses Maven (3.X) to build all its necessary resources.
 and optionally, to just skip all the tests and build the jars:
 	$ mvn package -DskipTests
 
-3. 
+Note: javadocs are generated in target/apidocs
 
 ## Importing into eclipse
 =========================
@@ -26,11 +26,6 @@ Use the m2e eclipse plugin and do Import->Maven Project and just pick the root '
 
 1. All tests 
 	$ mvn clean test
-
-## Javadocs
-===========
-Javadoc are generated in /target/site/apidocs
-	$ mvn site
 
 ## Findbugs
 ===========

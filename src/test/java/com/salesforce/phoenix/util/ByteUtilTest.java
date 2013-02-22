@@ -34,11 +34,21 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.ScanKeyOverflowException;
-import com.salesforce.phoenix.util.ByteUtil;
 
 
 public class ByteUtilTest {
 
+    @Test
+    public void testSplitBytes() {
+        byte[] startRow = Bytes.toBytes("EA");
+        byte[] stopRow = Bytes.toBytes("EZ");
+        byte[][] splitPoints = Bytes.split(startRow, stopRow, 10);
+        for (byte[] splitPoint : splitPoints) {
+            assertTrue(Bytes.toStringBinary(splitPoint), Bytes.compareTo(startRow, splitPoint) <= 0);
+            assertTrue(Bytes.toStringBinary(splitPoint), Bytes.compareTo(stopRow, splitPoint) >= 0);
+        }
+    }
+    
     @Test
     public void testVIntToBytes() {
         for (int i = -10000; i <= 10000; i++) {

@@ -73,7 +73,7 @@ public class ProjectionCompiler {
      * @param statement SQL statement being compiled
      * @param context query context kept between compilation of different query clauses
      * @param limit maximum number of rows to scan during query execution or null if unbounded
-     * @param groupByExpressions list of GROUP BY expressions or the empty list if no GROUP BY
+     * @param groupBy list of GROUP BY expressions or the empty list if no GROUP BY
      * @return projector used to access row values during scan
      * @throws SQLException 
      * @throws SQLFeatureNotSupportedException if an unsupported construct is encountered.

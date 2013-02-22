@@ -30,8 +30,7 @@ package com.salesforce.phoenix.compile;
 import static com.salesforce.phoenix.util.TestUtil.*;
 import static org.junit.Assert.*;
 
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -90,6 +89,22 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
         assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
         assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
+    }
+
+    @Test
+    public void testStartKeyStopKey() throws SQLException {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE start_stop_test (pk char(2) not null primary key)");
+        conn.close();
+        
+        String query = "select * from start_stop_test where pk >= 'EA' and pk < 'EZ'";
+        Scan scan = new Scan();
+        List<Object> binds = Collections.emptyList();
+        compileStatement(query, scan, binds);
+        
+        assertNull(scan.getFilter());
+        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes("EA")) == 0);
+        assertTrue(Bytes.compareTo(scan.getStopRow(), PDataType.VARCHAR.toBytes("EZ")) == 0);
     }
 
     @Test

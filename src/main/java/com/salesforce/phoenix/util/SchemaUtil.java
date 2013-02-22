@@ -191,7 +191,6 @@ public class SchemaUtil {
      * Get the key used in the Phoenix metadata row for a table definition
      * @param schemaName
      * @param tableName
-     * @return
      */
     public static byte[] getTableKey(byte[] schemaName, byte[] tableName) {
         return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY);
@@ -221,9 +220,7 @@ public class SchemaUtil {
 
     /**
      * Get the HTable name for a given schemaName and tableName
-     * @param schemaName
      * @param tableName
-     * @return
      */
     public static byte[] getTableName(String tableName) {
         return getTableName(null, tableName);

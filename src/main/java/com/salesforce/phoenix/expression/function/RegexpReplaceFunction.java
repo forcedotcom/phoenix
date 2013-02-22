@@ -49,10 +49,10 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * REGEXP_REPLACE(<source_char>,<pattern>,<replace_string>)
  * source_char is the string in which we want to perform string replacement. pattern is a
  * Java compatible regular expression string, and we replace all the matching part with 
- * replace_string. The first 2 arguments are required and are {@link com.salesforce.phoenix.schema.PDataType.VARCHAR},
+ * replace_string. The first 2 arguments are required and are {@link com.salesforce.phoenix.schema.PDataType#VARCHAR},
  * the replace_string is default to empty string.
  * 
- * The function returns a {@link com.salesforce.phoenix.schema.PDataType.VARCHAR}
+ * The function returns a {@link com.salesforce.phoenix.schema.PDataType#VARCHAR}
  * 
  * @author zhuang
  * @since 0.1

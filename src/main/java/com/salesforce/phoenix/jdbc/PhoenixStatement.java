@@ -90,6 +90,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     protected final PhoenixConnection connection;
     private static final int NO_UPDATE = -1;
     private final List<PhoenixResultSet> resultSets = new ArrayList<PhoenixResultSet>();
+    private QueryPlan lastQueryPlan;
     private PhoenixResultSet lastResultSet;
     private int lastUpdateCount = NO_UPDATE;
     private UpdateOperation lastUpdateOperation;
@@ -151,7 +152,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public QueryPlan compilePlan(List<Object> binds) throws SQLException {
             QueryCompiler compiler = new QueryCompiler(connection, getMaxRows());
-            return compiler.compile(this, binds);
+            return lastQueryPlan = compiler.compile(this, binds);
         }
         
         @Override
@@ -175,6 +176,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             connection.commit();
         }
         lastResultSet = null;
+        lastQueryPlan = null;
         // Unfortunately, JDBC uses an int for update count, so we
         // just max out at Integer.MAX_VALUE
         long updateCount = state.getUpdateCount();
@@ -270,6 +272,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public int executeUpdate() throws SQLException {
             MutationPlan plan = compilePlan(getParameters());
             MutationState state = plan.execute();
+            lastQueryPlan = null;
             lastResultSet = null;
             lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
             lastUpdateOperation = UpdateOperation.UPSERTED;
@@ -310,6 +313,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public int executeUpdate() throws SQLException {
             MetaDataClient client = new MetaDataClient(connection);
             MutationState state = client.dropTable(this);
+            lastQueryPlan = null;
             lastResultSet = null;
             lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
             lastUpdateOperation = UpdateOperation.DELETED;
@@ -359,6 +363,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public int executeUpdate() throws SQLException {
             MetaDataClient client = new MetaDataClient(connection);
             MutationState state = client.addColumn(this);
+            lastQueryPlan = null;
             lastResultSet = null;
             lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
             lastUpdateOperation = UpdateOperation.UPSERTED;
@@ -408,6 +413,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public int executeUpdate() throws SQLException {
             MetaDataClient client = new MetaDataClient(connection);
             MutationState state = client.dropColumn(this);
+            lastQueryPlan = null;
             lastResultSet = null;
             lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
             lastUpdateOperation = UpdateOperation.UPSERTED;
@@ -489,6 +495,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             Scanner scanner = new WrappedScanner(new MaterializedResultIterator(tuples),EXPLAIN_PLAN_ROW_PROJECTOR);
             PhoenixResultSet rs = new PhoenixResultSet(scanner, new PhoenixStatement(connection));
             lastResultSet = rs;
+            lastQueryPlan = null;
             lastUpdateCount = NO_UPDATE;
             return rs;
         }
@@ -739,6 +746,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         return connection.getQueryServices().getConfig().getInt(QueryServices.KEEP_ALIVE_MS_ATTRIB, 0) / 1000;
     }
 
+    // For testing
+    public QueryPlan getQueryPlan() {
+        return lastQueryPlan;
+    }
+    
     @Override
     public ResultSet getResultSet() throws SQLException {
         ResultSet rs = lastResultSet;

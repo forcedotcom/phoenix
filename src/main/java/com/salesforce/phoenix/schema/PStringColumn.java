@@ -29,7 +29,7 @@ package com.salesforce.phoenix.schema;
 
 /**
  * 
- * Abstract class for columns of type {@link com.salesforce.phoenix.schema.PDataType.STRING}
+ * Abstract class for columns of type {@link com.salesforce.phoenix.schema.PDataType#VARCHAR}
  *
  * @author jtaylor
  * @since 0.1

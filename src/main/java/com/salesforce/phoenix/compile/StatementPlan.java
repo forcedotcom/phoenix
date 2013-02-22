@@ -48,7 +48,6 @@ public interface StatementPlan {
     
     /**
      * Returns the ParameterMetaData for the statement
-     * @return
      */
     ParameterMetaData getParameterMetaData();
     

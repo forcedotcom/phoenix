@@ -43,7 +43,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * Post aggregation filter for HAVING clause. Due to the way we cache aggregation values
  * we cannot have a look ahead for this Iterator, because the expressions in the SELECT
  * clause would return values for the peeked row instead of the current row. If we only
- * use the Result argument in {@link com.salesforce.phoenix.expression.Expression#getValue(Result)}
+ * use the Result argument in {@link com.salesforce.phoenix.expression.Expression}
  * instead of our cached value in Aggregators, we could have a look ahead.
  *
  * @author jtaylor

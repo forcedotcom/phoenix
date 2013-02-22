@@ -29,9 +29,10 @@ package com.salesforce.phoenix.execute;
 
 
 import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.query.*;
@@ -50,6 +51,11 @@ public class ScanPlan extends BasicQueryPlan {
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projection, Integer limit, OrderBy orderBy) {
         super(context, table, projection, context.getBindManager().getParameterMetaData(), limit, orderBy);
+    }
+    
+    @Override
+    public List<KeyRange> getSplits() {
+        return null;
     }
     
     @Override

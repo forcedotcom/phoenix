@@ -174,7 +174,6 @@ public class RowKeyValueAccessor implements Writable   {
     
     /**
      * Calculate the length of the PK column value
-     * @param maxLength the fixed length of the PK column value or null if variable length
      * @param keyBuffer the byte array of the row key
      * @param keyOffset the offset in the byte array of where the key begins
      * @param keyLength the length of the entire row key

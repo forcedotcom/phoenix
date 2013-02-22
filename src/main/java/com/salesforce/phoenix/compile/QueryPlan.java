@@ -28,8 +28,10 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
+import java.util.List;
 
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
 
@@ -62,4 +64,6 @@ public interface QueryPlan extends StatementPlan {
     Integer getLimit();
 
     OrderBy getOrderBy();
+
+    List<KeyRange> getSplits();
 }

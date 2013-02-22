@@ -76,9 +76,8 @@ public class HashCacheClient {
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
      * for caching during hash join processing.
      * @param services the global services
-     * @param memoryManager the per request memory manager
-     * @param loopTable the table being iterated over (as opposed to cached) during join processing
-     * @param joinKeyPrefix bytes prefixing key of every LHS and RHS row
+     * @param iterateOverTableName table name
+     * @param tenantId the tenantId or null if not applicable
      */
     public HashCacheClient(ConnectionQueryServices services, byte[] iterateOverTableName, byte[] tenantId) {
         this.services = services;
