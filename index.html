@@ -240,7 +240,7 @@ SELECT <a href="index.html#select_expression">selectExpression</a> [,...] FROM <
 [ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
 </pre>
 syntax-end -->
-<p>Selects data from a table. <code>GROUP BY</code> groups the the result by the given expression(s). <code>HAVING</code> filter rows after grouping. <code>ORDER BY</code> sorts the result by the given column(s) or expression(s) and is only allowed for aggregate queries or queries with a <code>LIMIT</code> clause. <code>LIMIT</code> limits the number of rows returned by the query (no limit if null or smaller than zero). Only single tables are currently supported - joins are currently not supported.</p>
+<p>Selects data from a table. <code>GROUP BY</code> groups the the result by the given expression(s). <code>HAVING</code> filter rows after grouping. <code>ORDER BY</code> sorts the result by the given column(s) or expression(s) and is only allowed for aggregate queries or queries with a <code>LIMIT</code> clause. <code>LIMIT</code> limits the number of rows returned by the query with no limit applied if specified as null or less than zero. The <code>LIMIT</code> clause is executed prior to the <code>ORDER BY</code> clause, so rows which sort above the returned rows may be clipped and subsequently not returned. Only single tables are currently supported - joins are currently not supported.</p>
 <p>Example:</p>
 <p class="notranslate">
 SELECT * FROM TEST;<br />SELECT ID, COUNT(1) FROM TEST GROUP BY ID;<br />SELECT NAME, SUM(VAL) FROM TEST GROUP BY NAME HAVING COUNT(1) &gt; 2;<br />SELECT &#39;ID&#39; COL, MAX(ID) AS MAX FROM TEST;<br />SELECT * FROM TEST LIMIT 1000;</p>
