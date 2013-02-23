@@ -30,10 +30,10 @@ For detailed documentation on the current level of SQL support, see our [languag
 To install a pre-built phoenix, use these directions:
 
 * Download and expand the latest phoenix-[version]-install.tar from [download page](https://github.com/forcedotcom/phoenix/wiki/Download)
-* Remove any prior phoenix-[version].jar installed on any HBase region server.
+* Remove prior phoenix-[version].jar from every HBase region server.
 * Add the phoenix-[version].jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
-* Remove any prior phoenix-[version]-client.jar from the classpath of any Phoenix client.
+* Remove prior phoenix-[version]-client.jar from the classpath of any Phoenix client.
 * Add the phoenix-[version]-client.jar to the classpath of any Phoenix client.
 
 Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
@@ -45,7 +45,7 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
-1. Remove any prior phoenix-[version]-client.jar from the lib directory of SQuirrel
+1. Remove prior phoenix-[version]-client.jar from the lib directory of SQuirrel
 2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel
 3. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
 4. In Add Driver dialog box, set Name to Phoenix
