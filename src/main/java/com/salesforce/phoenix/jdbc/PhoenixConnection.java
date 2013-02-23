@@ -81,7 +81,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         this.services = services;
         this.scn = JDBCUtil.getCurrentSCN(url, this.info);
         this.tenantId = JDBCUtil.getTenantId(url, this.info);
-        this.upsertBatchSize = JDBCUtil.getUpsertBatchSize(url, this.info, services.getConfig());
+        this.upsertBatchSize = JDBCUtil.getMutateBatchSize(url, this.info, services.getConfig());
         datePattern = services.getConfig().get(QueryServices.DATE_FORMAT_ATTRIB, DateUtil.DEFAULT_DATE_FORMAT);
         int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         Format dateTimeFormat = DateUtil.getDateFormatter(datePattern);

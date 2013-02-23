@@ -115,14 +115,16 @@ import com.salesforce.phoenix.util.SQLCloseable;
  *     to TRUE, in which case, mutations (upserts and deletes) are performed
  *     on the server side without returning data back to the client. Defaults
  *     to {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MAX_MUTATION_SIZE}.</li>
- *   <li><strong>phoenix.mutate.upsertBatchSize</strong>: the number of rows
+ *   <li><strong><del>phoenix.mutate.upsertBatchSize</del></strong>: deprecated - use strong>phoenix.mutate.batchSize</strong>
+ *     instead.</li>
+ *   <li><strong>phoenix.mutate.batchSize</strong>: the number of rows
  *     that are batched together and automatically committed during the execution
  *     of an UPSERT SELECT or DELETE statement. This property may be overridden at
  *     connection time by specifying a {@link com.salesforce.phoenix.util.PhoenixRuntime#UPSERT_BATCH_SIZE_ATTRIB}
- *     property value. Note that overriding in this manner does not affect the
+ *     property value. Note that the connection property value does not affect the
  *     batch size used by the coprocessor when these statements are executed
  *     completely on the server side. Defaults to
- *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_UPSERT_BATCH_SIZE}.</li>
+ *     {@link com.salesforce.phoenix.query.QueryServicesOptions#DEFAULT_MUTATE_BATCH_SIZE}.</li>
  *   <li><strong>phoenix.query.regionBoundaryCacheTTL</strong>: the time-to-live
  *     in milliseconds of the region boundary cache used to guide the split
  *     points for query parallelization. Defaults to
@@ -152,7 +154,13 @@ public interface QueryServices extends SQLCloseable {
     public static final String CALL_QUEUE_ROUND_ROBIN_ATTRIB = "ipc.server.callqueue.roundrobin";
     public static final String SCAN_CACHE_SIZE_ATTRIB = "hbase.client.scanner.caching";
     public static final String MAX_MUTATION_SIZE_ATTRIB = "phoenix.mutate.maxSize";
+    /**
+     * Use {@link #MUTATE_BATCH_SIZE_ATTRIB} instead
+     * @deprecated
+     */
+    @Deprecated
     public static final String UPSERT_BATCH_SIZE_ATTRIB = "phoenix.mutate.upsertBatchSize";
+    public static final String MUTATE_BATCH_SIZE_ATTRIB = "phoenix.mutate.batchSize";
     public static final String REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB = "phoenix.query.regionBoundaryCacheTTL";
     public static final String MAX_HASH_CACHE_TIME_TO_LIVE_MS = "phoenix.coprocessor.maxHashCacheTimeToLiveMs";
 
