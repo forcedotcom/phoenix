@@ -28,7 +28,7 @@
 package com.salesforce.phoenix.coprocessor;
 
 import static com.salesforce.phoenix.query.QueryConstants.*;
-import static com.salesforce.phoenix.query.QueryServices.UPSERT_BATCH_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MUTATE_BATCH_SIZE_ATTRIB;
 
 import java.io.*;
 import java.util.*;
@@ -121,7 +121,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         if (isDelete || isUpsert || (deleteCQ != null && deleteCF != null) || emptyCF != null) {
             // TODO: size better
             mutations = Lists.newArrayListWithExpectedSize(1024);
-            batchSize = c.getEnvironment().getConfiguration().getInt(UPSERT_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_UPSERT_BATCH_SIZE);
+            batchSize = c.getEnvironment().getConfiguration().getInt(MUTATE_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MUTATE_BATCH_SIZE);
         }
         Aggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
         Aggregator[] rowAggregators = aggregators.getAggregators();

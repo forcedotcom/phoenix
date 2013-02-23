@@ -10,7 +10,9 @@ GROUP BY groups the the result by the given expression(s).
 HAVING filter rows after grouping.
 ORDER BY sorts the result by the given column(s) or expression(s) and is only allowed for aggregate
 queries or queries with a LIMIT clause.
-LIMIT limits the number of rows returned by the query (no limit if null or smaller than zero).
+LIMIT limits the number of rows returned by the query with no limit applied if specified as null or
+less than zero. The LIMIT clause is executed prior to the ORDER BY clause, so rows which sort above
+the returned rows may be clipped and subsequently not returned.
 Only single tables are currently supported - joins are currently not supported.
 
 ","

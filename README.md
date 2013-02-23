@@ -18,7 +18,7 @@ Applications interact with Phoenix through a standard JDBC interface; all the us
 For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/phoenix/wiki).
 
 ## System Requirements ##
-* HBase v 0.94.2 (support for v 0.94.4 and above coming soon)
+* HBase v 0.94.4 or above
 * JDK 6 or higher
 
 ## Build Requirements ##
@@ -30,8 +30,10 @@ For detailed documentation on the current level of SQL support, see our [languag
 To install a pre-built phoenix, use these directions:
 
 * Download and expand the latest phoenix-[version]-install.tar from [download page](https://github.com/forcedotcom/phoenix/wiki/Download)
+* Remove prior phoenix-[version].jar from every HBase region server.
 * Add the phoenix-[version].jar to the classpath of every HBase region server. An easy way to do this is to copy it into the HBase lib directory.
 * Restart all region servers.
+* Remove prior phoenix-[version]-client.jar from the classpath of any Phoenix client.
 * Add the phoenix-[version]-client.jar to the classpath of any Phoenix client.
 
 Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
@@ -43,15 +45,16 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
-1. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel
-2. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
-3. In Add Driver dialog box, set Name to Phoenix
-4. Press List Drivers button and com.salesforce.phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
-5. Switch to Alias tab and create the new Alias (Aliases -> New Aliases)
-6. In the dialog box, Name: _any name_, Driver: Phoenix, User Name: _anything_, Password: _anything_
-7. Construct URL as follows: jdbc:phoenix: _zookeeper quorum server_. For example, to connect to a local HBase use: jdbc:phoenix:localhost
-8. Press Test (which should succeed if everything is setup correctly) and press OK to close.
-9. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
+1. Remove prior phoenix-[version]-client.jar from the lib directory of SQuirrel
+2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel
+3. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
+4. In Add Driver dialog box, set Name to Phoenix
+5. Press List Drivers button and com.salesforce.phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
+6. Switch to Alias tab and create the new Alias (Aliases -> New Aliases)
+7. In the dialog box, Name: _any name_, Driver: Phoenix, User Name: _anything_, Password: _anything_
+8. Construct URL as follows: jdbc:phoenix: _zookeeper quorum server_. For example, to connect to a local HBase use: jdbc:phoenix:localhost
+9. Press Test (which should succeed if everything is setup correctly) and press OK to close.
+10. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
 
 Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 
@@ -92,7 +95,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     <dependency>
         <groupId>com.salesforce</groupId>
         <artifactId>phoenix</artifactId>
-        <version>1.0</version>
+        <version>1.1</version>
      ...
     </dependency>
 ```
