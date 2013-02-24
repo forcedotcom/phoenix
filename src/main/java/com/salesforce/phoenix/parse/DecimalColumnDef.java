@@ -33,7 +33,8 @@ package com.salesforce.phoenix.parse;
  * 
  * {DECIMAL} [(precision [, scale])]
  *
- * precision has a default value of 5, and scale has a default value of 0.
+ * precision has a default value of 5, and scale has a default value of 0. According to
+ * http://db.apache.org/derby/docs/10.7/ref/rrefsqlj15260.html#rrefsqlj15260
  * 
  * @author zhuang
  * @since 1.1
