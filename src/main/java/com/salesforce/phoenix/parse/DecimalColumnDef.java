@@ -27,55 +27,34 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
+ * Represents a column definition for decimal during DDL, which has the following format
  * 
- * Represents a column definition during DDL
+ * {DECIMAL} [(precision [, scale])]
  *
- * @author jtaylor
- * @since 0.1
+ * precision has a default value of 5, and scale has a default value of 0. According to
+ * http://db.apache.org/derby/docs/10.7/ref/rrefsqlj15260.html#rrefsqlj15260
+ * 
+ * @author zhuang
+ * @since 1.1
  */
-public class ColumnDef {
-    private final ColumnDefName columnDefName;
-    private final PDataType dataType;
-    private final boolean isNull;
-    private final Integer maxLength;
-    private final boolean isPK;
+public class DecimalColumnDef extends ColumnDef {
+    private final Integer precision;
+    private final Integer scale;
 
-    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, boolean isPK) {
-        this.columnDefName = columnDefName;
-        this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
-        this.isNull = isNull;
-        if (this.dataType == PDataType.CHAR) {
-            if (maxLength == null) {
-                throw new IllegalArgumentException(sqlTypeName + " must declare a length");
-            }
-        } else if (this.dataType != PDataType.VARCHAR) {// Ignore maxLength unless CHAR or VARCHAR for now
-            maxLength = null;
-        }
-        this.maxLength = maxLength;
-        this.isPK = isPK;
+    public DecimalColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer precision,
+            Integer scale, boolean isPK) {
+        super(columnDefName, sqlTypeName, isNull, null, isPK);
+        this.precision = precision == null ? 5 : precision;
+        this.scale = scale == null ? 0 : scale;
     }
 
-    public ColumnDefName getColumnDefName() {
-        return columnDefName;
+    public Integer getScale() {
+        return scale;
     }
 
-    public PDataType getDataType() {
-        return dataType;
-    }
-
-    public boolean isNull() {
-        return isNull;
-    }
-
-    public Integer getMaxLength() {
-        return maxLength;
-    }
-
-    public boolean isPK() {
-        return isPK;
+    public Integer getPrecision() {
+        return precision;
     }
 }
