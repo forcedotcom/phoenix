@@ -43,6 +43,16 @@ public abstract class PBaseColumn implements PColumn {
     }
 
     @Override
+    public final Integer getScale() {
+        return getDataType().getScale();
+    }
+
+    @Override
+    public final Integer getPrecision() {
+        return getDataType().getPrecision();
+    }
+
+    @Override
     public boolean isNullable() {
         return false;
     }

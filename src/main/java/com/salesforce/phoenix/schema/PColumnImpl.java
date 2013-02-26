@@ -28,14 +28,15 @@
 package com.salesforce.phoenix.schema;
 
 import java.io.*;
+import java.sql.*;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-
 import com.google.common.base.Preconditions;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
+
 
 public class PColumnImpl implements PColumn {
     private PName name;
@@ -47,7 +48,7 @@ public class PColumnImpl implements PColumn {
 
     public PColumnImpl() {
     }
-    
+
     public PColumnImpl(PName name,
                        PName familyName,
                        PDataType dataType,
@@ -56,12 +57,13 @@ public class PColumnImpl implements PColumn {
                        int position) {
         init(name, familyName, dataType, maxLength, nullable, position);
     }
-    
+
     public PColumnImpl(PColumn column, int position) {
-        this(column.getName(),column.getFamilyName(),column.getDataType(),column.getMaxLength(), column.isNullable(),position);
+        this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
+                column.isNullable(), position);
     }
 
-    private void init(PName name,
+    protected void init(PName name,
             PName familyName,
             PDataType dataType,
             Integer maxLength,
@@ -82,17 +84,17 @@ public class PColumnImpl implements PColumn {
         this.nullable = nullable;
         this.position = position;
     }
-    
+
     @Override
     public PName getName() {
         return name;
     }
-    
+
     @Override
     public PName getFamilyName() {
         return familyName;
     }
-    
+
     @Override
     public PDataType getDataType() {
         return dataType;
@@ -102,6 +104,16 @@ public class PColumnImpl implements PColumn {
     public Integer getMaxLength() {
         Integer dataTypeMaxLength = dataType.getMaxLength();
         return dataTypeMaxLength == null ? maxLength : dataTypeMaxLength;
+    }
+
+    @Override
+    public Integer getScale() {
+        return null;
+    }
+
+    @Override
+    public Integer getPrecision() {
+        return null;
     }
 
     @Override
@@ -141,5 +153,20 @@ public class PColumnImpl implements PColumn {
         WritableUtils.writeVInt(output, maxLength == null ? 0 : maxLength);
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
+    }
+
+    @Override
+    public void prepareInsertStatement(PreparedStatement stmt) throws SQLException {
+        stmt.setString(3, getName().getString());
+        stmt.setString(4, getFamilyName() == null ? null : getFamilyName().getString());
+        stmt.setInt(5, getDataType().getSqlType());
+        stmt.setInt(6, isNullable()? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
+        if (getMaxLength() == null) {
+            stmt.setNull(7, Types.INTEGER);
+        } else {
+            stmt.setInt(7, getMaxLength());
+        }
+        stmt.setInt(8, getPosition()+1);
+        stmt.setNull(9, Types.INTEGER);
     }
 }

@@ -425,7 +425,16 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     public Integer getMaxLength() {
                         return caseExpression.getMaxLength();
                     }
-                    
+
+                    @Override
+                    public Integer getScale() {
+                        return caseExpression.getScale();
+                    }
+
+                    @Override
+                    public Integer getPrecision() {
+                        return caseExpression.getPrecision();
+                    }
                 });
             }
         }
@@ -616,8 +625,16 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         public Integer getMaxLength() {
             return null;
         }
+        @Override
+        public Integer getScale() {
+            return PDataType.DEFAULT_SCALE;
+        }
+        @Override
+        public Integer getPrecision() {
+            return PDataType.DEFAULT_PRECISION;
+        }
     };
-    
+
     private static PDatum inferBindDatum(List<Expression> children) {
         boolean isChildTypeUnknown = false;
         PDatum datum = children.get(1);
@@ -743,6 +760,14 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         public Integer getMaxLength() {
                             return type.getMaxLength();
                         }
+                        @Override
+                        public Integer getScale() {
+                            return type.getScale();
+                        }
+                        @Override
+                        public Integer getPrecision() {
+                            return type.getPrecision();
+                        }
                     };
                 } else if (expression.getDataType() != null
                         && expression.getDataType().isCoercibleTo(
@@ -758,6 +783,14 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         }
                         @Override
                         public Integer getMaxLength() {
+                            return null;
+                        }
+                        @Override
+                        public Integer getScale() {
+                            return null;
+                        }
+                        @Override
+                        public Integer getPrecision() {
                             return null;
                         }
                     };
@@ -861,6 +894,15 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             }
                             @Override
                             public Integer getMaxLength() {
+                                return null;
+                            }
+                            @Override
+                            public Integer getScale() {
+                                return null;
+                            }
+                            @Override
+                            public Integer getPrecision() {
+                                // TODO Auto-generated method stub
                                 return null;
                             }
                         };

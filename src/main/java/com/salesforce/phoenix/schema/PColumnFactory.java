@@ -25,38 +25,30 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.schema;
 
-import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.parse.ColumnDef;
+import com.salesforce.phoenix.parse.DecimalColumnDef;
 
 
-/**
- * Represents a column definition for decimal during DDL, which has the following format
- * 
- * {DECIMAL} [(precision [, scale])]
- *
- * precision has a default value of 5, and scale has a default value of 0. According to
- * http://db.apache.org/derby/docs/10.7/ref/rrefsqlj15260.html#rrefsqlj15260
- * 
- * @author zhuang
- * @since 1.1
- */
-public class DecimalColumnDef extends ColumnDef {
-    private final Integer precision;
-    private final Integer scale;
+public class PColumnFactory {
 
-    public DecimalColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer precision,
-            Integer scale, boolean isPK) {
-        super(columnDefName, sqlTypeName, isNull, null, isPK);
-        this.precision = precision == null ? PDataType.DEFAULT_PRECISION : precision;
-        this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
+    public static PColumn makePColumn(PName name, PName familyName, ColumnDef def, int position) {
+        if (def instanceof DecimalColumnDef) {
+            DecimalColumnDef dDef = (DecimalColumnDef) def;
+            return new PColumnDecimalImpl(name, familyName, def.getDataType(), dDef.getPrecision(),
+                    dDef.getScale(), dDef.isNull(), position);
+        } else {
+            return new PColumnImpl(name, familyName, def.getDataType(), def.getMaxLength(),
+                    def.isNull(), position);
+        }
     }
 
-    public Integer getScale() {
-        return scale;
-    }
-
-    public Integer getPrecision() {
-        return precision;
+    public static PColumn makePColumn(PColumn column, int position) {
+        if (column instanceof PColumnDecimalImpl) {
+            return new PColumnDecimalImpl(column, position);
+        } else {
+            return new PColumnImpl(column, position);
+        }
     }
 }

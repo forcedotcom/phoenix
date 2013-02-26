@@ -54,6 +54,16 @@ public abstract class BaseExpression implements Expression {
     }
 
     @Override
+    public Integer getPrecision() {
+        return getDataType().getPrecision();
+    }
+
+    @Override
+    public Integer getScale() {
+        return getDataType().getScale();
+    }
+
+    @Override
     public void readFields(DataInput input) throws IOException {
     }
 

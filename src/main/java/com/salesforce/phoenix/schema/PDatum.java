@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+
 public interface PDatum {
     /**
      * @return is this column nullable?
@@ -42,4 +43,8 @@ public interface PDatum {
      * @return maximum byte length of the column
      */
     Integer getMaxLength();
+
+    Integer getPrecision();
+
+    Integer getScale();
 }

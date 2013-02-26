@@ -27,6 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
 import org.apache.hadoop.io.Writable;
 
 /**
@@ -41,14 +44,19 @@ public interface PColumn extends PDatum, Writable {
      * @return the name of the column qualifier
      */
     PName getName();
-    
+
     /**
      * @return the name of the column family
      */
     PName getFamilyName();
-    
+
     /**
      * @return the zero-based ordinal position of the column
      */
     int getPosition();
+
+    /**
+     * Fill in the parameter statement with information in this column
+     */
+    void prepareInsertStatement(PreparedStatement stmt) throws SQLException;
 }

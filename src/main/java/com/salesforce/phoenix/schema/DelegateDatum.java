@@ -52,4 +52,14 @@ public class DelegateDatum implements PDatum {
     protected PDatum getDelegate() {
         return delegate;
     }
+
+    @Override
+    public Integer getScale() {
+        return delegate.getScale();
+    }
+
+    @Override
+    public Integer getPrecision() {
+        return delegate.getPrecision();
+    }
 }

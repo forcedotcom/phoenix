@@ -696,6 +696,16 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         public Integer getMaxLength() {
             return TABLE_TYPE_MAX_LENGTH;
         }
+
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+
+        @Override
+        public Integer getPrecision() {
+            return null;
+        }
     };
     private static final RowProjector TABLE_TYPE_ROW_PROJECTOR = new RowProjector(Arrays.<ColumnProjector>asList(
             new ExpressionProjector(TABLE_TYPE_NAME, TYPE_SCHEMA_AND_TABLE, 

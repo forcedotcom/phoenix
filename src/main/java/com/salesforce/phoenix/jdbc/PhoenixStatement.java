@@ -461,6 +461,16 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public Integer getMaxLength() {
             return null;
         }
+
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+
+        @Override
+        public Integer getPrecision() {
+            return null;
+        }
     };
     private static final RowProjector EXPLAIN_PLAN_ROW_PROJECTOR = new RowProjector(Arrays.<ColumnProjector>asList(
             new ExpressionProjector(EXPLAIN_PLAN_ALIAS, EXPLAIN_PLAN_TABLE_NAME, 

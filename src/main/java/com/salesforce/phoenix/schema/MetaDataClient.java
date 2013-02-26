@@ -138,8 +138,9 @@ public class MetaDataClient {
         DATA_TYPE + "," +
         NULLABLE + "," +
         COLUMN_SIZE + "," +
-        ORDINAL_POSITION +
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        ORDINAL_POSITION + "," +
+        DECIMAL_DIGITS +
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
         TABLE_SCHEM_NAME + "," +
@@ -152,16 +153,7 @@ public class MetaDataClient {
     private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert) throws SQLException {
         colUpsert.setString(1, schemaName);
         colUpsert.setString(2, tableName);
-        colUpsert.setString(3, column.getName().getString());
-        colUpsert.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
-        colUpsert.setInt(5, column.getDataType().getSqlType());
-        colUpsert.setInt(6, column.isNullable() ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
-        if (column.getMaxLength() == null) {
-            colUpsert.setNull(7, Types.INTEGER);
-        } else {
-            colUpsert.setInt(7, column.getMaxLength());
-        }
-        colUpsert.setInt(8, column.getPosition()+1);
+        column.prepareInsertStatement(colUpsert);
         colUpsert.execute();
     }
 
@@ -187,8 +179,7 @@ public class MetaDataClient {
             } else if (!isPK) {
                 familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
             }
-            PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName,
-                    def.getDataType(), def.getMaxLength(), def.isNull(), position);
+            PColumn column = PColumnFactory.makePColumn(new PNameImpl(columnName), familyName, def, position);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);

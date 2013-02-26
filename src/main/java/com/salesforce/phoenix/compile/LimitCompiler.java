@@ -52,7 +52,16 @@ public class LimitCompiler {
         public Integer getMaxLength() {
             return getDataType().getMaxLength();
         }
-        
+
+        @Override
+        public Integer getScale() {
+            return getDataType().getScale();
+        }
+
+        @Override
+        public Integer getPrecision() {
+            return getDataType().getPrecision();
+        }
     };
     
     private LimitCompiler() {

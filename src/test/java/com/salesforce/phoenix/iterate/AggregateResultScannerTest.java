@@ -31,8 +31,7 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 
 import java.io.*;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -112,6 +111,10 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
 
             @Override
             public void write(DataOutput arg0) throws IOException {
+            }
+
+            @Override
+            public void prepareInsertStatement(PreparedStatement stmt) throws SQLException {
             }
         })), null);
         aggregationManager.setAggregators(new ClientAggregators(Collections.<SingleAggregateFunction>singletonList(func), 1));

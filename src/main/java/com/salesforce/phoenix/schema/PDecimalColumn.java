@@ -25,38 +25,14 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
-
-import com.salesforce.phoenix.schema.PDataType;
+package com.salesforce.phoenix.schema;
 
 
-/**
- * Represents a column definition for decimal during DDL, which has the following format
- * 
- * {DECIMAL} [(precision [, scale])]
- *
- * precision has a default value of 5, and scale has a default value of 0. According to
- * http://db.apache.org/derby/docs/10.7/ref/rrefsqlj15260.html#rrefsqlj15260
- * 
- * @author zhuang
- * @since 1.1
- */
-public class DecimalColumnDef extends ColumnDef {
-    private final Integer precision;
-    private final Integer scale;
+public abstract class PDecimalColumn extends PBaseColumn {
 
-    public DecimalColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer precision,
-            Integer scale, boolean isPK) {
-        super(columnDefName, sqlTypeName, isNull, null, isPK);
-        this.precision = precision == null ? PDataType.DEFAULT_PRECISION : precision;
-        this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
+    @Override
+    public PDataType getDataType() {
+        return PDataType.DECIMAL;
     }
 
-    public Integer getScale() {
-        return scale;
-    }
-
-    public Integer getPrecision() {
-        return precision;
-    }
 }
