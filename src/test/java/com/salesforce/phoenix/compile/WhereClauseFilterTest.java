@@ -27,13 +27,32 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.and;
+import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
+import static com.salesforce.phoenix.util.TestUtil.columnComparison;
+import static com.salesforce.phoenix.util.TestUtil.constantComparison;
+import static com.salesforce.phoenix.util.TestUtil.in;
+import static com.salesforce.phoenix.util.TestUtil.kvColumn;
+import static com.salesforce.phoenix.util.TestUtil.multiKVFilter;
+import static com.salesforce.phoenix.util.TestUtil.or;
+import static com.salesforce.phoenix.util.TestUtil.singleKVFilter;
+import static java.util.Collections.emptyList;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import java.math.BigDecimal;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.text.Format;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -42,12 +61,16 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.google.common.collect.Sets;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.SubstrFunction;
 import com.salesforce.phoenix.filter.MultiKeyValueComparisonFilter;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.PDataType;
@@ -175,7 +198,38 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Object date = format.parseObject(dateStr);   
         assertEquals(filter, singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.A_DATE, date)));
     }
-
+    
+    private void helpTestToNumberFilter(String stringValue) throws Exception {
+    	BigDecimal expectedDecimal = (BigDecimal)PDataType.DECIMAL.toObject(stringValue); // create BigDecimal via PDataType.DECIMAL to get consistent rounding
+        String tenantId = "000000000000001";
+        String query = "select * from atable where organization_id='" + tenantId + "' and x_decimal >= to_number('" + stringValue + "')";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        Scan scan = new Scan();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(pconn, resolver, emptyList(), statement.getBindCount(), scan);
+        statement = compileStatement(context, statement, resolver, emptyList(), scan, 1, null);
+        Filter filter = scan.getFilter();
+        
+        assertEquals(filter, singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.X_DECIMAL, expectedDecimal)));
+    }
+    
+    @Test
+    public void testToNumberFilterWithInteger() throws Exception {
+        helpTestToNumberFilter("123");
+    }
+    
+    @Test
+    public void testToNumberFilterWithDecimal() throws Exception {
+        helpTestToNumberFilter("123.33");
+    }
+    
+    @Test
+    public void testToNumberFilterWithNegativeDecimal() throws Exception {
+    	helpTestToNumberFilter("-123.33");
+    }
+    
     @Test
     public void testRowKeyFilter() throws SQLException {
         String keyPrefix = "foo";
