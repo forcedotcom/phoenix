@@ -1155,6 +1155,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             statement.setString(2, F3);
+            System.out.println(statement);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
             assertEquals(F1, rs.getString("feature"));

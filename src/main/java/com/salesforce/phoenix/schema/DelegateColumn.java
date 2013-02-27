@@ -28,8 +28,6 @@
 package com.salesforce.phoenix.schema;
 
 import java.io.*;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 
 public class DelegateColumn extends DelegateDatum implements PColumn {
     
@@ -65,10 +63,5 @@ public class DelegateColumn extends DelegateDatum implements PColumn {
     @Override
     public int getPosition() {
         return getDelegate().getPosition();
-    }
-
-    @Override
-    public void prepareInsertStatement(PreparedStatement stmt) throws SQLException {
-        getDelegate().prepareInsertStatement(stmt);
     }
 }

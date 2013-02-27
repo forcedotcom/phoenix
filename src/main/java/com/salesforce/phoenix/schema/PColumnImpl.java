@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.schema;
 
 import java.io.*;
-import java.sql.*;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
@@ -148,20 +147,5 @@ public class PColumnImpl implements PColumn {
         WritableUtils.writeVInt(output, maxLength == null ? 0 : maxLength);
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
-    }
-
-    @Override
-    public void prepareInsertStatement(PreparedStatement stmt) throws SQLException {
-        stmt.setString(3, getName().getString());
-        stmt.setString(4, getFamilyName() == null ? null : getFamilyName().getString());
-        stmt.setInt(5, getDataType().getSqlType());
-        stmt.setInt(6, isNullable()? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
-        if (getByteSize() == null) {
-            stmt.setNull(7, Types.INTEGER);
-        } else {
-            stmt.setInt(7, getByteSize());
-        }
-        stmt.setInt(8, getPosition()+1);
-        stmt.setNull(9, Types.INTEGER);
     }
 }

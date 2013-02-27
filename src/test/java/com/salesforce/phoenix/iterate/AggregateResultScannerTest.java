@@ -112,10 +112,6 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             @Override
             public void write(DataOutput arg0) throws IOException {
             }
-
-            @Override
-            public void prepareInsertStatement(PreparedStatement stmt) throws SQLException {
-            }
         })), null);
         aggregationManager.setAggregators(new ClientAggregators(Collections.<SingleAggregateFunction>singletonList(func), 1));
         ResultIterators iterators = new ResultIterators() {

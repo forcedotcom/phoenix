@@ -138,9 +138,8 @@ public class MetaDataClient {
         DATA_TYPE + "," +
         NULLABLE + "," +
         COLUMN_SIZE + "," +
-        ORDINAL_POSITION + "," +
-        DECIMAL_DIGITS +
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        ORDINAL_POSITION + 
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
         TABLE_SCHEM_NAME + "," +
@@ -153,7 +152,16 @@ public class MetaDataClient {
     private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert) throws SQLException {
         colUpsert.setString(1, schemaName);
         colUpsert.setString(2, tableName);
-        column.prepareInsertStatement(colUpsert);
+        colUpsert.setString(3, column.getName().getString());
+        colUpsert.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
+        colUpsert.setInt(5, column.getDataType().getSqlType());
+        colUpsert.setInt(6, column.isNullable() ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
+        if (column.getByteSize() == null) {
+            colUpsert.setNull(7, Types.INTEGER);
+        } else {
+            colUpsert.setInt(7, column.getByteSize());
+        }
+        colUpsert.setInt(8, column.getPosition()+1);
         colUpsert.execute();
     }
 

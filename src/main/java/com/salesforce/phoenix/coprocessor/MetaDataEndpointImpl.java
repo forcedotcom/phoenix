@@ -221,7 +221,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             j = 0;
             nFound = 0;
             while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
-                System.out.println(i + " " + results.size() + " " + j + " " + COLUMN_KV_COLUMNS.size());
                 KeyValue kv = results.get(i);
                 KeyValue searchKv = COLUMN_KV_COLUMNS.get(j);
                 int cmp = Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), 
@@ -236,7 +235,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
             if (   nFound < COLUMN_KV_COLUMNS.size() - 1 || 
                  ( nFound == COLUMN_KV_COLUMNS.size() - 1 && colKeyValues[COLUMN_SIZE_INDEX] != null ) ) { // COLUMN_SIZE is optional
-                throw new IllegalStateException("Didn't find expected expected key values in column metadata row");
+                throw new IllegalStateException("Didn't find expected key values in column metadata row");
             }
             KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
             Integer maxLength = columnSizeKv == null ? null : IntNative.getInstance().toInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), columnSizeKv.getValueLength());
