@@ -230,7 +230,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     colKeyValues[j++] = kv;
                     nFound++;
                     i++;
-                } else if (cmp > 0) {
+                } else {
                     colKeyValues[j++] = null;
                 }
             }
