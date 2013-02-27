@@ -71,7 +71,7 @@ public class DateAddExpression extends AddExpression {
             }
             finalResult += value;
         }
-        byte[] resultPtr=new byte[PDataType.LONG.getMaxLength()];
+        byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
         ptr.set(resultPtr);
         dateNative.putLong(finalResult, ptr);
         return true;

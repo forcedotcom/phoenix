@@ -64,7 +64,7 @@ public class LongAddExpression extends AddExpression {
             }
             finalResult += childvalue;
         }
-        byte[] resultPtr=new byte[PDataType.LONG.getMaxLength()];
+        byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
         ptr.set(resultPtr);
         longNative.putLong(finalResult, ptr);
         return true;

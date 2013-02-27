@@ -409,28 +409,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         for (int i = 0; i < node.getChildren().size(); i+=2) {
             ParseNode childNode = node.getChildren().get(i);
             if (childNode instanceof BindParseNode) {
-                context.getBindManager().addParamMetaData((BindParseNode)childNode, new PDatum() {
-
-                    @Override
-                    public boolean isNullable() {
-                        return caseExpression.isNullable();
-                    }
-
-                    @Override
-                    public PDataType getDataType() {
-                        return caseExpression.getDataType();
-                    }
-
-                    @Override
-                    public Integer getByteSize() {
-                        return caseExpression.getByteSize();
-                    }
-
-                    @Override
-                    public Integer getScale() {
-                        return caseExpression.getScale();
-                    }
-                });
+                context.getBindManager().addParamMetaData((BindParseNode)childNode, new DelegateDatum(caseExpression));
             }
         }
         if (node.isConstant()) {
@@ -749,7 +728,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         }
                         @Override
                         public Integer getByteSize() {
-                            return type.getMaxLength();
+                            return type.getByteSize();
                         }
                         @Override
                         public Integer getScale() {

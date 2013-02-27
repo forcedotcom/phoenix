@@ -66,7 +66,7 @@ public abstract class ValueSchema {
         for (Field field : fields) {
             int fieldEstLength = 0;
             PDataType type = field.getType();
-            Integer theMaxLength = type.getMaxLength();
+            Integer theMaxLength = type.getByteSize();
             if (type.isFixedWidth()) {
                 fieldEstLength += (theMaxLength == null ? field.getMaxLength() : theMaxLength);
             } else {
@@ -144,7 +144,7 @@ public abstract class ValueSchema {
         private Field(PDatum datum, int count) {
             this.type = datum.getDataType();
             this.count = count;
-            if (this.type.isFixedWidth() && this.type.getMaxLength() == null) {
+            if (this.type.isFixedWidth() && this.type.getByteSize() == null) {
                 this.maxLength = datum.getByteSize();
             }
         }
@@ -171,7 +171,7 @@ public abstract class ValueSchema {
         public void readFields(DataInput input) throws IOException {
             this.type = PDataType.values()[WritableUtils.readVInt(input)];
             this.count = WritableUtils.readVInt(input);
-            if (this.type.isFixedWidth() && this.type.getMaxLength() == null) {
+            if (this.type.isFixedWidth() && this.type.getByteSize() == null) {
                 this.maxLength = WritableUtils.readVInt(input);
             }
         }
@@ -180,7 +180,7 @@ public abstract class ValueSchema {
         public void write(DataOutput output) throws IOException {
             WritableUtils.writeVInt(output, type.ordinal());
             WritableUtils.writeVInt(output, count);
-            if (type.isFixedWidth() && type.getMaxLength() == null) {
+            if (type.isFixedWidth() && type.getByteSize() == null) {
                 WritableUtils.writeVInt(output, maxLength);
             }
         }
@@ -351,7 +351,7 @@ public abstract class ValueSchema {
     
     protected int positionFixedLength(ImmutableBytesWritable ptr, Field field, int nFields) {
         PDataType type = field.getType();
-        int length = (type.getMaxLength() == null) ? field.getMaxLength() : type.getMaxLength();
+        int length = (type.getByteSize() == null) ? field.getMaxLength() : type.getByteSize();
         ptr.set(ptr.get(),ptr.getOffset() + nFields * length, ptr.getLength());
         return length;
     }

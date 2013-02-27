@@ -50,7 +50,7 @@ public class LimitCompiler {
 
         @Override
         public Integer getByteSize() {
-            return getDataType().getMaxLength();
+            return getDataType().getByteSize();
         }
 
         @Override

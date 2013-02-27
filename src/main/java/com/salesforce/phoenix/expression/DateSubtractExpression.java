@@ -74,7 +74,7 @@ public class DateSubtractExpression extends SubtractExpression {
                 finalResult -= value;
             }
         }
-        byte[] resultPtr=new byte[PDataType.LONG.getMaxLength()];
+        byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
         ptr.set(resultPtr);
         dateNative.putLong(finalResult, ptr);
         return true;

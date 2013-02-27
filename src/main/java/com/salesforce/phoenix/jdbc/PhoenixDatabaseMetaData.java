@@ -497,7 +497,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             public PhoenixStatement newStatement(PhoenixConnection connection) {
                 final byte[] unsetValue = new byte[0];
                 final ImmutableBytesWritable pkNamePtr = new ImmutableBytesWritable(unsetValue);
-                final byte[] rowNumberHolder = new byte[PDataType.INTEGER.getMaxLength()];
+                final byte[] rowNumberHolder = new byte[PDataType.INTEGER.getByteSize()];
                 return new PhoenixStatement(connection) {
                     @Override
                     protected PhoenixResultSet newResultSet(Scanner scanner) throws SQLException {

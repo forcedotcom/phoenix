@@ -196,7 +196,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         KeyValue tableTypeKv = tableKeyValues[TABLE_TYPE_INDEX];
         PTableType tableType = PTableType.fromSerializedValue(tableTypeKv.getBuffer()[tableTypeKv.getValueOffset()]);
         KeyValue tableSeqNumKv = tableKeyValues[TABLE_SEQ_NUM_INDEX];
-        long tableSeqNum = LongNative.getInstance().toLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), PDataType.LONG.getMaxLength());
+        long tableSeqNum = LongNative.getInstance().toLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), PDataType.LONG.getByteSize());
         KeyValue columnCountKv = tableKeyValues[COLUMN_COUNT_INDEX];
         int columnCount = IntNative.getInstance().toInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset(), columnCountKv.getValueLength());
         KeyValue pkNameKv = tableKeyValues[PK_NAME_INDEX];
@@ -221,6 +221,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             j = 0;
             nFound = 0;
             while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
+                System.out.println(i + " " + results.size() + " " + j + " " + COLUMN_KV_COLUMNS.size());
                 KeyValue kv = results.get(i);
                 KeyValue searchKv = COLUMN_KV_COLUMNS.get(j);
                 int cmp = Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), 
@@ -637,6 +638,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 region.releaseRowLock(lid);
             }
         } catch (Throwable t) {
+            t.printStackTrace(System.out);
             ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
             return null; // impossible
         }

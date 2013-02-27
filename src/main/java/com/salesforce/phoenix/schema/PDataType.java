@@ -132,7 +132,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
 
@@ -216,7 +216,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
 
@@ -352,7 +352,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
 
@@ -489,7 +489,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_INT;
         }
 
@@ -637,7 +637,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return MAX_BIG_DECIMAL_BYTES;
         }
 
@@ -723,7 +723,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            byte[] bytes = new byte[getMaxLength()];
+            byte[] bytes = new byte[getByteSize()];
             toBytes(object, bytes, 0);
             return bytes;
         }
@@ -781,7 +781,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG + Bytes.SIZEOF_INT;
         }
 
@@ -838,7 +838,7 @@ public enum PDataType {
                 throw new ConstraintViolationException(this + " may not be null");
             }
             Bytes.putLong(bytes, offset, ((Time)object).getTime());
-            return this.getMaxLength();
+            return this.getByteSize();
         }
 
         @Override
@@ -883,7 +883,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
 
@@ -936,7 +936,7 @@ public enum PDataType {
                 throw new ConstraintViolationException(this + " may not be null");
             }
             Bytes.putLong(bytes, offset, ((Date)object).getTime());
-            return this.getMaxLength();
+            return this.getByteSize();
         }
 
         @Override
@@ -981,7 +981,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
 
@@ -1109,7 +1109,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
 
@@ -1251,7 +1251,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_INT;
         }
 
@@ -1340,7 +1340,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return BOOLEAN_LENGTH;
         }
 
@@ -1414,7 +1414,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
 
@@ -1466,7 +1466,7 @@ public enum PDataType {
 
     public int estimateByteSize(Object o) {
         if (isFixedWidth()) {
-            return getMaxLength();
+            return getByteSize();
         }
         // Non fixed width types must override this
         throw new UnsupportedOperationException();
@@ -1895,7 +1895,7 @@ public enum PDataType {
     }
 
     public abstract boolean isFixedWidth();
-    public abstract Integer getMaxLength();
+    public abstract Integer getByteSize();
 
     public abstract byte[] toBytes(Object object);
 

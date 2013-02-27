@@ -50,7 +50,7 @@ public abstract class BaseExpression implements Expression {
 
     @Override
     public Integer getByteSize() {
-        return getDataType().isFixedWidth() ? getDataType().getMaxLength() : null;
+        return getDataType().isFixedWidth() ? getDataType().getByteSize() : null;
     }
 
     @Override

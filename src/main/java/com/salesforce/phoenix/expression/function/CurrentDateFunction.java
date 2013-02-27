@@ -49,7 +49,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 @BuiltInFunction(name=CurrentDateFunction.NAME, nodeClass=CurrentDateParseNode.class, args= {} )
 public class CurrentDateFunction extends ScalarFunction {
     public static final String NAME = "CURRENT_DATE";
-    private final ImmutableBytesWritable currentDate = new ImmutableBytesWritable(new byte[PDataType.DATE.getMaxLength()]);
+    private final ImmutableBytesWritable currentDate = new ImmutableBytesWritable(new byte[PDataType.DATE.getByteSize()]);
     
     public CurrentDateFunction() {
         this(System.currentTimeMillis());
@@ -61,7 +61,7 @@ public class CurrentDateFunction extends ScalarFunction {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        ptr.set(currentDate.get(), 0, PDataType.DATE.getMaxLength());
+        ptr.set(currentDate.get(), 0, PDataType.DATE.getByteSize());
         return true;
     }
 

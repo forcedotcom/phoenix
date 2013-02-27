@@ -39,7 +39,7 @@ public abstract class PBaseColumn implements PColumn {
 
     @Override
     public final Integer getByteSize() {
-        return getDataType().getMaxLength();
+        return getDataType().getByteSize();
     }
 
     @Override

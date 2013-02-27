@@ -78,7 +78,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     public ColumnExpression(PDatum datum) {
         this.type = datum.getDataType();
         this.isNullable = datum.isNullable();
-        if (type.isFixedWidth() && type.getMaxLength() == null) {
+        if (type.isFixedWidth() && type.getByteSize() == null) {
             this.maxLength = datum.getByteSize();
         }
     }
@@ -107,7 +107,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         int typeAndNullable = WritableUtils.readVInt(input);
         isNullable = (typeAndNullable & 0x01) != 0;
         type = PDataType.values()[typeAndNullable >>> 1];
-        if (type.isFixedWidth() && type.getMaxLength() == null) {
+        if (type.isFixedWidth() && type.getByteSize() == null) {
             maxLength = WritableUtils.readVInt(input);
         }
         

@@ -55,7 +55,7 @@ public class ValueBitSetTest {
 
                     @Override
                     public Integer getByteSize() {
-                        return !getDataType().isFixedWidth() ? null : getDataType().getMaxLength() == null ? FIXED_WIDTH_CHAR_SIZE : getDataType().getMaxLength();
+                        return !getDataType().isFixedWidth() ? null : getDataType().getByteSize() == null ? FIXED_WIDTH_CHAR_SIZE : getDataType().getByteSize();
                     }
 
                     @Override
