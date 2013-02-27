@@ -455,13 +455,13 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             // to return NULL.
             int index = LikeExpression.indexOfWildcard(pattern);
             // Can't possibly be as long as the constant, then FALSE
-            Integer lhsMaxLength = lhs.getByteSize();
-            if (lhsMaxLength != null && lhsMaxLength < index) {
+            Integer lhsByteSize = lhs.getByteSize();
+            if (lhsByteSize != null && lhsByteSize < index) {
                 return LiteralExpression.FALSE_EXPRESSION;
             }
             if (index == -1) {
                 String rhsLiteral = LikeExpression.unescapeLike(pattern);
-                if (lhsMaxLength != null && lhsMaxLength != rhsLiteral.length()) {
+                if (lhsByteSize != null && lhsByteSize != rhsLiteral.length()) {
                     return LiteralExpression.FALSE_EXPRESSION;
                 }
                 CompareOp op = node.isNegate() ? CompareOp.NOT_EQUAL : CompareOp.EQUAL;
