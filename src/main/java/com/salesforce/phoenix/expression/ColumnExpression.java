@@ -45,7 +45,7 @@ import com.salesforce.phoenix.schema.PDatum;
  */
 abstract public class ColumnExpression extends BaseTerminalExpression {
     protected PDataType type;
-    private Integer maxLength;
+    private Integer byteSize;
     private boolean isNullable;
 
     public ColumnExpression() {
@@ -79,7 +79,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         this.type = datum.getDataType();
         this.isNullable = datum.isNullable();
         if (type.isFixedWidth() && type.getByteSize() == null) {
-            this.maxLength = datum.getByteSize();
+            this.byteSize = datum.getByteSize();
         }
     }
 
@@ -95,8 +95,8 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
 
     @Override
     public Integer getByteSize() {
-        if (maxLength != null) {
-            return maxLength;
+        if (byteSize != null) {
+            return byteSize;
         }
         return super.getByteSize();
     }
@@ -108,7 +108,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         isNullable = (typeAndNullable & 0x01) != 0;
         type = PDataType.values()[typeAndNullable >>> 1];
         if (type.isFixedWidth() && type.getByteSize() == null) {
-            maxLength = WritableUtils.readVInt(input);
+            byteSize = WritableUtils.readVInt(input);
         }
         
     }
@@ -118,8 +118,8 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         // read/write type ordinal and isNullable bit together to save space
         int typeAndNullable = (isNullable ? 1 : 0) | (type.ordinal() << 1);
         WritableUtils.writeVInt(output,typeAndNullable);
-        if (maxLength != null) {
-            WritableUtils.writeVInt(output, maxLength);
+        if (byteSize != null) {
+            WritableUtils.writeVInt(output, byteSize);
         }
     }
 }

@@ -56,14 +56,14 @@ import com.salesforce.phoenix.util.StringUtil;
 public class LTrimFunction extends ScalarFunction {
     public static final String NAME = "LTRIM";
 
-    private Integer maxLength;
+    private Integer byteSize;
 
     public LTrimFunction() { }
 
     public LTrimFunction(List<Expression> children) throws SQLException {
         super(children);
         if (getStringExpression().getDataType().isFixedWidth()) {
-            maxLength = getStringExpression().getByteSize();
+            byteSize = getStringExpression().getByteSize();
         }
     }
 
@@ -100,7 +100,7 @@ public class LTrimFunction extends ScalarFunction {
 
     @Override
     public Integer getByteSize() {
-        return maxLength;
+        return byteSize;
     }
 
     @Override

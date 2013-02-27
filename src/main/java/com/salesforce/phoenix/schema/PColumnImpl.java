@@ -63,7 +63,7 @@ public class PColumnImpl implements PColumn {
                 column.isNullable(), position);
     }
 
-    protected void init(PName name,
+    private void init(PName name,
             PName familyName,
             PDataType dataType,
             Integer maxLength,

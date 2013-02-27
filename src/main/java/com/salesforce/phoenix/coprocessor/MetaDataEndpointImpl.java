@@ -638,7 +638,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 region.releaseRowLock(lid);
             }
         } catch (Throwable t) {
-            t.printStackTrace(System.out);
             ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
             return null; // impossible
         }

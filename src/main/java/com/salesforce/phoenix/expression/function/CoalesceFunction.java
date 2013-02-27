@@ -86,11 +86,11 @@ public class CoalesceFunction extends ScalarFunction {
 
     @Override
     public Integer getByteSize() {
-        Integer maxLength1 = children.get(0).getByteSize();
-        if (maxLength1 != null) {
-            Integer maxLength2 = children.get(1).getByteSize();
-            if (maxLength2 != null) {
-                return maxLength1 > maxLength2 ? maxLength1 : maxLength2;
+        Integer maxByteSize1 = children.get(0).getByteSize();
+        if (maxByteSize1 != null) {
+            Integer maxByteSize2 = children.get(1).getByteSize();
+            if (maxByteSize2 != null) {
+                return maxByteSize1 > maxByteSize2 ? maxByteSize1 : maxByteSize2;
             }
         }
         return null;

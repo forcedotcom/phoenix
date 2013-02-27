@@ -102,8 +102,7 @@ public class PhoenixResultSetMetaData implements ResultSetMetaData {
         if (type.isCoercibleTo(PDataType.DATE)) {
             return Math.min(Math.max(displaySize, connection.getDatePattern().length()), MAX_DISPLAY_WIDTH);
         }
-        Integer maxLength = projector.getExpression().getByteSize();
-        if (maxLength != null) {
+        if (projector.getExpression().getByteSize() != null) {
             return Math.min(Math.max(displaySize, projector.getExpression().getByteSize()), MAX_DISPLAY_WIDTH);
         }
         

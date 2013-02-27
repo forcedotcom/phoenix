@@ -1672,7 +1672,6 @@ public enum PDataType {
 
     public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
     public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
-    public static final int DEFAULT_PRECISION = 5;
     public static final int DEFAULT_SCALE = 0;
 
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;

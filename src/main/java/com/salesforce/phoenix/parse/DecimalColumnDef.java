@@ -48,7 +48,7 @@ public class DecimalColumnDef extends ColumnDef {
     public DecimalColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer precision,
             Integer scale, boolean isPK) {
         super(columnDefName, sqlTypeName, isNull, null, isPK);
-        this.precision = precision == null ? PDataType.DEFAULT_PRECISION : precision;
+        this.precision = precision == null ? PDataType.MAX_PRECISION : precision;
         this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
     }
 

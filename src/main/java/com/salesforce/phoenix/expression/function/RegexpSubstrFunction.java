@@ -64,7 +64,7 @@ public class RegexpSubstrFunction extends ScalarFunction {
 
     private Pattern pattern;
     private boolean isOffsetConstant;
-    private Integer maxLength;
+    private Integer byteSize;
 
     public RegexpSubstrFunction() { }
 
@@ -88,9 +88,9 @@ public class RegexpSubstrFunction extends ScalarFunction {
             int offset = offsetNumber.intValue();
             if (getSourceStrExpression().getDataType().isFixedWidth()) {
                 if (offset >= 0) {
-                    maxLength = getSourceStrExpression().getByteSize() - offset - (offset == 0 ? 0 : 1);
+                    byteSize = getSourceStrExpression().getByteSize() - offset - (offset == 0 ? 0 : 1);
                 } else {
-                    maxLength = -offset;
+                    byteSize = -offset;
                 }
             }
         }
@@ -139,7 +139,7 @@ public class RegexpSubstrFunction extends ScalarFunction {
 
     @Override
     public Integer getByteSize() {
-        return maxLength;
+        return byteSize;
     }
 
     @Override
