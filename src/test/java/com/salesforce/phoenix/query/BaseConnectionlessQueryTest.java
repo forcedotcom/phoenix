@@ -54,6 +54,7 @@ public class BaseConnectionlessQueryTest extends BaseTest {
     public static PColumn A_DATE;
     public static PColumn A_TIME;
     public static PColumn A_TIMESTAMP;
+    public static PColumn X_DECIMAL;
     
     protected static String getUrl() {
         return TestUtil.PHOENIX_CONNECTIONLESS_JDBC_URL;
@@ -81,6 +82,7 @@ public class BaseConnectionlessQueryTest extends BaseTest {
             A_DATE = table.getColumn("A_DATE");
             A_TIME = table.getColumn("A_TIME");
             A_TIMESTAMP = table.getColumn("A_TIMESTAMP");
+            X_DECIMAL = table.getColumn("X_DECIMAL");
         } finally {
             conn.close();
         }

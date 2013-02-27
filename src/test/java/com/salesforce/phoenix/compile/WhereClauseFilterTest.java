@@ -28,8 +28,10 @@
 package com.salesforce.phoenix.compile;
 
 import static com.salesforce.phoenix.util.TestUtil.*;
+import static java.util.Collections.emptyList;
 import static org.junit.Assert.*;
 
+import java.math.BigDecimal;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.text.Format;
@@ -175,7 +177,38 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Object date = format.parseObject(dateStr);   
         assertEquals(filter, singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.A_DATE, date)));
     }
-
+    
+    private void helpTestToNumberFilter(String stringValue) throws Exception {
+    	BigDecimal expectedDecimal = (BigDecimal)PDataType.DECIMAL.toObject(stringValue); // create BigDecimal via PDataType.DECIMAL to get consistent rounding
+        String tenantId = "000000000000001";
+        String query = "select * from atable where organization_id='" + tenantId + "' and x_decimal >= to_number('" + stringValue + "')";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        Scan scan = new Scan();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(pconn, resolver, emptyList(), statement.getBindCount(), scan);
+        statement = compileStatement(context, statement, resolver, emptyList(), scan, 1, null);
+        Filter filter = scan.getFilter();
+        
+        assertEquals(filter, singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.X_DECIMAL, expectedDecimal)));
+    }
+    
+    @Test
+    public void testToNumberFilterWithInteger() throws Exception {
+        helpTestToNumberFilter("123");
+    }
+    
+    @Test
+    public void testToNumberFilterWithDecimal() throws Exception {
+        helpTestToNumberFilter("123.33");
+    }
+    
+    @Test
+    public void testToNumberFilterWithNegativeDecimal() throws Exception {
+    	helpTestToNumberFilter("-123.33");
+    }
+    
     @Test
     public void testRowKeyFilter() throws SQLException {
         String keyPrefix = "foo";
