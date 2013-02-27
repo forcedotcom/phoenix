@@ -36,7 +36,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.ToNumberParseNode;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -47,7 +46,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @author elevine
  * @since 0.1
  */
-@BuiltInFunction(name=ToNumberFunction.NAME, nodeClass=ToNumberParseNode.class, args= {@Argument(allowedTypes={PDataType.VARCHAR})} )
+@BuiltInFunction(name=ToNumberFunction.NAME, args= {@Argument(allowedTypes={PDataType.VARCHAR})} )
 public class ToNumberFunction extends ScalarFunction {
     public static final String NAME = "TO_NUMBER";
 
@@ -59,12 +58,19 @@ public class ToNumberFunction extends ScalarFunction {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (!getExpression().evaluate(tuple, ptr) || ptr.getLength() == 0) {
-            return false;
-        }
+    	if (!getExpression().evaluate(tuple, ptr)) {
+    		return false;
+    	} else if (ptr.getLength() == 0) {
+    		return true;
+    	}
+    	
         PDataType type = getExpression().getDataType();
         String stringValue = (String)type.toObject(ptr);
-        BigDecimal decimalValue = (BigDecimal) getDataType().toObject(stringValue);
+        if (stringValue == null) {
+        	return false;
+        }
+        stringValue = stringValue.trim();
+    	BigDecimal decimalValue = (BigDecimal) getDataType().toObject(stringValue);
         byte[] byteValue = getDataType().toBytes(decimalValue);
         ptr.set(byteValue);
         return true;
@@ -87,23 +93,5 @@ public class ToNumberFunction extends ScalarFunction {
     @Override
     public String getName() {
         return NAME;
-    }
-    
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + getExpression().hashCode();
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        ToNumberFunction other = (ToNumberFunction)obj;
-        if (!getExpression().equals(other.getExpression())) return false;
-        return true;
     }
 }
