@@ -54,17 +54,12 @@ public class ValueBitSetTest {
                     }
 
                     @Override
-                    public Integer getMaxLength() {
+                    public Integer getByteSize() {
                         return !getDataType().isFixedWidth() ? null : getDataType().getMaxLength() == null ? FIXED_WIDTH_CHAR_SIZE : getDataType().getMaxLength();
                     }
 
                     @Override
                     public Integer getScale() {
-                        return null;
-                    }
-
-                    @Override
-                    public Integer getPrecision() {
                         return null;
                     }
                 };

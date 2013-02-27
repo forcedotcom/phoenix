@@ -196,8 +196,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     }
                 }
                 // Can't possibly be as long as the constant, then FALSE
-                Integer lhsMaxLength = lhs.getMaxLength();
-                if (lhsMaxLength != null && !lhsMaxLength.equals(children.get(1).getMaxLength())) {
+                Integer lhsMaxLength = lhs.getByteSize();
+                if (lhsMaxLength != null && !lhsMaxLength.equals(children.get(1).getByteSize())) {
                     switch (node.getFilterOp()) {
                         case EQUAL:
                             return LiteralExpression.FALSE_EXPRESSION;
@@ -422,18 +422,13 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     }
 
                     @Override
-                    public Integer getMaxLength() {
-                        return caseExpression.getMaxLength();
+                    public Integer getByteSize() {
+                        return caseExpression.getByteSize();
                     }
 
                     @Override
                     public Integer getScale() {
                         return caseExpression.getScale();
-                    }
-
-                    @Override
-                    public Integer getPrecision() {
-                        return caseExpression.getPrecision();
                     }
                 });
             }
@@ -481,7 +476,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             // to return NULL.
             int index = LikeExpression.indexOfWildcard(pattern);
             // Can't possibly be as long as the constant, then FALSE
-            Integer lhsMaxLength = lhs.getMaxLength();
+            Integer lhsMaxLength = lhs.getByteSize();
             if (lhsMaxLength != null && lhsMaxLength < index) {
                 return LiteralExpression.FALSE_EXPRESSION;
             }
@@ -622,16 +617,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             return PDataType.DECIMAL;
         }
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
         @Override
         public Integer getScale() {
             return PDataType.DEFAULT_SCALE;
-        }
-        @Override
-        public Integer getPrecision() {
-            return PDataType.DEFAULT_PRECISION;
         }
     };
 
@@ -757,16 +748,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             return type;
                         }
                         @Override
-                        public Integer getMaxLength() {
+                        public Integer getByteSize() {
                             return type.getMaxLength();
                         }
                         @Override
                         public Integer getScale() {
-                            return type.getScale();
-                        }
-                        @Override
-                        public Integer getPrecision() {
-                            return type.getPrecision();
+                            return null;
                         }
                     };
                 } else if (expression.getDataType() != null
@@ -782,15 +769,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             return PDataType.DECIMAL;
                         }
                         @Override
-                        public Integer getMaxLength() {
+                        public Integer getByteSize() {
                             return null;
                         }
                         @Override
                         public Integer getScale() {
-                            return null;
-                        }
-                        @Override
-                        public Integer getPrecision() {
                             return null;
                         }
                     };
@@ -893,16 +876,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 return PDataType.DECIMAL;
                             }
                             @Override
-                            public Integer getMaxLength() {
+                            public Integer getByteSize() {
                                 return null;
                             }
                             @Override
                             public Integer getScale() {
-                                return null;
-                            }
-                            @Override
-                            public Integer getPrecision() {
-                                // TODO Auto-generated method stub
                                 return null;
                             }
                         };

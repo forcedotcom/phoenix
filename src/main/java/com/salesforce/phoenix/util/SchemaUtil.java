@@ -145,7 +145,7 @@ public class SchemaUtil {
         List<PColumn> columns = table.getPKColumns();
         while (i < columns.size()) {
             PColumn keyColumn = columns.get(i++);
-            Integer maxLength = keyColumn.getMaxLength();
+            Integer maxLength = keyColumn.getByteSize();
             maxKeyLength += (maxLength == null) ? VAR_LENGTH_ESTIMATE : maxLength;
         }
         return maxKeyLength;

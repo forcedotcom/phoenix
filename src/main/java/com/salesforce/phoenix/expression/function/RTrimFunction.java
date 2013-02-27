@@ -62,7 +62,7 @@ public class RTrimFunction extends ScalarFunction {
     public RTrimFunction(List<Expression> children) throws SQLException {
         super(children);
         if (getStringExpression().getDataType().isFixedWidth()) {
-            maxLength = getStringExpression().getMaxLength();
+            maxLength = getStringExpression().getByteSize();
         }
     }
 
@@ -104,7 +104,7 @@ public class RTrimFunction extends ScalarFunction {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         return maxLength;
     }
 

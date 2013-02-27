@@ -154,8 +154,8 @@ public class RoundFunction extends ScalarFunction {
     }
     
     @Override
-    public Integer getMaxLength() {
-        return children.get(0).getMaxLength();
+    public Integer getByteSize() {
+        return children.get(0).getByteSize();
     }
 
     @Override

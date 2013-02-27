@@ -179,7 +179,8 @@ public class MetaDataClient {
             } else if (!isPK) {
                 familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
             }
-            PColumn column = PColumnFactory.makePColumn(new PNameImpl(columnName), familyName, def, position);
+            PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
+                    def.getMaxLength(), def.isNull(), position);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);

@@ -693,17 +693,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return TABLE_TYPE_MAX_LENGTH;
         }
 
         @Override
         public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
             return null;
         }
     };

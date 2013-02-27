@@ -90,7 +90,7 @@ public class SubstrFunction extends ScalarFunction {
                 int offset = offsetNumber.intValue();
                 if (getStrExpression().getDataType().isFixedWidth()) {
                     if (offset >= 0) {
-                        maxLength = getStrExpression().getMaxLength() - offset - (offset == 0 ? 0 : 1);
+                        maxLength = getStrExpression().getByteSize() - offset - (offset == 0 ? 0 : 1);
                     } else {
                         maxLength = -offset;
                     }
@@ -161,7 +161,7 @@ public class SubstrFunction extends ScalarFunction {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         return maxLength;
     }
 

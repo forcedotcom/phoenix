@@ -150,16 +150,6 @@ public enum PDataType {
         public Object toObject(String value) {
             return value;
         }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
-        }
     },
     /**
      * Fixed length single byte characters
@@ -255,16 +245,6 @@ public enum PDataType {
                 throw new IllegalDataException("CHAR types may only contain single byte characters (" + value + ")");
             }
             return value;
-        }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
         }
     },
     LONG("BIGINT", Types.BIGINT, Long.class) {
@@ -415,16 +395,6 @@ public enum PDataType {
                 throw new IllegalDataException(e);
             }
         }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
-        }
     },
     INTEGER("INTEGER", Types.INTEGER, Integer.class) {
         @Override
@@ -563,16 +533,6 @@ public enum PDataType {
             } catch (NumberFormatException e) {
                 throw new IllegalDataException(e);
             }
-        }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
         }
     },
     DECIMAL("DECIMAL", Types.DECIMAL, BigDecimal.class) {
@@ -751,18 +711,6 @@ public enum PDataType {
                 throw new IllegalDataException(e);
             }
         }
-
-        @Override
-        public Integer getScale() {
-            // TODO:: Implement me!
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            // TODO:: Implement me!
-            return null;
-        }
     },
     TIMESTAMP("TIMESTAMP", Types.TIMESTAMP, Timestamp.class) {
         @Override
@@ -869,16 +817,6 @@ public enum PDataType {
             }
             return DateUtil.parseTimestamp(value);
         }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
-        }
     },
     TIME("TIME", Types.TIME, Time.class) {
         @Override
@@ -977,16 +915,6 @@ public enum PDataType {
             }
             return DateUtil.parseTime(value);
         }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
-        }
     },
     DATE("DATE", Types.DATE, Date.class) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
         @Override
@@ -1073,17 +1001,6 @@ public enum PDataType {
                 return null;
             }
             return DateUtil.parseDate(value);
-        }
-
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
         }
     },
     /**
@@ -1244,16 +1161,6 @@ public enum PDataType {
                 throw new IllegalDataException(e);
             }
         }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
-        }
     },
     /**
      * Unsigned integer type that restricts values to be from 0 to {@link java.lang.Integer#MAX_VALUE} inclusive. May be used to map to existing HTable values created through {@link org.apache.hadoop.hbase.util.Bytes#toBytes(int)}
@@ -1395,16 +1302,6 @@ public enum PDataType {
                 throw new IllegalDataException(e);
             }
         }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
-        }
     },
     BOOLEAN("BOOLEAN", Types.BOOLEAN, Boolean.class) { // Delegate to VARCHAR
         @Override
@@ -1465,17 +1362,6 @@ public enum PDataType {
         @Override
         public Object toObject(String value) {
             return Boolean.parseBoolean(value);
-        }
-
-        @Override
-        public Integer getScale() {
-            // TODO Auto-generated method stub
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
         }
     },
     BINARY("BINARY", Types.BINARY, byte[].class) {
@@ -1560,16 +1446,6 @@ public enum PDataType {
                 return null;
             }
             return Base64.decode(value);
-        }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return null;
         }
     },
     ;
@@ -2020,8 +1896,6 @@ public enum PDataType {
 
     public abstract boolean isFixedWidth();
     public abstract Integer getMaxLength();
-    public abstract Integer getScale();
-    public abstract Integer getPrecision();
 
     public abstract byte[] toBytes(Object object);
 

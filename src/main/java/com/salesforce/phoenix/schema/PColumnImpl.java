@@ -59,7 +59,7 @@ public class PColumnImpl implements PColumn {
     }
 
     public PColumnImpl(PColumn column, int position) {
-        this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
+        this(column.getName(), column.getFamilyName(), column.getDataType(), column.getByteSize(),
                 column.isNullable(), position);
     }
 
@@ -101,18 +101,13 @@ public class PColumnImpl implements PColumn {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         Integer dataTypeMaxLength = dataType.getMaxLength();
         return dataTypeMaxLength == null ? maxLength : dataTypeMaxLength;
     }
 
     @Override
     public Integer getScale() {
-        return null;
-    }
-
-    @Override
-    public Integer getPrecision() {
         return null;
     }
 
@@ -161,10 +156,10 @@ public class PColumnImpl implements PColumn {
         stmt.setString(4, getFamilyName() == null ? null : getFamilyName().getString());
         stmt.setInt(5, getDataType().getSqlType());
         stmt.setInt(6, isNullable()? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
-        if (getMaxLength() == null) {
+        if (getByteSize() == null) {
             stmt.setNull(7, Types.INTEGER);
         } else {
-            stmt.setInt(7, getMaxLength());
+            stmt.setInt(7, getByteSize());
         }
         stmt.setInt(8, getPosition()+1);
         stmt.setNull(9, Types.INTEGER);

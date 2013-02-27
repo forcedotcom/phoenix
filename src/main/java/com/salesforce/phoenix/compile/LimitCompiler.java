@@ -49,18 +49,13 @@ public class LimitCompiler {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return getDataType().getMaxLength();
         }
 
         @Override
         public Integer getScale() {
-            return getDataType().getScale();
-        }
-
-        @Override
-        public Integer getPrecision() {
-            return getDataType().getPrecision();
+            return null;
         }
     };
     

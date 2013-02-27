@@ -145,7 +145,7 @@ public abstract class ValueSchema {
             this.type = datum.getDataType();
             this.count = count;
             if (this.type.isFixedWidth() && this.type.getMaxLength() == null) {
-                this.maxLength = datum.getMaxLength();
+                this.maxLength = datum.getByteSize();
             }
         }
         

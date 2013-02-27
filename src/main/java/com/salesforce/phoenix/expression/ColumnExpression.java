@@ -56,7 +56,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         final int prime = 31;
         int result = 1;
         result = prime * result + (isNullable() ? 1231 : 1237);
-        Integer maxLength = this.getMaxLength();
+        Integer maxLength = this.getByteSize();
         result = prime * result + ((maxLength == null) ? 0 : maxLength.hashCode());
         PDataType type = this.getDataType();
         result = prime * result + ((type == null) ? 0 : type.hashCode());
@@ -70,7 +70,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (getClass() != obj.getClass()) return false;
         ColumnExpression other = (ColumnExpression)obj;
         if (this.isNullable() != other.isNullable()) return false;
-        if (!Objects.equal(this.getMaxLength(),other.getMaxLength())) return false;
+        if (!Objects.equal(this.getByteSize(),other.getByteSize())) return false;
         if (this.getDataType() != other.getDataType()) return false;
         return true;
     }
@@ -79,7 +79,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         this.type = datum.getDataType();
         this.isNullable = datum.isNullable();
         if (type.isFixedWidth() && type.getMaxLength() == null) {
-            this.maxLength = datum.getMaxLength();
+            this.maxLength = datum.getByteSize();
         }
     }
 
@@ -94,11 +94,11 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         if (maxLength != null) {
             return maxLength;
         }
-        return super.getMaxLength();
+        return super.getByteSize();
     }
     
     @Override

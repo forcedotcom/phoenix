@@ -199,7 +199,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         return maxLength;
     }
 

@@ -49,18 +49,13 @@ public abstract class BaseExpression implements Expression {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         return getDataType().isFixedWidth() ? getDataType().getMaxLength() : null;
     }
 
     @Override
-    public Integer getPrecision() {
-        return getDataType().getPrecision();
-    }
-
-    @Override
     public Integer getScale() {
-        return getDataType().getScale();
+        return null;
     }
 
     @Override

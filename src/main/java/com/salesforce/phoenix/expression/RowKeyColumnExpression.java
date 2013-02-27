@@ -102,7 +102,7 @@ public class RowKeyColumnExpression  extends ColumnExpression {
             int fixedLength = -1;
             // FIXME: fixedLength <= maxLength ? fixedLength : 0 required because HBase passes bogus keys to filter to position scan (HBASE-6562)
             if (fromType.isFixedWidth()) {
-                fixedLength = getMaxLength();
+                fixedLength = getByteSize();
                 fixedLength = fixedLength <= maxLength ? fixedLength : 0;
             }
             int length = fixedLength >= 0 ? fixedLength  : accessor.getLength(buffer, offset, maxLength);

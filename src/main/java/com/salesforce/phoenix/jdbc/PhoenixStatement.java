@@ -458,17 +458,12 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
 
         @Override
         public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public Integer getPrecision() {
             return null;
         }
     };

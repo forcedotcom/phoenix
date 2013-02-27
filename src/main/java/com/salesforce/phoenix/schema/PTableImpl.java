@@ -187,7 +187,7 @@ public class PTableImpl implements PTable {
             if (byteValue.length == 0 && !column.isNullable()) { 
                 throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
             }
-            Integer maxLength = column.getMaxLength();
+            Integer maxLength = column.getByteSize();
             if (type.isFixedWidth()) { // TODO: handle multi-byte characters
                 if (byteValue.length != maxLength) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + maxLength + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
@@ -336,7 +336,7 @@ public class PTableImpl implements PTable {
                 removeIfPresent(setValues, family, qualifier);
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
-                Integer maxLength = column.getMaxLength();
+                Integer maxLength = column.getByteSize();
                 if (type.isFixedWidth()) { // TODO: handle multi-byte characters
                     if (byteValue.length != maxLength) {
                         throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + maxLength + " bytes (" + type.toObject(byteValue) + ")");

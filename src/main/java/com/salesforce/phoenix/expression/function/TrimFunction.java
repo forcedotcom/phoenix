@@ -61,7 +61,7 @@ public class TrimFunction extends ScalarFunction {
     public TrimFunction(List<Expression> children) throws SQLException {
         super(children);
         if (getStringExpression().getDataType().isFixedWidth()) {
-            maxLength = getStringExpression().getMaxLength();
+            maxLength = getStringExpression().getByteSize();
         }
     }
 
@@ -96,7 +96,7 @@ public class TrimFunction extends ScalarFunction {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         return maxLength;
     }
 

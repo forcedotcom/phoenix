@@ -42,9 +42,7 @@ public interface PDatum {
     /**
      * @return maximum byte length of the column
      */
-    Integer getMaxLength();
-
-    Integer getPrecision();
+    Integer getByteSize();
 
     Integer getScale();
 }

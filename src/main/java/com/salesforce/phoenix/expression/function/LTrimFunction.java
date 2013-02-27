@@ -63,7 +63,7 @@ public class LTrimFunction extends ScalarFunction {
     public LTrimFunction(List<Expression> children) throws SQLException {
         super(children);
         if (getStringExpression().getDataType().isFixedWidth()) {
-            maxLength = getStringExpression().getMaxLength();
+            maxLength = getStringExpression().getByteSize();
         }
     }
 
@@ -99,7 +99,7 @@ public class LTrimFunction extends ScalarFunction {
     }
 
     @Override
-    public Integer getMaxLength() {
+    public Integer getByteSize() {
         return maxLength;
     }
 
