@@ -32,10 +32,10 @@ import java.io.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-
 import com.google.common.base.Preconditions;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
+
 
 public class PColumnImpl implements PColumn {
     private PName name;
@@ -47,7 +47,7 @@ public class PColumnImpl implements PColumn {
 
     public PColumnImpl() {
     }
-    
+
     public PColumnImpl(PName name,
                        PName familyName,
                        PDataType dataType,
@@ -56,9 +56,10 @@ public class PColumnImpl implements PColumn {
                        int position) {
         init(name, familyName, dataType, maxLength, nullable, position);
     }
-    
+
     public PColumnImpl(PColumn column, int position) {
-        this(column.getName(),column.getFamilyName(),column.getDataType(),column.getMaxLength(), column.isNullable(),position);
+        this(column.getName(), column.getFamilyName(), column.getDataType(), column.getByteSize(),
+                column.isNullable(), position);
     }
 
     private void init(PName name,
@@ -82,26 +83,31 @@ public class PColumnImpl implements PColumn {
         this.nullable = nullable;
         this.position = position;
     }
-    
+
     @Override
     public PName getName() {
         return name;
     }
-    
+
     @Override
     public PName getFamilyName() {
         return familyName;
     }
-    
+
     @Override
     public PDataType getDataType() {
         return dataType;
     }
 
     @Override
-    public Integer getMaxLength() {
-        Integer dataTypeMaxLength = dataType.getMaxLength();
+    public Integer getByteSize() {
+        Integer dataTypeMaxLength = dataType.getByteSize();
         return dataTypeMaxLength == null ? maxLength : dataTypeMaxLength;
+    }
+
+    @Override
+    public Integer getScale() {
+        return null;
     }
 
     @Override

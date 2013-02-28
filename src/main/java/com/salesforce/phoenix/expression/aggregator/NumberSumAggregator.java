@@ -49,7 +49,7 @@ abstract public class NumberSumAggregator extends BaseAggregator {
     abstract protected PDataType getInputDataType();
     
     private int getBufferLength() {
-        return getDataType().getMaxLength();
+        return getDataType().getByteSize();
     }
     
     private void initBuffer() {

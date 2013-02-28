@@ -54,14 +54,14 @@ import com.salesforce.phoenix.util.StringUtil;
 public class TrimFunction extends ScalarFunction {
     public static final String NAME = "TRIM";
 
-    private Integer maxLength;
+    private Integer byteSize;
 
     public TrimFunction() { }
 
     public TrimFunction(List<Expression> children) throws SQLException {
         super(children);
         if (getStringExpression().getDataType().isFixedWidth()) {
-            maxLength = getStringExpression().getMaxLength();
+            byteSize = getStringExpression().getByteSize();
         }
     }
 
@@ -96,8 +96,8 @@ public class TrimFunction extends ScalarFunction {
     }
 
     @Override
-    public Integer getMaxLength() {
-        return maxLength;
+    public Integer getByteSize() {
+        return byteSize;
     }
 
     @Override

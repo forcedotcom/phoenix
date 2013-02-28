@@ -61,7 +61,7 @@ public class CountAggregator extends BaseAggregator {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (buffer == null) {
-            buffer = new byte[getDataType().getMaxLength()];
+            buffer = new byte[getDataType().getByteSize()];
         }
         LongNative.getInstance().putLong(count, buffer, 0);
         ptr.set(buffer);
@@ -87,6 +87,6 @@ public class CountAggregator extends BaseAggregator {
 
     @Override
     public int getSize() {
-        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getDataType().getMaxLength();
+        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getDataType().getByteSize();
     }
 }

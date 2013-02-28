@@ -98,14 +98,14 @@ public class RowKeyColumnExpression  extends ColumnExpression {
         // by the bytes not being present.
         if (offset < ptr.getOffset() + ptr.getLength()) {
             byte[] buffer = ptr.get();
-            int maxLength = ptr.getLength() - (offset - ptr.getOffset());
-            int fixedLength = -1;
-            // FIXME: fixedLength <= maxLength ? fixedLength : 0 required because HBase passes bogus keys to filter to position scan (HBASE-6562)
+            int maxByteSize = ptr.getLength() - (offset - ptr.getOffset());
+            int fixedByteSize = -1;
+            // FIXME: fixedByteSize <= maxByteSize ? fixedByteSize : 0 required because HBase passes bogus keys to filter to position scan (HBASE-6562)
             if (fromType.isFixedWidth()) {
-                fixedLength = getMaxLength();
-                fixedLength = fixedLength <= maxLength ? fixedLength : 0;
+                fixedByteSize = getByteSize();
+                fixedByteSize = fixedByteSize <= maxByteSize ? fixedByteSize : 0;
             }
-            int length = fixedLength >= 0 ? fixedLength  : accessor.getLength(buffer, offset, maxLength);
+            int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxByteSize);
             // In the middle of the key, an empty variable length byte array represents null
             if (length > 0) {
                 if (type == fromType) {

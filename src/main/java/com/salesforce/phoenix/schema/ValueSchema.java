@@ -66,18 +66,18 @@ public abstract class ValueSchema {
         for (Field field : fields) {
             int fieldEstLength = 0;
             PDataType type = field.getType();
-            Integer theMaxLength = type.getMaxLength();
+            Integer byteSize = type.getByteSize();
             if (type.isFixedWidth()) {
-                fieldEstLength += (theMaxLength == null ? field.getMaxLength() : theMaxLength);
+                fieldEstLength += (byteSize == null ? field.getByteSize() : byteSize);
             } else {
                 isFixedLength = false;
                 // Account for vint for length if not fixed
-                if (theMaxLength == null) {
+                if (byteSize == null) {
                     isMaxLength = false;
                     fieldEstLength += ESTIMATED_VARIABLE_LENGTH_SIZE;
                 } else {
-                    fieldEstLength += WritableUtils.getVIntSize(theMaxLength);
-                    fieldEstLength = theMaxLength;
+                    fieldEstLength += WritableUtils.getVIntSize(byteSize);
+                    fieldEstLength = byteSize;
                 }
             }
             positions += field.getCount();
@@ -136,7 +136,7 @@ public abstract class ValueSchema {
     public static final class Field implements Writable {
         private int count;
         private PDataType type;
-        private int maxLength = 0;
+        private int byteSize = 0;
         
         public Field() {
         }
@@ -144,14 +144,14 @@ public abstract class ValueSchema {
         private Field(PDatum datum, int count) {
             this.type = datum.getDataType();
             this.count = count;
-            if (this.type.isFixedWidth() && this.type.getMaxLength() == null) {
-                this.maxLength = datum.getMaxLength();
+            if (this.type.isFixedWidth() && this.type.getByteSize() == null) {
+                this.byteSize = datum.getByteSize();
             }
         }
         
         private Field(Field field, int count) {
             this.type = field.getType();
-            this.maxLength = field.getMaxLength();
+            this.byteSize = field.getByteSize();
             this.count = count;
         }
         
@@ -159,8 +159,8 @@ public abstract class ValueSchema {
             return type;
         }
         
-        public final int getMaxLength() {
-            return maxLength;
+        public final int getByteSize() {
+            return byteSize;
         }
         
         public final int getCount() {
@@ -171,8 +171,8 @@ public abstract class ValueSchema {
         public void readFields(DataInput input) throws IOException {
             this.type = PDataType.values()[WritableUtils.readVInt(input)];
             this.count = WritableUtils.readVInt(input);
-            if (this.type.isFixedWidth() && this.type.getMaxLength() == null) {
-                this.maxLength = WritableUtils.readVInt(input);
+            if (this.type.isFixedWidth() && this.type.getByteSize() == null) {
+                this.byteSize = WritableUtils.readVInt(input);
             }
         }
 
@@ -180,8 +180,8 @@ public abstract class ValueSchema {
         public void write(DataOutput output) throws IOException {
             WritableUtils.writeVInt(output, type.ordinal());
             WritableUtils.writeVInt(output, count);
-            if (type.isFixedWidth() && type.getMaxLength() == null) {
-                WritableUtils.writeVInt(output, maxLength);
+            if (type.isFixedWidth() && type.getByteSize() == null) {
+                WritableUtils.writeVInt(output, byteSize);
             }
         }
     }
@@ -197,7 +197,7 @@ public abstract class ValueSchema {
                 Field field = fields.get(i);
                 int count = 1;
                 // Prevent repeating fields from spanning across non-null/null boundary
-                while ( ++i < fields.size() && i != this.minNullable && field.getType() == fields.get(i).getType() && field.getMaxLength() == fields.get(i).getMaxLength()) {
+                while ( ++i < fields.size() && i != this.minNullable && field.getType() == fields.get(i).getType() && field.getByteSize() == fields.get(i).getByteSize()) {
                     count++;
                 }
                 condensedFields.add(count == 1 ? field : new Field(field,count));
@@ -351,7 +351,7 @@ public abstract class ValueSchema {
     
     protected int positionFixedLength(ImmutableBytesWritable ptr, Field field, int nFields) {
         PDataType type = field.getType();
-        int length = (type.getMaxLength() == null) ? field.getMaxLength() : type.getMaxLength();
+        int length = (type.getByteSize() == null) ? field.getByteSize() : type.getByteSize();
         ptr.set(ptr.get(),ptr.getOffset() + nFields * length, ptr.getLength());
         return length;
     }

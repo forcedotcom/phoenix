@@ -71,7 +71,7 @@ public class RowKeyValueAccessor implements Writable   {
             int offset = 0;
             if (datum.getDataType().isFixedWidth()) {
                 do {
-                    offset += datum.getMaxLength();
+                    offset += datum.getByteSize();
                     datum = iterator.next();
                     pos++;
                 } while (pos < index && datum.getDataType().isFixedWidth());

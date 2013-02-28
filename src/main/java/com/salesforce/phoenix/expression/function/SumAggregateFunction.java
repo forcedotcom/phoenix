@@ -106,7 +106,7 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
                 long constantLongValue = ((Number)constantValue).longValue();
                 LongNative longNative = LongNative.getInstance();
                 long value = constantLongValue * longNative.toLong(ptr);
-                ptr.set(new byte[PDataType.LONG.getMaxLength()]);
+                ptr.set(new byte[PDataType.LONG.getByteSize()]);
                 longNative.putLong(value, ptr);
             }
         }

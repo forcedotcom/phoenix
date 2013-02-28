@@ -497,7 +497,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             public PhoenixStatement newStatement(PhoenixConnection connection) {
                 final byte[] unsetValue = new byte[0];
                 final ImmutableBytesWritable pkNamePtr = new ImmutableBytesWritable(unsetValue);
-                final byte[] rowNumberHolder = new byte[PDataType.INTEGER.getMaxLength()];
+                final byte[] rowNumberHolder = new byte[PDataType.INTEGER.getByteSize()];
                 return new PhoenixStatement(connection) {
                     @Override
                     protected PhoenixResultSet newResultSet(Scanner scanner) throws SQLException {
@@ -693,8 +693,13 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return TABLE_TYPE_MAX_LENGTH;
+        }
+
+        @Override
+        public Integer getScale() {
+            return null;
         }
     };
     private static final RowProjector TABLE_TYPE_ROW_PROJECTOR = new RowProjector(Arrays.<ColumnProjector>asList(

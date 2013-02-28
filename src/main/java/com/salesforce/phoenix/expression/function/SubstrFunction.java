@@ -66,7 +66,7 @@ public class SubstrFunction extends ScalarFunction {
     private boolean isOffsetConstant;
     private boolean isLengthConstant;
     private boolean isFixedWidth;
-    private Integer maxLength;
+    private Integer byteSize;
 
     public SubstrFunction() {
     }
@@ -83,16 +83,16 @@ public class SubstrFunction extends ScalarFunction {
         isFixedWidth = getStrExpression().getDataType().isFixedWidth() && ((hasLengthExpression && isLengthConstant) || (!hasLengthExpression && isOffsetConstant));
         if (hasLengthExpression && isLengthConstant) {
             Integer maxLength = ((Number)((LiteralExpression)getLengthExpression()).getValue()).intValue();
-            this.maxLength = maxLength >= 0 ? maxLength : 0;
+            this.byteSize = maxLength >= 0 ? maxLength : 0;
         } else if (isOffsetConstant) {
             Number offsetNumber = (Number)((LiteralExpression)getOffsetExpression()).getValue();
             if (offsetNumber != null) {
                 int offset = offsetNumber.intValue();
                 if (getStrExpression().getDataType().isFixedWidth()) {
                     if (offset >= 0) {
-                        maxLength = getStrExpression().getMaxLength() - offset - (offset == 0 ? 0 : 1);
+                        byteSize = getStrExpression().getByteSize() - offset - (offset == 0 ? 0 : 1);
                     } else {
-                        maxLength = -offset;
+                        byteSize = -offset;
                     }
                 }
             }
@@ -161,8 +161,8 @@ public class SubstrFunction extends ScalarFunction {
     }
 
     @Override
-    public Integer getMaxLength() {
-        return maxLength;
+    public Integer getByteSize() {
+        return byteSize;
     }
 
     @Override
