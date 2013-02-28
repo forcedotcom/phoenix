@@ -50,6 +50,7 @@ public enum ExpressionType {
     TruncFunction(TruncFunction.class),
     ToDateFunction(ToDateFunction.class),
     ToCharFunction(ToCharFunction.class),
+    ToNumberFunction(ToNumberFunction.class),
     CoerceFunction(CoerceExpression.class),
     SubstrFunction(SubstrFunction.class),
     AndExpression(AndExpression.class),

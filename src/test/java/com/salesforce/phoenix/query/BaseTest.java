@@ -183,6 +183,11 @@ public abstract class BaseTest {
         builder.put("KVBigIntValueTest", "create table KVBigIntValueTest" + 
                 "   (pk integer not null primary key,\n" +
                 "    kv bigint)\n");
+        builder.put(TONUMBER_NAME,"create table " + TONUMBER_NAME +
+        		"   (a_id integer not null, \n" + 
+        		"    a_string char(3) not null, \n" +
+                "    b_string char(3) not null \n" + 
+                "    CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))");
         tableDDLMap = builder.build();
     }
 
