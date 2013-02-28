@@ -42,9 +42,11 @@ public class ColumnDef {
     private final PDataType dataType;
     private final boolean isNull;
     private final Integer maxLength;
+    private final Integer scale;
     private final boolean isPK;
 
-    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, boolean isPK) {
+    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
+            Integer scale, boolean isPK) {
         this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;
@@ -56,6 +58,7 @@ public class ColumnDef {
             maxLength = null;
         }
         this.maxLength = maxLength;
+        this.scale = scale;
         this.isPK = isPK;
     }
 
@@ -73,6 +76,10 @@ public class ColumnDef {
 
     public Integer getMaxLength() {
         return maxLength;
+    }
+
+    public Integer getScale() {
+        return scale;
     }
 
     public boolean isPK() {

@@ -42,6 +42,7 @@ public class PColumnImpl implements PColumn {
     private PName familyName;
     private PDataType dataType;
     private Integer maxLength;
+    private Integer scale;
     private boolean nullable;
     private int position;
 
@@ -52,20 +53,22 @@ public class PColumnImpl implements PColumn {
                        PName familyName,
                        PDataType dataType,
                        Integer maxLength,
+                       Integer scale,
                        boolean nullable,
                        int position) {
-        init(name, familyName, dataType, maxLength, nullable, position);
+        init(name, familyName, dataType, maxLength, scale, nullable, position);
     }
 
     public PColumnImpl(PColumn column, int position) {
         this(column.getName(), column.getFamilyName(), column.getDataType(), column.getByteSize(),
-                column.isNullable(), position);
+                column.getScale(), column.isNullable(), position);
     }
 
     private void init(PName name,
             PName familyName,
             PDataType dataType,
             Integer maxLength,
+            Integer scale,
             boolean nullable,
             int position) {
         this.dataType = dataType;
@@ -80,6 +83,7 @@ public class PColumnImpl implements PColumn {
         this.name = name;
         this.familyName = familyName == null ? null : familyName;
         this.maxLength = maxLength;
+        this.scale = scale;
         this.nullable = nullable;
         this.position = position;
     }
@@ -100,13 +104,20 @@ public class PColumnImpl implements PColumn {
     }
 
     @Override
-    public Integer getByteSize() {
+    public Integer getMaxLength() {
         Integer dataTypeMaxLength = dataType.getByteSize();
         return dataTypeMaxLength == null ? maxLength : dataTypeMaxLength;
     }
 
     @Override
     public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getByteSize() {
+        // Note: PColumn will always return null on getByteSize. The defined number for column size
+        // in varchar or deciaml would be returned by getMaxLength().
         return null;
     }
 
@@ -134,9 +145,11 @@ public class PColumnImpl implements PColumn {
         // TODO: optimize the reading/writing of this b/c it could likely all fit in a single byte or two
         PDataType dataType = PDataType.values()[WritableUtils.readVInt(input)];
         int maxLength = WritableUtils.readVInt(input);
+        int scale = WritableUtils.readVInt(input);
         boolean nullable = input.readBoolean();
         int position = WritableUtils.readVInt(input);
-        init(columnName, familyName, dataType, maxLength == 0 ? null : maxLength, nullable, position);
+        init(columnName, familyName, dataType, maxLength == 0 ? null : maxLength,
+                scale == 0 ? null : scale, nullable, position);
     }
 
     @Override
@@ -145,6 +158,7 @@ public class PColumnImpl implements PColumn {
         Bytes.writeByteArray(output, familyName == null ? ByteUtil.EMPTY_BYTE_ARRAY : familyName.getBytes());
         WritableUtils.writeVInt(output, dataType.ordinal());
         WritableUtils.writeVInt(output, maxLength == null ? 0 : maxLength);
+        WritableUtils.writeVInt(output, scale == null ? 0 : scale);
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
     }

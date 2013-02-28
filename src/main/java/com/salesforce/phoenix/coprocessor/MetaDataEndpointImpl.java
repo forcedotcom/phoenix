@@ -115,11 +115,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     
     // KeyValues for Column
     private static final KeyValue COLUMN_SIZE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(COLUMN_SIZE));
+    private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
     private static final KeyValue NULLABLE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(NULLABLE));
     private static final KeyValue DATA_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DATA_TYPE));
     private static final KeyValue ORDINAL_POSITION_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(ORDINAL_POSITION));
     private static final List<KeyValue> COLUMN_KV_COLUMNS = Arrays.<KeyValue>asList(
             COLUMN_SIZE_KV,
+            DECIMAL_DIGITS_KV,
             NULLABLE_KV,
             DATA_TYPE_KV,
             ORDINAL_POSITION_KV
@@ -128,6 +130,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         Collections.sort(COLUMN_KV_COLUMNS, KeyValue.COMPARATOR);
     }
     private static final int COLUMN_SIZE_INDEX = COLUMN_KV_COLUMNS.indexOf(COLUMN_SIZE_KV);
+    private static final int DECIMAL_DIGITS_INDEX = COLUMN_KV_COLUMNS.indexOf(DECIMAL_DIGITS_KV);
     private static final int NULLABLE_INDEX = COLUMN_KV_COLUMNS.indexOf(NULLABLE_KV);
     private static final int SQL_DATA_TYPE_INDEX = COLUMN_KV_COLUMNS.indexOf(DATA_TYPE_KV);
     private static final int ORDINAL_POSITION_INDEX = COLUMN_KV_COLUMNS.indexOf(ORDINAL_POSITION_KV);
@@ -239,14 +242,16 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
             KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
             Integer maxLength = columnSizeKv == null ? null : IntNative.getInstance().toInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), columnSizeKv.getValueLength());
+            KeyValue decimalDigitKv = colKeyValues[DECIMAL_DIGITS_INDEX];
+            Integer scale = decimalDigitKv == null ? null : IntNative.getInstance().toInt(decimalDigitKv.getBuffer(), decimalDigitKv.getValueOffset(), decimalDigitKv.getValueLength());
+            
             KeyValue ordinalPositionKv = colKeyValues[ORDINAL_POSITION_INDEX];
             int position = IntNative.getInstance().toInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset(), ordinalPositionKv.getValueLength());
             KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];
             boolean isNullable = IntNative.getInstance().toInt(nullableKv.getBuffer(), nullableKv.getValueOffset(), nullableKv.getValueLength()) != ResultSetMetaData.columnNoNulls;
             KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
             PDataType dataType = PDataType.fromSqlType(IntNative.getInstance().toInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), sqlDataTypeKv.getValueLength()));
-            
-            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, isNullable, position-1);
+            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1);
             columns.add(column);
         }
         
