@@ -59,7 +59,7 @@ public class DecimalSumAggregator extends BaseAggregator {
         BigDecimal value = (BigDecimal)getDataType().toObject(ptr, getInputDataType());
         sum = sum.add(value);
         if (sumBuffer == null) {
-            sumBuffer = new byte[getDataType().getMaxLength()];
+            sumBuffer = new byte[getDataType().getByteSize()];
         }
     }
     
@@ -92,6 +92,6 @@ public class DecimalSumAggregator extends BaseAggregator {
 
     @Override
     public int getSize() {
-        return super.getSize() + SizedUtil.BIG_DECIMAL_SIZE + SizedUtil.ARRAY_SIZE + getDataType().getMaxLength();
+        return super.getSize() + SizedUtil.BIG_DECIMAL_SIZE + SizedUtil.ARRAY_SIZE + getDataType().getByteSize();
     }
 }

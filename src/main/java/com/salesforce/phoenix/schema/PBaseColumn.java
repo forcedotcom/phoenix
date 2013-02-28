@@ -38,8 +38,13 @@ package com.salesforce.phoenix.schema;
 public abstract class PBaseColumn implements PColumn {
 
     @Override
-    public final Integer getMaxLength() {
-        return getDataType().getMaxLength();
+    public final Integer getByteSize() {
+        return getDataType().getByteSize();
+    }
+
+    @Override
+    public final Integer getScale() {
+        return null;
     }
 
     @Override

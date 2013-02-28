@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import com.salesforce.phoenix.schema.PDataType;
+
 
 /**
  * Represents a column definition for decimal during DDL, which has the following format
@@ -46,8 +48,8 @@ public class DecimalColumnDef extends ColumnDef {
     public DecimalColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer precision,
             Integer scale, boolean isPK) {
         super(columnDefName, sqlTypeName, isNull, null, isPK);
-        this.precision = precision == null ? 5 : precision;
-        this.scale = scale == null ? 0 : scale;
+        this.precision = precision == null ? PDataType.MAX_PRECISION : precision;
+        this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
     }
 
     public Integer getScale() {

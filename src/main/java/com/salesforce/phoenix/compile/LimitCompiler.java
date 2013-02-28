@@ -49,10 +49,14 @@ public class LimitCompiler {
         }
 
         @Override
-        public Integer getMaxLength() {
-            return getDataType().getMaxLength();
+        public Integer getByteSize() {
+            return getDataType().getByteSize();
         }
-        
+
+        @Override
+        public Integer getScale() {
+            return null;
+        }
     };
     
     private LimitCompiler() {

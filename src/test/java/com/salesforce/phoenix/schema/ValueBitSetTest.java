@@ -43,7 +43,6 @@ public class ValueBitSetTest {
             final int fieldIndex = i;
             for (int j = 0; j < nRepeating; j++) {
                 PDatum datum = new PDatum() {
-
                     @Override
                     public boolean isNullable() {
                         return fieldIndex <= nNotNull;
@@ -55,10 +54,14 @@ public class ValueBitSetTest {
                     }
 
                     @Override
-                    public Integer getMaxLength() {
-                        return !getDataType().isFixedWidth() ? null : getDataType().getMaxLength() == null ? FIXED_WIDTH_CHAR_SIZE : getDataType().getMaxLength();
+                    public Integer getByteSize() {
+                        return !getDataType().isFixedWidth() ? null : getDataType().getByteSize() == null ? FIXED_WIDTH_CHAR_SIZE : getDataType().getByteSize();
                     }
-                    
+
+                    @Override
+                    public Integer getScale() {
+                        return null;
+                    }
                 };
                 builder.addField(datum);
             }

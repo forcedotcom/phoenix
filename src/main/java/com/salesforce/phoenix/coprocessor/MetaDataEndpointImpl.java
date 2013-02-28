@@ -196,7 +196,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         KeyValue tableTypeKv = tableKeyValues[TABLE_TYPE_INDEX];
         PTableType tableType = PTableType.fromSerializedValue(tableTypeKv.getBuffer()[tableTypeKv.getValueOffset()]);
         KeyValue tableSeqNumKv = tableKeyValues[TABLE_SEQ_NUM_INDEX];
-        long tableSeqNum = LongNative.getInstance().toLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), PDataType.LONG.getMaxLength());
+        long tableSeqNum = LongNative.getInstance().toLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), PDataType.LONG.getByteSize());
         KeyValue columnCountKv = tableKeyValues[COLUMN_COUNT_INDEX];
         int columnCount = IntNative.getInstance().toInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset(), columnCountKv.getValueLength());
         KeyValue pkNameKv = tableKeyValues[PK_NAME_INDEX];
@@ -229,13 +229,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     colKeyValues[j++] = kv;
                     nFound++;
                     i++;
-                } else if (cmp > 0) {
+                } else {
                     colKeyValues[j++] = null;
                 }
             }
             if (   nFound < COLUMN_KV_COLUMNS.size() - 1 || 
                  ( nFound == COLUMN_KV_COLUMNS.size() - 1 && colKeyValues[COLUMN_SIZE_INDEX] != null ) ) { // COLUMN_SIZE is optional
-                throw new IllegalStateException("Didn't find expected expected key values in column metadata row");
+                throw new IllegalStateException("Didn't find expected key values in column metadata row");
             }
             KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
             Integer maxLength = columnSizeKv == null ? null : IntNative.getInstance().toInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), columnSizeKv.getValueLength());

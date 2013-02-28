@@ -206,13 +206,13 @@ public class WhereOptimizer {
              */
             PDatum backingDatum = keyExpr.getBackingDatum();
             if ( datum != backingDatum) {
-                if (!backingDatum.getDataType().isFixedWidth() && datum.getMaxLength() != null) {
+                if (!backingDatum.getDataType().isFixedWidth() && datum.getByteSize() != null) {
                     isFullyQualifiedKey = false;
                     lastLowerVarLength = false;
                     lastUpperVarLength = false;
                     break;
                 }
-                if (!ObjectUtils.equals(backingDatum.getMaxLength(),datum.getMaxLength())) {
+                if (!ObjectUtils.equals(backingDatum.getByteSize(),datum.getByteSize())) {
                     isFullyQualifiedKey = false;
                     lastLowerVarLength = false;
                     lastUpperVarLength = false;
@@ -418,7 +418,7 @@ public class WhereOptimizer {
             // Might be best b/c it allows clients to control more
             if (node.getFilterOp() == CompareOp.EQUAL
                 && datum.getDataType().isFixedWidth() 
-                && key.length != datum.getMaxLength()) {
+                && key.length != datum.getByteSize()) {
                 return DEGENERATE_KEY_EXPRESSION;
             }
             KeyRange keyRange = getKeyRange(node.getFilterOp(), key);
@@ -485,12 +485,12 @@ public class WhereOptimizer {
             // never be true.
             // An zero length byte literal is null which can never be compared against as true 
             if (backingDatum.getDataType().isFixedWidth()
-                && key.length > backingDatum.getMaxLength()) {
+                && key.length > backingDatum.getByteSize()) {
                 return DEGENERATE_KEY_EXPRESSION;
             }
             PDatum datum = new DelegateDatum(backingDatum) {
                 @Override
-                public Integer getMaxLength() {
+                public Integer getByteSize() {
                     return startsWith.length();
                 }
                 @Override
@@ -735,8 +735,8 @@ public class WhereOptimizer {
                 if (k1.keyRanges.size() != 1 || k2.keyRanges.size() != 1) {
                     throw new IllegalArgumentException("Cannot intersect when there are multiple key ranges");
                 }
-                Integer max1 = k1.getDatum().getDataType().isFixedWidth() ? k1.getDatum().getMaxLength() : null;
-                Integer max2 = k2.getDatum().getDataType().isFixedWidth() ? k2.getDatum().getMaxLength() : null;
+                Integer max1 = k1.getDatum().getDataType().isFixedWidth() ? k1.getDatum().getByteSize() : null;
+                Integer max2 = k2.getDatum().getDataType().isFixedWidth() ? k2.getDatum().getByteSize() : null;
                 // Keep the variable length expression or the one with the longest length.
                 // This ensures that we fill the key to matching lengths for boundary cases such as
                 // select * from foo where substr(bar,1,3) <= 'abc' and bar = 'abcde'
@@ -748,7 +748,7 @@ public class WhereOptimizer {
                 }
                 KeyRange range2 = k2.getKeyRanges().get(0);
                 if (k1.getDatum().getDataType().isFixedWidth()) {
-                    range2 = fillKey(range2, k1.getDatum().getMaxLength());
+                    range2 = fillKey(range2, k1.getDatum().getByteSize());
                 }
                 return newKeyExpression(
                         k1.getBackingDatum(), 

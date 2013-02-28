@@ -187,13 +187,13 @@ public class PTableImpl implements PTable {
             if (byteValue.length == 0 && !column.isNullable()) { 
                 throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
             }
-            Integer maxLength = column.getMaxLength();
+            Integer byteSize = column.getByteSize();
             if (type.isFixedWidth()) { // TODO: handle multi-byte characters
-                if (byteValue.length != maxLength) {
-                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + maxLength + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
+                if (byteValue.length != byteSize) {
+                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
                 }
-            } else if (maxLength != null && byteValue.length > maxLength) {
-                throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + maxLength + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
+            } else if (byteSize != null && byteValue.length > byteSize) {
+                throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
             }
             os.write(byteValue, 0, byteValue.length);
             // Separate variable length column values in key with zero byte
@@ -336,13 +336,13 @@ public class PTableImpl implements PTable {
                 removeIfPresent(setValues, family, qualifier);
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
-                Integer maxLength = column.getMaxLength();
+                Integer byteSize = column.getByteSize();
                 if (type.isFixedWidth()) { // TODO: handle multi-byte characters
-                    if (byteValue.length != maxLength) {
-                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + maxLength + " bytes (" + type.toObject(byteValue) + ")");
+                    if (byteValue.length != byteSize) {
+                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                     }
-                } else if (maxLength != null && byteValue.length > maxLength) {
-                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + maxLength + " bytes (" + type.toObject(byteValue) + ")");
+                } else if (byteSize != null && byteValue.length > byteSize) {
+                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }
                 removeIfPresent(unsetValues, family, qualifier);
                 setValues.add(family, qualifier, ts, byteValue);
