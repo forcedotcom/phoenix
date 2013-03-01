@@ -223,22 +223,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             i = 0;
             j = 0;
             nFound = 0;
-            System.out.println(results.size() + " " + COLUMN_KV_COLUMNS.size());
-            System.out.println("COLUMN_KV_COLUMNS:");
-            for (int k=0; k<COLUMN_KV_COLUMNS.size(); k++) {
-                System.out.println("\t" + COLUMN_KV_COLUMNS.get(k));
-            }
-            System.out.println("Results:");
-            for (int k=0; k<results.size(); k++) {
-                System.out.println("\t" + results.get(k));
-            }
             while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
                 KeyValue kv = results.get(i);
                 KeyValue searchKv = COLUMN_KV_COLUMNS.get(j);
                 int cmp = Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), 
                         searchKv.getBuffer(), searchKv.getQualifierOffset(), searchKv.getQualifierLength());
                 if (cmp == 0) {
-                    System.out.println(i + " " + j);
                     colKeyValues[j++] = kv;
                     nFound++;
                     i++;
