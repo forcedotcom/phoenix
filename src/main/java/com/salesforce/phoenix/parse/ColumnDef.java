@@ -58,7 +58,7 @@ public class ColumnDef {
             maxLength = null;
         }
         this.maxLength = maxLength;
-        this.scale = scale;
+        this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
         this.isPK = isPK;
     }
 
