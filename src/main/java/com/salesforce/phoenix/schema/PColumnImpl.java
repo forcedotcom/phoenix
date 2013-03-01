@@ -105,8 +105,7 @@ public class PColumnImpl implements PColumn {
 
     @Override
     public Integer getMaxLength() {
-        Integer dataTypeMaxLength = dataType.getByteSize();
-        return dataTypeMaxLength == null ? maxLength : dataTypeMaxLength;
+        return maxLength;
     }
 
     @Override
@@ -116,9 +115,9 @@ public class PColumnImpl implements PColumn {
 
     @Override
     public Integer getByteSize() {
-        // Note: PColumn will always return null on getByteSize. The defined number for column size
-        // in varchar or deciaml would be returned by getMaxLength().
-        return null;
+        Integer dataTypeMaxLength = dataType.getByteSize();
+        return dataTypeMaxLength == null ? dataType.estimateByteSizeFromLength(maxLength)
+                : dataTypeMaxLength;
     }
 
     @Override

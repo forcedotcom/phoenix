@@ -114,14 +114,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int PK_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(PK_NAME_KV);
     
     // KeyValues for Column
-    private static final KeyValue COLUMN_SIZE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(COLUMN_SIZE));
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
+    private static final KeyValue COLUMN_SIZE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(COLUMN_SIZE));
     private static final KeyValue NULLABLE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(NULLABLE));
     private static final KeyValue DATA_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DATA_TYPE));
     private static final KeyValue ORDINAL_POSITION_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(ORDINAL_POSITION));
     private static final List<KeyValue> COLUMN_KV_COLUMNS = Arrays.<KeyValue>asList(
-            COLUMN_SIZE_KV,
             DECIMAL_DIGITS_KV,
+            COLUMN_SIZE_KV,
             NULLABLE_KV,
             DATA_TYPE_KV,
             ORDINAL_POSITION_KV
@@ -129,8 +129,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     static {
         Collections.sort(COLUMN_KV_COLUMNS, KeyValue.COMPARATOR);
     }
-    private static final int COLUMN_SIZE_INDEX = COLUMN_KV_COLUMNS.indexOf(COLUMN_SIZE_KV);
     private static final int DECIMAL_DIGITS_INDEX = COLUMN_KV_COLUMNS.indexOf(DECIMAL_DIGITS_KV);
+    private static final int COLUMN_SIZE_INDEX = COLUMN_KV_COLUMNS.indexOf(COLUMN_SIZE_KV);
     private static final int NULLABLE_INDEX = COLUMN_KV_COLUMNS.indexOf(NULLABLE_KV);
     private static final int SQL_DATA_TYPE_INDEX = COLUMN_KV_COLUMNS.indexOf(DATA_TYPE_KV);
     private static final int ORDINAL_POSITION_INDEX = COLUMN_KV_COLUMNS.indexOf(ORDINAL_POSITION_KV);
@@ -223,12 +223,22 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             i = 0;
             j = 0;
             nFound = 0;
+            System.out.println(results.size() + " " + COLUMN_KV_COLUMNS.size());
+            System.out.println("COLUMN_KV_COLUMNS:");
+            for (int k=0; k<COLUMN_KV_COLUMNS.size(); k++) {
+                System.out.println("\t" + COLUMN_KV_COLUMNS.get(k));
+            }
+            System.out.println("Results:");
+            for (int k=0; k<results.size(); k++) {
+                System.out.println("\t" + results.get(k));
+            }
             while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
                 KeyValue kv = results.get(i);
                 KeyValue searchKv = COLUMN_KV_COLUMNS.get(j);
                 int cmp = Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), 
                         searchKv.getBuffer(), searchKv.getQualifierOffset(), searchKv.getQualifierLength());
                 if (cmp == 0) {
+                    System.out.println(i + " " + j);
                     colKeyValues[j++] = kv;
                     nFound++;
                     i++;
@@ -236,9 +246,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     colKeyValues[j++] = null;
                 }
             }
-            if (   nFound < COLUMN_KV_COLUMNS.size() - 1 || 
-                 ( nFound == COLUMN_KV_COLUMNS.size() - 1 && colKeyValues[COLUMN_SIZE_INDEX] != null ) ) { // COLUMN_SIZE is optional
-                throw new IllegalStateException("Didn't find expected key values in column metadata row");
+            // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
+            if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
+                    || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
+                throw new IllegalStateException("Didn't find all required key values in column metadata row");
             }
             KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
             Integer maxLength = columnSizeKv == null ? null : IntNative.getInstance().toInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), columnSizeKv.getValueLength());

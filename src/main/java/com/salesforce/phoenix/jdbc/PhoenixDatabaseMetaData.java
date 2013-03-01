@@ -686,17 +686,18 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         public boolean isNullable() {
             return false;
         }
-
         @Override
         public PDataType getDataType() {
             return PDataType.CHAR;
         }
-
         @Override
         public Integer getByteSize() {
             return TABLE_TYPE_MAX_LENGTH;
         }
-
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
         @Override
         public Integer getScale() {
             return null;

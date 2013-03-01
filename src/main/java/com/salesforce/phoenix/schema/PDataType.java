@@ -246,6 +246,11 @@ public enum PDataType {
             }
             return value;
         }
+
+        @Override
+        public Integer estimateByteSizeFromLength(Integer length) {
+            return length;
+        }
     },
     LONG("BIGINT", Types.BIGINT, Long.class) {
         @Override
@@ -710,6 +715,12 @@ public enum PDataType {
             } catch (NumberFormatException e) {
                 throw new IllegalDataException(e);
             }
+        }
+
+        @Override
+        public Integer estimateByteSizeFromLength(Integer length) {
+            // No association of runtime byte size from decimal precision.
+            return null;
         }
     },
     TIMESTAMP("TIMESTAMP", Types.TIMESTAMP, Timestamp.class) {
@@ -1470,6 +1481,18 @@ public enum PDataType {
         }
         // Non fixed width types must override this
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Estimate the byte size from the type length. For example, for char, byte size would be the
+     * same as length. For decimal, byte size would have no correlation with the length.
+     */
+    public Integer estimateByteSizeFromLength(Integer length) {
+        if (isFixedWidth()) {
+            return getByteSize();
+        }
+        // If not fixed width, default to say the byte size is the same as length.
+        return length;
     }
 
     public final String getSqlTypeName() {
