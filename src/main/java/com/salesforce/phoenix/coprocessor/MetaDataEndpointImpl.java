@@ -245,7 +245,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             Integer maxLength = columnSizeKv == null ? null : IntNative.getInstance().toInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), columnSizeKv.getValueLength());
             KeyValue decimalDigitKv = colKeyValues[DECIMAL_DIGITS_INDEX];
             Integer scale = decimalDigitKv == null ? null : IntNative.getInstance().toInt(decimalDigitKv.getBuffer(), decimalDigitKv.getValueOffset(), decimalDigitKv.getValueLength());
-            
             KeyValue ordinalPositionKv = colKeyValues[ORDINAL_POSITION_INDEX];
             int position = IntNative.getInstance().toInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset(), ordinalPositionKv.getValueLength());
             KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];

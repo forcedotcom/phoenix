@@ -27,40 +27,84 @@
  ******************************************************************************/
 package com.salesforce.phoenix.arithmatic;
 
-import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.*;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
+import java.math.BigDecimal;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
 
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
-import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 public class ArithmaticOperationTest extends BaseHBaseManagedTimeTest {
 
     @Test
     public void testDecimalArithmatic() throws Exception {
-        String ddl = "create table testDecimalArithmatic" + 
-                "  (pk varchar not null primary key, " +
-                "col1 decimal, col2 decimal(10), col3 decimal(8,5))";
-        createTestTable(getUrl(), ddl);
-        String url = PHOENIX_JDBC_URL;
         Properties props = new Properties(TEST_PROPERTIES);
-        Connection conn = DriverManager.getConnection(url, props);
-        conn.setAutoCommit(true);
-        PreparedStatement stmt = conn.prepareStatement(
-                "upsert into " +
-                "testDecimalArithmatic(" +
-                "    pk," +
-                "    col1," +
-                "    col2," +
-                "    col3)" + 
-                "VALUES (?,?,?,?)");
-        stmt.setString(1, "key1");
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
+                    "col1 DECIMAL, col2 DECIMAL(5), col3 DECIMAL(5,2))";
+            createTestTable(getUrl(), ddl);
+            
+            // Test upsert correct values.
+            String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, "insertGoodValues");
+            stmt.setBigDecimal(2, new BigDecimal("123456789.123456789"));
+            stmt.setBigDecimal(3, new BigDecimal("123.45"));
+            stmt.setBigDecimal(4, new BigDecimal("1234.5"));
+            stmt.execute();
+            conn.commit();
+            
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmatic WHERE pk = 'insertGoodValues' LIMIT 1";
+            stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("123456789.123456789"), rs.getBigDecimal(1));
+            assertEquals(new BigDecimal("123.45"), rs.getBigDecimal(2));
+            assertEquals(new BigDecimal("1234.5"), rs.getBigDecimal(3));
+            
+            // Test upsert incorrect values and confirm exceptions would be thrown.
+            try {
+                query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+                stmt = conn.prepareStatement(query);
+                stmt.setString(1, "badValues");
+                // one more than max_precision
+                stmt.setBigDecimal(2, new BigDecimal("12345678901234567890123456789012"));
+                stmt.setBigDecimal(3, new BigDecimal("123.45")); 
+                stmt.setBigDecimal(4, new BigDecimal("1234.5"));
+                stmt.execute();
+                conn.commit();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+            try {
+                query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+                stmt = conn.prepareStatement(query);
+                stmt.setString(1, "badValues");
+                stmt.setBigDecimal(2, new BigDecimal("123456"));
+                // Exceeds specified precision by 1
+                stmt.setBigDecimal(3, new BigDecimal("123.456")); 
+                stmt.setBigDecimal(4, new BigDecimal("1234.5"));
+                stmt.execute();
+                conn.commit();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+            
+            // Test addition.
+//            query = "SELECT col1 + col1 FROM testDecimalArithmatic WHERE pk = 'key1' LIMIT 1";
+//            stmt = conn.prepareStatement(query);
+//            rs = stmt.executeQuery();
+//            assertTrue(rs.next());
+        } finally {
+            conn.close();
+        }
     }
 }

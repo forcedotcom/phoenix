@@ -54,11 +54,20 @@ public class ColumnDef {
             if (maxLength == null) {
                 throw new IllegalArgumentException(sqlTypeName + " must declare a length");
             }
+        } else if (this.dataType == PDataType.DECIMAL) {
+            maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
         } else if (this.dataType != PDataType.VARCHAR) {// Ignore maxLength unless CHAR or VARCHAR for now
             maxLength = null;
         }
         this.maxLength = maxLength;
-        this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
+        if (this.dataType == PDataType.DECIMAL) {
+            // If scale is not specify, it's set to the precision. Otherwise, if scale is bigger
+            // maxLength, just set it to the maxLength;
+            scale = scale == null || scale > maxLength ? maxLength : scale; 
+            this.scale = scale;
+        } else {
+            this.scale = null; // Ignore scale unless it's DECIMAL.
+        }
         this.isPK = isPK;
     }
 
