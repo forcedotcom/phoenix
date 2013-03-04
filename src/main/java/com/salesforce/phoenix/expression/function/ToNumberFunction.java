@@ -29,11 +29,14 @@ package com.salesforce.phoenix.expression.function;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.text.DecimalFormat;
+import java.text.ParsePosition;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -41,36 +44,66 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
  * 
- * Implementation of the TO_NUMBER(<string>) built-in function.
+ * Implementation of TO_NUMBER(&lt;string&gt;, [&lt;pattern-string&gt;]) built-in function.  The format for the optional
+ * <code>pattern_string</code> param is specified in {@link DecimalFormat}.
  *
  * @author elevine
  * @since 0.1
  */
-@BuiltInFunction(name=ToNumberFunction.NAME, args= {@Argument(allowedTypes={PDataType.VARCHAR})} )
+@BuiltInFunction(name=ToNumberFunction.NAME, args= {
+        @Argument(allowedTypes={PDataType.VARCHAR}),
+        @Argument(allowedTypes={PDataType.VARCHAR}, isConstant=true, defaultValue="null")} )
 public class ToNumberFunction extends ScalarFunction {
     public static final String NAME = "TO_NUMBER";
-
+    
+    private String formatString = null;
+    private DecimalFormat format = null;
+    
     public ToNumberFunction() {}
 
     public ToNumberFunction(List<Expression> children) throws SQLException {
         super(children.subList(0, 1));
+        if (children.size() > 1) {
+            formatString = (String)((LiteralExpression)children.get(1)).getValue();
+            if (formatString != null) {
+                format = new DecimalFormat(formatString);
+                format.setParseBigDecimal(true);
+            }
+        }
     }
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-    	if (!getExpression().evaluate(tuple, ptr)) {
-    		return false;
-    	} else if (ptr.getLength() == 0) {
-    		return true;
-    	}
-    	
+        if (!getExpression().evaluate(tuple, ptr)) {
+            return false;
+        } else if (ptr.getLength() == 0) {
+            return true;
+        }
+
         PDataType type = getExpression().getDataType();
         String stringValue = (String)type.toObject(ptr);
         if (stringValue == null) {
         	return false;
         }
         stringValue = stringValue.trim();
-    	BigDecimal decimalValue = (BigDecimal) getDataType().toObject(stringValue);
+        BigDecimal decimalValue;
+        if (format == null) {
+            decimalValue = (BigDecimal) getDataType().toObject(stringValue);
+        } else {
+            ParsePosition parsePosition = new ParsePosition(0);
+            Number number = format.parse(stringValue, parsePosition);
+            if (parsePosition.getErrorIndex() > -1) {
+                return false;
+            }
+            
+            if (number instanceof BigDecimal) { 
+                // since we set DecimalFormat.setParseBigDecimal(true) we are guaranteeing result to be 
+                // of type BigDecimal in most cases.  see java.text.DecimalFormat.parse() JavaDoc.
+                decimalValue = (BigDecimal)number;
+            } else {
+                return false;
+            }
+        }
         byte[] byteValue = getDataType().toBytes(decimalValue);
         ptr.set(byteValue);
         return true;

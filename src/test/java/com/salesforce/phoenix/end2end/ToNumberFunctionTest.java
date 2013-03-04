@@ -27,7 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
@@ -49,18 +50,26 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @since 0.1
  */
 public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
-	
-	@Before
-	public void initTable() throws Exception {
-    	long ts = nextTimestamp();
-    	ensureTableCreated(getUrl(),TONUMBER_NAME, null, ts-2);
-    	String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
+    
+    public static final String TO_NUMBER_TABLE_NAME = "TO_NUMBER_TABLE";
+    
+    public static final String TO_NUMBER_TABLE_DDL = "create table " + TO_NUMBER_TABLE_NAME +
+        "(a_id integer not null, \n" + 
+        "a_string char(3) not null, \n" +
+        "b_string char(3) not null \n" + 
+        "CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))";
+
+    @Before
+    public void initTable() throws Exception {
+        long ts = nextTimestamp();
+        createTestTable(getUrl(), TO_NUMBER_TABLE_DDL, null, ts-2);
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         conn.setAutoCommit(false);
         
         PreparedStatement stmt = conn.prepareStatement(
-                "upsert into " + TONUMBER_NAME +
+                "upsert into " + TO_NUMBER_TABLE_NAME +
                 "    (a_id, " +
                 "    a_string," +
                 "    b_string)" +
@@ -78,60 +87,60 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
         
         conn.commit();
         conn.close();
-	}
-	
+    }
+
     @Test
     public void testKeyFilterWithIntegerValue() throws Exception {
-        String query = "SELECT a_id FROM TONUMBERTABLE WHERE to_number(a_string) = 1";
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_string) = 1";
         int expectedId = 1;
         runOneRowQueryTest(query, expectedId);
     }
     
     @Test
     public void testKeyFilterWithDoubleValue() throws Exception {
-        String query = "SELECT a_id FROM TONUMBERTABLE WHERE to_number(a_string) = 2.2";
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_string) = 2.2";
         int expectedId = 2;
         runOneRowQueryTest(query, expectedId);
     }
     
     @Test
     public void testNonKeyFilterWithIntegerValue() throws Exception {
-        String query = "SELECT a_id FROM TONUMBERTABLE WHERE to_number(b_string) = 1";
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(b_string) = 1";
         int expectedId = 1;
         runOneRowQueryTest(query, expectedId);
     }
     
     @Test
     public void testNonKeyFilterWithDoubleValue() throws Exception {
-        String query = "SELECT a_id FROM TONUMBERTABLE WHERE to_number(b_string) = 2.2";
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(b_string) = 2.2";
         int expectedId = 2;
         runOneRowQueryTest(query, expectedId);
     }
 
     @Test
     public void testKeyProjectionWithIntegerValue() throws Exception {
-        String query = "select to_number(a_string) from tonumbertable where a_id = 1";
+        String query = "select to_number(a_string) from " + TO_NUMBER_TABLE_NAME + " where a_id = 1";
         int expectedIntValue = 1;
         runOneRowQueryTest(query, expectedIntValue);
     }
     
     @Test
     public void testKeyProjectionWithDecimalValue() throws Exception {
-        String query = "select to_number(a_string) from tonumbertable where a_id = 2";
+        String query = "select to_number(a_string) from " + TO_NUMBER_TABLE_NAME + " where a_id = 2";
         BigDecimal expectedDecimalValue = (BigDecimal)PDataType.DECIMAL.toObject("2.2");
         runOneRowQueryTest(query, expectedDecimalValue);
     }
     
     @Test
     public void testNonKeyProjectionWithIntegerValue() throws Exception {
-        String query = "select to_number(b_string) from tonumbertable where a_id = 1";
+        String query = "select to_number(b_string) from " + TO_NUMBER_TABLE_NAME + " where a_id = 1";
         int expectedIntValue = 1;
         runOneRowQueryTest(query, expectedIntValue);
     }
     
     @Test
     public void testNonKeyProjectionWithDecimalValue() throws Exception {
-        String query = "select to_number(b_string) from tonumbertable where a_id = 2";
+        String query = "select to_number(b_string) from " + TO_NUMBER_TABLE_NAME + " where a_id = 2";
         BigDecimal expectedDecimalValue = (BigDecimal)PDataType.DECIMAL.toObject("2.2");
         runOneRowQueryTest(query, expectedDecimalValue);
     }
@@ -147,15 +156,15 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
     private void runOneRowQueryTest(String oneRowQuery, boolean isIntegerColumn, Integer expectedIntValue, BigDecimal expectedDecimalValue) throws Exception {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL);
         try {
-	        PreparedStatement statement = conn.prepareStatement(oneRowQuery);
-	        ResultSet rs = statement.executeQuery();
-	        
-	        assertTrue (rs.next());
-	        if (isIntegerColumn)
-	        	assertEquals(expectedIntValue.intValue(), rs.getInt(1));
-	        else
-	        	assertEquals(expectedDecimalValue, rs.getBigDecimal(1));
-	        assertFalse(rs.next());
+            PreparedStatement statement = conn.prepareStatement(oneRowQuery);
+            ResultSet rs = statement.executeQuery();
+            
+            assertTrue (rs.next());
+            if (isIntegerColumn)
+            	assertEquals(expectedIntValue.intValue(), rs.getInt(1));
+            else
+            	assertEquals(expectedDecimalValue, rs.getBigDecimal(1));
+            assertFalse(rs.next());
         }
         finally {
         	conn.close();

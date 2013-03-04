@@ -542,9 +542,7 @@ public enum PDataType {
                 return ByteUtil.EMPTY_BYTE_ARRAY;
             }
             BigDecimal v = (BigDecimal) object;
-            // Strip all trailing zeros to ensure that no digit will be zero
-            // Round using our default context to ensure precision doesn't exceed max allowed
-            v = v.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
+            v = NumberUtil.normalize(v);
             int len = getLength(v);
             byte[] result = new byte[Math.min(len, MAX_BIG_DECIMAL_BYTES)];
             PDataType.toBytes(v, result, 0, len);
@@ -557,9 +555,7 @@ public enum PDataType {
                 return 0;
             }
             BigDecimal v = (BigDecimal) object;
-            // Strip all trailing zeros to ensure that no digit will be zero
-            // Round using our default context to ensure precision doesn't exceed max allowed
-            v = v.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
+            v = NumberUtil.normalize(v);
             int len = getLength(v);
             return PDataType.toBytes(v, bytes, offset, len);
         }
@@ -1670,8 +1666,6 @@ public enum PDataType {
         }
     }
 
-    public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
-    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
     public static final int DEFAULT_SCALE = 0;
 
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;
