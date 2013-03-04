@@ -64,7 +64,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     private Object value;
     private PDataType type;
     private byte[] byteValue;
-    private Integer maxLength;
+    private Integer byteSize;
                 
     // TODO: cache?
     public static LiteralExpression newConstant(Object value) {
@@ -126,14 +126,14 @@ public class LiteralExpression extends BaseTerminalExpression {
         } else {
             this.byteValue = this.type.toBytes(this.value);
         }
-        this.maxLength = byteValue.length;
+        this.byteSize = byteValue.length;
     }
     
     private LiteralExpression(Object value, PDataType type, byte[] byteValue) {
         this.value = value;
         this.type = type;
         this.byteValue = byteValue;
-        this.maxLength = byteValue.length;
+        this.byteSize = byteValue.length;
     }
     
     @Override
@@ -145,7 +145,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         this.type = type;
         this.value = null;
         this.byteValue = ByteUtil.EMPTY_BYTE_ARRAY;
-        this.maxLength = 0;
+        this.byteSize = 0;
     }
 
     @Override
@@ -175,7 +175,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             this.type = PDataType.values()[WritableUtils.readVInt(input)];
             this.value = this.type.toObject(byteValue);
         }
-        maxLength = this.byteValue.length;
+        byteSize = this.byteValue.length;
     }
 
     @Override
@@ -199,8 +199,8 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
 
     @Override
-    public Integer getMaxLength() {
-        return maxLength;
+    public Integer getByteSize() {
+        return byteSize;
     }
 
     @Override

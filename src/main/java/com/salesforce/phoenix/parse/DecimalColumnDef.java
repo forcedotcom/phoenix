@@ -25,80 +25,38 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.aggregator;
-
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+package com.salesforce.phoenix.parse;
 
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
-import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.SizedUtil;
 
 
 /**
+ * Represents a column definition for decimal during DDL, which has the following format
  * 
- * Aggregator that sums integral number values
+ * {DECIMAL} [(precision [, scale])]
  *
- * @author jtaylor
- * @since 0.1
+ * precision has a default value of 5, and scale has a default value of 0. According to
+ * http://db.apache.org/derby/docs/10.7/ref/rrefsqlj15260.html#rrefsqlj15260
+ * 
+ * @author zhuang
+ * @since 1.1
  */
-abstract public class NumberSumAggregator extends BaseAggregator {
-    private long sum = 0;
-    private byte[] buffer;
+public class DecimalColumnDef extends ColumnDef {
+    private final Integer precision;
+    private final Integer scale;
 
-    abstract protected PDataType getInputDataType();
-    
-    private int getBufferLength() {
-        return getDataType().getByteSize();
-    }
-    
-    private void initBuffer() {
-        buffer = new byte[getBufferLength()];
-    }
-    
-    @Override
-    public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // Get either IntNative or LongNative depending on input type
-        LongNative longNative = (LongNative)getInputDataType().getNative();
-        long value = longNative.toLong(ptr);
-        sum += value;
-        if (buffer == null) {
-            initBuffer();
-        }
-    }
-    
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (buffer == null) {
-            if (isNullable()) {
-                return false;
-            }
-            initBuffer();
-        }
-        ptr.set(buffer);
-        LongNative.getInstance().putLong(sum, ptr);
-        return true;
-    }
-    
-    @Override
-    public final PDataType getDataType() {
-        return PDataType.LONG;
-    }
-    
-    @Override
-    public void reset() {
-        sum = 0;
-        buffer = null;
-        super.reset();
+    public DecimalColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer precision,
+            Integer scale, boolean isPK) {
+        super(columnDefName, sqlTypeName, isNull, null, isPK);
+        this.precision = precision == null ? PDataType.MAX_PRECISION : precision;
+        this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
     }
 
-    @Override
-    public String toString() {
-        return "SUM [sum=" + sum + "]";
+    public Integer getScale() {
+        return scale;
     }
 
-    @Override
-    public int getSize() {
-        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getBufferLength();
+    public Integer getPrecision() {
+        return precision;
     }
 }

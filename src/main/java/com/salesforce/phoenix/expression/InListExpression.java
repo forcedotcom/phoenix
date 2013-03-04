@@ -135,11 +135,11 @@ public class InListExpression extends BaseSingleExpression {
         containsNull = input.readBoolean();
         byte[] valuesBytes = Bytes.readByteArray(input);
         valuesByteLength = valuesBytes.length;
-        int len = fixedWidth ? valuesByteLength / getChild().getMaxLength() : WritableUtils.readVInt(input);
+        int len = fixedWidth ? valuesByteLength / getChild().getByteSize() : WritableUtils.readVInt(input);
         values = Sets.newHashSetWithExpectedSize(len);
         int offset = 0;
         for (int i = 0; i < len; i++) {
-            int valueLen = fixedWidth ? getChild().getMaxLength() : WritableUtils.readVInt(input);
+            int valueLen = fixedWidth ? getChild().getByteSize() : WritableUtils.readVInt(input);
             values.add(new ImmutableBytesPtr(valuesBytes,offset,valueLen));
             offset += valueLen;
         }

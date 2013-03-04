@@ -41,12 +41,12 @@ public interface PColumn extends PDatum, Writable {
      * @return the name of the column qualifier
      */
     PName getName();
-    
+
     /**
      * @return the name of the column family
      */
     PName getFamilyName();
-    
+
     /**
      * @return the zero-based ordinal position of the column
      */

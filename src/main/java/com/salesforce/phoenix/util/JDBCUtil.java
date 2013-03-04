@@ -78,9 +78,20 @@ public class JDBCUtil {
         return (scnStr == null ? null : Long.parseLong(scnStr));
     }
 
+    /**
+     * 
+     * Use {@link #getMutateBatchSize(String, Properties, Configuration)} instead
+     * @deprecated
+     */
     public static int getUpsertBatchSize(String url, Properties info, Configuration config) throws SQLException {
+        return getMutateBatchSize(url, info, config);
+    }
+    
+    @SuppressWarnings("deprecation")
+    public static int getMutateBatchSize(String url, Properties info, Configuration config) throws SQLException {
         String batchSizeStr = findProperty(url, info, PhoenixRuntime.UPSERT_BATCH_SIZE_ATTRIB);
-        return (batchSizeStr == null ? config.getInt(QueryServices.UPSERT_BATCH_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_UPSERT_BATCH_SIZE) : Integer.parseInt(batchSizeStr));
+        // TODO: remove usage of UPSERT_BATCH_SIZE_ATTRIB in next release
+        return (batchSizeStr == null ? config.getInt(QueryServices.MUTATE_BATCH_SIZE_ATTRIB, config.getInt(QueryServices.UPSERT_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MUTATE_BATCH_SIZE)) : Integer.parseInt(batchSizeStr));
     }
 
     public static byte[] getTenantId(String url, Properties info) throws SQLException {

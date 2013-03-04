@@ -43,7 +43,7 @@ public class ColumnDef {
     private final boolean isNull;
     private final Integer maxLength;
     private final boolean isPK;
-    
+
     ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, boolean isPK) {
         this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));

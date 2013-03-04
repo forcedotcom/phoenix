@@ -132,7 +132,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
 
@@ -216,7 +216,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
 
@@ -247,20 +247,18 @@ public enum PDataType {
             return value;
         }
     },
-    
     LONG("BIGINT", Types.BIGINT, Long.class) {
         @Override
         public LongNative getNative() {
             return LongNative.getInstance();
         }
-        
+
         @Override
         public byte[] toBytes(Object object) {
             byte[] b = new byte[Bytes.SIZEOF_LONG];
             toBytes(object, b, 0);
             return b;
         }
-
 
         @Override
         public int toBytes(Object object, byte[] b, int o) {
@@ -353,12 +351,11 @@ public enum PDataType {
             return true;
         }
 
-
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
-        
+
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             if (rhsType == DECIMAL) {
@@ -366,7 +363,6 @@ public enum PDataType {
             }
             return Longs.compare(((Number)lhs).longValue(), ((Number)rhs).longValue());
         }
-
 
         @Override
         public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
@@ -405,7 +401,7 @@ public enum PDataType {
         public IntNative getNative() {
             return IntNative.getInstance();
         }
-        
+
         @Override
         public byte[] toBytes(Object object) {
             byte[] b = new byte[Bytes.SIZEOF_INT];
@@ -493,7 +489,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_INT;
         }
 
@@ -584,7 +580,7 @@ public enum PDataType {
              */
             return (signum < 0 ? 2 : 1) + (v.precision() +  1 + (v.scale() % 2 == 0 ? 0 : 1)) / 2;
         }
-        
+
         @Override
         public int estimateByteSize(Object o) {
             if (o == null) {
@@ -641,7 +637,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return MAX_BIG_DECIMAL_BYTES;
         }
 
@@ -652,7 +648,7 @@ public enum PDataType {
             }
             return -rhsType.compareTo(rhs, lhs, this);
         }
-        
+
         @Override
         public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
             switch(rhsType) {
@@ -669,7 +665,7 @@ public enum PDataType {
                     throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
             }
         }
-        
+
         @Override
         public boolean isCoercibleTo(PDataType targetType, Object value) {
             if (value != null) {
@@ -704,7 +700,6 @@ public enum PDataType {
             return super.isCoercibleTo(targetType, value);
         }
 
-
         @Override
         public Object toObject(String value) {
             if (value == null || value.length() == 0) {
@@ -728,7 +723,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            byte[] bytes = new byte[getMaxLength()];
+            byte[] bytes = new byte[getByteSize()];
             toBytes(object, bytes, 0);
             return bytes;
         }
@@ -786,7 +781,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG + Bytes.SIZEOF_INT;
         }
 
@@ -843,7 +838,7 @@ public enum PDataType {
                 throw new ConstraintViolationException(this + " may not be null");
             }
             Bytes.putLong(bytes, offset, ((Time)object).getTime());
-            return this.getMaxLength();
+            return this.getByteSize();
         }
 
         @Override
@@ -888,7 +883,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
 
@@ -899,7 +894,7 @@ public enum PDataType {
             }
             return ((Date)rhs).compareTo((Date)lhs);
         }
-        
+
         @Override
         public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
             switch(rhsType) {
@@ -941,7 +936,7 @@ public enum PDataType {
                 throw new ConstraintViolationException(this + " may not be null");
             }
             Bytes.putLong(bytes, offset, ((Date)object).getTime());
-            return this.getMaxLength();
+            return this.getByteSize();
         }
 
         @Override
@@ -986,7 +981,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
 
@@ -994,7 +989,7 @@ public enum PDataType {
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             return TIME.compareTo(lhs, rhs, rhsType);
         }
-        
+
         @Override
         public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
             return TIME.compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength, rhsType);
@@ -1018,14 +1013,13 @@ public enum PDataType {
         public UnsignedLongNative getNative() {
             return UnsignedLongNative.getInstance();
         }
-        
+
         @Override
         public byte[] toBytes(Object object) {
             byte[] b = new byte[Bytes.SIZEOF_LONG];
             toBytes(object, b, 0);
             return b;
         }
-
 
         @Override
         public int toBytes(Object object, byte[] b, int o) {
@@ -1114,12 +1108,11 @@ public enum PDataType {
             return true;
         }
 
-
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_LONG;
         }
-        
+
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             if (rhsType == DECIMAL) {
@@ -1179,7 +1172,7 @@ public enum PDataType {
         public UnsignedIntNative getNative() {
             return UnsignedIntNative.getInstance();
         }
-        
+
         @Override
         public byte[] toBytes(Object object) {
             byte[] b = new byte[Bytes.SIZEOF_INT];
@@ -1258,7 +1251,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return Bytes.SIZEOF_INT;
         }
 
@@ -1266,7 +1259,6 @@ public enum PDataType {
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             return LONG.compareTo(lhs,rhs,rhsType);
         }
-
 
         @Override
         public boolean isComparableTo(PDataType targetType) {
@@ -1348,7 +1340,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return BOOLEAN_LENGTH;
         }
 
@@ -1422,7 +1414,7 @@ public enum PDataType {
         }
 
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
 
@@ -1458,15 +1450,11 @@ public enum PDataType {
     },
     ;
 
-
     private final String sqlTypeName;
     private final int sqlType;
-	private final Class clazz;
+    private final Class clazz;
     private final byte[] clazzNameBytes;
     private final byte[] sqlTypeNameBytes;
-
-    public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
-    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
 
     private PDataType(String sqlTypeName, int sqlType, Class clazz) {
         this.sqlTypeName = sqlTypeName;
@@ -1478,7 +1466,7 @@ public enum PDataType {
 
     public int estimateByteSize(Object o) {
         if (isFixedWidth()) {
-            return getMaxLength();
+            return getByteSize();
         }
         // Non fixed width types must override this
         throw new UnsupportedOperationException();
@@ -1495,14 +1483,14 @@ public enum PDataType {
     public final Class getJavaClass() {
         return clazz;
     }
-    
+
     public Native getNative() {
         return null;
     }
-    
+
     public static interface Native {
     }
-    
+
     public static class LongNative implements Native {
         private static final LongNative INSTANCE = new LongNative();
         
@@ -1542,7 +1530,7 @@ public enum PDataType {
             return Bytes.SIZEOF_LONG;
         }
     }
-    
+
     public static class IntNative extends LongNative {
         private static final IntNative INSTANCE = new IntNative();
         
@@ -1583,7 +1571,7 @@ public enum PDataType {
             return Bytes.SIZEOF_INT;
         }
     }
-    
+
     public static class UnsignedLongNative extends LongNative {
         private static final UnsignedLongNative INSTANCE = new UnsignedLongNative();
         
@@ -1612,7 +1600,7 @@ public enum PDataType {
             return Bytes.SIZEOF_LONG;
         }
     }
-    
+
     public static class UnsignedIntNative extends UnsignedLongNative {
         private static final UnsignedIntNative INSTANCE = new UnsignedIntNative();
         
@@ -1653,7 +1641,7 @@ public enum PDataType {
             return Bytes.SIZEOF_INT;
         }
     }
-    
+
     public static class DateNative implements Native {
         private static final DateNative INSTANCE = new DateNative();
         
@@ -1682,6 +1670,10 @@ public enum PDataType {
         }
     }
 
+    public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
+    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
+    public static final int DEFAULT_SCALE = 0;
+
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;
 
     private static final byte ZERO_BYTE = (byte)0x80;
@@ -1693,7 +1685,7 @@ public enum PDataType {
     private static final BigInteger MIN_LONG = BigInteger.valueOf(Long.MIN_VALUE);
     private static final long MAX_LONG_FOR_DESERIALIZE = Long.MAX_VALUE / 1000;
     private static final BigInteger ONE_HUNDRED = BigInteger.valueOf(100);
-    
+
     private static final byte FALSE_BYTE = 0;
     private static final byte TRUE_BYTE = 1;
     public static final byte[] FALSE_BYTES = new byte[] {FALSE_BYTE};
@@ -1888,7 +1880,7 @@ public enum PDataType {
     public int compareTo(byte[] b1, int offset1, int length1, byte[] b2, int offset2, int length2) {
         return Bytes.compareTo(b1, offset1, length1, b2, offset2, length2);
     }
-    
+
     public int compareTo(ImmutableBytesWritable ptr1, ImmutableBytesWritable ptr2, PDataType type2) {
         return compareTo(ptr1.get(),ptr1.getOffset(),ptr1.getLength(),ptr2.get(),ptr2.getOffset(),ptr2.getLength(), type2);
     }
@@ -1902,7 +1894,7 @@ public enum PDataType {
     }
 
     public abstract boolean isFixedWidth();
-    public abstract Integer getMaxLength();
+    public abstract Integer getByteSize();
 
     public abstract byte[] toBytes(Object object);
 
@@ -1915,7 +1907,7 @@ public enum PDataType {
      * @return the byte length of the serialized object
      */
     public abstract int toBytes(Object object, byte[] bytes, int offset);
-    
+
     public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) {
         if (this == actualType) { // No coerce necessary
             return b;
@@ -1931,7 +1923,7 @@ public enum PDataType {
      * @return the object representation of a string value
      */
     public abstract Object toObject(String value);
-    
+
     public Object toObject(Object object, PDataType actualType) {
         if (actualType != this) {
             byte[] b = actualType.toBytes(object);
@@ -1970,7 +1962,7 @@ public enum PDataType {
         }
         SQL_TYPE_NAME_TO_PCOLUMN_DATA_TYPE = builder.build();
     }
-    
+
     public static PDataType fromSqlTypeName(String sqlTypeName) {
         PDataType dataType = SQL_TYPE_NAME_TO_PCOLUMN_DATA_TYPE.get(sqlTypeName);
         if (dataType != null) {

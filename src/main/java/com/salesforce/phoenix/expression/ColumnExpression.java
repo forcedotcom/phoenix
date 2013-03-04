@@ -45,7 +45,7 @@ import com.salesforce.phoenix.schema.PDatum;
  */
 abstract public class ColumnExpression extends BaseTerminalExpression {
     protected PDataType type;
-    private Integer maxLength;
+    private Integer byteSize;
     private boolean isNullable;
 
     public ColumnExpression() {
@@ -56,7 +56,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         final int prime = 31;
         int result = 1;
         result = prime * result + (isNullable() ? 1231 : 1237);
-        Integer maxLength = this.getMaxLength();
+        Integer maxLength = this.getByteSize();
         result = prime * result + ((maxLength == null) ? 0 : maxLength.hashCode());
         PDataType type = this.getDataType();
         result = prime * result + ((type == null) ? 0 : type.hashCode());
@@ -70,7 +70,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (getClass() != obj.getClass()) return false;
         ColumnExpression other = (ColumnExpression)obj;
         if (this.isNullable() != other.isNullable()) return false;
-        if (!Objects.equal(this.getMaxLength(),other.getMaxLength())) return false;
+        if (!Objects.equal(this.getByteSize(),other.getByteSize())) return false;
         if (this.getDataType() != other.getDataType()) return false;
         return true;
     }
@@ -78,8 +78,8 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     public ColumnExpression(PDatum datum) {
         this.type = datum.getDataType();
         this.isNullable = datum.isNullable();
-        if (type.isFixedWidth() && type.getMaxLength() == null) {
-            this.maxLength = datum.getMaxLength();
+        if (type.isFixedWidth() && type.getByteSize() == null) {
+            this.byteSize = datum.getByteSize();
         }
     }
 
@@ -94,11 +94,11 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     }
 
     @Override
-    public Integer getMaxLength() {
-        if (maxLength != null) {
-            return maxLength;
+    public Integer getByteSize() {
+        if (byteSize != null) {
+            return byteSize;
         }
-        return super.getMaxLength();
+        return super.getByteSize();
     }
     
     @Override
@@ -107,8 +107,8 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         int typeAndNullable = WritableUtils.readVInt(input);
         isNullable = (typeAndNullable & 0x01) != 0;
         type = PDataType.values()[typeAndNullable >>> 1];
-        if (type.isFixedWidth() && type.getMaxLength() == null) {
-            maxLength = WritableUtils.readVInt(input);
+        if (type.isFixedWidth() && type.getByteSize() == null) {
+            byteSize = WritableUtils.readVInt(input);
         }
         
     }
@@ -118,8 +118,8 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         // read/write type ordinal and isNullable bit together to save space
         int typeAndNullable = (isNullable ? 1 : 0) | (type.ordinal() << 1);
         WritableUtils.writeVInt(output,typeAndNullable);
-        if (maxLength != null) {
-            WritableUtils.writeVInt(output, maxLength);
+        if (byteSize != null) {
+            WritableUtils.writeVInt(output, byteSize);
         }
     }
 }

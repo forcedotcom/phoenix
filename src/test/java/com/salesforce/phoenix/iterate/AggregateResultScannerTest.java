@@ -31,8 +31,7 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 
 import java.io.*;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;

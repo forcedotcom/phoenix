@@ -58,7 +58,13 @@ public class QueryServicesOptions {
     public static final int DEFAULT_MAX_STATS_AGE_MS = 24 * 60 * 60000; // 1 day
     public static final boolean DEFAULT_CALL_QUEUE_ROUND_ROBIN = true; 
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
-    public final static int DEFAULT_UPSERT_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT
+    /**
+     * Use {@link #DEFAULT_MUTATE_BATCH_SIZE} instead
+     * @deprecated
+     */
+    @Deprecated
+    public final static int DEFAULT_UPSERT_BATCH_SIZE = 10000;
+    public final static int DEFAULT_MUTATE_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT and DELETE
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
 	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 60000; // How long to cache region boundary info for parallelization calculation
     public static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 30000; // 30 sec (with no activity)
@@ -70,6 +76,7 @@ public class QueryServicesOptions {
         this.config = config;
     }
 
+    @SuppressWarnings("deprecation")
     public static QueryServicesOptions withDefaults(Configuration config) {
         return new QueryServicesOptions(config)
             .setIfUnset(KEEP_ALIVE_MS_ATTRIB, DEFAULT_KEEP_ALIVE_MS)
@@ -88,7 +95,8 @@ public class QueryServicesOptions {
             .setIfUnset(STATS_UPDATE_FREQ_MS_ATTRIB, DEFAULT_STATS_UPDATE_FREQ_MS)
             .setIfUnset(CALL_QUEUE_ROUND_ROBIN_ATTRIB, DEFAULT_CALL_QUEUE_ROUND_ROBIN)
             .setIfUnset(MAX_MUTATION_SIZE_ATTRIB, DEFAULT_MAX_MUTATION_SIZE)
-            .setIfUnset(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_UPSERT_BATCH_SIZE)
+            // TODO: remove usage of UPSERT_BATCH_SIZE_ATTRIB in next release
+            .setIfUnset(MUTATE_BATCH_SIZE_ATTRIB, config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE))
             .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
             ;
     }
@@ -182,8 +190,16 @@ public class QueryServicesOptions {
         return set(MAX_MUTATION_SIZE_ATTRIB, maxMutateSize);
     }
     
+    /**
+     * Use {@link #setMutateBatchSize(int)} instead
+     * @deprecated
+     */
     public QueryServicesOptions setUpsertBatchSize(int upsertBatchSize) {
         return set(UPSERT_BATCH_SIZE_ATTRIB, upsertBatchSize);
+    }
+    
+    public QueryServicesOptions setMutateBatchSize(int mutateBatchSize) {
+        return set(MUTATE_BATCH_SIZE_ATTRIB, mutateBatchSize);
     }
     
     public QueryServicesOptions setRegionBoundaryCacheTTLMs(int regionBoundaryCacheTTL) {
@@ -234,8 +250,16 @@ public class QueryServicesOptions {
         return config.getInt(MAX_MUTATION_SIZE_ATTRIB, DEFAULT_MAX_MUTATION_SIZE);
     }
 
+    /**
+     * Use {@link #getMutateBatchSize()} instead
+     * @deprecated
+     */
     public int getUpsertBatchSize() {
         return config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_UPSERT_BATCH_SIZE);
+    }
+    
+    public int getMutateBatchSize() {
+        return config.getInt(MUTATE_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE);
     }
     
     public int getRegionBoundaryCacheTTLMs() {

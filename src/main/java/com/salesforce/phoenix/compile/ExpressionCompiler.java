@@ -196,8 +196,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     }
                 }
                 // Can't possibly be as long as the constant, then FALSE
-                Integer lhsMaxLength = lhs.getMaxLength();
-                if (lhsMaxLength != null && !lhsMaxLength.equals(children.get(1).getMaxLength())) {
+                Integer lhsByteSize = lhs.getByteSize();
+                if (lhsByteSize != null && !lhsByteSize.equals(children.get(1).getByteSize())) {
                     switch (node.getFilterOp()) {
                         case EQUAL:
                             return LiteralExpression.FALSE_EXPRESSION;
@@ -409,24 +409,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         for (int i = 0; i < node.getChildren().size(); i+=2) {
             ParseNode childNode = node.getChildren().get(i);
             if (childNode instanceof BindParseNode) {
-                context.getBindManager().addParamMetaData((BindParseNode)childNode, new PDatum() {
-
-                    @Override
-                    public boolean isNullable() {
-                        return caseExpression.isNullable();
-                    }
-
-                    @Override
-                    public PDataType getDataType() {
-                        return caseExpression.getDataType();
-                    }
-
-                    @Override
-                    public Integer getMaxLength() {
-                        return caseExpression.getMaxLength();
-                    }
-                    
-                });
+                context.getBindManager().addParamMetaData((BindParseNode)childNode, new DelegateDatum(caseExpression));
             }
         }
         if (node.isConstant()) {
@@ -472,13 +455,13 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             // to return NULL.
             int index = LikeExpression.indexOfWildcard(pattern);
             // Can't possibly be as long as the constant, then FALSE
-            Integer lhsMaxLength = lhs.getMaxLength();
-            if (lhsMaxLength != null && lhsMaxLength < index) {
+            Integer lhsByteSize = lhs.getByteSize();
+            if (lhsByteSize != null && lhsByteSize < index) {
                 return LiteralExpression.FALSE_EXPRESSION;
             }
             if (index == -1) {
                 String rhsLiteral = LikeExpression.unescapeLike(pattern);
-                if (lhsMaxLength != null && lhsMaxLength != rhsLiteral.length()) {
+                if (lhsByteSize != null && lhsByteSize != rhsLiteral.length()) {
                     return LiteralExpression.FALSE_EXPRESSION;
                 }
                 CompareOp op = node.isNegate() ? CompareOp.NOT_EQUAL : CompareOp.EQUAL;
@@ -613,11 +596,15 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             return PDataType.DECIMAL;
         }
         @Override
-        public Integer getMaxLength() {
+        public Integer getByteSize() {
             return null;
         }
+        @Override
+        public Integer getScale() {
+            return PDataType.DEFAULT_SCALE;
+        }
     };
-    
+
     private static PDatum inferBindDatum(List<Expression> children) {
         boolean isChildTypeUnknown = false;
         PDatum datum = children.get(1);
@@ -740,8 +727,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             return type;
                         }
                         @Override
-                        public Integer getMaxLength() {
-                            return type.getMaxLength();
+                        public Integer getByteSize() {
+                            return type.getByteSize();
+                        }
+                        @Override
+                        public Integer getScale() {
+                            return null;
                         }
                     };
                 } else if (expression.getDataType() != null
@@ -757,7 +748,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             return PDataType.DECIMAL;
                         }
                         @Override
-                        public Integer getMaxLength() {
+                        public Integer getByteSize() {
+                            return null;
+                        }
+                        @Override
+                        public Integer getScale() {
                             return null;
                         }
                     };
@@ -860,7 +855,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 return PDataType.DECIMAL;
                             }
                             @Override
-                            public Integer getMaxLength() {
+                            public Integer getByteSize() {
+                                return null;
+                            }
+                            @Override
+                            public Integer getScale() {
                                 return null;
                             }
                         };

@@ -45,11 +45,16 @@ public class DelegateDatum implements PDatum {
     }
 
     @Override
-    public Integer getMaxLength() {
-        return delegate.getMaxLength();
+    public Integer getByteSize() {
+        return delegate.getByteSize();
     }
 
     protected PDatum getDelegate() {
         return delegate;
+    }
+
+    @Override
+    public Integer getScale() {
+        return delegate.getScale();
     }
 }

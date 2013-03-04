@@ -85,7 +85,7 @@ public class LongSubtractExpression extends SubtractExpression {
                 }
             }
 		}
-		byte[] resultPtr=new byte[PDataType.LONG.getMaxLength()];
+		byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
 		ptr.set(resultPtr);
 		LongNative.getInstance().putLong(finalResult, ptr);
 		return true;

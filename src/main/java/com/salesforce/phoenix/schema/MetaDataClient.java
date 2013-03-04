@@ -138,7 +138,7 @@ public class MetaDataClient {
         DATA_TYPE + "," +
         NULLABLE + "," +
         COLUMN_SIZE + "," +
-        ORDINAL_POSITION +
+        ORDINAL_POSITION + 
         ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
@@ -156,10 +156,10 @@ public class MetaDataClient {
         colUpsert.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
         colUpsert.setInt(5, column.getDataType().getSqlType());
         colUpsert.setInt(6, column.isNullable() ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
-        if (column.getMaxLength() == null) {
+        if (column.getByteSize() == null) {
             colUpsert.setNull(7, Types.INTEGER);
         } else {
-            colUpsert.setInt(7, column.getMaxLength());
+            colUpsert.setInt(7, column.getByteSize());
         }
         colUpsert.setInt(8, column.getPosition()+1);
         colUpsert.execute();
@@ -187,8 +187,8 @@ public class MetaDataClient {
             } else if (!isPK) {
                 familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
             }
-            PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName,
-                    def.getDataType(), def.getMaxLength(), def.isNull(), position);
+            PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
+                    def.getMaxLength(), def.isNull(), position);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);

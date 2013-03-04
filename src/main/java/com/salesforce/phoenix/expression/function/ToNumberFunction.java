@@ -25,61 +25,73 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.PDataType.DateNative;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
+/**
+ * 
+ * Implementation of the TO_NUMBER(<string>) built-in function.
+ *
+ * @author elevine
+ * @since 0.1
+ */
+@BuiltInFunction(name=ToNumberFunction.NAME, args= {@Argument(allowedTypes={PDataType.VARCHAR})} )
+public class ToNumberFunction extends ScalarFunction {
+    public static final String NAME = "TO_NUMBER";
 
-public class DateAddExpression extends AddExpression {
-    static private final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
+    public ToNumberFunction() {}
+
+    public ToNumberFunction(List<Expression> children) throws SQLException {
+        super(children.subList(0, 1));
+    }
     
-    public DateAddExpression() {
-    }
-
-    public DateAddExpression(List<Expression> children) {
-        super(children);
-    }
-
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        DateNative dateNative=DateNative.getInstance();
-        long finalResult=0;
-        
-        for(int i=0;i<children.size();i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) {
-                return false;
-            }
-            long value;
-            PDataType type = children.get(i).getDataType();
-            if (type == PDataType.DECIMAL) {
-                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr);
-                value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
-            } else if (type.isCoercibleTo(PDataType.LONG)) {
-                LongNative longNative = (LongNative)type.getNative();
-                value = longNative.toLong(ptr) * QueryConstants.MILLIS_IN_DAY;
-            } else {
-                value = dateNative.toLong(ptr);
-            }
-            finalResult += value;
+    	if (!getExpression().evaluate(tuple, ptr)) {
+    		return false;
+    	} else if (ptr.getLength() == 0) {
+    		return true;
+    	}
+    	
+        PDataType type = getExpression().getDataType();
+        String stringValue = (String)type.toObject(ptr);
+        if (stringValue == null) {
+        	return false;
         }
-        byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
-        ptr.set(resultPtr);
-        dateNative.putLong(finalResult, ptr);
+        stringValue = stringValue.trim();
+    	BigDecimal decimalValue = (BigDecimal) getDataType().toObject(stringValue);
+        byte[] byteValue = getDataType().toBytes(decimalValue);
+        ptr.set(byteValue);
         return true;
     }
 
     @Override
     public PDataType getDataType() {
-        return PDataType.DATE;
+        return PDataType.DECIMAL;
     }
 
+    @Override
+    public boolean isNullable() {
+        return getExpression().isNullable();
+    }
+
+    private Expression getExpression() {
+        return children.get(0);
+    }
+
+    @Override
+    public String getName() {
+        return NAME;
+    }
 }
