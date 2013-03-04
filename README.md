@@ -1,5 +1,5 @@
 <h1>Phoenix: A SQL layer over HBase<br />
-<em><sup><sup>'We put the SQL back in the NoSQL'</sup></sup></em></h1>
+<em><sup><sup>'We put the SQL back in NoSQL'</sup></sup></em></h1>
 Phoenix is a SQL layer over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), and read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki).
 ## Mission
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
@@ -41,7 +41,7 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 ## Getting Started ##
 
-<b> Squirrel SQL Client </b>
+<h4>Squirrel SQL Client</h4>
 
 One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
@@ -60,7 +60,7 @@ Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, in
 
 ![squirrel](http://forcedotcom.github.com/phoenix/images/squirrel.png)
 
-<b> Command Line </b>
+<h4>Command Line</h4>
 
 In addition, you can use the bin/psql.sh to execute SQL and/or load CSV data directly. Here are few examples:
 
