@@ -800,5 +800,16 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         }
         conn5.close();
     }
-    
+
+    @Test
+    public void testShowTables() throws Exception {
+        long ts = nextTimestamp();
+        ensureTableCreated(getUrl(), ATABLE_NAME, null, ts);
+
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
+        Connection conn5 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn5.createStatement().executeUpdate("SHOW TABLES");
+        conn5.close();
+    }
 }
