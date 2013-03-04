@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.io.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
@@ -34,6 +35,7 @@ import java.text.ParsePosition;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
@@ -66,10 +68,15 @@ public class ToNumberFunction extends ScalarFunction {
         if (children.size() > 1) {
             formatString = (String)((LiteralExpression)children.get(1)).getValue();
             if (formatString != null) {
-                format = new DecimalFormat(formatString);
-                format.setParseBigDecimal(true);
+                format = getDecimalFormat(formatString);
             }
         }
+    }
+    
+    private DecimalFormat getDecimalFormat(String formatString) {
+        DecimalFormat result = new DecimalFormat(formatString);
+        result.setParseBigDecimal(true);
+        return result;
     }
     
     @Override
@@ -126,5 +133,42 @@ public class ToNumberFunction extends ScalarFunction {
     @Override
     public String getName() {
         return NAME;
+    }
+    
+    @Override
+    public void readFields(DataInput input) throws IOException {
+        super.readFields(input);
+        formatString = WritableUtils.readString(input);
+        if (formatString != null) {
+            format = getDecimalFormat(formatString);
+        }
+    }
+
+    @Override
+    public void write(DataOutput output) throws IOException {
+        super.write(output);
+        WritableUtils.writeString(output, formatString);
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = super.hashCode();
+        result = prime * result + ((formatString == null) ? 0 : formatString.hashCode());
+        result = prime * result + getExpression().hashCode();
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!super.equals(obj)) return false;
+        if (getClass() != obj.getClass()) return false;
+        ToNumberFunction other = (ToNumberFunction)obj;
+        if (formatString == null) {
+            if (other.formatString != null) return false;
+        } else if (!formatString.equals(other.formatString)) return false;
+        if (!getExpression().equals(other.getExpression())) return false;
+        return true;
     }
 }

@@ -55,8 +55,8 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
     
     public static final String TO_NUMBER_TABLE_DDL = "create table " + TO_NUMBER_TABLE_NAME +
         "(a_id integer not null, \n" + 
-        "a_string char(3) not null, \n" +
-        "b_string char(3) not null \n" + 
+        "a_string char(4) not null, \n" +
+        "b_string char(4) not null \n" + 
         "CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))";
 
     @Before
@@ -76,13 +76,18 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
                 "VALUES (?, ?, ?)");
         
         stmt.setInt(1, 1);
-        stmt.setString(2, "  1");
-        stmt.setString(3, "  1");
+        stmt.setString(2, "   1");
+        stmt.setString(3, "   1");
         stmt.execute();
         
         stmt.setInt(1, 2);
-        stmt.setString(2, "2.2");
-        stmt.setString(3, "2.2");
+        stmt.setString(2, " 2.2");
+        stmt.setString(3, " 2.2");
+        stmt.execute();
+        
+        stmt.setInt(1, 3);
+        stmt.setString(2, "$3.3");
+        stmt.setString(3, "$3.3");
         stmt.execute();
         
         conn.commit();
@@ -143,6 +148,20 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
         String query = "select to_number(b_string) from " + TO_NUMBER_TABLE_NAME + " where a_id = 2";
         BigDecimal expectedDecimalValue = (BigDecimal)PDataType.DECIMAL.toObject("2.2");
         runOneRowQueryTest(query, expectedDecimalValue);
+    }
+    
+    @Test
+    public void testKeyFilterWithPatternParam() throws Exception {
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_string, '\u00A4###.####') = 3.3";
+        int expectedId = 3;
+        runOneRowQueryTest(query, expectedId);
+    }
+    
+    @Test
+    public void testNonKeyFilterWithPatternParam() throws Exception {
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(b_string, '\u00A4#.#') = 3.3";
+        int expectedId = 3;
+        runOneRowQueryTest(query, expectedId);
     }
     
     private void runOneRowQueryTest(String oneRowQuery, BigDecimal expectedDecimalValue) throws Exception {
