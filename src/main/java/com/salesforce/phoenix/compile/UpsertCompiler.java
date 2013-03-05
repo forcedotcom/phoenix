@@ -348,8 +348,13 @@ public class UpsertCompiler {
                 PColumn column = allColumns.get(columnIndexes[nodeIndex]);
                 expressionBuilder.setColumn(column);
                 LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
+                // Check for type compatibility.
                 if (literalExpression.getDataType() != null && !literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue(), literalExpression.getBytes())) {
                     throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
+                }
+                // Check for column schema compatibility.
+                if (!column.isCompatibleWith(literalExpression)) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_COLUMN).setColumnName(column.getName().getString()).build().buildException();
                 }
                 byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType());
                 values[nodeIndex] = byteValue;
@@ -369,7 +374,7 @@ public class UpsertCompiler {
     
                 @Override
                 public MutationState execute() {
-                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);           
+                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
                     setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
                     return new MutationState(tableRef, mutation, 0, maxSize, connection);
                 }

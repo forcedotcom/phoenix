@@ -33,6 +33,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Preconditions;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -124,10 +125,32 @@ public class PColumnImpl implements PColumn {
     public boolean isNullable() {
         return nullable;
     }
-    
+
     @Override
     public int getPosition() {
         return position;
+    }
+
+    @Override
+    public boolean isCompatibleWith(Expression expr) {
+        switch (getDataType()) {
+            case DECIMAL: // Need to check precision and scale on decimal.
+                
+                Integer desiredPrecision = expr.getMaxLength();
+                Integer desiredScale = expr.getScale();
+                if (desiredPrecision == null && desiredScale == null)
+                    break;
+                if (getMaxLength() < desiredPrecision) {
+                    return false;
+                }
+                if (getScale() < desiredScale) {
+                    return false;
+                }
+                return true;
+            default:
+                break;
+        }
+        return true;
     }
 
     @Override

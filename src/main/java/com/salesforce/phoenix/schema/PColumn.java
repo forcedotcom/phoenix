@@ -29,6 +29,8 @@ package com.salesforce.phoenix.schema;
 
 import org.apache.hadoop.io.Writable;
 
+import com.salesforce.phoenix.expression.Expression;
+
 /**
  * Definition of a Phoenix column
  *
@@ -51,4 +53,9 @@ public interface PColumn extends PDatum, Writable {
      * @return the zero-based ordinal position of the column
      */
     int getPosition();
+
+    /**
+     * @return whether the passed in expression confers to schema of this column
+     */
+    boolean isCompatibleWith(Expression expr);
 }

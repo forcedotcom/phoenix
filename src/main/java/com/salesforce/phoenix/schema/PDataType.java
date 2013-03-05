@@ -596,6 +596,22 @@ public enum PDataType {
             return Math.min(getLength(v),MAX_BIG_DECIMAL_BYTES);
         }
 
+        public Integer getMaxLength(Object o) {
+            if (o == null) {
+                return null;
+            }
+            BigDecimal v = (BigDecimal) o;
+            return v.precision();
+        }
+
+        public Integer getScale(Object o) {
+            if (o == null) {
+                return null;
+            }
+            BigDecimal v = (BigDecimal) o;
+            return v.scale();
+        }
+
         @Override
         public Object toObject(byte[] b, int o, int l, PDataType actualType) {
             if (l == 0) {
@@ -1483,6 +1499,14 @@ public enum PDataType {
         throw new UnsupportedOperationException();
     }
 
+    public Integer getMaxLength(Object o) {
+        return null;
+    }
+
+    public Integer getScale(Object o) {
+        return null;
+    }
+
     /**
      * Estimate the byte size from the type length. For example, for char, byte size would be the
      * same as length. For decimal, byte size would have no correlation with the length.
@@ -2050,4 +2074,5 @@ public enum PDataType {
         }
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
+
 }

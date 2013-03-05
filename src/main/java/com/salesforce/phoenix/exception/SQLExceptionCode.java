@@ -51,6 +51,7 @@ public enum SQLExceptionCode {
     TYPE_MISMATCH(203, "22005", "Type mismatch."),
     VALUE_IN_UPSERT_NOT_CONSTANT(204, "22008", "Values in UPSERT must evaluate to a constant."),
     MALFORMED_URL(205, "22009", "Malformed URL."),
+    DATA_INCOMPATIBLE_WITH_COLUMN(206, "22003", "The value is does not fit into the column schema."),
     
     /**
      * Constraint Violation (errorcode 03, sqlstate 23)

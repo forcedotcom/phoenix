@@ -81,8 +81,9 @@ public class ArithmaticOperationTest extends BaseHBaseManagedTimeTest {
                 stmt.setBigDecimal(4, new BigDecimal("1234.5"));
                 stmt.execute();
                 conn.commit();
+                fail("Should have caught bad values.");
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is does not fit into the column schema. columnName=COL1"));
             }
             try {
                 query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -90,19 +91,28 @@ public class ArithmaticOperationTest extends BaseHBaseManagedTimeTest {
                 stmt.setString(1, "badValues");
                 stmt.setBigDecimal(2, new BigDecimal("123456"));
                 // Exceeds specified precision by 1
-                stmt.setBigDecimal(3, new BigDecimal("123.456")); 
+                stmt.setBigDecimal(3, new BigDecimal("123.456"));
                 stmt.setBigDecimal(4, new BigDecimal("1234.5"));
                 stmt.execute();
                 conn.commit();
+                fail("Should have caught bad values.");
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is does not fit into the column schema. columnName=COL2"));
             }
-            
-            // Test addition.
-//            query = "SELECT col1 + col1 FROM testDecimalArithmatic WHERE pk = 'key1' LIMIT 1";
-//            stmt = conn.prepareStatement(query);
-//            rs = stmt.executeQuery();
-//            assertTrue(rs.next());
+            try {
+                query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+                stmt = conn.prepareStatement(query);
+                stmt.setString(1, "badValues");
+                stmt.setBigDecimal(2, new BigDecimal("123456"));
+                stmt.setBigDecimal(3, new BigDecimal("123.45"));
+                // Exceeds specified scale by 1
+                stmt.setBigDecimal(4, new BigDecimal("12.345"));
+                stmt.execute();
+                conn.commit();
+                fail("Should have caught bad values.");
+            } catch (Exception e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is does not fit into the column schema. columnName=COL3"));
+            }
         } finally {
             conn.close();
         }
