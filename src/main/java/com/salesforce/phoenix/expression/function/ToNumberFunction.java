@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import static com.salesforce.phoenix.util.ByteUtil.EMPTY_BYTE_ARRAY;
+
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -100,7 +102,8 @@ public class ToNumberFunction extends ScalarFunction {
             ParsePosition parsePosition = new ParsePosition(0);
             Number number = format.parse(stringValue, parsePosition);
             if (parsePosition.getErrorIndex() > -1) {
-                return false;
+                ptr.set(EMPTY_BYTE_ARRAY);
+                return true;
             }
             
             if (number instanceof BigDecimal) { 
