@@ -36,6 +36,7 @@ import java.util.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
+import com.salesforce.phoenix.util.NumberUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
 
@@ -196,7 +197,7 @@ public class PDataTypeTest {
         for (int i = 0; i < values.size(); i++) {
             BigDecimal expected = values.get(i);
             BigDecimal actual = (BigDecimal)PDataType.DECIMAL.toObject(byteValues.get(i));
-            assertTrue("For " + i + " expected " + expected + " but got " + actual,expected.round(PDataType.DEFAULT_MATH_CONTEXT).compareTo(actual.round(PDataType.DEFAULT_MATH_CONTEXT)) == 0);
+            assertTrue("For " + i + " expected " + expected + " but got " + actual,expected.round(NumberUtil.DEFAULT_MATH_CONTEXT).compareTo(actual.round(NumberUtil.DEFAULT_MATH_CONTEXT)) == 0);
             assertTrue(byteValues.get(i).length <= PDataType.DECIMAL.estimateByteSize(expected));
         }
 
@@ -208,7 +209,7 @@ public class PDataTypeTest {
             byte[] bytes = PDataType.DECIMAL.toBytes(values.get(i));
             assertNotNull("bytes converted from values should not be null!", bytes);
             BigDecimal actual = (BigDecimal)PDataType.DECIMAL.toObject(byteValues.get(i));
-            assertTrue("For " + i + " expected " + expected + " but got " + actual,expected.round(PDataType.DEFAULT_MATH_CONTEXT).compareTo(actual.round(PDataType.DEFAULT_MATH_CONTEXT))==0);
+            assertTrue("For " + i + " expected " + expected + " but got " + actual,expected.round(NumberUtil.DEFAULT_MATH_CONTEXT).compareTo(actual.round(NumberUtil.DEFAULT_MATH_CONTEXT))==0);
         }
         
     }

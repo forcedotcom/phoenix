@@ -25,51 +25,26 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.util;
 
-import java.math.BigDecimal;
-import java.util.List;
+import java.math.*;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.NumberUtil;
-
-
-public class DecimalDivideExpression extends DivideExpression {
-
-    public DecimalDivideExpression() {
+/**
+ *
+ * @author elevine
+ * @since 0.1
+ */
+public class NumberUtil {
+    
+    public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
+    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
+    
+    /**
+     * Strip all trailing zeros to ensure that no digit will be zero and
+     * round using our default context to ensure precision doesn't exceed max allowed.
+     * @return new {@link BigDecimal} instance
+     */
+    public static BigDecimal normalize(BigDecimal bigDecimal) {
+        return bigDecimal.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
     }
-
-    public DecimalDivideExpression(List<Expression> children) {
-        super(children);
-    }
-
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        BigDecimal result = null;
-        for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) { 
-                return false;
-            }
-
-            PDataType childType = children.get(i).getDataType();
-            BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
-
-            if (result == null) {
-                result = bd;
-            } else {
-                result = result.divide(bd, NumberUtil.DEFAULT_MATH_CONTEXT);
-            }
-        }
-        ptr.set(PDataType.DECIMAL.toBytes(result));
-        return true;
-    }
-
-    @Override
-    public PDataType getDataType() {
-        return PDataType.DECIMAL;
-    }
-
 }

@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDataType.DateNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 
@@ -77,7 +78,7 @@ public class DecimalSubtractExpression extends SubtractExpression {
                  * We need to convert the date to a unit of "days" because that's what sql expects.
                  */
                 if (isDate) {
-                    result = result.divide(BD_MILLIS_IN_DAY, PDataType.DEFAULT_MATH_CONTEXT);
+                    result = result.divide(BD_MILLIS_IN_DAY, NumberUtil.DEFAULT_MATH_CONTEXT);
                 }
             }
 		}
