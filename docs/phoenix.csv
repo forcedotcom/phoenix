@@ -710,6 +710,15 @@ string. If the replacement string is not specified, it defaults to an empty stri
 REGEXP_REPLACE('abc123ABC', '[0-9]+', '#') evaluates to 'abc#ABC'
 "
 
+"Functions (Number)","TO_NUMBER","
+TO_NUMBER( stringTerm [, formatString] )
+","
+Formats a string as a number, optionally accepting a format string.
+For details of the format, see ""java.text.DecimalFormat"".
+This method returns a decimal number.
+","
+TO_NUMBER('$123.33', '\u00A4###.##')
+"
 
 "Functions (Time and Date)","TO_CHAR","
 TO_CHAR( timestampTerm [, formatString] )
