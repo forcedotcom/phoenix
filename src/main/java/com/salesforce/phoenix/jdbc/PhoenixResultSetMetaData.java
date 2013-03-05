@@ -35,6 +35,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 
@@ -134,7 +135,7 @@ public class PhoenixResultSetMetaData implements ResultSetMetaData {
 
     @Override
     public int getPrecision(int column) throws SQLException {
-        return PDataType.MAX_PRECISION; // TODO: add support in PColumn?
+        return NumberUtil.MAX_PRECISION; // TODO: add support in PColumn?
     }
 
     @Override
