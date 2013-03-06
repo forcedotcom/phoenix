@@ -54,20 +54,24 @@ public class ColumnDef {
             if (maxLength == null) {
                 throw new IllegalArgumentException(sqlTypeName + " must declare a length");
             }
+            scale = null;
         } else if (this.dataType == PDataType.DECIMAL) {
             maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
-        } else if (this.dataType != PDataType.VARCHAR) {// Ignore maxLength unless CHAR or VARCHAR for now
+            // If scale is not specify, it is set to 0. This is the standard as specified in
+            // http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
+            // and 
+            // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
+            // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
+            scale = scale == null ? 0 : scale > maxLength ? maxLength : scale; 
+        } else if (this.dataType != PDataType.VARCHAR) {
+            // Ignore maxLength unless CHAR or VARCHAR for now
             maxLength = null;
+            scale = null;
+        } else {
+            scale = null;
         }
         this.maxLength = maxLength;
-        if (this.dataType == PDataType.DECIMAL) {
-            // If scale is not specify, it's set to the precision. Otherwise, if scale is bigger
-            // maxLength, just set it to the maxLength;
-            scale = scale == null || scale > maxLength ? maxLength : scale; 
-            this.scale = scale;
-        } else {
-            this.scale = null; // Ignore scale unless it's DECIMAL.
-        }
+        this.scale = scale;
         this.isPK = isPK;
     }
 
