@@ -58,7 +58,7 @@ public abstract class BaseTest {
         		"    a_date date,\n" + 
         		"    a_time time,\n" + 
         		"    a_timestamp timestamp,\n" + 
-        		"    x_decimal decimal,\n" + 
+        		"    x_decimal decimal(31,10),\n" + 
         		"    x_long bigint,\n" + 
         		"    x_integer integer,\n" + 
         		"    y_integer integer\n" +
@@ -82,7 +82,7 @@ public abstract class BaseTest {
         		"   (inst varchar null,\n" + 
         		"    host varchar null,\n" + 
         		"    date date not null,\n" + 
-        		"    val decimal\n" +
+        		"    val decimal(31,10)\n" +
         		"    CONSTRAINT pk PRIMARY KEY (inst, host, date))");
         builder.put(FUNKY_NAME,"create table " + FUNKY_NAME +
         		"   (\"foo!\" varchar not null primary key,\n" + 
