@@ -38,6 +38,8 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.*;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.util.*;
 
 
@@ -619,7 +621,7 @@ public enum PDataType {
             }
             switch (actualType) {
             case DECIMAL:
-                return toBigDecimal(b, o, l);                
+                return toBigDecimal(b, o, l);
             case LONG:
                 return BigDecimal.valueOf(LongNative.getInstance().toLong(b,o,l));
             case INTEGER:
@@ -646,7 +648,7 @@ public enum PDataType {
             case UNSIGNED_LONG:
                 return BigDecimal.valueOf((Long)object);
             case DECIMAL:
-                return object;                
+                return object;
             default:
                 return super.toObject(object, actualType);
             }
@@ -685,6 +687,17 @@ public enum PDataType {
                 default:
                     throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
             }
+        }
+
+        @Override
+        public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
+                PColumn column) throws SQLException {
+            if ((maxLength != null && column.getMaxLength() != null && maxLength > column.getMaxLength()) || 
+                (scale != null && column.getScale() != null && scale > column.getScale())) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_COLUMN)
+                    .setColumnName(column.getName().getString()).build().buildException();
+            }
+            return super.coerceBytes(b, object, actualType);
         }
 
         @Override
@@ -1916,10 +1929,6 @@ public enum PDataType {
         return isCoercibleTo(targetType, value);
     }
 
-    public boolean isCoercibleTo(PDataType targetType, Object value, byte[] b, Integer maxLength, Integer srcScale, Integer desiredMaxLength, Integer targetScale) {
-        return isCoercibleTo(targetType, value);
-    }
-
     public int compareTo(byte[] b1, byte[] b2) {
         return compareTo(b1, 0, b1.length, b2, 0, b2.length);
     }
@@ -1959,13 +1968,17 @@ public enum PDataType {
      */
     public abstract int toBytes(Object object, byte[] bytes, int offset);
 
-    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) {
+    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) throws SQLException {
         if (this == actualType) { // No coerce necessary
             return b;
         } else { // TODO: optimize in specific cases
             Object coercedValue = toObject(object, actualType);
             return toBytes(coercedValue);
         }
+    }
+
+    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale, PColumn column) throws SQLException {
+        return coerceBytes(b, object, actualType);
     }
 
     /**
