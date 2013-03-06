@@ -108,7 +108,10 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
             put.add(family, ulongCol, ts-4, Bytes.toBytes(50000L));
             mutations.add(put);
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-            Delete del = new Delete(key, ts-2);
+            // FIXME: the version of the Delete constructor without the lock args was introduced
+            // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
+            // of the client.
+            Delete del = new Delete(key, ts-2, null);
             mutations.add(del);
             put = new Put(key);
             put.add(family, uintCol, ts, Bytes.toBytes(2000));

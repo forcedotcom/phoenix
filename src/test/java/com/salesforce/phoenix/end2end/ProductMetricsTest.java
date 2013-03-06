@@ -42,7 +42,6 @@ import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
-
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -1550,9 +1549,10 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+1));
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
 
+        HBaseAdmin admin = null;
         try {
             initTableValues(tenantId, getSplits(tenantId), ts);
-            HBaseAdmin admin = new HBaseAdmin(driver.getQueryServices().getConfig());
+            admin = new HBaseAdmin(driver.getQueryServices().getConfig());
             admin.flush(SchemaUtil.getTableName(Bytes.toBytes(PRODUCT_METRICS_NAME)));
             String query = "SELECT SUM(TRANSACTIONS) FROM " + PRODUCT_METRICS_NAME + " WHERE FEATURE=?";
             PreparedStatement statement = conn.prepareStatement(query);
@@ -1561,6 +1561,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             assertTrue(rs.next());
             assertEquals(1200, rs.getInt(1));
         } finally {
+            if (admin != null) admin.close();
             conn.close();
         }	
     }
