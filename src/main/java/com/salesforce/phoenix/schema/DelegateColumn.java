@@ -29,7 +29,6 @@ package com.salesforce.phoenix.schema;
 
 import java.io.*;
 
-import com.salesforce.phoenix.expression.Expression;
 
 public class DelegateColumn extends DelegateDatum implements PColumn {
     
@@ -65,10 +64,5 @@ public class DelegateColumn extends DelegateDatum implements PColumn {
     @Override
     public int getPosition() {
         return getDelegate().getPosition();
-    }
-
-    @Override
-    public boolean isCompatibleWith(Expression expr) {
-        return getDelegate().isCompatibleWith(expr);
     }
 }

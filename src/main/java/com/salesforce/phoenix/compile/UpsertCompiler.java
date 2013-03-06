@@ -349,7 +349,10 @@ public class UpsertCompiler {
                 expressionBuilder.setColumn(column);
                 LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
                 // Check for type compatibility.
-                if (literalExpression.getDataType() != null && !literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue(), literalExpression.getBytes())) {
+                if (literalExpression.getDataType() != null 
+                        && !literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue(), literalExpression.getBytes())
+                        literalExpression.getMaxLength(), column.getMaxLength(),
+                        literalExpression.getScale(), column.getScale()) {
                     throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
                 }
                 // Check for column schema compatibility.

@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import com.salesforce.phoenix.expression.Expression;
 
 /**
  * 
@@ -57,10 +56,5 @@ public abstract class PBaseColumn implements PColumn {
     @Override
     public boolean isNullable() {
         return false;
-    }
-
-    @Override
-    public boolean isCompatibleWith(Expression expr) {
-        return true;
     }
 }

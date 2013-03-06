@@ -1916,6 +1916,10 @@ public enum PDataType {
         return isCoercibleTo(targetType, value);
     }
 
+    public boolean isCoercibleTo(PDataType targetType, Object value, byte[] b, Integer maxLength, Integer srcScale, Integer desiredMaxLength, Integer targetScale) {
+        return isCoercibleTo(targetType, value);
+    }
+
     public int compareTo(byte[] b1, byte[] b2) {
         return compareTo(b1, 0, b1.length, b2, 0, b2.length);
     }
