@@ -117,16 +117,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getString();
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getBytes();
     
-    public static final String STAT_SCHEMA = "SYSTEM";
-    public static final String STAT_TABLE = "TABLE_STATS";
-    public static final String STAT_SCHEMA_AND_TABLE = TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"";
-    
-    public static final String SCHEMA_NAME = "SCHEMA_NAME";
-    public static final String TABLE_NAME = "TABLE_NAME";
-    public static final String SPLIT_POINTS = "SPLIT_POINTS";
-    public static final String MIN_KEY = "MIN_KEY";
-    public static final String MAX_KEY = "MAX_KEY";
-    
     private static final int ROW_LIMIT = 1000000;
     private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList()));
     

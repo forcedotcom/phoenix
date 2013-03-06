@@ -33,7 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
-import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.stat.PTableStats;
 
 
 /**
@@ -142,4 +142,10 @@ public interface PTable extends Writable {
      * the row key
      */
     int newKey(ImmutableBytesWritable key, byte[][] values);
+
+    /**
+     * Return the statistics table associated with this PTable.
+     * @return the statistics table.
+     */
+    PTableStats getTableStats();
 }

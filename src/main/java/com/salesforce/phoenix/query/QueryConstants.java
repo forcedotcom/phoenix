@@ -88,7 +88,7 @@ public interface QueryConstants {
     public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = DEFAULT_COLUMN_FAMILY_NAME.getBytes();
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
     public static final String SYSTEM_TABLE_PK_NAME = "pk";
-
+    
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns

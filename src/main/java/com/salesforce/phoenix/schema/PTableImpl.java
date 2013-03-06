@@ -42,7 +42,8 @@ import org.apache.hadoop.io.WritableUtils;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.*;
-
+import com.salesforce.phoenix.schema.stat.PTableStats;
+import com.salesforce.phoenix.schema.stat.PTableStatsImpl;
 
 
 /**
@@ -67,6 +68,8 @@ public class PTableImpl implements PTable {
     private Map<String, PColumnFamily> familyByString;
     private ListMultimap<String,PColumn> columnsByName;
     private String pkName;
+    // Statistics associated with this table.
+    PTableStats stats;
     
     public PTableImpl() {
     }
@@ -141,6 +144,7 @@ public class PTableImpl implements PTable {
         this.families = ImmutableList.copyOf(families);
         this.familyByBytes = familyByBytes.build();
         this.familyByString = familyByString.build();
+        this.stats = new PTableStatsImpl(this);
     }
     
     @Override
@@ -391,6 +395,11 @@ public class PTableImpl implements PTable {
     @Override
     public long getTimeStamp() {
         return timeStamp;
+    }
+
+    @Override
+    public PTableStats getTableStats() {
+        return stats;
     }
 
     @Override
