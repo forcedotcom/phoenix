@@ -1737,7 +1737,7 @@ public enum PDataType {
 
     public static final int MAX_PRECISION = 31; // Max precision guaranteed to fit into a long (and this should be plenty)
     public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
-    public static final int DEFAULT_SCALE = MAX_PRECISION;
+    public static final int DEFAULT_SCALE = 0;
 
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;
 
@@ -1974,7 +1974,7 @@ public enum PDataType {
      */
     public abstract int toBytes(Object object, byte[] bytes, int offset);
 
-    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) throws SQLException {
+    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) {
         if (this == actualType) { // No coerce necessary
             return b;
         } else { // TODO: optimize in specific cases
@@ -2093,5 +2093,4 @@ public enum PDataType {
         }
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
-
 }

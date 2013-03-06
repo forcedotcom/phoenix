@@ -29,7 +29,6 @@ package com.salesforce.phoenix.schema;
 
 import java.io.*;
 
-
 public class DelegateColumn extends DelegateDatum implements PColumn {
     
     public DelegateColumn(PColumn delegate) {

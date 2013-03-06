@@ -29,7 +29,6 @@ package com.salesforce.phoenix.schema;
 
 import org.apache.hadoop.io.Writable;
 
-
 /**
  * Definition of a Phoenix column
  *
