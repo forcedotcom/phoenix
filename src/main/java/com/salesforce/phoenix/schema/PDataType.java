@@ -38,8 +38,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.*;
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.util.*;
 
 
@@ -112,14 +110,12 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isCoercibleTo(PDataType targetType, Object value, byte[] b) {
-            if (isCoercibleTo(targetType, value)) {
-                if (targetType == PDataType.CHAR) {
-                    return ((String)value).length() == b.length;
-                }
-                return true;
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if (srcType == PDataType.CHAR && maxLength != null && desiredMaxLength != null) {
+                return maxLength <= desiredMaxLength;
             }
-            return false;
+            return true;
         }
 
         @Override
@@ -210,6 +206,16 @@ public enum PDataType {
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == VARCHAR || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if ((srcType == PDataType.VARCHAR && ((String)value).length() != b.length) || 
+                    (maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)){
+                return false;
+            }
+            return true;
         }
 
         @Override
@@ -690,17 +696,6 @@ public enum PDataType {
         }
 
         @Override
-        public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
-                PColumn column) throws SQLException {
-            if ((maxLength != null && column.getMaxLength() != null && maxLength > column.getMaxLength()) || 
-                (scale != null && column.getScale() != null && scale > column.getScale())) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_COLUMN)
-                    .setColumnName(column.getName().getString()).build().buildException();
-            }
-            return super.coerceBytes(b, object, actualType);
-        }
-
-        @Override
         public boolean isCoercibleTo(PDataType targetType, Object value) {
             if (value != null) {
                 BigDecimal bd;
@@ -732,6 +727,16 @@ public enum PDataType {
                 }
             }
             return super.isCoercibleTo(targetType, value);
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if ((maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)
+                    || (scale != null && desiredScale != null && scale > desiredScale)) {
+                return false;
+            }
+            return true;
         }
 
         @Override
@@ -1925,8 +1930,9 @@ public enum PDataType {
         return isCoercibleTo(targetType);
     }
 
-    public boolean isCoercibleTo(PDataType targetType, Object value, byte[] b) {
-        return isCoercibleTo(targetType, value);
+    public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+            Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+        return true;
     }
 
     public int compareTo(byte[] b1, byte[] b2) {
@@ -1975,10 +1981,6 @@ public enum PDataType {
             Object coercedValue = toObject(object, actualType);
             return toBytes(coercedValue);
         }
-    }
-
-    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale, PColumn column) throws SQLException {
-        return coerceBytes(b, object, actualType);
     }
 
     /**

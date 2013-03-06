@@ -39,10 +39,10 @@ import org.junit.Test;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 
 
-public class ArithmaticOperationTest extends BaseHBaseManagedTimeTest {
+public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
 
     @Test
-    public void testDecimalArithmatic() throws Exception {
+    public void testDecimalArithmetic() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
@@ -83,7 +83,7 @@ public class ArithmaticOperationTest extends BaseHBaseManagedTimeTest {
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is does not fit into the column schema. columnName=COL1"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column schema. 12345678901234567890123456789012 columnName=COL1"));
             }
             try {
                 query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -91,27 +91,27 @@ public class ArithmaticOperationTest extends BaseHBaseManagedTimeTest {
                 stmt.setString(1, "badValues");
                 stmt.setBigDecimal(2, new BigDecimal("123456"));
                 // Exceeds specified precision by 1
-                stmt.setBigDecimal(3, new BigDecimal("123.456"));
+                stmt.setBigDecimal(3, new BigDecimal("123456"));
                 stmt.setBigDecimal(4, new BigDecimal("1234.5"));
                 stmt.execute();
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is does not fit into the column schema. columnName=COL2"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column schema. 123456 columnName=COL2"));
             }
             try {
                 query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
                 stmt = conn.prepareStatement(query);
                 stmt.setString(1, "badValues");
                 stmt.setBigDecimal(2, new BigDecimal("123456"));
-                stmt.setBigDecimal(3, new BigDecimal("123.45"));
+                stmt.setBigDecimal(3, new BigDecimal("12345"));
                 // Exceeds specified scale by 1
                 stmt.setBigDecimal(4, new BigDecimal("12.345"));
                 stmt.execute();
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is does not fit into the column schema. columnName=COL3"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column schema. 12.345 columnName=COL3"));
             }
         } finally {
             conn.close();

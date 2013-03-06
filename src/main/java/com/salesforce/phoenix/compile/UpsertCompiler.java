@@ -348,13 +348,19 @@ public class UpsertCompiler {
                 PColumn column = allColumns.get(columnIndexes[nodeIndex]);
                 expressionBuilder.setColumn(column);
                 LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
-                // Check for type compatibility.
-                if (literalExpression.getDataType() != null 
-                        && !literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue(), literalExpression.getBytes())) {
-                    throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
+                if (literalExpression.getDataType() != null) {
+                    if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) {
+                        throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
+                    }
+                    if (!column.getDataType().isSizeCompatible(literalExpression.getDataType(),
+                            literalExpression.getValue(), literalExpression.getBytes(),
+                            literalExpression.getMaxLength(), column.getMaxLength(), 
+                            literalExpression.getScale(), column.getScale())) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_COLUMN)
+                        .setColumnName(column.getName().getString()).setMessage(literalExpression.toString()).build().buildException();
+                    }
                 }
-                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType(),
-                        literalExpression.getMaxLength(), literalExpression.getScale(), column);
+                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType());
                 values[nodeIndex] = byteValue;
                 nodeIndex++;
             }
