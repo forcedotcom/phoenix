@@ -451,17 +451,18 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public boolean isNullable() {
             return false;
         }
-
         @Override
         public PDataType getDataType() {
             return PDataType.VARCHAR;
         }
-
         @Override
         public Integer getByteSize() {
             return null;
         }
-
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
         @Override
         public Integer getScale() {
             return null;

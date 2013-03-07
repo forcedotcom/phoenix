@@ -112,11 +112,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int PK_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(PK_NAME_KV);
     
     // KeyValues for Column
+    private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
     private static final KeyValue COLUMN_SIZE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(COLUMN_SIZE));
     private static final KeyValue NULLABLE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(NULLABLE));
     private static final KeyValue DATA_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DATA_TYPE));
     private static final KeyValue ORDINAL_POSITION_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(ORDINAL_POSITION));
     private static final List<KeyValue> COLUMN_KV_COLUMNS = Arrays.<KeyValue>asList(
+            DECIMAL_DIGITS_KV,
             COLUMN_SIZE_KV,
             NULLABLE_KV,
             DATA_TYPE_KV,
@@ -125,6 +127,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     static {
         Collections.sort(COLUMN_KV_COLUMNS, KeyValue.COMPARATOR);
     }
+    private static final int DECIMAL_DIGITS_INDEX = COLUMN_KV_COLUMNS.indexOf(DECIMAL_DIGITS_KV);
     private static final int COLUMN_SIZE_INDEX = COLUMN_KV_COLUMNS.indexOf(COLUMN_SIZE_KV);
     private static final int NULLABLE_INDEX = COLUMN_KV_COLUMNS.indexOf(NULLABLE_KV);
     private static final int SQL_DATA_TYPE_INDEX = COLUMN_KV_COLUMNS.indexOf(DATA_TYPE_KV);
@@ -231,20 +234,22 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     colKeyValues[j++] = null;
                 }
             }
-            if (   nFound < COLUMN_KV_COLUMNS.size() - 1 || 
-                 ( nFound == COLUMN_KV_COLUMNS.size() - 1 && colKeyValues[COLUMN_SIZE_INDEX] != null ) ) { // COLUMN_SIZE is optional
-                throw new IllegalStateException("Didn't find expected key values in column metadata row");
+            // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
+            if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
+                    || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
+                throw new IllegalStateException("Didn't find all required key values in column metadata row");
             }
             KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
             Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset());
+            KeyValue decimalDigitKv = colKeyValues[DECIMAL_DIGITS_INDEX];
+            Integer scale = decimalDigitKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(decimalDigitKv.getBuffer(), decimalDigitKv.getValueOffset());
             KeyValue ordinalPositionKv = colKeyValues[ORDINAL_POSITION_INDEX];
             int position = PDataType.INTEGER.getCodec().decodeInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset());
             KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];
             boolean isNullable = PDataType.INTEGER.getCodec().decodeInt(nullableKv.getBuffer(), nullableKv.getValueOffset()) != ResultSetMetaData.columnNoNulls;
             KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
             PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset()));
-            
-            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, isNullable, position-1);
+            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1);
             columns.add(column);
         }
         

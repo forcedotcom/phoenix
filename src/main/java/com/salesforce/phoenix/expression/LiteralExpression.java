@@ -65,7 +65,9 @@ public class LiteralExpression extends BaseTerminalExpression {
     private PDataType type;
     private byte[] byteValue;
     private Integer byteSize;
-                
+    private Integer maxLength;
+    private Integer scale;
+
     // TODO: cache?
     public static LiteralExpression newConstant(Object value) {
         if (Boolean.FALSE.equals(value)) {
@@ -90,7 +92,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         }
         return new LiteralExpression(value, type, b);
     }
-    
+
     // TODO: cache?
     public static LiteralExpression newConstant(Object value, PDataType type) throws SQLException {
         if (value == null) {
@@ -114,7 +116,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.ILLEGAL_DATA).setRootCause(e).build().buildException();
         }
     }
-    
+
     public LiteralExpression() {
     }
 
@@ -127,25 +129,26 @@ public class LiteralExpression extends BaseTerminalExpression {
             this.byteValue = this.type.toBytes(this.value);
         }
         this.byteSize = byteValue.length;
+        this.maxLength = type == null? null : type.getMaxLength(value);
+        this.scale = type == null? null : type.getScale(value);
     }
-    
+
+    private LiteralExpression(PDataType type) {
+        this(null, type, ByteUtil.EMPTY_BYTE_ARRAY);
+    }
+
     private LiteralExpression(Object value, PDataType type, byte[] byteValue) {
         this.value = value;
         this.type = type;
         this.byteValue = byteValue;
         this.byteSize = byteValue.length;
+        this.maxLength = type == null? null : type.getMaxLength(value);
+        this.scale = type == null? null : type.getScale(value);
     }
-    
+
     @Override
     public String toString() {
         return type != null && type.isCoercibleTo(PDataType.VARCHAR) ? "'" + value + "'" : "" + value;
-    }
-
-    private LiteralExpression(PDataType type) {
-        this.type = type;
-        this.value = null;
-        this.byteValue = ByteUtil.EMPTY_BYTE_ARRAY;
-        this.byteSize = 0;
     }
 
     @Override
@@ -204,6 +207,16 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
 
     @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
+
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
     public boolean isNullable() {
         return value == null;
     }
@@ -211,11 +224,11 @@ public class LiteralExpression extends BaseTerminalExpression {
     public Object getValue() {
         return value;
     }
-    
+
     public byte[] getBytes() {
         return byteValue;
     }
-    
+
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return visitor.visit(this);
