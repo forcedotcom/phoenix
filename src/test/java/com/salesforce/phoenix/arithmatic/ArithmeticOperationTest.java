@@ -83,7 +83,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column schema. 12345678901234567890123456789012 columnName=COL1"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=12345678901234567890123456789012 columnName=COL1"));
             }
             try {
                 query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -97,7 +97,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column schema. 123456 columnName=COL2"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=123456 columnName=COL2"));
             }
             try {
                 query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -111,7 +111,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column schema. 12.345 columnName=COL3"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=12.345 columnName=COL3"));
             }
         } finally {
             conn.close();

@@ -357,7 +357,7 @@ public class UpsertCompiler {
                             literalExpression.getMaxLength(), column.getMaxLength(), 
                             literalExpression.getScale(), column.getScale())) {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_COLUMN)
-                        .setColumnName(column.getName().getString()).setMessage(literalExpression.toString()).build().buildException();
+                        .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
                     }
                 }
                 byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType());
