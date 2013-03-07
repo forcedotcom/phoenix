@@ -89,26 +89,21 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
         StatementContext context = new StatementContext(pconn, null, Collections.emptyList(), 0, new Scan());
         AggregationManager aggregationManager = context.getAggregationManager();
         SumAggregateFunction func = new SumAggregateFunction(Arrays.<Expression>asList(new KeyValueColumnExpression(new PLongColumn() {
-
             @Override
             public PName getName() {
                 return SINGLE_COLUMN_NAME;
             }
-
             @Override
             public PName getFamilyName() {
                 return SINGLE_COLUMN_FAMILY_NAME;
             }
-
             @Override
             public int getPosition() {
                 return 0;
             }
-
             @Override
             public void readFields(DataInput arg0) throws IOException {
             }
-
             @Override
             public void write(DataOutput arg0) throws IOException {
             }

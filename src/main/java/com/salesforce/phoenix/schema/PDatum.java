@@ -44,5 +44,14 @@ public interface PDatum {
      */
     Integer getByteSize();
 
+    /**
+     * @return the actual length of the column. For decimal, it would be its precision. For char or
+     * varchar, it would be the maximum length as specified during schema definition.
+     */
+    Integer getMaxLength();
+
+    /**
+     * @return scale of a decimal number.
+     */
     Integer getScale();
 }

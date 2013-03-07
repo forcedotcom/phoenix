@@ -54,6 +54,11 @@ public abstract class BaseExpression implements Expression {
     }
 
     @Override
+    public Integer getMaxLength() {
+        return null;
+    }
+
+    @Override
     public Integer getScale() {
         return null;
     }
