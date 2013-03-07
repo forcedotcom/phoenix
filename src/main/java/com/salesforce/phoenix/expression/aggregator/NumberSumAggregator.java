@@ -30,7 +30,6 @@ package com.salesforce.phoenix.expression.aggregator;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
 
@@ -59,8 +58,7 @@ abstract public class NumberSumAggregator extends BaseAggregator {
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
         // Get either IntNative or LongNative depending on input type
-        LongNative longNative = (LongNative)getInputDataType().getNative();
-        long value = longNative.toLong(ptr);
+        long value = getInputDataType().getCodec().decodeLong(ptr);
         sum += value;
         if (buffer == null) {
             initBuffer();
@@ -76,7 +74,7 @@ abstract public class NumberSumAggregator extends BaseAggregator {
             initBuffer();
         }
         ptr.set(buffer);
-        LongNative.getInstance().putLong(sum, ptr);
+        getDataType().getCodec().encodeLong(sum, ptr);
         return true;
     }
     

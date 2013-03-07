@@ -38,7 +38,6 @@ import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
 
@@ -69,11 +68,10 @@ public class AvgAggregateFunction extends CompositeAggregateFunction {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        LongNative longNative = LongNative.getInstance();
         if (!countFunc.evaluate(tuple, ptr)) {
             return false;
         }
-        long count = longNative.toLong(ptr);
+        long count = countFunc.getDataType().getCodec().decodeLong(ptr);
         if (count == 0) {
             return false;
         }

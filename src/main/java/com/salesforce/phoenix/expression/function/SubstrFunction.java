@@ -38,7 +38,6 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.StringUtil;
 
@@ -106,8 +105,7 @@ public class SubstrFunction extends ScalarFunction {
         if (!offsetExpression.evaluate(tuple,  ptr)) {
             return false;
         }
-        LongNative longNative = (LongNative)offsetExpression.getDataType().getNative();
-        int offset = (int)longNative.toLong(ptr);
+        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr);
         
         int length = -1;
         if (hasLengthExpression) {
@@ -115,8 +113,7 @@ public class SubstrFunction extends ScalarFunction {
             if (!lengthExpression.evaluate(tuple, ptr)) {
                 return false;
             }
-            longNative = (LongNative)lengthExpression.getDataType().getNative();
-            length = (int)longNative.toLong(ptr);
+            length = lengthExpression.getDataType().getCodec().decodeInt(ptr);
             if (length <= 0) {
                 return false;
             }

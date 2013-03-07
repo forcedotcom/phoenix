@@ -34,7 +34,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.TupleUtil;
 
@@ -74,6 +73,6 @@ public class AggregateRowCounter implements RowCounter {
         // is not null and thus no null column values will be encountered.
         TupleUtil.getAggregateValue(result, ptr);
         schema.setAccessor(ptr, ROW_COUNT_AGGREGATOR_INDEX, ValueBitSet.EMPTY_VALUE_BITSET);
-        return LongNative.getInstance().toLong(ptr.get(), ptr.getOffset(), ptr.getLength());
+        return PDataType.LONG.getCodec().decodeLong(ptr.get(), ptr.getOffset());
     }
 }

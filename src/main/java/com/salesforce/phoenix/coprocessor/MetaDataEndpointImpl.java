@@ -50,8 +50,6 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.PDataType.IntNative;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.util.*;
 
 /**
@@ -196,9 +194,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         KeyValue tableTypeKv = tableKeyValues[TABLE_TYPE_INDEX];
         PTableType tableType = PTableType.fromSerializedValue(tableTypeKv.getBuffer()[tableTypeKv.getValueOffset()]);
         KeyValue tableSeqNumKv = tableKeyValues[TABLE_SEQ_NUM_INDEX];
-        long tableSeqNum = LongNative.getInstance().toLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), PDataType.LONG.getByteSize());
+        long tableSeqNum = PDataType.LONG.getCodec().decodeLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset());
         KeyValue columnCountKv = tableKeyValues[COLUMN_COUNT_INDEX];
-        int columnCount = IntNative.getInstance().toInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset(), columnCountKv.getValueLength());
+        int columnCount = PDataType.INTEGER.getCodec().decodeInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset());
         KeyValue pkNameKv = tableKeyValues[PK_NAME_INDEX];
         String pkName = null;
         if (pkNameKv != null) {
@@ -238,13 +236,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 throw new IllegalStateException("Didn't find expected key values in column metadata row");
             }
             KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
-            Integer maxLength = columnSizeKv == null ? null : IntNative.getInstance().toInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), columnSizeKv.getValueLength());
+            Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset());
             KeyValue ordinalPositionKv = colKeyValues[ORDINAL_POSITION_INDEX];
-            int position = IntNative.getInstance().toInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset(), ordinalPositionKv.getValueLength());
+            int position = PDataType.INTEGER.getCodec().decodeInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset());
             KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];
-            boolean isNullable = IntNative.getInstance().toInt(nullableKv.getBuffer(), nullableKv.getValueOffset(), nullableKv.getValueLength()) != ResultSetMetaData.columnNoNulls;
+            boolean isNullable = PDataType.INTEGER.getCodec().decodeInt(nullableKv.getBuffer(), nullableKv.getValueOffset()) != ResultSetMetaData.columnNoNulls;
             KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
-            PDataType dataType = PDataType.fromSqlType(IntNative.getInstance().toInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), sqlDataTypeKv.getValueLength()));
+            PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset()));
             
             PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, isNullable, position-1);
             columns.add(column);
@@ -442,7 +440,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (kvs != null) {
             for (KeyValue kv : kvs) { // list is not ordered, so search. TODO: we could potentially assume the position
                 if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES, 0, PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES.length) == 0) {
-                    return LongNative.getInstance().toLong(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+                    return PDataType.LONG.getCodec().decodeLong(kv.getBuffer(), kv.getValueOffset());
                 }
             }
         }

@@ -38,7 +38,6 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -113,8 +112,7 @@ public class RegexpSubstrFunction extends ScalarFunction {
         if (!offsetExpression.evaluate(tuple, ptr)) {
             return false;
         }
-        LongNative longNative = (LongNative)offsetExpression.getDataType().getNative();
-        int offset = (int) longNative.toLong(ptr);
+        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr);
 
         int strlen = sourceStr.length();
         // Account for 1 versus 0-based offset

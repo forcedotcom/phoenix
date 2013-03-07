@@ -27,7 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.math.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.*;
 import java.util.Map;
 
@@ -35,9 +36,9 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Base64;
 import org.apache.hadoop.hbase.util.Bytes;
 
-
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.*;
+import com.google.common.primitives.Booleans;
+import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.util.*;
 
 
@@ -52,7 +53,7 @@ import com.salesforce.phoenix.util.*;
  */
 @SuppressWarnings("rawtypes")
 public enum PDataType {
-    VARCHAR("VARCHAR", Types.VARCHAR, String.class) {
+    VARCHAR("VARCHAR", Types.VARCHAR, String.class, null) {
         @Override
         public byte[] toBytes(Object object) {
             // TODO: consider using avro UTF8 object instead of String
@@ -154,7 +155,7 @@ public enum PDataType {
     /**
      * Fixed length single byte characters
      */
-    CHAR("CHAR", Types.CHAR, String.class) { // Delegate to VARCHAR
+    CHAR("CHAR", Types.CHAR, String.class, null) { // Delegate to VARCHAR
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -247,11 +248,7 @@ public enum PDataType {
             return value;
         }
     },
-    LONG("BIGINT", Types.BIGINT, Long.class) {
-        @Override
-        public LongNative getNative() {
-            return LongNative.getInstance();
-        }
+    LONG("BIGINT", Types.BIGINT, Long.class, new LongCodec()) {
 
         @Override
         public byte[] toBytes(Object object) {
@@ -265,7 +262,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            return this.getNative().putLong(((Number)object).longValue(), b, o);
+            return this.getCodec().encodeLong(((Number)object).longValue(), b, o);
         }
 
         @Override
@@ -294,19 +291,12 @@ public enum PDataType {
             if (l == 0) {
                 return null;
             }
-            long v;
             switch (actualType) {
             case LONG:
-                return getNative().toLong(b,o,l);
             case UNSIGNED_LONG:
-                v = UnsignedLongNative.getInstance().toLong(b,o,l);
-                return v;
             case INTEGER:
-                v = IntNative.getInstance().toInt(b,o,l);
-                return v;
             case UNSIGNED_INT:
-                v = UnsignedIntNative.getInstance().toInt(b,o,l);
-                return v;
+                return actualType.getCodec().decodeLong(b,o);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -368,11 +358,9 @@ public enum PDataType {
         public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
             switch(rhsType) {
                 case UNSIGNED_INT:
-                    return Longs.compare(getNative().toLong(lhs,lhsOffset,lhsLength), UnsignedIntNative.getInstance().toInt(rhs,rhsOffset,rhsLength));
                 case UNSIGNED_LONG:
-                    return Longs.compare(getNative().toLong(lhs,lhsOffset,lhsLength), UnsignedLongNative.getInstance().toLong(rhs,rhsOffset,rhsLength));
                 case INTEGER:
-                    return Longs.compare(getNative().toLong(lhs,lhsOffset,lhsLength), IntNative.getInstance().toInt(rhs,rhsOffset,rhsLength));
+                    return Longs.compare(getCodec().decodeLong(lhs,lhsOffset), rhsType.getCodec().decodeLong(rhs,rhsOffset));
                 case LONG:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
                 case DECIMAL:
@@ -396,11 +384,7 @@ public enum PDataType {
             }
         }
     },
-    INTEGER("INTEGER", Types.INTEGER, Integer.class) {
-        @Override
-        public IntNative getNative() {
-            return IntNative.getInstance();
-        }
+    INTEGER("INTEGER", Types.INTEGER, Integer.class, new IntCodec()) {
 
         @Override
         public byte[] toBytes(Object object) {
@@ -414,7 +398,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            return this.getNative().putInt(((Number)object).intValue(), b, o);
+            return this.getCodec().encodeInt(((Number)object).intValue(), b, o);
         }
 
         @Override
@@ -449,15 +433,9 @@ public enum PDataType {
             switch (actualType) {
             case LONG:
             case UNSIGNED_LONG:
-                long v = (actualType == LONG ? LongNative.getInstance() : UnsignedLongNative.getInstance()).toLong(b,o,l);
-                if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
-                    throw new IllegalDataException("Long value " + v + " cannot be cast to Integer without changing its value");
-                }
-                return (int)v;
             case INTEGER:
-                return this.getNative().toInt(b, o, l);
             case UNSIGNED_INT:
-                return UnsignedIntNative.getInstance().toInt(b, o, l);
+                return actualType.getCodec().decodeInt(b, o);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -509,11 +487,9 @@ public enum PDataType {
                 case INTEGER:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
                 case UNSIGNED_INT:
-                    return -UNSIGNED_INT.compareTo(rhs, rhsOffset, rhsLength, lhs, lhsOffset, lhsLength, this);
                 case LONG:
-                    return -LONG.compareTo(rhs, rhsOffset, rhsLength, lhs, lhsOffset, lhsLength, this);
                 case UNSIGNED_LONG:
-                    return -UNSIGNED_LONG.compareTo(rhs, rhsOffset, rhsLength, lhs, lhsOffset, lhsLength, this);
+                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset), rhsType.getCodec().decodeLong(rhs, rhsOffset));
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
                     byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this));
@@ -535,7 +511,7 @@ public enum PDataType {
             }
         }
     },
-    DECIMAL("DECIMAL", Types.DECIMAL, BigDecimal.class) {
+    DECIMAL("DECIMAL", Types.DECIMAL, BigDecimal.class, null) {
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -596,13 +572,10 @@ public enum PDataType {
             case DECIMAL:
                 return toBigDecimal(b, o, l);                
             case LONG:
-                return BigDecimal.valueOf(LongNative.getInstance().toLong(b,o,l));
             case INTEGER:
-                return BigDecimal.valueOf(IntNative.getInstance().toInt(b,o,l));
             case UNSIGNED_LONG:
-                return BigDecimal.valueOf(UnsignedLongNative.getInstance().toLong(b,o,l));
             case UNSIGNED_INT:
-                return BigDecimal.valueOf(UnsignedIntNative.getInstance().toInt(b,o,l));
+                return BigDecimal.valueOf(actualType.getCodec().decodeLong(b,o));
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -708,11 +681,7 @@ public enum PDataType {
             }
         }
     },
-    TIMESTAMP("TIMESTAMP", Types.TIMESTAMP, Timestamp.class) {
-        @Override
-        public DateNative getNative() {
-            return DateNative.getInstance();
-        }
+    TIMESTAMP("TIMESTAMP", Types.TIMESTAMP, Timestamp.class, new DateCodec()) {
         
         @Override
         public byte[] toBytes(Object object) {
@@ -765,7 +734,7 @@ public enum PDataType {
                 return v;
             case DATE:
             case TIME:
-                return new Timestamp(DateNative.getInstance().toLong(b, o, l));
+                return new Timestamp(getCodec().decodeLong(b, o));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -814,11 +783,7 @@ public enum PDataType {
             return DateUtil.parseTimestamp(value);
         }
     },
-    TIME("TIME", Types.TIME, Time.class) {
-        @Override
-        public DateNative getNative() {
-            return DateNative.getInstance();
-        }
+    TIME("TIME", Types.TIME, Time.class, new DateCodec()) {
         
         @Override
         public byte[] toBytes(Object object) {
@@ -846,7 +811,7 @@ public enum PDataType {
             case TIMESTAMP: // TODO: throw if nanos?
             case DATE:
             case TIME:
-                return new Time(this.getNative().toLong(b, o, Bytes.SIZEOF_LONG));
+                return new Time(this.getCodec().decodeLong(b, o));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -912,11 +877,7 @@ public enum PDataType {
             return DateUtil.parseTime(value);
         }
     },
-    DATE("DATE", Types.DATE, Date.class) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
-        @Override
-        public DateNative getNative() {
-            return DateNative.getInstance();
-        }
+    DATE("DATE", Types.DATE, Date.class, new DateCodec()) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
         
         @Override
         public byte[] toBytes(Object object) {
@@ -960,7 +921,7 @@ public enum PDataType {
             case TIMESTAMP: // TODO: throw if nanos?
             case DATE:
             case TIME:
-                return new Date(this.getNative().toLong(b, o, Bytes.SIZEOF_LONG));
+                return new Date(this.getCodec().decodeLong(b, o));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -1004,11 +965,7 @@ public enum PDataType {
      * as long as all values are non negative (the leading sign bit of negative numbers would cause them to sort ahead of positive numbers when
      * they're used as part of the row key when using the HBase utility methods).
      */
-    UNSIGNED_LONG("UNSIGNED_LONG", 10 /* no constant available in Types */, Long.class) {
-        @Override
-        public UnsignedLongNative getNative() {
-            return UnsignedLongNative.getInstance();
-        }
+    UNSIGNED_LONG("UNSIGNED_LONG", 10 /* no constant available in Types */, Long.class, new UnsignedLongCodec()) {
 
         @Override
         public byte[] toBytes(Object object) {
@@ -1022,7 +979,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            return this.getNative().putLong(((Number)object).longValue(), b, o);
+            return this.getCodec().encodeLong(((Number)object).longValue(), b, o);
         }
 
         @Override
@@ -1064,16 +1021,10 @@ public enum PDataType {
             }
             switch (actualType) {
             case INTEGER:
-                long intValue = IntNative.getInstance().toLong(b, o, l);
-                return intValue;
             case LONG:
-                long longValue = LongNative.getInstance().toLong(b, o, l);
-                return longValue;
             case UNSIGNED_LONG:
-                return getNative().toLong(b,o,l);
             case UNSIGNED_INT:
-                long v = UnsignedIntNative.getInstance().toInt(b,o,l);
-                return v;
+                return actualType.getCodec().decodeLong(b, o);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1125,14 +1076,12 @@ public enum PDataType {
         @Override
         public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
             switch(rhsType) {
-                case UNSIGNED_INT:
-                    return Longs.compare(getNative().toLong(lhs,lhsOffset,lhsLength), UnsignedIntNative.getInstance().toInt(rhs,rhsOffset,rhsLength));
                 case UNSIGNED_LONG:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
+                case UNSIGNED_INT:
                 case INTEGER:
-                    return Longs.compare(getNative().toLong(lhs,lhsOffset,lhsLength), IntNative.getInstance().toInt(rhs,rhsOffset,rhsLength));
                 case LONG:
-                    return Longs.compare(getNative().toLong(lhs,lhsOffset,lhsLength), LongNative.getInstance().toLong(rhs,rhsOffset,rhsLength));
+                    return Longs.compare(getCodec().decodeLong(lhs,lhsOffset), rhsType.getCodec().decodeLong(rhs,rhsOffset));
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
                     byte[] b = DECIMAL.toBytes(this.toObject(lhs, lhsOffset, lhsLength, DECIMAL));
@@ -1163,11 +1112,7 @@ public enum PDataType {
      * as long as all values are non negative (the leading sign bit of negative numbers would cause them to sort ahead of positive numbers when
      * they're used as part of the row key when using the HBase utility methods).
      */
-    UNSIGNED_INT("UNSIGNED_INT", 9 /* no constant available in Types */, Integer.class) {
-        @Override
-        public UnsignedIntNative getNative() {
-            return UnsignedIntNative.getInstance();
-        }
+    UNSIGNED_INT("UNSIGNED_INT", 9 /* no constant available in Types */, Integer.class, new UnsignedIntCodec()) {
 
         @Override
         public byte[] toBytes(Object object) {
@@ -1181,7 +1126,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            return this.getNative().putInt(((Number)object).intValue(), b, o);
+            return this.getCodec().encodeInt(((Number)object).intValue(), b, o);
         }
 
         @Override
@@ -1218,19 +1163,12 @@ public enum PDataType {
             if (l == 0) {
                 return null;
             }
-            long v;
             switch (actualType) {
             case UNSIGNED_LONG:
             case LONG:
-                v = (actualType == UNSIGNED_LONG ? UnsignedLongNative.getInstance() : LongNative.getInstance()).toLong(b,o,l);
-                if (v < 0 || v > Integer.MAX_VALUE) {
-                    throw new IllegalDataException("Long value " + v + " cannot be cast to Unsigned Integer without changing its value");
-                }
-                return (int)v;
             case UNSIGNED_INT:
-                return this.getNative().toInt(b, o, l);
             case INTEGER:
-                return IntNative.getInstance().toInt(b, o, l);
+                return actualType.getCodec().decodeInt(b,o);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1267,13 +1205,9 @@ public enum PDataType {
                 case UNSIGNED_INT:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
                 case UNSIGNED_LONG:
-                    return -UNSIGNED_LONG.compareTo(rhs, rhsOffset, rhsLength, lhs, lhsOffset, lhsLength, this);
                 case INTEGER:
-                    int li = this.getNative().toInt(lhs, lhsOffset, lhsLength);
-                    int ri = IntNative.getInstance().toInt(rhs, rhsOffset, rhsLength);
-                    return Ints.compare(li,ri);
                 case LONG:
-                    return -LONG.compareTo(rhs, rhsOffset, rhsLength, lhs, lhsOffset, lhsLength, this);
+                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset), rhsType.getCodec().decodeLong(rhs, rhsOffset));
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
                     byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this));
@@ -1299,11 +1233,7 @@ public enum PDataType {
             }
         }
     },
-    BOOLEAN("BOOLEAN", Types.BOOLEAN, Boolean.class) { // Delegate to VARCHAR
-        @Override
-        public DateNative getNative() {
-            return DateNative.getInstance();
-        }
+    BOOLEAN("BOOLEAN", Types.BOOLEAN, Boolean.class, null) {
         
         @Override
         public byte[] toBytes(Object object) {
@@ -1360,7 +1290,7 @@ public enum PDataType {
             return Boolean.parseBoolean(value);
         }
     },
-    BINARY("BINARY", Types.BINARY, byte[].class) {
+    BINARY("BINARY", Types.BINARY, byte[].class, null) {
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -1451,15 +1381,21 @@ public enum PDataType {
     private final Class clazz;
     private final byte[] clazzNameBytes;
     private final byte[] sqlTypeNameBytes;
+    private final PDataCodec codec;
 
-    private PDataType(String sqlTypeName, int sqlType, Class clazz) {
+    private PDataType(String sqlTypeName, int sqlType, Class clazz, PDataCodec codec) {
         this.sqlTypeName = sqlTypeName;
         this.sqlType = sqlType;
         this.clazz = clazz;
         this.clazzNameBytes = Bytes.toBytes(clazz.getName());
         this.sqlTypeNameBytes = Bytes.toBytes(sqlTypeName);
+        this.codec = codec;
     }
 
+    public final PDataCodec getCodec() {
+        return codec;
+    }
+    
     public int estimateByteSize(Object o) {
         if (isFixedWidth()) {
             return getByteSize();
@@ -1480,29 +1416,58 @@ public enum PDataType {
         return clazz;
     }
 
-    public Native getNative() {
-        return null;
+    public static interface PDataCodec {
+        public long decodeLong(ImmutableBytesWritable ptr);
+        public long decodeLong(byte[] b, int o);
+        public int decodeInt(ImmutableBytesWritable ptr);
+        public int decodeInt(byte[] b, int o);
+
+        public int encodeLong(long v, ImmutableBytesWritable ptr);
+        public int encodeLong(long v, byte[] b, int o);
+        public int encodeInt(int v, ImmutableBytesWritable ptr);
+        public int encodeInt(int v, byte[] b, int o);
     }
 
-    public static interface Native {
+    public static abstract class BaseCodec implements PDataCodec {
+        @Override
+        public int decodeInt(ImmutableBytesWritable ptr) {
+            return decodeInt(ptr.get(), ptr.getOffset());
+        }
+
+        @Override
+        public long decodeLong(ImmutableBytesWritable ptr) {
+            return decodeLong(ptr.get(),ptr.getOffset());
+        }
+        
+        @Override
+        public int encodeInt(int v, ImmutableBytesWritable ptr) {
+            return encodeInt(v, ptr.get(), ptr.getOffset());
+        }
+        
+        @Override
+        public int encodeLong(long v, ImmutableBytesWritable ptr) {
+            return encodeLong(v, ptr.get(), ptr.getOffset());
+        }
+        
+        @Override
+        public int encodeInt(int v, byte[] b, int o) {
+            throw new UnsupportedOperationException();
+        }
+        
+        @Override
+        public int encodeLong(long v, byte[] b, int o) {
+            throw new UnsupportedOperationException();
+        }
     }
 
-    public static class LongNative implements Native {
-        private static final LongNative INSTANCE = new LongNative();
+    
+    public static class LongCodec extends BaseCodec {
         
-        public static LongNative getInstance() {
-            return INSTANCE;
+        private LongCodec() {
         }
         
-        private LongNative() {
-        }
-        
-        public long toLong(ImmutableBytesWritable ptr) {
-            return toLong(ptr.get(),ptr.getOffset(),ptr.getLength());
-        }
-        
-        public long toLong(byte[] b, int o, int l) {
-            assert l == Bytes.SIZEOF_LONG;
+        @Override
+        public long decodeLong(byte[] b, int o) {
             long v = b[o] ^ 0x80; // Flip sign bit back
             for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {
               v = (v << 8) + (b[o + i] & 0xff);
@@ -1510,11 +1475,18 @@ public enum PDataType {
             return v;
         }
         
-        public int putLong(long v, ImmutableBytesWritable ptr) {
-            return putLong(v, ptr.get(), ptr.getOffset());
+
+        @Override
+        public int decodeInt(byte[] b, int o) {
+            long v = decodeLong(b,o);
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Integer without changing its value");
+            }
+            return (int)v;
         }
 
-        public int putLong(long v, byte[] b, int o) {
+        @Override
+        public int encodeLong(long v, byte[] b, int o) {
             b[o + 0] = (byte) ((v >> 56) ^ 0x80); // Flip sign bit so that INTEGER is binary comparable
             b[o + 1] = (byte) (v >> 48);
             b[o + 2] = (byte) (v >> 40);
@@ -1527,27 +1499,18 @@ public enum PDataType {
         }
     }
 
-    public static class IntNative extends LongNative {
-        private static final IntNative INSTANCE = new IntNative();
+    public static class IntCodec extends BaseCodec {
         
-        public static IntNative getInstance() {
-            return INSTANCE;
-        }
-        
-        private IntNative() {
+        private IntCodec() {
         }
         
         @Override
-        public long toLong(byte[] b, int o, int l) {
-            return toInt(b,o,l);
+        public long decodeLong(byte[] b, int o) {
+            return decodeInt(b,o);
         }
         
-        public int toInt(ImmutableBytesWritable ptr) {
-            return toInt(ptr.get(),ptr.getOffset(),ptr.getLength());
-        }
-        
-        public int toInt(byte[] b, int o, int l) {
-            assert(l == Bytes.SIZEOF_INT);
+        @Override
+        public int decodeInt(byte[] b, int o) {
             int v = b[o] ^ 0x80; // Flip sign bit back
             for (int i = 1; i < Bytes.SIZEOF_INT; i++) {
               v = (v << 8) + (b[o + i] & 0xff);
@@ -1555,32 +1518,32 @@ public enum PDataType {
             return v;
         }
         
-        public int putInt(int v, ImmutableBytesWritable ptr) {
-            return putInt(v, ptr.get(), ptr.getOffset());
-        }
-        
-        public int putInt(int v, byte[] b, int o) {
+        @Override
+        public int encodeInt(int v, byte[] b, int o) {
             b[o + 0] = (byte) ((v >> 24) ^ 0x80); // Flip sign bit so that INTEGER is binary comparable
             b[o + 1] = (byte) (v >> 16);
             b[o + 2] = (byte) (v >> 8);
             b[o + 3] = (byte) v;
             return Bytes.SIZEOF_INT;
         }
+
+        @Override
+        public int encodeLong(long v, byte[] b, int o) {
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Integer without changing its value");
+            }
+            return encodeInt((int)v,b,o);
+        }
     }
 
-    public static class UnsignedLongNative extends LongNative {
-        private static final UnsignedLongNative INSTANCE = new UnsignedLongNative();
+    public static class UnsignedLongCodec extends LongCodec {
         
-        public static UnsignedLongNative getInstance() {
-            return INSTANCE;
-        }
-        
-        private UnsignedLongNative() {
+        private UnsignedLongCodec() {
         }
         
         @Override
-        public long toLong(byte[] b, int o, int l) {
-            long v = Bytes.toLong(b, o, l);
+        public long decodeLong(byte[] b, int o) {
+            long v = Bytes.toLong(b, o);
             if (v < 0) {
                 throw new IllegalDataException();
             }
@@ -1588,7 +1551,7 @@ public enum PDataType {
         }
         
         @Override
-        public int putLong(long v, byte[] b, int o) {
+        public int encodeLong(long v, byte[] b, int o) {
             if (v < 0) {
                 throw new IllegalDataException();
             }
@@ -1597,39 +1560,22 @@ public enum PDataType {
         }
     }
 
-    public static class UnsignedIntNative extends UnsignedLongNative {
-        private static final UnsignedIntNative INSTANCE = new UnsignedIntNative();
+    public static class UnsignedIntCodec extends IntCodec {
         
-        public static UnsignedIntNative getInstance() {
-            return INSTANCE;
-        }
-        
-        private UnsignedIntNative() {
+        private UnsignedIntCodec() {
         }
         
         @Override
-        public long toLong(byte[] b, int o, int l) {
-            return toInt(b,o,l);
-        }
-        
-        public int toInt(ImmutableBytesWritable ptr) {
-            return toInt(ptr.get(),ptr.getOffset(),ptr.getLength());
-        }
-        
-        public int toInt(byte[] b, int o, int l) {
-            assert(l == Bytes.SIZEOF_INT);
-            int v = Bytes.toInt(b, o, l);
+        public int decodeInt(byte[] b, int o) {
+            int v = Bytes.toInt(b, o);
             if (v < 0) {
                 throw new IllegalDataException();
             }
             return v;
         }
         
-        public int putInt(int v, ImmutableBytesWritable ptr) {
-            return putInt(v, ptr.get(), ptr.getOffset());
-        }
-        
-        public int putInt(int v, byte[] b, int o) {
+        @Override
+        public int encodeInt(int v, byte[] b, int o) {
             if (v < 0) {
                 throw new IllegalDataException();
             }
@@ -1638,29 +1584,23 @@ public enum PDataType {
         }
     }
 
-    public static class DateNative implements Native {
-        private static final DateNative INSTANCE = new DateNative();
+    public static class DateCodec extends BaseCodec {
         
-        public static DateNative getInstance() {
-            return INSTANCE;
+        private DateCodec() {
         }
         
-        private DateNative() {
-        }
-        
-        public long toLong(ImmutableBytesWritable ptr) {
-            return toLong(ptr.get(),ptr.getOffset(),ptr.getLength());
-        }
-        
-        public long toLong(byte[] b, int o, int l) {
-            return Bytes.toLong(b, o, l);
-        }
-        
-        public int putLong(long v, ImmutableBytesWritable ptr) {
-            return putLong(v, ptr.get(), ptr.getOffset());
+        @Override
+        public long decodeLong(byte[] b, int o) {
+            return Bytes.toLong(b, o);
         }
 
-        public int putLong(long v, byte[] b, int o) {
+        @Override
+        public int decodeInt(byte[] b, int o) {
+            throw new UnsupportedOperationException();
+        }
+        
+        @Override
+        public int encodeLong(long v, byte[] b, int o) {
             Bytes.putLong(b, o, v);
             return Bytes.SIZEOF_LONG;
         }

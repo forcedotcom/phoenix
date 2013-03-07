@@ -40,7 +40,6 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.DateNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -104,7 +103,7 @@ public class RoundFunction extends ScalarFunction {
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         // If divBy is 0 this means <time unit> or <multiplier> was null
         if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
-            long time = DateNative.getInstance().toLong(ptr);
+            long time = getDataType().getCodec().decodeLong(ptr);
             long value = roundTime(time);
             // TODO: use temporary buffer instead and have way for caller to check if copying is necessary
             byte[] byteValue = getDataType().toBytes(new Date(value));
@@ -149,7 +148,7 @@ public class RoundFunction extends ScalarFunction {
     }
 
     @Override
-    public PDataType getDataType() {
+    public final PDataType getDataType() {
         return PDataType.DATE;
     }
     

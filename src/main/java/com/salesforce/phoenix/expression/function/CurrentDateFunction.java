@@ -32,7 +32,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.parse.CurrentDateParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.DateNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -56,7 +55,7 @@ public class CurrentDateFunction extends ScalarFunction {
     }
 
     public CurrentDateFunction(long timeStamp) {
-        DateNative.getInstance().putLong(timeStamp, currentDate);
+        getDataType().getCodec().encodeLong(timeStamp, currentDate);
     }
 
     @Override
@@ -66,7 +65,7 @@ public class CurrentDateFunction extends ScalarFunction {
     }
 
     @Override
-    public PDataType getDataType() {
+    public final PDataType getDataType() {
         return PDataType.DATE;
     }
 

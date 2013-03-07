@@ -30,7 +30,6 @@ package com.salesforce.phoenix.expression.aggregator;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
 
@@ -63,7 +62,7 @@ public class CountAggregator extends BaseAggregator {
         if (buffer == null) {
             buffer = new byte[getDataType().getByteSize()];
         }
-        LongNative.getInstance().putLong(count, buffer, 0);
+        getDataType().getCodec().encodeLong(count, buffer, 0);
         ptr.set(buffer);
         return true;
     }

@@ -31,9 +31,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.PDataType.IntNative;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -48,30 +46,27 @@ public class LongMultiplyExpression extends MultiplyExpression {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        LongNative longNative=LongNative.getInstance();
-        IntNative intNative=IntNative.getInstance();
         long finalResult=1;
         
         for(int i=0;i<children.size();i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) {
+            Expression child = children.get(i);
+            if (!child.evaluate(tuple, ptr)) {
                 return false;
             }
-            long childvalue;
-            if (children.get(i).getDataType() == PDataType.LONG) {
-                childvalue = longNative.toLong(ptr);
-            } else {
-                childvalue = intNative.toLong(ptr);
+            if (ptr.getLength() == 0) {
+                return false;
             }
+            long childvalue = child.getDataType().getCodec().decodeLong(ptr);
             finalResult *= childvalue;
         }
-        byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
+        byte[] resultPtr=new byte[getDataType().getByteSize()];
         ptr.set(resultPtr);
-        longNative.putLong(finalResult, ptr);
+        getDataType().getCodec().encodeLong(finalResult, ptr);
         return true;
     }
 
     @Override
-    public PDataType getDataType() {
+    public final PDataType getDataType() {
         return PDataType.LONG;
     }
 

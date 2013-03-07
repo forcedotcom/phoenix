@@ -32,9 +32,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.PDataType.DateNative;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -56,22 +54,16 @@ public class LongSubtractExpression extends SubtractExpression {
 
     @Override
 	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-		DateNative dateNative=DateNative.getInstance(); // TODO: Should this be derived from LongNative?
 		long finalResult=0;
 		
 		for(int i=0;i<children.size();i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) {
+		    Expression child = children.get(i);
+            if (!child.evaluate(tuple, ptr) || ptr.getLength() == 0) {
                 return false;
             }
-            long childvalue;
-            PDataType type = children.get(i).getDataType();
-            boolean isDate = type.isCoercibleTo(PDataType.DATE);
-            if (isDate) {
-                childvalue = dateNative.toLong(ptr);
-            } else {
-                LongNative longNative = (LongNative)type.getNative();
-                childvalue = longNative.toLong(ptr);
-            }
+            PDataType childType = child.getDataType();
+            boolean isDate = childType.isCoercibleTo(PDataType.DATE);
+            long childvalue = childType.getCodec().decodeLong(ptr);
             if (i == 0) {
                 finalResult = childvalue;
             } else {
@@ -85,14 +77,14 @@ public class LongSubtractExpression extends SubtractExpression {
                 }
             }
 		}
-		byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
+		byte[] resultPtr=new byte[getDataType().getByteSize()];
 		ptr.set(resultPtr);
-		LongNative.getInstance().putLong(finalResult, ptr);
+		getDataType().getCodec().encodeLong(finalResult, ptr);
 		return true;
 	}
 
 	@Override
-	public PDataType getDataType() {
+	public final PDataType getDataType() {
 		return PDataType.LONG;
 	}
 	
