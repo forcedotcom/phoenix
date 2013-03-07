@@ -47,17 +47,18 @@ public class ValueBitSetTest {
                     public boolean isNullable() {
                         return fieldIndex <= nNotNull;
                     }
-
                     @Override
                     public PDataType getDataType() {
                         return PDataType.values()[fieldIndex % PDataType.values().length];
                     }
-
                     @Override
                     public Integer getByteSize() {
                         return !getDataType().isFixedWidth() ? null : getDataType().getByteSize() == null ? FIXED_WIDTH_CHAR_SIZE : getDataType().getByteSize();
                     }
-
+                    @Override
+                    public Integer getMaxLength() {
+                        return null;
+                    }
                     @Override
                     public Integer getScale() {
                         return null;

@@ -49,12 +49,17 @@ public class DelegateDatum implements PDatum {
         return delegate.getByteSize();
     }
 
-    protected PDatum getDelegate() {
-        return delegate;
+    @Override
+    public Integer getMaxLength() {
+        return delegate.getByteSize();
     }
 
     @Override
     public Integer getScale() {
         return delegate.getScale();
+    }
+
+    protected PDatum getDelegate() {
+        return delegate;
     }
 }

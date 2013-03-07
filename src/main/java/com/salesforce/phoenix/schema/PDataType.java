@@ -110,14 +110,12 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isCoercibleTo(PDataType targetType, Object value, byte[] b) {
-            if (isCoercibleTo(targetType, value)) {
-                if (targetType == PDataType.CHAR) {
-                    return ((String)value).length() == b.length;
-                }
-                return true;
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if (srcType == PDataType.CHAR && maxLength != null && desiredMaxLength != null) {
+                return maxLength <= desiredMaxLength;
             }
-            return false;
+            return true;
         }
 
         @Override
@@ -211,6 +209,16 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if ((srcType == PDataType.VARCHAR && ((String)value).length() != b.length) || 
+                    (maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)){
+                return false;
+            }
+            return true;
+        }
+
+        @Override
         public boolean isFixedWidth() {
             return true;
         }
@@ -245,6 +253,11 @@ public enum PDataType {
                 throw new IllegalDataException("CHAR types may only contain single byte characters (" + value + ")");
             }
             return value;
+        }
+
+        @Override
+        public Integer estimateByteSizeFromLength(Integer length) {
+            return length;
         }
     },
     LONG("BIGINT", Types.BIGINT, Long.class) {
@@ -587,6 +600,22 @@ public enum PDataType {
             return Math.min(getLength(v),MAX_BIG_DECIMAL_BYTES);
         }
 
+        public Integer getMaxLength(Object o) {
+            if (o == null) {
+                return null;
+            }
+            BigDecimal v = (BigDecimal) o;
+            return v.precision();
+        }
+
+        public Integer getScale(Object o) {
+            if (o == null) {
+                return null;
+            }
+            BigDecimal v = (BigDecimal) o;
+            return v.scale();
+        }
+
         @Override
         public Object toObject(byte[] b, int o, int l, PDataType actualType) {
             if (l == 0) {
@@ -594,7 +623,7 @@ public enum PDataType {
             }
             switch (actualType) {
             case DECIMAL:
-                return toBigDecimal(b, o, l);                
+                return toBigDecimal(b, o, l);
             case LONG:
                 return BigDecimal.valueOf(LongNative.getInstance().toLong(b,o,l));
             case INTEGER:
@@ -621,7 +650,7 @@ public enum PDataType {
             case UNSIGNED_LONG:
                 return BigDecimal.valueOf((Long)object);
             case DECIMAL:
-                return object;                
+                return object;
             default:
                 return super.toObject(object, actualType);
             }
@@ -697,6 +726,16 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if ((maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)
+                    || (scale != null && desiredScale != null && scale > desiredScale)) {
+                return false;
+            }
+            return true;
+        }
+
+        @Override
         public Object toObject(String value) {
             if (value == null || value.length() == 0) {
                 return null;
@@ -706,6 +745,12 @@ public enum PDataType {
             } catch (NumberFormatException e) {
                 throw new IllegalDataException(e);
             }
+        }
+
+        @Override
+        public Integer estimateByteSizeFromLength(Integer length) {
+            // No association of runtime byte size from decimal precision.
+            return null;
         }
     },
     TIMESTAMP("TIMESTAMP", Types.TIMESTAMP, Timestamp.class) {
@@ -1468,6 +1513,26 @@ public enum PDataType {
         throw new UnsupportedOperationException();
     }
 
+    public Integer getMaxLength(Object o) {
+        return null;
+    }
+
+    public Integer getScale(Object o) {
+        return null;
+    }
+
+    /**
+     * Estimate the byte size from the type length. For example, for char, byte size would be the
+     * same as length. For decimal, byte size would have no correlation with the length.
+     */
+    public Integer estimateByteSizeFromLength(Integer length) {
+        if (isFixedWidth()) {
+            return getByteSize();
+        }
+        // If not fixed width, default to say the byte size is the same as length.
+        return length;
+    }
+
     public final String getSqlTypeName() {
         return sqlTypeName;
     }
@@ -1666,6 +1731,8 @@ public enum PDataType {
         }
     }
 
+    public static final int MAX_PRECISION = 31; // Max precision guaranteed to fit into a long (and this should be plenty)
+    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
     public static final int DEFAULT_SCALE = 0;
 
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;
@@ -1859,8 +1926,9 @@ public enum PDataType {
         return isCoercibleTo(targetType);
     }
 
-    public boolean isCoercibleTo(PDataType targetType, Object value, byte[] b) {
-        return isCoercibleTo(targetType, value);
+    public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+            Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+        return true;
     }
 
     public int compareTo(byte[] b1, byte[] b2) {

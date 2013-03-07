@@ -42,17 +42,18 @@ public class LimitCompiler {
         public boolean isNullable() {
             return false;
         }
-
         @Override
         public PDataType getDataType() {
             return PDataType.INTEGER;
         }
-
         @Override
         public Integer getByteSize() {
             return getDataType().getByteSize();
         }
-
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
         @Override
         public Integer getScale() {
             return null;
