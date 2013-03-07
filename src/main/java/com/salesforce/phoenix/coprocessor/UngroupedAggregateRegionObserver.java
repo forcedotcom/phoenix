@@ -147,7 +147,10 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                     try {
                         if (isDelete) {
                             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-                            Delete delete = new Delete(results.get(0).getRow(),ts);
+                            // FIXME: the version of the Delete constructor without the lock args was introduced
+                            // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
+                            // of the client.
+                            Delete delete = new Delete(results.get(0).getRow(),ts,null);
                             mutations.add(new Pair<Mutation,Integer>(delete,null));
                         } else if (isUpsert) {
                             Arrays.fill(values, null);

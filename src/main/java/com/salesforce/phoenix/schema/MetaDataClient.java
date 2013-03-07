@@ -374,7 +374,10 @@ public class MetaDataClient {
             byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
             Long scn = connection.getSCN();
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-            List<Mutation> tableMetaData = Collections.<Mutation>singletonList(new Delete(key, scn == null ? HConstants.LATEST_TIMESTAMP : scn));
+            // FIXME: the version of the Delete constructor without the lock args was introduced
+            // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
+            // of the client.
+            List<Mutation> tableMetaData = Collections.<Mutation>singletonList(new Delete(key, scn == null ? HConstants.LATEST_TIMESTAMP : scn, null));
             MetaDataMutationResult result = connection.getQueryServices().dropTable(tableMetaData, statement.isView());
             MutationCode code = result.getMutationCode();
             switch(code) {

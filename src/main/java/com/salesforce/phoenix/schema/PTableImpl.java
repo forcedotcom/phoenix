@@ -167,54 +167,62 @@ public class PTableImpl implements PTable {
     public int newKey(ImmutableBytesWritable key, byte[][] values) {
         int i = 0;
         TrustedByteArrayOutputStream os = new TrustedByteArrayOutputStream(SchemaUtil.estimateKeyLength(this));
-        List<PColumn> columns = getPKColumns();
-        int nColumns = columns.size();
-        PColumn lastPKColumn = columns.get(nColumns - 1);
-        while (i < values.length && i < nColumns) {
-            PColumn column = columns.get(i);
-            PDataType type = column.getDataType();
-            // This will throw if the value is null and the type doesn't allow null
-            byte[] byteValue = values[i++];
-            if (byteValue == null) {
-                byteValue = ByteUtil.EMPTY_BYTE_ARRAY;
-            }
-            // An empty byte array return value means null. Do this,
-            // since a type may have muliple representations of null.
-            // For example, VARCHAR treats both null and an empty string
-            // as null. This way we don't need to leak that part of the
-            // implementation outside of PDataType by checking the value
-            // here.
-            if (byteValue.length == 0 && !column.isNullable()) { 
-                throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
-            }
-            Integer byteSize = column.getByteSize();
-            if (type.isFixedWidth()) { // TODO: handle multi-byte characters
-                if (byteValue.length != byteSize) {
-                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
+        try {
+            List<PColumn> columns = getPKColumns();
+            int nColumns = columns.size();
+            PColumn lastPKColumn = columns.get(nColumns - 1);
+            while (i < values.length && i < nColumns) {
+                PColumn column = columns.get(i);
+                PDataType type = column.getDataType();
+                // This will throw if the value is null and the type doesn't allow null
+                byte[] byteValue = values[i++];
+                if (byteValue == null) {
+                    byteValue = ByteUtil.EMPTY_BYTE_ARRAY;
                 }
-            } else if (byteSize != null && byteValue.length > byteSize) {
-                throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
+                // An empty byte array return value means null. Do this,
+                // since a type may have muliple representations of null.
+                // For example, VARCHAR treats both null and an empty string
+                // as null. This way we don't need to leak that part of the
+                // implementation outside of PDataType by checking the value
+                // here.
+                if (byteValue.length == 0 && !column.isNullable()) { 
+                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
+                }
+                Integer byteSize = column.getByteSize();
+                if (type.isFixedWidth()) { // TODO: handle multi-byte characters
+                    if (byteValue.length != byteSize) {
+                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
+                    }
+                } else if (byteSize != null && byteValue.length > byteSize) {
+                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
+                }
+                os.write(byteValue, 0, byteValue.length);
+                // Separate variable length column values in key with zero byte
+                if (!type.isFixedWidth() && column != lastPKColumn) {
+                    os.write(SEPARATOR_BYTE);
+                }
             }
-            os.write(byteValue, 0, byteValue.length);
-            // Separate variable length column values in key with zero byte
-            if (!type.isFixedWidth() && column != lastPKColumn) {
-                os.write(SEPARATOR_BYTE);
+            // If some non null pk values aren't set, then throw
+            if (i < nColumns) {
+                PColumn column = columns.get(i);
+                PDataType type = column.getDataType();
+                if (type.isFixedWidth() || !column.isNullable()) {
+                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
+                }
+                // Separate variable length column values in key with zero byte
+                if (column != lastPKColumn) {
+                    os.write(SEPARATOR_BYTE);
+                }
+            }
+            key.set(os.getBuffer(),0,os.size());
+            return i;
+        } finally {
+            try {
+                os.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e); // Impossible
             }
         }
-        // If some non null pk values aren't set, then throw
-        if (i < nColumns) {
-            PColumn column = columns.get(i);
-            PDataType type = column.getDataType();
-            if (type.isFixedWidth() || !column.isNullable()) {
-                throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
-            }
-            // Separate variable length column values in key with zero byte
-            if (column != lastPKColumn) {
-                os.write(SEPARATOR_BYTE);
-            }
-        }
-        key.set(os.getBuffer(),0,os.size());
-        return i;
     }
 
     private PRow newRow(long ts, ImmutableBytesWritable key, int i, Object[] values) {
@@ -354,7 +362,10 @@ public class PTableImpl implements PTable {
             setValues = new Put(key);
             unsetValues = new Delete(key);
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-            Delete delete = new Delete(key,ts);
+            // FIXME: the version of the Delete constructor without the lock args was introduced
+            // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
+            // of the client.
+           Delete delete = new Delete(key,ts,null);
             deleteRow = delete;
         }
     }

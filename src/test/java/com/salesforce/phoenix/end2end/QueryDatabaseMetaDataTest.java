@@ -563,6 +563,8 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             admin.deleteTable(htableName);
             admin.enableTable(htableName);
         } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
+        } finally {
+            admin.close();
         }
         
         HTableDescriptor descriptor = new HTableDescriptor(htableName);

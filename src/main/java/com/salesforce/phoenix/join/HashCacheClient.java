@@ -44,7 +44,7 @@ import org.apache.hadoop.io.WritableUtils;
 import org.xerial.snappy.Snappy;
 
 import com.google.common.collect.ImmutableSet;
-import com.salesforce.phoenix.exception.*;
+import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -318,19 +318,23 @@ public class HashCacheClient {
             }
             TrustedByteArrayOutputStream sizeOut = new TrustedByteArrayOutputStream(Bytes.SIZEOF_INT);
             DataOutputStream dataOut = new DataOutputStream(sizeOut);
-            dataOut.writeInt(nRows);
-            dataOut.flush();
-            byte[] cache = baOut.getBuffer();
-            // Replace number of rows written above with the correct value.
-            System.arraycopy(sizeOut.getBuffer(), 0, cache, 0, sizeOut.size());
-            // Reallocate to actual size plus compressed buffer size (which is allocated below)
-            int maxCompressedSize = Snappy.maxCompressedLength(baOut.size());
-            chunk.resize(baOut.size() + maxCompressedSize);
-            byte[] compressed = new byte[maxCompressedSize]; // size for worst case
-            int compressedSize = Snappy.compress(baOut.getBuffer(), 0, baOut.size(), compressed, 0);
-            // Last realloc to size of compressed buffer.
-            chunk.resize(compressedSize);
-            return new ImmutableBytesWritable(compressed,0,compressedSize);
+            try {
+                dataOut.writeInt(nRows);
+                dataOut.flush();
+                byte[] cache = baOut.getBuffer();
+                // Replace number of rows written above with the correct value.
+                System.arraycopy(sizeOut.getBuffer(), 0, cache, 0, sizeOut.size());
+                // Reallocate to actual size plus compressed buffer size (which is allocated below)
+                int maxCompressedSize = Snappy.maxCompressedLength(baOut.size());
+                chunk.resize(baOut.size() + maxCompressedSize);
+                byte[] compressed = new byte[maxCompressedSize]; // size for worst case
+                int compressedSize = Snappy.compress(baOut.getBuffer(), 0, baOut.size(), compressed, 0);
+                // Last realloc to size of compressed buffer.
+                chunk.resize(compressedSize);
+                return new ImmutableBytesWritable(compressed,0,compressedSize);
+            } finally {
+                dataOut.close();
+            }
         } catch (IOException e) {
             throw new PhoenixIOException(e);
         }
