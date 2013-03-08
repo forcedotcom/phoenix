@@ -67,11 +67,11 @@ public class ByteUtilTest {
         key = new byte[] {1, (byte)255};
         byte[] nextKey = ByteUtil.nextKey(key);
         byte[] expectedKey = new byte[] {2,(byte)0};
-        assertTrue(Bytes.compareTo(expectedKey, nextKey) == 0); 
+        assertArrayEquals(expectedKey, nextKey); 
         key = ByteUtil.concat(Bytes.toBytes("00D300000000XHP"), PDataType.INTEGER.toBytes(Integer.MAX_VALUE));
         nextKey = ByteUtil.nextKey(key);
         expectedKey = ByteUtil.concat(Bytes.toBytes("00D300000000XHQ"), PDataType.INTEGER.toBytes(Integer.MIN_VALUE));
-        assertTrue(Bytes.compareTo(expectedKey, nextKey) == 0);
+        assertArrayEquals(expectedKey, nextKey);
         
         try {
             key = new byte[] {(byte)255};

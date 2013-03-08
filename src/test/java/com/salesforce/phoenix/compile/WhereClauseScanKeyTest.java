@@ -87,8 +87,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
         
         assertNull(scan.getFilter());
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
     }
 
     @Test
@@ -103,8 +103,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
         
         assertNull(scan.getFilter());
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes("EA")) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), PDataType.VARCHAR.toBytes("EZ")) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes("EA"), scan.getStartRow());
+        assertArrayEquals(PDataType.VARCHAR.toBytes("EZ"), scan.getStopRow());
     }
 
     @Test
@@ -157,8 +157,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         
         assertNull(scan.getFilter());
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -172,8 +172,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
         
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -188,8 +188,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
         
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -203,9 +203,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNotNull(scan.getFilter());
 
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId.substring(0,3));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
     @Test
@@ -220,9 +220,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
-        assertTrue(Bytes.compareTo(scan.getStopRow(), stopRow) == 0);
+        assertArrayEquals(stopRow, scan.getStopRow());
     }
 
     @Test
@@ -237,9 +237,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
     @Test
@@ -254,9 +254,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
     @Test
@@ -283,9 +283,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
     @Test
@@ -312,9 +312,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
 
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1),new byte[entityId.length() - keyPrefix1.length()]);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), stopRow) == 0);
+        assertArrayEquals(stopRow, scan.getStopRow());
     }
 
     @Test
@@ -329,9 +329,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNull(scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
     /**
@@ -372,8 +372,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
         
         assertNotNull(scan.getFilter());
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
     }
 
     @Test
@@ -413,8 +413,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
         
         assertNotNull(scan.getFilter());
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), HConstants.EMPTY_END_ROW) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
 
     @Test
@@ -426,8 +426,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds, 1000);
         
         assertNotNull(scan.getFilter());
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
     }
     
 
@@ -455,8 +455,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         
         assertNull(scan.getFilter());
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -470,8 +470,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         
         assertNull(scan.getFilter());
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -498,8 +498,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNotNull(scan.getFilter());
         
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -516,8 +516,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertEquals(1, extractedNodes.size());
         
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -535,8 +535,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         
         
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -552,8 +552,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -669,8 +669,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
 
     @Test
@@ -686,8 +686,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(startRow)) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
     }
     /*
      * The following 5 tests are testing the comparison in where clauses under the case when the rhs

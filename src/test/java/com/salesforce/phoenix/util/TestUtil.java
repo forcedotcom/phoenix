@@ -185,15 +185,15 @@ public class TestUtil {
     
     public static void assertDegenerate(Scan scan) {
         assertNull(scan.getFilter());
-        assertTrue(Bytes.compareTo(scan.getStartRow(),KeyRange.EMPTY_RANGE.getLowerRange()) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(),KeyRange.EMPTY_RANGE.getLowerRange()) == 0);
+        assertArrayEquals(KeyRange.EMPTY_RANGE.getLowerRange(), scan.getStartRow());
+        assertArrayEquals(KeyRange.EMPTY_RANGE.getLowerRange(), scan.getStopRow());
         assertEquals(null,scan.getFilter());
     }
     
     public static void assertEmptyScanKey(Scan scan) {
         assertNull(scan.getFilter());
-        assertTrue(Bytes.compareTo(scan.getStartRow(),ByteUtil.EMPTY_BYTE_ARRAY) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(),ByteUtil.EMPTY_BYTE_ARRAY) == 0);
+        assertArrayEquals(ByteUtil.EMPTY_BYTE_ARRAY, scan.getStartRow());
+        assertArrayEquals(ByteUtil.EMPTY_BYTE_ARRAY, scan.getStopRow());
         assertEquals(null,scan.getFilter());
     }
     

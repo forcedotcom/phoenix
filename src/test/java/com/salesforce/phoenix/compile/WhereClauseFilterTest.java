@@ -368,9 +368,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertNull(filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
     
     @Test
@@ -388,9 +388,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertEquals(singleKVFilter(constantComparison(CompareOp.EQUAL, BaseConnectionlessQueryTest.A_INTEGER, 0)),filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
     
     @Test
@@ -408,9 +408,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertEquals(singleKVFilter(constantComparison(CompareOp.EQUAL, BaseConnectionlessQueryTest.A_INTEGER, 0)),filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
     
     @Test
@@ -428,9 +428,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertEquals(null,filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
     
     @Test
@@ -446,9 +446,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), startRow) == 0);
+        assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(stopRow)) == 0);
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
 
         Filter filter = scan.getFilter();
         assertNotNull(filter);

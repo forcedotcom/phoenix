@@ -369,7 +369,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         Set<byte[]> projectedFamilies = scan.getFamilyMap().keySet();
         assertEquals(1, scan.getFamilyMap().values().size());
         // Empty column name
-        assertTrue(Bytes.compareTo(scan.getFamilyMap().values().iterator().next().iterator().next(), QueryConstants.EMPTY_COLUMN_BYTES) == 0);
+        assertArrayEquals(QueryConstants.EMPTY_COLUMN_BYTES, scan.getFamilyMap().values().iterator().next().iterator().next());
         assertEquals(1,projectedFamilies.size());
         // Empty column name should be in first column family
         assertTrue(projectedFamilies.contains(Bytes.toBytes(SchemaUtil.normalizeIdentifier("a"))));
@@ -386,7 +386,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // Projects column family with not null column
         assertNull(scan.getFilter());
         assertEquals(1,scan.getFamilyMap().keySet().size());
-        assertTrue(Bytes.compareTo(Bytes.toBytes(SchemaUtil.normalizeIdentifier(QueryConstants.DEFAULT_COLUMN_FAMILY)),scan.getFamilyMap().keySet().iterator().next()) == 0);
+        assertArrayEquals(Bytes.toBytes(SchemaUtil.normalizeIdentifier(QueryConstants.DEFAULT_COLUMN_FAMILY)), scan.getFamilyMap().keySet().iterator().next());
     }
 
     @Test
@@ -398,7 +398,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         compileQuery(query, binds, scan);
         // Projects column family with not null column
         assertEquals(1,scan.getFamilyMap().keySet().size());
-        assertTrue(Bytes.compareTo(Bytes.toBytes(SchemaUtil.normalizeIdentifier(QueryConstants.DEFAULT_COLUMN_FAMILY)),scan.getFamilyMap().keySet().iterator().next()) == 0);
+        assertArrayEquals(Bytes.toBytes(SchemaUtil.normalizeIdentifier(QueryConstants.DEFAULT_COLUMN_FAMILY)), scan.getFamilyMap().keySet().iterator().next());
     }
 
     @Test
@@ -750,16 +750,16 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
+        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
+        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
         query = "SELECT host FROM ptsdb WHERE regexp_substr(inst, '[a-zA-Z]+', 0) = 'abc'";
         binds = Collections.emptyList();
         scan = new Scan();
         compileQuery(query, binds, scan);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
+        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
+        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
         // Test scan keys are not set when the offset is not 0 or 1.
@@ -847,8 +847,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
+        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
+        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
         assertTrue(scan.getFilter() == null); // Extracted.
     }
 
@@ -858,8 +858,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abc"), scan.getStartRow()) == 0);
-        assertTrue(Bytes.compareTo(Bytes.toBytes("abd"), scan.getStopRow()) == 0);
+        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
+        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
     }
 }
