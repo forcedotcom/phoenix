@@ -28,14 +28,14 @@
 
   <!-- Deploy to own hacked maven repo in github -->
   <!-- Based on the directions here: http://cemerick.com/2010/08/24/hosting-maven-repos-on-github/ -->
-  <!-- this isn't the best, but until we get into the 'real' maven repos, this is 
+  <!-- this isn't the best, but until we get into the 'real' maven repos, this is
     good enough. We really ought to use the release plugin and push to maven, but meh... -->
-  <!-- To publish a snapshot, have a checked out version of phoenix (in a folder called 
-    'phoenix-maven') in the same directory as phoenix. For instance... ~/dev/ phoenix/ 
-    phoenix-maven/ Then switch to the 'maven-artifacts' branch in the other checkout. 
+  <!-- To publish a snapshot, have a checked out version of phoenix (in a folder called
+    'phoenix-maven') in the same directory as phoenix. For instance... ~/dev/ phoenix/
+    phoenix-maven/ Then switch to the 'maven-artifacts' branch in the other checkout.
     Then from the root of this directory, run:
      $ mvn -DaltDeploymentRepository=snapshot-repo::default::file:../phoenix-maven/snapshots clean deploy -DskipTests
-   
+
     And then, similarly, to do a release:
      1. change the verion to the next version (remove the -SNAPSHOT identifier)
      2. run:
@@ -61,7 +61,7 @@
     <hbase.version>0.94.5</hbase.version>
     <commons-cli.version>1.2</commons-cli.version>
     <hadoop.version>1.0.4</hadoop.version>
-    <junit.version>4.10</junit.version>
+    <junit.version>4.11</junit.version>
     <jackson.version>1.8.8</jackson.version>
     <antlr.version>3.5</antlr.version>
     <opencsv.version>2.3</opencsv.version>
@@ -77,7 +77,7 @@
     <!-- Plugin versions -->
     <maven-eclipse-plugin.version>2.8</maven-eclipse-plugin.version>
     <maven-build-helper-plugin.version>1.7</maven-build-helper-plugin.version>
-    
+
     <!-- Set default encoding so multi-byte tests work correctly on the Mac -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -95,7 +95,7 @@
             <target>1.6</target>
           </configuration>
         </plugin>
-        <!--This plugin's configuration is used to store Eclipse m2e settings only. 
+        <!--This plugin's configuration is used to store Eclipse m2e settings only.
           It has no influence on the Maven build itself. -->
         <plugin>
           <groupId>org.eclipse.m2e</groupId>
@@ -160,10 +160,10 @@
         </executions>
         <configuration>
 			<outputDirectory>${antlr-output.dir}/com/salesforce/phoenix/parse</outputDirectory>
-		</configuration>      
+		</configuration>
       </plugin>
-      <!-- Run with -Dmaven.test.skip.exec=true to build -tests.jar without running 
-        tests (this is needed for upstream projects whose tests need this jar simply for 
+      <!-- Run with -Dmaven.test.skip.exec=true to build -tests.jar without running
+        tests (this is needed for upstream projects whose tests need this jar simply for
         compilation) -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -186,8 +186,8 @@
           </execution>
         </executions>
         <configuration>
-          <!-- Exclude these 2 packages, because their dependency _binary_ files 
-            include the sources, and Maven 2.2 appears to add them to the sources to compile, 
+          <!-- Exclude these 2 packages, because their dependency _binary_ files
+            include the sources, and Maven 2.2 appears to add them to the sources to compile,
             weird -->
           <excludes>
             <exclude>org/apache/jute/**</exclude>
@@ -248,7 +248,7 @@
               </descriptors>
             </configuration>
           </execution>
-          <!-- to build the tarball, this assembly:single needs to be called from 
+          <!-- to build the tarball, this assembly:single needs to be called from
             the command line -->
           <execution>
             <id>package-to-tar</id>
@@ -271,7 +271,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>2.9</version>
-        <configuration> 
+        <configuration>
           <quiet>true</quiet>
           <links>
             <link>http://hbase.apache.org/apidocs/</link>
@@ -408,14 +408,14 @@
       <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
-    
+
     <!-- Findbugs Annotation -->
     <dependency>
       <groupId>net.sourceforge.findbugs</groupId>
       <artifactId>annotations</artifactId>
       <version>1.3.2</version>
     </dependency>
-    
+
   </dependencies>
 
 </project>
