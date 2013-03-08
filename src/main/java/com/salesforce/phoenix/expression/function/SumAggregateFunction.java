@@ -35,11 +35,10 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.aggregator.*;
-import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -98,16 +97,16 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
             return false;
         }
         if (isConstantExpression()) {
+            PDataType type = getDataType();
             Object constantValue = ((LiteralExpression)children.get(0)).getValue();
-            if (getDataType() == PDataType.DECIMAL) {
+            if (type == PDataType.DECIMAL) {
                 BigDecimal value = ((BigDecimal)constantValue).multiply((BigDecimal)PDataType.DECIMAL.toObject(ptr, PDataType.LONG));
                 ptr.set(PDataType.DECIMAL.toBytes(value));
             } else {
                 long constantLongValue = ((Number)constantValue).longValue();
-                LongNative longNative = LongNative.getInstance();
-                long value = constantLongValue * longNative.toLong(ptr);
-                ptr.set(new byte[PDataType.LONG.getByteSize()]);
-                longNative.putLong(value, ptr);
+                long value = constantLongValue * type.getCodec().decodeLong(ptr);
+                ptr.set(new byte[type.getByteSize()]);
+                type.getCodec().encodeLong(value, ptr);
             }
         }
         return true;

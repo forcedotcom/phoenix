@@ -25,38 +25,26 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.util;
 
-import com.salesforce.phoenix.schema.PDataType;
-
+import java.math.*;
 
 /**
- * Represents a column definition for decimal during DDL, which has the following format
- * 
- * {DECIMAL} [(precision [, scale])]
  *
- * precision has a default value of 5, and scale has a default value of 0. According to
- * http://db.apache.org/derby/docs/10.7/ref/rrefsqlj15260.html#rrefsqlj15260
- * 
- * @author zhuang
- * @since 1.1
+ * @author elevine
+ * @since 0.1
  */
-public class DecimalColumnDef extends ColumnDef {
-    private final Integer precision;
-    private final Integer scale;
-
-    public DecimalColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer precision,
-            Integer scale, boolean isPK) {
-        super(columnDefName, sqlTypeName, isNull, null, isPK);
-        this.precision = precision == null ? PDataType.MAX_PRECISION : precision;
-        this.scale = scale == null ? PDataType.DEFAULT_SCALE : scale;
-    }
-
-    public Integer getScale() {
-        return scale;
-    }
-
-    public Integer getPrecision() {
-        return precision;
+public class NumberUtil {
+    
+    public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
+    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
+    
+    /**
+     * Strip all trailing zeros to ensure that no digit will be zero and
+     * round using our default context to ensure precision doesn't exceed max allowed.
+     * @return new {@link BigDecimal} instance
+     */
+    public static BigDecimal normalize(BigDecimal bigDecimal) {
+        return bigDecimal.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
     }
 }

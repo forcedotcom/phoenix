@@ -34,6 +34,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class DecimalDivideExpression extends DivideExpression {
@@ -59,7 +60,7 @@ public class DecimalDivideExpression extends DivideExpression {
             if (result == null) {
                 result = bd;
             } else {
-                result = result.divide(bd, PDataType.DEFAULT_MATH_CONTEXT);
+                result = result.divide(bd, NumberUtil.DEFAULT_MATH_CONTEXT);
             }
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));

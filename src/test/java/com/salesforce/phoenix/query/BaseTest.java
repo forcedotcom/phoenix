@@ -58,7 +58,7 @@ public abstract class BaseTest {
         		"    a_date date,\n" + 
         		"    a_time time,\n" + 
         		"    a_timestamp timestamp,\n" + 
-        		"    x_decimal decimal,\n" + 
+        		"    x_decimal decimal(31,10),\n" + 
         		"    x_long bigint,\n" + 
         		"    x_integer integer,\n" + 
         		"    y_integer integer\n" +
@@ -82,7 +82,7 @@ public abstract class BaseTest {
         		"   (inst varchar null,\n" + 
         		"    host varchar null,\n" + 
         		"    date date not null,\n" + 
-        		"    val decimal\n" +
+        		"    val decimal(31,10)\n" +
         		"    CONSTRAINT pk PRIMARY KEY (inst, host, date))");
         builder.put(FUNKY_NAME,"create table " + FUNKY_NAME +
         		"   (\"foo!\" varchar not null primary key,\n" + 
@@ -99,7 +99,10 @@ public abstract class BaseTest {
         builder.put(MDTEST_NAME,"create table " + MDTEST_NAME +
                 "   (id char(1) not null primary key,\n" + 
                 "    a.col1 integer,\n" +
-                "    b.col2 bigint)\n" +
+                "    b.col2 bigint,\n" +
+                "    b.col3 decimal,\n" +
+                "    b.col4 decimal(5),\n" +
+                "    b.col5 decimal(6,3))\n" +
                 "    a." + HConstants.VERSIONS + "=" + 1 + "," + "a." + HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE +  "'");
         builder.put(MULTI_CF_NAME,"create table " + MULTI_CF_NAME +
         		"   (id char(15) not null primary key,\n" + 
@@ -183,11 +186,6 @@ public abstract class BaseTest {
         builder.put("KVBigIntValueTest", "create table KVBigIntValueTest" + 
                 "   (pk integer not null primary key,\n" +
                 "    kv bigint)\n");
-        builder.put(TONUMBER_NAME,"create table " + TONUMBER_NAME +
-        		"   (a_id integer not null, \n" + 
-        		"    a_string char(3) not null, \n" +
-                "    b_string char(3) not null \n" + 
-                "    CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))");
         tableDDLMap = builder.build();
     }
 

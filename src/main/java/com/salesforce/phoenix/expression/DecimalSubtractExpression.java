@@ -33,8 +33,8 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDataType.DateNative;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 
@@ -56,16 +56,18 @@ public class DecimalSubtractExpression extends SubtractExpression {
     @Override
 	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
 		BigDecimal result = null;
-        DateNative dateNative=DateNative.getInstance();
 		for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) { 
+            if (!children.get(i).evaluate(tuple, ptr)) { 
                 return false;
+            }
+            if (ptr.getLength() == 0) {
+                return true;
             }
 
             PDataType childType = children.get(i).getDataType();
             boolean isDate = childType.isCoercibleTo(PDataType.DATE);
             BigDecimal bd = isDate ?
-                    BigDecimal.valueOf(dateNative.toLong(ptr)) :
+                    BigDecimal.valueOf(childType.getCodec().decodeLong(ptr)) :
                     (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
 
             if (result == null) {
@@ -77,7 +79,7 @@ public class DecimalSubtractExpression extends SubtractExpression {
                  * We need to convert the date to a unit of "days" because that's what sql expects.
                  */
                 if (isDate) {
-                    result = result.divide(BD_MILLIS_IN_DAY, PDataType.DEFAULT_MATH_CONTEXT);
+                    result = result.divide(BD_MILLIS_IN_DAY, NumberUtil.DEFAULT_MATH_CONTEXT);
                 }
             }
 		}

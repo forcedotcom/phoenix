@@ -234,12 +234,8 @@ public class ParseNodeFactory {
         return new PropertyName(familyName, propertyName);
     }
 
-    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer arg1, Integer arg2, boolean isPK) {
-        if (sqlTypeName.equals(PDataType.DECIMAL.toString())) {
-            return new DecimalColumnDef(columnDefName, sqlTypeName, isNull, arg1, arg2, isPK);
-        } else {
-            return new ColumnDef(columnDefName, sqlTypeName, isNull, arg1, isPK);
-        }
+    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK) {
+        return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK);
     }
 
     public PrimaryKeyConstraint primaryKey(String name, List<String> columnNames) {

@@ -64,12 +64,10 @@ public class MaterializedResultIterator implements PeekingResultIterator {
 
     private static class PeekingCollectionIterator implements Iterator<Tuple> {
         private final Iterator<Tuple> iterator;
-        private int remaining;
         private Tuple current;            
         
         private PeekingCollectionIterator(Collection<Tuple> results) {
             iterator = results.iterator();
-            remaining = results.size();
             advance();
         }
         
@@ -101,7 +99,6 @@ public class MaterializedResultIterator implements PeekingResultIterator {
                 return null;
             }
             Tuple next = current;
-            remaining--;
             advance();
             return next;
         }

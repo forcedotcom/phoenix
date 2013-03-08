@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+
 /**
  * 
  * Base class for PColumn implementors that provides
@@ -40,6 +41,11 @@ public abstract class PBaseColumn implements PColumn {
     @Override
     public final Integer getByteSize() {
         return getDataType().getByteSize();
+    }
+
+    @Override
+    public final Integer getMaxLength() {
+        return null;
     }
 
     @Override

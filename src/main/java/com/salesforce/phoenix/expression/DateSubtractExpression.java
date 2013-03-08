@@ -33,9 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.PDataType.DateNative;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -50,7 +48,6 @@ public class DateSubtractExpression extends SubtractExpression {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        DateNative dateNative=DateNative.getInstance();
         long finalResult=0;
         
         for(int i=0;i<children.size();i++) {
@@ -63,10 +60,9 @@ public class DateSubtractExpression extends SubtractExpression {
                 BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr);
                 value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
             } else if (type.isCoercibleTo(PDataType.LONG)) {
-                LongNative longNative = (LongNative)type.getNative();
-                value = longNative.toLong(ptr) * QueryConstants.MILLIS_IN_DAY;
+                value = type.getCodec().decodeLong(ptr) * QueryConstants.MILLIS_IN_DAY;
             } else {
-                value = dateNative.toLong(ptr);
+                value = type.getCodec().decodeLong(ptr);
             }
             if (i == 0) {
                 finalResult = value;
@@ -74,14 +70,14 @@ public class DateSubtractExpression extends SubtractExpression {
                 finalResult -= value;
             }
         }
-        byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
+        byte[] resultPtr=new byte[getDataType().getByteSize()];
         ptr.set(resultPtr);
-        dateNative.putLong(finalResult, ptr);
+        getDataType().getCodec().encodeLong(finalResult, ptr);
         return true;
     }
 
     @Override
-    public PDataType getDataType() {
+    public final PDataType getDataType() {
         return PDataType.DATE;
     }
 

@@ -600,6 +600,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             return null;
         }
         @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+        @Override
         public Integer getScale() {
             return PDataType.DEFAULT_SCALE;
         }
@@ -731,8 +735,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             return type.getByteSize();
                         }
                         @Override
+                        public Integer getMaxLength() {
+                            return expression.getMaxLength();
+                        }
+                        @Override
                         public Integer getScale() {
-                            return null;
+                            return expression.getScale();
                         }
                     };
                 } else if (expression.getDataType() != null
@@ -752,8 +760,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             return null;
                         }
                         @Override
+                        public Integer getMaxLength() {
+                            return expression.getMaxLength();
+                        }
+                        @Override
                         public Integer getScale() {
-                            return null;
+                            return expression.getScale();
                         }
                     };
                 }
@@ -859,8 +871,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 return null;
                             }
                             @Override
+                            public Integer getMaxLength() {
+                                return expression.getMaxLength();
+                            }
+                            @Override
                             public Integer getScale() {
-                                return null;
+                                return expression.getScale();
                             }
                         };
                     }

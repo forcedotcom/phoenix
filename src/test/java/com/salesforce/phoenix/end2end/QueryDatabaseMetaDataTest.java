@@ -139,7 +139,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(rs.getString("TABLE_CATALOG"),null);
         assertFalse(rs.next());
     }
-    
+
     @Test
     public void testColumnMetadataScan() throws SQLException {
         long ts = nextTimestamp();
@@ -151,6 +151,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         ResultSet rs;
         rs = dbmd.getColumns(null, "", MDTEST_NAME, null);
         assertTrue(rs.next());
+
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
         assertEquals(null, rs.getString("TABLE_CAT"));
@@ -159,6 +160,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(PDataType.CHAR.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(1, rs.getInt("ORDINAL_POSITION"));
         assertEquals(1, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
@@ -168,7 +170,8 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.INTEGER.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(2, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(4, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
@@ -178,24 +181,59 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.LONG.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(3, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(8, rs.getInt("COLUMN_SIZE"));
-        
+        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
+
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col3"), rs.getString("COLUMN_NAME"));
+        assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
+        assertEquals(PDataType.DECIMAL.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(4, rs.getInt("ORDINAL_POSITION"));
+        assertEquals(PDataType.MAX_PRECISION, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
+
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col4"), rs.getString("COLUMN_NAME"));
+        assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
+        assertEquals(PDataType.DECIMAL.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(5, rs.getInt("ORDINAL_POSITION"));
+        assertEquals(5, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
+
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col5"), rs.getString("COLUMN_NAME"));
+        assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
+        assertEquals(PDataType.DECIMAL.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(6, rs.getInt("ORDINAL_POSITION"));
+        assertEquals(6, rs.getInt("COLUMN_SIZE"));
+        assertEquals(3, rs.getInt("DECIMAL_DIGITS"));
+
         assertFalse(rs.next());
 
         // Look up only columns in a column family
-        rs = dbmd.getColumns(SchemaUtil.normalizeIdentifier("b"), "", MDTEST_NAME, null);
+        rs = dbmd.getColumns(SchemaUtil.normalizeIdentifier("a"), "", MDTEST_NAME, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
-        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
-        assertEquals(SchemaUtil.normalizeIdentifier("col2"), rs.getString("COLUMN_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("a"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col1"), rs.getString("COLUMN_NAME"));
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
-        assertEquals(PDataType.LONG.getSqlType(), rs.getInt("DATA_TYPE"));
-        assertEquals(3, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(8, rs.getInt("COLUMN_SIZE"));
+        assertEquals(PDataType.INTEGER.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(2, rs.getInt("ORDINAL_POSITION"));
+        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertFalse(rs.next());
-        
+
         // Look up KV columns in a column family
         rs = dbmd.getColumns("%", "", MDTEST_NAME, null);
         assertTrue(rs.next());
@@ -206,7 +244,8 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.INTEGER.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(2, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(4, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
@@ -216,13 +255,45 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.LONG.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(3, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(8, rs.getInt("COLUMN_SIZE"));
-        
-        assertFalse(rs.next());
+        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
+
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col3"), rs.getString("COLUMN_NAME"));
+        assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
+        assertEquals(PDataType.DECIMAL.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(4, rs.getInt("ORDINAL_POSITION"));
+        assertEquals(PDataType.MAX_PRECISION, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
+
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col4"), rs.getString("COLUMN_NAME"));
+        assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
+        assertEquals(PDataType.DECIMAL.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(5, rs.getInt("ORDINAL_POSITION"));
+        assertEquals(5, rs.getInt("COLUMN_SIZE"));
+        assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
+
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(MDTEST_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col5"), rs.getString("COLUMN_NAME"));
+        assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
+        assertEquals(PDataType.DECIMAL.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(6, rs.getInt("ORDINAL_POSITION"));
+        assertEquals(6, rs.getInt("COLUMN_SIZE"));
+        assertEquals(3, rs.getInt("DECIMAL_DIGITS"));
 
         assertFalse(rs.next());
     }
-    
+
     @Test
     public void testPrimaryKeyMetadataScan() throws SQLException {
         long ts = nextTimestamp();
@@ -334,6 +405,21 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(rs.getString("TABLE_NAME"),MDTEST_NAME);
         assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("col2"), rs.getString("COLUMN_NAME"));
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(rs.getString("TABLE_NAME"),MDTEST_NAME);
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col3"), rs.getString("COLUMN_NAME"));
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(rs.getString("TABLE_NAME"),MDTEST_NAME);
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col4"), rs.getString("COLUMN_NAME"));
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),null);
+        assertEquals(rs.getString("TABLE_NAME"),MDTEST_NAME);
+        assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("col5"), rs.getString("COLUMN_NAME"));
         assertFalse(rs.next());
     }
     
@@ -477,6 +563,8 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             admin.deleteTable(htableName);
             admin.enableTable(htableName);
         } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
+        } finally {
+            admin.close();
         }
         
         HTableDescriptor descriptor = new HTableDescriptor(htableName);
@@ -716,7 +804,6 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         
     }
     
-    
     @Test
     public void testDropPKColumn() throws Exception {
         long ts = nextTimestamp();
@@ -734,8 +821,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         }
         conn1.close();
     }
-    
-    
+
     @Test
     public void testDropAllKVCols() throws Exception {
         ResultSet rs;

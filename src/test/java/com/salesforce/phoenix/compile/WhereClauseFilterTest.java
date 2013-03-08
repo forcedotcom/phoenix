@@ -54,8 +54,7 @@ import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.*;
 
 
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
@@ -178,10 +177,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         assertEquals(filter, singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.A_DATE, date)));
     }
     
-    private void helpTestToNumberFilter(String stringValue) throws Exception {
-    	BigDecimal expectedDecimal = (BigDecimal)PDataType.DECIMAL.toObject(stringValue); // create BigDecimal via PDataType.DECIMAL to get consistent rounding
-        String tenantId = "000000000000001";
-        String query = "select * from atable where organization_id='" + tenantId + "' and x_decimal >= to_number('" + stringValue + "')";
+    private void helpTestToNumberFilter(String toNumberClause, BigDecimal expectedDecimal) throws Exception {
+    	String tenantId = "000000000000001";
+        String query = "select * from atable where organization_id='" + tenantId + "' and x_decimal >= " + toNumberClause;
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
         Scan scan = new Scan();
@@ -194,19 +192,42 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         assertEquals(filter, singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.X_DECIMAL, expectedDecimal)));
     }
     
+    private void helpTestToNumberFilterWithNoPattern(String stringValue) throws Exception {
+        String toNumberClause = "to_number('" + stringValue + "')";
+        BigDecimal expectedDecimal = NumberUtil.normalize(new BigDecimal(stringValue));
+        helpTestToNumberFilter(toNumberClause, expectedDecimal);
+    }
+    
     @Test
     public void testToNumberFilterWithInteger() throws Exception {
-        helpTestToNumberFilter("123");
+        String stringValue = "123";
+        helpTestToNumberFilterWithNoPattern(stringValue);
     }
     
     @Test
     public void testToNumberFilterWithDecimal() throws Exception {
-        helpTestToNumberFilter("123.33");
+        String stringValue = "123.33";
+        helpTestToNumberFilterWithNoPattern(stringValue);
     }
     
     @Test
     public void testToNumberFilterWithNegativeDecimal() throws Exception {
-    	helpTestToNumberFilter("-123.33");
+        String stringValue = "-123.33";
+        helpTestToNumberFilterWithNoPattern(stringValue);
+    }
+    
+    @Test
+    public void testToNumberFilterWithPatternParam() throws Exception {
+        String toNumberClause = "to_number('$1.23333E2', '\u00A40.00000E0')";
+        BigDecimal expectedDecimal = NumberUtil.normalize(new BigDecimal("123.333"));
+        helpTestToNumberFilter(toNumberClause, expectedDecimal);
+    }
+    
+    @Test(expected=AssertionError.class) // compileStatement() fails because zero rows are found by to_number()
+    public void testToNumberFilterWithPatternParamNegativeTest() throws Exception {
+        String toNumberClause = "to_number('$123.33', '000.00')"; // no currency sign in pattern param
+        BigDecimal expectedDecimal = NumberUtil.normalize(new BigDecimal("123.33"));
+        helpTestToNumberFilter(toNumberClause, expectedDecimal);
     }
     
     @Test

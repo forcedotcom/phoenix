@@ -151,26 +151,30 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             return groupByValue;
         } else {
             TrustedByteArrayOutputStream output = new TrustedByteArrayOutputStream(groupByValue.getLength() * expressions.size());
-            if (evaluated) {
-                output.write(groupByValue.get(), groupByValue.getOffset(), groupByValue.getLength());
-            }
-            for (int i = 1; i < expressions.size(); i++) {
-                if (!expression.getDataType().isFixedWidth()) {
-                    output.write(QueryConstants.SEPARATOR_BYTE);
-                }
-                expression = expressions.get(i);
-                // TODO: should we track trailing null values and ommit the separator bytes?
-                if (expression.evaluate(result, groupByValue)) {
+            try {
+                if (evaluated) {
                     output.write(groupByValue.get(), groupByValue.getOffset(), groupByValue.getLength());
-                } else if (i < expressions.size()-1 && expression.getDataType().isFixedWidth()) {
-                    // This should never happen, because any non terminating nullable fixed width type (i.e. INT or LONG) is
-                    // converted to a variable length type (i.e. DECIMAL) to allow an empty byte array to represent null.
-                    throw new DoNotRetryIOException("Non terminating null value found for fixed width GROUP BY expression (" + expression + ") in row: " + result);
                 }
+                for (int i = 1; i < expressions.size(); i++) {
+                    if (!expression.getDataType().isFixedWidth()) {
+                        output.write(QueryConstants.SEPARATOR_BYTE);
+                    }
+                    expression = expressions.get(i);
+                    // TODO: should we track trailing null values and ommit the separator bytes?
+                    if (expression.evaluate(result, groupByValue)) {
+                        output.write(groupByValue.get(), groupByValue.getOffset(), groupByValue.getLength());
+                    } else if (i < expressions.size()-1 && expression.getDataType().isFixedWidth()) {
+                        // This should never happen, because any non terminating nullable fixed width type (i.e. INT or LONG) is
+                        // converted to a variable length type (i.e. DECIMAL) to allow an empty byte array to represent null.
+                        throw new DoNotRetryIOException("Non terminating null value found for fixed width GROUP BY expression (" + expression + ") in row: " + result);
+                    }
+                }
+                byte[] outputBytes = output.getBuffer();
+                groupByValue.set(outputBytes, 0, output.size());
+                return groupByValue;
+            } finally {
+                output.close();
             }
-            byte[] outputBytes = output.getBuffer();
-            groupByValue.set(outputBytes, 0, output.size());
-            return groupByValue;
         }
     }
     

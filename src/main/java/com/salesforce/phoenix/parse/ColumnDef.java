@@ -42,9 +42,11 @@ public class ColumnDef {
     private final PDataType dataType;
     private final boolean isNull;
     private final Integer maxLength;
+    private final Integer scale;
     private final boolean isPK;
 
-    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, boolean isPK) {
+    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
+            Integer scale, boolean isPK) {
         this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;
@@ -52,10 +54,24 @@ public class ColumnDef {
             if (maxLength == null) {
                 throw new IllegalArgumentException(sqlTypeName + " must declare a length");
             }
-        } else if (this.dataType != PDataType.VARCHAR) {// Ignore maxLength unless CHAR or VARCHAR for now
+            scale = null;
+        } else if (this.dataType == PDataType.DECIMAL) {
+            maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
+            // If scale is not specify, it is set to 0. This is the standard as specified in
+            // http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
+            // and 
+            // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
+            // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
+            scale = scale == null ? PDataType.DEFAULT_SCALE : scale > maxLength ? maxLength : scale; 
+        } else if (this.dataType != PDataType.VARCHAR) {
+            // Ignore maxLength unless CHAR or VARCHAR for now
             maxLength = null;
+            scale = null;
+        } else {
+            scale = null;
         }
         this.maxLength = maxLength;
+        this.scale = scale;
         this.isPK = isPK;
     }
 
@@ -73,6 +89,10 @@ public class ColumnDef {
 
     public Integer getMaxLength() {
         return maxLength;
+    }
+
+    public Integer getScale() {
+        return scale;
     }
 
     public boolean isPK() {

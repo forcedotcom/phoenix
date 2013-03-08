@@ -50,8 +50,6 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.PDataType.IntNative;
-import com.salesforce.phoenix.schema.PDataType.LongNative;
 import com.salesforce.phoenix.util.*;
 
 /**
@@ -114,11 +112,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int PK_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(PK_NAME_KV);
     
     // KeyValues for Column
+    private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
     private static final KeyValue COLUMN_SIZE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(COLUMN_SIZE));
     private static final KeyValue NULLABLE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(NULLABLE));
     private static final KeyValue DATA_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DATA_TYPE));
     private static final KeyValue ORDINAL_POSITION_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(ORDINAL_POSITION));
     private static final List<KeyValue> COLUMN_KV_COLUMNS = Arrays.<KeyValue>asList(
+            DECIMAL_DIGITS_KV,
             COLUMN_SIZE_KV,
             NULLABLE_KV,
             DATA_TYPE_KV,
@@ -127,6 +127,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     static {
         Collections.sort(COLUMN_KV_COLUMNS, KeyValue.COMPARATOR);
     }
+    private static final int DECIMAL_DIGITS_INDEX = COLUMN_KV_COLUMNS.indexOf(DECIMAL_DIGITS_KV);
     private static final int COLUMN_SIZE_INDEX = COLUMN_KV_COLUMNS.indexOf(COLUMN_SIZE_KV);
     private static final int NULLABLE_INDEX = COLUMN_KV_COLUMNS.indexOf(NULLABLE_KV);
     private static final int SQL_DATA_TYPE_INDEX = COLUMN_KV_COLUMNS.indexOf(DATA_TYPE_KV);
@@ -196,9 +197,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         KeyValue tableTypeKv = tableKeyValues[TABLE_TYPE_INDEX];
         PTableType tableType = PTableType.fromSerializedValue(tableTypeKv.getBuffer()[tableTypeKv.getValueOffset()]);
         KeyValue tableSeqNumKv = tableKeyValues[TABLE_SEQ_NUM_INDEX];
-        long tableSeqNum = LongNative.getInstance().toLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), PDataType.LONG.getByteSize());
+        long tableSeqNum = PDataType.LONG.getCodec().decodeLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset());
         KeyValue columnCountKv = tableKeyValues[COLUMN_COUNT_INDEX];
-        int columnCount = IntNative.getInstance().toInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset(), columnCountKv.getValueLength());
+        int columnCount = PDataType.INTEGER.getCodec().decodeInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset());
         KeyValue pkNameKv = tableKeyValues[PK_NAME_INDEX];
         String pkName = null;
         if (pkNameKv != null) {
@@ -233,20 +234,22 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     colKeyValues[j++] = null;
                 }
             }
-            if (   nFound < COLUMN_KV_COLUMNS.size() - 1 || 
-                 ( nFound == COLUMN_KV_COLUMNS.size() - 1 && colKeyValues[COLUMN_SIZE_INDEX] != null ) ) { // COLUMN_SIZE is optional
-                throw new IllegalStateException("Didn't find expected key values in column metadata row");
+            // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
+            if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
+                    || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
+                throw new IllegalStateException("Didn't find all required key values in column metadata row");
             }
             KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
-            Integer maxLength = columnSizeKv == null ? null : IntNative.getInstance().toInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), columnSizeKv.getValueLength());
+            Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset());
+            KeyValue decimalDigitKv = colKeyValues[DECIMAL_DIGITS_INDEX];
+            Integer scale = decimalDigitKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(decimalDigitKv.getBuffer(), decimalDigitKv.getValueOffset());
             KeyValue ordinalPositionKv = colKeyValues[ORDINAL_POSITION_INDEX];
-            int position = IntNative.getInstance().toInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset(), ordinalPositionKv.getValueLength());
+            int position = PDataType.INTEGER.getCodec().decodeInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset());
             KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];
-            boolean isNullable = IntNative.getInstance().toInt(nullableKv.getBuffer(), nullableKv.getValueOffset(), nullableKv.getValueLength()) != ResultSetMetaData.columnNoNulls;
+            boolean isNullable = PDataType.INTEGER.getCodec().decodeInt(nullableKv.getBuffer(), nullableKv.getValueOffset()) != ResultSetMetaData.columnNoNulls;
             KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
-            PDataType dataType = PDataType.fromSqlType(IntNative.getInstance().toInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), sqlDataTypeKv.getValueLength()));
-            
-            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, isNullable, position-1);
+            PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset()));
+            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1);
             columns.add(column);
         }
         
@@ -400,7 +403,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 List<Mutation> rowsToDelete = Lists.newArrayListWithExpectedSize(10);
                 do {
                     @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-                    Delete delete = new Delete(results.get(0).getRow(), clientTimeStamp);
+                    // FIXME: the version of the Delete constructor without the lock args was introduced
+                    // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
+                    // of the client.
+                    Delete delete = new Delete(results.get(0).getRow(), clientTimeStamp, null);
                     rowsToDelete.add(delete);
                     results.clear();
                     scanner.next(results);
@@ -439,7 +445,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (kvs != null) {
             for (KeyValue kv : kvs) { // list is not ordered, so search. TODO: we could potentially assume the position
                 if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES, 0, PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES.length) == 0) {
-                    return LongNative.getInstance().toLong(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+                    return PDataType.LONG.getCodec().decodeLong(kv.getBuffer(), kv.getValueOffset());
                 }
             }
         }

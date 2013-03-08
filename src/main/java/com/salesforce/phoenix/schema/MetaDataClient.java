@@ -138,8 +138,9 @@ public class MetaDataClient {
         DATA_TYPE + "," +
         NULLABLE + "," +
         COLUMN_SIZE + "," +
-        ORDINAL_POSITION + 
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        DECIMAL_DIGITS + "," +
+        ORDINAL_POSITION +
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
         TABLE_SCHEM_NAME + "," +
@@ -156,12 +157,17 @@ public class MetaDataClient {
         colUpsert.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
         colUpsert.setInt(5, column.getDataType().getSqlType());
         colUpsert.setInt(6, column.isNullable() ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
-        if (column.getByteSize() == null) {
+        if (column.getMaxLength() == null) {
             colUpsert.setNull(7, Types.INTEGER);
         } else {
-            colUpsert.setInt(7, column.getByteSize());
+            colUpsert.setInt(7, column.getMaxLength());
         }
-        colUpsert.setInt(8, column.getPosition()+1);
+        if (column.getScale() == null) {
+            colUpsert.setNull(8, Types.INTEGER);
+        } else {
+            colUpsert.setInt(8, column.getScale());
+        }
+        colUpsert.setInt(9, column.getPosition()+1);
         colUpsert.execute();
     }
 
@@ -188,7 +194,7 @@ public class MetaDataClient {
                 familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
             }
             PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
-                    def.getMaxLength(), def.isNull(), position);
+                    def.getMaxLength(), def.getScale(), def.isNull(), position);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);
@@ -368,7 +374,10 @@ public class MetaDataClient {
             byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
             Long scn = connection.getSCN();
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-            List<Mutation> tableMetaData = Collections.<Mutation>singletonList(new Delete(key, scn == null ? HConstants.LATEST_TIMESTAMP : scn));
+            // FIXME: the version of the Delete constructor without the lock args was introduced
+            // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
+            // of the client.
+            List<Mutation> tableMetaData = Collections.<Mutation>singletonList(new Delete(key, scn == null ? HConstants.LATEST_TIMESTAMP : scn, null));
             MetaDataMutationResult result = connection.getQueryServices().dropTable(tableMetaData, statement.isView());
             MutationCode code = result.getMutationCode();
             switch(code) {
