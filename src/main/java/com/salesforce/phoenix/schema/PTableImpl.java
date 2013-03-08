@@ -144,7 +144,7 @@ public class PTableImpl implements PTable {
         this.families = ImmutableList.copyOf(families);
         this.familyByBytes = familyByBytes.build();
         this.familyByString = familyByString.build();
-        this.stats = new PTableStatsImpl(this);
+        this.stats = new PTableStatsImpl();
     }
     
     @Override

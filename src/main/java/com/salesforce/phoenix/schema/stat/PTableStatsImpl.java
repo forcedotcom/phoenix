@@ -28,15 +28,15 @@
 package com.salesforce.phoenix.schema.stat;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.gson.Gson;
-import com.salesforce.phoenix.schema.PTable;
 
 
 /**
@@ -44,50 +44,51 @@ import com.salesforce.phoenix.schema.PTable;
  */
 public class PTableStatsImpl implements PTableStats {
 
-    private Map<String, byte[][]> regionGuidePosts;
+    // The map for guide posts should be immutable. We only take the current snapshot from outside
+    // method call, store it in this atomic reference to prevent race condition.
+    private AtomicReference<Map<String, byte[][]>> regionGuidePosts;
 
-    public PTableStatsImpl(PTable table) {
-        regionGuidePosts = new HashMap<String, byte[][]>();
+    public PTableStatsImpl() {
+        regionGuidePosts = new AtomicReference<Map<String, byte[][]>>();
+    }
+
+    public PTableStatsImpl(HashMap<String, byte[][]> stats) {
+        this();
+        regionGuidePosts.set(ImmutableMap.copyOf(stats));
     }
 
     @Override
     public byte[][] getRegionGuidePost(HRegionInfo region) {
-        return regionGuidePosts.get(region.getRegionNameAsString());
-    }
-
-    // Only used on the server side by the server thread to update the table.
-    public void setRegionGuidePost(HRegionInfo region, byte[][] guidePosts) {
-        regionGuidePosts.put(region.getRegionNameAsString(), guidePosts);
+        return regionGuidePosts.get().get(region.getRegionNameAsString());
     }
 
     @Override
     public void readFields(DataInput input) throws IOException {
+        Map<String, byte[][]> guidePosts = new HashMap<String, byte[][]>();
         int size = WritableUtils.readVInt(input);
-        Gson gson = new Gson();
-        String key, array;
         for (int i=0; i<size; i++) {
-            key = WritableUtils.readString(input);
-            array = WritableUtils.readString(input);
-            regionGuidePosts.put(key, gson.fromJson(array, byte[][].class));
+            String key = WritableUtils.readString(input);
+            int valueSize = WritableUtils.readVInt(input);
+            byte[][] value = new byte[valueSize][];
+            for (int j=0; j<valueSize; j++) {
+                value[j] = Bytes.readByteArray(input);
+            }
+            guidePosts.put(key, value);
         }
+        regionGuidePosts.set(ImmutableMap.copyOf(guidePosts));
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
-        Map<String, byte[][]> snapShots = ImmutableMap.copyOf(regionGuidePosts);
-        // We are using gson to convert the snapshots into JSON strings and transported
-        // from the server to client. We transfer a key, and the byte[][] associated with
-        // the key.
-        //
-        // The reason we are not serializing the whole object is that gson's deserialization
-        // cannot infer correctly the value type to be byte[][]. Instead, it interprets the
-        // type to become ArrayList<ArrayList<Byte>>. It's possible to just get the underlying
-        // array. But for type safety, we serialize it explicitely.
+        Map<String, byte[][]> snapShots = regionGuidePosts.get();
         WritableUtils.writeVInt(output, snapShots.size());
-        for (String key: snapShots.keySet()) {
-            Gson gson = new Gson();
-            WritableUtils.writeString(output, key);
-            WritableUtils.writeString(output, gson.toJson(snapShots.get(key)));
+        for (Entry<String, byte[][]> entry : snapShots.entrySet()) {
+            WritableUtils.writeString(output, entry.getKey());
+            byte[][] value = entry.getValue();
+            WritableUtils.writeVInt(output, value.length);
+            for (int i=0; i<value.length; i++) {
+                Bytes.writeByteArray(output, value[i]);
+            }
         }
     }
 }
