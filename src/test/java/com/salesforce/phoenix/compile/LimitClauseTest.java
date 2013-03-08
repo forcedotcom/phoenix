@@ -74,8 +74,8 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Integer limit = compileStatement(query, binds, scan);
 
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
         assertEquals(limit,Integer.valueOf(5));
     }
 
@@ -88,8 +88,8 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         Integer limit = compileStatement(query, binds, scan);
 
         assertNull(limit);
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
     }
     
     @Test
@@ -100,8 +100,8 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(5);
         Integer limit = compileStatement(query, binds, scan);
 
-        assertTrue(Bytes.compareTo(scan.getStartRow(), PDataType.VARCHAR.toBytes(tenantId)) == 0);
-        assertTrue(Bytes.compareTo(scan.getStopRow(), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId))) == 0);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
         assertEquals(limit,Integer.valueOf(5));
     }
 
