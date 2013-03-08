@@ -32,8 +32,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.gson.Gson;
 import com.salesforce.phoenix.schema.PTable;
 
 
@@ -45,7 +47,7 @@ public class PTableStatsImpl implements PTableStats {
     private Map<String, byte[][]> regionGuidePosts;
 
     public PTableStatsImpl(PTable table) {
-        this.regionGuidePosts = new HashMap<String, byte[][]>();
+        regionGuidePosts = new HashMap<String, byte[][]>();
     }
 
     @Override
@@ -60,10 +62,32 @@ public class PTableStatsImpl implements PTableStats {
 
     @Override
     public void readFields(DataInput input) throws IOException {
+        int size = WritableUtils.readVInt(input);
+        Gson gson = new Gson();
+        String key, array;
+        for (int i=0; i<size; i++) {
+            key = WritableUtils.readString(input);
+            array = WritableUtils.readString(input);
+            regionGuidePosts.put(key, gson.fromJson(array, byte[][].class));
+        }
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
-        Map<String, byte[][]> snapShots = ImmutableMap.co
+        Map<String, byte[][]> snapShots = ImmutableMap.copyOf(regionGuidePosts);
+        // We are using gson to convert the snapshots into JSON strings and transported
+        // from the server to client. We transfer a key, and the byte[][] associated with
+        // the key.
+        //
+        // The reason we are not serializing the whole object is that gson's deserialization
+        // cannot infer correctly the value type to be byte[][]. Instead, it interprets the
+        // type to become ArrayList<ArrayList<Byte>>. It's possible to just get the underlying
+        // array. But for type safety, we serialize it explicitely.
+        WritableUtils.writeVInt(output, snapShots.size());
+        for (String key: snapShots.keySet()) {
+            Gson gson = new Gson();
+            WritableUtils.writeString(output, key);
+            WritableUtils.writeString(output, gson.toJson(snapShots.get(key)));
+        }
     }
 }
