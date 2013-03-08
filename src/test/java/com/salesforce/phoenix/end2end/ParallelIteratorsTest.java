@@ -253,8 +253,8 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
         byte[] minKey = stats.getMinKey(table);
         assertTrue(minKey == null);
         assertTrue(waitForAsyncChange(minKeyChange,waitTime));
-        assertTrue(Bytes.compareTo(KMIN, stats.getMinKey(table)) == 0);
-        assertTrue(Bytes.compareTo(KMAX, stats.getMaxKey(table)) == 0);
+        assertArrayEquals(KMIN, stats.getMinKey(table));
+        assertArrayEquals(KMAX, stats.getMaxKey(table));
         minKeyChange = new MinKeyChange(stats, table);
         
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts + 2;
@@ -272,18 +272,18 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
         assertFalse(waitForAsyncChange(minKeyChange,waitTime)); // Stats won't change until they're attempted to be retrieved again
         timeKeeper.setCurrentTimeMillis(timeKeeper.currentTimeMillis() + updateFreq);
         minKeyChange = new MinKeyChange(stats, table); // Will kick off change, but will upate asynchronously
-        assertTrue(Bytes.compareTo(KMIN, minKeyChange.value) == 0);
+        assertArrayEquals(KMIN, minKeyChange.value);
         assertTrue(waitForAsyncChange(minKeyChange,waitTime));
-        assertTrue(Bytes.compareTo(KMIN2, stats.getMinKey(table)) == 0);
-        assertTrue(Bytes.compareTo(KMAX, stats.getMaxKey(table)) == 0);
+        assertArrayEquals(KMIN2, stats.getMinKey(table));
+        assertArrayEquals(KMAX, stats.getMaxKey(table));
         minKeyChange = new MinKeyChange(stats, table);
         
         timeKeeper.setCurrentTimeMillis(timeKeeper.currentTimeMillis() + maxAge);
         minKeyChange = new MinKeyChange(stats, table); // Will kick off change, but will upate asynchronously
         assertTrue(null == minKeyChange.value);
         assertTrue(waitForAsyncChange(minKeyChange,waitTime));
-        assertTrue(Bytes.compareTo(KMIN2, stats.getMinKey(table)) == 0);
-        assertTrue(Bytes.compareTo(KMAX, stats.getMaxKey(table)) == 0);
+        assertArrayEquals(KMIN2, stats.getMinKey(table));
+        assertArrayEquals(KMAX, stats.getMaxKey(table));
         minKeyChange = new MinKeyChange(stats, table);
         maxKeyChange = new MaxKeyChange(stats, table);
         
@@ -298,18 +298,18 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
         assertFalse(waitForAsyncChange(maxKeyChange,waitTime)); // Stats won't change until they're attempted to be retrieved again
         timeKeeper.setCurrentTimeMillis(timeKeeper.currentTimeMillis() + updateFreq);
         maxKeyChange = new MaxKeyChange(stats, table); // Will kick off change, but will upate asynchronously
-        assertTrue(Bytes.compareTo(KMAX, maxKeyChange.value) == 0);
+        assertArrayEquals(KMAX, maxKeyChange.value);
         assertTrue(waitForAsyncChange(maxKeyChange,waitTime));
-        assertTrue(Bytes.compareTo(KMAX2, stats.getMaxKey(table)) == 0);
-        assertTrue(Bytes.compareTo(KMIN2, stats.getMinKey(table)) == 0);
+        assertArrayEquals(KMAX2, stats.getMaxKey(table));
+        assertArrayEquals(KMIN2, stats.getMinKey(table));
         maxKeyChange = new MaxKeyChange(stats, table);
         
         timeKeeper.setCurrentTimeMillis(timeKeeper.currentTimeMillis() + maxAge);
         maxKeyChange = new MaxKeyChange(stats, table); // Will kick off change, but will upate asynchronously
         assertTrue(null == maxKeyChange.value);
         assertTrue(waitForAsyncChange(maxKeyChange,waitTime));
-        assertTrue(Bytes.compareTo(KMIN2, stats.getMinKey(table)) == 0);
-        assertTrue(Bytes.compareTo(KMAX2, stats.getMaxKey(table)) == 0);
+        assertArrayEquals(KMIN2, stats.getMinKey(table));
+        assertArrayEquals(KMAX2, stats.getMaxKey(table));
     }
 
     private static KeyRange newKeyRange(byte[] lowerRange, byte[] upperRange) {
