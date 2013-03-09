@@ -45,21 +45,21 @@ import com.google.common.collect.ImmutableMap;
 public class PTableStatsImpl implements PTableStats {
 
     // The map for guide posts should be immutable. We only take the current snapshot from outside
-    // method call, store it in this atomic reference to prevent race condition.
-    private AtomicReference<Map<String, byte[][]>> regionGuidePosts;
+    // method call and store it.
+    private Map<String, byte[][]> regionGuidePosts;
 
     public PTableStatsImpl() {
-        regionGuidePosts = new AtomicReference<Map<String, byte[][]>>();
+        regionGuidePosts = new HashMap<String, byte[][]>();
     }
 
     public PTableStatsImpl(HashMap<String, byte[][]> stats) {
         this();
-        regionGuidePosts.set(ImmutableMap.copyOf(stats));
+        regionGuidePosts = ImmutableMap.copyOf(stats);
     }
 
     @Override
     public byte[][] getRegionGuidePost(HRegionInfo region) {
-        return regionGuidePosts.get().get(region.getRegionNameAsString());
+        return regionGuidePosts.get(region.getRegionNameAsString());
     }
 
     @Override
@@ -75,14 +75,13 @@ public class PTableStatsImpl implements PTableStats {
             }
             guidePosts.put(key, value);
         }
-        regionGuidePosts.set(ImmutableMap.copyOf(guidePosts));
+        regionGuidePosts = ImmutableMap.copyOf(guidePosts);
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
-        Map<String, byte[][]> snapShots = regionGuidePosts.get();
-        WritableUtils.writeVInt(output, snapShots.size());
-        for (Entry<String, byte[][]> entry : snapShots.entrySet()) {
+        WritableUtils.writeVInt(output, regionGuidePosts.size());
+        for (Entry<String, byte[][]> entry : regionGuidePosts.entrySet()) {
             WritableUtils.writeString(output, entry.getKey());
             byte[][] value = entry.getValue();
             WritableUtils.writeVInt(output, value.length);
