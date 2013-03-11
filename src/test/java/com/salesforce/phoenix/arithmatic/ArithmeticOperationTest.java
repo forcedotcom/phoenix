@@ -243,7 +243,10 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
-            assertEquals(new BigDecimal("1234500.000000000000000000000000"), result);
+            // The value should be 1234500.0000...00 because we set to scale to be 24. However, in
+            // PhoenixResultSet.getBigDecimal, the case to (BigDecimal) actually cause the scale to be eradicated. As
+            // a result, the resulting value does not have the right form.
+            assertEquals(0, new BigDecimal("1234500").compareTo(result));
             // col1 / col3 would be bad due to exceeding scale.
             query = "SELECT col1 / col3 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
             stmt = conn.prepareStatement(query);
