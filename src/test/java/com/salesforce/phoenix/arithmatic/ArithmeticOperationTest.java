@@ -55,9 +55,9 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             // Test upsert correct values.
             String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setString(1, "insertGoodValues");
+            stmt.setString(1, "valueOne");
             stmt.setBigDecimal(2, new BigDecimal("123456789123456789"));
-            stmt.setBigDecimal(3, new BigDecimal("123.45"));
+            stmt.setBigDecimal(3, new BigDecimal("12345"));
             stmt.setBigDecimal(4, new BigDecimal("1234.5"));
             stmt.execute();
             conn.commit();
@@ -67,7 +67,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
             assertEquals(new BigDecimal("123456789123456789"), rs.getBigDecimal(1));
-            assertEquals(new BigDecimal("123.45"), rs.getBigDecimal(2));
+            assertEquals(new BigDecimal("12345"), rs.getBigDecimal(2));
             assertEquals(new BigDecimal("1234.5"), rs.getBigDecimal(3));
             assertFalse(rs.next());
             

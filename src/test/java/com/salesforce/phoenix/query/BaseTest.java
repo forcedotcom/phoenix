@@ -108,9 +108,9 @@ public abstract class BaseTest {
         		"   (id char(15) not null primary key,\n" + 
         		"    a.unique_user_count integer,\n" + 
         		"    b.unique_org_count integer,\n" + 
-        		"    c.db_cpu_utilization decimal,\n" + 
+        		"    c.db_cpu_utilization decimal(31,31),\n" + 
         		"    d.transaction_count bigint,\n" + 
-        		"    e.cpu_utilization decimal,\n" + 
+        		"    e.cpu_utilization decimal(31,31),\n" + 
         		"    f.response_time bigint,\n" +
                 "    g.response_time bigint)");
         builder.put(GROUPBYTEST_NAME,"create table " + GROUPBYTEST_NAME +
@@ -129,13 +129,13 @@ public abstract class BaseTest {
                 "    date date not null," +
                 "    feature char(1) not null," +
                 "    unique_users integer not null,\n" + 
-                "    db_utilization decimal,\n" + 
+                "    db_utilization decimal(31,31),\n" + 
                 "    transactions bigint,\n" + 
-                "    cpu_utilization decimal,\n" + 
+                "    cpu_utilization decimal(31,31),\n" + 
                 "    response_time bigint,\n" + 
                 "    io_time bigint,\n" + 
                 "    region varchar,\n" +
-                "    unset_column decimal\n" +
+                "    unset_column decimal(31,31)\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, DATe, feature, UNIQUE_USERS))");
         builder.put(CUSTOM_ENTITY_DATA_FULL_NAME,"create table " + CUSTOM_ENTITY_DATA_FULL_NAME +
                 "   (organization_id char(15) not null, \n" + 
@@ -145,7 +145,7 @@ public abstract class BaseTest {
                 "    created_date date,\n" + 
                 "    currency_iso_code char(3),\n" + 
                 "    deleted char(1),\n" + 
-                "    division decimal,\n" + 
+                "    division decimal(31,31),\n" + 
                 "    last_activity date,\n" + 
                 "    last_update date,\n" + 
                 "    last_update_by varchar,\n" + 
