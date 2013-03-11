@@ -84,7 +84,7 @@ public class PTableImpl implements PTable {
     }
 
     public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
-        init(name, type, timeStamp, sequenceNumber, pkName, columns, null);
+        init(name, type, timeStamp, sequenceNumber, pkName, columns, new PTableStatsImpl());
     }
     
     @Override

@@ -47,6 +47,8 @@ public class PTableStatsImpl implements PTableStats {
     // method call and store it.
     private Map<String, byte[][]> regionGuidePosts;
 
+    public PTableStatsImpl() { }
+
     public PTableStatsImpl(Map<String, byte[][]> stats) {
         regionGuidePosts = ImmutableMap.copyOf(stats);
     }
@@ -57,6 +59,10 @@ public class PTableStatsImpl implements PTableStats {
     }
 
     public void write(DataOutput output) throws IOException {
+        if (regionGuidePosts == null) {
+            WritableUtils.writeVInt(output, 0);
+            return;
+        }
         WritableUtils.writeVInt(output, regionGuidePosts.size());
         for (Entry<String, byte[][]> entry : regionGuidePosts.entrySet()) {
             WritableUtils.writeString(output, entry.getKey());
