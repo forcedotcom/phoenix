@@ -135,7 +135,7 @@ public class PhoenixResultSetMetaData implements ResultSetMetaData {
 
     @Override
     public int getPrecision(int column) throws SQLException {
-        return NumberUtil.MAX_PRECISION; // TODO: add support in PColumn?
+        return PDataType.MAX_PRECISION; // TODO: add support in PColumn?
     }
 
     @Override

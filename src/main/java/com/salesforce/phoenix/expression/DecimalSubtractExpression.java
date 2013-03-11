@@ -46,6 +46,9 @@ import com.salesforce.phoenix.util.NumberUtil;
  * @since 0.1
  */
 public class DecimalSubtractExpression extends SubtractExpression {
+    private Integer maxLength;
+    private Integer scale;
+
     public DecimalSubtractExpression() {
     }
 
@@ -54,9 +57,9 @@ public class DecimalSubtractExpression extends SubtractExpression {
     }
 
     @Override
-	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-		BigDecimal result = null;
-		for (int i=0; i<children.size(); i++) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        BigDecimal result = null;
+        for (int i=0; i<children.size(); i++) {
             if (!children.get(i).evaluate(tuple, ptr)) { 
                 return false;
             }
@@ -82,19 +85,23 @@ public class DecimalSubtractExpression extends SubtractExpression {
                     result = result.divide(BD_MILLIS_IN_DAY, NumberUtil.DEFAULT_MATH_CONTEXT);
                 }
             }
-		}
-		ptr.set(PDataType.DECIMAL.toBytes(result));
-		return true;
-	}
+        }
+        ptr.set(PDataType.DECIMAL.toBytes(result));
+        return true;
+    }
 
-	@Override
-	public PDataType getDataType() {
-		return PDataType.DECIMAL;
-	}
+    @Override
+    public PDataType getDataType() {
+        return PDataType.DECIMAL;
+    }
+
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
 }
-
-
-
-
-
-	

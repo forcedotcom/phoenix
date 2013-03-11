@@ -42,7 +42,7 @@ import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
 
     @Test
-    public void testDecimalArithmetic() throws Exception {
+    public void testDeciamlDefinition() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
@@ -56,19 +56,20 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, "insertGoodValues");
-            stmt.setBigDecimal(2, new BigDecimal("123456789.123456789"));
+            stmt.setBigDecimal(2, new BigDecimal("123456789123456789"));
             stmt.setBigDecimal(3, new BigDecimal("123.45"));
             stmt.setBigDecimal(4, new BigDecimal("1234.5"));
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmatic WHERE pk = 'insertGoodValues' LIMIT 1";
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmatic WHERE pk = 'valueOne' LIMIT 1";
             stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
-            assertEquals(new BigDecimal("123456789.123456789"), rs.getBigDecimal(1));
+            assertEquals(new BigDecimal("123456789123456789"), rs.getBigDecimal(1));
             assertEquals(new BigDecimal("123.45"), rs.getBigDecimal(2));
             assertEquals(new BigDecimal("1234.5"), rs.getBigDecimal(3));
+            assertFalse(rs.next());
             
             // Test upsert incorrect values and confirm exceptions would be thrown.
             try {
@@ -112,6 +113,154 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
                 fail("Should have caught bad values.");
             } catch (Exception e) {
                 assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=12.345 columnName=COL3"));
+            }
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testDecimalArithmatic() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
+                    "col1 DECIMAL, col2 DECIMAL(5), col3 DECIMAL(5,2))";
+            createTestTable(getUrl(), ddl);
+            
+            String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, "testValueOne");
+            stmt.setBigDecimal(2, new BigDecimal("1234567890123456789012345678901"));
+            stmt.setBigDecimal(3, new BigDecimal("12345"));
+            stmt.setBigDecimal(4, new BigDecimal("123.45"));
+            stmt.execute();
+            conn.commit();
+            
+            query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, "testValueTwo");
+            stmt.setBigDecimal(2, new BigDecimal("1234567890123456789012345678901"));
+            stmt.setBigDecimal(3, new BigDecimal("12345"));
+            stmt.setBigDecimal(4, new BigDecimal("0.01"));
+            stmt.execute();
+            conn.commit();
+            
+            // Addition
+            // result scale should be: max(ls, rs)
+            // result precision should be: max(lp - ls, rp - rs) + 1 + max(ls, rs)
+            //
+            // col1 + col2 should be good with precision 31 and scale 0.
+            query = "SELECT col1 + col2 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal result = rs.getBigDecimal(1);
+            System.out.println(result);
+            // col2 + col3 should be good with precision 8 and scale 2.
+            query = "SELECT col2 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            System.out.println(result);
+            // col1 + col3 would be bad due to exceeding scale.
+            try {
+                query = "SELECT col1 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+                stmt = conn.prepareStatement(query);
+                rs = stmt.executeQuery();
+                assertTrue(rs.next());
+                result = rs.getBigDecimal(1);
+                System.out.println(result);
+                fail("Should have caught an exception.");
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+            
+            // Subtraction
+            // result scale should be: max(ls, rs)
+            // result precision should be: max(lp - ls, rp - rs) + 1 + max(ls, rs)
+            //
+            // col1 - col2 should be good with precision 31 and scale 0
+            query = "SELECT col1 - col2 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            // col2 - col3 should be good with precision 8 and scale 2.
+            query = "SELECT col2 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            // col1 - col3 would be bad due to exceeding scale.
+            try {
+                query = "SELECT col1 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+                stmt = conn.prepareStatement(query);
+                rs = stmt.executeQuery();
+                assertTrue(rs.next());
+                result = rs.getBigDecimal(1);
+                fail("Should have caught an exception.");
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+            
+            // Multiplication
+            // result scale should be: ls + rs
+            // result precision should be: lp + rp
+            //
+            // col1 * col2 should be good with precision 31 and scale 0
+            query = "SELECT col1 * col2 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            // col2 * col3 should be good with precision 10 and scale 2.
+            query = "SELECT col2 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            // col1 * col3 would be bad due to exceeding scale.
+            try {
+                query = "SELECT col1 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+                stmt = conn.prepareStatement(query);
+                rs = stmt.executeQuery();
+                assertTrue(rs.next());
+                result = rs.getBigDecimal(1);
+                fail("Should have caught an exception.");
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+            
+            // Division
+            // result scale should be: 31 - lp + ls - rs
+            // result precision should be: lp - ls + rp + max(ls + rp - rs + 1, 4)
+            //
+            // col1 / col2 should be good with precision ? and scale 0.
+            query = "SELECT col1 / col2 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            // col2 / col3 should be good with precision ? and scale ?.
+            query = "SELECT col2 / col3 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            // col1 / col3 would be bad due to exceeding scale.
+            try {
+                query = "SELECT col1 / col3 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
+                stmt = conn.prepareStatement(query);
+                rs = stmt.executeQuery();
+                assertTrue(rs.next());
+                result = rs.getBigDecimal(1);
+                fail("Should have caught an exception.");
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
             }
         } finally {
             conn.close();

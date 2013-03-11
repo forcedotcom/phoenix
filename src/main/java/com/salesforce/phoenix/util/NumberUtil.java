@@ -29,16 +29,18 @@ package com.salesforce.phoenix.util;
 
 import java.math.*;
 
+import com.salesforce.phoenix.schema.PDataType;
+
 /**
+ * Utility methods for numbers like decimal, long, etc.
  *
  * @author elevine
  * @since 0.1
  */
 public class NumberUtil {
-    
-    public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
-    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
-    
+
+    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(PDataType.MAX_PRECISION, RoundingMode.HALF_UP);
+
     /**
      * Strip all trailing zeros to ensure that no digit will be zero and
      * round using our default context to ensure precision doesn't exceed max allowed.
@@ -46,5 +48,54 @@ public class NumberUtil {
      */
     public static BigDecimal normalize(BigDecimal bigDecimal) {
         return bigDecimal.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
+    }
+
+    public static BigDecimal rescaleDecimal(BigDecimal decimal, NumericOperators op, int lp, int rp, int ls, int rs) {
+        int desiredPrecision = getDecimalPrecision(op, lp, rp, ls, rs);
+        int desiredScale = getDecimalScale(op, lp, rp, ls, rs);
+        decimal = setDecimalWidthAndScale(decimal, desiredPrecision, desiredScale);
+        return decimal;
+    }
+
+    public static BigDecimal setDecimalWidthAndScale(BigDecimal decimal, int precision, int scale) {
+        // If we could not fit all the digits before decimal point into the new desired precision and
+        // scale, return null and the caller method should handle the error.
+        if (((precision - scale) < (decimal.precision() - decimal.scale()))){
+            return null;
+        }
+        decimal = decimal.setScale(scale, BigDecimal.ROUND_DOWN);
+        return decimal;
+    }
+
+    public static int getDecimalPrecision(NumericOperators op, int lp, int rp, int ls, int rs) {
+        int val;
+        switch (op) {
+        case MULTIPLY:
+            val = lp + rp;
+        case DIVIDE:
+            val = Math.min(PDataType.MAX_PRECISION, getDecimalScale(op, lp, rp, ls, rs) + lp - ls + rp);
+        case ADD:
+        case MINUS:
+        default:
+            val = getDecimalScale(op, lp, rp, ls, rs) + Math.max(lp - ls, rp - rs) + 1;
+        }
+        val = Math.min(PDataType.MAX_PRECISION, val);
+        return val;
+    }
+
+    public static int getDecimalScale(NumericOperators op, int lp, int rp, int ls, int rs) {
+        int val;
+        switch (op) {
+        case MULTIPLY:
+            val = ls + rs;
+        case DIVIDE:
+            val = Math.max(PDataType.MAX_PRECISION - lp + ls - rs, 0);
+        case ADD:
+        case MINUS:
+        default:
+            val = Math.max(ls, rs);
+        }
+        val = Math.min(PDataType.MAX_PRECISION, val);
+        return val;
     }
 }

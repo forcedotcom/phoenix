@@ -38,6 +38,8 @@ import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class DecimalDivideExpression extends DivideExpression {
+    private Integer maxLength;
+    private Integer scale;
 
     public DecimalDivideExpression() {
     }
@@ -72,4 +74,13 @@ public class DecimalDivideExpression extends DivideExpression {
         return PDataType.DECIMAL;
     }
 
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
 }

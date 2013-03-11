@@ -34,9 +34,13 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.NumericOperators;
 
 
 public class DecimalAddExpression extends AddExpression {
+    private Integer maxLength;
+    private Integer scale;
 
     public DecimalAddExpression() {
     }
@@ -49,7 +53,8 @@ public class DecimalAddExpression extends AddExpression {
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal result = null;
         for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) { 
+            Expression childExpr = children.get(i);
+            if (!childExpr.evaluate(tuple, ptr) || ptr.getLength() == 0) { 
                 return false;
             }
 
@@ -58,8 +63,23 @@ public class DecimalAddExpression extends AddExpression {
 
             if (result == null) {
                 result = bd;
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
             } else {
                 result = result.add(bd);
+                if (maxLength != null && scale != null && childExpr.getMaxLength() != null
+                        & childExpr.getScale() != null) {
+                    int desiredPrecision = NumberUtil.getDecimalPrecision(NumericOperators.ADD, 
+                            maxLength, scale, childExpr.getMaxLength(), childExpr.getScale());
+                    int desiredScale = NumberUtil.getDecimalScale(NumericOperators.ADD, 
+                            maxLength, scale, childExpr.getMaxLength(), childExpr.getScale());
+                    result = NumberUtil.setDecimalWidthAndScale(result, desiredPrecision, desiredScale);
+                    if (result == null) {
+                        return false;
+                    }
+                    maxLength = desiredPrecision;
+                    scale = desiredScale;
+                }
             }
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));
@@ -71,4 +91,13 @@ public class DecimalAddExpression extends AddExpression {
         return PDataType.DECIMAL;
     }
 
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
 }

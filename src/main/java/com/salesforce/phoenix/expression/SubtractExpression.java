@@ -32,6 +32,7 @@ import java.util.List;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.util.NumericOperators;
 
 
 /**
@@ -63,6 +64,6 @@ public abstract class SubtractExpression extends ArithmeticExpression {
     
     @Override
     public String getOperatorString() {
-        return " - ";
+        return NumericOperators.MINUS.toString();
     }
 }
