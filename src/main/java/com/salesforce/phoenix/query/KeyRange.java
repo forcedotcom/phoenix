@@ -1,47 +1,47 @@
 /*******************************************************************************
  * Copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     Redistributions of source code must retain the above copyright notice,
  *     this list of conditions and the following disclaimer.
  *     Redistributions in binary form must reproduce the above copyright notice,
  *     this list of conditions and the following disclaimer in the documentation
  *     and/or other materials provided with the distribution.
- *     Neither the name of Salesforce.com nor the names of its contributors may 
- *     be used to endorse or promote products derived from this software without 
+ *     Neither the name of Salesforce.com nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
  *     specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
-
-import java.util.Arrays;
-
+import java.util.*;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.http.annotation.Immutable;
-
-
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.util.ByteUtil;
+import edu.umd.cs.findbugs.annotations.NonNull;
+import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
 
 /**
- * 
+ *
  * Class that represents an upper/lower bound key range.
  *
  * @author jtaylor
@@ -54,17 +54,38 @@ public class KeyRange {
     public static final byte[] UNBOUND_UPPER = HConstants.EMPTY_END_ROW;
     public static final KeyRange EMPTY_RANGE = new KeyRange(DEGENERATE_KEY, false, DEGENERATE_KEY, false);
     public static final KeyRange EVERYTHING_RANGE = new KeyRange(UNBOUND_LOWER, false, UNBOUND_UPPER, false);
+    public static final Function<byte[], KeyRange> POINT = new Function<byte[], KeyRange>() {
+      @Override public KeyRange apply(byte[] input) {
+        return new KeyRange(input, true, input, true);
+      }
+    };
+    public static final Comparator<KeyRange> COMPARATOR = new Comparator<KeyRange>() {
+        @Override public int compare(KeyRange o1, KeyRange o2) {
+            return ComparisonChain.start()
+                    .compare(o1.lowerUnbound(), o2.lowerUnbound())
+                    .compare(o1.getLowerRange(), o2.getLowerRange(), Bytes.BYTES_COMPARATOR)
+                    // we want o1 lower inclusive to come before o2 lower inclusive, but
+                    // false comes before true, so we have to negate
+                    .compare(!o1.isLowerInclusive(), !o2.isLowerInclusive())
+                    // for the same lower bounding, we want a finite upper bound to
+                    // be ordered before an infinite upper bound
+                    .compare(!o1.upperUnbound(), !o2.upperUnbound())
+                    .compare(o1.getUpperRange(), o2.getUpperRange(), Bytes.BYTES_COMPARATOR)
+                    .compare(o1.isUpperInclusive(), o2.isUpperInclusive())
+                    .result();
+        }
+    };
 
     private final byte[] lowerRange;
     private final boolean lowerInclusive;
     private final byte[] upperRange;
     private final boolean upperInclusive;
-    
+
     // Make sure to pass in constants for unbound upper/lower, since an emtpy array means null otherwise
     public static KeyRange getKeyRange(HRegionInfo region) {
         return KeyRange.getKeyRange(region.getStartKey().length == 0 ? UNBOUND_LOWER : region.getStartKey(), true, region.getEndKey().length == 0 ? UNBOUND_UPPER : region.getEndKey(), false);
     }
-    
+
     public static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
         if (lowerRange == null || upperRange == null) {
             return EMPTY_RANGE;
@@ -85,18 +106,18 @@ public class KeyRange {
         return new KeyRange(lowerRange, unboundLower ? false : lowerInclusive,
                 upperRange, unboundUpper ? false : upperInclusive);
     }
-    
+
     private KeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
         this.lowerRange = lowerRange;
         this.lowerInclusive = lowerInclusive;
         this.upperRange = upperRange;
         this.upperInclusive = upperInclusive;
     }
-    
+
     public byte[] getLowerRange() {
         return lowerRange;
     }
-    
+
     public boolean isLowerInclusive() {
         return lowerInclusive;
     }
@@ -104,11 +125,11 @@ public class KeyRange {
     public byte[] getUpperRange() {
         return upperRange;
     }
-    
+
     public boolean isUpperInclusive() {
         return upperInclusive;
     }
-    
+
     public boolean isUnbound() {
         return lowerUnbound() || upperUnbound();
     }
@@ -120,7 +141,7 @@ public class KeyRange {
     public boolean lowerUnbound() {
         return lowerRange == UNBOUND_LOWER;
     }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -133,7 +154,7 @@ public class KeyRange {
             result = prime * result + (upperInclusive ? 1231 : 1237);
         return result;
     }
-    
+
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
@@ -143,7 +164,7 @@ public class KeyRange {
             .addValue(upperInclusive)
             .toString();
     }
-    
+
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof KeyRange)) {
@@ -153,7 +174,7 @@ public class KeyRange {
         return Bytes.compareTo(this.lowerRange,that.lowerRange) == 0 && this.lowerInclusive == that.lowerInclusive &&
                Bytes.compareTo(this.upperRange, that.upperRange) == 0 && this.upperInclusive == that.upperInclusive;
     }
-    
+
     public KeyRange intersect(KeyRange range) {
         byte[] newLowerRange;
         byte[] newUpperRange;
@@ -206,11 +227,11 @@ public class KeyRange {
         }
         return getKeyRange(newLowerRange, newLowerInclusive, newUpperRange, newUpperInclusive);
     }
-    
+
     public static boolean isDegenerate(byte[] lowerRange, byte[] upperRange) {
         return lowerRange == KeyRange.EMPTY_RANGE.getLowerRange() && upperRange == KeyRange.EMPTY_RANGE.getUpperRange();
     }
-    
+
     public KeyRange appendSeparator() {
         byte[] lowerBound = getLowerRange();
         byte[] upperBound = getUpperRange();
@@ -221,5 +242,135 @@ public class KeyRange {
             upperBound = ByteUtil.concat(upperBound, SEPARATOR_BYTE_ARRAY);
         }
         return getKeyRange(lowerBound, lowerInclusive, upperBound, upperInclusive);
+    }
+
+    /**
+     * @return list of at least size 1
+     */
+    @NonNull
+    public static List<KeyRange> coalesce(List<KeyRange> keyRanges) {
+        List<KeyRange> tmp = new ArrayList<KeyRange>();
+        for (KeyRange keyRange : keyRanges) {
+            if (EMPTY_RANGE == keyRange) {
+                continue;
+            }
+            if (EVERYTHING_RANGE == keyRange) {
+                tmp.clear();
+                tmp.add(keyRange);
+                break;
+            }
+            tmp.add(keyRange);
+        }
+        if (tmp.size() == 1) {
+            return tmp;
+        }
+        if (tmp.size() == 0) {
+            return Collections.singletonList(EMPTY_RANGE);
+        }
+
+        Collections.sort(tmp, COMPARATOR);
+        List<KeyRange> tmp2 = new ArrayList<KeyRange>();
+        KeyRange range = tmp.get(0);
+        for (int i=1; i<tmp.size(); i++) {
+            KeyRange otherRange = tmp.get(i);
+            KeyRange intersect = range.intersect(otherRange);
+            if (EMPTY_RANGE == intersect) {
+                tmp2.add(range);
+                range = otherRange;
+            } else {
+                range = range.union(otherRange);
+            }
+        }
+        tmp2.add(range);
+        List<KeyRange> tmp3 = new ArrayList<KeyRange>();
+        range = tmp2.get(0);
+        for (int i=1; i<tmp2.size(); i++) {
+            KeyRange otherRange = tmp2.get(i);
+            assert !range.upperUnbound();
+            assert !otherRange.lowerUnbound();
+            if (range.isUpperInclusive() != otherRange.isLowerInclusive()
+                    && Bytes.equals(range.getUpperRange(), otherRange.getLowerRange())) {
+                range = KeyRange.getKeyRange(range.getLowerRange(), range.isLowerInclusive(), otherRange.getUpperRange(), otherRange.isUpperInclusive());
+            } else {
+                tmp3.add(range);
+                range = otherRange;
+            }
+        }
+        tmp3.add(range);
+        
+        return tmp3;
+    }
+
+    public KeyRange union(KeyRange other) {
+        if (EMPTY_RANGE == other) return this;
+        if (EMPTY_RANGE == this) return other;
+        byte[] newLower, newUpper;
+        boolean newLowerInclusive, newUpperInclusive;
+        if (this.lowerUnbound() || other.lowerUnbound()) {
+            newLower = UNBOUND_LOWER;
+            newLowerInclusive = false;
+        } else {
+            int lowerCmp = Bytes.compareTo(this.lowerRange, other.lowerRange);
+            if (lowerCmp < 0) {
+                newLower = lowerRange;
+                newLowerInclusive = lowerInclusive;
+            } else if (lowerCmp == 0) {
+                newLower = lowerRange;
+                newLowerInclusive = this.lowerInclusive || other.lowerInclusive;
+            } else {
+                newLower = other.lowerRange;
+                newLowerInclusive = other.lowerInclusive;
+            }
+        }
+
+        if (this.upperUnbound() || other.upperUnbound()) {
+            newUpper = UNBOUND_UPPER;
+            newUpperInclusive = false;
+        } else {
+            int upperCmp = Bytes.compareTo(this.upperRange, other.upperRange);
+            if (upperCmp > 0) {
+                newUpper = upperRange;
+                newUpperInclusive = this.upperInclusive;
+            } else if (upperCmp == 0) {
+                newUpper = upperRange;
+                newUpperInclusive = this.upperInclusive || other.upperInclusive;
+            } else {
+                newUpper = other.upperRange;
+                newUpperInclusive = other.upperInclusive;
+            }
+        }
+        return KeyRange.getKeyRange(newLower, newLowerInclusive, newUpper, newUpperInclusive);
+    }
+
+    public static List<KeyRange> of(List<byte[]> keys) {
+        return Lists.transform(keys, POINT);
+    }
+
+    public static List<KeyRange> intersect(List<KeyRange> keyRanges, List<KeyRange> keyRanges2) {
+        List<KeyRange> tmp = new ArrayList<KeyRange>();
+        for (KeyRange r1 : keyRanges) {
+            for (KeyRange r2 : keyRanges2) {
+                KeyRange r = r1.intersect(r2);
+                if (EMPTY_RANGE != r) {
+                    tmp.add(r);
+                }
+            }
+        }
+        if (tmp.size() == 0) {
+            return Collections.singletonList(KeyRange.EMPTY_RANGE);
+        }
+        Collections.sort(tmp, KeyRange.COMPARATOR);
+        List<KeyRange> tmp2 = new ArrayList<KeyRange>();
+        KeyRange r = tmp.get(0);
+        for (int i=1; i<tmp.size(); i++) {
+            if (EMPTY_RANGE == r.intersect(tmp.get(i))) {
+                tmp2.add(r);
+                r = tmp.get(i);
+            } else {
+                r = r.intersect(tmp.get(i));
+            }
+        }
+        tmp2.add(r);
+        return tmp2;
     }
 }

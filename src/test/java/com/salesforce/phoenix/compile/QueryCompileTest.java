@@ -860,6 +860,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         compileQuery(query, binds, scan);
         assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
         assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
-        assertTrue(scan.getFilter() != null);
+        assertNotNull(scan.getFilter());
     }
 }

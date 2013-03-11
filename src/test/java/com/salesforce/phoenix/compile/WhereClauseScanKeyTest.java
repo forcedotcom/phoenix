@@ -27,25 +27,27 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.*;
-
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
-
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
+import static com.salesforce.phoenix.util.TestUtil.assertEmptyScanKey;
+import static org.junit.Assert.*;
 
 
 
@@ -85,7 +87,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
+
         assertNull(scan.getFilter());
         assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
