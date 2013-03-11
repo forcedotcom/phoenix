@@ -84,7 +84,7 @@ public class PTableImpl implements PTable {
     }
 
     public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
-        init(name, type, timeStamp, sequenceNumber, pkName, columns);
+        init(name, type, timeStamp, sequenceNumber, pkName, columns, null);
     }
     
     @Override
@@ -92,7 +92,7 @@ public class PTableImpl implements PTable {
         return name.getString();
     }
     
-    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
+    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns, PTableStats stats) {
         this.name = name;
         this.type = type;
         this.timeStamp = timeStamp;
@@ -144,7 +144,7 @@ public class PTableImpl implements PTable {
         this.families = ImmutableList.copyOf(families);
         this.familyByBytes = familyByBytes.build();
         this.familyByString = familyByString.build();
-        this.stats = new PTableStatsImpl();
+        this.stats = stats;
     }
     
     @Override
@@ -429,7 +429,19 @@ public class PTableImpl implements PTable {
             column.readFields(input);
             columns.add(column);
         }
-        init(tableName, tableType, timeStamp, sequenceNumber, pkName, columns);
+        Map<String, byte[][]> guidePosts = new HashMap<String, byte[][]>();
+        int size = WritableUtils.readVInt(input);
+        for (int i=0; i<size; i++) {
+            String key = WritableUtils.readString(input);
+            int valueSize = WritableUtils.readVInt(input);
+            byte[][] value = new byte[valueSize][];
+            for (int j=0; j<valueSize; j++) {
+                value[j] = Bytes.readByteArray(input);
+            }
+            guidePosts.put(key, value);
+        }
+        PTableStats stats = new PTableStatsImpl(guidePosts);
+        init(tableName, tableType, timeStamp, sequenceNumber, pkName, columns, stats);
     }
 
     @Override
@@ -444,6 +456,7 @@ public class PTableImpl implements PTable {
             PColumn column = allColumns.get(i);
             column.write(output);
         }
+        stats.write(output);
     }
 
     @Override

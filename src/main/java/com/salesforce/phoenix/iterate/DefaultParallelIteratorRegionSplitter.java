@@ -56,16 +56,16 @@ import com.salesforce.phoenix.schema.TableRef;
  * @author jtaylor
  * @author zhuang
  */
-public class DefaultParallelIteratorRegionSpliter implements ParallelIteratorRegionSpliter {
+public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRegionSplitter {
 
-    private static DefaultParallelIteratorRegionSpliter INSTANCE;
+    private static DefaultParallelIteratorRegionSplitter INSTANCE;
     static {
-        INSTANCE = new DefaultParallelIteratorRegionSpliter();
+        INSTANCE = new DefaultParallelIteratorRegionSplitter();
     }
 
-    private DefaultParallelIteratorRegionSpliter() {}
+    private DefaultParallelIteratorRegionSplitter() {}
 
-    public static ParallelIteratorRegionSpliter getInstance() {
+    public static ParallelIteratorRegionSplitter getInstance() {
         return INSTANCE;
     }
 

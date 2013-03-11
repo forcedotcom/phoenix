@@ -43,7 +43,7 @@ import com.salesforce.phoenix.schema.TableRef;
  * 
  * @author zhuang
  */
-public interface ParallelIteratorRegionSpliter {
+public interface ParallelIteratorRegionSplitter {
 
     public List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions);
 }

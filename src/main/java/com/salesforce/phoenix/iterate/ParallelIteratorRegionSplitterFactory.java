@@ -33,10 +33,10 @@ package com.salesforce.phoenix.iterate;
  * 
  * @author zhuang
  */
-public class ParallelIteratorRegionSpliterFactory {
+public class ParallelIteratorRegionSplitterFactory {
 
-    public static ParallelIteratorRegionSpliter getSpliter() {
-        return DefaultParallelIteratorRegionSpliter.getInstance();
+    public static ParallelIteratorRegionSplitter getSpliter() {
+        return DefaultParallelIteratorRegionSplitter.getInstance();
     }
 
 }

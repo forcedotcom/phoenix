@@ -27,8 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema.stat;
 
+import java.io.DataOutput;
+import java.io.IOException;
+
 import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.io.Writable;
 
 
 /**
@@ -38,7 +40,7 @@ import org.apache.hadoop.io.Writable;
  * The table is defined on the client side, but it is populated on the server side. The client
  * should not populate any data to the statistics object.
  */
-public interface PTableStats extends Writable {
+public interface PTableStats {
 
     /**
      * Given the region info, returns an array of bytes that is the current estimate of key
@@ -47,6 +49,7 @@ public interface PTableStats extends Writable {
      * @param region
      * @return array of keys
      */
-    byte[][] getRegionGuidePost(HRegionInfo region);
+    byte[][] getRegionGuidePosts(HRegionInfo region);
 
+    void write(DataOutput output) throws IOException;
 }

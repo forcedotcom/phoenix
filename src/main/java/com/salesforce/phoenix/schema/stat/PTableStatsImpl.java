@@ -30,7 +30,6 @@ package com.salesforce.phoenix.schema.stat;
 import java.io.*;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -48,37 +47,15 @@ public class PTableStatsImpl implements PTableStats {
     // method call and store it.
     private Map<String, byte[][]> regionGuidePosts;
 
-    public PTableStatsImpl() {
-        regionGuidePosts = new HashMap<String, byte[][]>();
-    }
-
-    public PTableStatsImpl(HashMap<String, byte[][]> stats) {
-        this();
+    public PTableStatsImpl(Map<String, byte[][]> stats) {
         regionGuidePosts = ImmutableMap.copyOf(stats);
     }
 
     @Override
-    public byte[][] getRegionGuidePost(HRegionInfo region) {
+    public byte[][] getRegionGuidePosts(HRegionInfo region) {
         return regionGuidePosts.get(region.getRegionNameAsString());
     }
 
-    @Override
-    public void readFields(DataInput input) throws IOException {
-        Map<String, byte[][]> guidePosts = new HashMap<String, byte[][]>();
-        int size = WritableUtils.readVInt(input);
-        for (int i=0; i<size; i++) {
-            String key = WritableUtils.readString(input);
-            int valueSize = WritableUtils.readVInt(input);
-            byte[][] value = new byte[valueSize][];
-            for (int j=0; j<valueSize; j++) {
-                value[j] = Bytes.readByteArray(input);
-            }
-            guidePosts.put(key, value);
-        }
-        regionGuidePosts = ImmutableMap.copyOf(guidePosts);
-    }
-
-    @Override
     public void write(DataOutput output) throws IOException {
         WritableUtils.writeVInt(output, regionGuidePosts.size());
         for (Entry<String, byte[][]> entry : regionGuidePosts.entrySet()) {
