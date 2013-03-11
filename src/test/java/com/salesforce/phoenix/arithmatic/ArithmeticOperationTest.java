@@ -120,7 +120,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
     }
 
     @Test
-    public void testDecimalArithmatic() throws Exception {
+    public void testDecimalArithmetic() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
@@ -184,12 +184,14 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234567890123456789012345666556"), result);
             // col2 - col3 should be good with precision 8 and scale 2.
             query = "SELECT col2 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("12221.55"), result);
             // col1 - col3 would be bad due to exceeding scale.
             query = "SELECT col1 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
@@ -208,19 +210,21 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
+            assertNull(result); // Value too big.
             // col2 * col3 should be good with precision 10 and scale 2.
             query = "SELECT col2 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1523990.25"), result);
             // col1 * col3 would be bad due to exceeding scale.
             query = "SELECT col1 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
-            assertNull(result);
+            assertNull(result); // Value too big.
             
             // Division
             // result scale should be: 31 - lp + ls - rs
@@ -232,12 +236,14 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("100005499402467135602458135"), result);
             // col2 / col3 should be good with precision ? and scale ?.
             query = "SELECT col2 / col3 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234500.000000000000000000000000"), result);
             // col1 / col3 would be bad due to exceeding scale.
             query = "SELECT col1 / col3 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
             stmt = conn.prepareStatement(query);

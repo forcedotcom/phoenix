@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.NumericOperators;
 
 
 
@@ -60,7 +61,8 @@ public class DecimalSubtractExpression extends SubtractExpression {
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal result = null;
         for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr)) { 
+            Expression childExpr = children.get(i);
+            if (!childExpr.evaluate(tuple, ptr)) { 
                 return false;
             }
             if (ptr.getLength() == 0) {
@@ -75,6 +77,8 @@ public class DecimalSubtractExpression extends SubtractExpression {
 
             if (result == null) {
                 result = bd;
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
             } else {
                 result = result.subtract(bd);
                 /*
@@ -83,6 +87,18 @@ public class DecimalSubtractExpression extends SubtractExpression {
                  */
                 if (isDate) {
                     result = result.divide(BD_MILLIS_IN_DAY, NumberUtil.DEFAULT_MATH_CONTEXT);
+                } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
+                        & childExpr.getScale() != null) {
+                    int desiredPrecision = NumberUtil.getDecimalPrecision(NumericOperators.MINUS,
+                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                    int desiredScale = NumberUtil.getDecimalScale(NumericOperators.MINUS,
+                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                    result = NumberUtil.setDecimalWidthAndScale(result, desiredPrecision, desiredScale);
+                    if (result == null) {
+                        return false;
+                    }
+                    maxLength = desiredPrecision;
+                    scale = desiredScale;
                 }
             }
         }

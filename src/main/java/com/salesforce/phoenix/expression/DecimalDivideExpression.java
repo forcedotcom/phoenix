@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.NumericOperators;
 
 
 public class DecimalDivideExpression extends DivideExpression {
@@ -52,7 +53,8 @@ public class DecimalDivideExpression extends DivideExpression {
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal result = null;
         for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) { 
+            Expression childExpr = children.get(i);
+            if (!childExpr.evaluate(tuple, ptr) || ptr.getLength() == 0) { 
                 return false;
             }
 
@@ -61,8 +63,23 @@ public class DecimalDivideExpression extends DivideExpression {
 
             if (result == null) {
                 result = bd;
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
             } else {
                 result = result.divide(bd, NumberUtil.DEFAULT_MATH_CONTEXT);
+                if (maxLength != null && scale != null && childExpr.getMaxLength() != null
+                        & childExpr.getScale() != null) {
+                    int desiredPrecision = NumberUtil.getDecimalPrecision(NumericOperators.DIVIDE,
+                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                    int desiredScale = NumberUtil.getDecimalScale(NumericOperators.DIVIDE,
+                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                    result = NumberUtil.setDecimalWidthAndScale(result, desiredPrecision, desiredScale);
+                    if (result == null) {
+                        return false;
+                    }
+                    maxLength = desiredPrecision;
+                    scale = desiredScale;
+                }
             }
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));

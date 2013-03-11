@@ -50,13 +50,6 @@ public class NumberUtil {
         return bigDecimal.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
     }
 
-    public static BigDecimal rescaleDecimal(BigDecimal decimal, NumericOperators op, int lp, int rp, int ls, int rs) {
-        int desiredPrecision = getDecimalPrecision(op, lp, rp, ls, rs);
-        int desiredScale = getDecimalScale(op, lp, rp, ls, rs);
-        decimal = setDecimalWidthAndScale(decimal, desiredPrecision, desiredScale);
-        return decimal;
-    }
-
     public static BigDecimal setDecimalWidthAndScale(BigDecimal decimal, int precision, int scale) {
         // If we could not fit all the digits before decimal point into the new desired precision and
         // scale, return null and the caller method should handle the error.
@@ -72,12 +65,15 @@ public class NumberUtil {
         switch (op) {
         case MULTIPLY:
             val = lp + rp;
+            break;
         case DIVIDE:
             val = Math.min(PDataType.MAX_PRECISION, getDecimalScale(op, lp, rp, ls, rs) + lp - ls + rp);
+            break;
         case ADD:
         case MINUS:
         default:
             val = getDecimalScale(op, lp, rp, ls, rs) + Math.max(lp - ls, rp - rs) + 1;
+            break;
         }
         val = Math.min(PDataType.MAX_PRECISION, val);
         return val;
@@ -88,12 +84,15 @@ public class NumberUtil {
         switch (op) {
         case MULTIPLY:
             val = ls + rs;
+            break;
         case DIVIDE:
             val = Math.max(PDataType.MAX_PRECISION - lp + ls - rs, 0);
+            break;
         case ADD:
         case MINUS:
         default:
             val = Math.max(ls, rs);
+            break;
         }
         val = Math.min(PDataType.MAX_PRECISION, val);
         return val;
