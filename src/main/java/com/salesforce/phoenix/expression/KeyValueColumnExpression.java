@@ -50,6 +50,8 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class KeyValueColumnExpression extends ColumnExpression {
     private byte[] cf;
     private byte[] cq;
+    private Integer maxLength;
+    private Integer scale;
 
     public KeyValueColumnExpression() {
     }
@@ -58,6 +60,8 @@ public class KeyValueColumnExpression extends ColumnExpression {
         super(column);
         this.cf = column.getFamilyName().getBytes();
         this.cq = column.getName().getBytes();
+        this.maxLength = column.getMaxLength();
+        this.scale = column.getScale();
     }
     
     public byte[] getColumnFamily() {
@@ -66,6 +70,16 @@ public class KeyValueColumnExpression extends ColumnExpression {
     
     public byte[] getColumnName() {
         return cq;
+    }
+    
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
+    
+    @Override
+    public Integer getScale() {
+        return scale;
     }
     
     @Override

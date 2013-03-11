@@ -70,9 +70,9 @@ public class DecimalAddExpression extends AddExpression {
                 if (maxLength != null && scale != null && childExpr.getMaxLength() != null
                         & childExpr.getScale() != null) {
                     int desiredPrecision = NumberUtil.getDecimalPrecision(NumericOperators.ADD, 
-                            maxLength, scale, childExpr.getMaxLength(), childExpr.getScale());
+                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
                     int desiredScale = NumberUtil.getDecimalScale(NumericOperators.ADD, 
-                            maxLength, scale, childExpr.getMaxLength(), childExpr.getScale());
+                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
                     result = NumberUtil.setDecimalWidthAndScale(result, desiredPrecision, desiredScale);
                     if (result == null) {
                         return false;
