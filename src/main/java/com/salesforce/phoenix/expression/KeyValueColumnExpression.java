@@ -50,38 +50,24 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class KeyValueColumnExpression extends ColumnExpression {
     private byte[] cf;
     private byte[] cq;
-    private Integer maxLength;
-    private Integer scale;
 
     public KeyValueColumnExpression() {
     }
-    
+
     public KeyValueColumnExpression(PColumn column) {
         super(column);
         this.cf = column.getFamilyName().getBytes();
         this.cq = column.getName().getBytes();
-        this.maxLength = column.getMaxLength();
-        this.scale = column.getScale();
     }
-    
+
     public byte[] getColumnFamily() {
         return cf;
     }
-    
+
     public byte[] getColumnName() {
         return cq;
     }
-    
-    @Override
-    public Integer getMaxLength() {
-        return maxLength;
-    }
-    
-    @Override
-    public Integer getScale() {
-        return scale;
-    }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -131,7 +117,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
         Bytes.writeByteArray(output, cf);
         Bytes.writeByteArray(output, cq);
     }
-    
+
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return visitor.visit(this);

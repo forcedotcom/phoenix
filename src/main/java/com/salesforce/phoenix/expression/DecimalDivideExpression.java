@@ -54,19 +54,22 @@ public class DecimalDivideExpression extends DivideExpression {
         BigDecimal result = null;
         for (int i=0; i<children.size(); i++) {
             Expression childExpr = children.get(i);
-            if (!childExpr.evaluate(tuple, ptr) || ptr.getLength() == 0) { 
+            if (!childExpr.evaluate(tuple, ptr)) {
                 return false;
             }
-
+            if (ptr.getLength() == 0) {
+                return true;
+            }
+            
             PDataType childType = children.get(i).getDataType();
             BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
-
+            
             if (result == null) {
                 result = bd;
                 maxLength = childExpr.getMaxLength();
                 scale = childExpr.getScale();
             } else {
-                result = result.divide(bd, NumberUtil.DEFAULT_MATH_CONTEXT);
+                result = result.divide(bd, PDataType.DEFAULT_MATH_CONTEXT);
                 if (maxLength != null && scale != null && childExpr.getMaxLength() != null
                         & childExpr.getScale() != null) {
                     int desiredPrecision = NumberUtil.getDecimalPrecision(NumericOperators.DIVIDE,

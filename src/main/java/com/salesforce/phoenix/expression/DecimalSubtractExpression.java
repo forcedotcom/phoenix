@@ -38,7 +38,6 @@ import com.salesforce.phoenix.util.NumberUtil;
 import com.salesforce.phoenix.util.NumericOperators;
 
 
-
 /**
  * 
  * Subtract expression implementation
@@ -68,13 +67,13 @@ public class DecimalSubtractExpression extends SubtractExpression {
             if (ptr.getLength() == 0) {
                 return true;
             }
-
+            
             PDataType childType = children.get(i).getDataType();
             boolean isDate = childType.isCoercibleTo(PDataType.DATE);
             BigDecimal bd = isDate ?
                     BigDecimal.valueOf(childType.getCodec().decodeLong(ptr)) :
                     (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
-
+            
             if (result == null) {
                 result = bd;
                 maxLength = childExpr.getMaxLength();
@@ -86,7 +85,7 @@ public class DecimalSubtractExpression extends SubtractExpression {
                  * We need to convert the date to a unit of "days" because that's what sql expects.
                  */
                 if (isDate) {
-                    result = result.divide(BD_MILLIS_IN_DAY, NumberUtil.DEFAULT_MATH_CONTEXT);
+                    result = result.divide(BD_MILLIS_IN_DAY, PDataType.DEFAULT_MATH_CONTEXT);
                 } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
                         & childExpr.getScale() != null) {
                     int desiredPrecision = NumberUtil.getDecimalPrecision(NumericOperators.MINUS,

@@ -39,15 +39,13 @@ import com.salesforce.phoenix.schema.PDataType;
  */
 public class NumberUtil {
 
-    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(PDataType.MAX_PRECISION, RoundingMode.HALF_UP);
-
     /**
      * Strip all trailing zeros to ensure that no digit will be zero and
      * round using our default context to ensure precision doesn't exceed max allowed.
      * @return new {@link BigDecimal} instance
      */
     public static BigDecimal normalize(BigDecimal bigDecimal) {
-        return bigDecimal.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
+        return bigDecimal.stripTrailingZeros().round(PDataType.DEFAULT_MATH_CONTEXT);
     }
 
     public static BigDecimal setDecimalWidthAndScale(BigDecimal decimal, int precision, int scale) {
