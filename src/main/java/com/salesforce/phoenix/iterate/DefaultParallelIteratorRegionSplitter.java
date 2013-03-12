@@ -50,7 +50,7 @@ import com.salesforce.phoenix.schema.TableRef;
 
 
 /**
- * Default strategy for spliting regions in ParallelIterator. Refactored from the
+ * Default strategy for splitting regions in ParallelIterator. Refactored from the
  * original version.
  * 
  * @author jtaylor

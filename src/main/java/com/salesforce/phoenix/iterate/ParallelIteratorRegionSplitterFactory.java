@@ -29,13 +29,13 @@ package com.salesforce.phoenix.iterate;
 
 
 /**
- * Factory class for the Region Spliter used by the project.
+ * Factory class for the Region Splitter used by the project.
  * 
  * @author zhuang
  */
 public class ParallelIteratorRegionSplitterFactory {
 
-    public static ParallelIteratorRegionSplitter getSpliter() {
+    public static ParallelIteratorRegionSplitter getSplitter() {
         return DefaultParallelIteratorRegionSplitter.getInstance();
     }
 
