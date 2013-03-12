@@ -131,7 +131,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
         try {
             String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
                     "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
-                    "col1 DECIMAL, col2 DECIMAL(5), col3 DECIMAL(5,2))";
+                    "col1 DECIMAL, col2 DECIMAL(5), col3 DECIMAL(5,2), col4 DECIMAL(5))";
             createTestTable(getUrl(), ddl);
             
             String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -152,12 +152,13 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3, col4) VALUES(?,?,?,?,?)";
             stmt = conn.prepareStatement(query);
             stmt.setString(1, "testValueThree");
             stmt.setBigDecimal(2, new BigDecimal("9999999999999999999999999999999"));
-            stmt.setBigDecimal(3, new BigDecimal("12345"));
-            stmt.setBigDecimal(4, new BigDecimal("-123"));
+            stmt.setBigDecimal(3, new BigDecimal("123"));
+            stmt.setBigDecimal(4, new BigDecimal("123.45"));
+            stmt.setBigDecimal(5, new BigDecimal("-123"));
             stmt.execute();
             conn.commit();
             
@@ -179,6 +180,14 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
             assertEquals(new BigDecimal("12468.45"), result);
+            // Should pass since we roll up and impose the scale and precision at the end of
+            // consecutive operations of the same kind.
+            query = "SELECT col1 + col2 + col4 FROM testDecimalArithmatic WHERE pk='testValueThree'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("9999999999999999999999999999999"), result);
             // bad due to exceeding scale.
             // TODO:: Throw an exception for a bad value instead of returning null.
             query = "SELECT col1 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
@@ -189,12 +198,6 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             assertNull(result);
             // bad due to exceeding precision.
             query = "SELECT col1 + col2 FROM testDecimalArithmatic WHERE pk='testValueThree'";
-            stmt = conn.prepareStatement(query);
-            rs = stmt.executeQuery();
-            assertTrue(rs.next());
-            result = rs.getBigDecimal(1);
-            assertNull(result);
-            query = "SELECT col1 + col2 + col3 FROM testDecimalArithmatic WHERE pk='testValueThree'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
@@ -219,6 +222,14 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
             assertEquals(new BigDecimal("12221.55"), result);
+            // Should pass since we roll up and impose the scale and precision at the end of
+            // consecutive operations of the same kind.
+            query = "SELECT col1 - col4 - col2 FROM testDecimalArithmatic WHERE pk='testValueThree'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("9999999999999999999999999999999"), result);
             // bad due to exceeding scale.
             query = "SELECT col1 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);

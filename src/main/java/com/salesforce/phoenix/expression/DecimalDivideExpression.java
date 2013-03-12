@@ -38,25 +38,23 @@ import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class DecimalDivideExpression extends DivideExpression {
-    private Integer[] maxLengths;
-    private Integer[] scales;
+    private Integer maxLength;
+    private Integer scale;
 
     public DecimalDivideExpression() {
     }
 
     public DecimalDivideExpression(List<Expression> children) {
         super(children);
-        maxLengths = new Integer[children.size()];
-        scales = new Integer[children.size()];
         for (int i=0; i<children.size(); i++) {
             Expression childExpr = children.get(i);
             if (i == 0) {
-                maxLengths[i] = childExpr.getMaxLength();
-                scales[i] = childExpr.getScale();
-            } else if (maxLengths[i-1] != null && scales[i-1] != null && childExpr.getMaxLength() != null
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
+            } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
                     && childExpr.getScale() != null) {
-                maxLengths[i] = getPrecision(maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
-                scales[i] = getScale(maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
+                maxLength = getPrecision(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                scale = getScale(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
             }
         }
     }
@@ -80,11 +78,13 @@ public class DecimalDivideExpression extends DivideExpression {
                 result = bd;
             } else {
                 result = result.divide(bd, PDataType.DEFAULT_MATH_CONTEXT);
-                result = NumberUtil.setDecimalWidthAndScale(result, maxLengths[i], scales[i]);
-                if (result == null) {
-                    return false;
-                }
             }
+        }
+        if (maxLength != null && scale != null) {
+            result = NumberUtil.setDecimalWidthAndScale(result, maxLength, scale);
+        }
+        if (result == null) {
+            return false;
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));
         return true;
@@ -107,11 +107,11 @@ public class DecimalDivideExpression extends DivideExpression {
 
     @Override
     public Integer getScale() {
-        return scales[scales.length-1];
+        return scale;
     }
 
     @Override
     public Integer getMaxLength() {
-        return maxLengths[maxLengths.length-1];
+        return maxLength;
     }
 }

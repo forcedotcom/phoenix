@@ -156,7 +156,6 @@ public class PColumnImpl implements PColumn {
         Bytes.writeByteArray(output, name.getBytes());
         Bytes.writeByteArray(output, familyName == null ? ByteUtil.EMPTY_BYTE_ARRAY : familyName.getBytes());
         WritableUtils.writeVInt(output, dataType.ordinal());
-        // Use Integer.MIN_VALUE as a token for maxLength being null.
         WritableUtils.writeVInt(output, maxLength == null ? QueryConstants.NO_MAXLENGTH : maxLength);
         WritableUtils.writeVInt(output, scale == null ? QueryConstants.NO_SCALE : scale);
         output.writeBoolean(nullable);

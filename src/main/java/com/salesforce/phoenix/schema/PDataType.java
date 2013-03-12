@@ -712,7 +712,11 @@ public enum PDataType {
         @Override
         public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
                 Integer desiredMaxLength, Integer desiredScale) {
-            if (this == actualType && scale <= desiredScale) { // No coerce and rescale necessary
+            if (scale == null || desiredScale == null) {
+                // scale or deiredScale not available, delegate to parents.
+                return super.coerceBytes(b, object, actualType);
+            } else  if (this == actualType && scale <= desiredScale) {
+                // No coerce and rescale necessary
                 return b;
             } else {
                 BigDecimal decimal = (BigDecimal) toObject(object, actualType);
