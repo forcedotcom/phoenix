@@ -180,6 +180,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             result = rs.getBigDecimal(1);
             assertEquals(new BigDecimal("12468.45"), result);
             // bad due to exceeding scale.
+            // TODO:: Throw an exception for a bad value instead of returning null.
             query = "SELECT col1 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();

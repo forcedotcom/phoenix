@@ -30,7 +30,6 @@ package com.salesforce.phoenix.expression;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.util.NumericOperators;
 
 
 /**
@@ -60,6 +59,6 @@ public abstract class MultiplyExpression extends ArithmeticExpression {
 
     @Override
     public String getOperatorString() {
-        return NumericOperators.MULTIPLY.toString();
+        return " * ";
     }
 }

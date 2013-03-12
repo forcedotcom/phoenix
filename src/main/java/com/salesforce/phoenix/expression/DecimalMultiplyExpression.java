@@ -35,7 +35,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
-import com.salesforce.phoenix.util.NumericOperators;
 
 
 public class DecimalMultiplyExpression extends MultiplyExpression {
@@ -56,10 +55,8 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
                 scales[i] = childExpr.getScale();
             } else if (maxLengths[i-1] != null && scales[i-1] != null && childExpr.getMaxLength() != null
                     && childExpr.getScale() != null) {
-                maxLengths[i] = NumberUtil.getDecimalPrecision(NumericOperators.MULTIPLY,
-                        maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
-                scales[i] = NumberUtil.getDecimalScale(NumericOperators.MULTIPLY,
-                        maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
+                maxLengths[i] = getPrecision(maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
+                scales[i] = getScale(maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
             }
         }
     }
@@ -91,6 +88,16 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));
         return true;
+    }
+
+    private int getPrecision(int lp, int rp, int ls, int rs) {
+        int val = lp + rp;
+        return Math.min(PDataType.MAX_PRECISION, val);
+    }
+
+    private int getScale(int lp, int rp, int ls, int rs) {
+        int val = ls + rs;
+        return Math.min(PDataType.MAX_PRECISION, val);
     }
 
     @Override

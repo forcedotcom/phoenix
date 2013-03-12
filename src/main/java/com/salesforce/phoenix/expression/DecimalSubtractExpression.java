@@ -35,7 +35,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
-import com.salesforce.phoenix.util.NumericOperators;
 
 
 /**
@@ -63,10 +62,8 @@ public class DecimalSubtractExpression extends SubtractExpression {
                 scales[i] = childExpr.getScale();
             } else if (maxLengths[i-1] != null && scales[i-1] != null && childExpr.getMaxLength() != null
                     && childExpr.getScale() != null) {
-                maxLengths[i] = NumberUtil.getDecimalPrecision(NumericOperators.MINUS,
-                        maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
-                scales[i] = NumberUtil.getDecimalScale(NumericOperators.MINUS,
-                        maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
+                maxLengths[i] = getPrecision(maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
+                scales[i] = getScale(maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
             }
         }
     }
@@ -110,6 +107,17 @@ public class DecimalSubtractExpression extends SubtractExpression {
         ptr.set(PDataType.DECIMAL.toBytes(result));
         return true;
     }
+
+    private int getPrecision(int lp, int rp, int ls, int rs) {
+        int val = getScale(lp, rp, ls, rs) + Math.max(lp - ls, rp - rs) + 1;
+        return Math.min(PDataType.MAX_PRECISION, val);
+    }
+
+    private int getScale(int lp, int rp, int ls, int rs) {
+        int val = Math.max(ls, rs);
+        return Math.min(PDataType.MAX_PRECISION, val);
+    }
+
 
     @Override
     public PDataType getDataType() {

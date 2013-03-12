@@ -57,42 +57,4 @@ public class NumberUtil {
         decimal = decimal.setScale(scale, BigDecimal.ROUND_DOWN);
         return decimal;
     }
-
-    public static int getDecimalPrecision(NumericOperators op, int lp, int rp, int ls, int rs) {
-        int val;
-        switch (op) {
-        case MULTIPLY:
-            val = lp + rp;
-            break;
-        case DIVIDE:
-            val = Math.min(PDataType.MAX_PRECISION, getDecimalScale(op, lp, rp, ls, rs) + lp - ls + rp);
-            break;
-        case ADD:
-        case MINUS:
-        default:
-            val = getDecimalScale(op, lp, rp, ls, rs) + Math.max(lp - ls, rp - rs) + 1;
-            break;
-        }
-        val = Math.min(PDataType.MAX_PRECISION, val);
-        return val;
-    }
-
-    public static int getDecimalScale(NumericOperators op, int lp, int rp, int ls, int rs) {
-        int val;
-        switch (op) {
-        case MULTIPLY:
-            val = ls + rs;
-            break;
-        case DIVIDE:
-            val = Math.max(PDataType.MAX_PRECISION - lp + ls - rs, 0);
-            break;
-        case ADD:
-        case MINUS:
-        default:
-            val = Math.max(ls, rs);
-            break;
-        }
-        val = Math.min(PDataType.MAX_PRECISION, val);
-        return val;
-    }
 }
