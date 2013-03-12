@@ -114,19 +114,19 @@ public class TestUtil {
     }
     
     public static void assertRoundEquals(BigDecimal bd1, BigDecimal bd2) {
-        bd1 = bd1.round(NumberUtil.DEFAULT_MATH_CONTEXT);
-        bd2 = bd2.round(NumberUtil.DEFAULT_MATH_CONTEXT);
+        bd1 = bd1.round(PDataType.DEFAULT_MATH_CONTEXT);
+        bd2 = bd2.round(PDataType.DEFAULT_MATH_CONTEXT);
         if (bd1.compareTo(bd2) != 0) {
             fail("expected:<" + bd1 + "> but was:<" + bd2 + ">");
         }
     }
     
     public static BigDecimal computeAverage(double sum, long count) {
-        return BigDecimal.valueOf(sum).divide(BigDecimal.valueOf(count), NumberUtil.DEFAULT_MATH_CONTEXT);
+        return BigDecimal.valueOf(sum).divide(BigDecimal.valueOf(count), PDataType.DEFAULT_MATH_CONTEXT);
     }
 
     public static BigDecimal computeAverage(long sum, long count) {
-        return BigDecimal.valueOf(sum).divide(BigDecimal.valueOf(count), NumberUtil.DEFAULT_MATH_CONTEXT);
+        return BigDecimal.valueOf(sum).divide(BigDecimal.valueOf(count), PDataType.DEFAULT_MATH_CONTEXT);
     }
 
     public static Expression constantComparison(CompareOp op, PColumn c, Object o) {

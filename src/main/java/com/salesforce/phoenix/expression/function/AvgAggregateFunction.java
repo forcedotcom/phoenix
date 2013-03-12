@@ -39,7 +39,6 @@ import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.NumberUtil;
 
 
 @BuiltInFunction(name=AvgAggregateFunction.NAME, nodeClass=AvgAggregateParseNode.class, args= {@Argument(allowedTypes={PDataType.DECIMAL})} )
@@ -82,7 +81,7 @@ public class AvgAggregateFunction extends CompositeAggregateFunction {
             BigDecimal sum = (BigDecimal)PDataType.DECIMAL.toObject(ptr, sumFunc.getDataType());
             // For the final column projection, we divide the sum by the count, both coerced to BigDecimal.
             // TODO: base the precision on column metadata instead of constant
-            BigDecimal avg = sum.divide(BigDecimal.valueOf(count), NumberUtil.DEFAULT_MATH_CONTEXT);
+            BigDecimal avg = sum.divide(BigDecimal.valueOf(count), PDataType.DEFAULT_MATH_CONTEXT);
             ptr.set(PDataType.DECIMAL.toBytes(avg));
             return true;
         }

@@ -38,33 +38,66 @@ import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class DecimalDivideExpression extends DivideExpression {
+    private Integer maxLength;
+    private Integer scale;
 
     public DecimalDivideExpression() {
     }
 
     public DecimalDivideExpression(List<Expression> children) {
         super(children);
+        for (int i=0; i<children.size(); i++) {
+            Expression childExpr = children.get(i);
+            if (i == 0) {
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
+            } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
+                    && childExpr.getScale() != null) {
+                maxLength = getPrecision(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                scale = getScale(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+            }
+        }
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal result = null;
         for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) { 
+            Expression childExpr = children.get(i);
+            if (!childExpr.evaluate(tuple, ptr)) {
                 return false;
             }
-
+            if (ptr.getLength() == 0) {
+                return true;
+            }
+            
             PDataType childType = children.get(i).getDataType();
             BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
-
+            
             if (result == null) {
                 result = bd;
             } else {
-                result = result.divide(bd, NumberUtil.DEFAULT_MATH_CONTEXT);
+                result = result.divide(bd, PDataType.DEFAULT_MATH_CONTEXT);
             }
+        }
+        if (maxLength != null && scale != null) {
+            result = NumberUtil.setDecimalWidthAndScale(result, maxLength, scale);
+        }
+        if (result == null) {
+            return false;
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));
         return true;
+    }
+
+    private static int getPrecision(int lp, int rp, int ls, int rs) {
+        int val = getScale(lp, rp, ls, rs) + lp - ls + rp;
+        return Math.min(PDataType.MAX_PRECISION, val);
+    }
+
+    private static int getScale(int lp, int rp, int ls, int rs) {
+        int val = Math.max(PDataType.MAX_PRECISION - lp + ls - rs, 0);
+        return Math.min(PDataType.MAX_PRECISION, val);
     }
 
     @Override
@@ -72,4 +105,13 @@ public class DecimalDivideExpression extends DivideExpression {
         return PDataType.DECIMAL;
     }
 
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
 }

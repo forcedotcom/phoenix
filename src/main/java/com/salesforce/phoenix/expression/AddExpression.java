@@ -39,7 +39,7 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
  * @author jtaylor
  * @since 0.1
  */
-public abstract class AddExpression extends ArithmeticExpression {
+public abstract class AddExpression extends BaseAddSubtractExpression {
     public AddExpression() {
     }
 

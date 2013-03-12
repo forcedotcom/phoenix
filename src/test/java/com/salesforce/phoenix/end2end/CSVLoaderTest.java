@@ -220,7 +220,7 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
         String statements = "CREATE TABLE IF NOT EXISTS " 
         	    + DATATYPE_TABLE +
         		" (CKEY VARCHAR NOT NULL PRIMARY KEY," +
-        		"  CVARCHAR VARCHAR, CINTEGER INTEGER, CDECIMAL DECIMAL, CUNSIGNED_INT UNSIGNED_INT, CBOOLEAN BOOLEAN, CBIGINT BIGINT, CUNSIGNED_LONG UNSIGNED_LONG, CTIME TIME, CDATE DATE);";
+        		"  CVARCHAR VARCHAR, CINTEGER INTEGER, CDECIMAL DECIMAL(31,10), CUNSIGNED_INT UNSIGNED_INT, CBOOLEAN BOOLEAN, CBIGINT BIGINT, CUNSIGNED_LONG UNSIGNED_LONG, CTIME TIME, CDATE DATE);";
         PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
         PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
         
