@@ -39,14 +39,29 @@ import com.salesforce.phoenix.util.NumericOperators;
 
 
 public class DecimalMultiplyExpression extends MultiplyExpression {
-    private Integer maxLength;
-    private Integer scale;
+    private Integer[] maxLengths;
+    private Integer[] scales;
 
     public DecimalMultiplyExpression() {
     }
 
     public DecimalMultiplyExpression(List<Expression> children) {
         super(children);
+        maxLengths = new Integer[children.size()];
+        scales = new Integer[children.size()];
+        for (int i=0; i<children.size(); i++) {
+            Expression childExpr = children.get(i);
+            if (i == 0) {
+                maxLengths[i] = childExpr.getMaxLength();
+                scales[i] = childExpr.getScale();
+            } else if (maxLengths[i-1] != null && scales[i-1] != null && childExpr.getMaxLength() != null
+                    && childExpr.getScale() != null) {
+                maxLengths[i] = NumberUtil.getDecimalPrecision(NumericOperators.MULTIPLY,
+                        maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
+                scales[i] = NumberUtil.getDecimalScale(NumericOperators.MULTIPLY,
+                        maxLengths[i-1], childExpr.getMaxLength(), scales[i-1], childExpr.getScale());
+            }
+        }
     }
 
     @Override
@@ -66,22 +81,11 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
             
             if (result == null) {
                 result = bd;
-                maxLength = childExpr.getMaxLength();
-                scale = childExpr.getScale();
             } else {
                 result = result.multiply(bd);
-                if (maxLength != null && scale != null && childExpr.getMaxLength() != null
-                        & childExpr.getScale() != null) {
-                    int desiredPrecision = NumberUtil.getDecimalPrecision(NumericOperators.MULTIPLY,
-                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
-                    int desiredScale = NumberUtil.getDecimalScale(NumericOperators.MULTIPLY,
-                            maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
-                    result = NumberUtil.setDecimalWidthAndScale(result, desiredPrecision, desiredScale);
-                    if (result == null) {
-                        return false;
-                    }
-                    maxLength = desiredPrecision;
-                    scale = desiredScale;
+                result = NumberUtil.setDecimalWidthAndScale(result, maxLengths[i], scales[i]);
+                if (result == null) {
+                    return false;
                 }
             }
         }
@@ -96,11 +100,11 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
 
     @Override
     public Integer getScale() {
-        return scale;
+        return scales[scales.length-1];
     }
 
     @Override
     public Integer getMaxLength() {
-        return maxLength;
+        return maxLengths[maxLengths.length-1];
     }
 }

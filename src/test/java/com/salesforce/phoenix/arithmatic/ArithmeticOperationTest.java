@@ -189,6 +189,12 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
             assertNull(result);
+            query = "SELECT col1 + col2 + col3 FROM testDecimalArithmatic WHERE pk='testValueThree'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertNull(result);
             
             // Subtraction
             // result scale should be: max(ls, rs)
@@ -210,6 +216,11 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             assertEquals(new BigDecimal("12221.55"), result);
             // bad due to exceeding scale.
             query = "SELECT col1 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            query = "SELECT col1 - col2 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
