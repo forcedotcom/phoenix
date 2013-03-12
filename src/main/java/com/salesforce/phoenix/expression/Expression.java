@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-
-
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;

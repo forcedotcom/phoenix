@@ -27,42 +27,27 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.math.BigDecimal;
 import java.util.List;
 
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.PDataType;
 
 
-/**
- * 
- * Subtract expression implementation
- *
- * @author kmahadik
- * @since 0.1
- */
-public abstract class SubtractExpression extends BaseAddSubtractExpression {
-    protected static final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
-
-    public SubtractExpression() {
+abstract public class BaseAddSubtractExpression extends ArithmeticExpression {
+    public BaseAddSubtractExpression() {
     }
 
-    public SubtractExpression(List<Expression> children) {
+    public BaseAddSubtractExpression(List<Expression> children) {
         super(children);
     }
 
-    @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        List<T> l = acceptChildren(visitor, visitor.visitEnter(this));
-        T t = visitor.visitLeave(this, l);
-        if (t == null) {
-            t = visitor.defaultReturn(this, l);
-        }
-        return t;
+    protected static int getPrecision(int lp, int rp, int ls, int rs) {
+        int val = getScale(lp, rp, ls, rs) + Math.max(lp - ls, rp - rs) + 1;
+        return Math.min(PDataType.MAX_PRECISION, val);
     }
-    
-    @Override
-    public String getOperatorString() {
-        return " - ";
+
+    protected static int getScale(int lp, int rp, int ls, int rs) {
+        int val = Math.max(ls, rs);
+        return Math.min(PDataType.MAX_PRECISION, val);
     }
+
 }

@@ -29,22 +29,32 @@ package com.salesforce.phoenix.util;
 
 import java.math.*;
 
+import com.salesforce.phoenix.schema.PDataType;
+
 /**
+ * Utility methods for numbers like decimal, long, etc.
  *
  * @author elevine
  * @since 0.1
  */
 public class NumberUtil {
-    
-    public static final int MAX_PRECISION = 18; // Max precision guaranteed to fit into a long (and this should be plenty)
-    public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
-    
+
     /**
      * Strip all trailing zeros to ensure that no digit will be zero and
      * round using our default context to ensure precision doesn't exceed max allowed.
      * @return new {@link BigDecimal} instance
      */
     public static BigDecimal normalize(BigDecimal bigDecimal) {
-        return bigDecimal.stripTrailingZeros().round(DEFAULT_MATH_CONTEXT);
+        return bigDecimal.stripTrailingZeros().round(PDataType.DEFAULT_MATH_CONTEXT);
+    }
+
+    public static BigDecimal setDecimalWidthAndScale(BigDecimal decimal, int precision, int scale) {
+        // If we could not fit all the digits before decimal point into the new desired precision and
+        // scale, return null and the caller method should handle the error.
+        if (((precision - scale) < (decimal.precision() - decimal.scale()))){
+            return null;
+        }
+        decimal = decimal.setScale(scale, BigDecimal.ROUND_DOWN);
+        return decimal;
     }
 }

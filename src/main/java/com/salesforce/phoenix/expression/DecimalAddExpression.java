@@ -34,33 +34,57 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class DecimalAddExpression extends AddExpression {
+    private Integer maxLength;
+    private Integer scale;
 
     public DecimalAddExpression() {
     }
 
     public DecimalAddExpression(List<Expression> children) {
         super(children);
+        for (int i=0; i<children.size(); i++) {
+            Expression childExpr = children.get(i);
+            if (i == 0) {
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
+            } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
+                    && childExpr.getScale() != null) {
+                maxLength = getPrecision(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                scale = getScale(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+            }
+        }
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal result = null;
         for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr) || ptr.getLength() == 0) { 
+            Expression childExpr = children.get(i);
+            if (!childExpr.evaluate(tuple, ptr)) {
                 return false;
             }
-
+            if (ptr.getLength() == 0) {
+                return true;
+            }
+            
             PDataType childType = children.get(i).getDataType();
             BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
-
+            
             if (result == null) {
                 result = bd;
             } else {
                 result = result.add(bd);
             }
+        }
+        if (maxLength != null && scale != null) {
+            result = NumberUtil.setDecimalWidthAndScale(result, maxLength, scale);
+        }
+        if (result == null) {
+            return false;
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));
         return true;
@@ -71,4 +95,13 @@ public class DecimalAddExpression extends AddExpression {
         return PDataType.DECIMAL;
     }
 
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
 }

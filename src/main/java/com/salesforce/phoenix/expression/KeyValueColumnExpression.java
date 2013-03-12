@@ -53,21 +53,21 @@ public class KeyValueColumnExpression extends ColumnExpression {
 
     public KeyValueColumnExpression() {
     }
-    
+
     public KeyValueColumnExpression(PColumn column) {
         super(column);
         this.cf = column.getFamilyName().getBytes();
         this.cq = column.getName().getBytes();
     }
-    
+
     public byte[] getColumnFamily() {
         return cf;
     }
-    
+
     public byte[] getColumnName() {
         return cq;
     }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -117,7 +117,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
         Bytes.writeByteArray(output, cf);
         Bytes.writeByteArray(output, cq);
     }
-    
+
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return visitor.visit(this);
