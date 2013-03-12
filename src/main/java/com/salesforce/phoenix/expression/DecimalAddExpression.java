@@ -90,16 +90,6 @@ public class DecimalAddExpression extends AddExpression {
         return true;
     }
 
-    private int getPrecision(int lp, int rp, int ls, int rs) {
-        int val = getScale(lp, rp, ls, rs) + Math.max(lp - ls, rp - rs) + 1;
-        return Math.min(PDataType.MAX_PRECISION, val);
-    }
-
-    private int getScale(int lp, int rp, int ls, int rs) {
-        int val = Math.max(ls, rs);
-        return Math.min(PDataType.MAX_PRECISION, val);
-    }
-
     @Override
     public PDataType getDataType() {
         return PDataType.DECIMAL;

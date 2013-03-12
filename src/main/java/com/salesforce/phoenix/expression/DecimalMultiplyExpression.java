@@ -90,12 +90,12 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
         return true;
     }
 
-    private int getPrecision(int lp, int rp, int ls, int rs) {
+    private static int getPrecision(int lp, int rp, int ls, int rs) {
         int val = lp + rp;
         return Math.min(PDataType.MAX_PRECISION, val);
     }
 
-    private int getScale(int lp, int rp, int ls, int rs) {
+    private static int getScale(int lp, int rp, int ls, int rs) {
         int val = ls + rs;
         return Math.min(PDataType.MAX_PRECISION, val);
     }

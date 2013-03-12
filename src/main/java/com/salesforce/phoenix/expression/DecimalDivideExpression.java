@@ -90,12 +90,12 @@ public class DecimalDivideExpression extends DivideExpression {
         return true;
     }
 
-    private int getPrecision(int lp, int rp, int ls, int rs) {
+    private static int getPrecision(int lp, int rp, int ls, int rs) {
         int val = getScale(lp, rp, ls, rs) + lp - ls + rp;
         return Math.min(PDataType.MAX_PRECISION, val);
     }
 
-    private int getScale(int lp, int rp, int ls, int rs) {
+    private static int getScale(int lp, int rp, int ls, int rs) {
         int val = Math.max(PDataType.MAX_PRECISION - lp + ls - rs, 0);
         return Math.min(PDataType.MAX_PRECISION, val);
     }
