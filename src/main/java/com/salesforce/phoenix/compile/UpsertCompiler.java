@@ -360,7 +360,8 @@ public class UpsertCompiler {
                         .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
                     }
                 }
-                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType());
+                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType(),
+                        literalExpression.getMaxLength(), literalExpression.getScale(), column.getMaxLength(), column.getScale());
                 values[nodeIndex] = byteValue;
                 nodeIndex++;
             }

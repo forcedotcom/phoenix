@@ -52,13 +52,13 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
                     "col1 DECIMAL, col2 DECIMAL(5), col3 DECIMAL(5,2))";
             createTestTable(getUrl(), ddl);
             
-            // Test upsert correct values.
+            // Test upsert correct values 
             String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, "valueOne");
             stmt.setBigDecimal(2, new BigDecimal("123456789123456789"));
             stmt.setBigDecimal(3, new BigDecimal("12345"));
-            stmt.setBigDecimal(4, new BigDecimal("1234.5"));
+            stmt.setBigDecimal(4, new BigDecimal("12.34"));
             stmt.execute();
             conn.commit();
             
@@ -68,7 +68,25 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             assertTrue(rs.next());
             assertEquals(new BigDecimal("123456789123456789"), rs.getBigDecimal(1));
             assertEquals(new BigDecimal("12345"), rs.getBigDecimal(2));
-            assertEquals(new BigDecimal("1234.5"), rs.getBigDecimal(3));
+            assertEquals(new BigDecimal("12.34"), rs.getBigDecimal(3));
+            assertFalse(rs.next());
+            
+            query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, "valueTwo");
+            stmt.setBigDecimal(2, new BigDecimal("1234567890123456789012345678901.12345"));
+            stmt.setBigDecimal(3, new BigDecimal("12345.6789"));
+            stmt.setBigDecimal(4, new BigDecimal("123.45678"));
+            stmt.execute();
+            conn.commit();
+            
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmatic WHERE pk = 'valueTwo' LIMIT 1";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("1234567890123456789012345678901"), rs.getBigDecimal(1));
+            assertEquals(new BigDecimal("12345"), rs.getBigDecimal(2));
+            assertEquals(new BigDecimal("123.45"), rs.getBigDecimal(3));
             assertFalse(rs.next());
             
             // Test upsert incorrect values and confirm exceptions would be thrown.
@@ -78,8 +96,8 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
                 stmt.setString(1, "badValues");
                 // one more than max_precision
                 stmt.setBigDecimal(2, new BigDecimal("12345678901234567890123456789012"));
-                stmt.setBigDecimal(3, new BigDecimal("123.45")); 
-                stmt.setBigDecimal(4, new BigDecimal("1234.5"));
+                stmt.setBigDecimal(3, new BigDecimal("12345")); 
+                stmt.setBigDecimal(4, new BigDecimal("123.45"));
                 stmt.execute();
                 conn.commit();
                 fail("Should have caught bad values.");
@@ -93,26 +111,12 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
                 stmt.setBigDecimal(2, new BigDecimal("123456"));
                 // Exceeds specified precision by 1
                 stmt.setBigDecimal(3, new BigDecimal("123456"));
-                stmt.setBigDecimal(4, new BigDecimal("1234.5"));
+                stmt.setBigDecimal(4, new BigDecimal("123.45"));
                 stmt.execute();
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
                 assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=123456 columnName=COL2"));
-            }
-            try {
-                query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
-                stmt = conn.prepareStatement(query);
-                stmt.setString(1, "badValues");
-                stmt.setBigDecimal(2, new BigDecimal("123456"));
-                stmt.setBigDecimal(3, new BigDecimal("12345"));
-                // Exceeds specified scale by 1
-                stmt.setBigDecimal(4, new BigDecimal("12.345"));
-                stmt.execute();
-                conn.commit();
-                fail("Should have caught bad values.");
-            } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=12.345 columnName=COL3"));
             }
         } finally {
             conn.close();
@@ -153,7 +157,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             stmt.setString(1, "testValueThree");
             stmt.setBigDecimal(2, new BigDecimal("9999999999999999999999999999999"));
             stmt.setBigDecimal(3, new BigDecimal("12345"));
-            stmt.setBigDecimal(4, new BigDecimal("-12345"));
+            stmt.setBigDecimal(4, new BigDecimal("-123"));
             stmt.execute();
             conn.commit();
             
@@ -262,7 +266,7 @@ public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
             
             // Division
             // result scale should be: 31 - lp + ls - rs
-            // result precision should be: lp - ls + rp + max(ls + rp - rs + 1, 4)
+            // result precision should be: lp - ls + rp + scale
             //
             // col1 / col2 should be good with precision ? and scale 0.
             query = "SELECT col1 / col2 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
