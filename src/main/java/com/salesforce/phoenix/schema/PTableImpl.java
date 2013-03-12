@@ -42,7 +42,8 @@ import org.apache.hadoop.io.WritableUtils;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.*;
-
+import com.salesforce.phoenix.schema.stat.PTableStats;
+import com.salesforce.phoenix.schema.stat.PTableStatsImpl;
 
 
 /**
@@ -67,6 +68,8 @@ public class PTableImpl implements PTable {
     private Map<String, PColumnFamily> familyByString;
     private ListMultimap<String,PColumn> columnsByName;
     private String pkName;
+    // Statistics associated with this table.
+    PTableStats stats;
     
     public PTableImpl() {
     }
@@ -81,7 +84,7 @@ public class PTableImpl implements PTable {
     }
 
     public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
-        init(name, type, timeStamp, sequenceNumber, pkName, columns);
+        init(name, type, timeStamp, sequenceNumber, pkName, columns, new PTableStatsImpl());
     }
     
     @Override
@@ -89,7 +92,7 @@ public class PTableImpl implements PTable {
         return name.getString();
     }
     
-    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
+    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns, PTableStats stats) {
         this.name = name;
         this.type = type;
         this.timeStamp = timeStamp;
@@ -141,6 +144,7 @@ public class PTableImpl implements PTable {
         this.families = ImmutableList.copyOf(families);
         this.familyByBytes = familyByBytes.build();
         this.familyByString = familyByString.build();
+        this.stats = stats;
     }
     
     @Override
@@ -405,6 +409,11 @@ public class PTableImpl implements PTable {
     }
 
     @Override
+    public PTableStats getTableStats() {
+        return stats;
+    }
+
+    @Override
     public void readFields(DataInput input) throws IOException {
         byte[] tableNameBytes = Bytes.readByteArray(input);
         PName tableName = new PNameImpl(tableNameBytes);
@@ -420,7 +429,19 @@ public class PTableImpl implements PTable {
             column.readFields(input);
             columns.add(column);
         }
-        init(tableName, tableType, timeStamp, sequenceNumber, pkName, columns);
+        Map<String, byte[][]> guidePosts = new HashMap<String, byte[][]>();
+        int size = WritableUtils.readVInt(input);
+        for (int i=0; i<size; i++) {
+            String key = WritableUtils.readString(input);
+            int valueSize = WritableUtils.readVInt(input);
+            byte[][] value = new byte[valueSize][];
+            for (int j=0; j<valueSize; j++) {
+                value[j] = Bytes.readByteArray(input);
+            }
+            guidePosts.put(key, value);
+        }
+        PTableStats stats = new PTableStatsImpl(guidePosts);
+        init(tableName, tableType, timeStamp, sequenceNumber, pkName, columns, stats);
     }
 
     @Override
@@ -435,6 +456,7 @@ public class PTableImpl implements PTable {
             PColumn column = allColumns.get(i);
             column.write(output);
         }
+        stats.write(output);
     }
 
     @Override
