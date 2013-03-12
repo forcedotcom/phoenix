@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.expression;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -56,7 +57,7 @@ public class IsNullExpression extends BaseSingleExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException  {
         boolean evaluated = getChild().evaluate(tuple, ptr);
         if (evaluated) {
             ptr.set(isNegate ^ ptr.getLength() == 0 ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);

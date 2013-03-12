@@ -90,7 +90,7 @@ public class ToCharFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (!getExpression().evaluate(tuple, ptr)) {
             return false;
         }

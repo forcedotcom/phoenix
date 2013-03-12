@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression;
 
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -77,7 +78,7 @@ public class StringConcatExpression extends BaseCompoundExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         byte[] result = ByteUtil.EMPTY_BYTE_ARRAY;
         for (int i=0; i<children.size(); i++) {
             if (children.get(i).getDataType() == null || !children.get(i).evaluate(tuple,ptr)) {

@@ -31,6 +31,7 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import static com.salesforce.phoenix.query.QueryServices.MUTATE_BATCH_SIZE_ATTRIB;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
@@ -129,7 +130,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         boolean hasAny = false;
         MultiKeyValueTuple result = new MultiKeyValueTuple();
         if (logger.isInfoEnabled()) {
-        	logger.info("Starting ungrouped coprocessor scan " + scan);
+            logger.info("Starting ungrouped coprocessor scan " + scan);
         }
         long rowCount = 0;
         MultiVersionConsistencyControl.setThreadReadPoint(s.getMvccReadPoint());
@@ -142,7 +143,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 // ones returned
                 hasMore = s.nextRaw(results, null) && !s.isFilterDone();
                 if (!results.isEmpty()) {
-                	rowCount++;
+                    rowCount++;
                     result.setKeyValues(results);
                     try {
                         if (isDelete) {
@@ -207,6 +208,9 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                         // Log and ignore in count
                         logger.error("Failed to create row in " + region.getRegionNameAsString() + " with values " + SchemaUtil.toString(values), e);
                         continue;
+                    } catch (SQLException e) {
+                        logger.error("Exception caught when evaluating expression. " + e.getMessage(), e);
+                        continue;
                     }
                     aggregators.aggregate(rowAggregators, result);
                     hasAny = true;
@@ -217,7 +221,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         }
         
         if (logger.isInfoEnabled()) {
-        	logger.info("Finished scanning " + rowCount + " rows for ungrouped coprocessor scan " + scan);
+            logger.info("Finished scanning " + rowCount + " rows for ungrouped coprocessor scan " + scan);
         }
 
         if (!mutations.isEmpty()) {

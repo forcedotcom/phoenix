@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.filter;
 
 import java.io.*;
+import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -101,6 +102,9 @@ abstract public class BooleanExpressionFilter extends FilterBase {
             }
         } catch (IllegalDataException e) {
             return Boolean.FALSE;
+        } catch (SQLException e) {
+            // Equivalent to evaluating to false;
+            return null;
         }
         return (Boolean)expression.getDataType().toObject(tempPtr);
     }

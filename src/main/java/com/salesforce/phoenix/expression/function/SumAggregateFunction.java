@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.expression.function;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -92,7 +93,7 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (!super.evaluate(tuple, ptr)) {
             return false;
         }

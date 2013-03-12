@@ -72,7 +72,7 @@ public class LTrimFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         // Starting from the front of the byte, look for all single bytes at the end of the string
         // that is below SPACE_UTF8 (space and control characters) or 0x7f (control chars).
         if (!getStringExpression().evaluate(tuple, ptr)) {

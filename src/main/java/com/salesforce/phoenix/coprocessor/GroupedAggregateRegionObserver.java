@@ -30,6 +30,7 @@ package com.salesforce.phoenix.coprocessor;
 import static com.salesforce.phoenix.query.QueryConstants.*;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.*;
@@ -142,7 +143,13 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
     private ImmutableBytesWritable getKey(List<Expression> expressions, Tuple result) throws IOException {
         ImmutableBytesWritable groupByValue = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
         Expression expression = expressions.get(0);
-        boolean evaluated = expression.evaluate(result, groupByValue);
+        boolean evaluated;
+        try {
+            evaluated = expression.evaluate(result, groupByValue);
+        } catch (SQLException e) {
+            logger.error("Exception caught when evaluating expression. " + e.getMessage(), e);
+            return new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
+        }
         
         if (expressions.size() == 1) {
             if (!evaluated) {
@@ -172,6 +179,9 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 byte[] outputBytes = output.getBuffer();
                 groupByValue.set(outputBytes, 0, output.size());
                 return groupByValue;
+            } catch (SQLException e) {
+                logger.error("Exception caught when evaluating expression. " + e.getMessage(), e);
+                return new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
             } finally {
                 output.close();
             }

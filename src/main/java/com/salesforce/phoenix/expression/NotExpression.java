@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -57,7 +58,7 @@ public class NotExpression extends BaseSingleExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (!getChild().evaluate(tuple, ptr)) {
             return false;
         }

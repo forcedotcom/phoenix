@@ -67,7 +67,7 @@ public class LengthFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         Expression child = getStringExpression();
         if (!child.evaluate(tuple, ptr)) {
             return false;

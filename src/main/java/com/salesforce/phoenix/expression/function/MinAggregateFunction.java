@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -60,7 +61,7 @@ public class MinAggregateFunction extends DelegateConstantToCountAggregateFuncti
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         boolean wasEvaluated = super.evaluate(tuple, ptr);
         if (!wasEvaluated) {
             return false;

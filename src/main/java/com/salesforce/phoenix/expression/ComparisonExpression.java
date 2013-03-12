@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.expression;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -94,7 +95,7 @@ public class ComparisonExpression extends BaseCompoundExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (!children.get(0).evaluate(tuple, ptr)) {
             return false;
         }

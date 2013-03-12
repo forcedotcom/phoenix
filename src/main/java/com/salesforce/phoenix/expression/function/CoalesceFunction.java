@@ -72,7 +72,7 @@ public class CoalesceFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (children.get(0).evaluate(tuple, ptr)) {
             return true;
         }

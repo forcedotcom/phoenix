@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -34,7 +35,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-
 
 
 /**
@@ -53,11 +53,11 @@ public class LongSubtractExpression extends SubtractExpression {
     }
 
     @Override
-	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-		long finalResult=0;
-		
-		for(int i=0;i<children.size();i++) {
-		    Expression child = children.get(i);
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
+        long finalResult=0;
+        
+        for(int i=0;i<children.size();i++) {
+            Expression child = children.get(i);
             if (!child.evaluate(tuple, ptr) || ptr.getLength() == 0) {
                 return false;
             }
@@ -76,22 +76,15 @@ public class LongSubtractExpression extends SubtractExpression {
                     finalResult /= QueryConstants.MILLIS_IN_DAY;
                 }
             }
-		}
-		byte[] resultPtr=new byte[getDataType().getByteSize()];
-		ptr.set(resultPtr);
-		getDataType().getCodec().encodeLong(finalResult, ptr);
-		return true;
-	}
+        }
+        byte[] resultPtr=new byte[getDataType().getByteSize()];
+        ptr.set(resultPtr);
+        getDataType().getCodec().encodeLong(finalResult, ptr);
+        return true;
+    }
 
-	@Override
-	public final PDataType getDataType() {
-		return PDataType.LONG;
-	}
-	
+    @Override
+    public final PDataType getDataType() {
+        return PDataType.LONG;
+    }
 }
-
-
-
-
-
-	

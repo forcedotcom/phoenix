@@ -82,7 +82,7 @@ public class InListExpression extends BaseSingleExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (!getChild().evaluate(tuple, ptr)) {
             return false;
         }

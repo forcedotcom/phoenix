@@ -100,7 +100,7 @@ public class RoundFunction extends ScalarFunction {
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         // If divBy is 0 this means <time unit> or <multiplier> was null
         if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
             long time = getDataType().getCodec().decodeLong(ptr);

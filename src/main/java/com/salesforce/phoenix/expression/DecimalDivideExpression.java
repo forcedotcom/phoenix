@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.expression;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -60,7 +61,7 @@ public class DecimalDivideExpression extends DivideExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         BigDecimal result = null;
         for (int i=0; i<children.size(); i++) {
             Expression childExpr = children.get(i);
