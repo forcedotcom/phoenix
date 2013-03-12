@@ -42,7 +42,7 @@ import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 public class ArithmeticOperationTest extends BaseHBaseManagedTimeTest {
 
     @Test
-    public void testDeciamlDefinition() throws Exception {
+    public void testDecimalDefinition() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
