@@ -87,6 +87,8 @@ tokens
     VIEW='view';
     IF='if';
     CONSTRAINT='constraint';
+    SHOW='show';
+    TABLES='tables';
 }
 
 
@@ -321,12 +323,18 @@ oneStatement returns [SQLStatement ret]
     |    dt=drop_table {$ret=dt;}
     |    at=alter_table {$ret=at;}
     |    e=explain_plan {$ret=e;}
+    |    st=show_tables {$ret=st;}
         )
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
 query returns [SelectStatement ret]
     :   q=select_node EOF {$ret=q;}
+    ;
+
+// Parses a SHOW TABLES statement which must be the only statement (expects an EOF after the statement).
+show_tables returns [SQLStatement ret]
+    :   SHOW TABLES EOF {$ret=factory.showTables();}
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
