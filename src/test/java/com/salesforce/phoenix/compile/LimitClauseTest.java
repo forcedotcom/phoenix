@@ -35,7 +35,6 @@ import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
