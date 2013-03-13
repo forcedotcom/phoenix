@@ -230,12 +230,4 @@ public class ArithmeticOperationTest {
         evaluated = e.evaluate(null, ptr);
         assertFalse(evaluated);
     }
-
-    @Test
-    public void testDecimalAveraging() throws Exception {
-    }
-
-    @Test
-    public void testDecimalSummation() throws Exception {
-    }
 }
