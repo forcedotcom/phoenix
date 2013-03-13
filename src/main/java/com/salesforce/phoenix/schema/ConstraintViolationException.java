@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import java.sql.SQLException;
+
 /**
  * 
  * Exception thrown when a schema constraint is violated at the
@@ -35,8 +37,8 @@ package com.salesforce.phoenix.schema;
  * @author jtaylor
  * @since 180
  */
-public class ConstraintViolationException extends RuntimeException {
-	private static final long serialVersionUID = 1L;
+public class ConstraintViolationException extends SQLException {
+    private static final long serialVersionUID = 1L;
 
     public ConstraintViolationException() {
     }
@@ -51,6 +53,11 @@ public class ConstraintViolationException extends RuntimeException {
 
     public ConstraintViolationException(String message, Throwable cause) {
         super(message, cause);
+    }
+
+    protected ConstraintViolationException(String message, String sqlState,
+            int errorCode, Throwable cause) {
+        super(message, sqlState, errorCode, cause);
     }
 
 }

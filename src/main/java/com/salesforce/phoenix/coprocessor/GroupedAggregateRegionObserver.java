@@ -94,7 +94,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
      * are in sorted order.
      */
     @Override
-    protected RegionScanner doPostScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, RegionScanner s) throws IOException {
+    protected RegionScanner doPostScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, RegionScanner s) throws IOException, SQLException {
         boolean keyOrdered = false;
         byte[] expressionBytes = scan.getAttribute(UNORDERED_GROUP_BY_EXPRESSIONS);
 
@@ -193,7 +193,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
      * we must collect all distinct groups within a region into a map, aggregating as we go, and then at the end of the
      * underlying scan, sort them and return them one by one during iteration.
      */
-    private RegionScanner scanUnordered(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, List<Expression> expressions, ServerAggregators aggregators) throws IOException {
+    private RegionScanner scanUnordered(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, List<Expression> expressions, ServerAggregators aggregators) throws IOException, SQLException {
         
         if (logger.isDebugEnabled()) {
             logger.debug("Grouped aggregation over unordered rows with scan " + scan + ", group by " + expressions + ", aggregators " + aggregators);
@@ -350,7 +350,11 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                             key = getKey(expressions, result);
                             aggBoundary = currentKey != null && currentKey.compareTo(key) != 0;
                             if (!aggBoundary) {
-                                aggregators.aggregate(rowAggregators, result);
+                                try {
+                                    aggregators.aggregate(rowAggregators, result);
+                                } catch (SQLException e) {
+                                    throw new RuntimeException(e);
+                                }
                                 if (logger.isDebugEnabled()) {
                                     logger.debug("Row passed filters: " + kvs + ", aggregated values: " + Arrays.asList(rowAggregators));
                                 }
@@ -373,7 +377,11 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     // aggregate with the current result (which is not a part of the returned result).
                     if (aggBoundary) {
                         aggregators.reset(rowAggregators);
-                        aggregators.aggregate(rowAggregators, result);
+                        try {
+                            aggregators.aggregate(rowAggregators, result);
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
                         currentKey = key;
                     }
                 }

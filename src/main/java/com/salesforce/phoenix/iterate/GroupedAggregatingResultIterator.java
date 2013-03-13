@@ -101,7 +101,7 @@ public class GroupedAggregatingResultIterator implements AggregatingResultIterat
     }
     
     @Override
-    public void aggregate(Tuple result) {
+    public void aggregate(Tuple result) throws SQLException {
         Aggregator[] rowAggregators = aggregators.getAggregators();
         aggregators.reset(rowAggregators);
         aggregators.aggregate(rowAggregators, result);

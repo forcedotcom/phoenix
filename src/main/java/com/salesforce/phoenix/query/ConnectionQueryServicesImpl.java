@@ -573,9 +573,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      * in coprocessor definition). This is necessary because of a change in
      * HBase behavior between 0.94.3 and 0.94.4. Once everyone has been upgraded
      * this code can be removed.
-     * @throws SQLException
      */
-    private void upgradeTablesFrom0_94_2to0_94_4(HBaseAdmin admin) throws IOException {
+    private void upgradeTablesFrom0_94_2to0_94_4(HBaseAdmin admin) throws IOException, ConstraintViolationException {
         if (logger.isInfoEnabled()) {
             logger.info("Upgrading tables from HBase 0.94.2 to 0.94.4+");
         }

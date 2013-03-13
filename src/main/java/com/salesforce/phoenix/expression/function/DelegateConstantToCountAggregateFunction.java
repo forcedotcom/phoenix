@@ -47,8 +47,11 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @since 0.1
  */
 abstract public class DelegateConstantToCountAggregateFunction extends SingleAggregateFunction {
-    private static final ImmutableBytesWritable ZERO = new ImmutableBytesWritable(PDataType.LONG.toBytes(0L));
+    private static final ImmutableBytesWritable ZERO;
     private CountAggregateFunction delegate;
+    static {
+        ZERO = new ImmutableBytesWritable(PDataType.LONG.toBytes(0L));
+    }
     
     public DelegateConstantToCountAggregateFunction() {
     }

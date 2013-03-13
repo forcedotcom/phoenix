@@ -36,6 +36,7 @@ import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
+import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -95,7 +96,7 @@ abstract public class BooleanExpressionFilter extends FilterBase {
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL",
             justification="Returns null by design.")
-    protected Boolean evaluate(Tuple input) {
+    protected Boolean evaluate(Tuple input) throws ConstraintViolationException {
         try {
             if (!expression.evaluate(input, tempPtr)) {
                 return null;

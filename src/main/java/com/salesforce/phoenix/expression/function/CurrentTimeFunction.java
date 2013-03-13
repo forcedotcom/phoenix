@@ -31,6 +31,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.parse.CurrentTimeParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -50,11 +51,11 @@ public class CurrentTimeFunction extends ScalarFunction {
     public static final String NAME = "CURRENT_TIME";
     private final ImmutableBytesWritable currentDate = new ImmutableBytesWritable(new byte[PDataType.TIME.getByteSize()]);
     
-    public CurrentTimeFunction() {
+    public CurrentTimeFunction() throws IllegalDataException {
         this(System.currentTimeMillis());
     }
 
-    public CurrentTimeFunction(long timeStamp) {
+    public CurrentTimeFunction(long timeStamp) throws IllegalDataException {
         getDataType().getCodec().encodeLong(timeStamp, currentDate);
     }
 

@@ -84,7 +84,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
     }
     
     @Override
-    protected RegionScanner doPostScannerOpen(final ObserverContext<RegionCoprocessorEnvironment> c, final Scan scan, final RegionScanner s) throws IOException {
+    protected RegionScanner doPostScannerOpen(final ObserverContext<RegionCoprocessorEnvironment> c, final Scan scan, final RegionScanner s) throws IOException, SQLException {
         byte[] isUngroupedAgg = scan.getAttribute(UNGROUPED_AGG);
         if (isUngroupedAgg == null) {
             return s;

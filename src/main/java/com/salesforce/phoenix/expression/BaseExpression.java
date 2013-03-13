@@ -33,7 +33,6 @@ import java.util.*;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 
 
-
 /**
  * 
  * Base class for Expression hierarchy that provides common

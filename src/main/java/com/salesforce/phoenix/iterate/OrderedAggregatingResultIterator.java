@@ -69,7 +69,11 @@ public class OrderedAggregatingResultIterator extends OrderedResultIterator impl
             @Override
             public Tuple next() {
                 Tuple tuple = iterator.next().getResult();
-                aggregate(tuple);
+                try {
+                    aggregate(tuple);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
                 return tuple;
             }
 
@@ -82,7 +86,7 @@ public class OrderedAggregatingResultIterator extends OrderedResultIterator impl
     }
 
     @Override
-    public void aggregate(Tuple result) {
+    public void aggregate(Tuple result) throws SQLException {
         getDelegate().aggregate(result);
     }
 }

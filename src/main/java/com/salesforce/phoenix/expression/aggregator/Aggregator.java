@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
+import java.sql.SQLException;
+
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
@@ -47,7 +49,7 @@ public interface Aggregator extends Expression {
      * @param tuple the result containing all the key values of the row
      * @param ptr the bytes pointer to the underlying result
      */
-    public void aggregate(Tuple tuple, ImmutableBytesWritable ptr);
+    public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException;
     
     /**
      * Get the size in bytes

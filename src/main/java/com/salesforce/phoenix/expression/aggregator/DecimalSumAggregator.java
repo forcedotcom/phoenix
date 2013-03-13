@@ -31,6 +31,7 @@ import java.math.BigDecimal;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
@@ -55,7 +56,7 @@ public class DecimalSumAggregator extends BaseAggregator {
     }
     
     @Override
-    public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) throws ConstraintViolationException {
         BigDecimal value = (BigDecimal)getDataType().toObject(ptr, getInputDataType());
         sum = sum.add(value);
         if (sumBuffer == null) {
@@ -64,7 +65,7 @@ public class DecimalSumAggregator extends BaseAggregator {
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws ConstraintViolationException {
         if (sumBuffer == null) {
             return false;
         }

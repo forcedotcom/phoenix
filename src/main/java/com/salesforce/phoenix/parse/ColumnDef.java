@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -46,7 +47,7 @@ public class ColumnDef {
     private final boolean isPK;
 
     ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
-            Integer scale, boolean isPK) {
+            Integer scale, boolean isPK) throws IllegalDataException {
         this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;

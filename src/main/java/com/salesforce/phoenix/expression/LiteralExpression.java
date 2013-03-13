@@ -34,8 +34,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -106,15 +104,11 @@ public class LiteralExpression extends BaseTerminalExpression {
             throw new TypeMismatchException(type, actualType, value.toString());
         }
         value = type.toObject(value, actualType);
-        try {
-            byte[] b = type.toBytes(value);
-            if (b.length == 0) {
-                return TYPED_NULL_EXPRESSIONS[type.ordinal()];
-            }
-            return new LiteralExpression(value, type, b);
-        } catch (IllegalDataException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.ILLEGAL_DATA).setRootCause(e).build().buildException();
+        byte[] b = type.toBytes(value);
+        if (b.length == 0) {
+            return TYPED_NULL_EXPRESSIONS[type.ordinal()];
         }
+        return new LiteralExpression(value, type, b);
     }
 
     public LiteralExpression() {

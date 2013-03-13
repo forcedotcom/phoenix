@@ -93,7 +93,7 @@ public class DateUtil {
             }
         };
     
-    public static Date parseDate(String dateValue) {
+    public static Date parseDate(String dateValue) throws IllegalDataException {
         try {
             return (Date)dateFormat.get().parseObject(dateValue);
         } catch (ParseException e) {
@@ -108,7 +108,7 @@ public class DateUtil {
             }
         };
     
-    public static Time parseTime(String timeValue) {
+    public static Time parseTime(String timeValue) throws IllegalDataException {
         try {
             return (Time)timeFormat.get().parseObject(timeValue);
         } catch (ParseException e) {
@@ -123,7 +123,7 @@ public class DateUtil {
             }
         };
     
-    public static Timestamp parseTimestamp(String timeValue) {
+    public static Timestamp parseTimestamp(String timeValue) throws IllegalDataException {
         try {
             return (Timestamp)timestampFormat.get().parseObject(timeValue);
         } catch (ParseException e) {

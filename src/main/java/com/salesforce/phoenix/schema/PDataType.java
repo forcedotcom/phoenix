@@ -74,7 +74,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) throws ConstraintViolationException {
             if (!actualType.isCoercibleTo(this)) {
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -82,7 +82,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             switch (actualType) {
             case VARCHAR:
             case CHAR:
@@ -154,7 +154,7 @@ public enum PDataType {
      */
     CHAR("CHAR", Types.CHAR, String.class, null) { // Delegate to VARCHAR
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -166,7 +166,7 @@ public enum PDataType {
         }
 
         @Override
-        public int toBytes(Object object, byte[] bytes, int offset) {
+        public int toBytes(Object object, byte[] bytes, int offset) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -178,7 +178,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) throws ConstraintViolationException {
             if (!actualType.isCoercibleTo(this)) { // TODO: have isCoercibleTo that takes bytes, offset?
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -193,7 +193,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             switch (actualType) {
             case VARCHAR:
             case CHAR:
@@ -235,7 +235,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException {
             return VARCHAR.compareTo(lhs, rhs, rhsType);
         }
 
@@ -245,7 +245,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws ConstraintViolationException {
             if (value == null || value.length() == 0) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -263,14 +263,14 @@ public enum PDataType {
     LONG("BIGINT", Types.BIGINT, Long.class, new LongCodec()) {
 
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             byte[] b = new byte[Bytes.SIZEOF_LONG];
             toBytes(object, b, 0);
             return b;
         }
 
         @Override
-        public int toBytes(Object object, byte[] b, int o) {
+        public int toBytes(Object object, byte[] b, int o) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -278,7 +278,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -299,7 +299,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -367,7 +367,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             switch(rhsType) {
                 case UNSIGNED_INT:
                 case UNSIGNED_LONG:
@@ -385,7 +385,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -399,14 +399,14 @@ public enum PDataType {
     INTEGER("INTEGER", Types.INTEGER, Integer.class, new IntCodec()) {
 
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             byte[] b = new byte[Bytes.SIZEOF_INT];
             toBytes(object, b, 0);
             return b;
         }
 
         @Override
-        public int toBytes(Object object, byte[] b, int o) {
+        public int toBytes(Object object, byte[] b, int o) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -414,7 +414,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -438,7 +438,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -484,7 +484,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException {
             return LONG.compareTo(lhs,rhs,rhsType);
         }
 
@@ -494,7 +494,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             switch(rhsType) {
                 case INTEGER:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
@@ -512,7 +512,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -594,7 +594,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -612,7 +612,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -641,7 +641,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException {
             if (rhsType == DECIMAL) {
                 return ((BigDecimal)lhs).compareTo((BigDecimal)rhs);
             }
@@ -649,7 +649,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             switch(rhsType) {
                 case DECIMAL:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
@@ -711,7 +711,7 @@ public enum PDataType {
 
         @Override
         public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
-                Integer desiredMaxLength, Integer desiredScale) {
+                Integer desiredMaxLength, Integer desiredScale) throws ConstraintViolationException {
             if (scale == null || desiredScale == null) {
                 // scale or deiredScale not available, delegate to parents.
                 return super.coerceBytes(b, object, actualType);
@@ -726,7 +726,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -746,7 +746,7 @@ public enum PDataType {
     TIMESTAMP("TIMESTAMP", Types.TIMESTAMP, Timestamp.class, new DateCodec()) {
         
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -756,7 +756,7 @@ public enum PDataType {
         }
 
         @Override
-        public int toBytes(Object object, byte[] bytes, int offset) {
+        public int toBytes(Object object, byte[] bytes, int offset) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -769,7 +769,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -778,14 +778,14 @@ public enum PDataType {
             case TIME:
                 return new Timestamp(((Date)object).getTime());
             case TIMESTAMP:
-                return object;                
+                return object;
             default:
                 return super.toObject(object, actualType);
             }
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -823,7 +823,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             switch(rhsType) {
                 case TIMESTAMP:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
@@ -838,7 +838,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -848,7 +848,7 @@ public enum PDataType {
     TIME("TIME", Types.TIME, Time.class, new DateCodec()) {
         
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -856,7 +856,7 @@ public enum PDataType {
         }
 
         @Override
-        public int toBytes(Object object, byte[] bytes, int offset) {
+        public int toBytes(Object object, byte[] bytes, int offset) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -865,7 +865,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -880,7 +880,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -911,7 +911,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException {
             if (rhsType == TIMESTAMP) {
                 return -TIMESTAMP.compareTo(rhs, lhs, TIME);
             }
@@ -919,7 +919,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             switch(rhsType) {
                 case DATE:
                 case TIME:
@@ -932,7 +932,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -942,7 +942,7 @@ public enum PDataType {
     DATE("DATE", Types.DATE, Date.class, new DateCodec()) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
         
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -950,7 +950,7 @@ public enum PDataType {
         }
 
         @Override
-        public int toBytes(Object object, byte[] bytes, int offset) {
+        public int toBytes(Object object, byte[] bytes, int offset) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -959,7 +959,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -975,7 +975,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -1005,17 +1005,17 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException {
             return TIME.compareTo(lhs, rhs, rhsType);
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             return TIME.compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength, rhsType);
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -1030,14 +1030,14 @@ public enum PDataType {
     UNSIGNED_LONG("UNSIGNED_LONG", 10 /* no constant available in Types */, Long.class, new UnsignedLongCodec()) {
 
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             byte[] b = new byte[Bytes.SIZEOF_LONG];
             toBytes(object, b, 0);
             return b;
         }
 
         @Override
-        public int toBytes(Object object, byte[] b, int o) {
+        public int toBytes(Object object, byte[] b, int o) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -1045,7 +1045,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -1077,7 +1077,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -1136,7 +1136,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             switch(rhsType) {
                 case UNSIGNED_LONG:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
@@ -1154,7 +1154,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -1177,14 +1177,14 @@ public enum PDataType {
     UNSIGNED_INT("UNSIGNED_INT", 9 /* no constant available in Types */, Integer.class, new UnsignedIntCodec()) {
 
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             byte[] b = new byte[Bytes.SIZEOF_INT];
             toBytes(object, b, 0);
             return b;
         }
 
         @Override
-        public int toBytes(Object object, byte[] b, int o) {
+        public int toBytes(Object object, byte[] b, int o) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -1192,7 +1192,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             if (object == null) {
                 return null;
             }
@@ -1214,14 +1214,14 @@ public enum PDataType {
                 return (int)v;
             case DECIMAL:
                 BigDecimal d = (BigDecimal)object;
-                return d.intValueExact();                
+                return d.intValueExact();
             default:
                 return super.toObject(object, actualType);
             }
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) throws ConstraintViolationException {
             if (l == 0) {
                 return null;
             }
@@ -1252,7 +1252,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException {
             return LONG.compareTo(lhs,rhs,rhsType);
         }
 
@@ -1262,7 +1262,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException {
             switch(rhsType) {
                 case UNSIGNED_INT:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
@@ -1280,7 +1280,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(String value) {
+        public Object toObject(String value) throws IllegalDataException {
             if (value == null || value.length() == 0) {
                 return null;
             }
@@ -1298,7 +1298,7 @@ public enum PDataType {
     BOOLEAN("BOOLEAN", Types.BOOLEAN, Boolean.class, null) {
         
         @Override
-        public byte[] toBytes(Object object) {
+        public byte[] toBytes(Object object) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -1306,7 +1306,7 @@ public enum PDataType {
         }
 
         @Override
-        public int toBytes(Object object, byte[] bytes, int offset) {
+        public int toBytes(Object object, byte[] bytes, int offset) throws ConstraintViolationException {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
@@ -1315,7 +1315,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] bytes, int offset, int length, PDataType targetType) {
+        public Object toObject(byte[] bytes, int offset, int length, PDataType targetType) throws ConstraintViolationException {
             if (!isCoercibleTo(targetType)) {
                 throw new ConstraintViolationException(this + " cannot be coerced to " + targetType);
             }
@@ -1386,7 +1386,7 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(Object object, PDataType actualType) {
+        public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
             return actualType.toBytes(object);
         }
 
@@ -1407,7 +1407,7 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException {
             if (lhs == null && rhs == null) {
                 return 0;
             } else if (lhs == null) {
@@ -1499,45 +1499,45 @@ public enum PDataType {
     }
 
     public static interface PDataCodec {
-        public long decodeLong(ImmutableBytesWritable ptr);
-        public long decodeLong(byte[] b, int o);
-        public int decodeInt(ImmutableBytesWritable ptr);
-        public int decodeInt(byte[] b, int o);
+        public long decodeLong(ImmutableBytesWritable ptr) throws IllegalDataException;
+        public long decodeLong(byte[] b, int o) throws IllegalDataException;
+        public int decodeInt(ImmutableBytesWritable ptr) throws IllegalDataException;
+        public int decodeInt(byte[] b, int o) throws IllegalDataException;
 
-        public int encodeLong(long v, ImmutableBytesWritable ptr);
-        public int encodeLong(long v, byte[] b, int o);
-        public int encodeInt(int v, ImmutableBytesWritable ptr);
-        public int encodeInt(int v, byte[] b, int o);
+        public int encodeLong(long v, ImmutableBytesWritable ptr) throws IllegalDataException;
+        public int encodeLong(long v, byte[] b, int o) throws IllegalDataException;
+        public int encodeInt(int v, ImmutableBytesWritable ptr) throws IllegalDataException;
+        public int encodeInt(int v, byte[] b, int o) throws IllegalDataException;
     }
 
     public static abstract class BaseCodec implements PDataCodec {
         @Override
-        public int decodeInt(ImmutableBytesWritable ptr) {
+        public int decodeInt(ImmutableBytesWritable ptr) throws IllegalDataException {
             return decodeInt(ptr.get(), ptr.getOffset());
         }
 
         @Override
-        public long decodeLong(ImmutableBytesWritable ptr) {
+        public long decodeLong(ImmutableBytesWritable ptr) throws IllegalDataException {
             return decodeLong(ptr.get(),ptr.getOffset());
         }
         
         @Override
-        public int encodeInt(int v, ImmutableBytesWritable ptr) {
+        public int encodeInt(int v, ImmutableBytesWritable ptr) throws IllegalDataException {
             return encodeInt(v, ptr.get(), ptr.getOffset());
         }
         
         @Override
-        public int encodeLong(long v, ImmutableBytesWritable ptr) {
+        public int encodeLong(long v, ImmutableBytesWritable ptr) throws IllegalDataException {
             return encodeLong(v, ptr.get(), ptr.getOffset());
         }
         
         @Override
-        public int encodeInt(int v, byte[] b, int o) {
+        public int encodeInt(int v, byte[] b, int o) throws IllegalDataException {
             throw new UnsupportedOperationException();
         }
         
         @Override
-        public int encodeLong(long v, byte[] b, int o) {
+        public int encodeLong(long v, byte[] b, int o) throws IllegalDataException {
             throw new UnsupportedOperationException();
         }
     }
@@ -1549,7 +1549,7 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o) {
+        public long decodeLong(byte[] b, int o) throws IllegalDataException {
             long v = b[o] ^ 0x80; // Flip sign bit back
             for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {
               v = (v << 8) + (b[o + i] & 0xff);
@@ -1559,7 +1559,7 @@ public enum PDataType {
         
 
         @Override
-        public int decodeInt(byte[] b, int o) {
+        public int decodeInt(byte[] b, int o) throws IllegalDataException {
             long v = decodeLong(b,o);
             if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
                 throw new IllegalDataException("Value " + v + " cannot be cast to Integer without changing its value");
@@ -1568,7 +1568,7 @@ public enum PDataType {
         }
 
         @Override
-        public int encodeLong(long v, byte[] b, int o) {
+        public int encodeLong(long v, byte[] b, int o) throws IllegalDataException {
             b[o + 0] = (byte) ((v >> 56) ^ 0x80); // Flip sign bit so that INTEGER is binary comparable
             b[o + 1] = (byte) (v >> 48);
             b[o + 2] = (byte) (v >> 40);
@@ -1587,12 +1587,12 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o) {
+        public long decodeLong(byte[] b, int o) throws IllegalDataException {
             return decodeInt(b,o);
         }
         
         @Override
-        public int decodeInt(byte[] b, int o) {
+        public int decodeInt(byte[] b, int o) throws IllegalDataException {
             int v = b[o] ^ 0x80; // Flip sign bit back
             for (int i = 1; i < Bytes.SIZEOF_INT; i++) {
               v = (v << 8) + (b[o + i] & 0xff);
@@ -1601,7 +1601,7 @@ public enum PDataType {
         }
         
         @Override
-        public int encodeInt(int v, byte[] b, int o) {
+        public int encodeInt(int v, byte[] b, int o) throws IllegalDataException {
             b[o + 0] = (byte) ((v >> 24) ^ 0x80); // Flip sign bit so that INTEGER is binary comparable
             b[o + 1] = (byte) (v >> 16);
             b[o + 2] = (byte) (v >> 8);
@@ -1610,7 +1610,7 @@ public enum PDataType {
         }
 
         @Override
-        public int encodeLong(long v, byte[] b, int o) {
+        public int encodeLong(long v, byte[] b, int o) throws IllegalDataException {
             if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
                 throw new IllegalDataException("Value " + v + " cannot be encoded as an Integer without changing its value");
             }
@@ -1624,7 +1624,7 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o) {
+        public long decodeLong(byte[] b, int o) throws IllegalDataException {
             long v = Bytes.toLong(b, o);
             if (v < 0) {
                 throw new IllegalDataException();
@@ -1633,7 +1633,7 @@ public enum PDataType {
         }
         
         @Override
-        public int encodeLong(long v, byte[] b, int o) {
+        public int encodeLong(long v, byte[] b, int o) throws IllegalDataException {
             if (v < 0) {
                 throw new IllegalDataException();
             }
@@ -1648,7 +1648,7 @@ public enum PDataType {
         }
         
         @Override
-        public int decodeInt(byte[] b, int o) {
+        public int decodeInt(byte[] b, int o) throws IllegalDataException {
             int v = Bytes.toInt(b, o);
             if (v < 0) {
                 throw new IllegalDataException();
@@ -1657,7 +1657,7 @@ public enum PDataType {
         }
         
         @Override
-        public int encodeInt(int v, byte[] b, int o) {
+        public int encodeInt(int v, byte[] b, int o) throws IllegalDataException {
             if (v < 0) {
                 throw new IllegalDataException();
             }
@@ -1900,22 +1900,22 @@ public enum PDataType {
         return Bytes.compareTo(b1, offset1, length1, b2, offset2, length2);
     }
 
-    public int compareTo(ImmutableBytesWritable ptr1, ImmutableBytesWritable ptr2, PDataType type2) {
+    public int compareTo(ImmutableBytesWritable ptr1, ImmutableBytesWritable ptr2, PDataType type2) throws ConstraintViolationException {
         return compareTo(ptr1.get(),ptr1.getOffset(),ptr1.getLength(),ptr2.get(),ptr2.getOffset(),ptr2.getLength(), type2);
     }
 
-    public abstract int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType);
+    public abstract int compareTo(byte[] lhs, int lhsOffset, int lhsLength, byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) throws ConstraintViolationException;
 
-    public abstract int compareTo(Object lhs, Object rhs, PDataType rhsType);
+    public abstract int compareTo(Object lhs, Object rhs, PDataType rhsType) throws ConstraintViolationException;
 
-    public int compareTo(Object lhs, Object rhs) {
+    public int compareTo(Object lhs, Object rhs) throws ConstraintViolationException {
         return compareTo(lhs,rhs,this);
     }
 
     public abstract boolean isFixedWidth();
     public abstract Integer getByteSize();
 
-    public abstract byte[] toBytes(Object object);
+    public abstract byte[] toBytes(Object object) throws ConstraintViolationException;
 
     /**
      * Convert from the object representation of a data type value into
@@ -1925,9 +1925,9 @@ public enum PDataType {
      * @param offset the offset from which to start writing the serialized form
      * @return the byte length of the serialized object
      */
-    public abstract int toBytes(Object object, byte[] bytes, int offset);
+    public abstract int toBytes(Object object, byte[] bytes, int offset) throws ConstraintViolationException;
 
-    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) {
+    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) throws ConstraintViolationException {
         if (this == actualType) { // No coerce necessary
             return b;
         } else { // TODO: optimize in specific cases
@@ -1937,7 +1937,7 @@ public enum PDataType {
     }
 
     public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
-            Integer desiredMaxLength, Integer desiredScale) {
+            Integer desiredMaxLength, Integer desiredScale) throws ConstraintViolationException {
         return coerceBytes(b, object, actualType);
     }
 
@@ -1946,9 +1946,9 @@ public enum PDataType {
      * @param value a stringified value
      * @return the object representation of a string value
      */
-    public abstract Object toObject(String value);
+    public abstract Object toObject(String value) throws ConstraintViolationException;
 
-    public Object toObject(Object object, PDataType actualType) {
+    public Object toObject(Object object, PDataType actualType) throws ConstraintViolationException {
         if (actualType != this) {
             byte[] b = actualType.toBytes(object);
             return this.toObject(b, 0, b.length, actualType);
@@ -1956,24 +1956,24 @@ public enum PDataType {
         return object;
     }
 
-    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) throws ConstraintViolationException {
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
     }
 
-    public Object toObject(ImmutableBytesWritable ptr, PDataType actualType) {
+    public Object toObject(ImmutableBytesWritable ptr, PDataType actualType) throws ConstraintViolationException {
         return this.toObject(ptr.get(),ptr.getOffset(),ptr.getLength(), actualType);
     }
 
-    public Object toObject(ImmutableBytesWritable ptr) {
+    public Object toObject(ImmutableBytesWritable ptr) throws ConstraintViolationException {
         return toObject(ptr.get(),ptr.getOffset(),ptr.getLength());
     }
 
-    public Object toObject(byte[] bytes, int offset, int length) {
+    public Object toObject(byte[] bytes, int offset, int length) throws ConstraintViolationException {
         return toObject(bytes, offset, length, this);
     }
 
-    public Object toObject(byte[] bytes) {
+    public Object toObject(byte[] bytes) throws ConstraintViolationException {
         return toObject(bytes, 0, bytes.length, this);
     }
 
@@ -1987,7 +1987,7 @@ public enum PDataType {
         SQL_TYPE_NAME_TO_PCOLUMN_DATA_TYPE = builder.build();
     }
 
-    public static PDataType fromSqlTypeName(String sqlTypeName) {
+    public static PDataType fromSqlTypeName(String sqlTypeName) throws IllegalDataException {
         PDataType dataType = SQL_TYPE_NAME_TO_PCOLUMN_DATA_TYPE.get(sqlTypeName);
         if (dataType != null) {
             return dataType;
@@ -2017,7 +2017,7 @@ public enum PDataType {
         }
     }
 
-    public static PDataType fromSqlType(Integer sqlType) {
+    public static PDataType fromSqlType(Integer sqlType) throws IllegalDataException {
         int offset = sqlType - SQL_TYPE_OFFSET;
         if (offset >= 0 && offset < SQL_TYPE_TO_PCOLUMN_DATA_TYPE.length) {
             PDataType type = SQL_TYPE_TO_PCOLUMN_DATA_TYPE[offset];

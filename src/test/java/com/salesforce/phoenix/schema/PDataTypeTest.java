@@ -41,7 +41,7 @@ import com.salesforce.phoenix.util.TestUtil;
 
 public class PDataTypeTest {
     @Test
-    public void testLong() {
+    public void testLong() throws Exception {
         Long la = 4L;
         byte[] b = PDataType.LONG.toBytes(la);
         Long lb = (Long)PDataType.LONG.toObject(b);
@@ -55,7 +55,7 @@ public class PDataTypeTest {
     }
     
     @Test
-    public void testInt() {
+    public void testInt() throws Exception {
         Integer na = 4;
         byte[] b = PDataType.INTEGER.toBytes(na);
         Integer nb = (Integer)PDataType.INTEGER.toObject(b);
@@ -81,7 +81,7 @@ public class PDataTypeTest {
     }
 
     @Test
-    public void testBigDecimal() {
+    public void testBigDecimal() throws Exception {
         byte[] b;
         BigDecimal na, nb;
         
@@ -224,17 +224,10 @@ public class PDataTypeTest {
     public void testNull() throws Throwable {
         byte[] b = new byte[8];
         for (PDataType type : PDataType.values()) {
-            try {
-               type.toBytes(null);
+            type.toBytes(null);
                type.toBytes(null, b, 0);
                type.toObject(new byte[0],0,0);
                type.toObject(new byte[0],0,0, type);
-            } catch (ConstraintViolationException e) {
-                // Fixed width types do not support the concept of a "null" value.
-                if (! (type.isFixedWidth() && e.getMessage().contains("may not be null"))) {
-                    fail(type + ":" + e);
-                }
-            }
         }
     }
 

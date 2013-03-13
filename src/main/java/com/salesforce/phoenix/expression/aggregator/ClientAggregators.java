@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
@@ -60,7 +61,7 @@ public class ClientAggregators extends Aggregators {
     }
     
     @Override
-    public void aggregate(Aggregator[] aggregators, Tuple result) {
+    public void aggregate(Aggregator[] aggregators, Tuple result) throws SQLException {
         TupleUtil.getAggregateValue(result, ptr);
         tempValueSet.clear();
         tempValueSet.or(ptr);
