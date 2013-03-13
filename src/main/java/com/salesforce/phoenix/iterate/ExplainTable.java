@@ -49,7 +49,7 @@ public abstract class ExplainTable {
         this.table = table;
     }
 
-    protected void explain(String prefix, List<String> planSteps) {
+    protected void explain(String prefix, List<String> planSteps) throws ConstraintViolationException {
         StringBuilder buf = new StringBuilder(prefix);
         ScanKey scanKey = context.getScanKey();
         if (scanKey.getLowerRange().length == 0 && scanKey.getUpperRange().length == 0) {
@@ -69,7 +69,7 @@ public abstract class ExplainTable {
         context.getGroupBy().explain(planSteps);
     }
 
-    private void appendPKColumnValues(StringBuilder buf, byte[] key, RowKeySchema schema) {
+    private void appendPKColumnValues(StringBuilder buf, byte[] key, RowKeySchema schema) throws ConstraintViolationException {
         ImmutableBytesWritable ptr = context.getTempPtr();
         ptr.set(key, 0, 0);
 
@@ -90,7 +90,7 @@ public abstract class ExplainTable {
         }
     }
     
-    private void appendKeyRange(StringBuilder buf) {
+    private void appendKeyRange(StringBuilder buf) throws ConstraintViolationException {
         ScanKey scanKey = context.getScanKey();
         boolean noStartKey = scanKey.getLowerRange().length == 0;
         boolean noEndKey = scanKey.getUpperRange().length == 0;

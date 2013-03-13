@@ -25,71 +25,19 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.iterate;
 
-import java.io.*;
-import java.util.*;
-
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.ConstraintViolationException;
+import java.sql.SQLException;
 
 
 /**
- * 
- * Base class for Expression hierarchy that provides common
- * default implementations for most methods
- *
- * @author jtaylor
- * @since 0.1
+ * An iterator similar to the one from java.util.Iterator, but allow methods to throw SQLException.
  */
-public abstract class BaseExpression implements Expression {
-    @Override
-    public boolean isNullable() {
-        return false;
-    }
+public interface SQLExceptionThrowingIterator<E> {
 
-    @Override
-    public Integer getByteSize() {
-        return getDataType().isFixedWidth() ? getDataType().getByteSize() : null;
-    }
+    boolean hasNext() throws SQLException;
 
-    @Override
-    public Integer getMaxLength() {
-        return null;
-    }
+    E next() throws SQLException;
 
-    @Override
-    public Integer getScale() {
-        return null;
-    }
-
-    @Override
-    public void readFields(DataInput input) throws IOException, ConstraintViolationException {
-    }
-
-    @Override
-    public void write(DataOutput output) throws IOException {
-    }
-
-    @Override
-    public void reset() {
-    }
-    
-    protected final <T> List<T> acceptChildren(ExpressionVisitor<T> visitor, Iterator<Expression> iterator) {
-        if (iterator == null) {
-            iterator = visitor.defaultIterator(this);
-        }
-        List<T> l = Collections.emptyList();
-        while (iterator.hasNext()) {
-            Expression child = iterator.next();
-            T t = child.accept(visitor);
-            if (t != null) {
-                if (l.isEmpty()) {
-                    l = new ArrayList<T>(getChildren().size());
-                }
-                l.add(t);
-            }
-        }
-        return l;
-    }
+    void remove() throws SQLException;
 }

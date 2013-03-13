@@ -67,7 +67,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     private Integer scale;
 
     // TODO: cache?
-    public static LiteralExpression newConstant(Object value) {
+    public static LiteralExpression newConstant(Object value) throws ConstraintViolationException {
         if (Boolean.FALSE.equals(value)) {
             return FALSE_EXPRESSION;
         }
@@ -114,7 +114,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     public LiteralExpression() {
     }
 
-    protected LiteralExpression(Object value) {
+    protected LiteralExpression(Object value) throws ConstraintViolationException {
         this.value = value;
         this.type = PDataType.fromLiteral(value);
         if (type == null) {
@@ -166,7 +166,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
 
     @Override
-    public void readFields(DataInput input) throws IOException {
+    public void readFields(DataInput input) throws IOException, ConstraintViolationException {
         this.byteValue = Bytes.readByteArray(input);
         if (this.byteValue.length > 0) {
             this.type = PDataType.values()[WritableUtils.readVInt(input)];

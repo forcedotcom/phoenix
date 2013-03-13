@@ -350,11 +350,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                             key = getKey(expressions, result);
                             aggBoundary = currentKey != null && currentKey.compareTo(key) != 0;
                             if (!aggBoundary) {
-                                try {
-                                    aggregators.aggregate(rowAggregators, result);
-                                } catch (SQLException e) {
-                                    throw new RuntimeException(e);
-                                }
+                                aggregators.aggregate(rowAggregators, result);
                                 if (logger.isDebugEnabled()) {
                                     logger.debug("Row passed filters: " + kvs + ", aggregated values: " + Arrays.asList(rowAggregators));
                                 }

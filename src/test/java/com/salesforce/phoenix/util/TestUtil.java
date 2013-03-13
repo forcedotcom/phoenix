@@ -129,7 +129,7 @@ public class TestUtil {
         return BigDecimal.valueOf(sum).divide(BigDecimal.valueOf(count), PDataType.DEFAULT_MATH_CONTEXT);
     }
 
-    public static Expression constantComparison(CompareOp op, PColumn c, Object o) {
+    public static Expression constantComparison(CompareOp op, PColumn c, Object o) throws ConstraintViolationException {
         return  new ComparisonExpression(op, Arrays.<Expression>asList(new KeyValueColumnExpression(c), LiteralExpression.newConstant(o)));
     }
     
