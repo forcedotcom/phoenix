@@ -83,6 +83,8 @@ public enum ExpressionType {
     LengthFunction(LengthFunction.class),
     LTrimFunction(LTrimFunction.class),
     RTrimFunction(RTrimFunction.class),
+    UpperFunction(UpperFunction.class),
+    LowerFunction(LowerFunction.class),
     TrimFunction(TrimFunction.class);
 
     ExpressionType(Class<? extends Expression> clazz) {

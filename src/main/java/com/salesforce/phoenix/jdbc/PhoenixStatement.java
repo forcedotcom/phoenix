@@ -527,7 +527,57 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             return StatementPlan.EMPTY_PLAN;
         }
     }
-    
+
+    private class ExecutableShowTablesStatement extends ShowTablesStatement implements ExecutableStatement {
+
+        ExecutableShowTablesStatement() {
+        }
+
+        @Override
+        public PhoenixResultSet executeQuery() throws SQLException {
+            throw new ExecuteQueryNotApplicableException("SHOW TABLES", this.toString());
+        }
+
+        @Override
+        public boolean execute() throws SQLException {
+            executeUpdate();
+            return false;
+        }
+
+        @Override
+        public int executeUpdate() throws SQLException {
+            ResultSet rs = connection.getMetaData().getTables(null,null,null,null);
+            while (rs.next()) {
+                String schema = rs.getString(2);
+                String table = rs.getString(3);
+                String name = SchemaUtil.getTableDisplayName(schema,table);
+                System.out.println(name);
+            }
+            return 0;
+        }
+
+        @Override
+        public ResultSetMetaData getResultSetMetaData() throws SQLException {
+            return null;
+        }
+
+        @Override
+        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+            return new StatementPlan() {
+
+                @Override
+                public ParameterMetaData getParameterMetaData() {
+                    return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
+                }
+
+                @Override
+                public ExplainPlan getExplainPlan() throws SQLException {
+                    return new ExplainPlan(Collections.singletonList("SHOW TABLES"));
+                }
+            };
+        }
+    }
+
     protected class ExecutableNodeFactory extends ParseNodeFactory {
         @Override
         public ExecutableSelectStatement select(List<TableNode> from, HintNode hint, List<AliasedParseNode> select,
@@ -569,6 +619,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public ExplainStatement explain(SQLStatement statement) {
             return new ExecutableExplainStatement(statement);
+        }
+
+        @Override
+        public ShowTablesStatement showTables() {
+            return new ExecutableShowTablesStatement();
         }
     }
     
