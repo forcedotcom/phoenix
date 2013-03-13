@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.sql.SQLException;
+
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -44,5 +46,5 @@ public interface AggregatingResultIterator extends ResultIterator {
      * scanners that need to look ahead (i.e. {@link com.salesforce.phoenix.iterate.OrderedAggregatingResultIterator}
      * @param result the row to re-aggregate
      */
-    void aggregate(Tuple result);
+    void aggregate(Tuple result) throws SQLException;
 }

@@ -62,9 +62,9 @@ public class MaterializedResultIterator implements PeekingResultIterator {
         return iterator.peek();
     }
 
-    private static class PeekingCollectionIterator implements Iterator<Tuple> {
+    private static class PeekingCollectionIterator implements SQLExceptionThrowingIterator<Tuple> {
         private final Iterator<Tuple> iterator;
-        private Tuple current;            
+        private Tuple current;
         
         private PeekingCollectionIterator(Collection<Tuple> results) {
             iterator = results.iterator();

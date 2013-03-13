@@ -99,7 +99,7 @@ public class SubstrFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         // TODO: multi-byte characters
         Expression offsetExpression = getOffsetExpression();
         if (!offsetExpression.evaluate(tuple,  ptr)) {

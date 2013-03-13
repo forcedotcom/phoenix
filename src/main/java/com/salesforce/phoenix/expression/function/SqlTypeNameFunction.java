@@ -35,10 +35,8 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -64,7 +62,7 @@ public class SqlTypeNameFunction extends ScalarFunction {
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         Expression child = children.get(0);
         if (!child.evaluate(tuple, ptr)) {
             return false;
@@ -73,12 +71,8 @@ public class SqlTypeNameFunction extends ScalarFunction {
             return true;
         }
         int sqlType = child.getDataType().getCodec().decodeInt(ptr);
-        try {
-            byte[] sqlTypeNameBytes = PDataType.fromSqlType(sqlType).getSqlTypeNameBytes();
-            ptr.set(sqlTypeNameBytes);
-        } catch (IllegalDataException e) {
-            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-        }
+        byte[] sqlTypeNameBytes = PDataType.fromSqlType(sqlType).getSqlTypeNameBytes();
+        ptr.set(sqlTypeNameBytes);
         return true;
     }
 

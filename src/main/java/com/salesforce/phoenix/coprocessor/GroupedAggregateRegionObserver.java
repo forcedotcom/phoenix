@@ -30,6 +30,7 @@ package com.salesforce.phoenix.coprocessor;
 import static com.salesforce.phoenix.query.QueryConstants.*;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.*;
@@ -93,7 +94,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
      * are in sorted order.
      */
     @Override
-    protected RegionScanner doPostScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, RegionScanner s) throws IOException {
+    protected RegionScanner doPostScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, RegionScanner s) throws IOException, SQLException {
         boolean keyOrdered = false;
         byte[] expressionBytes = scan.getAttribute(UNORDERED_GROUP_BY_EXPRESSIONS);
 
@@ -142,7 +143,13 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
     private ImmutableBytesWritable getKey(List<Expression> expressions, Tuple result) throws IOException {
         ImmutableBytesWritable groupByValue = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
         Expression expression = expressions.get(0);
-        boolean evaluated = expression.evaluate(result, groupByValue);
+        boolean evaluated;
+        try {
+            evaluated = expression.evaluate(result, groupByValue);
+        } catch (SQLException e) {
+            logger.error("Exception caught when evaluating expression. " + e.getMessage(), e);
+            return new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
+        }
         
         if (expressions.size() == 1) {
             if (!evaluated) {
@@ -172,6 +179,9 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 byte[] outputBytes = output.getBuffer();
                 groupByValue.set(outputBytes, 0, output.size());
                 return groupByValue;
+            } catch (SQLException e) {
+                logger.error("Exception caught when evaluating expression. " + e.getMessage(), e);
+                return new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
             } finally {
                 output.close();
             }
@@ -183,7 +193,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
      * we must collect all distinct groups within a region into a map, aggregating as we go, and then at the end of the
      * underlying scan, sort them and return them one by one during iteration.
      */
-    private RegionScanner scanUnordered(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, List<Expression> expressions, ServerAggregators aggregators) throws IOException {
+    private RegionScanner scanUnordered(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, List<Expression> expressions, ServerAggregators aggregators) throws IOException, SQLException {
         
         if (logger.isDebugEnabled()) {
             logger.debug("Grouped aggregation over unordered rows with scan " + scan + ", group by " + expressions + ", aggregators " + aggregators);
@@ -363,7 +373,11 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     // aggregate with the current result (which is not a part of the returned result).
                     if (aggBoundary) {
                         aggregators.reset(rowAggregators);
-                        aggregators.aggregate(rowAggregators, result);
+                        try {
+                            aggregators.aggregate(rowAggregators, result);
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
                         currentKey = key;
                     }
                 }

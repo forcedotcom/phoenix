@@ -84,7 +84,7 @@ public class CoerceExpression extends BaseSingleExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (getChild().evaluate(tuple, ptr)) {
             // TODO: use Native to prevent creating object
             // TODO: if type matches don't go to object and back again

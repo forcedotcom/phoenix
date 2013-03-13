@@ -151,7 +151,7 @@ public class CaseExpression extends BaseCompoundExpression {
         WritableUtils.writeVInt(output, this.returnType.ordinal());
     }
     
-    public int evaluateIndexOf(Tuple tuple, ImmutableBytesWritable ptr) {
+    public int evaluateIndexOf(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (foundIndex) {
             return evalIndex;
         }
@@ -197,7 +197,7 @@ public class CaseExpression extends BaseCompoundExpression {
      * evaluate.
      */
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         int index = evaluateIndexOf(tuple, ptr);
         if (index < 0) {
             return false;

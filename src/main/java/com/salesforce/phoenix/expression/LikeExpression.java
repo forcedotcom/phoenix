@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression;
 
 import java.io.DataInput;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -237,7 +238,7 @@ public class LikeExpression extends BaseCompoundExpression {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         Pattern pattern = this.pattern;
         if (pattern == null) { // TODO: don't allow? this is going to be slooowwww
             if (!getPatternExpression().evaluate(tuple, ptr)) {

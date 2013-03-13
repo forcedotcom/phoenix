@@ -31,7 +31,7 @@ import java.io.*;
 import java.util.*;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-
+import com.salesforce.phoenix.schema.ConstraintViolationException;
 
 
 /**
@@ -64,7 +64,7 @@ public abstract class BaseExpression implements Expression {
     }
 
     @Override
-    public void readFields(DataInput input) throws IOException {
+    public void readFields(DataInput input) throws IOException, ConstraintViolationException {
     }
 
     @Override

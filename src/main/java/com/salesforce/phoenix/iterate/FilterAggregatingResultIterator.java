@@ -76,7 +76,7 @@ public class FilterAggregatingResultIterator  implements AggregatingResultIterat
     }
 
     @Override
-    public void aggregate(Tuple result) {
+    public void aggregate(Tuple result) throws SQLException {
         delegate.aggregate(result);
     }
 

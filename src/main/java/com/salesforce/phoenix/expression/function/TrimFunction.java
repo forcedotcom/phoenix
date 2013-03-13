@@ -70,7 +70,7 @@ public class TrimFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (!getStringExpression().evaluate(tuple, ptr)) {
             return false;
         }

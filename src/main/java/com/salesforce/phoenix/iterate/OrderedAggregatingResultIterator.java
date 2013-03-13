@@ -58,23 +58,23 @@ public class OrderedAggregatingResultIterator extends OrderedResultIterator impl
     }
     
     @Override
-    protected Iterator<Tuple> newIterator(final Iterator<ResultEntry> iterator) {
-        return new Iterator<Tuple>() {
+    protected SQLExceptionThrowingIterator<Tuple> newIterator(final Iterator<ResultEntry> iterator) {
+        return new SQLExceptionThrowingIterator<Tuple>() {
 
             @Override
-            public boolean hasNext() {
+            public boolean hasNext() throws SQLException {
                 return iterator.hasNext();
             }
 
             @Override
-            public Tuple next() {
+            public Tuple next() throws SQLException {
                 Tuple tuple = iterator.next().getResult();
                 aggregate(tuple);
                 return tuple;
             }
 
             @Override
-            public void remove() {
+            public void remove() throws SQLException {
                 throw new UnsupportedOperationException();
             }
             
@@ -82,7 +82,7 @@ public class OrderedAggregatingResultIterator extends OrderedResultIterator impl
     }
 
     @Override
-    public void aggregate(Tuple result) {
+    public void aggregate(Tuple result) throws SQLException {
         getDelegate().aggregate(result);
     }
 }

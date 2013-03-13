@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.aggregator;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
@@ -58,7 +59,7 @@ public class CountAggregator extends BaseAggregator {
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws IllegalDataException {
         if (buffer == null) {
             buffer = new byte[getDataType().getByteSize()];
         }

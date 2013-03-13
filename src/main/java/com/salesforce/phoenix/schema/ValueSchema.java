@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.schema;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -375,20 +376,25 @@ public abstract class ValueSchema {
             Field field = fields.get(i);
             PDataType type = field.getType();
             for (int j = 0; j < field.getCount(); j++) {
-                if (aggregators[index].evaluate(null, ptr)) { // Skip null values
-                    if (index >= minNullableIndex) {
-                        valueSet.set(index - minNullableIndex);
+                try {
+                    if (aggregators[index].evaluate(null, ptr)) { // Skip null values
+                        if (index >= minNullableIndex) {
+                            valueSet.set(index - minNullableIndex);
+                        }
+                        if (!type.isFixedWidth()) {
+                            offset = writeVarLengthField(ptr, b, offset);
+                        } else {
+                            int nBytes = ptr.getLength();
+                            b = ensureSize(b, offset, offset + nBytes);
+                            System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, nBytes);
+                            offset += nBytes;
+                        }
                     }
-                    if (!type.isFixedWidth()) {
-                        offset = writeVarLengthField(ptr, b, offset);
-                    } else {
-                        int nBytes = ptr.getLength();
-                        b = ensureSize(b, offset, offset + nBytes);
-                        System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, nBytes);                        
-                        offset += nBytes;
-                    }
+                } catch (SQLException e) {
+                    // Exception during evaluation is treated as if evaluating to null.
+                } finally {
+                    index++;
                 }
-                index++;
             }
         }
         // Add information about which values were set at end of value,

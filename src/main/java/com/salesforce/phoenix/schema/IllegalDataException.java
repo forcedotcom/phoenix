@@ -27,6 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
+
 /**
  * 
  * Exception thrown when an invalid or illegal data value is found
@@ -35,21 +38,27 @@ package com.salesforce.phoenix.schema;
  * @since 0.1
  */
 public class IllegalDataException extends ConstraintViolationException {
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.ILLEGAL_DATA;
 
     public IllegalDataException() {
+        super(new SQLExceptionInfo.Builder(code).build().toString(),
+                code.getSQLState(), code.getErrorCode(), null);
     }
 
     public IllegalDataException(String message) {
-        super(message);
+        super(new SQLExceptionInfo.Builder(code).setMessage(message).build().toString(),
+                code.getSQLState(), code.getErrorCode(), null);
     }
 
     public IllegalDataException(Throwable cause) {
-        super(cause);
+        super(new SQLExceptionInfo.Builder(code).build().toString(),
+                code.getSQLState(), code.getErrorCode(), cause);
     }
 
     public IllegalDataException(String message, Throwable cause) {
-        super(message, cause);
+        super(new SQLExceptionInfo.Builder(code).setMessage(message).build().toString(),
+                code.getSQLState(), code.getErrorCode(), cause);
     }
 
 }

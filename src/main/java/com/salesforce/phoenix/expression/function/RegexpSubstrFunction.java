@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -96,7 +97,7 @@ public class RegexpSubstrFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (pattern == null) {
             return false;
         }

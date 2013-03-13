@@ -25,47 +25,19 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
-import java.util.List;
-
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
-public class LongAddExpression extends AddExpression {
+/**
+ * An iterator similar to the one from java.util.Iterator, but allow methods to throw SQLException.
+ */
+public interface SQLExceptionThrowingIterator<E> {
 
-    public LongAddExpression() {
-    }
+    boolean hasNext() throws SQLException;
 
-    public LongAddExpression(List<Expression> children) {
-        super(children);
-    }
+    E next() throws SQLException;
 
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
-        long finalResult=0;
-        
-        for(int i=0;i<children.size();i++) {
-            Expression child = children.get(i);
-            if (!child.evaluate(tuple, ptr) || ptr.getLength() == 0) {
-                return false;
-            }
-            long childvalue = child.getDataType().getCodec().decodeLong(ptr);
-            finalResult += childvalue;
-        }
-        byte[] resultPtr=new byte[PDataType.LONG.getByteSize()];
-        ptr.set(resultPtr);
-        getDataType().getCodec().encodeLong(finalResult, ptr);
-        return true;
-    }
-
-    @Override
-    public final PDataType getDataType() {
-        return PDataType.LONG;
-    }
-
+    void remove() throws SQLException;
 }

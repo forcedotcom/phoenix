@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
+import java.sql.SQLException;
 import java.util.BitSet;
 import java.util.List;
 
@@ -75,7 +76,7 @@ public abstract class AndOrExpression extends BaseCompoundExpression {
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         boolean isNull = false;
         boolean stopValue = getStopValue();
         for (int i = 0; i < children.size(); i++) {

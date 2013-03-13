@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -60,7 +61,7 @@ public class ServerAggregators extends Aggregators {
     }
     
     @Override
-    public void aggregate(Aggregator[] aggregators, Tuple result) {
+    public void aggregate(Aggregator[] aggregators, Tuple result) throws SQLException {
         for (int i = 0; i < expressions.length; i++) {
             if (expressions[i].evaluate(result, ptr)) {
                 aggregators[i].aggregate(result, ptr);

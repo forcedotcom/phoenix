@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -46,8 +47,11 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @since 0.1
  */
 abstract public class DelegateConstantToCountAggregateFunction extends SingleAggregateFunction {
-    private static final ImmutableBytesWritable ZERO = new ImmutableBytesWritable(PDataType.LONG.toBytes(0L));
+    private static final ImmutableBytesWritable ZERO;
     private CountAggregateFunction delegate;
+    static {
+        ZERO = new ImmutableBytesWritable(PDataType.LONG.toBytes(0L));
+    }
     
     public DelegateConstantToCountAggregateFunction() {
     }
@@ -63,7 +67,7 @@ abstract public class DelegateConstantToCountAggregateFunction extends SingleAgg
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         if (delegate == null) {
             return super.evaluate(tuple, ptr);
         }

@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.function;
 
 import java.io.DataInput;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -121,7 +122,7 @@ abstract public class SingleAggregateFunction extends AggregateFunction {
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         return getAggregator().evaluate(tuple, ptr);
     }
 

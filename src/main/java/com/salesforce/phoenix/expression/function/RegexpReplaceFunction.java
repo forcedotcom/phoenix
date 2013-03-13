@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.function;
 
 import java.io.DataInput;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -84,7 +85,7 @@ public class RegexpReplaceFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException {
         // Can't parse if there is no replacement pattern.
         if (pattern == null) {
             return false;

@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
+import java.sql.SQLException;
+
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
@@ -80,7 +82,7 @@ abstract public class Aggregators {
      * Aggregate over aggregators
      * @param result the single row Result from scan iteration
      */
-    abstract public void aggregate(Aggregator[] aggregators, Tuple result);
+    abstract public void aggregate(Aggregator[] aggregators, Tuple result) throws SQLException;
 
     protected static int calculateSize(Aggregator[] aggregators) {
         

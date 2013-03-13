@@ -71,7 +71,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     private static final String R1 = "R1";
     private static final String R2 = "R2";
     
-    private static byte[][] getSplits(String tenantId) {
+    private static byte[][] getSplits(String tenantId) throws Exception {
         return new byte[][] { 
             ByteUtil.concat(Bytes.toBytes(tenantId), PDataType.DATE.toBytes(D3)),
             ByteUtil.concat(Bytes.toBytes(tenantId), PDataType.DATE.toBytes(D5)),

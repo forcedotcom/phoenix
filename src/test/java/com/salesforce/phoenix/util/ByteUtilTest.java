@@ -61,7 +61,7 @@ public class ByteUtilTest {
     }
     
     @Test
-    public void testNextKey() {
+    public void testNextKey() throws Exception {
         byte[] key = new byte[] {1};
         assertEquals((byte)2, ByteUtil.nextKey(key)[0]); 
         key = new byte[] {1, (byte)255};

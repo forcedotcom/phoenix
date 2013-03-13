@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -52,8 +53,9 @@ public interface Expression extends PDatum, Writable {
      * @param ptr Pointer to byte value being accessed
      * @return true if the expression could be evaluated (i.e. ptr was set)
      * and false otherwise
+     * @throws SQLException when we have unrecoverable errors during the evaluatioin phase.
      */
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr);
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) throws SQLException;
     
     /**
      * Means of traversing expression tree through visitor.
