@@ -27,8 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema.stat;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.HRegionInfo;
@@ -58,6 +59,7 @@ public class PTableStatsImpl implements PTableStats {
         return regionGuidePosts.get(region.getRegionNameAsString());
     }
 
+    @Override
     public void write(DataOutput output) throws IOException {
         if (regionGuidePosts == null) {
             WritableUtils.writeVInt(output, 0);

@@ -1,34 +1,25 @@
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
+import java.util.List;
+
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import java.io.DataInput;
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.List;
 
 @FunctionParseNode.BuiltInFunction(name=LowerFunction.NAME,  args={
         @FunctionParseNode.Argument(allowedTypes={PDataType.VARCHAR})} )
 public class LowerFunction extends ScalarFunction {
     public static final String NAME = "LOWER";
-    private boolean isFixedWidth;
-    private Integer byteSize;
 
     public LowerFunction() {
     }
 
     public LowerFunction(List<Expression> children) throws SQLException {
         super(children);
-        init();
-    }
-
-    private void init() {
-        isFixedWidth = getStrExpression().getDataType().isFixedWidth();
-        byteSize = getStrExpression().getByteSize();
     }
 
     @Override
@@ -39,7 +30,7 @@ public class LowerFunction extends ScalarFunction {
 
         String sourceStr = (String)PDataType.VARCHAR.toObject(ptr);
         if (sourceStr == null) {
-            return false;
+            return true;
         }
 
         ptr.set(PDataType.VARCHAR.toBytes(sourceStr.toLowerCase()));
@@ -48,33 +39,12 @@ public class LowerFunction extends ScalarFunction {
 
     @Override
     public PDataType getDataType() {
-        return isFixedWidth ? PDataType.CHAR : PDataType.VARCHAR;
+        return getStrExpression().getDataType();
     }
 
     @Override
     public boolean isNullable() {
-        return getStrExpression().isNullable() || !isFixedWidth;
-    }
-
-    @Override
-    public Integer getByteSize() {
-        return byteSize;
-    }
-
-    @Override
-    public void readFields(DataInput input) throws IOException {
-        super.readFields(input);
-        init();
-    }
-
-    @Override
-    public boolean preservesOrder() {
-        return true;
-    }
-
-    @Override
-    public KeyFormationDirective getKeyFormationDirective() {
-        return preservesOrder() ? KeyFormationDirective.TRAVERSE_AND_EXTRACT : KeyFormationDirective.UNTRAVERSABLE;
+        return getStrExpression().isNullable();
     }
 
     @Override

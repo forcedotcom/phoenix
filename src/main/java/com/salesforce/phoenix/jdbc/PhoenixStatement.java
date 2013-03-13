@@ -821,7 +821,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     @Override
     public int getResultSetConcurrency() throws SQLException {
-        return ResultSet.CONCUR_UPDATABLE;
+        return ResultSet.CONCUR_READ_ONLY;
     }
 
     @Override
