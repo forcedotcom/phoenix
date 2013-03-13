@@ -528,7 +528,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
@@ -548,7 +548,6 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    @Ignore("conversion between or and in not yet implemented")
     public void testOr2InFilter() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";
@@ -603,7 +602,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId + entityId1);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId + entityId2);
@@ -647,7 +646,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
@@ -673,7 +672,6 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    @Ignore("not sure why nodesToExtract is empty in WhereOptimizer, so the second slot isn't processed")
     public void testInListWithAnd2Filter() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";

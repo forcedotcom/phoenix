@@ -561,7 +561,7 @@ public class WhereOptimizer {
             List<KeyRange> ranges = KeyRange.of(keys);
             KeyPart colKeyExpr = childKeyExprs.get(0).iterator().next().getKeyPart();
             // TODO: make key range backed by ImmutableBytesWritable to prevent copy?
-            return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>emptyList(), false, ranges, node.getChildren().get(0));
+            return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>singletonList(node), false, ranges, node.getChildren().get(0));
         }
 
         @Override
