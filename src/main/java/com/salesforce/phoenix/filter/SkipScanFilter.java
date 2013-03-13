@@ -31,6 +31,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import org.apache.hadoop.hbase.KeyValue;
@@ -38,6 +39,7 @@ import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -52,10 +54,18 @@ public class SkipScanFilter extends FilterBase {
     public SkipScanFilter() {
     }
 
-    public SkipScanFilter setCnf(List<List<KeyRange>> cnf) {
+    /**
+     * @param varlen if one of the keyslots is variable length
+     */
+    public SkipScanFilter setCnf(List<List<KeyRange>> cnf, BitSet varlen) {
+        Preconditions.checkArgument(!cnf.isEmpty());
         Preconditions.checkState(this.cnf == null);
         Preconditions.checkNotNull(cnf);
-        for (List<KeyRange> disjunction : cnf) {
+        int[] endstate = new int[cnf.size()];
+        for (int i=0; i<cnf.size(); i++) {
+            List<KeyRange> disjunction = cnf.get(i);
+            Preconditions.checkArgument(!disjunction.isEmpty());
+            endstate[i] = cnf.get(i).size();
             KeyRange prev = null;
             for (KeyRange range : disjunction) {
                 Preconditions.checkArgument(!range.upperUnbound());
@@ -65,6 +75,22 @@ public class SkipScanFilter extends FilterBase {
                 if (prev != null) {
                     Preconditions.checkArgument(KeyRange.COMPARATOR.compare(prev, range) < 0);
                     prev = range;
+                }
+            }
+        }
+        int numposts = cnf.get(0).size();
+        for (int i=1;i<cnf.size();i++) {
+            numposts *= endstate[i];
+        }
+        List<KeyRange> actuals = Lists.newArrayList();
+        int[] counters = new int[cnf.size()];
+        for (int x=0; x<numposts; x++) {
+            for (int i=0; i<counters.length; i++) {
+                if (counters[i] < endstate[i] - 1) {
+                    counters[i]++;
+                    break;
+                } else {
+                    counters[i] = 0;
                 }
             }
         }

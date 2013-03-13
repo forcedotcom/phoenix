@@ -39,33 +39,52 @@ public class SkipScanFilterTest extends TestCase {
     @Parameters(name="{0} {1}")
     public static Iterable<?> data() {
         return Iterables.concat(
-            foreach(new KeyRange[][]{{
-                            KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true)
-                    }},
-                    new SeekNext("abb", "abc"),
-                    new SeekNext("ab", "abc"),
-                    new Include("abc"),
-                    new Include("abe"),
-                    new Include("def"),
-                    new Finished("deg")),
-            foreach(new KeyRange[][]{{
+                foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true)
+                }},
+                new SeekNext("abb", "abc"),
+                new SeekNext("ab", "abc"),
+                new Include("abc"),
+                new Include("abe"),
+                new Include("def"),
+                new Finished("deg")),
+                foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), true)
-            }},
-            new SeekNext("abb", "abc"),
-            new SeekNext("ab", "abc"),
-            new NextRow("abc"),
-            new Include("abe"),
-            new Include("def"),
-            new Finished("deg")),
+                }},
+                new SeekNext("abb", "abc"),
+                new SeekNext("ab", "abc"),
+                new NextRow("abc"),
+                new Include("abe"),
+                new Include("def"),
+                new Finished("deg")),
                 foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), false)
-            }},
-            new SeekNext("abb", "abc"),
-            new SeekNext("ab", "abc"),
-            new NextRow("abc"),
-            new Include("abe"),
-            new Finished("def"))
-        );
+                }},
+                new SeekNext("abb", "abc"),
+                new SeekNext("ab", "abc"),
+                new NextRow("abc"),
+                new Include("abe"),
+                new Finished("def")),
+                foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("dzz"), false, Bytes.toBytes("xyz"), false),
+                }},
+                new Include("def"),
+                new SeekNext("deg", "dzz"),
+                new SeekNext("dyy", "dzz"),
+                new Include("dzz"),
+                new Include("eee"),
+                new Finished("xyz")),
+                foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("dzz"), true, Bytes.toBytes("xyz"), false),
+                }},
+                new SeekNext("abb", "abc"),
+                new SeekNext("ab", "abc"),
+                new NextRow("abc"),
+                new Include("abe"),
+                new Finished("def"))
+                );
     }
     
     private static Iterable<?> foreach(KeyRange[][] ranges, Expectation... expectations) {
