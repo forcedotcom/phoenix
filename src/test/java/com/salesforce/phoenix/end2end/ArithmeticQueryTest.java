@@ -100,7 +100,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=12345678901234567890123456789012 columnName=COL1"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. value=12345678901234567890123456789012 columnName=COL1"));
             }
             try {
                 query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -114,7 +114,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
                 conn.commit();
                 fail("Should have caught bad values.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value does not fit into the column. value=123456 columnName=COL2"));
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. value=123456 columnName=COL2"));
             }
         } finally {
             conn.close();
