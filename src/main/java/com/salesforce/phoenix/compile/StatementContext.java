@@ -32,15 +32,17 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.text.Format;
+import java.util.BitSet;
 import java.util.List;
-import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
+import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
@@ -67,7 +69,8 @@ public class StatementContext {
     private final Format dateParser;
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
-    private List<List<byte[]>> cnf;
+    private List<List<KeyRange>> cnf;
+    private BitSet varlen;
 
     private boolean isAggregate;
     private ScanKey scanKey;
@@ -131,12 +134,17 @@ public class StatementContext {
         return scanKey;
     }
 
-    public void setCnf(List<List<byte[]>> cnf) {
+    public void setCnf(List<List<KeyRange>> cnf, BitSet varlen) {
         this.cnf = cnf;
+        this.varlen = varlen;
     }
 
-    public List<List<byte[]>> getCnf() {
-        return cnf;
+    public boolean hasCnf() {
+        return cnf != null && varlen != null && !cnf.isEmpty();
+    }
+
+    public void getCnf(SkipScanFilter skip) {
+        skip.setCnf(cnf, varlen);
     }
 
     public void setScanKey(ScanKey scanKey) {

@@ -31,22 +31,19 @@ import java.math.BigDecimal;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.text.Format;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList.Operator;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Ignore;
 import org.junit.Test;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.SubstrFunction;
-import com.salesforce.phoenix.filter.MultiKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.FilterListWithEquals;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -59,10 +56,10 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
 import static com.salesforce.phoenix.util.TestUtil.*;
 import static java.util.Collections.emptyList;
 import static org.junit.Assert.*;
-import com.salesforce.phoenix.util.*;
 
 
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
@@ -94,11 +91,11 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
-            new SkipScanFilter()
-            .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-            .setFilter(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
+                        new SkipScanFilter()
+                .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
                 singleKVFilter(constantComparison(CompareOp.EQUAL, BaseConnectionlessQueryTest.A_INTEGER, 0))
-            ), filter);
+                        ), filter);
     }
 
     @Test
@@ -115,13 +112,11 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
-            .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-            .setFilter(
-                    multiKVFilter(columnComparison(CompareOp.EQUAL, BaseConnectionlessQueryTest.A_STRING, BaseConnectionlessQueryTest.B_STRING))
+            .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
+            multiKVFilter(columnComparison(CompareOp.EQUAL, BaseConnectionlessQueryTest.A_STRING, BaseConnectionlessQueryTest.B_STRING))
             ), filter);
-        assertTrue(filter instanceof SkipScanFilter);
-        assertTrue(((SkipScanFilter)filter).getFilter() instanceof MultiKeyValueComparisonFilter);
     }
 
     @Test
@@ -158,12 +153,11 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
                 new SkipScanFilter()
-                .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-                .setFilter(
-                    multiKVFilter(and(constantComparison(CompareOp.EQUAL,BaseConnectionlessQueryTest.A_INTEGER,0),constantComparison(CompareOp.EQUAL,BaseConnectionlessQueryTest.A_STRING,"foo")))
-                )
-                , filter);
+                .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
+                multiKVFilter(and(constantComparison(CompareOp.EQUAL,BaseConnectionlessQueryTest.A_INTEGER,0),constantComparison(CompareOp.EQUAL,BaseConnectionlessQueryTest.A_STRING,"foo")))
+                ), filter);
     }
 
     @Test
@@ -180,10 +174,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
-            .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-            .setFilter(
-                singleKVFilter(constantComparison(CompareOp.LESS_OR_EQUAL, BaseConnectionlessQueryTest.A_INTEGER, 0))
+            .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
+            singleKVFilter(constantComparison(CompareOp.LESS_OR_EQUAL, BaseConnectionlessQueryTest.A_INTEGER, 0))
             ), filter);
     }
 
@@ -205,10 +199,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
         Object date = format.parseObject(dateStr);
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
                 new SkipScanFilter()
-                .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-                .setFilter(
-                    singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.A_DATE, date))
+                .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
+                singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.A_DATE, date))
                 ), filter);
     }
 
@@ -225,10 +219,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
 
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
                 new SkipScanFilter()
-                .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-                .setFilter(
-                    singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.X_DECIMAL, expectedDecimal))
+                .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
+                singleKVFilter(constantComparison(CompareOp.GREATER_OR_EQUAL, BaseConnectionlessQueryTest.X_DECIMAL, expectedDecimal))
                 ), filter);
     }
 
@@ -237,7 +231,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         BigDecimal expectedDecimal = NumberUtil.normalize(new BigDecimal(stringValue));
         helpTestToNumberFilter(toNumberClause, expectedDecimal);
     }
-    
+
     @Test
     public void testToNumberFilterWithInteger() throws Exception {
         String stringValue = "123";
@@ -255,14 +249,14 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String stringValue = "-123.33";
         helpTestToNumberFilterWithNoPattern(stringValue);
     }
-    
+
     @Test
     public void testToNumberFilterWithPatternParam() throws Exception {
         String toNumberClause = "to_number('$1.23333E2', '\u00A40.00000E0')";
         BigDecimal expectedDecimal = NumberUtil.normalize(new BigDecimal("123.333"));
         helpTestToNumberFilter(toNumberClause, expectedDecimal);
     }
-    
+
     @Test(expected=AssertionError.class) // compileStatement() fails because zero rows are found by to_number()
     public void testToNumberFilterWithPatternParamNegativeTest() throws Exception {
         String toNumberClause = "to_number('$123.33', '000.00')"; // no currency sign in pattern param
@@ -330,19 +324,19 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
 
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
-            .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-            .setFilter(
-                singleKVFilter( // single b/c one column is a row key column
-                    or( constantComparison(CompareOp.EQUAL,
-                            new SubstrFunction(
-                                Arrays.<Expression>asList(
-                                    new RowKeyColumnExpression(BaseConnectionlessQueryTest.ENTITY_ID,new RowKeyValueAccessor(BaseConnectionlessQueryTest.ATABLE.getPKColumns(),1)),
-                                    LiteralExpression.newConstant(1),
-                                    LiteralExpression.newConstant(3))
-                                ),
-                            keyPrefix),
-                        constantComparison(CompareOp.EQUAL,BaseConnectionlessQueryTest.A_INTEGER,aInt)))
+            .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
+            singleKVFilter( // single b/c one column is a row key column
+                or( constantComparison(CompareOp.EQUAL,
+                        new SubstrFunction(
+                            Arrays.<Expression>asList(
+                                new RowKeyColumnExpression(BaseConnectionlessQueryTest.ENTITY_ID,new RowKeyValueAccessor(BaseConnectionlessQueryTest.ATABLE.getPKColumns(),1)),
+                                LiteralExpression.newConstant(1),
+                                LiteralExpression.newConstant(3))
+                            ),
+                        keyPrefix),
+                    constantComparison(CompareOp.EQUAL,BaseConnectionlessQueryTest.A_INTEGER,aInt)))
             ), filter);
     }
 
@@ -430,9 +424,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
-            .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-            .setFilter(
+            .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
                     singleKVFilter(constantComparison(CompareOp.EQUAL, BaseConnectionlessQueryTest.A_INTEGER, 0))
             ), filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
@@ -455,9 +449,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
                 new SkipScanFilter()
-                .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-                .setFilter(
+                .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
                     singleKVFilter(constantComparison(CompareOp.EQUAL, BaseConnectionlessQueryTest.A_INTEGER, 0))
                 ), filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
@@ -479,7 +473,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
-        assertEquals(null,filter);
+        assertEquals(new FilterListWithEquals(Operator.MUST_PASS_ALL,
+                new SkipScanFilter()
+                .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet())
+                ),filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
@@ -506,13 +503,13 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertNotNull(filter);
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
-            .setCnf(Arrays.asList(Arrays.asList(Bytes.toBytes(tenantId), Bytes.toBytes(tenantId))))
-            .setFilter(
+            .setCnf(Arrays.asList(Arrays.asList(KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true))), new BitSet()),
                 singleKVFilter(in(kvColumn(BaseConnectionlessQueryTest.A_STRING),PDataType.VARCHAR, "a","b"))
             ), filter);
     }
-    
+
     @Test
     public void testInListFilter() throws SQLException {
         String tenantId1 = "000000000000001";
@@ -525,7 +522,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        
+
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
@@ -537,16 +534,15 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertNotNull(filter);
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
             .setCnf(Arrays.asList(Arrays.asList(
-                    Bytes.toBytes(tenantId1), Bytes.toBytes(tenantId1),
-                    Bytes.toBytes(tenantId2), Bytes.toBytes(tenantId2),
-                    Bytes.toBytes(tenantId3), Bytes.toBytes(tenantId3))))
-            .setFilter(
-                rowKeyFilter(in(pkColumn(BaseConnectionlessQueryTest.ORGANIZATION_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()),PDataType.CHAR, tenantId1,tenantId3, tenantId2))
+                    KeyRange.getKeyRange(Bytes.toBytes(tenantId1), true, Bytes.toBytes(tenantId1), true),
+                            KeyRange.getKeyRange(Bytes.toBytes(tenantId2), true, Bytes.toBytes(tenantId2), true),
+                                    KeyRange.getKeyRange(Bytes.toBytes(tenantId3), true, Bytes.toBytes(tenantId3), true))), new BitSet())
             ), filter);
     }
-    
+
     @Test
     public void testOr2InFilter() throws SQLException {
         String tenantId1 = "000000000000001";
@@ -559,7 +555,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        
+
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
@@ -571,22 +567,15 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertNotNull(filter);
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
             .setCnf(Arrays.asList(Arrays.asList(
-                    Bytes.toBytes(tenantId1), Bytes.toBytes(tenantId1),
-                    Bytes.toBytes(tenantId2), Bytes.toBytes(tenantId2),
-                    Bytes.toBytes(tenantId3), Bytes.toBytes(tenantId3))))
-            .setFilter(
-                rowKeyFilter(
-                    or(
-                        constantComparison(CompareOp.EQUAL,pkColumn(BaseConnectionlessQueryTest.ORGANIZATION_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()), tenantId1), 
-                        constantComparison(CompareOp.EQUAL,pkColumn(BaseConnectionlessQueryTest.ORGANIZATION_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()), tenantId2), 
-                        constantComparison(CompareOp.EQUAL,pkColumn(BaseConnectionlessQueryTest.ORGANIZATION_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()), tenantId3)
-                    )
-                )
+                    KeyRange.getKeyRange(Bytes.toBytes(tenantId1), true, Bytes.toBytes(tenantId1), true),
+                    KeyRange.getKeyRange(Bytes.toBytes(tenantId2), true, Bytes.toBytes(tenantId2), true),
+                    KeyRange.getKeyRange(Bytes.toBytes(tenantId3), true, Bytes.toBytes(tenantId3), true))), new BitSet())
             ), filter);
     }
-    
+
     @Test
     public void testSecondPkColInListFilter() throws SQLException {
         String tenantId = "000000000000001";
@@ -599,7 +588,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        
+
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
@@ -611,25 +600,26 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertNotNull(filter);
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
             .setCnf(
                 Arrays.asList(
                     Arrays.asList(
-                        Bytes.toBytes(tenantId), Bytes.toBytes(tenantId)
+                        KeyRange.getKeyRange(Bytes.toBytes(tenantId), true, Bytes.toBytes(tenantId), true)
                     ),
                     Arrays.asList(
-                        Bytes.toBytes(entityId1), Bytes.toBytes(entityId1),
-                        Bytes.toBytes(entityId2), Bytes.toBytes(entityId2)
+                        KeyRange.getKeyRange(Bytes.toBytes(entityId1), true, Bytes.toBytes(entityId1), true),
+                        KeyRange.getKeyRange(Bytes.toBytes(entityId2), true, Bytes.toBytes(entityId2), true)
                     )
-                )
-            )
-            .setFilter(
+                ),
+                new BitSet()
+            ),
                 rowKeyFilter(
                     in(pkColumn(BaseConnectionlessQueryTest.ENTITY_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()),PDataType.CHAR, entityId1, entityId2)
                 )
             ), filter);
     }
-    
+
     @Test
     public void testInListWithAnd1Filter() throws SQLException {
         String tenantId1 = "000000000000001";
@@ -643,7 +633,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        
+
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
@@ -655,22 +645,24 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertNotNull(filter);
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
             .setCnf(
                 Arrays.asList(
                     Arrays.asList(
-                        Bytes.toBytes(tenantId1), Bytes.toBytes(tenantId1),
-                        Bytes.toBytes(tenantId2), Bytes.toBytes(tenantId2),
-                        Bytes.toBytes(tenantId3), Bytes.toBytes(tenantId3))
-                    ))
-            .setFilter(
+                        KeyRange.getKeyRange(Bytes.toBytes(tenantId1), true, Bytes.toBytes(tenantId1), true),
+                        KeyRange.getKeyRange(Bytes.toBytes(tenantId2), true, Bytes.toBytes(tenantId2), true),
+                        KeyRange.getKeyRange(Bytes.toBytes(tenantId3), true, Bytes.toBytes(tenantId3), true)
+                    )
+                ),
+                new BitSet()),
                 rowKeyFilter(
                     and(
                         in(pkColumn(BaseConnectionlessQueryTest.ORGANIZATION_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()),PDataType.CHAR, tenantId1,tenantId3, tenantId2),
                         constantComparison(CompareOp.EQUAL, pkColumn(BaseConnectionlessQueryTest.ENTITY_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()), entityId)))
             ), filter);
     }
-    
+
     @Test
     public void testInListWithAnd2Filter() throws SQLException {
         String tenantId1 = "000000000000001";
@@ -685,7 +677,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        
+
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
@@ -697,18 +689,20 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Filter filter = scan.getFilter();
         assertNotNull(filter);
         assertEquals(
+                new FilterListWithEquals(Operator.MUST_PASS_ALL,
             new SkipScanFilter()
             .setCnf(
                 Arrays.asList(
                     Arrays.asList(
-                        Bytes.toBytes(tenantId1), Bytes.toBytes(tenantId1),
-                        Bytes.toBytes(tenantId2), Bytes.toBytes(tenantId2),
-                        Bytes.toBytes(tenantId3), Bytes.toBytes(tenantId3)),
+                            KeyRange.getKeyRange(Bytes.toBytes(tenantId1), true, Bytes.toBytes(tenantId1), true),
+                            KeyRange.getKeyRange(Bytes.toBytes(tenantId2), true, Bytes.toBytes(tenantId2), true),
+                            KeyRange.getKeyRange(Bytes.toBytes(tenantId3), true, Bytes.toBytes(tenantId3), true)
+                    ),
                     Arrays.asList(
-                        Bytes.toBytes(entityId1), Bytes.toBytes(entityId1),
-                        Bytes.toBytes(entityId2), Bytes.toBytes(entityId2)
-                    )))
-            .setFilter(
+                            KeyRange.getKeyRange(Bytes.toBytes(entityId1), true, Bytes.toBytes(entityId1), true),
+                            KeyRange.getKeyRange(Bytes.toBytes(entityId2), true, Bytes.toBytes(entityId2), true)
+                    )),
+                    new BitSet()),
                 rowKeyFilter(
                     and(
                         in(pkColumn(BaseConnectionlessQueryTest.ORGANIZATION_ID, BaseConnectionlessQueryTest.ATABLE.getPKColumns()),PDataType.CHAR, tenantId1,tenantId3, tenantId2),

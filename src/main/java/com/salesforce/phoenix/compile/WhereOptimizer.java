@@ -108,161 +108,165 @@ public class WhereOptimizer {
         try {
             startKey = new TrustedByteArrayOutputStream(maxKeyLength);
             stopKey = new TrustedByteArrayOutputStream(maxKeyLength);
-        boolean lastUpperInclusive = false;
-        boolean lastLowerInclusive = false;
-        boolean lastUpperVarLength = false;
-        boolean lastLowerVarLength = false;
-        boolean isUnbound = false;
-        RowKeySchemaBuilder schema = new RowKeySchemaBuilder();
-        int lowerPosCount = 0;
-        int upperPosCount = 0;
-        int pkPos = -1;
-        boolean isFullyQualifiedKey = true;
-        List<List<byte[]>> cnf = new ArrayList<List<byte[]>>();
-        List<PColumn> pkColumns = table.getPKColumns();
-        // Concat byte arrays of literals to form scan start key
-        for (KeyExpressionVisitor.KeySlot slot : compKeyExpr) {
-            // If the position of the pk columns in the query skips any part of the row key
-            // then we have to handle in the next phase through a key filter.
-            if (slot.getPosition() != pkColumns.get(pkPos + 1).getPosition()) {
-                break;
+            boolean lastUpperInclusive = false;
+            boolean lastLowerInclusive = false;
+            boolean lastUpperVarLength = false;
+            boolean lastLowerVarLength = false;
+            boolean isUnbound = false;
+            RowKeySchemaBuilder schema = new RowKeySchemaBuilder();
+            int lowerPosCount = 0;
+            int upperPosCount = 0;
+            int pkPos = -1;
+            boolean isFullyQualifiedKey = true;
+            List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
+            BitSet varlen = new BitSet();
+            List<PColumn> pkColumns = table.getPKColumns();
+            // Concat byte arrays of literals to form scan start key
+            for (KeyExpressionVisitor.KeySlot slot : compKeyExpr) {
+                // If the position of the pk columns in the query skips any part of the row key
+                // then we have to handle in the next phase through a key filter.
+                if (slot.getPosition() != pkColumns.get(pkPos + 1).getPosition()) {
+                    break;
+                }
+                keyExpr = slot.getKeyPart();
+                pkPos = slot.getPosition();
+                List<KeyRange> ranges = keyExpr.getKeyRanges();
+
+                KeyRange startRange = ranges.get(0);
+                KeyRange stopRange = ranges.get(ranges.size() - 1);
+                isUnbound |= startRange.lowerUnbound() | stopRange.upperUnbound();
+                PDatum datum = keyExpr.getDatum();
+                schema.addField(datum);
+
+                if (!datum.getDataType().isFixedWidth()) {
+                    varlen.set(cnf.size());
+                }
+                List<KeyRange> filterHints = new ArrayList<KeyRange>();
+                cnf.add(filterHints);
+
+                // Add null byte separator to key parts if previous was variable length
+                // Note that for a trailing var length a null byte separator should not be
+                // added because it will conditionally be added depending on the operators
+                // used.
+                if (lastLowerVarLength) {
+                    startKey.write(SEPARATOR_BYTE);
+                }
+                if (lastUpperVarLength) {
+                    stopKey.write(SEPARATOR_BYTE);
+                }
+
+                for (KeyRange range : ranges) {
+                    filterHints.add(range);
+                }
+
+                // Concatenate each part of key together
+                // If either condition is false, then loop exits below
+                if (!startRange.lowerUnbound()) {
+                    startKey.write(startRange.getLowerRange());
+                    lastLowerInclusive = startRange.isLowerInclusive();
+                    lastLowerVarLength = !datum.getDataType().isFixedWidth();
+                    lowerPosCount++;
+                }
+                if (!stopRange.upperUnbound()) {
+                    stopKey.write(stopRange.getUpperRange());
+                    lastUpperInclusive = stopRange.isUpperInclusive();
+                    lastUpperVarLength = !datum.getDataType().isFixedWidth();
+                    upperPosCount++;
+                }
+                // Will be null in cases for which only part of the expression was factored out here
+                // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
+                // set the start key to 'foo' but still need to match the regex at filter time.
+                List<Expression> nodesToExtract = keyExpr.getExtractNodes();
+                extractNodes.addAll(nodesToExtract);
+                // Stop building start/stop key if not extracting the expression, since we can't
+                // know if the expression is using all of the column.
+                if (nodesToExtract.isEmpty()) {
+                    isFullyQualifiedKey = false;
+                    lastLowerVarLength = false;
+                    lastUpperVarLength = false;
+                    break;
+                }
+
+                /*
+                 * If there is an unbound range with more key expressions to come then the
+                 * rest of the key expressions must be handled in the next phase with a key
+                 * filter.
+                 * For example, with the PK columns: a,b,c WHERE a=4 and b > 3 and c > 2
+                 * we can form a start key of [4][3] and an end key of [4], but we cannot
+                 * form a start key of [4][3][2] because the following would incorrectly
+                 * be included: [4][4][1]
+                 *
+                 * TODO: with the PK columns: a,b,c WHERE a=4 and b > 3 and c = 2, can
+                 * we use a start key of [4][3][2] and an end key of [4][*][2] if b is
+                 * fixed width and we fill with [255] bytes? So continue building start
+                 * key while prior is fixed width and current is equality operator. Do
+                 * a fill on the unbound side. When both sides become unbound, we stop.
+                 */
+                if (isUnbound) {
+                    isFullyQualifiedKey = false;
+                    break;
+                }
+                /*
+                 * If there is a partial match key expression with more key expressions to
+                 * come, then the rest of the key expressions must be handled in the next
+                 * phase with a key filter.
+                 * For example, with the PK columns: a,b,c WHERE a='a' and substr(b,1,2)='ab' and c='c'
+                 * we can use a start key of [a][ab] and an end key of [a][ab]. We cannot
+                 * use a start key of [a][ab][c], because the following would be incorrectly
+                 * included: [a][aba][c]. Because the key expression is variable length, we
+                 * cannot form a start key past a partial match comparison.
+                 */
+                PDatum backingDatum = keyExpr.getBackingDatum();
+                if ( datum != backingDatum) {
+                    if (!backingDatum.getDataType().isFixedWidth() && datum.getByteSize() != null) {
+                        isFullyQualifiedKey = false;
+                        lastLowerVarLength = false;
+                        lastUpperVarLength = false;
+                        break;
+                    }
+                    if (!ObjectUtils.equals(backingDatum.getByteSize(),datum.getByteSize())) {
+                        isFullyQualifiedKey = false;
+                        lastLowerVarLength = false;
+                        lastUpperVarLength = false;
+                        break;
+                    }
+                }
             }
-            keyExpr = slot.getKeyPart();
-            pkPos = slot.getPosition();
-            List<KeyRange> ranges = keyExpr.getKeyRanges();
-            List<byte[]> filterHints = new ArrayList<byte[]>();
-            cnf.add(filterHints);
 
-            KeyRange startRange = ranges.get(0);
-            KeyRange stopRange = ranges.get(ranges.size() - 1);
-            isUnbound |= startRange.lowerUnbound() | stopRange.upperUnbound();
-            PDatum datum = keyExpr.getDatum();
-            schema.addField(datum);
-
-            // Add null byte separator to key parts if previous was variable length
-            // Note that for a trailing var length a null byte separator should not be
-            // added because it will conditionally be added depending on the operators
-            // used.
-            if (lastLowerVarLength) {
+            // Tack on null byte if variable length, since otherwise we'd end up
+            // getting everything that starts with the start key, not just that
+            // is equal to the start key. Since LIKE is not variable length,
+            // we wouldn't write this null byte.
+            // Don't write a separator byte if we're at the last column since
+            // we only put the separator between columns, not at the end.
+            // TODO: create separate object for scan key formulation
+            boolean isLastPKColumn = pkPos == table.getPKColumns().size() - 1;
+            if (lastLowerVarLength && !lastLowerInclusive && !isLastPKColumn) {
                 startKey.write(SEPARATOR_BYTE);
             }
-            if (lastUpperVarLength) {
+            byte[] finalStartKey = KeyRange.UNBOUND_LOWER;
+            if (startKey.size() > 0) {
+                finalStartKey = startKey.toByteArray();
+            }
+            if (lastUpperVarLength && lastUpperInclusive && !isLastPKColumn) {
                 stopKey.write(SEPARATOR_BYTE);
             }
-
-            for (KeyRange range : ranges) {
-                filterHints.add(range.getLowerRange());
-                filterHints.add(range.getUpperRange());
+            byte[] finalStopKey = KeyRange.UNBOUND_UPPER;
+            if (stopKey.size() > 0) {
+                finalStopKey = stopKey.toByteArray();
             }
-
-            // Concatenate each part of key together
-            // If either condition is false, then loop exits below
-            if (!startRange.lowerUnbound()) {
-                startKey.write(startRange.getLowerRange());
-                lastLowerInclusive = startRange.isLowerInclusive();
-                lastLowerVarLength = !datum.getDataType().isFixedWidth();
-                lowerPosCount++;
-            }
-            if (!stopRange.upperUnbound()) {
-                stopKey.write(stopRange.getUpperRange());
-                lastUpperInclusive = stopRange.isUpperInclusive();
-                lastUpperVarLength = !datum.getDataType().isFixedWidth();
-                upperPosCount++;
-            }
-            // Will be null in cases for which only part of the expression was factored out here
-            // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
-            // set the start key to 'foo' but still need to match the regex at filter time.
-            List<Expression> nodesToExtract = keyExpr.getExtractNodes();
-            extractNodes.addAll(nodesToExtract);
-            // Stop building start/stop key if not extracting the expression, since we can't
-            // know if the expression is using all of the column.
-            if (nodesToExtract.isEmpty()) {
-                isFullyQualifiedKey = false;
-                lastLowerVarLength = false;
-                lastUpperVarLength = false;
-            	break;
-            }
-
-            /*
-             * If there is an unbound range with more key expressions to come then the
-             * rest of the key expressions must be handled in the next phase with a key
-             * filter.
-             * For example, with the PK columns: a,b,c WHERE a=4 and b > 3 and c > 2
-             * we can form a start key of [4][3] and an end key of [4], but we cannot
-             * form a start key of [4][3][2] because the following would incorrectly
-             * be included: [4][4][1]
-             *
-             * TODO: with the PK columns: a,b,c WHERE a=4 and b > 3 and c = 2, can
-             * we use a start key of [4][3][2] and an end key of [4][*][2] if b is
-             * fixed width and we fill with [255] bytes? So continue building start
-             * key while prior is fixed width and current is equality operator. Do
-             * a fill on the unbound side. When both sides become unbound, we stop.
-             */
-            if (isUnbound) {
-                isFullyQualifiedKey = false;
-                break;
-            }
-            /*
-             * If there is a partial match key expression with more key expressions to
-             * come, then the rest of the key expressions must be handled in the next
-             * phase with a key filter.
-             * For example, with the PK columns: a,b,c WHERE a='a' and substr(b,1,2)='ab' and c='c'
-             * we can use a start key of [a][ab] and an end key of [a][ab]. We cannot
-             * use a start key of [a][ab][c], because the following would be incorrectly
-             * included: [a][aba][c]. Because the key expression is variable length, we
-             * cannot form a start key past a partial match comparison.
-             */
-            PDatum backingDatum = keyExpr.getBackingDatum();
-            if ( datum != backingDatum) {
-                if (!backingDatum.getDataType().isFixedWidth() && datum.getByteSize() != null) {
-                    isFullyQualifiedKey = false;
-                    lastLowerVarLength = false;
-                    lastUpperVarLength = false;
-                    break;
-                }
-                if (!ObjectUtils.equals(backingDatum.getByteSize(),datum.getByteSize())) {
-                    isFullyQualifiedKey = false;
-                    lastLowerVarLength = false;
-                    lastUpperVarLength = false;
-                    break;
-                }
-            }
-        }
-
-        // Tack on null byte if variable length, since otherwise we'd end up
-        // getting everything that starts with the start key, not just that
-        // is equal to the start key. Since LIKE is not variable length,
-        // we wouldn't write this null byte.
-        // Don't write a separator byte if we're at the last column since
-        // we only put the separator between columns, not at the end.
-        // TODO: create separate object for scan key formulation
-        boolean isLastPKColumn = pkPos == table.getPKColumns().size() - 1;
-        if (lastLowerVarLength && !lastLowerInclusive && !isLastPKColumn) {
-            startKey.write(SEPARATOR_BYTE);
-        }
-        byte[] finalStartKey = KeyRange.UNBOUND_LOWER;
-        if (startKey.size() > 0) {
-            finalStartKey = startKey.toByteArray();
-        }
-        if (lastUpperVarLength && lastUpperInclusive && !isLastPKColumn) {
-            stopKey.write(SEPARATOR_BYTE);
-        }
-        byte[] finalStopKey = KeyRange.UNBOUND_UPPER;
-        if (stopKey.size() > 0) {
-            finalStopKey = stopKey.toByteArray();
-        }
-        schema.setMinNullable(pkPos+1);
-        ScanKey scanKey =
-            new ScanKey(finalStartKey,
-                        lastLowerInclusive,
-                        schema.setMaxFields(lowerPosCount).build(),
-                        finalStopKey,
-                        lastUpperInclusive,
-                        schema.setMaxFields(upperPosCount).build(),
-                        isFullyQualifiedKey && allPKColumnsUsed(table, pkPos+1));
-        context.setScanKey(scanKey);
-        context.setCnf(cnf);
-        return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
+            schema.setMinNullable(pkPos+1);
+            ScanKey scanKey =
+                    new ScanKey(finalStartKey,
+                            lastLowerInclusive,
+                            schema.setMaxFields(lowerPosCount).build(),
+                            finalStopKey,
+                            lastUpperInclusive,
+                            schema.setMaxFields(upperPosCount).build(),
+                            isFullyQualifiedKey && allPKColumnsUsed(table, pkPos+1));
+            context.setScanKey(scanKey);
+            context.setCnf(cnf, varlen);
+            return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
         } finally {
             if (startKey != null) {
                 try {

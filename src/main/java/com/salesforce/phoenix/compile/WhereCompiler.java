@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.Set;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList.Operator;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
@@ -155,7 +156,7 @@ public class WhereCompiler {
         Filter filter = null;
         Scan scan = context.getScan();
         assert scan.getFilter() == null;
-        
+
         if (LiteralExpression.FALSE_EXPRESSION == whereClause) {
             context.setScanKey(ScanKey.DEGENERATE_SCAN_KEY);
         } else if (whereClause != null && whereClause != LiteralExpression.TRUE_EXPRESSION) {
@@ -188,15 +189,22 @@ public class WhereCompiler {
                 filter = disambiguateWithFamily ? new MultiCFCQKeyValueComparisonFilter(whereClause) : new MultiCQKeyValueComparisonFilter(whereClause);
                 break;
             }
-
-            if (filter != null && context.getCnf() != null && !context.getCnf().isEmpty()) {
-                // skip scan filter
-                SkipScanFilter skip = new SkipScanFilter();
-                skip.setFilter(filter);
-                skip.setCnf(context.getCnf());
-                filter = skip;
-            }
         }
+
+        if (context.hasCnf()) {
+            // skip scan filter
+            SkipScanFilter skip = new SkipScanFilter();
+            context.getCnf(skip);
+
+            FilterListWithEquals list;
+            if (filter != null) {
+                list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip, filter);
+            } else {
+                list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip);
+            }
+            filter = list;
+        }
+
         scan.setFilter(filter);
     }
 }
