@@ -27,17 +27,20 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import java.io.IOException;
-import java.sql.SQLException;
+import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.PDataType;
 
 
-public class PhoenixIOException extends SQLException {
+public class ValueTypeIncompatibleException extends IllegalDataException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
+    private static SQLExceptionCode code = SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE;
 
-    public PhoenixIOException(IOException e) {
-        super(new SQLExceptionInfo.Builder(code).setRootCause(e).build().toString(),
-                code.getSQLState(), code.getErrorCode(), e);
+    public ValueTypeIncompatibleException(PDataType type, Integer precision, Integer scale) {
+        super(new SQLExceptionInfo.Builder(code).setMessage(getTypeDisplayString(type, precision, scale))
+                .build().toString());
     }
 
+    private static String getTypeDisplayString(PDataType type, Integer precision, Integer scale) {
+        return type.toString() + "(" + precision + "," + scale + ")";
+    }
 }

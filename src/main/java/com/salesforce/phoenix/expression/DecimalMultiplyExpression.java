@@ -32,6 +32,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
@@ -84,7 +85,7 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
             result = NumberUtil.setDecimalWidthAndScale(result, maxLength, scale);
         }
         if (result == null) {
-            return false;
+            throw new ValueTypeIncompatibleException(PDataType.DECIMAL, maxLength, scale);
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));
         return true;
