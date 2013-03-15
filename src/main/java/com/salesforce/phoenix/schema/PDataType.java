@@ -702,6 +702,18 @@ public enum PDataType {
         @Override
         public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
                 Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            // Get precision and scale if it is not already passed in.
+            if (maxLength == null && scale == null) {
+                if (value != null) {
+                    BigDecimal v = (BigDecimal) value;
+                    maxLength = v.precision();
+                    scale = v.scale();
+                } else if (b != null) {
+                    int[] v = getDecimalPrecisionAndScale(b, 0, b.length);
+                    maxLength = v[0];
+                    scale = v[1];
+                }
+            }
             if (desiredMaxLength != null && desiredScale != null && maxLength != null && scale != null &&
                     (desiredMaxLength - desiredScale) < (maxLength - scale)) {
                 return false;
@@ -720,7 +732,7 @@ public enum PDataType {
                 return b;
             } else {
                 BigDecimal decimal = (BigDecimal) toObject(object, actualType);
-                decimal = decimal.setScale(desiredScale, BigDecimal.ROUND_DOWN);;
+                decimal = decimal.setScale(desiredScale, BigDecimal.ROUND_DOWN);
                 return toBytes(decimal);
             }
         }
@@ -1869,6 +1881,41 @@ public enum PDataType {
         scale += (length - 2) * 2;
         BigDecimal v = new BigDecimal(bi, scale);
         return v;
+    }
+
+    // Calculate the precisioin and scale of a raw decimal bytes. Returns the values as an int
+    // array. The first value is precision, the second value is scale.
+    public static int[] getDecimalPrecisionAndScale(byte[] bytes, int offset, int length) {
+        // 0, which should have no precision nor scale.
+        if (length == 1 && bytes[offset] == ZERO_BYTE) {
+            return new int[] {0, 0};
+        }
+        int signum = ((bytes[offset] & 0x80) == 0) ? -1 : 1;
+        int scale;
+        int index;
+        int digitOffset;
+        if (signum == 1) {
+            scale = (byte)(((bytes[offset] & 0x7F) - 65) * -2);
+            index = offset + length;
+            digitOffset = POS_DIGIT_OFFSET;
+        } else {
+            scale = (byte)((~bytes[offset] - 65 - 128) * -2);
+            index = offset + length - (bytes[offset + length - 1] == NEG_TERMINAL_BYTE ? 1 : 0);
+            digitOffset = -NEG_DIGIT_OFFSET;
+        }
+        length = index - offset;
+        int precision = 2 * (length - 1);
+        long l = signum * bytes[--index] - digitOffset;
+        if (l % 10 == 0) { // trailing zero
+            scale--; // drop trailing zero and compensate in the scale
+        }
+        // If length == 2, check if we are having a single digit number.
+        if (l < 10) {
+            precision -= 1;
+        }
+        // Update the scale based on the precision
+        scale += (length - 2) * 2;
+        return new int[] {precision, scale};
     }
 
     public boolean isCoercibleTo(PDataType targetType) {

@@ -296,4 +296,38 @@ public class PDataTypeTest {
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.LONG));
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_INT));
     }
+
+    @Test
+    public void testGetDeicmalPrecisionAndScaleFromRawBytes() throws Exception {
+        // Special case for 0.
+//        BigDecimal bd = new BigDecimal("0");
+//        byte[] b = PDataType.DECIMAL.toBytes(bd);
+//        int[] v = PDataType.getDecimalPrecisionAndScale(b, 0, b.length);
+//        assertEquals(0, v[0]);
+//        assertEquals(0, v[1]);
+        
+        BigDecimal[] bds = new BigDecimal[] {
+                new BigDecimal("1"),
+                new BigDecimal("10"),
+                new BigDecimal("100"),
+                new BigDecimal("1000000000000000000000000000000"),
+                new BigDecimal("1000000000000000000000000000000"),
+                new BigDecimal("-1"),
+                new BigDecimal("-10"),
+                new BigDecimal("-100"),
+                new BigDecimal("-1000000000000000000000000000000")
+        };
+        
+        for (int i=0; i<bds.length; i++) {
+            testReadDecimalPrecisionAndScaleFromRawBytes(bds[i]);
+        }
+    }
+
+    private void testReadDecimalPrecisionAndScaleFromRawBytes(BigDecimal bd) {
+        byte[] b = PDataType.DECIMAL.toBytes(bd);
+        int[] v = PDataType.getDecimalPrecisionAndScale(b, 0, b.length);
+        System.out.println(bd + " " + v[0] + " " +  v[1]);
+//        assertEquals(bd.toString(), bd.precision(), v[0]);
+//        assertEquals(bd.toString(), bd.scale(), v[1]);
+    }
 }

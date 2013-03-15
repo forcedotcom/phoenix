@@ -101,7 +101,7 @@ public class ByteUtil {
     public static byte[][] toByteArrays(byte[] b, int length) {
         return toByteArrays(b, 0, length);
     }
-    
+
     public static byte[][] toByteArrays(byte[] b, int offset, int length) {
         ByteArrayInputStream bytesIn = new ByteArrayInputStream(b, offset, b.length - offset);
         DataInputStream in = new DataInputStream(bytesIn);
@@ -135,7 +135,7 @@ public class ByteUtil {
     public static byte[] serializeIntArray(int[] intArray) {
         return serializeIntArray(intArray,intArray.length);
     }
-    
+
     public static byte[] serializeIntArray(int[] intArray, int encodedLength) {
         int size = WritableUtils.getVIntSize(encodedLength);
         for (int i = 0; i < intArray.length; i++) {
@@ -193,7 +193,7 @@ public class ByteUtil {
     public static int[] deserializeIntArray(DataInput in) throws IOException {
         return deserializeIntArray(in, WritableUtils.readVInt(in));
     }
-    
+
     public static int[] deserializeIntArray(DataInput in, int length) throws IOException {
         int i = 0;
         int[] intArray = new int[length];
@@ -218,7 +218,7 @@ public class ByteUtil {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * Concatenate together one or more byte arrays
      * @param first first byte array
@@ -266,7 +266,7 @@ public class ByteUtil {
         }
         return result;
     }
- 
+
     public static int vintFromBytes(byte[] buffer, int offset) {
         try {
             return (int)Bytes.readVLong(buffer, offset);
@@ -274,7 +274,7 @@ public class ByteUtil {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * Decode a vint from the buffer pointed at to by ptr and
      * increment the offset of the ptr by the length of the
@@ -285,7 +285,7 @@ public class ByteUtil {
     public static int vintFromBytes(ImmutableBytesWritable ptr) {
         return (int) vlongFromBytes(ptr);
     }
-    
+
     /**
      * Decode a vint from the buffer pointed at to by ptr and
      * increment the offset of the ptr by the length of the
@@ -407,7 +407,7 @@ public class ByteUtil {
         }
         return count;
     }
-    
+
     public static boolean compare(CompareOp op, int compareResult) {
         switch (op) {
             case LESS:
