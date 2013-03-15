@@ -25,33 +25,29 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.filter;
+package com.salesforce.phoenix.expression;
 
-import org.apache.hadoop.hbase.util.Bytes;
+import java.util.List;
 
-import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.PDataType;
 
 
-/**
- * 
- * SingleKeyValueComparisonFilter that needs to only compare the column qualifier
- * part of the key value since the column qualifier is unique across all column
- * families.
- *
- * @author jtaylor
- * @since 0.1
- */
-public class SingleCQKeyValueComparisonFilter extends SingleKeyValueComparisonFilter {
-    public SingleCQKeyValueComparisonFilter() {
+abstract public class BaseAddSubtractExpression extends ArithmeticExpression {
+    public BaseAddSubtractExpression() {
     }
 
-    public SingleCQKeyValueComparisonFilter(Expression expression) {
-        super(expression);
+    public BaseAddSubtractExpression(List<Expression> children) {
+        super(children);
     }
 
-    @Override
-    protected final int compare(byte[] cfBuf, int cfOffset, int cfLength, byte[] cqBuf, int cqOffset, int cqLength) {
-        return Bytes.compareTo(cq, 0, cq.length, cqBuf, cqOffset, cqLength);
+    protected static int getPrecision(int lp, int rp, int ls, int rs) {
+        int val = getScale(lp, rp, ls, rs) + Math.max(lp - ls, rp - rs) + 1;
+        return Math.min(PDataType.MAX_PRECISION, val);
+    }
+
+    protected static int getScale(int lp, int rp, int ls, int rs) {
+        int val = Math.max(ls, rs);
+        return Math.min(PDataType.MAX_PRECISION, val);
     }
 
 }

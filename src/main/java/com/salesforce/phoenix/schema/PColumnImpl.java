@@ -147,8 +147,8 @@ public class PColumnImpl implements PColumn {
         int scale = WritableUtils.readVInt(input);
         boolean nullable = input.readBoolean();
         int position = WritableUtils.readVInt(input);
-        init(columnName, familyName, dataType, maxLength == 0 ? null : maxLength,
-                scale == 0 ? null : scale, nullable, position);
+        init(columnName, familyName, dataType, maxLength == QueryConstants.NO_MAXLENGTH ? null : maxLength,
+                scale == QueryConstants.NO_SCALE ? null : scale, nullable, position);
     }
 
     @Override
@@ -156,8 +156,8 @@ public class PColumnImpl implements PColumn {
         Bytes.writeByteArray(output, name.getBytes());
         Bytes.writeByteArray(output, familyName == null ? ByteUtil.EMPTY_BYTE_ARRAY : familyName.getBytes());
         WritableUtils.writeVInt(output, dataType.ordinal());
-        WritableUtils.writeVInt(output, maxLength == null ? 0 : maxLength);
-        WritableUtils.writeVInt(output, scale == null ? 0 : scale);
+        WritableUtils.writeVInt(output, maxLength == null ? QueryConstants.NO_MAXLENGTH : maxLength);
+        WritableUtils.writeVInt(output, scale == null ? QueryConstants.NO_SCALE : scale);
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
     }

@@ -27,11 +27,22 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
+/**
+ * 
+ * Filter that evaluates WHERE clause expression, used in the case where there
+ * are references to multiple column qualifiers over a single column family.
+ *
+ * @author jtaylor
+ * @since 0.1
+ */
 public class MultiCQKeyValueComparisonFilter extends MultiKeyValueComparisonFilter {
     private ImmutableBytesPtr ptr = new ImmutableBytesPtr();
+    private byte[] cf;
     
     public MultiCQKeyValueComparisonFilter() {
     }
@@ -50,7 +61,18 @@ public class MultiCQKeyValueComparisonFilter extends MultiKeyValueComparisonFilt
     @Override
     protected Object newColumnKey(byte[] cf, int cfOffset, int cfLength, byte[] cq, int cqOffset,
             int cqLength) {
+        if (cfOffset == 0 && cf.length == cfLength) {
+            this.cf = cf;
+        } else {
+            this.cf = new byte[cfLength];
+            System.arraycopy(cf, cfOffset, this.cf, 0, cfLength);
+        }
         return new ImmutableBytesPtr(cq, cqOffset, cqLength);
     }
 
+    
+    @Override
+    public boolean isFamilyEssential(byte[] name) {
+        return Bytes.compareTo(cf, name) == 0;
+    }
 }

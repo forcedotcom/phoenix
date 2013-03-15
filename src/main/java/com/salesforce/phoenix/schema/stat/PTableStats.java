@@ -25,33 +25,31 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.filter;
+package com.salesforce.phoenix.schema.stat;
 
-import org.apache.hadoop.hbase.util.Bytes;
+import java.io.DataOutput;
+import java.io.IOException;
 
-import com.salesforce.phoenix.expression.Expression;
+import org.apache.hadoop.hbase.HRegionInfo;
 
 
 /**
+ * Interface for Phoenix table statistics. Statistics is collected on the server
+ * side and can be used for various purpose like splitting region for scanning, etc.
  * 
- * SingleKeyValueComparisonFilter that needs to only compare the column qualifier
- * part of the key value since the column qualifier is unique across all column
- * families.
- *
- * @author jtaylor
- * @since 0.1
+ * The table is defined on the client side, but it is populated on the server side. The client
+ * should not populate any data to the statistics object.
  */
-public class SingleCQKeyValueComparisonFilter extends SingleKeyValueComparisonFilter {
-    public SingleCQKeyValueComparisonFilter() {
-    }
+public interface PTableStats {
 
-    public SingleCQKeyValueComparisonFilter(Expression expression) {
-        super(expression);
-    }
+    /**
+     * Given the region info, returns an array of bytes that is the current estimate of key
+     * distribution inside that region. The keys should split that region into equal chunks.
+     * 
+     * @param region
+     * @return array of keys
+     */
+    byte[][] getRegionGuidePosts(HRegionInfo region);
 
-    @Override
-    protected final int compare(byte[] cfBuf, int cfOffset, int cfLength, byte[] cqBuf, int cqOffset, int cqLength) {
-        return Bytes.compareTo(cq, 0, cq.length, cqBuf, cqOffset, cqLength);
-    }
-
+    void write(DataOutput output) throws IOException;
 }

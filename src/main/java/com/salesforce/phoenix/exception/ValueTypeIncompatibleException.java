@@ -25,33 +25,22 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.filter;
+package com.salesforce.phoenix.exception;
 
-import org.apache.hadoop.hbase.util.Bytes;
+import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.PDataType;
 
-import com.salesforce.phoenix.expression.Expression;
 
+public class ValueTypeIncompatibleException extends IllegalDataException {
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE;
 
-/**
- * 
- * SingleKeyValueComparisonFilter that needs to only compare the column qualifier
- * part of the key value since the column qualifier is unique across all column
- * families.
- *
- * @author jtaylor
- * @since 0.1
- */
-public class SingleCQKeyValueComparisonFilter extends SingleKeyValueComparisonFilter {
-    public SingleCQKeyValueComparisonFilter() {
+    public ValueTypeIncompatibleException(PDataType type, Integer precision, Integer scale) {
+        super(new SQLExceptionInfo.Builder(code).setMessage(getTypeDisplayString(type, precision, scale))
+                .build().toString());
     }
 
-    public SingleCQKeyValueComparisonFilter(Expression expression) {
-        super(expression);
+    private static String getTypeDisplayString(PDataType type, Integer precision, Integer scale) {
+        return type.toString() + "(" + precision + "," + scale + ")";
     }
-
-    @Override
-    protected final int compare(byte[] cfBuf, int cfOffset, int cfLength, byte[] cqBuf, int cqOffset, int cqLength) {
-        return Bytes.compareTo(cq, 0, cq.length, cqBuf, cqOffset, cqLength);
-    }
-
 }

@@ -36,7 +36,7 @@ public class PhoenixIOException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
 
     public PhoenixIOException(IOException e) {
-        super(new SQLExceptionInfo.Builder(SQLExceptionCode.IO_EXCEPTION).setRootCause(e).build().toString(),
+        super(new SQLExceptionInfo.Builder(code).setRootCause(e).build().toString(),
                 code.getSQLState(), code.getErrorCode(), e);
     }
 

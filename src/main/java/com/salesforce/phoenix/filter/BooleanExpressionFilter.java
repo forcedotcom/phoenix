@@ -41,8 +41,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
  * 
- * Base class for filters that use a boolean expression as
- * their means of evaluation.
+ * Base class for filter that evaluates a WHERE clause expression.
  *
  * @author jtaylor
  * @since 0.1

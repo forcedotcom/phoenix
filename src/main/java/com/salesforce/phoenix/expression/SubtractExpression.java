@@ -41,7 +41,7 @@ import com.salesforce.phoenix.query.QueryConstants;
  * @author kmahadik
  * @since 0.1
  */
-public abstract class SubtractExpression extends ArithmeticExpression {
+public abstract class SubtractExpression extends BaseAddSubtractExpression {
     protected static final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
 
     public SubtractExpression() {

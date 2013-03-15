@@ -126,4 +126,12 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
     public boolean filterRow() {
         return !this.keepRow;
     }
+    
+    @Override
+    public boolean isFamilyEssential(byte[] name) {
+        // No column families are essential because the expression involves only the row key.
+        // TODO: is this legal or should we use QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES?
+        // The others are for columns projected in the select expression
+        return false;
+    }
 }

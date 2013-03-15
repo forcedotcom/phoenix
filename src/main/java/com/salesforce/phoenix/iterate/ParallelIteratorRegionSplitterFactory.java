@@ -25,33 +25,18 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.filter;
-
-import org.apache.hadoop.hbase.util.Bytes;
-
-import com.salesforce.phoenix.expression.Expression;
+package com.salesforce.phoenix.iterate;
 
 
 /**
+ * Factory class for the Region Splitter used by the project.
  * 
- * SingleKeyValueComparisonFilter that needs to only compare the column qualifier
- * part of the key value since the column qualifier is unique across all column
- * families.
- *
- * @author jtaylor
- * @since 0.1
+ * @author zhuang
  */
-public class SingleCQKeyValueComparisonFilter extends SingleKeyValueComparisonFilter {
-    public SingleCQKeyValueComparisonFilter() {
-    }
+public class ParallelIteratorRegionSplitterFactory {
 
-    public SingleCQKeyValueComparisonFilter(Expression expression) {
-        super(expression);
-    }
-
-    @Override
-    protected final int compare(byte[] cfBuf, int cfOffset, int cfLength, byte[] cqBuf, int cqOffset, int cqLength) {
-        return Bytes.compareTo(cq, 0, cq.length, cqBuf, cqOffset, cqLength);
+    public static ParallelIteratorRegionSplitter getSplitter() {
+        return DefaultParallelIteratorRegionSplitter.getInstance();
     }
 
 }

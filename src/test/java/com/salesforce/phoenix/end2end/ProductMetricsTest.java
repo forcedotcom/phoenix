@@ -1028,7 +1028,8 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             assertTrue(rs.next());
             assertEquals(3, rs.getLong(1));
             assertEquals(11000, rs.getLong(2));
-            assertEquals(TestUtil.computeAverage(11000, 3), rs.getBigDecimal(3));
+            // Scale is automatically capped at 4 if no scale is specified. 
+            assertEquals(new BigDecimal("3666.6666"), rs.getBigDecimal(3));
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -1099,7 +1100,8 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
 
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(TestUtil.computeAverage(4.6, 6), rs.getBigDecimal(1));
+            // The column is defined as decimal(31,10), so the value is capped at 10 decimal points.
+            assertEquals(new BigDecimal("0.7666666666"), rs.getBigDecimal(1));
             assertFalse(rs.next());
         } finally {
             conn.close();

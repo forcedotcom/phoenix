@@ -47,10 +47,12 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     protected PDataType type;
     private Integer byteSize;
     private boolean isNullable;
+    private Integer maxLength;
+    private Integer scale;
 
     public ColumnExpression() {
     }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -81,6 +83,8 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (type.isFixedWidth() && type.getByteSize() == null) {
             this.byteSize = datum.getByteSize();
         }
+        this.maxLength = datum.getMaxLength();
+        this.scale = datum.getScale();
     }
 
     @Override
@@ -100,7 +104,17 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         }
         return super.getByteSize();
     }
-    
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
+
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
     @Override
     public void readFields(DataInput input) throws IOException {
         // read/write type ordinal and isNullable bit together to save space

@@ -173,7 +173,11 @@ public class ParseNodeFactory {
     public ExplainStatement explain(SQLStatement statement) {
         return new ExplainStatement(statement);
     }
-    
+
+    public ShowTablesStatement showTables() {
+        return new ShowTablesStatement();
+    }
+
     public AliasedParseNode aliasedNode(String alias, ParseNode expression) {
         return new AliasedParseNode(alias, expression);
     }

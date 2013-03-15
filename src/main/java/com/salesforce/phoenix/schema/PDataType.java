@@ -702,11 +702,27 @@ public enum PDataType {
         @Override
         public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
                 Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
-            if ((maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)
-                    || (scale != null && desiredScale != null && scale > desiredScale)) {
+            if (desiredMaxLength != null && desiredScale != null && maxLength != null && scale != null &&
+                    (desiredMaxLength - desiredScale) < (maxLength - scale)) {
                 return false;
             }
             return true;
+        }
+
+        @Override
+        public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
+                Integer desiredMaxLength, Integer desiredScale) {
+            if (scale == null || desiredScale == null) {
+                // scale or deiredScale not available, delegate to parents.
+                return super.coerceBytes(b, object, actualType);
+            } else  if (this == actualType && scale <= desiredScale) {
+                // No coerce and rescale necessary
+                return b;
+            } else {
+                BigDecimal decimal = (BigDecimal) toObject(object, actualType);
+                decimal = decimal.setScale(desiredScale, BigDecimal.ROUND_DOWN);;
+                return toBytes(decimal);
+            }
         }
 
         @Override
@@ -1673,6 +1689,7 @@ public enum PDataType {
     }
 
     public static final int MAX_PRECISION = 31; // Max precision guaranteed to fit into a long (and this should be plenty)
+    public static final int MIN_DECIMAL_AVG_SCALE = 4;
     public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
     public static final int DEFAULT_SCALE = 0;
 
@@ -1918,6 +1935,11 @@ public enum PDataType {
             Object coercedValue = toObject(object, actualType);
             return toBytes(coercedValue);
         }
+    }
+
+    public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
+            Integer desiredMaxLength, Integer desiredScale) {
+        return coerceBytes(b, object, actualType);
     }
 
     /**

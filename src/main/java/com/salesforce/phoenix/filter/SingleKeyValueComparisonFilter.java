@@ -31,6 +31,7 @@ import java.io.DataInput;
 import java.io.IOException;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
@@ -142,5 +143,12 @@ public abstract class SingleKeyValueComparisonFilter extends BooleanExpressionFi
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
         init();
+    }
+    
+    @Override
+    public boolean isFamilyEssential(byte[] name) {
+        // Only the column families involved in the expression are essential.
+        // The others are for columns projected in the select expression
+        return Bytes.compareTo(cf, name) == 0;
     }
 }

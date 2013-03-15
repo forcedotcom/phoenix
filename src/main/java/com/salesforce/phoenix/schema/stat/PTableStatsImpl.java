@@ -25,33 +25,54 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.filter;
+package com.salesforce.phoenix.schema.stat;
 
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.expression.Expression;
+import com.google.common.collect.ImmutableMap;
 
 
 /**
- * 
- * SingleKeyValueComparisonFilter that needs to only compare the column qualifier
- * part of the key value since the column qualifier is unique across all column
- * families.
- *
- * @author jtaylor
- * @since 0.1
+ * Implementation for PTableStats.
  */
-public class SingleCQKeyValueComparisonFilter extends SingleKeyValueComparisonFilter {
-    public SingleCQKeyValueComparisonFilter() {
-    }
+public class PTableStatsImpl implements PTableStats {
 
-    public SingleCQKeyValueComparisonFilter(Expression expression) {
-        super(expression);
+    // The map for guide posts should be immutable. We only take the current snapshot from outside
+    // method call and store it.
+    private Map<String, byte[][]> regionGuidePosts;
+
+    public PTableStatsImpl() { }
+
+    public PTableStatsImpl(Map<String, byte[][]> stats) {
+        regionGuidePosts = ImmutableMap.copyOf(stats);
     }
 
     @Override
-    protected final int compare(byte[] cfBuf, int cfOffset, int cfLength, byte[] cqBuf, int cqOffset, int cqLength) {
-        return Bytes.compareTo(cq, 0, cq.length, cqBuf, cqOffset, cqLength);
+    public byte[][] getRegionGuidePosts(HRegionInfo region) {
+        return regionGuidePosts.get(region.getRegionNameAsString());
     }
 
+    @Override
+    public void write(DataOutput output) throws IOException {
+        if (regionGuidePosts == null) {
+            WritableUtils.writeVInt(output, 0);
+            return;
+        }
+        WritableUtils.writeVInt(output, regionGuidePosts.size());
+        for (Entry<String, byte[][]> entry : regionGuidePosts.entrySet()) {
+            WritableUtils.writeString(output, entry.getKey());
+            byte[][] value = entry.getValue();
+            WritableUtils.writeVInt(output, value.length);
+            for (int i=0; i<value.length; i++) {
+                Bytes.writeByteArray(output, value[i]);
+            }
+        }
+    }
 }

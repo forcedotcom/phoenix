@@ -27,13 +27,24 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
+import java.util.TreeSet;
+
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.Expression;
 
 
+/**
+ * 
+ * Filter that evaluates WHERE clause expression, used in the case where there
+ * are references to multiple column qualifiers over multiple column families.
+ *
+ * @author jtaylor
+ * @since 0.1
+ */
 public class MultiCFCQKeyValueComparisonFilter extends MultiKeyValueComparisonFilter {
     private final ImmutablePairBytesPtr ptr = new ImmutablePairBytesPtr();
+    private TreeSet<byte[]> cfSet;
     
     public MultiCFCQKeyValueComparisonFilter() {
     }
@@ -43,15 +54,32 @@ public class MultiCFCQKeyValueComparisonFilter extends MultiKeyValueComparisonFi
     }
 
     @Override
-    protected Object setColumnKey(byte[] cf, int cfOffset, int cfLength, byte[] cq, int cqOffset,
-            int cqLength) {
+    protected void init() {
+        cfSet = new TreeSet<byte[]>(Bytes.BYTES_COMPARATOR);
+        super.init();
+    }
+    
+    @Override
+    protected Object setColumnKey(byte[] cf, int cfOffset, int cfLength,
+            byte[] cq, int cqOffset, int cqLength) {
         ptr.set(cf, cfOffset, cfLength, cq, cqOffset, cqLength);
         return ptr;
     }
 
     @Override
-    protected Object newColumnKey(byte[] cf, int cfOffset, int cfLength, byte[] cq, int cqOffset,
-            int cqLength) {
+    protected Object newColumnKey(byte[] cf, int cfOffset, int cfLength, 
+            byte[] cq, int cqOffset, int cqLength) {
+
+        byte[] cfKey;
+        if (cfOffset == 0 && cf.length == cfLength) {
+            cfKey = cf;
+        } else {
+            // Copy bytes here, but figure cf names are typically a few bytes at most,
+            // so this will be better than creating an ImmutableBytesPtr
+            cfKey = new byte[cfLength];
+            System.arraycopy(cf, cfOffset, cfKey, 0, cfLength);
+        }
+        cfSet.add(cfKey);
         return new ImmutablePairBytesPtr(cf, cfOffset, cfLength, cq, cqOffset, cqLength);
     }
 
@@ -102,5 +130,13 @@ public class MultiCFCQKeyValueComparisonFilter extends MultiKeyValueComparisonFi
             if (Bytes.compareTo(this.bytes1, this.offset1, this.length1, that.bytes1, that.offset1, that.length1) != 0) return false;
             return true;
         }
+    }
+
+    
+    @Override
+    public boolean isFamilyEssential(byte[] name) {
+        // Only the column families involved in the expression are essential.
+        // The others are for columns projected in the select expression.
+        return cfSet.contains(name);
     }
 }

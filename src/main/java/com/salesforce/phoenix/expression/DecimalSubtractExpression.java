@@ -32,10 +32,10 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
-
 
 
 /**
@@ -46,30 +46,45 @@ import com.salesforce.phoenix.util.NumberUtil;
  * @since 0.1
  */
 public class DecimalSubtractExpression extends SubtractExpression {
+    private Integer maxLength;
+    private Integer scale;
+
     public DecimalSubtractExpression() {
     }
 
     public DecimalSubtractExpression(List<Expression> children) {
         super(children);
+        for (int i=0; i<children.size(); i++) {
+            Expression childExpr = children.get(i);
+            if (i == 0) {
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
+            } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
+                    && childExpr.getScale() != null) {
+                maxLength = getPrecision(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                scale = getScale(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+            }
+        }
     }
 
     @Override
-	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-		BigDecimal result = null;
-		for (int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr)) { 
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        BigDecimal result = null;
+        for (int i=0; i<children.size(); i++) {
+            Expression childExpr = children.get(i);
+            if (!childExpr.evaluate(tuple, ptr)) { 
                 return false;
             }
             if (ptr.getLength() == 0) {
                 return true;
             }
-
+            
             PDataType childType = children.get(i).getDataType();
             boolean isDate = childType.isCoercibleTo(PDataType.DATE);
             BigDecimal bd = isDate ?
                     BigDecimal.valueOf(childType.getCodec().decodeLong(ptr)) :
                     (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
-
+            
             if (result == null) {
                 result = bd;
             } else {
@@ -79,22 +94,32 @@ public class DecimalSubtractExpression extends SubtractExpression {
                  * We need to convert the date to a unit of "days" because that's what sql expects.
                  */
                 if (isDate) {
-                    result = result.divide(BD_MILLIS_IN_DAY, NumberUtil.DEFAULT_MATH_CONTEXT);
+                    result = result.divide(BD_MILLIS_IN_DAY, PDataType.DEFAULT_MATH_CONTEXT);
                 }
             }
-		}
-		ptr.set(PDataType.DECIMAL.toBytes(result));
-		return true;
-	}
+        }
+        if (maxLength != null && scale != null) {
+            result = NumberUtil.setDecimalWidthAndScale(result, maxLength, scale);
+        }
+        if (result == null) {
+            throw new ValueTypeIncompatibleException(PDataType.DECIMAL, maxLength, scale);
+        }
+        ptr.set(PDataType.DECIMAL.toBytes(result));
+        return true;
+    }
 
-	@Override
-	public PDataType getDataType() {
-		return PDataType.DECIMAL;
-	}
+    @Override
+    public PDataType getDataType() {
+        return PDataType.DECIMAL;
+    }
+
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
+    }
 }
-
-
-
-
-
-	

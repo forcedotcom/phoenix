@@ -356,11 +356,12 @@ public class UpsertCompiler {
                             literalExpression.getValue(), literalExpression.getBytes(),
                             literalExpression.getMaxLength(), column.getMaxLength(), 
                             literalExpression.getScale(), column.getScale())) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_COLUMN)
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
                         .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
                     }
                 }
-                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType());
+                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType(),
+                        literalExpression.getMaxLength(), literalExpression.getScale(), column.getMaxLength(), column.getScale());
                 values[nodeIndex] = byteValue;
                 nodeIndex++;
             }
