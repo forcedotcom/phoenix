@@ -120,4 +120,64 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
     }
+
+    @Test
+    public void testDecimalAveraging() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(31, 11), col2 DECIMAL(31,1), col3 DECIMAL(31,1))";
+            createTestTable(getUrl(), ddl);
+            
+            String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, "1");
+            stmt.setBigDecimal(2, new BigDecimal("99999999999999999999.1"));
+            stmt.setBigDecimal(3, new BigDecimal("99999999999999999999.1"));
+            stmt.setBigDecimal(4, new BigDecimal("999999999999999999999999999999.1"));
+            stmt.execute();
+            conn.commit();
+            stmt.setString(1, "2");
+            stmt.setBigDecimal(2, new BigDecimal("0"));
+            stmt.setBigDecimal(3, new BigDecimal("0"));
+            stmt.setBigDecimal(4, new BigDecimal("0"));
+            stmt.execute();
+            conn.commit();
+            stmt.setString(1, "3");
+            stmt.setBigDecimal(2, new BigDecimal("0"));
+            stmt.setBigDecimal(3, new BigDecimal("0"));
+            stmt.setBigDecimal(4, new BigDecimal("0"));
+            stmt.execute();
+            conn.commit();
+            
+            // Averaging
+            // result scale should be: max(max(ls, rs), 4).
+            // We are not imposing restriction on precisioin.
+            query = "SELECT avg(col1) FROM testDecimalArithmatic";
+            stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("33333333333333333333.03333333333"), result);
+            
+            query = "SELECT avg(col2) FROM testDecimalArithmatic";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("33333333333333333333.0333"), result);
+            
+            // We cap our decimal to a precision of 31.
+            query = "SELECT avg(col3) FROM testDecimalArithmatic";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("333333333333333333333333333333"), result);
+        } finally {
+            conn.close();
+        }
+    }
 }
