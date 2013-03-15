@@ -193,16 +193,16 @@ public class WhereCompiler {
 
         if (context.hasCnf()) {
             // skip scan filter
-            SkipScanFilter skip = new SkipScanFilter();
-            context.getCnf(skip);
-
-            FilterListWithEquals list;
-            if (filter != null) {
-                list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip, filter);
-            } else {
-                list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip);
+            SkipScanFilter skip = context.newSkipScanFilter();
+            if (skip != null) {
+                FilterListWithEquals list;
+                if (filter != null) {
+                    list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip, filter);
+                } else {
+                    list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip);
+                }
+                filter = list;
             }
-            filter = list;
         }
 
         scan.setFilter(filter);

@@ -55,25 +55,33 @@ public class SkipScanFilter extends FilterBase {
     /**
      * @param varlen if one of the keyslots is variable length
      */
-    public SkipScanFilter setCnf(List<List<KeyRange>> cnf, BitSet varlen) {
+    public SkipScanFilter setCnf(List<List<KeyRange>> cnf, int[] widths) {
         Preconditions.checkArgument(!cnf.isEmpty());
         Preconditions.checkNotNull(cnf);
-        widths = new int[cnf.size()];
-        for (int i=0; i<cnf.size(); i++) {
-            if (varlen.get(i)) {
-                widths[i] = -1;
-            } else {
-                widths[i] = cnf.get(i).get(0).getLowerRange().length;
+        Preconditions.checkArgument(cnf.size() == widths.length, cnf.size()+" vs " + widths.length);
+        this.widths = widths;
+        for (int i=0; i<widths.length; i++) {
+            if (-1 == widths[i]) {
+                // TODO: handle variable width columns
+                return null;
             }
+            Preconditions.checkArgument(widths[i]==-1 || widths[i]>0);
+        }
+        for (int i=0; i<cnf.size(); i++) {
             List<KeyRange> disjunction = cnf.get(i);
             Preconditions.checkArgument(!disjunction.isEmpty());
             KeyRange prev = null;
             for (KeyRange range : disjunction) {
                 Preconditions.checkArgument(KeyRange.EMPTY_RANGE != range);
                 Preconditions.checkArgument(KeyRange.EVERYTHING_RANGE != range);
-                if (!varlen.get(i)) {
+
+                // TODO: handle this
+                if (range.upperUnbound()) return null;
+                if (range.lowerUnbound()) return null;
+
+                if (widths[i] != -1) {
                     Preconditions.checkArgument(widths[i] == range.getLowerRange().length, widths[i] +" " + range.getLowerRange().length + " " + i);
-                    Preconditions.checkArgument(widths[i] == range.getUpperRange().length);
+                    Preconditions.checkArgument(widths[i] == range.getUpperRange().length, widths[i] + " " + range.getUpperRange().length);
                 }
                 Preconditions.checkArgument(!range.upperUnbound());
                 Preconditions.checkArgument(!range.lowerUnbound());

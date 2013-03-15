@@ -1,6 +1,5 @@
 package com.salesforce.phoenix.filter;
 
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import junit.framework.TestCase;
@@ -26,13 +25,9 @@ public class SkipScanFilterTest extends TestCase {
     private final SkipScanFilter skipper = new SkipScanFilter();
     private final Expectation expectation;
 
-    public SkipScanFilterTest(List<List<KeyRange>> cnf, int varlenbitmask, Expectation expectation) {
+    public SkipScanFilterTest(List<List<KeyRange>> cnf, int[] widths, Expectation expectation) {
         this.expectation = expectation;
-        BitSet varlen = new BitSet();
-        for (int i=0; i<32; i++) {
-            if (0 != ((1<<i)&varlenbitmask)) varlen.set(i);
-        }
-        skipper.setCnf(cnf, varlen);
+        skipper.setCnf(cnf, widths);
     }
 
     @Test
@@ -47,7 +42,7 @@ public class SkipScanFilterTest extends TestCase {
                 foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true)
                 }},
-                0x00,
+                new int[]{3},
                 new SeekNext("aba", "abc"),
                 new SeekNext("abb", "abc"),
                 new Include("abc"),
@@ -58,7 +53,7 @@ public class SkipScanFilterTest extends TestCase {
                 foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), true)
                 }},
-                0x00,
+                new int[]{3},
                 new SeekNext("aba", "abd"),
                 new SeekNext("abb", "abd"),
                 new SeekNext("abc", "abd"),
@@ -69,7 +64,7 @@ public class SkipScanFilterTest extends TestCase {
                 foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), false)
                 }},
-                0x00,
+                new int[]{3},
                 new SeekNext("abb", "abd"),
                 new SeekNext("aba", "abd"),
                 new SeekNext("abc", "abd"),
@@ -81,7 +76,7 @@ public class SkipScanFilterTest extends TestCase {
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
                 }},
-                0x00,
+                new int[]{3},
                 new Include("def"),
                 new SeekNext("deg", "dzz"),
                 new SeekNext("dyy", "dzz"),
@@ -99,7 +94,7 @@ public class SkipScanFilterTest extends TestCase {
                     KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
                     KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 }},
-                0x00,
+                new int[]{3,2},
                 new Include("abcAB"),
                 new Include("abcEF"),
                 new Include("defPO"),
@@ -120,7 +115,7 @@ public class SkipScanFilterTest extends TestCase {
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("abc"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
-                0x00,
+                new int[]{2,3},
                 new Include("ABabc"),
                 new Include("EFabc"),
                 new Include("POdef"),
@@ -139,7 +134,7 @@ public class SkipScanFilterTest extends TestCase {
                 {
                     KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
-                0x00,
+                new int[]{2,3},
                 new Finished("PPdef"),
                 new Finished("POdeg"),
                 new Include("POdef"))
@@ -151,7 +146,7 @@ public class SkipScanFilterTest extends TestCase {
                 {
                     KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
-                0x00,
+                new int[]{2,3},
                 new Finished("PPdef"),
                 new Finished("POdeg"),
                 new Include("POdef"))
@@ -173,7 +168,7 @@ public class SkipScanFilterTest extends TestCase {
                 {
                     KeyRange.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
                 }},
-                0x00,
+                new int[]{3,2,2,2,2},
                 new SeekNext("abcABABABAB", "abdAAAAAAAA"),
                 new SeekNext("defABABABAB", "dzzAAAAAAAA"),
                 new SeekNext("defAAABABAB", "dzzAAAAAAAA"),
@@ -190,7 +185,7 @@ public class SkipScanFilterTest extends TestCase {
                     KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
                     KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 }},
-                0x00,
+                new int[]{3,2},
                 new Include("defAB"),
                 new Include("defAC"),
                 new Include("defAW"),
@@ -231,7 +226,7 @@ public class SkipScanFilterTest extends TestCase {
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("dzz"), true, Bytes.toBytes("xyz"), false),
                 }},
-                0x00,
+                new int[]{3},
                 new SeekNext("abb", "abc"),
                 new SeekNext("aba", "abc"),
                 new Include("abc"),
@@ -253,36 +248,37 @@ public class SkipScanFilterTest extends TestCase {
                     KeyRange.getKeyRange(Bytes.toBytes("100"), true, Bytes.toBytes("250"), false),
                     KeyRange.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
                 }},
-                0x00,
+                new int[]{3,2,3},
                 new Include("abcEB701"),
                 new SeekNext("abcEB700", "abcEB701"),
                 new SeekNext("abcEB250", "abcEB701"),
                 new Finished("zzzAA000"))
         );
-        testCases.addAll(
-                foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("apple"), true, Bytes.toBytes("lemon"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("pear"), false, Bytes.toBytes("yam"), false),
-                },
-                {
-                    KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
-                },
-                {
-                    KeyRange.getKeyRange(Bytes.toBytes("100"), true, Bytes.toBytes("250"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
-                }},
-                0x01)
-        );
+// TODO variable length columns
+//        testCases.addAll(
+//                foreach(new KeyRange[][]{{
+//                    KeyRange.getKeyRange(Bytes.toBytes("apple"), true, Bytes.toBytes("lemon"), true),
+//                    KeyRange.getKeyRange(Bytes.toBytes("pear"), false, Bytes.toBytes("yam"), false),
+//                },
+//                {
+//                    KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
+//                    KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
+//                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
+//                },
+//                {
+//                    KeyRange.getKeyRange(Bytes.toBytes("100"), true, Bytes.toBytes("250"), false),
+//                    KeyRange.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
+//                }},
+//                new int[]{3,3})
+//        );
         return testCases;
     }
 
-    private static Collection<?> foreach(KeyRange[][] ranges, int varlenbitmask, Expectation... expectations) {
+    private static Collection<?> foreach(KeyRange[][] ranges, int[] widths, Expectation... expectations) {
         List<List<KeyRange>> cnf = Lists.transform(Lists.newArrayList(ranges), ARRAY_TO_LIST);
         List<Object> ret = Lists.newArrayList();
         for (int i=0;i<expectations.length;i++) {
-            ret.add(new Object[] { cnf, varlenbitmask, expectations[i] });
+            ret.add(new Object[] { cnf, widths, expectations[i] });
         }
         return ret;
     }

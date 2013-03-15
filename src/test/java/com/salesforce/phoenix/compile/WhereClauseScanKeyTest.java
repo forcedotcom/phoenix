@@ -1,28 +1,28 @@
 /*******************************************************************************
  * Copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     Redistributions of source code must retain the above copyright notice,
  *     this list of conditions and the following disclaimer.
  *     Redistributions in binary form must reproduce the above copyright notice,
  *     this list of conditions and the following disclaimer in the documentation
  *     and/or other materials provided with the distribution.
- *     Neither the name of Salesforce.com nor the names of its contributors may 
- *     be used to endorse or promote products derived from this software without 
+ *     Neither the name of Salesforce.com nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
  *     specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
@@ -33,14 +33,20 @@ import java.sql.SQLException;
 import java.util.*;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.FilterList.Operator;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
+import com.google.common.collect.ImmutableList;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.filter.FilterListWithEquals;
+import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -88,7 +94,11 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
 
-        assertNull(scan.getFilter());
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(Arrays.asList(pointRange(tenantId))),
+                new int[] { 15 })),
+            scan.getFilter());
         assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
     }
@@ -98,13 +108,19 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Connection conn = DriverManager.getConnection(getUrl());
         conn.createStatement().execute("CREATE TABLE start_stop_test (pk char(2) not null primary key)");
         conn.close();
-        
+
         String query = "select * from start_stop_test where pk >= 'EA' and pk < 'EZ'";
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
-        assertNull(scan.getFilter());
+
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(KeyRange.getKeyRange(new byte[]{'E','A'}, true, new byte[]{'E','Z'}, false))),
+                new int[] { 2 })),
+            scan.getFilter());
+
         assertArrayEquals(PDataType.VARCHAR.toBytes("EA"), scan.getStartRow());
         assertArrayEquals(PDataType.VARCHAR.toBytes("EZ"), scan.getStopRow());
     }
@@ -116,7 +132,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
+
         // The || operator cannot currently be used to form the start/stop key
         assertNotNull(scan.getFilter());
         assertEquals(0, scan.getStartRow().length);
@@ -129,7 +145,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
+
         assertNull(scan.getFilter());
         assertEquals(0, scan.getStartRow().length);
         assertEquals(0, scan.getStopRow().length);
@@ -156,8 +172,20 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
-        assertNull(scan.getFilter());
+
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        true,
+                        wideUpperEntity,
+                        true))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -171,8 +199,21 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId,keyPrefix);
         compileStatement(query, scan, binds);
-        assertNull(scan.getFilter());
-        
+
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        true,
+                        wideUpperEntity,
+                        true))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
+
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -187,8 +228,16 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        assertNull(scan.getFilter());
-        
+
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(pointRange(entityId))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
+
+
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -219,12 +268,28 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        assertNull(scan.getFilter());
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0x00, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0x00, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        true,
+                        wideUpperEntity,
+                        false))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
         assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    private KeyRange pointRange(String id) {
+        return KeyRange.getKeyRange(Bytes.toBytes(id), true, Bytes.toBytes(id), true);
     }
 
     @Test
@@ -236,7 +301,19 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        assertNull(scan.getFilter());
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0x00, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0xFF, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        true,
+                        wideUpperEntity,
+                        true))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
         assertArrayEquals(startRow, scan.getStartRow());
@@ -253,7 +330,20 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        assertNull(scan.getFilter());
+
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0xFF, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0xFF, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        false,
+                        wideUpperEntity,
+                        true))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStartRow());
@@ -282,7 +372,14 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        assertNull(scan.getFilter());
+
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(pointRange(entityId))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
@@ -328,7 +425,14 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        assertNull(scan.getFilter());
+
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(pointRange(entityId))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
@@ -336,9 +440,39 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
+    @Test
+    public void testKeyRangeExpression9() throws SQLException {
+        String tenantId = "000000000000001";
+        String keyPrefix1 = "002";
+        String keyPrefix2 = "0033";
+        String query = "select * from atable where organization_id='" + tenantId + "' and substr(entity_id,1,3) >= '" + keyPrefix1 + "' and substr(entity_id,1,4) <= '" + keyPrefix2 + "'";
+        Scan scan = new Scan();
+        List<Object> binds = Collections.emptyList();
+        compileStatement(query, scan, binds);
+
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0x00, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0xFF, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        true,
+                        wideUpperEntity,
+                        true))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1), new byte[]{0}); // extra byte is due to implicit internal padding
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix2));
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
+    }
+
     /**
-     * This is testing the degenerate case where nothing will match because the overlapping keys (keyPrefix and entityId) don't match.    
-     * @throws SQLException 
+     * This is testing the degenerate case where nothing will match because the overlapping keys (keyPrefix and entityId) don't match.
+     * @throws SQLException
      */
     @Test
     public void testUnequalOverlappingKeyExpression() throws SQLException {
@@ -359,7 +493,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
+
         assertNotNull(scan.getFilter());
         assertEquals(0, scan.getStartRow().length);
         assertEquals(0, scan.getStopRow().length);
@@ -372,7 +506,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
+
         assertNotNull(scan.getFilter());
         assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
@@ -399,7 +533,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
+
         assertNotNull(scan.getFilter());
         assertEquals(0, scan.getStartRow().length);
         assertEquals(0, scan.getStopRow().length);
@@ -413,7 +547,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds);
-        
+
         assertNotNull(scan.getFilter());
         assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
@@ -426,15 +560,15 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
         compileStatement(query, scan, binds, 1000);
-        
+
         assertNotNull(scan.getFilter());
         assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
     }
-    
+
 
     @Test
-    public void testKeyTypeMismatch() throws SQLException {
+    public void testKeyTypeMismatch() {
         String query = "select * from atable where organization_id=5";
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
@@ -454,8 +588,21 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId);
         compileStatement(query, scan, binds);
-        
-        assertNull(scan.getFilter());
+
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        true,
+                        wideUpperEntity,
+                        true))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
+
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -469,8 +616,21 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId);
         compileStatement(query, scan, binds);
-        
-        assertNull(scan.getFilter());
+
+        byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
+        byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
+        assertEquals(
+            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        wideLowerEntity,
+                        true,
+                        wideUpperEntity,
+                        true))),
+                new int[] { 15, 15 })),
+            scan.getFilter());
+
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -496,9 +656,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId);
         compileStatement(query, scan, binds);
-        
+
         assertNotNull(scan.getFilter());
-        
+
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -513,10 +673,10 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId);
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
-        
+
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -531,11 +691,11 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId);
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
-        
-        
+
+
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(startRow), scan.getStopRow());
@@ -550,7 +710,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId);
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
@@ -566,7 +726,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId);
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -577,7 +737,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -588,7 +748,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -599,7 +759,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -610,7 +770,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -621,7 +781,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -632,7 +792,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -643,7 +803,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -654,7 +814,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList();
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertDegenerate(scan);
     }
 
@@ -667,7 +827,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId);
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
@@ -684,7 +844,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId);
         Set<Expression>extractedNodes = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedNodes);
-        
+
         assertNotNull(scan.getFilter());
         assertEquals(1, extractedNodes.size());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);

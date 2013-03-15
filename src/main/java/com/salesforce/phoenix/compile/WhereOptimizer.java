@@ -31,8 +31,12 @@ import java.io.IOException;
 import java.util.*;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
+import com.google.common.primitives.Ints;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.FunctionExpression.KeyFormationDirective;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
@@ -119,7 +123,7 @@ public class WhereOptimizer {
             int pkPos = -1;
             boolean isFullyQualifiedKey = true;
             List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
-            BitSet varlen = new BitSet();
+            List<Integer> widths = new ArrayList<Integer>();
             List<PColumn> pkColumns = table.getPKColumns();
             // Concat byte arrays of literals to form scan start key
             for (KeyExpressionVisitor.KeySlot slot : compKeyExpr) {
@@ -138,11 +142,9 @@ public class WhereOptimizer {
                 PDatum datum = keyExpr.getDatum();
                 schema.addField(datum);
 
-                if (!datum.getDataType().isFixedWidth()) {
-                    varlen.set(cnf.size());
-                }
                 List<KeyRange> filterHints = new ArrayList<KeyRange>();
                 cnf.add(filterHints);
+                widths.add(keyExpr.getBackingDatum().getByteSize());
 
                 // Add null byte separator to key parts if previous was variable length
                 // Note that for a trailing var length a null byte separator should not be
@@ -156,7 +158,7 @@ public class WhereOptimizer {
                 }
 
                 for (KeyRange range : ranges) {
-                    filterHints.add(range);
+                    filterHints.add(keyExpr.getBackingDatum().getByteSize() == null ? range : KeyExpressionVisitor.KeyPart.fillKey(range, keyExpr.getBackingDatum().getByteSize()));
                 }
 
                 // Concatenate each part of key together
@@ -265,7 +267,12 @@ public class WhereOptimizer {
                             schema.setMaxFields(upperPosCount).build(),
                             isFullyQualifiedKey && allPKColumnsUsed(table, pkPos+1));
             context.setScanKey(scanKey);
-            context.setCnf(cnf, varlen);
+            context.setCnf(cnf, Ints.toArray(Lists.transform(widths, new Function<Integer,Integer>() {
+                @Override public Integer apply(Integer input) {
+                    return input == null ? -1 : input;
+                }
+            }
+            )));
             return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
         } finally {
             if (startKey != null) {
@@ -561,10 +568,20 @@ public class WhereOptimizer {
             if (childKeyExprs.isEmpty()) {
                 return null;
             }
+
             List<byte[]> keys = node.getKeys();
             List<KeyRange> ranges = KeyRange.of(keys);
             KeyPart colKeyExpr = childKeyExprs.get(0).iterator().next().getKeyPart();
-            // TODO: make key range backed by ImmutableBytesWritable to prevent copy?
+            if (ranges.size() > 0) {
+                if (ranges.get(0).lowerUnbound() || ranges.get(ranges.size() - 1).upperUnbound()) {
+                    // unbound?  punt.  TODO optimize SkipScanFilter
+                    ImmutableBytesWritable minKey = node.getMinKey();
+                    ImmutableBytesWritable maxKey = node.getMaxKey();
+                    // TODO: make key range backed by ImmutableBytesWritable to prevent copy?
+                    KeyRange keyRange = KeyRange.getKeyRange(minKey.copyBytes(), true, maxKey.copyBytes(), true);
+                    return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>emptyList(), false, keyRange, node.getChildren().get(0));
+                }
+            }
             return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>singletonList(node), false, ranges, node.getChildren().get(0));
         }
 
@@ -789,8 +806,8 @@ public class WhereOptimizer {
                     k1 = k2;
                     k2 = this;
                 }
-                List<KeyRange> ranges2 = k2.getKeyRanges();
                 if (k1.getDatum().getDataType().isFixedWidth()) {
+                    List<KeyRange> ranges2 = k2.getKeyRanges();
                     for (int i=0; i<ranges2.size(); i++) {
                         KeyRange range2 = ranges2.get(i);
                         range2 = fillKey(range2, k1.getDatum().getByteSize());
