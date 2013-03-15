@@ -1099,7 +1099,8 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
 
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(TestUtil.computeAverage(4.6, 6), rs.getBigDecimal(1));
+            // The column is defined as decimal(31,10), so the value is capped at 10 decimal points.
+            assertEquals(new BigDecimal("0.7666666666"), rs.getBigDecimal(1));
             assertFalse(rs.next());
         } finally {
             conn.close();

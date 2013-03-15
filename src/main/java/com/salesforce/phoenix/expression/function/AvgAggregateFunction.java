@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.expression.function;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
