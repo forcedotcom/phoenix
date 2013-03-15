@@ -33,6 +33,7 @@ import java.sql.SQLException;
 import java.util.*;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 import com.google.common.collect.ImmutableList;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
