@@ -1,28 +1,28 @@
 /*******************************************************************************
  * Copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     Redistributions of source code must retain the above copyright notice,
  *     this list of conditions and the following disclaimer.
  *     Redistributions in binary form must reproduce the above copyright notice,
  *     this list of conditions and the following disclaimer in the documentation
  *     and/or other materials provided with the distribution.
- *     Neither the name of Salesforce.com nor the names of its contributors may 
- *     be used to endorse or promote products derived from this software without 
+ *     Neither the name of Salesforce.com nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
  *     specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
@@ -51,79 +51,90 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
     public void testExplainPlan() throws Exception {
         ensureTableCreated(getUrl(), ATABLE_NAME, getDefaultSplits(getOrganizationId()));
         ensureTableCreated(getUrl(), PTSDB_NAME, getDefaultSplits(getOrganizationId()));
-        String[] queryPlans = new String[] { 
+        String[] queryPlans = new String[] {
                 "SELECT * FROM atable",
                 "CLIENT SERIAL FULL SCAN OVER ATABLE",
-                
+
                 "SELECT inst,host FROM PTSDB WHERE regexp_substr(inst, '[^-]+') IN ('na1', 'na2','na3')",
-                "CLIENT SERIAL RANGE SCAN OVER PTSDB FROM ('na1') INCLUSIVE TO ('na3') INCLUSIVE\n" + 
-                "    SERVER FILTER BY REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na2','na3','na1')",
-                
+                "CLIENT SERIAL RANGE SCAN OVER PTSDB FROM ('na1') INCLUSIVE TO ('na3') INCLUSIVE",
+
                 "SELECT count(*) FROM atable",
-                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
-                "    SERVER FILTER BY FirstKeyOnlyFilter\n" + 
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
+                "    SERVER FILTER BY FirstKeyOnlyFilter\n" +
                 "    SERVER AGGREGATE INTO SINGLE ROW",
-                
+
                 "SELECT count(*) FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
-                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE FROM ('000000000000001','002') EXCLUSIVE TO ('000000000000001','003') INCLUSIVE\n" + 
-                "    SERVER FILTER BY FirstKeyOnlyFilter\n" + 
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE FROM ('000000000000001','002') EXCLUSIVE TO ('000000000000001','003') INCLUSIVE\n" +
+                "    SERVER FILTER BY FilterList AND (2/2): [[[KeyRange{000000000000001, true, 000000000000001, true}], [KeyRange{002\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF, false, 003\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF, true}]][15, 15], FirstKeyOnlyFilter]\n" +
                 "    SERVER AGGREGATE INTO SINGLE ROW",
-                
+
                 "SELECT a_string FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','002') EXCLUSIVE TO ('000000000000001','003') INCLUSIVE",
-                
+                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','002') EXCLUSIVE TO ('000000000000001','003') INCLUSIVE\n" +
+                "    SERVER FILTER BY [[KeyRange{000000000000001, true, 000000000000001, true}], [KeyRange{002\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF, false, 003\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF, true}]][15, 15]",
+
                 "SELECT count(1) FROM atable GROUP BY a_string",
-                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
-                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING]\n" + 
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
+                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING]\n" +
                 "CLIENT MERGE SORT",
-                
+
                 "SELECT count(1) FROM atable GROUP BY a_string LIMIT 5",
-                "CLIENT SERIAL 5 ROW LIMIT FULL SCAN OVER ATABLE\n" + 
-                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING]\n" + 
+                "CLIENT SERIAL 5 ROW LIMIT FULL SCAN OVER ATABLE\n" +
+                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING]\n" +
                 "CLIENT MERGE SORT",
-                
+
                 "SELECT count(1) FROM atable GROUP BY a_string,b_string HAVING max(a_string) = 'a'",
-                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
-                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING, B_STRING]\n" + 
-                "CLIENT MERGE SORT\n" + 
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
+                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING, B_STRING]\n" +
+                "CLIENT MERGE SORT\n" +
                 "CLIENT FILTER BY MAX(A_STRING) = 'a'",
-                
+
                 "SELECT count(1) FROM atable WHERE a_integer = 1 GROUP BY ROUND(a_time,'HOUR',2),entity_id HAVING max(a_string) = 'a'",
-                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
-                "    SERVER FILTER BY A_INTEGER = 1\n" + 
-                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [ENTITY_ID, ROUND(A_TIME)]\n" + 
-                "CLIENT MERGE SORT\n" + 
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
+                "    SERVER FILTER BY A_INTEGER = 1\n" +
+                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [ENTITY_ID, ROUND(A_TIME)]\n" +
+                "CLIENT MERGE SORT\n" +
                 "CLIENT FILTER BY MAX(A_STRING) = 'a'",
-                
+
                 "SELECT count(1) FROM atable WHERE a_integer = 1 GROUP BY a_string,b_string HAVING max(a_string) = 'a' ORDER BY b_string",
-                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
-                "    SERVER FILTER BY A_INTEGER = 1\n" + 
-                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING, B_STRING]\n" + 
-                "CLIENT MERGE SORT\n" + 
-                "CLIENT FILTER BY MAX(A_STRING) = 'a'\n" + 
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
+                "    SERVER FILTER BY A_INTEGER = 1\n" +
+                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING, B_STRING]\n" +
+                "CLIENT MERGE SORT\n" +
+                "CLIENT FILTER BY MAX(A_STRING) = 'a'\n" +
                 "CLIENT SORT BY [B_STRING asc nulls first]",
-                
+
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id = '000000000000002' AND x_integer = 2 AND a_integer < 5 ",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','000000000000002') INCLUSIVE TO ('000000000000001','000000000000002') INCLUSIVE\n" + 
-                "    SERVER FILTER BY (X_INTEGER = 2 AND A_INTEGER < 5)",
-                
+                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','000000000000002') INCLUSIVE TO ('000000000000001','000000000000002') INCLUSIVE\n" +
+                "    SERVER FILTER BY FilterList AND (2/2): [[[KeyRange{000000000000001, true, 000000000000001, true}], [KeyRange{000000000000002, true, 000000000000002, true}]][15, 15], (X_INTEGER = 2 AND A_INTEGER < 5)]",
+
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id != '000000000000002' AND x_integer = 2 AND a_integer < 5 LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
-                "    SERVER FILTER BY (ENTITY_ID != '000000000000002' AND X_INTEGER = 2 AND A_INTEGER < 5)",
-                
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" +
+                "    SERVER FILTER BY FilterList AND (2/2): [[[KeyRange{000000000000001, true, 000000000000001, true}]][15], (ENTITY_ID != '000000000000002' AND X_INTEGER = 2 AND A_INTEGER < 5)]",
+
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" +
+                "    SERVER FILTER BY [[KeyRange{000000000000001, true, 000000000000001, true}]][15]\n" +
                 "CLIENT SORT BY [A_STRING asc nulls first]",
-                
+
                 "SELECT max(a_integer) FROM atable WHERE organization_id = '000000000000001' GROUP BY organization_id,entity_id,ROUND(a_date,'HOUR') ORDER BY entity_id LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
-                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [ORGANIZATION_ID, ENTITY_ID, ROUND(A_DATE)]\n" + 
-                "CLIENT MERGE SORT\n" + 
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" +
+                "    SERVER FILTER BY [[KeyRange{000000000000001, true, 000000000000001, true}]][15]\n" +
+                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [ORGANIZATION_ID, ENTITY_ID, ROUND(A_DATE)]\n" +
+                "CLIENT MERGE SORT\n" +
                 "CLIENT SORT BY [ENTITY_ID asc nulls first]",
-                
+
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" +
+                "    SERVER FILTER BY [[KeyRange{000000000000001, true, 000000000000001, true}]][15]\n" +
                 "CLIENT SORT BY [A_STRING asc nulls first]",
+
+                "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005')",
+                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000005') INCLUSIVE\n" +
+                "    SERVER FILTER BY [[KeyRange{000000000000001, true, 000000000000001, true}, KeyRange{000000000000005, true, 000000000000005, true}]][15]",
+
+                "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005') AND entity_id IN('000000000000001','00000000000000Z')",
+                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','000000000000001') INCLUSIVE TO ('000000000000005','00000000000000Z') INCLUSIVE\n" +
+                "    SERVER FILTER BY [[KeyRange{000000000000001, true, 000000000000001, true}, KeyRange{000000000000005, true, 000000000000005, true}], [KeyRange{000000000000001, true, 000000000000001, true}, KeyRange{00000000000000Z, true, 00000000000000Z, true}]][15, 15]",
         };
         for (int i = 0; i < queryPlans.length; i+=2) {
             String query = queryPlans[i];
