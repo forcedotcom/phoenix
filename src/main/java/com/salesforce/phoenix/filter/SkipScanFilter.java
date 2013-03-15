@@ -48,6 +48,11 @@ public class SkipScanFilter extends FilterBase {
     private List<List<KeyRange>> cnf;
     private int[] widths;
     private byte[] hint = null;
+    int[] keyOffsets, keyLengths;
+    private boolean allFixedWidth;
+    // if allFixedWidth, then this is the precise row key length.  Otherwise
+    // it's a lower bound (each variable width column is estimated as 1 byte wide)
+    private int length;
 
     public SkipScanFilter() {
     }
@@ -60,10 +65,16 @@ public class SkipScanFilter extends FilterBase {
         Preconditions.checkNotNull(cnf);
         Preconditions.checkArgument(cnf.size() == widths.length, cnf.size()+" vs " + widths.length);
         this.widths = widths;
+        allFixedWidth = true;
+        length = 0;
         for (int i=0; i<widths.length; i++) {
             if (-1 == widths[i]) {
+                allFixedWidth = false;
+                length += 1;
                 // TODO: handle variable width columns
                 return null;
+            } else {
+                length += widths[i];
             }
             Preconditions.checkArgument(widths[i]==-1 || widths[i]>0);
         }
@@ -92,6 +103,21 @@ public class SkipScanFilter extends FilterBase {
             }
         }
         this.cnf = cnf;
+        keyOffsets = new int[widths.length];
+        keyLengths = new int[widths.length];
+        if (allFixedWidth) {
+            Arrays.fill(keyOffsets, -1);
+            Arrays.fill(keyLengths, -1);
+            int keyOffset = 0;
+            for (int keySlot=0; keySlot<widths.length; keySlot++) {
+                keyOffsets[keySlot] = keyOffset;
+                keyLengths[keySlot] = widths[keySlot];
+                keyOffset += keyLengths[keySlot];
+                if (keyLengths[keySlot] + keyOffsets[keySlot] > length) {
+                    throw new RuntimeException("went past the end of the rowkey: "+ length+" " + Arrays.toString(keyLengths) + " " + Arrays.toString(keyOffsets));
+                }
+            }
+        }
         return this;
     }
 
@@ -108,50 +134,19 @@ public class SkipScanFilter extends FilterBase {
 
     @Override
     public boolean filterRowKey(final byte[] data, int offset, int length) {
-        // TODO:
-        // If we don't have any "partial" keys, we can allocate an array once in
-        // the constructor that's the max byte length of each key slot and then
-        // just increment an index into it. Allocating memory in this method
-        // should be avoided if possible.
         TrustedByteArrayOutputStream hint = new TrustedByteArrayOutputStream(1);
         boolean inside = true;
         boolean finished = true;
-        int[] keyOffsets = new int[widths.length];
-        int[] keyLengths = new int[widths.length];
-        Arrays.fill(keyOffsets, -1);
-        {
-            int keyOffset = offset;
-            for (int keySlot=0; keySlot<widths.length; keySlot++) {
-                if (isVariableLength(keySlot)) {
-                    // variable length
-                    int keyLength = 0;
-                    while (true) {
-                        if (data[keyOffset + keyLength] == 0) {
-                            keyLength -= 1;
-                            break;
-                        }
-                        if (keyLength + keyOffset > offset + length) break;
-                        keyLength++;
-                    }
-                    keyOffsets[keySlot] = keyOffset;
-                    keyLengths[keySlot] = keyLength;
-                    keyOffset += keyLength + 1;
-                } else {
-                    keyOffsets[keySlot] = keyOffset;
-                    keyLengths[keySlot] = widths[keySlot];
-                    keyOffset += keyLengths[keySlot];
-                }
-                if (keyLengths[keySlot] + keyOffsets[keySlot] > offset + length) {
-                    throw new RuntimeException("went past the end of the rowkey: "+offset+" " + length+" " + Arrays.toString(keyLengths) + " " + Arrays.toString(keyOffsets));
-                }
-            }
-        }
+
+        if (!allFixedWidth) {
+            findKeyBoundaries(data, offset, length);
+        } // otherwise we already calculated the boundaries in setCnf
 
         for (int keySlot=0; keySlot<widths.length; keySlot++) {
             List<KeyRange> ranges = cnf.get(keySlot);
             KeyRange last = ranges.get(ranges.size() - 1);
             byte[] upper = last.getUpperRange();
-            int cmpUpper = Bytes.compareTo(data, keyOffsets[keySlot], keyLengths[keySlot], upper, 0, upper.length);
+            int cmpUpper = Bytes.compareTo(data, offset + keyOffsets[keySlot], keyLengths[keySlot], upper, 0, upper.length);
             if (cmpUpper == 0 && !last.isUpperInclusive() || cmpUpper > 0) {
                 if (keySlot == 0) {
                     this.hint = FIN;
@@ -161,14 +156,14 @@ public class SkipScanFilter extends FilterBase {
                 // backtrack to find the last incrementable key
                 int probe = keySlot - 1;
                 while (probe >= 0) {
-                    byte[] successor = successor(data, keyOffsets[probe], keyLengths[probe], probe);
+                    byte[] successor = successor(data, offset + keyOffsets[probe], keyLengths[probe], probe);
                     if (successor == null) {
                         probe--;
                     } else {
                         // all slots prior to this one have headroom.
                         // we just need to increment the one immediately prior
                         for (int a=0; a<probe; a++) {
-                            write(hint, data, keyOffsets[a], keyLengths[a], isVariableLength(a));
+                            write(hint, data, offset + keyOffsets[a], keyLengths[a], isVariableLength(a));
                         }
                         write(hint, successor, 0, successor.length, isVariableLength(probe));
                         for (int a=probe + 1; a<widths.length; a++) {
@@ -186,7 +181,7 @@ public class SkipScanFilter extends FilterBase {
         nextSlot: for (int keySlot=0; keySlot<widths.length; keySlot++) {
             for (KeyRange range : cnf.get(keySlot)) {
                 byte[] lower = range.getLowerRange();
-                int cmpLower = Bytes.compareTo(data, keyOffsets[keySlot], keyLengths[keySlot], lower, 0, lower.length);
+                int cmpLower = Bytes.compareTo(data, offset + keyOffsets[keySlot], keyLengths[keySlot], lower, 0, lower.length);
                 if (cmpLower < 0) {
                     seekInto(hint, range, isVariableLength(keySlot));
                     for (int tailKey=keySlot + 1; tailKey<widths.length; tailKey++) {
@@ -213,10 +208,10 @@ public class SkipScanFilter extends FilterBase {
                 }
                 assert cmpLower > 0;
                 byte[] upper = range.getUpperRange();
-                int cmpUpper = Bytes.compareTo(data, keyOffsets[keySlot], keyLengths[keySlot], upper, 0, upper.length);
+                int cmpUpper = Bytes.compareTo(data, offset + keyOffsets[keySlot], keyLengths[keySlot], upper, 0, upper.length);
                 if (cmpUpper < 0 || cmpUpper == 0 && range.isUpperInclusive()) {
                     // we're inside this range
-                    hint.write(data, keyOffsets[keySlot], keyLengths[keySlot]);
+                    hint.write(data, offset + keyOffsets[keySlot], keyLengths[keySlot]);
                     finished = false;
                     continue nextSlot;
                 }
@@ -250,6 +245,36 @@ public class SkipScanFilter extends FilterBase {
         }
         this.hint = hint.toByteArray();
         return false;
+    }
+
+    private void findKeyBoundaries(final byte[] data, int offset, int length) {
+        Arrays.fill(keyOffsets, -1);
+        Arrays.fill(keyLengths, -1);
+        int keyOffset = 0;
+        for (int keySlot=0; keySlot<widths.length; keySlot++) {
+            if (isVariableLength(keySlot)) {
+                // variable length
+                int keyLength = 0;
+                while (true) {
+                    if (data[offset + keyOffset + keyLength] == 0) {
+                        keyLength -= 1;
+                        break;
+                    }
+                    if (keyLength + keyOffset > length) break;
+                    keyLength++;
+                }
+                keyOffsets[keySlot] = keyOffset;
+                keyLengths[keySlot] = keyLength;
+                keyOffset += keyLength + 1;
+            } else {
+                keyOffsets[keySlot] = keyOffset;
+                keyLengths[keySlot] = widths[keySlot];
+                keyOffset += keyLengths[keySlot];
+            }
+            if (keyLengths[keySlot] + keyOffsets[keySlot] > length) {
+                throw new RuntimeException("went past the end of the rowkey: "+offset+" " + length+" " + Arrays.toString(keyLengths) + " " + Arrays.toString(keyOffsets));
+            }
+        }
     }
 
     private static void write(TrustedByteArrayOutputStream hint, byte[] data, int keyOffset, int keyLength, boolean varlen) {
@@ -347,12 +372,12 @@ public class SkipScanFilter extends FilterBase {
 
     @Override public void readFields(DataInput in) throws IOException {
         int widthslen = in.readInt();
-        widths = new int[widthslen];
+        int[] widths = new int[widthslen];
         for (int i=0; i<widthslen; i++) {
             widths[i] = in.readInt();
         }
         int n = in.readInt();
-        cnf = new ArrayList<List<KeyRange>>();
+        List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
         for (int i=0; i<n; i++) {
             int orlen = in.readInt();
             List<KeyRange> orclause = new ArrayList<KeyRange>();
@@ -364,6 +389,7 @@ public class SkipScanFilter extends FilterBase {
                             WritableUtils.readCompressedByteArray(in), in.readBoolean()));
             }
         }
+        this.setCnf(cnf, widths);
     }
 
     @Override public void write(DataOutput out) throws IOException {
