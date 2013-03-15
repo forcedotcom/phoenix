@@ -33,13 +33,11 @@ import java.sql.SQLException;
 import java.util.*;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.FilterList.Operator;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 import com.google.common.collect.ImmutableList;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.filter.FilterListWithEquals;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
@@ -95,9 +93,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
 
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(Arrays.asList(pointRange(tenantId))),
-                new int[] { 15 })),
+                new int[] { 15 }),
             scan.getFilter());
         assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
@@ -115,12 +113,14 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
 
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
-                ImmutableList.of(
-                    Arrays.asList(KeyRange.getKeyRange(new byte[]{'E','A'}, true, new byte[]{'E','Z'}, false))),
-                new int[] { 2 })),
+            new SkipScanFilter().setCnf(
+                ImmutableList.of(Arrays.asList(KeyRange.getKeyRange(
+                    new byte[] { 'E', 'A' },
+                    true,
+                    new byte[] { 'E', 'Z' },
+                    false))),
+                new int[] { 2 }),
             scan.getFilter());
-
         assertArrayEquals(PDataType.VARCHAR.toBytes("EA"), scan.getStartRow());
         assertArrayEquals(PDataType.VARCHAR.toBytes("EZ"), scan.getStopRow());
     }
@@ -176,7 +176,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -184,7 +184,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         true,
                         wideUpperEntity,
                         true))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
         assertArrayEquals(startRow, scan.getStartRow());
@@ -203,7 +203,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -211,7 +211,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         true,
                         wideUpperEntity,
                         true))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
@@ -230,11 +230,11 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
 
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(pointRange(entityId))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
 
@@ -271,7 +271,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0x00, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0x00, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -279,7 +279,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         true,
                         wideUpperEntity,
                         false))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
@@ -304,7 +304,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0x00, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0xFF, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -312,7 +312,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         true,
                         wideUpperEntity,
                         true))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
@@ -334,7 +334,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0xFF, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0xFF, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -342,7 +342,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         false,
                         wideUpperEntity,
                         true))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1));
@@ -374,11 +374,11 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
 
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(pointRange(entityId))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
@@ -427,11 +427,11 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
 
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(pointRange(entityId))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
@@ -453,7 +453,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix1), (byte)0x00, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix2), (byte)0xFF, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -461,7 +461,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         true,
                         wideUpperEntity,
                         true))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix1), new byte[]{0}); // extra byte is due to implicit internal padding
@@ -592,7 +592,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -600,7 +600,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         true,
                         wideUpperEntity,
                         true))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));
@@ -620,7 +620,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] wideLowerEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0x00, 15);
         byte[] wideUpperEntity = ByteUtil.fillKey(Bytes.toBytes(keyPrefix), (byte)0xFF, 15);
         assertEquals(
-            new FilterListWithEquals(Operator.MUST_PASS_ALL, new SkipScanFilter().setCnf(
+            new SkipScanFilter().setCnf(
                 ImmutableList.of(
                     Arrays.asList(pointRange(tenantId)),
                     Arrays.asList(KeyRange.getKeyRange(
@@ -628,7 +628,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
                         true,
                         wideUpperEntity,
                         true))),
-                new int[] { 15, 15 })),
+                new int[] { 15, 15 }),
             scan.getFilter());
 
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(keyPrefix));

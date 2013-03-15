@@ -108,6 +108,11 @@ public class SkipScanFilter extends FilterBase {
 
     @Override
     public boolean filterRowKey(final byte[] data, int offset, int length) {
+        // TODO:
+        // If we don't have any "partial" keys, we can allocate an array once in
+        // the constructor that's the max byte length of each key slot and then
+        // just increment an index into it. Allocating memory in this method
+        // should be avoided if possible.
         TrustedByteArrayOutputStream hint = new TrustedByteArrayOutputStream(1);
         boolean inside = true;
         boolean finished = true;

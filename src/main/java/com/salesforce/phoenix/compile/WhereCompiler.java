@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.Set;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.FilterList.Operator;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
@@ -195,13 +196,11 @@ public class WhereCompiler {
             // skip scan filter
             SkipScanFilter skip = context.newSkipScanFilter();
             if (skip != null) {
-                FilterListWithEquals list;
-                if (filter != null) {
-                    list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip, filter);
+                if (filter == null) {
+                    filter = skip;
                 } else {
-                    list = new FilterListWithEquals(Operator.MUST_PASS_ALL, skip);
+                    filter = new FilterList(Operator.MUST_PASS_ALL, skip, filter);
                 }
-                filter = list;
             }
         }
 
