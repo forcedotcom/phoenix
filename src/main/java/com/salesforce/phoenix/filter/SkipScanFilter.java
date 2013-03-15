@@ -27,22 +27,22 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
+
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
+
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
+import com.google.common.hash.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
+@SuppressWarnings("resource")
 public class SkipScanFilter extends FilterBase {
     private static final byte[] FIN = {};
     private List<List<KeyRange>> cnf;
@@ -426,7 +426,7 @@ public class SkipScanFilter extends FilterBase {
     @Override public boolean equals(Object obj) {
         if (!(obj instanceof SkipScanFilter)) return false;
         SkipScanFilter other = (SkipScanFilter)obj;
-        return Arrays.equals(widths, other.widths) && Objects.deepEquals(cnf, other.cnf);
+        return Arrays.equals(widths, other.widths) && Objects.equal(cnf, other.cnf);
     }
 
     @Override public String toString() {
