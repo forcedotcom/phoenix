@@ -1028,7 +1028,8 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             assertTrue(rs.next());
             assertEquals(3, rs.getLong(1));
             assertEquals(11000, rs.getLong(2));
-            assertEquals(TestUtil.computeAverage(11000, 3), rs.getBigDecimal(3));
+            // Scale is automatically capped at 4 if no scale is specified. 
+            assertEquals(new BigDecimal("3666.6666"), rs.getBigDecimal(3));
             assertFalse(rs.next());
         } finally {
             conn.close();
