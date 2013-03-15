@@ -54,7 +54,7 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
     private static final byte[] UNITIALIZED_KEY_BUFFER = new byte[0];
 
     private Boolean matchedColumn;
-    private final IncrementalResultTuple inputTuple = new IncrementalResultTuple();
+    protected final IncrementalResultTuple inputTuple = new IncrementalResultTuple();
 
     public MultiKeyValueComparisonFilter() {
     }
@@ -173,7 +173,7 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
         }
     }
     
-    private void init() {
+    protected void init() {
         EvaluateOnCompletionVisitor visitor = new EvaluateOnCompletionVisitor() {
             @Override
             public Void visit(KeyValueColumnExpression expression) {
@@ -238,5 +238,4 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
         super.readFields(input);
         init();
     }
-
 }

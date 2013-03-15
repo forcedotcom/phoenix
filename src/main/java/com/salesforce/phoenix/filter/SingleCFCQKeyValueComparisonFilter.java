@@ -34,8 +34,9 @@ import com.salesforce.phoenix.expression.Expression;
 
 /**
  * 
- * SingleKeyValueComparisonFilter that compares both the column family and column qualifier
- * parts of the key value. 
+ * SingleKeyValueComparisonFilter that needs to compare both the column family and
+ * column qualifier parts of the key value to disambiguate with another similarly
+ * named column qualifier in a different column family.
  *
  * @author jtaylor
  * @since 0.1

@@ -34,8 +34,9 @@ import com.salesforce.phoenix.expression.Expression;
 
 /**
  * 
- * SingleKeyValueComparisonFilter that compares only the column qualifier
- * part of the key value. 
+ * SingleKeyValueComparisonFilter that needs to only compare the column qualifier
+ * part of the key value since the column qualifier is unique across all column
+ * families.
  *
  * @author jtaylor
  * @since 0.1
