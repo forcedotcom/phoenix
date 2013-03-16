@@ -212,15 +212,18 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             assertEquals(new BigDecimal("100.3"), rs.getBigDecimal(1));
             assertFalse(rs.next());
             // source and target in same table, values scheme incompatible.
-            try {
-                query = "UPSERT INTO source(pk, col4) SELECT pk, col1 from source";
-                stmt = conn.prepareStatement(query);
-                stmt.execute();
-                conn.commit();
-                fail("Should have caught bad upsert.");
-            } catch (Exception e) {
-                assertTrue(e.getMessage(), false);
-            }
+            query = "UPSERT INTO source(pk, col4) SELECT pk, col1 from source";
+            stmt = conn.prepareStatement(query);
+            stmt.execute();
+            conn.commit();
+            query = "SELECT col4 FROM source";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertNull(rs.getBigDecimal(1));
+            assertTrue(rs.next());
+            assertNull(rs.getBigDecimal(1));
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }
