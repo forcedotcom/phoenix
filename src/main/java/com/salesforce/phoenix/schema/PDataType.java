@@ -724,14 +724,33 @@ public enum PDataType {
         @Override
         public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
                 Integer desiredMaxLength, Integer desiredScale) {
-            if (scale == null || desiredScale == null) {
+            if (desiredScale == null) {
                 // scale or deiredScale not available, delegate to parents.
                 return super.coerceBytes(b, object, actualType);
-            } else  if (this == actualType && scale <= desiredScale) {
+            }
+            if (scale == null) {
+                if (object != null) {
+                    BigDecimal v = (BigDecimal) object;
+                    scale = v.scale();
+                } else if (b != null) {
+                    int[] v = getDecimalPrecisionAndScale(b, 0, b.length);
+                    scale = v[1];
+                } else {
+                    // Both object and b are null, so we have nothing to coerce.
+                    return null;
+                }
+            }
+            if (this == actualType && scale <= desiredScale) {
                 // No coerce and rescale necessary
                 return b;
             } else {
-                BigDecimal decimal = (BigDecimal) toObject(object, actualType);
+                BigDecimal decimal;
+                // Rescale is necessary.
+                if (object != null) { // value object is passed in.
+                    decimal = (BigDecimal) toObject(object, actualType);
+                } else { // only value bytes is passed in, need to convert to object first.
+                    decimal = (BigDecimal) toObject(b);
+                }
                 decimal = decimal.setScale(desiredScale, BigDecimal.ROUND_DOWN);
                 return toBytes(decimal);
             }
@@ -1905,16 +1924,24 @@ public enum PDataType {
         }
         length = index - offset;
         int precision = 2 * (length - 1);
-        long l = signum * bytes[--index] - digitOffset;
-        if (l % 10 == 0) { // trailing zero
-            scale--; // drop trailing zero and compensate in the scale
+        int d = signum * bytes[--index] - digitOffset;
+        if (d % 10 == 0) { // trailing zero
+            // drop trailing zero and compensate in the scale and precision.
+            d /= 10;
+            scale--;
+            precision -= 1;
         }
-        // If length == 2, check if we are having a single digit number.
-        if (l < 10) {
+        d = signum * bytes[1] - digitOffset;
+        if (d < 10) { // Leading single digit
+            // Compensate in the precision.
             precision -= 1;
         }
         // Update the scale based on the precision
         scale += (length - 2) * 2;
+        if (scale < 0) {
+            precision = precision - scale;
+            scale = 0;
+        }
         return new int[] {precision, scale};
     }
 

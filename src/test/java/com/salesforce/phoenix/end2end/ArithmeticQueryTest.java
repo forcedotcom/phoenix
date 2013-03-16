@@ -131,7 +131,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
                     " (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(5,2), col2 DECIMAL(5,1), col3 DECIMAL(5,2), col4 DECIMAL(4,4))";
             createTestTable(getUrl(), ddl);
             ddl = "CREATE TABLE IF NOT EXISTS target" + 
-                    " (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(5,1), col2 VARCHAR, col3 DECIMAL(4,4))";
+                    " (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(5,1), col2 DECIMAL(5,2), col3 DECIMAL(4,4))";
             createTestTable(getUrl(), ddl);
             
             String query = "UPSERT INTO source(pk, col1) VALUES(?,?)";
@@ -159,13 +159,12 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             assertTrue(rs.next());
             assertEquals(new BigDecimal("100.34"), rs.getBigDecimal(1));
             assertFalse(rs.next());
-            
             // source and target in different tables, values requires scale chopping.
             query = "UPSERT INTO target(pk, col1) SELECT pk, col1 from source";
             stmt = conn.prepareStatement(query);
             stmt.execute();
             conn.commit();
-            query = "SELECT col2 FROM target";
+            query = "SELECT col1 FROM target";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
@@ -173,16 +172,15 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             assertTrue(rs.next());
             assertEquals(new BigDecimal("100.3"), rs.getBigDecimal(1));
             assertFalse(rs.next());
-            
             // source and target in different tables, values scheme incompatible.
             try {
                 query = "UPSERT INTO target(pk, col3) SELECT pk, col1 from source";
                 stmt = conn.prepareStatement(query);
                 stmt.execute();
                 conn.commit();
-//                fail("Should have caught bad upsert.");
+                fail("Should have caught bad upsert.");
             } catch (Exception e) {
-                assertTrue(e.getMessage(), false);
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. columnName=COL3"));
             }
             
             // Evaluate on server side.
@@ -219,7 +217,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
                 stmt = conn.prepareStatement(query);
                 stmt.execute();
                 conn.commit();
-//                fail("Should have caught bad upsert.");
+                fail("Should have caught bad upsert.");
             } catch (Exception e) {
                 assertTrue(e.getMessage(), false);
             }

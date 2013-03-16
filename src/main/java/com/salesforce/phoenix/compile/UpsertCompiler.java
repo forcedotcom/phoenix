@@ -319,7 +319,8 @@ public class UpsertCompiler {
                                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
                                         .setColumnName(column.getName().getString()).build().buildException();
                                 }
-                                values[i] = rs.getBytes(i+1);
+                                values[i] = column.getDataType().coerceBytes(rs.getBytes(i+1), null, column.getDataType(),
+                                        null, null, column.getMaxLength(), column.getScale());
                             }
                             setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
                             rowCount++;
