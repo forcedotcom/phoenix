@@ -40,18 +40,18 @@ import org.junit.Test;
 public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
 
     @Test
-    public void testDecimalDefinition() throws Exception {
+    public void testDecimalUpsertValue() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         try {
-            String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
+            String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmetic" + 
                     "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
                     "col1 DECIMAL, col2 DECIMAL(5), col3 DECIMAL(5,2))";
             createTestTable(getUrl(), ddl);
             
             // Test upsert correct values 
-            String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            String query = "UPSERT INTO testDecimalArithmetic(pk, col1, col2, col3) VALUES(?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, "valueOne");
             stmt.setBigDecimal(2, new BigDecimal("123456789123456789"));
@@ -60,7 +60,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmatic WHERE pk = 'valueOne' LIMIT 1";
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueOne' LIMIT 1";
             stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
@@ -69,7 +69,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             assertEquals(new BigDecimal("12.34"), rs.getBigDecimal(3));
             assertFalse(rs.next());
             
-            query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            query = "UPSERT INTO testDecimalArithmetic(pk, col1, col2, col3) VALUES(?,?,?,?)";
             stmt = conn.prepareStatement(query);
             stmt.setString(1, "valueTwo");
             stmt.setBigDecimal(2, new BigDecimal("1234567890123456789012345678901.12345"));
@@ -78,7 +78,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmatic WHERE pk = 'valueTwo' LIMIT 1";
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueTwo' LIMIT 1";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
@@ -89,7 +89,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             
             // Test upsert incorrect values and confirm exceptions would be thrown.
             try {
-                query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+                query = "UPSERT INTO testDecimalArithmetic(pk, col1, col2, col3) VALUES(?,?,?,?)";
                 stmt = conn.prepareStatement(query);
                 stmt.setString(1, "badValues");
                 // one more than max_precision
@@ -103,7 +103,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
                 assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. value=12345678901234567890123456789012 columnName=COL1"));
             }
             try {
-                query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+                query = "UPSERT INTO testDecimalArithmetic(pk, col1, col2, col3) VALUES(?,?,?,?)";
                 stmt = conn.prepareStatement(query);
                 stmt.setString(1, "badValues");
                 stmt.setBigDecimal(2, new BigDecimal("123456"));
@@ -116,6 +116,114 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             } catch (Exception e) {
                 assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. value=123456 columnName=COL2"));
             }
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testDecimalUpsertSelect() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE IF NOT EXISTS source" + 
+                    " (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(5,2), col2 DECIMAL(5,1), col3 DECIMAL(5,2), col4 DECIMAL(4,4))";
+            createTestTable(getUrl(), ddl);
+            ddl = "CREATE TABLE IF NOT EXISTS target" + 
+                    " (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(5,1), col2 DECIMAL(5,2), col3 DECIMAL(4,4))";
+            createTestTable(getUrl(), ddl);
+            
+            String query = "UPSERT INTO source(pk, col1) VALUES(?,?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, "1");
+            stmt.setBigDecimal(2, new BigDecimal("100.12"));
+            stmt.execute();
+            conn.commit();
+            stmt.setString(1, "2");
+            stmt.setBigDecimal(2, new BigDecimal("100.34"));
+            stmt.execute();
+            conn.commit();
+            
+            // Evaluated on client side.
+            // source and target in different tables, values scheme compatible.
+            query = "UPSERT INTO target(pk, col2) SELECT pk, col1 from source";
+            stmt = conn.prepareStatement(query);
+            stmt.execute();
+            conn.commit();
+            query = "SELECT col2 FROM target";
+            stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.12"), rs.getBigDecimal(1));
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.34"), rs.getBigDecimal(1));
+            assertFalse(rs.next());
+            // source and target in different tables, values requires scale chopping.
+            query = "UPSERT INTO target(pk, col1) SELECT pk, col1 from source";
+            stmt = conn.prepareStatement(query);
+            stmt.execute();
+            conn.commit();
+            query = "SELECT col1 FROM target";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.1"), rs.getBigDecimal(1));
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.3"), rs.getBigDecimal(1));
+            assertFalse(rs.next());
+            // source and target in different tables, values scheme incompatible.
+            try {
+                query = "UPSERT INTO target(pk, col3) SELECT pk, col1 from source";
+                stmt = conn.prepareStatement(query);
+                stmt.execute();
+                conn.commit();
+                fail("Should have caught bad upsert.");
+            } catch (Exception e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. columnName=COL3"));
+            }
+            
+            // Evaluate on server side.
+            conn.setAutoCommit(true);
+            // source and target in same table, values scheme compatible.
+            query = "UPSERT INTO source(pk, col3) SELECT pk, col1 from source";
+            stmt = conn.prepareStatement(query);
+            stmt.execute();
+            conn.commit();
+            query = "SELECT col3 FROM source";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.12"), rs.getBigDecimal(1));
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.34"), rs.getBigDecimal(1));
+            assertFalse(rs.next());
+            // source and target in same table, values requires scale chopping.
+            query = "UPSERT INTO source(pk, col2) SELECT pk, col1 from source";
+            stmt = conn.prepareStatement(query);
+            stmt.execute();
+            conn.commit();
+            query = "SELECT col2 FROM source";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.1"), rs.getBigDecimal(1));
+            assertTrue(rs.next());
+            assertEquals(new BigDecimal("100.3"), rs.getBigDecimal(1));
+            assertFalse(rs.next());
+            // source and target in same table, values scheme incompatible.
+            query = "UPSERT INTO source(pk, col4) SELECT pk, col1 from source";
+            stmt = conn.prepareStatement(query);
+            stmt.execute();
+            conn.commit();
+            query = "SELECT col4 FROM source";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertNull(rs.getBigDecimal(1));
+            assertTrue(rs.next());
+            assertNull(rs.getBigDecimal(1));
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }

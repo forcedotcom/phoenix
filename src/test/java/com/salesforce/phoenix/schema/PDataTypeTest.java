@@ -296,4 +296,56 @@ public class PDataTypeTest {
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.LONG));
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_INT));
     }
+
+    @Test
+    public void testGetDeicmalPrecisionAndScaleFromRawBytes() throws Exception {
+        // Special case for 0.
+        BigDecimal bd = new BigDecimal("0");
+        byte[] b = PDataType.DECIMAL.toBytes(bd);
+        int[] v = PDataType.getDecimalPrecisionAndScale(b, 0, b.length);
+        assertEquals(0, v[0]);
+        assertEquals(0, v[1]);
+        
+        BigDecimal[] bds = new BigDecimal[] {
+                new BigDecimal("1"),
+                new BigDecimal("0.11"),
+                new BigDecimal("1.1"),
+                new BigDecimal("11"),
+                new BigDecimal("101"),
+                new BigDecimal("10.1"),
+                new BigDecimal("1.01"),
+                new BigDecimal("0.101"),
+                new BigDecimal("1001"),
+                new BigDecimal("100.1"),
+                new BigDecimal("10.01"),
+                new BigDecimal("1.001"),
+                new BigDecimal("0.1001"),
+                new BigDecimal("10001"),
+                new BigDecimal("1000.1"),
+                new BigDecimal("100.01"),
+                new BigDecimal("10.001"),
+                new BigDecimal("1.0001"),
+                new BigDecimal("0.10001"),
+                new BigDecimal("100000000000000000000000000000"),
+                new BigDecimal("1000000000000000000000000000000"),
+                new BigDecimal("0.000000000000000000000000000001"),
+                new BigDecimal("0.0000000000000000000000000000001"),
+                new BigDecimal("111111111111111111111111111111"),
+                new BigDecimal("1111111111111111111111111111111"),
+                new BigDecimal("0.111111111111111111111111111111"),
+                new BigDecimal("0.1111111111111111111111111111111"),
+        };
+        
+        for (int i=0; i<bds.length; i++) {
+            testReadDecimalPrecisionAndScaleFromRawBytes(bds[i]);
+            testReadDecimalPrecisionAndScaleFromRawBytes(bds[i].negate());
+        }
+    }
+
+    private void testReadDecimalPrecisionAndScaleFromRawBytes(BigDecimal bd) {
+        byte[] b = PDataType.DECIMAL.toBytes(bd);
+        int[] v = PDataType.getDecimalPrecisionAndScale(b, 0, b.length);
+        assertEquals(bd.toString(), bd.precision(), v[0]);
+        assertEquals(bd.toString(), bd.scale(), v[1]);
+    }
 }

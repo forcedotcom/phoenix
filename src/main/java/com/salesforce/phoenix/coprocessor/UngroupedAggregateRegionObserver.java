@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.aggregator.*;
@@ -164,7 +165,19 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                             PRow row = projectedTable.newRow(ts, ptr);
                             for (; i < projectedTable.getColumns().size(); i++) {
                                 if (selectExpressions.get(i).evaluate(result, ptr)) {
-                                    row.setValue(projectedTable.getColumns().get(i), ptr.copyBytes());
+                                    PColumn column = projectedTable.getColumns().get(i);
+                                    byte[] bytes = ptr.copyBytes();
+                                    // We are guaranteed that the two column will have the same type.
+                                    if (!column.getDataType().isSizeCompatible(column.getDataType(),
+                                            null, bytes,
+                                            null, column.getMaxLength(), 
+                                            null, column.getScale())) {
+                                        throw new ValueTypeIncompatibleException(column.getDataType(),
+                                                column.getMaxLength(), column.getScale());
+                                    }
+                                    bytes = column.getDataType().coerceBytes(bytes, null, column.getDataType(),
+                                            null, null, column.getMaxLength(), column.getScale());
+                                    row.setValue(projectedTable.getColumns().get(i), bytes);
                                 }
                             }
                             for (Mutation mutation : row.toRowMutations()) {
