@@ -1935,7 +1935,7 @@ public enum PDataType {
             scale--;
             precision -= 1;
         }
-        d = signum * bytes[1] - digitOffset;
+        d = signum * bytes[offset+1] - digitOffset;
         if (d < 10) { // Leading single digit
             // Compensate in the precision.
             precision -= 1;
