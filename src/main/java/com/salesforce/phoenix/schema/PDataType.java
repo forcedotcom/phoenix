@@ -702,16 +702,20 @@ public enum PDataType {
         @Override
         public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
                 Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
-            // Get precision and scale if it is not already passed in.
+            // Get precision and scale if it is not already passed in and either the object or byte values
+            // is meaningful.
             if (maxLength == null && scale == null) {
                 if (value != null) {
                     BigDecimal v = (BigDecimal) value;
                     maxLength = v.precision();
                     scale = v.scale();
-                } else if (b != null) {
+                } else if (b != null && b.length > 0) {
                     int[] v = getDecimalPrecisionAndScale(b, 0, b.length);
                     maxLength = v[0];
                     scale = v[1];
+                } else {
+                    // the value does not contains maxLength nor scale. Just return true.
+                    return true;
                 }
             }
             if (desiredMaxLength != null && desiredScale != null && maxLength != null && scale != null &&
@@ -732,12 +736,12 @@ public enum PDataType {
                 if (object != null) {
                     BigDecimal v = (BigDecimal) object;
                     scale = v.scale();
-                } else if (b != null) {
+                } else if (b != null && b.length > 0) {
                     int[] v = getDecimalPrecisionAndScale(b, 0, b.length);
                     scale = v[1];
                 } else {
-                    // Both object and b are null, so we have nothing to coerce.
-                    return null;
+                    // Neither the object value nor byte value is meaningful, delegate to super.
+                    return super.coerceBytes(b, object, actualType);
                 }
             }
             if (this == actualType && scale <= desiredScale) {
