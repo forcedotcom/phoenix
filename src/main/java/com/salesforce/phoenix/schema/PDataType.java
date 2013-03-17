@@ -358,6 +358,14 @@ public enum PDataType {
             return Bytes.SIZEOF_LONG;
         }
 
+        public Integer getMaxLength(Object o) {
+            return LONG_PRECISION;
+        }
+
+        public Integer getScale(Object o) {
+            return 0;
+        }
+
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             if (rhsType == DECIMAL) {
@@ -481,6 +489,14 @@ public enum PDataType {
         @Override
         public Integer getByteSize() {
             return Bytes.SIZEOF_INT;
+        }
+
+        public Integer getMaxLength(Object o) {
+            return INT_PRECISION;
+        }
+
+        public Integer getScale(Object o) {
+            return ZERO;
         }
 
         @Override
@@ -1746,6 +1762,10 @@ public enum PDataType {
     public static final byte[] TRUE_BYTES = new byte[] {TRUE_BYTE};
     public static final byte[] NULL_BYTES = ByteUtil.EMPTY_BYTE_ARRAY;
     private static final Integer BOOLEAN_LENGTH = 1;
+
+    public final static Integer ZERO = 0;
+    public final static Integer INT_PRECISION = 10;
+    public final static Integer LONG_PRECISION = 19;
 
     /**
      * Serialize a BigDecimal into a variable length byte array in such a way that it is

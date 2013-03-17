@@ -288,4 +288,10 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
     }
+
+    @Test
+    public void testDecimalArithmeticWithInt() throws Exception {
+        
+    }
+
 }
