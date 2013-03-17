@@ -60,7 +60,7 @@ public class PColumnImpl implements PColumn {
     }
 
     public PColumnImpl(PColumn column, int position) {
-        this(column.getName(), column.getFamilyName(), column.getDataType(), column.getByteSize(),
+        this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
                 column.getScale(), column.isNullable(), position);
     }
 

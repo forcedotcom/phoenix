@@ -297,7 +297,7 @@ public class UpsertCompiler {
                     public ParameterMetaData getParameterMetaData() {
                         return context.getBindManager().getParameterMetaData();
                     }
-        
+
                     @Override
                     public MutationState execute() throws SQLException {
                         byte[][] values = new byte[columnIndexes.length][];
@@ -306,11 +306,23 @@ public class UpsertCompiler {
                         int rowCount = 0;
                         Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(estSize);
                         ResultSet rs = new PhoenixResultSet(scanner, statement);
+                        PTable table = tableRef.getTable();
+                        PColumn column;
                         while (rs.next()) {
                             for (int i = 0; i < values.length; i++) {
-                                values[i] = rs.getBytes(i+1);
+                                column = table.getColumns().get(columnIndexes[i]);
+                                // We are guaranteed that the two column will have the same type.
+                                if (!column.getDataType().isSizeCompatible(column.getDataType(),
+                                        null, rs.getBytes(i+1),
+                                        null, column.getMaxLength(), 
+                                        null, column.getScale())) {
+                                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
+                                        .setColumnName(column.getName().getString()).build().buildException();
+                                }
+                                values[i] = column.getDataType().coerceBytes(rs.getBytes(i+1), null, column.getDataType(),
+                                        null, null, column.getMaxLength(), column.getScale());
                             }
-                            setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
+                            setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
                             rowCount++;
                             // Commit a batch if auto commit is true and we're at our batch size
                             if (isAutoCommit && rowCount % batchSize == 0) {
@@ -323,7 +335,7 @@ public class UpsertCompiler {
                         // If auto commit is true, this last batch will be committed upon return
                         return new MutationState(tableRef, mutation, rowCount / batchSize * batchSize, maxSize, connection);
                     }
-        
+
                     @Override
                     public ExplainPlan getExplainPlan() throws SQLException {
                         List<String> queryPlanSteps =  queryPlan.getExplainPlan().getPlanSteps();
@@ -357,7 +369,7 @@ public class UpsertCompiler {
                             literalExpression.getMaxLength(), column.getMaxLength(), 
                             literalExpression.getScale(), column.getScale())) {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
-                        .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
+                            .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
                     }
                 }
                 byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType(),
