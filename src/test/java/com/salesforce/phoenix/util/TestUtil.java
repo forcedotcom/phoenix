@@ -97,6 +97,7 @@ public class TestUtil {
     public static final String HBASE_NATIVE = "HBASE_NATIVE";
     public static final String PRODUCT_METRICS_NAME = "PRODUCT_METRICS";
     public static final String PTSDB_NAME = "PTSDB";
+    public static final String PTSDB_SCHEMA_NAME = "";
     public static final String FUNKY_NAME = "FUNKY_NAMES";
     public static final String MULTI_CF_NAME = "MULTI_CF";
     public static final String MDTEST_NAME = "MDTEST";
@@ -152,7 +153,11 @@ public class TestUtil {
     public static SingleKeyValueComparisonFilter singleKVFilter(Expression e) {
         return  new SingleCQKeyValueComparisonFilter(e);
     }
-    
+
+    public static RowKeyComparisonFilter rowKeyFilter(Expression e) {
+        return  new RowKeyComparisonFilter(e);
+    }
+
     public static MultiKeyValueComparisonFilter multiKVFilter(Expression e) {
         return  new MultiCQKeyValueComparisonFilter(e);
     }
