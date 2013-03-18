@@ -27,8 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.util.Collections;
 import java.util.List;
 
+import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 
@@ -49,5 +51,19 @@ public abstract class ScalarFunction extends FunctionExpression {
             t = visitor.defaultReturn(this, l);
         }
         return t;
+    }
+    
+    public KeyPart newKeyPart(KeyPart part) {
+        KeyFormationDirective directive = this.getKeyFormationDirective();
+        assert(directive != KeyFormationDirective.UNTRAVERSABLE);
+        // Generate KeyParts that will cause the scalar function to remain in the where clause.
+        // We need this in cases where the setting of the row key is permissable, but where
+        // we still need to run the filter to filter out items that wouldn't pass the filter.
+        // For example: REGEXP_REPLACE(name,'\w') = 'he'
+        // would set the start key to 'hat' and then would remove cases like 'help' and 'heap'
+        // while executing the filters.
+       List<Expression> extractNodes = directive == KeyFormationDirective.TRAVERSE_AND_EXTRACT 
+                ? Collections.<Expression>singletonList(this) : Collections.<Expression>emptyList();
+        return new KeyPart(part.getBackingDatum(), part.getPosition(), extractNodes, part.getKeyRanges(), part.getDatum());
     }
 }

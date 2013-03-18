@@ -29,10 +29,13 @@ package com.salesforce.phoenix.expression.function;
 
 import java.io.*;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.KeyPart;
+import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.StartsWithKeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
@@ -199,7 +202,13 @@ public class SubstrFunction extends ScalarFunction {
     }
 
     @Override
+    public KeyPart newKeyPart(KeyPart part) {
+        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>singletonList(this), part.getKeyRanges(), part.getDatum());
+    }
+
+    @Override
     public String getName() {
         return NAME;
     }
+    
 }

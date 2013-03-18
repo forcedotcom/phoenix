@@ -27,12 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.KeyPart;
+import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.StartsWithKeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
@@ -177,6 +180,11 @@ public class RegexpSubstrFunction extends ScalarFunction {
     @Override
     public String getName() {
         return NAME;
+    }
+
+    @Override
+    public KeyPart newKeyPart(KeyPart part) {
+        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges(), part.getDatum());
     }
 
 }

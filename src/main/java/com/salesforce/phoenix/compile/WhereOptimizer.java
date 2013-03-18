@@ -32,7 +32,6 @@ import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
 import java.io.IOException;
 import java.util.*;
 
-import org.apache.commons.lang.ObjectUtils;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
@@ -40,7 +39,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.FunctionExpression.KeyFormationDirective;
-import com.salesforce.phoenix.expression.function.*;
+import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.filter.SkipScanFilter;
@@ -115,7 +114,6 @@ public class WhereOptimizer {
             boolean lastLowerInclusive = false;
             boolean lastUpperVarLength = false;
             boolean lastLowerVarLength = false;
-            boolean isUnbound = false;
             RowKeySchemaBuilder schema = new RowKeySchemaBuilder();
             int lowerPosCount = 0;
             int upperPosCount = 0;
@@ -138,7 +136,6 @@ public class WhereOptimizer {
 
                 KeyRange startRange = ranges.get(0);
                 KeyRange stopRange = ranges.get(ranges.size() - 1);
-                isUnbound |= startRange.lowerUnbound() | stopRange.upperUnbound();
                 PDatum datum = keyExpr.getDatum();
                 schema.addField(datum);
 
@@ -166,7 +163,6 @@ public class WhereOptimizer {
                 for (KeyRange range : ranges) {
                     hasRangeKey |= !range.isSingleKey();
                     filterHints.add(range);
-                    //filterHints.add(keyExpr.getBackingDatum().getByteSize() == null ? range : KeyExpressionVisitor.KeyPart.fillKey(range, keyExpr.getBackingDatum().getByteSize()));
                 }
 
                 // Concatenate each part of key together
@@ -188,77 +184,13 @@ public class WhereOptimizer {
                 // set the start key to 'foo' but still need to match the regex at filter time.
                 List<Expression> nodesToExtract = keyExpr.getExtractNodes();
                 extractNodes.addAll(nodesToExtract);
-                // Stop building start/stop key if not extracting the expression, since we can't
-                // know if the expression is using all of the column.
-                // TODO: this is going to be too restrictive. For LIKE, we can continue building
-                // a key beyond this point, but need to leave the LIKE expression in the filter.
-                if (nodesToExtract.isEmpty()) {
-                    isFullyQualifiedKey = false;
-                    lastLowerVarLength = false;
-                    lastUpperVarLength = false;
-                    break;
-                }
-
-                /*
-                 * If there is an unbound range with more key expressions to come then the
-                 * rest of the key expressions must be handled in the next phase with a key
-                 * filter.
-                 * For example, with the PK columns: a,b,c WHERE a=4 and b > 3 and c > 2
-                 * we can form a start key of [4][3] and an end key of [4], but we cannot
-                 * form a start key of [4][3][2] because the following would incorrectly
-                 * be included: [4][4][1]
-                 *
-                 * TODO: with the PK columns: a,b,c WHERE a=4 and b > 3 and c = 2, can
-                 * we use a start key of [4][3][2] and an end key of [4][*][2] if b is
-                 * fixed width and we fill with [255] bytes? So continue building start
-                 * key while prior is fixed width and current is equality operator. Do
-                 * a fill on the unbound side. When both sides become unbound, we stop.
-                 */
-                if (isUnbound) {
-                    /*
-                     * TODO: with SkipScanFilter, we can continue processing.
-                     * The isUnbound should really be !isSingleKey. Any range,
-                     * including LIKE 'foo%' false in this category. A single
-                     * key is when upperRange.equals(lowerRange) and isInclusive
-                     * is true for both. Can we "infer" isSingleKey based on
-                     * the KeyRange? The above LIKE would be [foo,foo], so I
-                     * think that some other structure needs to know if it's
-                     * partial or not: need lower byte[], upper byte[], and
-                     * is partial - derive from key range? NormalizedKeyRange?
-                     * 
-                     * In the case of a range, we need to use the value from
-                     * the row key for this slot and do an extra skip next hint
-                     * after the first one to concatenate a full key. We should
-                     * drive whether we use the SkipScanFilter based on the
-                     * cardinality of the values between the range being "small-ish".
-                     */
+                // Stop building start/stop key once we encounter a non single key range.
+                // TODO: remove this soon after more testing on SkipScanFilter
+                // TODO: when stats are available, we may want to terminate this loop if we have
+                // a non single key range, depending on the cardinality of the column values.
+                if (hasRangeKey) {
                     isFullyQualifiedKey = false;
                     break;
-                }
-                /*
-                 * If there is a partial match key expression with more key expressions to
-                 * come, then the rest of the key expressions must be handled in the next
-                 * phase with a key filter.
-                 * For example, with the PK columns: a,b,c WHERE a='a' and substr(b,1,2)='ab' and c='c'
-                 * we can use a start key of [a][ab] and an end key of [a][ab]. We cannot
-                 * use a start key of [a][ab][c], because the following would be incorrectly
-                 * included: [a][aba][c]. Because the key expression is variable length, we
-                 * cannot form a start key past a partial match comparison.
-                 */
-                PDatum backingDatum = keyExpr.getBackingDatum();
-                if ( datum != backingDatum) {
-                    if (!backingDatum.getDataType().isFixedWidth() && datum.getByteSize() != null) {
-                        isFullyQualifiedKey = false;
-                        lastLowerVarLength = false;
-                        lastUpperVarLength = false;
-                        break;
-                    }
-                    if (!ObjectUtils.equals(backingDatum.getByteSize(),datum.getByteSize())) {
-                        isFullyQualifiedKey = false;
-                        lastLowerVarLength = false;
-                        lastUpperVarLength = false;
-                        break;
-                    }
                 }
             }
 
@@ -363,41 +295,32 @@ public class WhereOptimizer {
         // TODO: same visitEnter/visitLeave for OrExpression once we optimize it
     }
 
-    private static class KeyExpressionVisitor extends TraverseAllExpressionVisitor<KeyExpressionVisitor.KeyParts> {
-        private static final KeyPart DEGENERATE_KEY_EXPRESSION = new KeyPart(null, 0, Collections.<Expression>emptyList(), false, KeyRange.EMPTY_RANGE, null);
+    public static class KeyExpressionVisitor extends TraverseAllExpressionVisitor<KeyExpressionVisitor.KeyParts> {
+        private static final KeyPart DEGENERATE_KEY_EXPRESSION = new KeyPart(null, 0, Collections.<Expression>emptyList(), KeyRange.EMPTY_RANGE, null);
 
         private static KeyPart newKeyExpression(PDatum backingDatum, int position, List<Expression> nodes, boolean isEquality, KeyRange keyRange, PDatum datum) {
             if (keyRange == KeyRange.EMPTY_RANGE) {
                 return DEGENERATE_KEY_EXPRESSION;
             } else {
-                return new KeyPart(backingDatum, position, nodes, isEquality, keyRange, datum);
+                return new KeyPart(backingDatum, position, nodes, keyRange, datum);
             }
         }
 
-        private static KeyPart newKeyExpression(PDatum backingDatum, int position, List<Expression> nodes, boolean isEquality, List<KeyRange> keyRanges, PDatum datum) {
+        private static KeyPart newKeyExpression(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges, PDatum datum) {
             assert keyRanges != null;
             assert !keyRanges.isEmpty();
-          if (keyRanges.get(0) == KeyRange.EMPTY_RANGE) {
-              return DEGENERATE_KEY_EXPRESSION;
-          } else {
-              return new KeyPart(backingDatum, position, nodes, isEquality, keyRanges, datum);
-          }
-      }
-
-        private static KeyPart newPartialKeyExpression(KeyPart part, List<Expression> nodes) {
-            if (part.getKeyRanges() == null || part.getKeyRanges().size() == 1 && part.getKeyRanges().get(0) == KeyRange.EMPTY_RANGE) {
-              return DEGENERATE_KEY_EXPRESSION;
-          } else {
-              return new PartialKeyPart(part.getBackingDatum(), part.getPosition(), nodes, part.isEqualityExpression(), part.getKeyRanges(), part.getDatum());
-          }
-      }
-
-        private static KeyPart newNonExtractKeyExpression(KeyPart part) {
-            if (part.getKeyRanges() == null || part.getKeyRanges().size() == 1 && part.getKeyRanges().get(0) == KeyRange.EMPTY_RANGE) {
+            if (keyRanges.get(0) == KeyRange.EMPTY_RANGE) {
                 return DEGENERATE_KEY_EXPRESSION;
             } else {
-                return new KeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.isEqualityExpression(), part.getKeyRanges(), part.getDatum());
+                return new KeyPart(backingDatum, position, nodes, keyRanges, datum);
             }
+        }
+
+        private static KeyPart newScalarFunctionKeyPart(KeyPart part, ScalarFunction node) {
+            if (part.getKeyRanges() == null || part.getKeyRanges().size() == 1 && part.getKeyRanges().get(0) == KeyRange.EMPTY_RANGE) {
+                return DEGENERATE_KEY_EXPRESSION;
+            }
+            return node.newKeyPart(part);
         }
 
         private static KeyParts andKeyExpression(int nColumns, List<KeyParts> childKeyExprs) {
@@ -515,18 +438,7 @@ public class WhereOptimizer {
             if (childKeyExprs.isEmpty()) {
                 return null;
             }
-            if (node.getKeyFormationDirective() == KeyFormationDirective.TRAVERSE_AND_EXTRACT) {
-                assert(node instanceof SubstrFunction);
-                // TODO: Get the key range from the KeyPart using a new method. Have a subclass for SUBSTR to adjust it.
-                return newPartialKeyExpression(childKeyExprs.get(0).iterator().next().getKeyPart(), Collections.<Expression>singletonList(node));
-            }
-            // Generate KeyParts that will cause the scalar function to remain in the where clause.
-            // We need this in cases where the setting of the row key is permissable, but where
-            // we still need to run the filter to filter out items that wouldn't pass the filter.
-            // For example: REGEXP_REPLACE(name,'\w') = 'he'
-            // would set the start key to 'hat' and then would remove cases like 'help' and 'heap'
-            // while executing the filters.
-            return newNonExtractKeyExpression(childKeyExprs.get(0).iterator().next().getKeyPart());
+            return newScalarFunctionKeyPart(childKeyExprs.get(0).iterator().next().getKeyPart(), node);
         }
 
         @Override
@@ -604,7 +516,7 @@ public class WhereOptimizer {
                     return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>emptyList(), false, keyRange, node.getChildren().get(0));
                 }
             }
-            return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>singletonList(node), false, ranges, node.getChildren().get(0));
+            return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>singletonList(node), ranges, node.getChildren().get(0));
         }
 
         @Override
@@ -754,7 +666,7 @@ public class WhereOptimizer {
             }
         }
 
-        private static class KeyPart implements KeyParts {
+        public static class KeyPart implements KeyParts {
             /**
              * Fill both upper and lower range of keyRange to keyLength bytes.
              * If the upper bound is inclusive, it must be filled such that an
@@ -818,22 +730,20 @@ public class WhereOptimizer {
             // sorted non-overlapping key ranges.  may be empty, but won't be null or contain nulls
             private final List<KeyRange> keyRanges;
             private final List<Expression> nodes;
-            private final boolean isEquality;
 
-            protected KeyPart(PDatum backingDatum, int position, List<Expression> nodes, boolean isEquality, KeyRange keyRange, PDatum datum) {
-              this(backingDatum, position, nodes, isEquality, Collections.singletonList(keyRange), datum);
+            protected KeyPart(PDatum backingDatum, int position, List<Expression> nodes, KeyRange keyRange, PDatum datum) {
+              this(backingDatum, position, nodes, Collections.singletonList(keyRange), datum);
             }
 
-            protected KeyPart(PDatum backingDatum, int position, List<Expression> nodes, boolean isEquality, List<KeyRange> keyRanges, PDatum datum) {
+            public KeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges, PDatum datum) {
               this.datum = datum;
               this.keySlot = new KeySlot(position, this);
               this.nodes = nodes;
               this.backingDatum = backingDatum;
-              this.isEquality = isEquality;
               this.keyRanges = KeyRange.coalesce(keyRanges);
           }
 
-            public KeyPart intersect(KeyPart k2) {
+            public final KeyPart intersect(KeyPart k2) {
                 KeyPart k1 = this;
                 if (k1 == DEGENERATE_KEY_EXPRESSION || k2 == DEGENERATE_KEY_EXPRESSION) {
                     return DEGENERATE_KEY_EXPRESSION;
@@ -851,33 +761,21 @@ public class WhereOptimizer {
                 // select * from foo where substr(bar,1,3) <= 'abc' and bar = 'abcde'
                 // If we don't fill the 'abc' to match the length of 'abcde', the intersection would
                 // return an empty range.
+                // TODO: review - do we need this still?
                 if (max2 != null && (max1 == null || max2 > max1)) {
                     k1 = k2;
                     k2 = this;
                 }
-//                if (k1.getDatum().getDataType().isFixedWidth()) {
-//                    List<KeyRange> ranges2 = k2.getKeyRanges();
-//                    for (int i=0; i<ranges2.size(); i++) {
-//                        KeyRange range2 = ranges2.get(i);
-//                        range2 = fillKey(range2, k1.getDatum().getByteSize());
-//                        ranges2.set(i, range2);
-//                    }
-//                }
                 return newKeyExpression(
                         k1.getBackingDatum(),
                         k1.keySlot.getPosition(),
                         SchemaUtil.concat(k1.getExtractNodes(), k2.getExtractNodes()),
-                        k1.isEqualityExpression() && k2.isEqualityExpression(),
                         KeyRange.intersect(k1.getKeyRanges(), k2.getKeyRanges()),
                         k1.getDatum());
             }
 
             public List<KeyRange> getKeyRanges() {
                 return keyRanges;
-            }
-
-            public boolean isEqualityExpression() {
-                return isEquality;
             }
 
             public PDatum getDatum() {
@@ -901,16 +799,11 @@ public class WhereOptimizer {
                 return Iterators.singletonIterator(keySlot);
             }
         }
-        private static class PartialKeyPart extends KeyPart {
-
-            private PartialKeyPart(PDatum backingDatum, int position, List<Expression> nodes, boolean isEquality,
-                    KeyRange keyRange, PDatum datum) {
-                super(backingDatum, position, nodes, isEquality, keyRange, datum);
-            }
+        public static class StartsWithKeyPart extends KeyPart {
             
-            public PartialKeyPart(PDatum backingDatum, int position, List<Expression> nodes, boolean isEquality,
-                    List<KeyRange> keyRanges, PDatum datum) {
-                super(backingDatum, position, nodes, isEquality, keyRanges, datum);
+            public StartsWithKeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges,
+                    PDatum datum) {
+                super(backingDatum, position, nodes, keyRanges, datum);
             }
 
             @Override

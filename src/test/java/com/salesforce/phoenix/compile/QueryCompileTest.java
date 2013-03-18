@@ -751,7 +751,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
         assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
-        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
+        assertArrayEquals(ByteUtil.nextKey(Bytes.toBytes("abc")), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
         query = "SELECT host FROM ptsdb WHERE regexp_substr(inst, '[a-zA-Z]+', 0) = 'abc'";
@@ -759,7 +759,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         scan = new Scan();
         compileQuery(query, binds, scan);
         assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
-        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
+        assertArrayEquals(ByteUtil.nextKey(Bytes.toBytes("abc")), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
         // Test scan keys are not set when the offset is not 0 or 1.
@@ -859,7 +859,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
         assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
-        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
+        assertArrayEquals(ByteUtil.nextKey(Bytes.toBytes("abc ")), scan.getStopRow());
         assertNotNull(scan.getFilter());
     }
 }

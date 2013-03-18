@@ -28,14 +28,19 @@
 package com.salesforce.phoenix.expression.function;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.StringUtil;
@@ -103,6 +108,11 @@ public class RTrimFunction extends ScalarFunction {
     }
 
     @Override
+    public KeyPart newKeyPart(KeyPart part) {
+        return new RTrimKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges(), part.getDatum());
+    }
+
+    @Override
     public Integer getByteSize() {
         return byteSize;
     }
@@ -115,6 +125,32 @@ public class RTrimFunction extends ScalarFunction {
     @Override
     public String getName() {
         return NAME;
+    }
+    
+    private static class RTrimKeyPart extends KeyPart {
+        
+        public RTrimKeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges, PDatum datum) {
+            super(backingDatum, position, nodes, keyRanges, datum);
+        }
+
+        @Override
+        public KeyRange getKeyRange(CompareOp op, byte[] key) {
+            KeyRange range;
+            switch (op) {
+            case EQUAL:
+                range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
+                break;
+            case LESS_OR_EQUAL:
+                range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
+                break;
+            default:
+                range = super.getKeyRange(op, key);
+                break;
+            }
+            Integer length = this.getBackingDatum().getDataType().isFixedWidth() ? this.getBackingDatum().getMaxLength() : null;
+            return length == null ? range : fillKey(range, length);
+        }
+
     }
 
 }

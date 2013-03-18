@@ -35,7 +35,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class StringUtil {
     // Masks to determine how many bytes are in each character
     // From http://tools.ietf.org/html/rfc3629#section-3
-    private static final byte SPACE_UTF8 = 0x20;
+    public static final byte SPACE_UTF8 = 0x20;
     private static final int BYTES_1_MASK = 0xFF << 7; // 0xxxxxxx is a single byte char
     private static final int BYTES_2_MASK = 0xFF << 5; // 110xxxxx is a double byte char
     private static final int BYTES_3_MASK = 0xFF << 4; // 1110xxxx is a triple byte char
