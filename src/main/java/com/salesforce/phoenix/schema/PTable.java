@@ -148,4 +148,6 @@ public interface PTable extends Writable {
      * @return the statistics table.
      */
     PTableStats getTableStats();
+    
+    RowKeySchema getRowKeySchema();
 }

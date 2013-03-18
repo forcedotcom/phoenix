@@ -33,10 +33,9 @@ import java.util.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
-import org.apache.http.annotation.Immutable;
-
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 
 /**
@@ -47,17 +46,23 @@ import com.salesforce.phoenix.expression.aggregator.Aggregator;
  * @author jtaylor
  * @since 0.1
  */
-@Immutable
-public abstract class ValueSchema {
+public abstract class ValueSchema implements Writable {
     private static final int ESTIMATED_VARIABLE_LENGTH_SIZE = 10;
-    private final int[] fieldIndexByPosition;
-    private final List<Field> fields;
-    private final int estimatedLength;
-    private final boolean isFixedLength;
-    private final boolean isMaxLength;
-    private final int minNullable;
+    private int[] fieldIndexByPosition;
+    private List<Field> fields;
+    private int estimatedLength;
+    private boolean isFixedLength;
+    private boolean isMaxLength;
+    private int minNullable;
+    
+    public ValueSchema() {
+    }
     
     protected ValueSchema(int minNullable, List<Field> fields) {
+        init(minNullable, fields);
+    }
+
+    private void init(int minNullable, List<Field> fields) {
         this.minNullable = minNullable;
         this.fields = ImmutableList.copyOf(fields);
         int estimatedLength = 0;
@@ -93,7 +98,7 @@ public abstract class ValueSchema {
         this.isMaxLength = isMaxLength;
         this.estimatedLength = estimatedLength;
     }
-
+    
     public int getFieldCount() {
         return fieldIndexByPosition.length;
     }
@@ -404,6 +409,30 @@ public abstract class ValueSchema {
             byte[] bExact = new byte[offset];
             System.arraycopy(b, 0, bExact, 0, offset);
             return bExact;
+        }
+    }
+
+    
+    @Override
+    public void readFields(DataInput in) throws IOException {
+        int minNullable = WritableUtils.readVInt(in);
+        int nFields = WritableUtils.readVInt(in);
+        List<Field> fields = Lists.newArrayListWithExpectedSize(nFields);
+        for (int i = 0; i < nFields; i++) {
+            Field field = new Field();
+            field.readFields(in);
+            fields.add(field);
+        }
+        init(minNullable, fields);
+    }
+    
+        
+    @Override
+    public void write(DataOutput out) throws IOException {
+        WritableUtils.writeVInt(out, minNullable);
+        WritableUtils.writeVInt(out, fields.size());
+        for (int i = 0; i < fields.size(); i++) {
+            fields.get(i).write(out);
         }
     }
     

@@ -31,26 +31,20 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Iterator;
 import java.util.Set;
+
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.FilterList;
-import org.apache.hadoop.hbase.filter.FilterList.Operator;
+
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.KeyValueColumnExpression;
-import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.visitor.KeyValueExpressionVisitor;
 import com.salesforce.phoenix.filter.*;
-import com.salesforce.phoenix.parse.ColumnParseNode;
-import com.salesforce.phoenix.parse.ParseNode;
-import com.salesforce.phoenix.parse.ParseNodeFactory;
-import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.schema.ColumnNotFoundException;
-import com.salesforce.phoenix.schema.ColumnRef;
-import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -192,18 +186,10 @@ public class WhereCompiler {
             }
         }
 
-        if (context.hasCnf()) {
-            // skip scan filter
-            SkipScanFilter skip = context.newSkipScanFilter();
-            if (skip != null) {
-                if (filter == null) {
-                    filter = skip;
-                } else {
-                    filter = new FilterList(Operator.MUST_PASS_ALL, skip, filter);
-                }
-            }
-        }
-
         scan.setFilter(filter);
+        SkipScanFilter skip = context.getSkipScanFilter();
+        if (skip != null) {
+            ScanUtil.andFilter(scan, skip);
+        }
     }
 }
