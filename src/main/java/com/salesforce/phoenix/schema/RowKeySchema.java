@@ -109,4 +109,8 @@ public class RowKeySchema extends ValueSchema {
         b[offset-1] = QueryConstants.SEPARATOR_BYTE;
         return offset;
     }
+    
+    public int getMaxFields() {
+        return this.getMinNullable();
+    }
 }

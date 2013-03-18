@@ -102,14 +102,13 @@ after the first possible key.
 
     @Override
     public ReturnCode filterKeyValue(KeyValue kv) {
-        return navigate(kv.getBuffer(), kv.getRowOffset(), 
-kv.getRowLength());
+        return navigate(kv.getBuffer(), kv.getRowOffset(),kv.getRowLength());
     }
 
     @Override
     public KeyValue getNextKeyHint(KeyValue kv) {
-        // TODO: don't allocate new key value every time here
-        return endKey == null ? null : KeyValue.createFirstOnRow(endKey);
+        // TODO: don't allocate new key value every time here if possible
+        return startKey == null ? null : KeyValue.createFirstOnRow(startKey);
     }
 
     private ReturnCode navigate(final byte[] currentKey, final int offset, final int length) {
@@ -136,11 +135,11 @@ kv.getRowLength());
                         hasValue != null; 
                         hasValue = ++i == nSlots ? null : schema.next(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET)) {
                     KeyRange range = slots.get(i).get(position[i]);
-                    // TODO: can't the iterator set the length to zero in this case?
-                    // TODO: if no value, then this is null and most likely shouldn't be included.
-                    // We probably want to use {1} as our byte value instead of leaving it empty
-                    // when a range is unbound, so that null is filtered
-                    if (!hasValue || !range.isInRange(ptr.get(), ptr.getOffset(), ptr.getLength())) {
+                    /* No need to check hasValue, since if we have a single key for the is null check
+                     * we wouldn't want to terminate here and if we have a range, our minimum lower
+                     * bound ends up being 1, even for the unbound lower case.
+                     */
+                    if (!range.isInRange(ptr.get(), ptr.getOffset(), ptr.getLength())) {
                         break;
                     }
                 }
@@ -170,14 +169,29 @@ kv.getRowLength());
             }
         }
         includeUntilEndKey = false;
-        if (incrementKey()) {
+        // Increment the key while it's less than the current key,
+        // stopping if run out of keys.
+        int cmp;
+        do {
+            if (!incrementKey()) {
+                startKey = null;
+                return ReturnCode.NEXT_ROW;
+            }
             setStartKey();
-            setEndKey();
-            return ReturnCode.SEEK_NEXT_USING_HINT;
+            cmp = Bytes.compareTo(currentKey, offset, length, startKey, 0, startKeyLength);
+        } while (cmp > 0);
+        // Special case for when our new start key matches the row we're on. In that case,
+        // we know we're in range and can include all key values for this row.
+        // TODO: verify that a seek next would skip the current row if the key is the same.
+        if (cmp == 0) {
+            setEndKey(length, currentKey, offset, length);
+            includeUntilEndKey = true;
+            return ReturnCode.INCLUDE;
         }
-        startKey = null;
-        return ReturnCode.NEXT_ROW;
-    }
+        // Otherwise, set the end key and seek next to the start key
+        setEndKey();
+        return ReturnCode.SEEK_NEXT_USING_HINT;
+   }
 
     private boolean incrementKey() {
         int i = slots.size() - 1;
@@ -211,24 +225,46 @@ kv.getRowLength());
     private int setKey(Bound bound, byte[] key, int slotIndex, int byteOffset) {
         int offset = byteOffset;
         int nSlots = slots.size();
-        boolean incremented = false;
+        boolean incrementWhenDone = bound == Bound.UPPER;
         for (int i = slotIndex; i < nSlots; i++) {
-            // build up the start key by appending lower bound of key range
+            // Build up the start key by appending lower bound of key range
             // from the current position of each slot append to startKey buffer 
             KeyRange range = slots.get(i).get(position[i]);
-            if (range.isUnbound(bound)) {
+            boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
+            /*
+             * If the current slot is unbound then:
+             * 1) we always stop if we're setting the upper bound. There's no
+             *    value in continuing because we won't filter anything after
+             *    this anyway.
+             * 2) we stop if we're setting the lower bound if it's not variable
+             *    width for the same reason. However, if we're variable width
+             *    we can continue and we'll end up filtering any null values,
+             *    since our separator byte will be appended and increment.
+             */
+            if (  range.isUnbound(bound) &&
+                ( bound == Bound.UPPER || isFixedWidth) ){
                 break;
             }
             byte[] bytes = range.getRange(bound);
             System.arraycopy(bytes, 0, key, offset, bytes.length);
             offset += bytes.length;
-            if (i < nSlots-1 && !schema.getField(i).getType().isFixedWidth()) {
+            if (i < schema.getMaxFields()-1 && !isFixedWidth) {
                 key[offset++] = QueryConstants.SEPARATOR_BYTE;
             }
-            if (!incremented && !range.isSingleKey() && (bound == Bound.UPPER) == range.isInclusive(bound)) {
-                incremented = true;
+            if (range.isSingleKey()) {
+                incrementWhenDone = bound == Bound.UPPER;
+            } else if ((bound == Bound.UPPER) == range.isInclusive(bound)) {
+                incrementWhenDone = false;
                 ByteUtil.nextKey(key, offset);
             }
+        }
+        /*
+         * Mimics what we do on the client side by only incrementing
+         * at the end of an all single key range, otherwise we'd end
+         * up with the start and end key matching.
+         */
+        if (incrementWhenDone) {
+            ByteUtil.nextKey(key, offset);
         }
         return offset - byteOffset;
     }
