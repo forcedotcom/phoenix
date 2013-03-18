@@ -162,6 +162,53 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
+    public void testRegexFunction() throws SQLException {
+        String tenantId = "000000000000001";
+        String substr1 = "00100";
+        String substr2 = "00110";
+        String query = "select * from atable where organization_id='" + tenantId + "' and regexp_substr(entity_id, '[0123]+') IN ('"+substr1+"','"+substr2+"')";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        Scan scan = new Scan();
+        List<Object> binds = Collections.emptyList();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        // Nothing extracted, since the where clause becomes FALSE
+        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        Filter filter = scan.getFilter();
+        assertTrue(filter instanceof FilterList);
+        List<Filter> filters = ((FilterList)filter).getFilters();
+        assertEquals(2, filters.size());
+
+        assertEquals(
+            new SkipScanFilter().setCnf(
+                ImmutableList.of(
+                    Arrays.asList(pointRange(tenantId)),
+                    Arrays.asList(KeyRange.getKeyRange(
+                        ByteUtil.fillKey(Bytes.toBytes(substr1),(byte) 0x00,15),
+                        true,
+                        ByteUtil.fillKey(Bytes.toBytes(substr2),(byte) 0xFF,15),
+                        true))),
+                new int[] { 15, 15 }),
+            filters.get(0));
+        assertEquals(
+                rowKeyFilter(in(
+                    regexpSubstr(
+                        pkColumn(BaseConnectionlessQueryTest.ENTITY_ID,Arrays.asList(BaseConnectionlessQueryTest.A_STRING)),
+                        LiteralExpression.newConstant("[0123]+"),
+                        LiteralExpression.newConstant(1)),
+                    PDataType.VARCHAR,
+                    substr1,
+                    substr2)),
+            filters.get(1));
+
+
+        assertArrayEquals(Bytes.toBytes(tenantId + substr1), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(Bytes.toBytes(tenantId + substr2)), scan.getStopRow());
+    }
+
+    @Test
     public void testAndFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id=? and a_integer=0 and a_string='foo'";
@@ -776,7 +823,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                 new int[] { 15, 15 }),
             filter);
     }
-    @Test @Ignore("scan key setting not working except for most trivial where clauses")
+    @Test
     public void testInListWithAnd1FilterScankey() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";
@@ -793,9 +840,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1 + entityId);
         assertArrayEquals(startRow, scan.getStartRow());
-        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
+        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3 + entityId);
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
@@ -871,7 +918,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
             filter);
     }
 
-    @Test @Ignore("scan key only works for trivial cases")
+    @Test
     public void testInListWithAnd2FilterScanKey() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";
@@ -889,9 +936,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1 + entityId1);
         assertArrayEquals(startRow, scan.getStartRow());
-        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
+        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3 + entityId2);
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 }

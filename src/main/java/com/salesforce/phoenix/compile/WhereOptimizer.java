@@ -568,13 +568,17 @@ public class WhereOptimizer {
             if (childKeyExprs.isEmpty()) {
                 return null;
             }
-
             List<byte[]> keys = node.getKeys();
             List<KeyRange> ranges = KeyRange.of(keys);
             KeyPart colKeyExpr = childKeyExprs.get(0).iterator().next().getKeyPart();
+
             if (ranges.size() > 0) {
-                if (ranges.get(0).lowerUnbound() || ranges.get(ranges.size() - 1).upperUnbound()) {
+                if (ranges.get(0).lowerUnbound()
+                    || ranges.get(ranges.size() - 1).upperUnbound()
+                    || !(node.getChild() instanceof RowKeyColumnExpression))
+                {
                     // unbound?  punt.  TODO optimize SkipScanFilter
+                    // TODO: nothing fancy on the left side of the IN operator
                     ImmutableBytesWritable minKey = node.getMinKey();
                     ImmutableBytesWritable maxKey = node.getMaxKey();
                     // TODO: make key range backed by ImmutableBytesWritable to prevent copy?

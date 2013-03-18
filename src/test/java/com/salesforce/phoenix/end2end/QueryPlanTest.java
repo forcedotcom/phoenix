@@ -56,7 +56,8 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SERIAL FULL SCAN OVER ATABLE",
 
                 "SELECT inst,host FROM PTSDB WHERE regexp_substr(inst, '[^-]+') IN ('na1', 'na2','na3')",
-                "CLIENT SERIAL RANGE SCAN OVER PTSDB FROM ('na1') INCLUSIVE TO ('na3') INCLUSIVE",
+                "CLIENT SERIAL RANGE SCAN OVER PTSDB FROM ('na1') INCLUSIVE TO ('na3') INCLUSIVE\n" +
+                "    SERVER FILTER BY REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na2','na3','na1')",
 
                 "SELECT count(*) FROM atable",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
