@@ -46,15 +46,24 @@ import com.salesforce.phoenix.schema.ValueSchema.Field;
 import com.salesforce.phoenix.util.ByteUtil;
 
 public class SkipScanFilter extends FilterBase {
+    // Conjunctive normal form of or-ed ranges or point lookups
     private List<List<KeyRange>> slots;
+    // schema of the row key
     private RowKeySchema schema;
-    private int[] position; // current position for each slot
-    private byte[] startKey; // buffer used for skip hint
+    // current position for each slot
+    private int[] position;
+    // buffer used for skip hint
+    private byte[] startKey;
     private int startKeyLength;
-    private byte[] endKey; // buffer used for current end key after which we need to increment the position
+    // buffer used for current end key after which we need to increment the position
+    private byte[] endKey; 
     private int endKeyLength;
     private int maxKeyLength;
+    // use to optimize filter to include all key values within the terminating range
     private boolean includeUntilEndKey;
+    // use to optimize filter to include all key values for a row we've found to include
+    private boolean includeWhileEqual;
+    private final ImmutableBytesWritable whileEqualPtr = new ImmutableBytesWritable();
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
 
     /**
@@ -117,6 +126,10 @@ after the first possible key.
         }
         // TODO: remove this assert eventually
         assert(Bytes.compareTo(currentKey, offset, length, startKey, 0, startKeyLength) >= 0);
+        if (includeWhileEqual && Bytes.compareTo(currentKey, offset, length, whileEqualPtr.get(), whileEqualPtr.getOffset(), whileEqualPtr.getLength()) == 0) {
+            return ReturnCode.INCLUDE;
+        }
+        includeWhileEqual = false;
         if (Bytes.compareTo(currentKey, offset, length, endKey, 0, endKeyLength) <= 0) {
             if (includeUntilEndKey) {
                 return ReturnCode.INCLUDE;
@@ -150,8 +163,9 @@ after the first possible key.
                     appendToStartKey(i, partialLength);
                     return ReturnCode.SEEK_NEXT_USING_HINT;
                 } else if (!slots.get(nSlots-1).get(position[i]).isSingleKey()) {
-                    // Optimization: Last slot is range - we can include until we reach
-                    // end range for this slot now that we know we're in range.
+                    // Since the last slot is a range, we can optimize this filter by
+                    // including all rows until we reach the end range now that we
+                    // know we're in the range.
                     setEndKey(maxLength, currentKey, offset, partialLength);
                     appendToEndKey(nSlots-1, partialLength);
                     includeUntilEndKey = true;
@@ -159,11 +173,10 @@ after the first possible key.
             }
             if (i == nSlots) { // Include this row, since we're in range for all slots
                 // If we haven't set includeUntilEndKey, it means that we're currently at a single key.
-                // In this case, we can do the same optimization as above, basically including all key
-                // values with this row key.
+                // In this case, we can optimize this filter by including all key value for this row key.
                 if (!includeUntilEndKey) {
-                    setEndKey(length, currentKey, offset, length);
-                    includeUntilEndKey = true;
+                    whileEqualPtr.set(currentKey, offset, length);
+                    includeWhileEqual = true;
                 }
                 return ReturnCode.INCLUDE;
             }
@@ -180,16 +193,15 @@ after the first possible key.
             setStartKey();
             cmp = Bytes.compareTo(currentKey, offset, length, startKey, 0, startKeyLength);
         } while (cmp > 0);
+        setEndKey();
         // Special case for when our new start key matches the row we're on. In that case,
         // we know we're in range and can include all key values for this row.
         // TODO: verify that a seek next would skip the current row if the key is the same.
         if (cmp == 0) {
-            setEndKey(length, currentKey, offset, length);
-            includeUntilEndKey = true;
+            whileEqualPtr.set(currentKey, offset, length);
+            includeWhileEqual = true;
             return ReturnCode.INCLUDE;
         }
-        // Otherwise, set the end key and seek next to the start key
-        setEndKey();
         return ReturnCode.SEEK_NEXT_USING_HINT;
    }
 

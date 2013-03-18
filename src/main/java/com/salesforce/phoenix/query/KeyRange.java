@@ -198,7 +198,7 @@ public class KeyRange {
         if (isSingleKey()) {
             return Bytes.toStringBinary(lowerRange);
         }
-        return (lowerInclusive ? "[" : "(") + Bytes.toStringBinary(lowerRange) + " - " + Bytes.toStringBinary(upperRange) + (upperInclusive ? "]" : ")" );
+        return (lowerInclusive ? "[" : "(") + (lowerUnbound() ? "*" : Bytes.toStringBinary(lowerRange)) + " - " + (upperUnbound() ? "*" : Bytes.toStringBinary(upperRange)) + (upperInclusive ? "]" : ")" );
     }
 
     @Override
