@@ -170,7 +170,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.INTEGER.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(2, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(10, rs.getInt("COLUMN_SIZE"));
         assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertTrue(rs.next());
@@ -181,7 +181,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.LONG.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(3, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(19, rs.getInt("COLUMN_SIZE"));
         assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertTrue(rs.next());
@@ -229,7 +229,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.INTEGER.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(2, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(10, rs.getInt("COLUMN_SIZE"));
         assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertFalse(rs.next());
@@ -244,7 +244,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.INTEGER.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(2, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(10, rs.getInt("COLUMN_SIZE"));
         assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertTrue(rs.next());
@@ -255,7 +255,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
         assertEquals(PDataType.LONG.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(3, rs.getInt("ORDINAL_POSITION"));
-        assertEquals(0, rs.getInt("COLUMN_SIZE"));
+        assertEquals(19, rs.getInt("COLUMN_SIZE"));
         assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
 
         assertTrue(rs.next());
