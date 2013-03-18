@@ -63,6 +63,12 @@ public class ColumnDef {
             // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
             // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
             scale = scale == null ? PDataType.DEFAULT_SCALE : scale > maxLength ? maxLength : scale; 
+        } else if (this.dataType == PDataType.INTEGER) {
+            maxLength = PDataType.INT_PRECISION;
+            scale = PDataType.ZERO;
+        } else if (this.dataType == PDataType.LONG) {
+            maxLength = PDataType.LONG_PRECISION;
+            scale = PDataType.ZERO;
         } else if (this.dataType != PDataType.VARCHAR) {
             // Ignore maxLength unless CHAR or VARCHAR for now
             maxLength = null;

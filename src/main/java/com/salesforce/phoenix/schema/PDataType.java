@@ -363,7 +363,7 @@ public enum PDataType {
         }
 
         public Integer getScale(Object o) {
-            return 0;
+            return ZERO;
         }
 
         @Override
