@@ -45,33 +45,31 @@ import com.salesforce.phoenix.util.ByteUtil;
  * @since 0.1
  */
 public class ScanKey {
-    public static final ScanKey EVERYTHING_SCAN_KEY = new ScanKey(KeyRange.UNBOUND_LOWER, true, RowKeySchema.EMPTY_SCHEMA, KeyRange.UNBOUND_UPPER, false, RowKeySchema.EMPTY_SCHEMA, false);
-    public static final ScanKey DEGENERATE_SCAN_KEY = new ScanKey(KeyRange.EMPTY_RANGE.getLowerRange(), true, RowKeySchema.EMPTY_SCHEMA, KeyRange.EMPTY_RANGE.getUpperRange(), false, RowKeySchema.EMPTY_SCHEMA, false);
+    public static final ScanKey EVERYTHING_SCAN_KEY = new ScanKey(KeyRange.UNBOUND_LOWER, true, 0, KeyRange.UNBOUND_UPPER, false, 0, RowKeySchema.EMPTY_SCHEMA, false);
+    public static final ScanKey DEGENERATE_SCAN_KEY = new ScanKey(KeyRange.EMPTY_RANGE.getLowerRange(), true, 0, KeyRange.EMPTY_RANGE.getUpperRange(), false, 0, RowKeySchema.EMPTY_SCHEMA, false);
     
     private final byte[] lowerRange;
     private final boolean lowerInclusive;
-    private final RowKeySchema lowerSchema;
+    private final int lowerSlots;
     private final byte[] upperRange;
     private final boolean upperInclusive;
-    private final RowKeySchema upperSchema;
+    private final int upperSlots;
+    private final RowKeySchema schema;
     private final boolean isFullyQualifiedKey;
     
-    public ScanKey(byte[] lowerRange, boolean lowerInclusive, RowKeySchema lowerSchema, byte[] upperRange, boolean upperInclusive, RowKeySchema upperSchema, boolean isFullyQualifiedKey) {
+    public ScanKey(byte[] lowerRange, boolean lowerInclusive, int lowerSlots, byte[] upperRange, boolean upperInclusive, int upperSlots, RowKeySchema schema, boolean isFullyQualifiedKey) {
         this.lowerRange = lowerRange;
         this.lowerInclusive = lowerInclusive;
-        this.lowerSchema = lowerSchema;
+        this.lowerSlots = lowerSlots;
         this.upperRange = upperRange;
         this.upperInclusive = upperInclusive;
-        this.upperSchema = upperSchema;
+        this.upperSlots = upperSlots;
+        this.schema = schema;
         this.isFullyQualifiedKey = isFullyQualifiedKey;
     }
 
-    public RowKeySchema getLowerSchema() {
-        return lowerSchema;
-    }
-    
-    public RowKeySchema getUpperSchema() {
-        return upperSchema;
+    public RowKeySchema getSchema() {
+        return schema;
     }
     
     public void setScanStartStopKey(Scan scan) {
@@ -111,6 +109,10 @@ public class ScanKey {
     public byte[] getLowerRange() {
         return lowerRange;
     }
+    
+    public int getLowerSlots() {
+        return lowerSlots;
+    }
 
     public boolean isLowerInclusive() {
         return lowerInclusive;
@@ -118,6 +120,10 @@ public class ScanKey {
 
     public byte[] getUpperRange() {
         return upperRange;
+    }
+
+    public int getUpperSlots() {
+        return upperSlots;
     }
 
     public boolean isUpperInclusive() {

@@ -27,27 +27,25 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
+import static com.salesforce.phoenix.util.TestUtil.*;
+import static org.junit.Assert.*;
+
 import java.math.BigDecimal;
 import java.sql.*;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
+import java.sql.Date;
+import java.util.*;
+
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
+
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 
 
@@ -1996,6 +1994,63 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         PhoenixStatement pstatement = statement.unwrap(PhoenixStatement.class);
         List<KeyRange>splits = pstatement.getQueryPlan().getSplits();
         assertTrue(splits.size() > 0);
+    }
+    
+    @Test
+    public void testRowKeySingleIn() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT entity_id FROM aTable WHERE organization_id=? and entity_id IN (?,?,?)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW2);
+            statement.setString(3, ROW6);
+            statement.setString(4, ROW8);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), ROW2);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), ROW6);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), ROW8);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    
+    @Test
+    public void testRowKeyMultiIn() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT entity_id FROM aTable WHERE organization_id=? and entity_id IN (?,?,?) and a_string IN (?,?)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW2);
+            statement.setString(3, ROW6);
+            statement.setString(4, ROW9);
+            statement.setString(5, B_VALUE);
+            statement.setString(6, C_VALUE);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), ROW6);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), ROW9);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
     }
 
 }

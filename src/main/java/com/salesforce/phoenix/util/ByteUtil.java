@@ -367,6 +367,17 @@ public class ByteUtil {
         return nextKey;
     }
 
+    public static void nextKey(byte[] startRow, int rowLength) {
+        int i = rowLength-1;
+        while (startRow[i] == -1) {
+            i--;
+            if (i < 0) {
+                throw new ScanKeyOverflowException("Overflow trying to get next key for " + Arrays.toString(startRow));
+            }
+        }
+        startRow[i] = (byte)(startRow[i] + 1);
+    }
+
     /**
      * Expand the key to length bytes using the fillByte to fill the
      * bytes beyond the current key length.

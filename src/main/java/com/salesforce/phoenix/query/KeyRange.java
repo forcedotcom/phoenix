@@ -27,18 +27,21 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
+import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
+
 import java.util.*;
+
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.http.annotation.Immutable;
+
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.util.ByteUtil;
+
 import edu.umd.cs.findbugs.annotations.NonNull;
-import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
 
 /**
  *
@@ -49,6 +52,7 @@ import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
  */
 @Immutable
 public class KeyRange {
+    public enum Bound { LOWER, UPPER };
     private static final byte[] DEGENERATE_KEY = new byte[] {1};
     public static final byte[] UNBOUND_LOWER = HConstants.EMPTY_START_ROW;
     public static final byte[] UNBOUND_UPPER = HConstants.EMPTY_END_ROW;
@@ -80,6 +84,7 @@ public class KeyRange {
     private final boolean lowerInclusive;
     private final byte[] upperRange;
     private final boolean upperInclusive;
+    private final boolean isSingleKey;
 
     // Make sure to pass in constants for unbound upper/lower, since an emtpy array means null otherwise
     public static KeyRange getKeyRange(HRegionInfo region) {
@@ -112,8 +117,41 @@ public class KeyRange {
         this.lowerInclusive = lowerInclusive;
         this.upperRange = upperRange;
         this.upperInclusive = upperInclusive;
+        this.isSingleKey = lowerRange != UNBOUND_LOWER && upperRange != UNBOUND_UPPER && lowerInclusive && upperInclusive && Bytes.compareTo(lowerRange, upperRange) == 0;
     }
 
+    public byte[] getRange(Bound bound) {
+        return bound == Bound.LOWER ? getLowerRange() : getUpperRange();
+    }
+    
+    public boolean isInclusive(Bound bound) {
+        return bound == Bound.LOWER ? isLowerInclusive() : isUpperInclusive();
+    }
+    
+    public boolean isUnbound(Bound bound) {
+        return bound == Bound.LOWER ? lowerUnbound() : upperUnbound();
+    }
+    
+    public boolean isSingleKey() {
+        return isSingleKey;
+    }
+    
+    public boolean isInRange(byte[] b, int o, int l) {
+        if (!lowerUnbound()) {
+            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, 0, l);
+            if (cmp > 0 || cmp == 0 && !lowerInclusive) {
+                return false;
+            }
+        }
+        if (!upperUnbound()) {
+            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, 0, l);
+            if (cmp < 0 || cmp == 0 && !upperInclusive) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
     public byte[] getLowerRange() {
         return lowerRange;
     }
@@ -157,12 +195,10 @@ public class KeyRange {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-            .addValue(Bytes.toStringBinary(lowerRange))
-            .addValue(lowerInclusive)
-            .addValue(Bytes.toStringBinary(upperRange))
-            .addValue(upperInclusive)
-            .toString();
+        if (isSingleKey()) {
+            return Bytes.toStringBinary(lowerRange);
+        }
+        return (lowerInclusive ? "[" : "(") + Bytes.toStringBinary(lowerRange) + " - " + Bytes.toStringBinary(upperRange) + (upperInclusive ? "]" : ")" );
     }
 
     @Override

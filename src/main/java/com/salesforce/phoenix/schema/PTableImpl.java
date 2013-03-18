@@ -41,9 +41,10 @@ import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 import com.salesforce.phoenix.schema.stat.PTableStatsImpl;
+import com.salesforce.phoenix.util.*;
 
 
 /**
@@ -70,6 +71,7 @@ public class PTableImpl implements PTable {
     private String pkName;
     // Statistics associated with this table.
     PTableStats stats;
+    RowKeySchema rowKeySchema;
     
     public PTableImpl() {
     }
@@ -81,6 +83,7 @@ public class PTableImpl implements PTable {
         this.families = Collections.emptyList();
         this.familyByBytes = Collections.emptyMap();
         this.familyByString = Collections.emptyMap();
+        this.rowKeySchema = RowKeySchema.EMPTY_SCHEMA;
     }
 
     public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, List<PColumn> columns) {
@@ -101,16 +104,19 @@ public class PTableImpl implements PTable {
         this.pkName = pkName;
         List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
         PColumn[] allColumns = new PColumn[columns.size()];
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         for (int i = 0; i < allColumns.length; i++) {
             PColumn column = columns.get(i);
             allColumns[column.getPosition()] = column;
             PName familyName = column.getFamilyName();
             if (familyName == null) {
                 pkColumns.add(column);
+                builder.addField(column);
             }
             columnsByName.put(column.getName().getString(), column);
         }
         this.pkColumns = ImmutableList.copyOf(pkColumns);
+        this.rowKeySchema = builder.setMinNullable(pkColumns.size()).build();
         this.allColumns = ImmutableList.copyOf(allColumns);
         
         // Two pass so that column order in column families matches overall column order
@@ -481,5 +487,10 @@ public class PTableImpl implements PTable {
     @Override
     public String getPKName() {
         return pkName;
+    }
+
+    @Override
+    public RowKeySchema getRowKeySchema() {
+        return rowKeySchema;
     }
 }

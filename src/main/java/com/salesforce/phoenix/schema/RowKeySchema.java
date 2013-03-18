@@ -47,9 +47,13 @@ import com.salesforce.phoenix.query.QueryConstants;
  * @author jtaylor
  * @since 0.1
  */
-public class RowKeySchema extends ValueSchema  {
+public class RowKeySchema extends ValueSchema {
     public static final RowKeySchema EMPTY_SCHEMA = new RowKeySchema(0,Collections.<Field>emptyList())
     ;
+    
+    public RowKeySchema() {
+    }
+    
     protected RowKeySchema(int minNullable, List<Field> fields) {
         super(minNullable, fields);
     }

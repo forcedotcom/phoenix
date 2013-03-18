@@ -108,7 +108,7 @@ public class ScanUtil {
             allFilters.addAll(filterList.getFilters());
             scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,allFilters));
         } else {
-            scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,Arrays.asList(filter,andWithFilter)));
+            scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,Arrays.asList(andWithFilter, filter)));
         }
     }
 

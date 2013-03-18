@@ -27,21 +27,20 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.sql.SQLException;
 import java.text.Format;
 import java.util.List;
+
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
+
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
@@ -68,13 +67,12 @@ public class StatementContext {
     private final Format dateParser;
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
-    private List<List<KeyRange>> cnf;
-    private int[] widths;
 
     private boolean isAggregate;
     private ScanKey scanKey;
     private GroupBy groupBy;
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
+    private SkipScanFilter skipScanFilter;
 
     public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
         this.connection = connection;
@@ -133,20 +131,12 @@ public class StatementContext {
         return scanKey;
     }
 
-    public void setCnf(List<List<KeyRange>> cnf, int[] widths) {
-        this.cnf = cnf;
-        this.widths = widths;
+    public SkipScanFilter getSkipScanFilter() {
+        return this.skipScanFilter;
     }
-
-    public boolean hasCnf() {
-        return cnf != null && widths != null && !cnf.isEmpty();
-    }
-
-    /**
-     * @return check for null
-     */
-    public SkipScanFilter newSkipScanFilter() {
-        return new SkipScanFilter().setCnf(cnf, widths);
+    
+    public void setSkipScanFilter(SkipScanFilter skipScanFilter) {
+        this.skipScanFilter = skipScanFilter;
     }
 
     public void setScanKey(ScanKey scanKey) {

@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.compile.ScanKey;
 import com.salesforce.phoenix.compile.StatementContext;
@@ -69,19 +70,19 @@ public abstract class ExplainTable {
         context.getGroupBy().explain(planSteps);
     }
 
-    private void appendPKColumnValues(StringBuilder buf, byte[] key, RowKeySchema schema) {
+    private void appendPKColumnValues(StringBuilder buf, byte[] key, int slots, RowKeySchema schema) {
         ImmutableBytesWritable ptr = context.getTempPtr();
         ptr.set(key, 0, 0);
 
         int i = 0;
-        for (Boolean hasValue = schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); hasValue != null; hasValue=schema.next(ptr, ++i, ValueBitSet.EMPTY_VALUE_BITSET)) {
+        for (Boolean hasValue = i >= slots ? null : schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); hasValue != null; hasValue = ++i >= slots ? null : schema.next(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET)) {
             if (hasValue) {
                 PDataType type = schema.getField(i).getType();
                 Format formatter = context.getConnection().getFormatter(type);
-                Object value = type.toObject(ptr);
+                //Object value = type.toObject(ptr);
                 boolean isString = type.isCoercibleTo(PDataType.VARCHAR);
                 if (isString) buf.append('\''); // TODO: PDataType.toString(Object, Format) method?
-                buf.append(formatter == null ? value.toString() : formatter.format(value));
+                buf.append(formatter == null ? Bytes.toStringBinary(ptr.get(), ptr.getOffset(), ptr.getLength()) : formatter.format(type.toObject(ptr)));
                 if (isString) buf.append('\'');
             } else {
                 buf.append("null");
@@ -99,13 +100,13 @@ public abstract class ExplainTable {
         } else {
             if (!noStartKey) {
                 buf.append(" FROM (");
-                appendPKColumnValues(buf, scanKey.getLowerRange(), scanKey.getLowerSchema());
+                appendPKColumnValues(buf, scanKey.getLowerRange(), scanKey.getLowerSlots(), scanKey.getSchema());
                 buf.setCharAt(buf.length()-1, ')');
                 buf.append(scanKey.isLowerInclusive() ? " INCLUSIVE" : " EXCLUSIVE");
             }
             if (!noEndKey) {
                 buf.append(" TO (");
-                appendPKColumnValues(buf, scanKey.getUpperRange(), scanKey.getUpperSchema());
+                appendPKColumnValues(buf, scanKey.getUpperRange(), scanKey.getUpperSlots(), scanKey.getSchema());
                 buf.setCharAt(buf.length()-1, ')');
                 buf.append(scanKey.isUpperInclusive() ? " INCLUSIVE" : " EXCLUSIVE");
             }
