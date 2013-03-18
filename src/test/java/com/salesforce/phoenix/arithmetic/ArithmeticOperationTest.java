@@ -53,8 +53,8 @@ public class ArithmeticOperationTest {
         DecimalAddExpression e;
         boolean evaluated;
 
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalAddExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -62,8 +62,8 @@ public class ArithmeticOperationTest {
         assertTrue(evaluated);
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("1234567890123456789012345691246"), ptr);
 
-        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL, 5, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalAddExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -72,8 +72,8 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("12468.45"), ptr);
 
         // Exceeds precision.
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalAddExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -85,9 +85,9 @@ public class ArithmeticOperationTest {
         }
 
         // Pass since we roll out imposing precisioin and scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL);
-        op3 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL, 3, 0);
+        op3 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2, op3);
         e = new DecimalAddExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -96,8 +96,8 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("9999999999999999999999999999999"), ptr);
 
         // Exceeds scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL, 5, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalAddExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -120,8 +120,8 @@ public class ArithmeticOperationTest {
         DecimalSubtractExpression e;
         boolean evaluated;
 
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalSubtractExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -129,8 +129,8 @@ public class ArithmeticOperationTest {
         assertTrue(evaluated);
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("1234567890123456789012345666556"), ptr);
 
-        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL, 5, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalSubtractExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -139,8 +139,8 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("12221.55"), ptr);
 
         // Excceds precision
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalSubtractExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -152,9 +152,9 @@ public class ArithmeticOperationTest {
         }
 
         // Pass since we roll up precision and scale imposing.
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL);
-        op3 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL, 3, 0);
+        op3 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2, op3);
         e = new DecimalSubtractExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -163,8 +163,8 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("9999999999999999999999999999999"), ptr);
 
         // Exceeds scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL, 5, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalSubtractExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -187,8 +187,8 @@ public class ArithmeticOperationTest {
         DecimalMultiplyExpression e;
         boolean evaluated;
 
-        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL, 5, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalMultiplyExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -197,8 +197,8 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("1523990.25"), ptr);
 
         // Value too big, exceeds precision.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalMultiplyExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -210,8 +210,8 @@ public class ArithmeticOperationTest {
         }
 
         // Values exceeds scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("1.45"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("1.45"), PDataType.DECIMAL, 3, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalMultiplyExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -237,8 +237,8 @@ public class ArithmeticOperationTest {
         // The value should be 1234500.0000...00 because we set to scale to be 24. However, in
         // PhoenixResultSet.getBigDecimal, the case to (BigDecimal) actually cause the scale to be eradicated. As
         // a result, the resulting value does not have the right form.
-        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("0.01"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("0.01"), PDataType.DECIMAL, 2, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalDivideExpression(children);
         ptr = new ImmutableBytesWritable();
@@ -247,8 +247,8 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("1.2345E+6"), ptr);
 
         // Exceeds precision.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL);
-        op2 = LiteralExpression.newConstant(new BigDecimal("0.01"), PDataType.DECIMAL);
+        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op2 = LiteralExpression.newConstant(new BigDecimal("0.01"), PDataType.DECIMAL, 2, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalDivideExpression(children);
         ptr = new ImmutableBytesWritable();

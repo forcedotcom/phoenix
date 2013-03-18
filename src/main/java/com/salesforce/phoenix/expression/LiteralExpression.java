@@ -93,8 +93,13 @@ public class LiteralExpression extends BaseTerminalExpression {
         return new LiteralExpression(value, type, b);
     }
 
-    // TODO: cache?
     public static LiteralExpression newConstant(Object value, PDataType type) throws SQLException {
+        return newConstant(value, type, null, null);
+    }
+
+    // TODO: cache?
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale)
+            throws SQLException {
         if (value == null) {
             if (type == null) {
                 return NULL_EXPRESSION;
@@ -111,7 +116,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];
             }
-            return new LiteralExpression(value, type, b);
+            return new LiteralExpression(value, type, b, maxLength, scale);
         } catch (IllegalDataException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.ILLEGAL_DATA).setRootCause(e).build().buildException();
         }
@@ -138,12 +143,18 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue) {
+        this(value, type, byteValue, type == null? null : type.getMaxLength(value),
+                type == null? null : type.getScale(value));
+    }
+
+    private LiteralExpression(Object value, PDataType type, byte[] byteValue,
+            Integer maxLength, Integer scale) {
         this.value = value;
         this.type = type;
         this.byteValue = byteValue;
         this.byteSize = byteValue.length;
-        this.maxLength = type == null? null : type.getMaxLength(value);
-        this.scale = type == null? null : type.getScale(value);
+        this.maxLength = maxLength;
+        this.scale = scale;
     }
 
     @Override
