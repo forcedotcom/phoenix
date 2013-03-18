@@ -288,4 +288,152 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
     }
+
+    @Test
+    public void testDecimalArithmeticWithIntAndLong() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
+                    "col1 DECIMAL, col2 DECIMAL(5, 2), col3 INTEGER, col4 BIGINT)";
+            createTestTable(getUrl(), ddl);
+            
+            String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3, col4) VALUES(?,?,?,?,?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, "testValueOne");
+            stmt.setBigDecimal(2, new BigDecimal("1234567890123456789012345678901"));
+            stmt.setBigDecimal(3, new BigDecimal("123.45"));
+            stmt.setInt(4, 10);
+            stmt.setLong(5, 10L);
+            stmt.execute();
+            conn.commit();
+            
+            // INT has a default precision and scale of (10, 0)
+            // LONG has a default precision and scale of (19, 0)
+            query = "SELECT col1 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234567890123456789012345678911"), result);
+            
+            query = "SELECT col1 + col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234567890123456789012345678911"), result);
+            
+            query = "SELECT col2 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("133.45"), result);
+            
+            query = "SELECT col2 + col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("133.45"), result);
+            
+            query = "SELECT col1 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234567890123456789012345678891"), result);
+            
+            query = "SELECT col1 - col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234567890123456789012345678891"), result);
+            
+            query = "SELECT col2 - col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("113.45"), result);
+            
+            query = "SELECT col2 - col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("113.45"), result);
+            
+            try {
+                query = "SELECT col1 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+                stmt = conn.prepareStatement(query);
+                rs = stmt.executeQuery();
+                assertTrue(rs.next());
+                result = rs.getBigDecimal(1);
+                fail("Should have caught bad values.");
+            } catch (Exception e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));
+            }
+            
+            try {
+                query = "SELECT col1 * col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+                stmt = conn.prepareStatement(query);
+                rs = stmt.executeQuery();
+                assertTrue(rs.next());
+                result = rs.getBigDecimal(1);
+                fail("Should have caught bad values.");
+            } catch (Exception e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));            }
+            
+            query = "SELECT col2 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234.5"), result);
+            
+            query = "SELECT col2 * col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234.5"), result);
+            
+            // Result scale has value of 0
+            query = "SELECT col1 / col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1.2345678901234567890123456789E+29"), result);
+            
+            query = "SELECT col1 / col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1.2345678901234567890123456789E+29"), result);
+            
+            // Result scale is 2.
+            query = "SELECT col2 / col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("12.34"), result);
+            
+            query = "SELECT col2 / col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("12.34"), result);
+        } finally {
+            conn.close();
+        }
+    }
 }
