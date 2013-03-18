@@ -823,7 +823,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                 new int[] { 15, 15 }),
             filter);
     }
-    @Test @Ignore("scan key setting not working except for most trivial where clauses")
+    @Test
     public void testInListWithAnd1FilterScankey() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";
@@ -840,9 +840,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1 + entityId);
         assertArrayEquals(startRow, scan.getStartRow());
-        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
+        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3 + entityId);
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 
@@ -918,7 +918,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
             filter);
     }
 
-    @Test @Ignore("scan key only works for trivial cases")
+    @Test
     public void testInListWithAnd2FilterScanKey() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";
@@ -936,9 +936,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1 + entityId1);
         assertArrayEquals(startRow, scan.getStartRow());
-        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
+        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3 + entityId2);
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 }
