@@ -121,7 +121,8 @@ after the first possible key.
     }
 
     private ReturnCode navigate(final byte[] currentKey, final int offset, final int length) {
-        if (startKey == null) { // TODO: verify not necessary and remove
+        // TODO: verify not necessary and remove
+        if (startKey == null) {
             return ReturnCode.NEXT_ROW;
         }
         // TODO: remove this assert eventually
@@ -210,7 +211,7 @@ after the first possible key.
         // Starting at last slot, increment it's current position, modded with size.
         // Continue moving to the left when we've wrapped the current slot position.
         // Stop when we're at the beginning (and we're done)
-        while (i > 0 && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
+        while (i >= 0 && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
             i--;
         }
         return i >= 0;

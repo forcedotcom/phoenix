@@ -78,5 +78,8 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
         getConfig().setIfUnset(QueryServices.MAX_HASH_CACHE_TIME_TO_LIVE_MS, Integer.toString(DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS));
         getConfig().setInt("hbase.master.info.port", -1); // To allow tests to run while local hbase is running too
         getConfig().setInt("hbase.regionserver.info.port", -1);
+        getConfig().set("hbase.regionserver.lease.period" , "9000000"); // Increase so that we don't get timeouts while debugging
+        getConfig().set("hbase.rpc.timeout" , "9000000");
+
     }    
 }
