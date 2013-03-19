@@ -152,7 +152,9 @@ public class SubstrFunction extends ScalarFunction {
 
     @Override
     public PDataType getDataType() {
-        return isFixedWidth ? PDataType.CHAR : PDataType.VARCHAR;
+        // If fixed width, then return child expression type.
+        // If not fixed width, then we don't know how big this will be across the board
+        return isFixedWidth ? getStrExpression().getDataType() : PDataType.VARCHAR;
     }
 
     @Override

@@ -167,13 +167,16 @@ public class WhereOptimizer {
 
                 // Concatenate each part of key together
                 // If either condition is false, then loop exits below
+                // TODO: write 1 here so null is filtered?
                 if (!startRange.lowerUnbound()) {
+                    // TODO: next byte if previous was an lower unbound range and blah
                     startKey.write(startRange.getLowerRange());
                     lastLowerInclusive = startRange.isLowerInclusive();
                     lastLowerVarLength = !datum.getDataType().isFixedWidth();
                     lowerPosCount++;
                 }
                 if (!stopRange.upperUnbound()) {
+                    // TODO: next byte if previous was a range and blah
                     stopKey.write(stopRange.getUpperRange());
                     lastUpperInclusive = stopRange.isUpperInclusive();
                     lastUpperVarLength = !datum.getDataType().isFixedWidth();
@@ -186,10 +189,10 @@ public class WhereOptimizer {
                 extractNodes.addAll(nodesToExtract);
                 // Stop building start/stop key once we encounter a non single key range.
                 // TODO: remove this soon after more testing on SkipScanFilter
-                // TODO: when stats are available, we may want to terminate this loop if we have
-                // a non single key range, depending on the cardinality of the column values.
                 if (hasRangeKey) {
                     isFullyQualifiedKey = false;
+                    // TODO: when stats are available, we will want to terminate this loop if we have
+                    // a non single key range, depending on the cardinality of the column values.
                     break;
                 }
             }
@@ -369,6 +372,10 @@ public class WhereOptimizer {
             return newKeyExpression(node, node.getPosition(), Collections.<Expression>singletonList(node), false, KeyRange.EVERYTHING_RANGE, node);
         }
 
+        // TODO: get rid of datum and backing datum and just use the extracted node
+        // If extracted node becomes empty, then nothing to contribute for that branch
+        // Ok to pass up original backing datum all the way up to the point were exract
+        // node means something - don't need to pass function expression up, I don't think
         @Override
         public Iterator<Expression> visitEnter(ComparisonExpression node) {
             Expression rhs = node.getChildren().get(1);
@@ -507,20 +514,20 @@ public class WhereOptimizer {
             List<KeyRange> ranges = KeyRange.of(keys);
             KeyPart colKeyExpr = childKeyExprs.get(0).iterator().next().getKeyPart();
             if (ranges.size() > 0) {
-                if (ranges.get(0).lowerUnbound() || ranges.get(ranges.size() - 1).upperUnbound()) {
-                    // unbound?  punt.  TODO optimize SkipScanFilter
-                    ImmutableBytesWritable minKey = node.getMinKey();
-                    ImmutableBytesWritable maxKey = node.getMaxKey();
-                    // TODO: make key range backed by ImmutableBytesWritable to prevent copy?
-                    KeyRange keyRange = KeyRange.getKeyRange(minKey.copyBytes(), true, maxKey.copyBytes(), true);
-                    return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>emptyList(), false, keyRange, node.getChildren().get(0));
-                }
+                // IN cannot contain unbound ranges
+                assert(!ranges.get(0).lowerUnbound() && !ranges.get(ranges.size() - 1).upperUnbound());
+                ImmutableBytesWritable minKey = node.getMinKey();
+                ImmutableBytesWritable maxKey = node.getMaxKey();
+                // TODO: make key range backed by ImmutableBytesWritable to prevent copy?
+                KeyRange keyRange = KeyRange.getKeyRange(minKey.copyBytes(), true, maxKey.copyBytes(), true);
+                return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>emptyList(), false, keyRange, node.getChildren().get(0));
             }
             return newKeyExpression(colKeyExpr.getDatum(), colKeyExpr.getPosition(), Collections.<Expression>singletonList(node), ranges, node.getChildren().get(0));
         }
 
         @Override
         public Iterator<Expression> visitEnter(IsNullExpression node) {
+            // TODO: use (0,*) for isNegate?
             return node.isNegate() ? Iterators.<Expression>emptyIterator() : Iterators.singletonIterator(node.getChildren().get(0));
         }
 
@@ -720,7 +727,7 @@ public class WhereOptimizer {
                 default:
                     return null;
                 }
-                Integer length = this.getBackingDatum().getDataType().isFixedWidth() ? this.getBackingDatum().getMaxLength() : null;
+                Integer length = this.getBackingDatum().getDataType().isFixedWidth() ? this.getBackingDatum().getByteSize() : null;
                 return length == null ? range : fillKey(range, length);
             }
 
@@ -754,18 +761,6 @@ public class WhereOptimizer {
                 Preconditions.checkArgument(!k1.keyRanges.isEmpty());
                 Preconditions.checkArgument(!k2.keyRanges.isEmpty());
 
-                Integer max1 = k1.getDatum().getDataType().isFixedWidth() ? k1.getDatum().getByteSize() : null;
-                Integer max2 = k2.getDatum().getDataType().isFixedWidth() ? k2.getDatum().getByteSize() : null;
-                // Keep the variable length expression or the one with the longest length.
-                // This ensures that we fill the key to matching lengths for boundary cases such as
-                // select * from foo where substr(bar,1,3) <= 'abc' and bar = 'abcde'
-                // If we don't fill the 'abc' to match the length of 'abcde', the intersection would
-                // return an empty range.
-                // TODO: review - do we need this still?
-                if (max2 != null && (max1 == null || max2 > max1)) {
-                    k1 = k2;
-                    k2 = this;
-                }
                 return newKeyExpression(
                         k1.getBackingDatum(),
                         k1.keySlot.getPosition(),
