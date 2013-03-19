@@ -205,7 +205,7 @@ public class SubstrFunction extends ScalarFunction {
 
     @Override
     public KeyPart newKeyPart(KeyPart part) {
-        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>singletonList(this), part.getKeyRanges(), part.getDatum());
+        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>singletonList(this), part.getKeyRanges());
     }
 
     @Override

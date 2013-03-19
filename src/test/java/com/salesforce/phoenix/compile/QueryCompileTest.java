@@ -297,7 +297,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
             assertTrue(e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"CASE\" at line 1, column 58."));
         }
     }

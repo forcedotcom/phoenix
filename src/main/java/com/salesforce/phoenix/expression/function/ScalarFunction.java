@@ -64,6 +64,6 @@ public abstract class ScalarFunction extends FunctionExpression {
         // while executing the filters.
        List<Expression> extractNodes = directive == KeyFormationDirective.TRAVERSE_AND_EXTRACT 
                 ? Collections.<Expression>singletonList(this) : Collections.<Expression>emptyList();
-        return new KeyPart(part.getBackingDatum(), part.getPosition(), extractNodes, part.getKeyRanges(), part.getDatum());
+        return new KeyPart(part.getBackingDatum(), part.getPosition(), extractNodes, part.getKeyRanges());
     }
 }

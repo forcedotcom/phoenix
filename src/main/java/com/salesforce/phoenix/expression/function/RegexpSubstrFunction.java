@@ -184,7 +184,7 @@ public class RegexpSubstrFunction extends ScalarFunction {
 
     @Override
     public KeyPart newKeyPart(KeyPart part) {
-        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges(), part.getDatum());
+        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges());
     }
 
 }

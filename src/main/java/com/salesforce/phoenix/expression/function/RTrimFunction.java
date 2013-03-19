@@ -109,7 +109,7 @@ public class RTrimFunction extends ScalarFunction {
 
     @Override
     public KeyPart newKeyPart(KeyPart part) {
-        return new RTrimKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges(), part.getDatum());
+        return new RTrimKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges());
     }
 
     @Override
@@ -129,8 +129,8 @@ public class RTrimFunction extends ScalarFunction {
     
     private static class RTrimKeyPart extends KeyPart {
         
-        public RTrimKeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges, PDatum datum) {
-            super(backingDatum, position, nodes, keyRanges, datum);
+        public RTrimKeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges) {
+            super(backingDatum, position, nodes, keyRanges);
         }
 
         @Override
