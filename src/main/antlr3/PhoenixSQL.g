@@ -433,11 +433,12 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY descOrder=DESC?)?
+    :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|DESC)?)?
         {$ret = factory.columnDef(c, dt, n==null,
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
-            pk != null, descOrder != null ); }
+            pk != null, 
+            order == null ? null : order.getText() ); }
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).

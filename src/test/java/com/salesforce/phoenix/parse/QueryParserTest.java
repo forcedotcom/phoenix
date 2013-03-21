@@ -408,21 +408,24 @@ public class QueryParserTest {
     }
 
     @Test
-    public void testParseCreateTableInlinePrimaryKeyDesc() throws Exception {
-        SQLParser parser = new SQLParser(new StringReader(
-                "create table core.entity_history_archive (id char(15) primary key desc)"));
-        parser.parseStatement();
+    public void testParseCreateTableInlinePrimaryKeyWithOrder() throws Exception {
+    	for (String order : new String[]{"asc", "desc"}) {
+            String stmt = "create table core.entity_history_archive (id char(15) primary key ${o})".replace("${o}", order);
+            new SQLParser(new StringReader(stmt)).parseStatement();
+    	}
     }
     
     @Test
-    public void testParseCreateTableDescWithoutInlinePrimaryKey() throws Exception {
-        SQLParser parser = new SQLParser(new StringReader(
-                "create table core.entity_history_archive (id varchar(20) desc)"));
-        try {
-        	parser.parseStatement();
-        	fail("Expected parse exception");
-        } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Unexpected input. Expecting \"RPAREN\", got \"desc\""));
-        }
+    public void testParseCreateTableOrderWithoutInlinePrimaryKey() throws Exception {
+    	for (String order : new String[]{"asc", "desc"}) {
+    		String stmt = "create table core.entity_history_archive (id varchar(20) desc)".replace("${o}", order);
+    		try {
+    			new SQLParser(new StringReader(stmt)).parseStatement();
+    			fail("Expected parse exception to be thrown");
+    		} catch (SQLException e) {
+    			String errorMsg = "ERROR 603 (42P00): Syntax error. Unexpected input. Expecting \"RPAREN\", got \"desc\"".replace("${o}", order);
+    			assertTrue("Expected message to contain \"" + errorMsg + "\" but got \"" + e.getMessage() + "\"", e.getMessage().contains(errorMsg));
+    		}
+    	}
     }
 }
