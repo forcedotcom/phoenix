@@ -36,6 +36,7 @@ import au.com.bytecode.opencsv.CSVReader;
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.expression.LikeExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.PDataType;
 
@@ -158,9 +159,10 @@ public class CSVLoader {
 	    Map<String,Integer> columnNameToTypeMap = Maps.newLinkedHashMap();
         DatabaseMetaData dbmd = conn.getMetaData();
         // TODO: escape wildcard characters here because we don't want that behavior here
-        String[] schemaAndTable = tableName.split("\\.");
+        String escapedTableName = LikeExpression.escapeLike(tableName);
+        String[] schemaAndTable = escapedTableName.split("\\.");
         ResultSet rs = dbmd.getColumns(null, (schemaAndTable.length == 1 ? "" : schemaAndTable[0]),
-                        (schemaAndTable.length == 1 ? tableName : schemaAndTable[1]),
+                        (schemaAndTable.length == 1 ? escapedTableName : schemaAndTable[1]),
                         null);
         while (rs.next()) {
             columnNameToTypeMap.put(rs.getString(COLUMN_NAME_POSITION), rs.getInt(DATA_TYPE_POSITION));
