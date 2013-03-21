@@ -146,6 +146,11 @@ public class WhereOptimizer {
                     stopKey.write(SEPARATOR_BYTE);
                 }
 
+                // Reset these - we'll only want to append a null byte
+                // if we're not unbound. Otherwise the key won't be
+                // correct for IS NOT NULL cases.
+                lastLowerVarLength = false;
+                lastUpperVarLength = false;
                 /*
                  * Use SkipScanFilter under two circumstances:
                  * 1) If we have multiple ranges for a given key slot (use of IN)
@@ -513,8 +518,7 @@ public class WhereOptimizer {
 
         @Override
         public Iterator<Expression> visitEnter(IsNullExpression node) {
-            // TODO: IS NOT NULL should be ok to traverse, but is not working. 
-            return node.isNegate() ? Iterators.<Expression>emptyIterator() : Iterators.singletonIterator(node.getChildren().get(0));
+            return Iterators.singletonIterator(node.getChildren().get(0));
         }
 
         @Override
