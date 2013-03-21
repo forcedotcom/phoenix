@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
@@ -45,6 +47,7 @@ public class PColumnImpl implements PColumn {
     private Integer scale;
     private boolean nullable;
     private int position;
+    private ColumnSortOrder sortOrder = ColumnSortOrder.defaultValue();
 
     public PColumnImpl() {
     }
@@ -55,13 +58,14 @@ public class PColumnImpl implements PColumn {
                        Integer maxLength,
                        Integer scale,
                        boolean nullable,
-                       int position) {
-        init(name, familyName, dataType, maxLength, scale, nullable, position);
+                       int position,
+                       ColumnSortOrder sortOrder) {
+        init(name, familyName, dataType, maxLength, scale, nullable, position, sortOrder);
     }
 
     public PColumnImpl(PColumn column, int position) {
         this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
-                column.getScale(), column.isNullable(), position);
+                column.getScale(), column.isNullable(), position, column.getSortOrder());
     }
 
     private void init(PName name,
@@ -70,7 +74,8 @@ public class PColumnImpl implements PColumn {
             Integer maxLength,
             Integer scale,
             boolean nullable,
-            int position) {
+            int position,
+            ColumnSortOrder sortOrder) {
         this.dataType = dataType;
         if (familyName == null) {
             // Allow nullable columns in PK, but only if they're variable length.
@@ -129,6 +134,11 @@ public class PColumnImpl implements PColumn {
     public int getPosition() {
         return position;
     }
+    
+    @Override
+    public ColumnSortOrder getSortOrder() {
+    	return sortOrder;
+    }
 
     @Override
     public String toString() {
@@ -147,8 +157,9 @@ public class PColumnImpl implements PColumn {
         int scale = WritableUtils.readVInt(input);
         boolean nullable = input.readBoolean();
         int position = WritableUtils.readVInt(input);
+        ColumnSortOrder sortOrder = ColumnSortOrder.fromDbValue(WritableUtils.readVInt(input));
         init(columnName, familyName, dataType, maxLength == QueryConstants.NO_MAXLENGTH ? null : maxLength,
-                scale == QueryConstants.NO_SCALE ? null : scale, nullable, position);
+                scale == QueryConstants.NO_SCALE ? null : scale, nullable, position, sortOrder);
     }
 
     @Override
@@ -160,5 +171,6 @@ public class PColumnImpl implements PColumn {
         WritableUtils.writeVInt(output, scale == null ? QueryConstants.NO_SCALE : scale);
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
+        WritableUtils.writeVInt(output, sortOrder.toDbValue());
     }
 }

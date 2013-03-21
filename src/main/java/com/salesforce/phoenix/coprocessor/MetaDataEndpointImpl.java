@@ -117,12 +117,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue NULLABLE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(NULLABLE));
     private static final KeyValue DATA_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DATA_TYPE));
     private static final KeyValue ORDINAL_POSITION_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(ORDINAL_POSITION));
+    private static final KeyValue SORT_ORDER_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(SORT_ORDER));
     private static final List<KeyValue> COLUMN_KV_COLUMNS = Arrays.<KeyValue>asList(
             DECIMAL_DIGITS_KV,
             COLUMN_SIZE_KV,
             NULLABLE_KV,
             DATA_TYPE_KV,
-            ORDINAL_POSITION_KV
+            ORDINAL_POSITION_KV,
+            SORT_ORDER_KV
             );
     static {
         Collections.sort(COLUMN_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -132,6 +134,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int NULLABLE_INDEX = COLUMN_KV_COLUMNS.indexOf(NULLABLE_KV);
     private static final int SQL_DATA_TYPE_INDEX = COLUMN_KV_COLUMNS.indexOf(DATA_TYPE_KV);
     private static final int ORDINAL_POSITION_INDEX = COLUMN_KV_COLUMNS.indexOf(ORDINAL_POSITION_KV);
+    private static final int SORT_ORDER_INDEX = COLUMN_KV_COLUMNS.indexOf(SORT_ORDER_KV);
 
     private static PName newPName(byte[] keyBuffer, int keyOffset, int keyLength) {
         if (keyLength == 0) {
@@ -249,7 +252,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             boolean isNullable = PDataType.INTEGER.getCodec().decodeInt(nullableKv.getBuffer(), nullableKv.getValueOffset()) != ResultSetMetaData.columnNoNulls;
             KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
             PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset()));
-            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1);
+            KeyValue sortOrderKv = colKeyValues[SORT_ORDER_INDEX];
+            ColumnSortOrder sortOrder = ColumnSortOrder.fromDbValue(PDataType.INTEGER.getCodec().decodeInt(sortOrderKv.getBuffer(), sortOrderKv.getValueOffset()));
+            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1, sortOrder);
             columns.add(column);
         }
         

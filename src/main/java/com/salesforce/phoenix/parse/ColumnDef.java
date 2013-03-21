@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import com.salesforce.phoenix.schema.ColumnSortOrder;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -44,7 +45,7 @@ public class ColumnDef {
     private final Integer maxLength;
     private final Integer scale;
     private final boolean isPK;
-    private final String sortOrder; // enum?
+    private final ColumnSortOrder sortOrder;
  
     ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
             Integer scale, boolean isPK, String sortOrder) {
@@ -80,7 +81,7 @@ public class ColumnDef {
         this.maxLength = maxLength;
         this.scale = scale;
         this.isPK = isPK;
-        this.sortOrder = sortOrder == null ? "asc" : sortOrder;
+        this.sortOrder = ColumnSortOrder.fromDDLStatement(sortOrder);
     }
 
     public ColumnDefName getColumnDefName() {
@@ -105,5 +106,9 @@ public class ColumnDef {
 
     public boolean isPK() {
         return isPK;
+    }
+    
+    public ColumnSortOrder getSortOrder() {
+    	return sortOrder;
     }
 }

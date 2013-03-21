@@ -101,6 +101,12 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             public int getPosition() {
                 return 0;
             }
+            
+            @Override
+            public ColumnSortOrder getSortOrder() {
+            	return ColumnSortOrder.defaultValue();
+            }
+            
             @Override
             public void readFields(DataInput arg0) throws IOException {
             }

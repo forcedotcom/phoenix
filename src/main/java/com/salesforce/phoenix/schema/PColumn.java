@@ -51,4 +51,12 @@ public interface PColumn extends PDatum, Writable {
      * @return the zero-based ordinal position of the column
      */
     int getPosition();
+    
+    /**
+     * @return returns the natural sort order for this column.  
+     * // REVIEW - stoens
+     * Returns null if not a pk column or just expose this on the 
+     * pk constaint instead?
+     */
+    ColumnSortOrder getSortOrder();
 }
