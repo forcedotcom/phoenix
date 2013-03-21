@@ -39,6 +39,7 @@ import com.google.common.collect.Sets;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /*
@@ -60,7 +61,7 @@ public class InListExpression extends BaseSingleExpression {
     public InListExpression(List<Expression> children) throws SQLException {
         super(children.get(0));
         PDataType type = getChild().getDataType();
-        values = Sets.newHashSetWithExpectedSize(children.size()-1);
+        Set<ImmutableBytesPtr> values = Sets.newHashSetWithExpectedSize(children.size()-1);
         for (int i = 1; i < children.size(); i++) {
             LiteralExpression child = (LiteralExpression)children.get(i);
             PDataType childType = child.getDataType();
@@ -77,6 +78,10 @@ public class InListExpression extends BaseSingleExpression {
                 }
             }
         }
+        // Sort values by byte value
+        ImmutableBytesPtr[] valuesArray = values.toArray(new ImmutableBytesPtr[values.size()]);
+        Arrays.sort(valuesArray, ByteUtil.BYTES_PTR_COMPARATOR);
+        this.values = new LinkedHashSet<ImmutableBytesPtr>(Arrays.asList(valuesArray));
     }
 
     @Override
@@ -134,7 +139,7 @@ public class InListExpression extends BaseSingleExpression {
         byte[] valuesBytes = Bytes.readByteArray(input);
         valuesByteLength = valuesBytes.length;
         int len = fixedWidth ? valuesByteLength / getChild().getByteSize() : WritableUtils.readVInt(input);
-        values = Sets.newHashSetWithExpectedSize(len);
+        values = Sets.newLinkedHashSetWithExpectedSize(len);
         int offset = 0;
         for (int i = 0; i < len; i++) {
             int valueLen = fixedWidth ? getChild().getByteSize() : WritableUtils.readVInt(input);
@@ -169,10 +174,15 @@ public class InListExpression extends BaseSingleExpression {
         return t;
     }
 
+    /**
+     * Gets the list of values in the IN expression, in
+     * sorted order.
+     * @return the list of values in the IN expression
+     */
     public List<byte[]> getKeys() {
-      List<byte[]> keys = new ArrayList<byte[]>();
+      List<byte[]> keys = new ArrayList<byte[]>(values.size());
       for (ImmutableBytesPtr value : values) {
-        keys.add(value.copyBytes());
+        keys.add(value.getOffset() == 0 && value.getLength() == value.get().length ? value.get() : value.copyBytes());
       }
       return keys;
     }

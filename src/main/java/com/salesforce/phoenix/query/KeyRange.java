@@ -409,4 +409,34 @@ public class KeyRange {
         tmp2.add(r);
         return tmp2;
     }
+    
+    /**
+     * Fill both upper and lower range of keyRange to keyLength bytes.
+     * If the upper bound is inclusive, it must be filled such that an
+     * intersection with a longer key would still match if the shorter
+     * length matches.  For example: (*,00C] intersected with [00Caaa,00Caaa]
+     * should still return [00Caaa,00Caaa] since the 00C matches and is
+     * inclusive.
+     * @param keyLength
+     * @return the newly filled KeyRange
+     */
+    public KeyRange fill(int keyLength) {
+        byte[] lowerRange = this.getLowerRange();
+        byte[] newLowerRange = lowerRange;
+        if (!this.lowerUnbound()) {
+            // If lower range is inclusive, fill with 0x00 since conceptually these bytes are included in the range
+            newLowerRange = ByteUtil.fillKey(lowerRange, (byte)(this.isLowerInclusive() ? 0 : -1), keyLength);
+        }
+        byte[] upperRange = this.getUpperRange();
+        byte[] newUpperRange = upperRange;
+        if (!this.upperUnbound()) {
+            // If upper range is inclusive, fill with 0xFF since conceptually these bytes are included in the range
+            newUpperRange = ByteUtil.fillKey(upperRange, (byte)(this.isUpperInclusive() ? -1 : 0), keyLength);
+        }
+        if (newLowerRange != lowerRange || newUpperRange != upperRange) {
+            return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive());
+        }
+        return this;
+    }
+
 }

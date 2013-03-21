@@ -27,15 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.KeyPart;
-import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.StartsWithKeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
@@ -61,7 +58,7 @@ import com.salesforce.phoenix.util.ByteUtil;
     @Argument(allowedTypes={PDataType.VARCHAR}),
     @Argument(allowedTypes={PDataType.VARCHAR}),
     @Argument(allowedTypes={PDataType.LONG}, defaultValue="1")} )
-public class RegexpSubstrFunction extends ScalarFunction {
+public class RegexpSubstrFunction extends PrefixFunction {
     public static final String NAME = "REGEXP_SUBSTR";
 
     private Pattern pattern;
@@ -157,9 +154,8 @@ public class RegexpSubstrFunction extends ScalarFunction {
     }
 
     @Override
-    public KeyFormationDirective getKeyFormationDirective() {
-        return preservesOrder() ? 
-                KeyFormationDirective.TRAVERSE_AND_LEAVE : KeyFormationDirective.UNTRAVERSABLE;
+    public int getKeyFormationTraversalIndex() {
+        return preservesOrder() ? 0 : -1;
     }
 
     private Expression getOffsetExpression() {
@@ -180,11 +176,6 @@ public class RegexpSubstrFunction extends ScalarFunction {
     @Override
     public String getName() {
         return NAME;
-    }
-
-    @Override
-    public KeyPart newKeyPart(KeyPart part) {
-        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges());
     }
 
 }

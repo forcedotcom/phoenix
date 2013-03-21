@@ -36,8 +36,8 @@ import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.*;
-import com.salesforce.phoenix.expression.function.FunctionExpression.KeyFormationDirective;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
@@ -79,26 +79,23 @@ public class WhereOptimizer {
             context.setScanKey(ScanKey.DEGENERATE_SCAN_KEY);
             return null;
         }
-        KeyExpressionVisitor visitor = new KeyExpressionVisitor(context);
-        KeyExpressionVisitor.KeyParts compKeyExpr = whereClause.accept(visitor);
+        // TODO: Single table for now
+        PTable table = context.getResolver().getTables().get(0).getTable();
+        KeyExpressionVisitor visitor = new KeyExpressionVisitor(context, table);
+        KeyExpressionVisitor.KeySlots keySlots = whereClause.accept(visitor);
 
-        if (compKeyExpr == null) {
+        if (keySlots == null) {
             context.setScanKey(ScanKey.EVERYTHING_SCAN_KEY);
             return whereClause;
         }
         // If a parameter is bound to null (as will be the case for calculating ResultSetMetaData and
         // ParameterMetaData), this will be the case. It can also happen for an equality comparison
         // for unequal lengths.
-        if (compKeyExpr == KeyExpressionVisitor.DEGENERATE_KEY_EXPRESSION) {
+        if (keySlots == KeyExpressionVisitor.DEGENERATE_KEY_PARTS) {
             context.setScanKey(ScanKey.DEGENERATE_SCAN_KEY);
             return null;
         }
 
-        KeyExpressionVisitor.KeyPart keyExpr = null;
-        // Calculate the max length of a key (each part must currently be of a fixed width)
-        // TODO: Single table for now
-        TableRef tableRef = context.getResolver().getTables().get(0);
-        PTable table = tableRef.getTable();
         RowKeySchema schema = table.getRowKeySchema();
         if (extractNodes == null) {
             extractNodes = new HashSet<Expression>(table.getPKColumns().size());
@@ -118,19 +115,19 @@ public class WhereOptimizer {
             int pkPos = -1;
             boolean isFullyQualifiedKey = true;
             List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
-            List<PColumn> pkColumns = table.getPKColumns();
             boolean useSkipScan = false;
             boolean hasRangeKey = false;
             // Concat byte arrays of literals to form scan start key
-            for (KeyExpressionVisitor.KeySlot slot : compKeyExpr) {
-                // If the position of the pk columns in the query skips any part of the row key
+            for (KeyExpressionVisitor.KeySlot slot : keySlots) {
+                // If the position of the pk columns in the query skips any part of the row k
                 // then we have to handle in the next phase through a key filter.
-                if (slot.getPosition() != pkColumns.get(pkPos + 1).getPosition()) {
+                // If the slot is null this means we have no entry for this pk position.
+                if (slot == null || slot.getPKPosition() != pkPos + 1) {
                     break;
                 }
-                keyExpr = slot.getKeyPart();
-                pkPos = slot.getPosition();
-                List<KeyRange> ranges = keyExpr.getKeyRanges();
+                KeyPart keyPart = slot.getKeyPart();
+                pkPos = slot.getPKPosition();
+                List<KeyRange> ranges = slot.getKeyRanges();
 
                 KeyRange startRange = ranges.get(0);
                 KeyRange stopRange = ranges.get(ranges.size() - 1);
@@ -181,7 +178,7 @@ public class WhereOptimizer {
                 // Will be null in cases for which only part of the expression was factored out here
                 // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
                 // set the start key to 'foo' but still need to match the regex at filter time.
-                List<Expression> nodesToExtract = keyExpr.getExtractNodes();
+                List<Expression> nodesToExtract = keyPart.getExtractNodes();
                 extractNodes.addAll(nodesToExtract);
                 // Stop building start/stop key once we encounter a non single key range.
                 // TODO: remove this soon after more testing on SkipScanFilter
@@ -294,78 +291,100 @@ public class WhereOptimizer {
         // TODO: same visitEnter/visitLeave for OrExpression once we optimize it
     }
 
-    public static class KeyExpressionVisitor extends TraverseAllExpressionVisitor<KeyExpressionVisitor.KeyParts> {
-        private static final KeyPart DEGENERATE_KEY_EXPRESSION = new KeyPart(null, 0, Collections.<Expression>emptyList(), KeyRange.EMPTY_RANGE);
-
-        private static KeyPart newKeyExpression(PDatum backingDatum, int position, List<Expression> nodes, boolean isEquality, KeyRange keyRange) {
-            if (keyRange == KeyRange.EMPTY_RANGE) {
-                return DEGENERATE_KEY_EXPRESSION;
-            } else {
-                return new KeyPart(backingDatum, position, nodes, keyRange);
+    public static class KeyExpressionVisitor extends TraverseAllExpressionVisitor<KeyExpressionVisitor.KeySlots> {
+        private static final List<KeyRange> EVERYTHING_RANGES = Collections.<KeyRange>singletonList(KeyRange.EVERYTHING_RANGE);
+        private static final KeySlots DEGENERATE_KEY_PARTS = new KeySlots() {
+            @Override
+            public Iterator<KeySlot> iterator() {
+                return Iterators.emptyIterator();
             }
+        };
+
+        private static boolean isDegenerate(List<KeyRange> keyRanges) {
+            return keyRanges == null || keyRanges.size() == 1 && keyRanges.get(0) == KeyRange.EMPTY_RANGE;
+        }
+        
+        private static KeySlots newKeyParts(KeySlot slot, Expression extractNode, KeyRange keyRange) {
+            return newKeyParts(slot, extractNode, Collections.<KeyRange>singletonList(keyRange));
         }
 
-        private static KeyPart newKeyExpression(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges) {
-            assert keyRanges != null;
-            assert !keyRanges.isEmpty();
-            if (keyRanges.get(0) == KeyRange.EMPTY_RANGE) {
-                return DEGENERATE_KEY_EXPRESSION;
-            } else {
-                return new KeyPart(backingDatum, position, nodes, keyRanges);
+        private static KeySlots newKeyParts(KeySlot slot, Expression extractNode, List<KeyRange> keyRanges) {
+            if (isDegenerate(keyRanges)) {
+                return DEGENERATE_KEY_PARTS;
             }
+            
+            List<Expression> extractNodes = extractNode == null || slot.getKeyPart().getExtractNodes().isEmpty()
+                  ? Collections.<Expression>emptyList()
+                  : Collections.<Expression>singletonList(extractNode);
+            return new SingleKeySlot(new BaseKeyPart(slot.getKeyPart().getColumn(), extractNodes), slot.getPKPosition(), keyRanges);
         }
 
-        private static KeyPart newScalarFunctionKeyPart(KeyPart part, ScalarFunction node) {
-            if (part.getKeyRanges() == null || part.getKeyRanges().size() == 1 && part.getKeyRanges().get(0) == KeyRange.EMPTY_RANGE) {
-                return DEGENERATE_KEY_EXPRESSION;
+        private static KeySlots newScalarFunctionKeyPart(KeySlot slot, ScalarFunction node) {
+            if (isDegenerate(slot.getKeyRanges())) {
+                return DEGENERATE_KEY_PARTS;
             }
-            return node.newKeyPart(part);
+            KeyPart part = node.newKeyPart(slot.getKeyPart());
+            if (part == null) {
+                return null;
+            }
+            
+            return new SingleKeySlot(part, slot.getPKPosition(), slot.getKeyRanges());
         }
 
-        private static KeyParts andKeyExpression(int nColumns, List<KeyParts> childKeyExprs) {
-            KeyPart[] expressions = new KeyPart[nColumns];
-            for (KeyParts childKeyExpr : childKeyExprs) {
-                for (KeySlot slot : childKeyExpr) {
-                    int position = slot.getPosition();
-                    KeyPart existing = expressions[position];
-                    if (existing == null) {
-                        expressions[position] = slot.getKeyPart();
-                    } else {
-                        expressions[position] = existing.intersect(slot.getKeyPart());
+        private static KeySlots andKeyExpression(int nColumns, List<KeySlots> childSlots) {
+            KeySlot[] newChildSlots = new KeySlot[nColumns];
+            for (KeySlots childSlot : childSlots) {
+                if (childSlot == DEGENERATE_KEY_PARTS) {
+                    return DEGENERATE_KEY_PARTS;
+                }
+                for (KeySlot slot : childSlot) {
+                    // We have a nested AND with nothing for this slot, so continue
+                    if (slot == null) {
+                        continue;
                     }
-                    if (expressions[position] == DEGENERATE_KEY_EXPRESSION) {
-                        return DEGENERATE_KEY_EXPRESSION;
+                    int position = slot.getPKPosition();
+                    KeySlot existing = newChildSlots[position];
+                    if (existing == null) {
+                        newChildSlots[position] = slot;
+                    } else {
+                        newChildSlots[position] = existing.intersect(slot);
+                        if (newChildSlots[position] == null) {
+                            return DEGENERATE_KEY_PARTS;
+                        }
                     }
                 }
             }
 
-            return new MultiKeyPart(expressions);
+            return new MultiKeySlot(Arrays.asList(newChildSlots));
         }
 
         private final StatementContext context;
+        private final PTable table;
 
-        public KeyExpressionVisitor(StatementContext context) {
+        public KeyExpressionVisitor(StatementContext context, PTable table) {
             this.context = context;
+            this.table = table;
         }
 
         @Override
-        public KeyParts defaultReturn(Expression node, List<KeyParts> l) {
+        public KeySlots defaultReturn(Expression node, List<KeySlots> l) {
             // Passes the CompositeKeyExpression up the tree
             return l.size() == 1 ? l.get(0) : null;
         }
 
         @Override
-        public KeyParts visitLeave(AndExpression node, List<KeyParts> l) {
+        public KeySlots visitLeave(AndExpression node, List<KeySlots> l) {
             List<TableRef> tables = context.getResolver().getTables();
             assert tables.size() == 1;
-            int nColumns = tables.get(0).getTable().getPKColumns().size();
-            KeyParts keyExpr = andKeyExpression(nColumns, l);
+            int nColumns = table.getPKColumns().size();
+            KeySlots keyExpr = andKeyExpression(nColumns, l);
             return keyExpr;
         }
 
         @Override
-        public KeyParts visit(RowKeyColumnExpression node) {
-            return newKeyExpression(node, node.getPosition(), Collections.<Expression>singletonList(node), false, KeyRange.EVERYTHING_RANGE);
+        public KeySlots visit(RowKeyColumnExpression node) {
+            PColumn column = table.getPKColumns().get(node.getPosition());
+            return new SingleKeySlot(new BaseKeyPart(column, Collections.<Expression>singletonList(node)), node.getPosition(), EVERYTHING_RANGES);
         }
 
         // TODO: get rid of datum and backing datum and just use the extracted node
@@ -382,14 +401,13 @@ public class WhereOptimizer {
         }
 
         @Override
-        public KeyParts visitLeave(ComparisonExpression node, List<KeyParts> childKeyExprs) {
+        public KeySlots visitLeave(ComparisonExpression node, List<KeySlots> childParts) {
             // Delay adding to extractedNodes, until we're done traversing,
             // since we can't yet tell whether or not the PK column references
-            // are continguous
-            if (childKeyExprs.isEmpty()) {
+            // are contiguous
+            if (childParts.isEmpty()) {
                 return null;
             }
-            Expression datum = node.getChildren().get(0);
             // If we have a keyLength, then we need to wrap the column with a delegate
             // that reflects the subsetting done by the function invocation. Else if
             // keyLength is null, then the underlying function preserves order and
@@ -398,20 +416,13 @@ public class WhereOptimizer {
             // If the expression is an equality expression against a fixed length column
             // and the key length doesn't match the column length, the expression can
             // never be true.
-            if (node.getFilterOp() == CompareOp.EQUAL
-                && datum.getDataType().isFixedWidth()
-                && key.length != datum.getByteSize()) {
-                return DEGENERATE_KEY_EXPRESSION;
+            Integer fixedLength = node.getChildren().get(0).getByteSize();
+            if (node.getFilterOp() == CompareOp.EQUAL && fixedLength != null && key.length != fixedLength) {
+                return DEGENERATE_KEY_PARTS;
             }
-            KeyPart childKeyPart = childKeyExprs.get(0).iterator().next().getKeyPart();
-            KeyRange keyRange = childKeyPart.getKeyRange(node.getFilterOp(), key);
-            List<Expression> extractNodes = childKeyPart.getExtractNodes().isEmpty() ? Collections.<Expression>emptyList() : Collections.<Expression>singletonList(node);
-            return newKeyExpression(
-                    datum,
-                    childKeyPart.getPosition(),
-                    extractNodes,
-                    node.getFilterOp() == CompareOp.EQUAL,
-                    keyRange);
+            KeySlot childSlot = childParts.get(0).iterator().next();
+            KeyRange keyRange = childSlot.getKeyPart().getKeyRange(node.getFilterOp(), key);
+            return newKeyParts(childSlot, node, keyRange);
         }
 
         // TODO: consider supporting expression substitution in the PK for pre-joined tables
@@ -419,23 +430,24 @@ public class WhereOptimizer {
         // reference for this during ExpressionBuilder.
         @Override
         public Iterator<Expression> visitEnter(ScalarFunction node) {
-            if (node.getKeyFormationDirective() == KeyFormationDirective.UNTRAVERSABLE) {
+            int index = node.getKeyFormationTraversalIndex();
+            if (index < 0) {
                 return Iterators.emptyIterator();
             }
-            return Iterators.singletonIterator(node.getChildren().get(node.getKeyFormationTraversalIndex()));
+            return Iterators.singletonIterator(node.getChildren().get(index));
         }
 
         @Override
-        public KeyParts visitLeave(ScalarFunction node, List<KeyParts> childKeyExprs) {
-            if (childKeyExprs.isEmpty()) {
+        public KeySlots visitLeave(ScalarFunction node, List<KeySlots> childParts) {
+            if (childParts.isEmpty()) {
                 return null;
             }
-            return newScalarFunctionKeyPart(childKeyExprs.get(0).iterator().next().getKeyPart(), node);
+            return newScalarFunctionKeyPart(childParts.get(0).iterator().next(), node);
         }
 
         @Override
         public Iterator<Expression> visitEnter(LikeExpression node) {
-            // TODO: can we optimize something that starts with '_' like this: foo LIKE '_a%'
+            // TODO: can we optimize something that starts with '_' like this: foo LIKE '_a%' ?
             if (! (node.getChildren().get(1) instanceof LiteralExpression) || node.startsWithWildcard()) {
                 return Iterators.emptyIterator();
             }
@@ -444,27 +456,30 @@ public class WhereOptimizer {
         }
 
         @Override
-        public KeyParts visitLeave(LikeExpression node, List<KeyParts> childKeyExprs) {
-            if (childKeyExprs.isEmpty()) {
+        public KeySlots visitLeave(LikeExpression node, List<KeySlots> childParts) {
+            if (childParts.isEmpty()) {
                 return null;
             }
             // for SUBSTR(<column>,1,3) LIKE 'foo%'
-            PDatum backingDatum = node.getChildren().get(0);
+            KeySlot childSlot = childParts.get(0).iterator().next();
             final String startsWith = node.getLiteralPrefix();
             byte[] key = PDataType.CHAR.toBytes(startsWith);
             // If the expression is an equality expression against a fixed length column
             // and the key length doesn't match the column length, the expression can
             // never be true.
             // An zero length byte literal is null which can never be compared against as true
-            if (backingDatum.getDataType().isFixedWidth()
-                && key.length > backingDatum.getByteSize()) {
-                return DEGENERATE_KEY_EXPRESSION;
+            Integer childNodeFixedLength = node.getChildren().get(0).getByteSize();
+            if (childNodeFixedLength != null && key.length > childNodeFixedLength) {
+                return DEGENERATE_KEY_PARTS;
             }
-            KeyPart childKeyPart = childKeyExprs.get(0).iterator().next().getKeyPart();
-            KeyRange keyRange = childKeyPart.getKeyRange(CompareOp.NO_OP, key);
+            // TODO: is there a case where we'd need to go through the childPart to calculate the key range?
+            Integer columnFixedLength = childSlot.getKeyPart().getColumn().getByteSize();
+            KeyRange keyRange = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false);
+            if (columnFixedLength != null) {
+                keyRange = keyRange.fill(columnFixedLength);
+            }
             // Only extract LIKE expression if pattern ends with a wildcard and everything else was extracted
-            List<Expression> extractNodes = node.endsWithOnlyWildcard() ? Collections.<Expression>singletonList(node) : Collections.<Expression>emptyList();
-            return newKeyExpression(backingDatum, childKeyPart.getPosition(), extractNodes, false, keyRange);
+            return newKeyParts(childSlot, node.endsWithOnlyWildcard() ? node : null, keyRange);
         }
 
         @Override
@@ -480,32 +495,39 @@ public class WhereOptimizer {
 
         // TODO: optimize same as OR by having set of key ranges
         @Override
-        public KeyParts visitLeave(InListExpression node, List<KeyParts> childKeyExprs) {
-            if (childKeyExprs.isEmpty()) {
+        public KeySlots visitLeave(InListExpression node, List<KeySlots> childParts) {
+            if (childParts.isEmpty()) {
                 return null;
             }
 
             List<byte[]> keys = node.getKeys();
-            List<KeyRange> ranges = KeyRange.of(keys);
-            KeyPart colKeyExpr = childKeyExprs.get(0).iterator().next().getKeyPart();
-            return newKeyExpression(node, colKeyExpr.getPosition(), Collections.<Expression>singletonList(node), ranges);
+            List<KeyRange> ranges = Lists.newArrayListWithExpectedSize(keys.size());
+            KeySlot childSlot = childParts.get(0).iterator().next();
+            KeyPart childPart = childSlot.getKeyPart();
+            // Handles cases like WHERE substr(foo,1,3) IN ('aaa','bbb')
+            for (byte[] key : keys) {
+                ranges.add(childPart.getKeyRange(CompareOp.EQUAL, key));
+            }
+            return newKeyParts(childSlot, node, ranges);
         }
 
         @Override
         public Iterator<Expression> visitEnter(IsNullExpression node) {
-            // TODO: use (0,*) for isNegate?
+            // TODO: IS NOT NULL should be ok to traverse, but is not working. 
             return node.isNegate() ? Iterators.<Expression>emptyIterator() : Iterators.singletonIterator(node.getChildren().get(0));
         }
 
         @Override
-        public KeyParts visitLeave(IsNullExpression node, List<KeyParts> childKeyExprs) {
-            if (childKeyExprs.isEmpty()) {
+        public KeySlots visitLeave(IsNullExpression node, List<KeySlots> childParts) {
+            if (childParts.isEmpty()) {
                 return null;
             }
-            KeyPart colKeyExpr = childKeyExprs.get(0).iterator().next().getKeyPart();
-            // TODO: make key range backed by ImmutableBytesWritable to prevent copy?
-            KeyRange keyRange = KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, true, ByteUtil.EMPTY_BYTE_ARRAY, true);
-            return newKeyExpression(node.getChildren().get(0), colKeyExpr.getPosition(), Collections.<Expression>singletonList(node), true, keyRange);
+            KeySlot childSlot = childParts.get(0).iterator().next();
+            // TODO: go through childPart to make this range?
+            KeyRange keyRange = node.isNegate() 
+                    ? KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, false, KeyRange.UNBOUND_UPPER, true)
+                    : KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, true, ByteUtil.EMPTY_BYTE_ARRAY, true);
+            return newKeyParts(childSlot, node, keyRange);
         }
 
         // TODO: rethink default: probably better if we don't automatically walk through constructs
@@ -563,127 +585,94 @@ public class WhereOptimizer {
             return Iterators.emptyIterator();
         }
 
-        private static interface KeyParts extends Iterable<KeySlot> {
+        private static interface KeySlots extends Iterable<KeySlot> {
             @Override public Iterator<KeySlot> iterator();
         }
 
         private static final class KeySlot {
-            private int position;
-            private KeyPart keyPart;
+            private final int pkPosition;
+            private final KeyPart keyPart;
+            private final List<KeyRange> keyRanges;
 
-            private KeySlot() {
-            }
-
-            private KeySlot(int position, KeyPart keyPart) {
-                this.position = position;
+            private KeySlot(KeyPart keyPart, int pkPosition, List<KeyRange> keyRanges) {
+                this.pkPosition = pkPosition;
                 this.keyPart = keyPart;
-            }
-
-            public void setPosition(int position) {
-                this.position = position;
-            }
-
-            public int getPosition() {
-                return position;
-            }
-
-            public void setKeyPart(KeyPart keyPart) {
-                this.keyPart = keyPart;
+                this.keyRanges = keyRanges;
             }
 
             public KeyPart getKeyPart() {
                 return keyPart;
             }
+
+            public int getPKPosition() {
+                return pkPosition;
+            }
+
+            public List<KeyRange> getKeyRanges() {
+                return keyRanges;
+            }
+
+            public final KeySlot intersect(KeySlot that) {
+                if (this.getPKPosition() != that.getPKPosition()) {
+                    throw new IllegalArgumentException("Position must be equal for intersect");
+                }
+                Preconditions.checkArgument(!this.keyRanges.isEmpty());
+                Preconditions.checkArgument(!that.keyRanges.isEmpty());
+
+                List<KeyRange> keyRanges = KeyRange.intersect(this.getKeyRanges(), that.getKeyRanges());
+                if (isDegenerate(keyRanges)) {
+                    return null;
+                }
+                return new KeySlot(
+                        new BaseKeyPart(this.getKeyPart().getColumn(),
+                                    SchemaUtil.concat(this.getKeyPart().getExtractNodes(),
+                                                      that.getKeyPart().getExtractNodes())),
+                        this.getPKPosition(),
+                        keyRanges);
+            }
         }
 
-        private static class MultiKeyPart implements KeyParts {
-            private final KeyPart[] expressions;
+        private static class MultiKeySlot implements KeySlots {
+            private final List<KeySlot> childSlots;
 
-            private MultiKeyPart(KeyPart[] expressions) {
-                this.expressions = expressions;
+            private MultiKeySlot(List<KeySlot> childSlots) {
+                this.childSlots = childSlots;
             }
 
             @Override
             public Iterator<KeySlot> iterator() {
-                final KeySlot keySlot = new KeySlot();
-                keySlot.setPosition(-1);
-
-                return new Iterator<KeySlot> () {
-                    @Override
-                    public boolean hasNext() {
-                        while (keySlot.getPosition() + 1 < expressions.length) {
-                            if (expressions[keySlot.getPosition() + 1] != null) {
-                                break;
-                            }
-                            keySlot.setPosition(keySlot.getPosition() + 1);
-                        }
-                        return keySlot.getPosition() + 1 < expressions.length;
-                    }
-
-                    @Override
-                    public KeySlot next() {
-                        if (!hasNext()) {
-                            throw new NoSuchElementException();
-                        }
-                        keySlot.setPosition(keySlot.getPosition() + 1);
-                        keySlot.setKeyPart(expressions[keySlot.getPosition()]);
-                        return keySlot;
-                    }
-
-                    @Override
-                    public void remove() {
-                        throw new UnsupportedOperationException();
-                    }
-
-                };
+                return childSlots.iterator();
             }
         }
 
-        public static class KeyPart implements KeyParts {
-            /**
-             * Fill both upper and lower range of keyRange to keyLength bytes.
-             * If the upper bound is inclusive, it must be filled such that an
-             * intersection with a longer key would still match if the shorter
-             * length matches.  For example: (*,00C] intersected with [00Caaa,00Caaa]
-             * should still return [00Caaa,00Caaa] since the 00C matches and is
-             * inclusive.
-             * @param keyRange
-             * @param keyLength
-             * @return
-             */
-            protected static KeyRange fillKey(KeyRange keyRange, int keyLength) {
-                byte[] lowerRange = keyRange.getLowerRange();
-                byte[] newLowerRange = lowerRange;
-                if (!keyRange.lowerUnbound()) {
-                    // If lower range is inclusive, fill with 0x00 since conceptually these bytes are included in the range
-                    newLowerRange = ByteUtil.fillKey(lowerRange, (byte)(keyRange.isLowerInclusive() ? 0 : -1), keyLength);
-                }
-                byte[] upperRange = keyRange.getUpperRange();
-                byte[] newUpperRange = upperRange;
-                if (!keyRange.upperUnbound()) {
-                    // If upper range is inclusive, fill with 0xFF since conceptually these bytes are included in the range
-                    newUpperRange = ByteUtil.fillKey(upperRange, (byte)(keyRange.isUpperInclusive() ? -1 : 0), keyLength);
-                }
-                if (newLowerRange != lowerRange || newUpperRange != upperRange) {
-                    return KeyRange.getKeyRange(newLowerRange, keyRange.isLowerInclusive(), newUpperRange, keyRange.isUpperInclusive());
-                }
-                return keyRange;
+        private static class SingleKeySlot implements KeySlots {
+            private final KeySlot slot;
+            
+            private SingleKeySlot(KeyPart part, int pkPosition, List<KeyRange> ranges) {
+                this.slot = new KeySlot(part, pkPosition, ranges);
             }
-
+            
+            @Override
+            public Iterator<KeySlot> iterator() {
+                return Iterators.<KeySlot>singletonIterator(slot);
+            }
+            
+        }
+        
+        private static class BaseKeyPart implements KeyPart {
+            @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
                 KeyRange range;
                 switch (op) {
                 case EQUAL:
                     range = KeyRange.getKeyRange(key, true, key, true);
                     break;
-                case NO_OP: // using for LIKE: make it so that upper != lower to it's not treated like a single key
-                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false);
-                    break;
                 case GREATER:
                     range = KeyRange.getKeyRange(key, false, KeyRange.UNBOUND_UPPER, false);
                     break;
                 case GREATER_OR_EQUAL:
-                    return KeyRange.getKeyRange(key, true, KeyRange.UNBOUND_UPPER, false);
+                    range = KeyRange.getKeyRange(key, true, KeyRange.UNBOUND_UPPER, false);
+                    break;
                 case LESS:
                     range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, false);
                     break;
@@ -691,92 +680,30 @@ public class WhereOptimizer {
                     range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, true);
                     break;
                 default:
-                    return null;
+                    throw new IllegalArgumentException("Unknown operator " + op);
                 }
-                Integer length = this.getBackingDatum().getDataType().isFixedWidth() ? this.getBackingDatum().getByteSize() : null;
-                return length == null ? range : fillKey(range, length);
+                Integer length = getColumn().getByteSize();
+                return length == null ? range : range.fill(length);
             }
 
-            private final PDatum backingDatum;
-            private final KeySlot keySlot;
+            private final PColumn column;
             // sorted non-overlapping key ranges.  may be empty, but won't be null or contain nulls
-            private final List<KeyRange> keyRanges;
             private final List<Expression> nodes;
 
-            protected KeyPart(PDatum backingDatum, int position, List<Expression> nodes, KeyRange keyRange) {
-              this(backingDatum, position, nodes, Collections.singletonList(keyRange));
+            private BaseKeyPart(PColumn column, List<Expression> nodes) {
+                this.column = column;
+                this.nodes = nodes;
             }
 
-            public KeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges) {
-              this.keySlot = new KeySlot(position, this);
-              this.nodes = nodes;
-              this.backingDatum = backingDatum;
-              this.keyRanges = KeyRange.coalesce(keyRanges);
-          }
-
-            public final KeyPart intersect(KeyPart k2) {
-                KeyPart k1 = this;
-                if (k1 == DEGENERATE_KEY_EXPRESSION || k2 == DEGENERATE_KEY_EXPRESSION) {
-                    return DEGENERATE_KEY_EXPRESSION;
-                }
-                if (k1.keySlot.getPosition() != k2.keySlot.getPosition()) {
-                    throw new IllegalArgumentException("Position must be equal for intersect");
-                }
-                Preconditions.checkArgument(!k1.keyRanges.isEmpty());
-                Preconditions.checkArgument(!k2.keyRanges.isEmpty());
-
-                return newKeyExpression(
-                        k1.getBackingDatum(),
-                        k1.keySlot.getPosition(),
-                        SchemaUtil.concat(k1.getExtractNodes(), k2.getExtractNodes()),
-                        KeyRange.intersect(k1.getKeyRanges(), k2.getKeyRanges()));
-            }
-
-            public List<KeyRange> getKeyRanges() {
-                return keyRanges;
-            }
-
+            @Override
             public List<Expression> getExtractNodes() {
                 return nodes;
             }
 
-            public PDatum getBackingDatum() {
-                return backingDatum;
-            }
-
-            public int getPosition() {
-                return keySlot.getPosition();
-            }
-
             @Override
-            public Iterator<KeySlot> iterator() {
-                return Iterators.singletonIterator(keySlot);
+            public PColumn getColumn() {
+                return column;
             }
-        }
-        public static class StartsWithKeyPart extends KeyPart {
-            
-            public StartsWithKeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges) {
-                super(backingDatum, position, nodes, keyRanges);
-            }
-
-            @Override
-            public KeyRange getKeyRange(CompareOp op, byte[] key) {
-                KeyRange range;
-                switch (op) {
-                case EQUAL:
-                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false);
-                    break;
-                case LESS_OR_EQUAL:
-                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(key), false);
-                    break;
-                default:
-                    range = super.getKeyRange(op, key);
-                    break;
-                }
-                Integer length = this.getBackingDatum().getDataType().isFixedWidth() ? this.getBackingDatum().getMaxLength() : null;
-                return length == null ? range : fillKey(range, length);
-            }
-
         }
     }
 }

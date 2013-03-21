@@ -28,14 +28,10 @@
 package com.salesforce.phoenix.expression.function;
 
 import java.io.*;
-import java.sql.SQLException;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.KeyPart;
-import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.StartsWithKeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
@@ -62,7 +58,7 @@ import com.salesforce.phoenix.util.StringUtil;
     @Argument(allowedTypes={PDataType.VARCHAR}),
     @Argument(allowedTypes={PDataType.LONG}), // These are LONG because negative numbers end up as longs
     @Argument(allowedTypes={PDataType.LONG},defaultValue="null")} )
-public class SubstrFunction extends ScalarFunction {
+public class SubstrFunction extends PrefixFunction {
     public static final String NAME = "SUBSTR";
     private boolean hasLengthExpression;
     private boolean isOffsetConstant;
@@ -73,7 +69,7 @@ public class SubstrFunction extends ScalarFunction {
     public SubstrFunction() {
     }
 
-    public SubstrFunction(List<Expression> children) throws SQLException {
+    public SubstrFunction(List<Expression> children) {
         super(children);
         init();
     }
@@ -199,13 +195,8 @@ public class SubstrFunction extends ScalarFunction {
     }
 
     @Override
-    public KeyFormationDirective getKeyFormationDirective() {
-        return preservesOrder() ? KeyFormationDirective.TRAVERSE_AND_EXTRACT : KeyFormationDirective.UNTRAVERSABLE;
-    }
-
-    @Override
-    public KeyPart newKeyPart(KeyPart part) {
-        return new StartsWithKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>singletonList(this), part.getKeyRanges());
+    protected boolean extractNode() {
+        return true;
     }
 
     @Override

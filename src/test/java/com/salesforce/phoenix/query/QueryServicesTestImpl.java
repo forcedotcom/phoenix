@@ -44,7 +44,7 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final int DEFAULT_THREAD_POOL_SIZE = 8;
     private static final int DEFAULT_QUEUE_SIZE = 0;
     // TODO: setting this down to 5mb causes insufficient memory exceptions. Need to investigate why
-    private static final int DEFAULT_MAX_MEMORY_PERC = 10; // 10% of heap
+    private static final int DEFAULT_MAX_MEMORY_PERC = 50; // 50% of heap
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000*5; //5min
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024; // 1m
     private static final int DEFAULT_MAX_MEMORY_WAIT_MS = 0;

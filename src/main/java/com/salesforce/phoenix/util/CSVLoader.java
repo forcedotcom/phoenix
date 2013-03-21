@@ -31,14 +31,13 @@ import java.io.FileReader;
 import java.sql.*;
 import java.util.*;
 
+import au.com.bytecode.opencsv.CSVReader;
 
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.PDataType;
-
-import au.com.bytecode.opencsv.CSVReader;
 
 /***
  * Upserts CSV data using Phoenix JDBC connection
@@ -158,6 +157,7 @@ public class CSVLoader {
 			throws SQLException {
 	    Map<String,Integer> columnNameToTypeMap = Maps.newLinkedHashMap();
         DatabaseMetaData dbmd = conn.getMetaData();
+        // TODO: escape wildcard characters here because we don't want that behavior here
         String[] schemaAndTable = tableName.split("\\.");
         ResultSet rs = dbmd.getColumns(null, (schemaAndTable.length == 1 ? "" : schemaAndTable[0]),
                         (schemaAndTable.length == 1 ? tableName : schemaAndTable[1]),

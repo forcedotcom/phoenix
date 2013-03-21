@@ -29,6 +29,7 @@ package com.salesforce.phoenix.util;
 
 import java.io.*;
 import java.util.Arrays;
+import java.util.Comparator;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -47,6 +48,15 @@ import com.salesforce.phoenix.schema.ScanKeyOverflowException;
  */
 public class ByteUtil {
     public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+    
+    public static final Comparator<ImmutableBytesPtr> BYTES_PTR_COMPARATOR = new Comparator<ImmutableBytesPtr>() {
+
+        @Override
+        public int compare(ImmutableBytesPtr o1, ImmutableBytesPtr o2) {
+            return Bytes.compareTo(o1.get(), o1.getOffset(), o1.getLength(), o2.get(), o2.getOffset(), o2.getLength());
+        }
+        
+    };
 
     /**
      * Serialize an array of byte arrays into a single byte array.  Used

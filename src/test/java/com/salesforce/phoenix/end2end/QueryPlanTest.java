@@ -56,8 +56,8 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SERIAL FULL SCAN OVER ATABLE",
 
                 "SELECT inst,host FROM PTSDB WHERE regexp_substr(inst, '[^-]+') IN ('na1', 'na2','na3')",
-                "CLIENT SERIAL RANGE SCAN OVER PTSDB FROM ('na1') INCLUSIVE TO ('na3') INCLUSIVE\n" + 
-                "    SERVER FILTER BY SkipScanFilter [[na1, na2, na3]]",
+                "CLIENT SERIAL RANGE SCAN OVER PTSDB FROM ('na1') INCLUSIVE TO ('na4') EXCLUSIVE\n" + 
+                "    SERVER FILTER BY FilterList AND (2/2): [SkipScanFilter [[[na1 - na2), [na2 - na3), [na3 - na4)]], REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')]",
 
                 "SELECT count(*) FROM atable",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
@@ -65,12 +65,12 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 "SELECT count(*) FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
-                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE FROM ('000000000000001','002\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF') EXCLUSIVE TO ('000000000000001','004\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') EXCLUSIVE\n" + 
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE FROM ('000000000000001','003\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') INCLUSIVE TO ('000000000000001','004\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') EXCLUSIVE\n" + 
                 "    SERVER FILTER BY FirstKeyOnlyFilter\n" + 
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 "SELECT a_string FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','002\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF\\xFF') EXCLUSIVE TO ('000000000000001','004\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') EXCLUSIVE",
+                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','003\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') INCLUSIVE TO ('000000000000001','004\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') EXCLUSIVE",
 
                 "SELECT count(1) FROM atable GROUP BY a_string",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
