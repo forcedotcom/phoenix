@@ -337,7 +337,7 @@ show_tables returns [SQLStatement ret]
     :   SHOW TABLES EOF {$ret=factory.showTables();}
     ;
 
-// Parses a select statement which must be the only statement (expects an EOF after the statement).
+// Parses an explain statement which must be the only statement (expects an EOF after the statement).
 explain_plan returns [SQLStatement ret]
     :   EXPLAIN q=statement EOF {$ret=factory.explain(q);}
     ;
@@ -433,11 +433,11 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY)?
+    :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY descOrder=DESC?)?
         {$ret = factory.columnDef(c, dt, n==null,
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
-            pk != null ); }
+            pk != null, descOrder != null ); }
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).

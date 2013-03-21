@@ -399,4 +399,30 @@ public class QueryParserTest {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"d\" at line 2, column 7."));
         }
     }
+
+    @Test
+    public void testParseCreateTableInlinePrimaryKey() throws Exception {
+        SQLParser parser = new SQLParser(new StringReader(
+                "create table core.entity_history_archive (id varchar(20) primary key)"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testParseCreateTableInlinePrimaryKeyDesc() throws Exception {
+        SQLParser parser = new SQLParser(new StringReader(
+                "create table core.entity_history_archive (id char(15) primary key desc)"));
+        parser.parseStatement();
+    }
+    
+    @Test
+    public void testParseCreateTableDescWithoutInlinePrimaryKey() throws Exception {
+        SQLParser parser = new SQLParser(new StringReader(
+                "create table core.entity_history_archive (id varchar(20) desc)"));
+        try {
+        	parser.parseStatement();
+        	fail("Expected parse exception");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Unexpected input. Expecting \"RPAREN\", got \"desc\""));
+        }
+    }
 }
