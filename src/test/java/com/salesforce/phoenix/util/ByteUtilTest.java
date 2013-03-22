@@ -33,7 +33,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.ScanKeyOverflowException;
 
 
 public class ByteUtilTest {
@@ -73,12 +72,7 @@ public class ByteUtilTest {
         expectedKey = ByteUtil.concat(Bytes.toBytes("00D300000000XHQ"), PDataType.INTEGER.toBytes(Integer.MIN_VALUE));
         assertArrayEquals(expectedKey, nextKey);
         
-        try {
-            key = new byte[] {(byte)255};
-            ByteUtil.nextKey(key);
-            fail();
-        } catch (ScanKeyOverflowException e) {
-            assertTrue(e.getMessage().contains("Overflow trying to get next key"));
-        }
+        key = new byte[] {(byte)255};
+        assertNull(ByteUtil.nextKey(key));
     }
 }

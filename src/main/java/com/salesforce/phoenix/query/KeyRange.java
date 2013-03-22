@@ -425,13 +425,13 @@ public class KeyRange {
         byte[] newLowerRange = lowerRange;
         if (!this.lowerUnbound()) {
             // If lower range is inclusive, fill with 0x00 since conceptually these bytes are included in the range
-            newLowerRange = ByteUtil.fillKey(lowerRange, (byte)(this.isLowerInclusive() ? 0 : -1), keyLength);
+            newLowerRange = ByteUtil.fillKey(lowerRange, keyLength);
         }
         byte[] upperRange = this.getUpperRange();
         byte[] newUpperRange = upperRange;
         if (!this.upperUnbound()) {
             // If upper range is inclusive, fill with 0xFF since conceptually these bytes are included in the range
-            newUpperRange = ByteUtil.fillKey(upperRange, (byte)(this.isUpperInclusive() ? -1 : 0), keyLength);
+            newUpperRange = ByteUtil.fillKey(upperRange, keyLength);
         }
         if (newLowerRange != lowerRange || newUpperRange != upperRange) {
             return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive());

@@ -749,16 +749,16 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
-        assertArrayEquals(ByteUtil.nextKey(Bytes.toBytes("abc")), scan.getStopRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
         query = "SELECT host FROM ptsdb WHERE regexp_substr(inst, '[a-zA-Z]+', 0) = 'abc'";
         binds = Collections.emptyList();
         scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
-        assertArrayEquals(ByteUtil.nextKey(Bytes.toBytes("abc")), scan.getStopRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
         // Test scan keys are not set when the offset is not 0 or 1.
@@ -846,8 +846,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
-        assertArrayEquals(Bytes.toBytes("abd"), scan.getStopRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abd"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() == null); // Extracted.
     }
 
@@ -857,8 +857,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(Bytes.toBytes("abc"), scan.getStartRow());
-        assertArrayEquals(ByteUtil.nextKey(Bytes.toBytes("abc ")), scan.getStopRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
     }
 }

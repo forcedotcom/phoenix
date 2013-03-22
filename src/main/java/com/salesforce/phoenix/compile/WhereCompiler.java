@@ -153,7 +153,7 @@ public class WhereCompiler {
         assert scan.getFilter() == null;
 
         if (LiteralExpression.FALSE_EXPRESSION == whereClause) {
-            context.setScanKey(ScanKey.DEGENERATE_SCAN_KEY);
+            context.setScanRanges(ScanRanges.NOTHING);
         } else if (whereClause != null && whereClause != LiteralExpression.TRUE_EXPRESSION) {
             final Counter counter = new Counter();
             whereClause.accept(new KeyValueExpressionVisitor() {
@@ -187,9 +187,9 @@ public class WhereCompiler {
         }
 
         scan.setFilter(filter);
-        SkipScanFilter skip = context.getSkipScanFilter();
-        if (skip != null) {
-            ScanUtil.andFilter(scan, skip);
+        ScanRanges scanRanges = context.getScanRanges();
+        if (scanRanges.useSkipScanFilter()) {
+            ScanUtil.andFilter(scan, new SkipScanFilter(scanRanges.getRanges(),scanRanges.getSchema()));
         }
     }
 }

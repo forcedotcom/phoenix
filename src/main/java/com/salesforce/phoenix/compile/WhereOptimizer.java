@@ -27,9 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
-
-import java.io.IOException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -41,10 +38,10 @@ import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
-import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
  *
@@ -72,11 +69,11 @@ public class WhereOptimizer {
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause, Set<Expression> extractNodes) {
         if (whereClause == null) {
-            context.setScanKey(ScanKey.EVERYTHING_SCAN_KEY);
+            context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
         }
         if (whereClause == LiteralExpression.FALSE_EXPRESSION) {
-            context.setScanKey(ScanKey.DEGENERATE_SCAN_KEY);
+            context.setScanRanges(ScanRanges.NOTHING);
             return null;
         }
         // TODO: Single table for now
@@ -85,180 +82,57 @@ public class WhereOptimizer {
         KeyExpressionVisitor.KeySlots keySlots = whereClause.accept(visitor);
 
         if (keySlots == null) {
-            context.setScanKey(ScanKey.EVERYTHING_SCAN_KEY);
+            context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
         }
         // If a parameter is bound to null (as will be the case for calculating ResultSetMetaData and
         // ParameterMetaData), this will be the case. It can also happen for an equality comparison
         // for unequal lengths.
         if (keySlots == KeyExpressionVisitor.DEGENERATE_KEY_PARTS) {
-            context.setScanKey(ScanKey.DEGENERATE_SCAN_KEY);
+            context.setScanRanges(ScanRanges.NOTHING);
             return null;
         }
 
-        RowKeySchema schema = table.getRowKeySchema();
         if (extractNodes == null) {
             extractNodes = new HashSet<Expression>(table.getPKColumns().size());
         }
 
-        int maxKeyLength = SchemaUtil.estimateKeyLength(table);
-        TrustedByteArrayOutputStream startKey = null, stopKey = null;
-        try {
-            startKey = new TrustedByteArrayOutputStream(maxKeyLength);
-            stopKey = new TrustedByteArrayOutputStream(maxKeyLength);
-            boolean lastUpperInclusive = false;
-            boolean lastLowerInclusive = false;
-            boolean lastUpperVarLength = false;
-            boolean lastLowerVarLength = false;
-            int lowerPosCount = 0;
-            int upperPosCount = 0;
-            int pkPos = -1;
-            boolean isFullyQualifiedKey = true;
-            List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
-            boolean useSkipScan = false;
-            boolean hasRangeKey = false;
-            // Concat byte arrays of literals to form scan start key
-            for (KeyExpressionVisitor.KeySlot slot : keySlots) {
-                // If the position of the pk columns in the query skips any part of the row k
-                // then we have to handle in the next phase through a key filter.
-                // If the slot is null this means we have no entry for this pk position.
-                if (slot == null || slot.getPKPosition() != pkPos + 1) {
-                    break;
-                }
-                KeyPart keyPart = slot.getKeyPart();
-                pkPos = slot.getPKPosition();
-                List<KeyRange> ranges = slot.getKeyRanges();
-
-                KeyRange startRange = ranges.get(0);
-                KeyRange stopRange = ranges.get(ranges.size() - 1);
-
-                List<KeyRange> filterHints = new ArrayList<KeyRange>();
-                cnf.add(filterHints);
-
-                // Add null byte separator to key parts if previous was variable length
-                // Note that for a trailing var length a null byte separator should not be
-                // added because it will conditionally be added depending on the operators
-                // used.
-                if (lastLowerVarLength) {
-                    startKey.write(SEPARATOR_BYTE);
-                }
-                if (lastUpperVarLength) {
-                    stopKey.write(SEPARATOR_BYTE);
-                }
-
-                // Reset these - we'll only want to append a null byte
-                // if we're not unbound. Otherwise the key won't be
-                // correct for IS NOT NULL cases.
-                lastLowerVarLength = false;
-                lastUpperVarLength = false;
-                /*
-                 * Use SkipScanFilter under two circumstances:
-                 * 1) If we have multiple ranges for a given key slot (use of IN)
-                 * 2) If we have a range (i.e. not a single/point key) that is
-                 *    not the last key slot
-                 */
-                useSkipScan |= ranges.size() > 1 | hasRangeKey;
-                for (KeyRange range : ranges) {
-                    hasRangeKey |= !range.isSingleKey();
-                    filterHints.add(range);
-                }
-
-                // Concatenate each part of key together
-                // If either condition is false, then loop exits below
-                // TODO: write 1 here so null is filtered?
-                if (!startRange.lowerUnbound()) {
-                    // TODO: next byte if previous was an lower unbound range and blah
-                    startKey.write(startRange.getLowerRange());
-                    lastLowerInclusive = startRange.isLowerInclusive();
-                    lastLowerVarLength = !schema.getField(pkPos).getType().isFixedWidth();
-                    lowerPosCount++;
-                }
-                if (!stopRange.upperUnbound()) {
-                    // TODO: next byte if previous was a range and blah
-                    stopKey.write(stopRange.getUpperRange());
-                    lastUpperInclusive = stopRange.isUpperInclusive();
-                    lastUpperVarLength = !schema.getField(pkPos).getType().isFixedWidth();
-                    upperPosCount++;
-                }
-                // Will be null in cases for which only part of the expression was factored out here
-                // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
-                // set the start key to 'foo' but still need to match the regex at filter time.
-                List<Expression> nodesToExtract = keyPart.getExtractNodes();
-                extractNodes.addAll(nodesToExtract);
-                // Stop building start/stop key once we encounter a non single key range.
-                // TODO: remove this soon after more testing on SkipScanFilter
-                if (hasRangeKey) {
-                    isFullyQualifiedKey = false;
-                    // TODO: when stats are available, we will want to terminate this loop if we have
-                    // a non single key range, depending on the cardinality of the column values.
-                    break;
-                }
+        int pkPos = -1;
+        List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
+        boolean hasRangeKey = false;
+        // Concat byte arrays of literals to form scan start key
+        for (KeyExpressionVisitor.KeySlot slot : keySlots) {
+            // If the position of the pk columns in the query skips any part of the row k
+            // then we have to handle in the next phase through a key filter.
+            // If the slot is null this means we have no entry for this pk position.
+            if (slot == null || slot.getPKPosition() != pkPos + 1) {
+                break;
+            }
+            KeyPart keyPart = slot.getKeyPart();
+            pkPos = slot.getPKPosition();
+            cnf.add(slot.getKeyRanges());
+            
+            // TODO: remove soon
+            for (KeyRange range : slot.getKeyRanges()) {
+                hasRangeKey |= !range.isSingleKey();
             }
 
-            // Tack on null byte if variable length, since otherwise we'd end up
-            // getting everything that starts with the start key, not just that
-            // is equal to the start key. Since LIKE is not variable length,
-            // we wouldn't write this null byte.
-            // Don't write a separator byte if we're at the last column since
-            // we only put the separator between columns, not at the end.
-            // TODO: create separate object for scan key formulation
-            boolean isLastPKColumn = pkPos == table.getPKColumns().size() - 1;
-            if (lastLowerVarLength && !lastLowerInclusive && !isLastPKColumn) {
-                startKey.write(SEPARATOR_BYTE);
-            }
-            byte[] finalStartKey = KeyRange.UNBOUND_LOWER;
-            if (startKey.size() > 0) {
-                finalStartKey = startKey.toByteArray();
-            }
-            if (lastUpperVarLength && lastUpperInclusive && !isLastPKColumn) {
-                stopKey.write(SEPARATOR_BYTE);
-            }
-            byte[] finalStopKey = KeyRange.UNBOUND_UPPER;
-            if (stopKey.size() > 0) {
-                finalStopKey = stopKey.toByteArray();
-            }
-            // TODO: PTable.getRowKeySchema()
-            ScanKey scanKey =
-                    new ScanKey(finalStartKey,
-                            lastLowerInclusive,
-                            lowerPosCount,
-                            finalStopKey,
-                            lastUpperInclusive,
-                            upperPosCount,
-                            schema,
-                            isFullyQualifiedKey && allPKColumnsUsed(table, pkPos+1));
-            context.setScanKey(scanKey);
-
-            if (useSkipScan) {
-                context.setSkipScanFilter(new SkipScanFilter(cnf, schema));
-            }
-            return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
-        } finally {
-            if (startKey != null) {
-                try {
-                    startKey.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e); // Impossible
-                }
-            }
-            if (stopKey != null) {
-                try {
-                    stopKey.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e); // Impossible
-                }
+            // Will be null in cases for which only part of the expression was factored out here
+            // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
+            // set the start key to 'foo' but still need to match the regex at filter time.
+            List<Expression> nodesToExtract = keyPart.getExtractNodes();
+            extractNodes.addAll(nodesToExtract);
+            // Stop building start/stop key once we encounter a non single key range.
+            // TODO: remove this soon after more testing on SkipScanFilter
+            if (hasRangeKey) {
+                // TODO: when stats are available, we will want to terminate this loop if we have
+                // a non single key range, depending on the cardinality of the column values.
+                break;
             }
         }
-    }
 
-    private static final boolean allPKColumnsUsed(PTable table, int nColUsed) {
-        for (int i = nColUsed; i < table.getPKColumns().size(); i++) {
-            PColumn column = table.getPKColumns().get(i);
-            if (!column.isNullable()) {
-                return false;
-            }
-        }
-        return true;
+        context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
+        return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
     }
 
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {
@@ -666,28 +540,24 @@ public class WhereOptimizer {
         private static class BaseKeyPart implements KeyPart {
             @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
-                KeyRange range;
+                Integer length = getColumn().getByteSize();
+                if (length != null) {
+                    key = ByteUtil.fillKey(key, length);
+                }
                 switch (op) {
                 case EQUAL:
-                    range = KeyRange.getKeyRange(key, true, key, true);
-                    break;
+                    return KeyRange.getKeyRange(key, true, key, true);
                 case GREATER:
-                    range = KeyRange.getKeyRange(key, false, KeyRange.UNBOUND_UPPER, false);
-                    break;
+                    return KeyRange.getKeyRange(key, false, KeyRange.UNBOUND_UPPER, false);
                 case GREATER_OR_EQUAL:
-                    range = KeyRange.getKeyRange(key, true, KeyRange.UNBOUND_UPPER, false);
-                    break;
+                    return KeyRange.getKeyRange(key, true, KeyRange.UNBOUND_UPPER, false);
                 case LESS:
-                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, false);
-                    break;
+                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, false);
                 case LESS_OR_EQUAL:
-                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, true);
-                    break;
+                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, true);
                 default:
                     throw new IllegalArgumentException("Unknown operator " + op);
                 }
-                Integer length = getColumn().getByteSize();
-                return length == null ? range : range.fill(length);
             }
 
             private final PColumn column;

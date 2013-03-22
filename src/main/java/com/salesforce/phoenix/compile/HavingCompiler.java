@@ -52,7 +52,7 @@ public class HavingCompiler {
         ExpressionCompiler expressionBuilder = new ExpressionCompiler(context, groupBy);
         Expression expression = having.accept(expressionBuilder);
         if (LiteralExpression.FALSE_EXPRESSION == expression) {
-            context.setScanKey(ScanKey.DEGENERATE_SCAN_KEY);
+            context.setScanRanges(ScanRanges.NOTHING);
             return null;
         } else if (LiteralExpression.TRUE_EXPRESSION == expression) {
             return null;

@@ -36,8 +36,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.schema.ScanKeyOverflowException;
-
 
 /**
  * 
@@ -360,39 +358,55 @@ public class ByteUtil {
       return len + 1;
     }
 
-    public static byte[] nextKey(byte[] startRow) {
-        if (startRow == null) {
+    /**
+     * Increment the key to the next key
+     * @param key the key to increment
+     * @return a new byte array with the next key or null
+     *  if the key could not be incremented because it's
+     *  already at its max value.
+     */
+    public static byte[] nextKey(byte[] key) {
+        byte[] nextStartRow = new byte[key.length];
+        System.arraycopy(key, 0, nextStartRow, 0, key.length);
+        if (!nextKey(nextStartRow, nextStartRow.length)) {
             return null;
         }
-        int i = startRow.length-1;
-        while (startRow[i] == -1) {
-            i--;
-            if (i < 0) {
-                throw new ScanKeyOverflowException("Overflow trying to get next key for " + Arrays.toString(startRow));
-            }
-        }
-        byte[] nextKey = new byte[startRow.length];
-        System.arraycopy(startRow, 0, nextKey, 0, i+1);
-        nextKey[i] = (byte)(startRow[i] + 1);
-        return nextKey;
+        return nextStartRow;
     }
 
-    public static void nextKey(byte[] startRow, int rowLength) {
-        int i = rowLength-1;
-        while (startRow[i] == -1) {
-            i--;
-            if (i < 0) {
-                throw new ScanKeyOverflowException("Overflow trying to get next key for " + Arrays.toString(startRow));
-            }
+    /**
+     * Increment the key in-place to the next key
+     * @param key the key to increment
+     * @param length the length of the key
+     * @return true if the key can be incremented and
+     *  false otherwise if the key is at its max
+     *  value.
+     */
+    public static boolean nextKey(byte[] key, int length) {
+        return nextKey(key, 0, length);
+    }
+    
+    public static boolean nextKey(byte[] key, int offset, int length) {
+        if (length == 0) {
+            return false;
         }
-        startRow[i] = (byte)(startRow[i] + 1);
+        int i = offset + length - 1;
+        while (key[i] == -1) {
+            key[i] = 0;
+            i--;
+            if (i < offset) {
+                return false;
+            }
+         }
+        key[i] = (byte)(key[i] + 1);
+        return true;
     }
 
     /**
      * Expand the key to length bytes using the fillByte to fill the
      * bytes beyond the current key length.
      */
-    public static byte[] fillKey(byte[] key, byte fillByte, int length) {
+    public static byte[] fillKey(byte[] key, int length) {
         if(key.length > length) {
             throw new IllegalStateException();
         }
@@ -401,9 +415,6 @@ public class ByteUtil {
         }
         byte[] newBound = new byte[length];
         System.arraycopy(key, 0, newBound, 0, key.length);
-        if (fillByte != 0) {
-            Arrays.fill(newBound, key.length, newBound.length, fillByte);
-        }
         return newBound;
     }
 

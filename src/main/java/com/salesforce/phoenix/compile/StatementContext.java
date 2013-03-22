@@ -39,7 +39,6 @@ import org.apache.hadoop.io.WritableUtils;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
-import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
@@ -69,10 +68,9 @@ public class StatementContext {
     private final PhoenixConnection connection;
 
     private boolean isAggregate;
-    private ScanKey scanKey;
     private GroupBy groupBy;
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
-    private SkipScanFilter skipScanFilter;
+    private ScanRanges scanRanges;
 
     public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
         this.connection = connection;
@@ -85,7 +83,6 @@ public class StatementContext {
         this.dateFormatter = DateUtil.getDateFormatter(dateFormat);
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.tempPtr = new ImmutableBytesWritable();
-        this.scanKey = ScanKey.EVERYTHING_SCAN_KEY;
         this.groupBy = GroupBy.EMPTY_GROUP_BY;
     }
 
@@ -127,23 +124,15 @@ public class StatementContext {
         return tempPtr;
     }
 
-    public ScanKey getScanKey() {
-        return scanKey;
-    }
-
-    public SkipScanFilter getSkipScanFilter() {
-        return this.skipScanFilter;
+    public ScanRanges getScanRanges() {
+        return this.scanRanges;
     }
     
-    public void setSkipScanFilter(SkipScanFilter skipScanFilter) {
-        this.skipScanFilter = skipScanFilter;
+    public void setScanRanges(ScanRanges scanRanges) {
+        this.scanRanges = scanRanges;
+        this.scanRanges.setScanStartStopRow(scan);
     }
-
-    public void setScanKey(ScanKey scanKey) {
-        this.scanKey = scanKey;
-        scanKey.setScanStartStopKey(scan);
-    }
-
+    
     public PhoenixConnection getConnection() {
         return connection;
     }

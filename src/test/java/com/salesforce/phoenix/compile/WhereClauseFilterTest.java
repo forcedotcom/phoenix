@@ -756,8 +756,8 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
 
         assertNull(scan.getFilter());
-        byte[] wideLower = ByteUtil.fillKey(ByteUtil.nextKey(Bytes.toBytes(tenantId1)),(byte) 0x00,15);
-        byte[] wideUpper = ByteUtil.fillKey(Bytes.toBytes(tenantId2),(byte) 0x00,15);
+        byte[] wideLower = ByteUtil.nextKey(ByteUtil.fillKey(Bytes.toBytes(tenantId1), 15));
+        byte[] wideUpper = ByteUtil.fillKey(Bytes.toBytes(tenantId2), 15);
         assertArrayEquals(wideLower, scan.getStartRow());
         assertArrayEquals(wideUpper, scan.getStopRow());
     }

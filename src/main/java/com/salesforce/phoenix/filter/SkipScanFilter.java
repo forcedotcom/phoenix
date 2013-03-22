@@ -39,11 +39,11 @@ import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
 import com.google.common.hash.*;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.ValueSchema.Field;
-import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ScanUtil;
 
 public class SkipScanFilter extends FilterBase {
     // Conjunctive normal form of or-ed ranges or point lookups
@@ -236,50 +236,7 @@ after the first possible key.
     }
     
     private int setKey(Bound bound, byte[] key, int slotIndex, int byteOffset) {
-        int offset = byteOffset;
-        int nSlots = slots.size();
-        boolean incrementWhenDone = bound == Bound.UPPER;
-        for (int i = slotIndex; i < nSlots; i++) {
-            // Build up the start key by appending lower bound of key range
-            // from the current position of each slot append to startKey buffer 
-            KeyRange range = slots.get(i).get(position[i]);
-            boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
-            /*
-             * If the current slot is unbound then:
-             * 1) we always stop if we're setting the upper bound. There's no
-             *    value in continuing because we won't filter anything after
-             *    this anyway.
-             * 2) we stop if we're setting the lower bound if it's not variable
-             *    width for the same reason. However, if we're variable width
-             *    we can continue and we'll end up filtering any null values,
-             *    since our separator byte will be appended and increment.
-             */
-            if (  range.isUnbound(bound) &&
-                ( bound == Bound.UPPER || isFixedWidth) ){
-                break;
-            }
-            byte[] bytes = range.getRange(bound);
-            System.arraycopy(bytes, 0, key, offset, bytes.length);
-            offset += bytes.length;
-            if (i < schema.getMaxFields()-1 && !isFixedWidth) {
-                key[offset++] = QueryConstants.SEPARATOR_BYTE;
-            }
-            if (range.isSingleKey()) {
-                incrementWhenDone = bound == Bound.UPPER;
-            } else if ((bound == Bound.UPPER) == range.isInclusive(bound)) {
-                incrementWhenDone = false;
-                ByteUtil.nextKey(key, offset);
-            }
-        }
-        /*
-         * Mimics what we do on the client side by only incrementing
-         * at the end of an all single key range, otherwise we'd end
-         * up with the start and end key matching.
-         */
-        if (incrementWhenDone) {
-            ByteUtil.nextKey(key, offset);
-        }
-        return offset - byteOffset;
+        return ScanUtil.setKey(schema, slots, position, bound, key, slotIndex, byteOffset);
     }
 
     private void setStartKey() {
