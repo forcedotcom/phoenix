@@ -17,7 +17,7 @@ public enum ColumnSortOrder {
 		switch (value) {
 		    case 0: return ASC;
 		    case 1: return DESC;
-		    default: throw new IllegalArgumentException("Bad db value for ColumnSortOrder: " + value);
+		    default: return defaultValue();
 		}
 	}
 	
