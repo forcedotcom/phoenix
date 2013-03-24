@@ -138,6 +138,9 @@ after the first possible key.
             int i;
             int nSlots = slots.size();
             for (i = 0; i < nSlots; i++) {
+                // Stop one slot after the first range, since we
+                // know we're within the first range based on
+                // the scan start/stop key
                 if (!slots.get(i).get(position[i]).isSingleKey()) {
                     i++;
                     break;
@@ -145,7 +148,7 @@ after the first possible key.
             }
             if (i < nSlots) {
                 ptr.set(currentKey, offset, length);
-                for (   Boolean hasValue = schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); 
+                for (   Boolean hasValue = schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); 
                         hasValue != null; 
                         hasValue = ++i == nSlots ? null : schema.next(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET)) {
                     KeyRange range = slots.get(i).get(position[i]);
@@ -160,15 +163,14 @@ after the first possible key.
                 int partialLength = ptr.getOffset() - offset;
                 int maxLength = partialLength + this.maxKeyLength;
                 if (i < nSlots) {
+                    // Set the start and end key using the part of the current key that is "in range"
                     setStartKey(maxLength, currentKey, offset, partialLength);
+                    // Append the rest of the start and end key from the current position
                     appendToStartKey(i, partialLength);
-                    return ReturnCode.SEEK_NEXT_USING_HINT;
-                } else if (!slots.get(nSlots-1).get(position[i]).isSingleKey()) {
-                    // Since the last slot is a range, we can optimize this filter by
-                    // including all rows until we reach the end range now that we
-                    // know we're in the range.
                     setEndKey(maxLength, currentKey, offset, partialLength);
-                    appendToEndKey(nSlots-1, partialLength);
+                    appendToEndKey(i, partialLength);
+                    return ReturnCode.SEEK_NEXT_USING_HINT;
+                } else if (!slots.get(nSlots-1).get(position[nSlots-1]).isSingleKey()) {
                     includeUntilEndKey = true;
                 }
             }
@@ -197,7 +199,6 @@ after the first possible key.
         setEndKey();
         // Special case for when our new start key matches the row we're on. In that case,
         // we know we're in range and can include all key values for this row.
-        // TODO: verify that a seek next would skip the current row if the key is the same.
         if (cmp == 0) {
             whileEqualPtr.set(currentKey, offset, length);
             includeWhileEqual = true;
@@ -278,12 +279,20 @@ after the first possible key.
             slots.add(orclause);
             int maxSlotLength = 0;
             for (int j=0; j<orlen; j++) {
-                byte[] lower = WritableUtils.readCompressedByteArray(in);
+                boolean lowerUnbound = in.readBoolean();
+                byte[] lower = KeyRange.UNBOUND_LOWER;
+                if (!lowerUnbound) {
+                    lower = WritableUtils.readCompressedByteArray(in);
+                }
                 if (lower.length > maxSlotLength) {
                     maxSlotLength = lower.length;
                 }
                 boolean lowerInclusive = in.readBoolean();
-                byte[] upper = WritableUtils.readCompressedByteArray(in);
+                boolean upperUnbound = in.readBoolean();
+                byte[] upper = KeyRange.UNBOUND_UPPER;
+                if (!upperUnbound) {
+                    upper = WritableUtils.readCompressedByteArray(in);
+                }
                 if (upper.length > maxSlotLength) {
                     maxSlotLength = upper.length;
                 }
@@ -303,9 +312,17 @@ after the first possible key.
         for (List<KeyRange> orclause : slots) {
             out.writeInt(orclause.size());
             for (KeyRange arr : orclause) {
-                WritableUtils.writeCompressedByteArray(out, arr.getLowerRange());
+                boolean lowerUnbound = arr.lowerUnbound();
+                out.writeBoolean(lowerUnbound);
+                if (!lowerUnbound) {
+                    WritableUtils.writeCompressedByteArray(out, arr.getLowerRange());
+                }
                 out.writeBoolean(arr.isLowerInclusive());
-                WritableUtils.writeCompressedByteArray(out, arr.getUpperRange());
+                boolean upperUnbound = arr.upperUnbound();
+                out.writeBoolean(upperUnbound);
+                if (!upperUnbound) {
+                    WritableUtils.writeCompressedByteArray(out, arr.getUpperRange());
+                }
                 out.writeBoolean(arr.isUpperInclusive());
             }
         }

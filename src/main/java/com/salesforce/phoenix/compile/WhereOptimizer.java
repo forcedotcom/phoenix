@@ -99,7 +99,7 @@ public class WhereOptimizer {
 
         int pkPos = -1;
         List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
-        boolean hasRangeKey = false;
+        boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
             // If the position of the pk columns in the query skips any part of the row k
@@ -111,10 +111,8 @@ public class WhereOptimizer {
             KeyPart keyPart = slot.getKeyPart();
             pkPos = slot.getPKPosition();
             cnf.add(slot.getKeyRanges());
-            
-            // TODO: remove soon
             for (KeyRange range : slot.getKeyRanges()) {
-                hasRangeKey |= !range.isSingleKey();
+                hasUnboundedRange |= range.isUnbound();
             }
 
             // Will be null in cases for which only part of the expression was factored out here
@@ -124,9 +122,10 @@ public class WhereOptimizer {
             extractNodes.addAll(nodesToExtract);
             // Stop building start/stop key once we encounter a non single key range.
             // TODO: remove this soon after more testing on SkipScanFilter
-            if (hasRangeKey) {
-                // TODO: when stats are available, we will want to terminate this loop if we have
-                // a non single key range, depending on the cardinality of the column values.
+            if (hasUnboundedRange) {
+                // TODO: when stats are available, we may want to continue this loop if the
+                // cardinality of this slot is low. We could potentially even continue this
+                // loop in the absence of a range for a key slot.
                 break;
             }
         }

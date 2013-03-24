@@ -1577,7 +1577,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initTableValues(tenantId, getSplits(tenantId), ts);
+            initTableValues(tenantId, null/*getSplits(tenantId)*/, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId.substring(0,3));
             statement.setString(2, DS4);

@@ -89,15 +89,20 @@ public class RowKeySchema extends ValueSchema {
     
     @Override
     protected int positionVarLength(ImmutableBytesWritable ptr, Field field, int nFields) {
-        byte[] buf = ptr.get();
+        int len = 0;
         int initialOffset = ptr.getOffset();
-        int offset = initialOffset;
-        int maxOffset = buf.length;
-        while (offset < maxOffset && buf[offset] != SEPARATOR_BYTE) {
-            offset++;
+        while (nFields-- > 0) {
+            byte[] buf = ptr.get();
+            int offset = initialOffset;
+            int maxOffset = buf.length;
+            while (offset < maxOffset && buf[offset] != SEPARATOR_BYTE) {
+                offset++;
+            }
+            ptr.set(buf, offset, 0);
+            len = offset - initialOffset;
+            initialOffset = offset + 1; // skip separator byte
         }
-        ptr.set(buf, offset, 0);
-        return offset - initialOffset;
+        return len;
     }
     
     @Override

@@ -28,12 +28,7 @@ public class ScanRanges {
     private final List<List<KeyRange>> ranges;
     private final RowKeySchema schema;
     
-    public ScanRanges (List<List<KeyRange>> ranges, RowKeySchema schema) {
-        if (ranges.isEmpty()) {
-            ranges = EVERYTHING_RANGES;
-        } else if (ranges.size() == 1 && ranges.get(0).size() == 1 && ranges.get(0).get(0) == KeyRange.EMPTY_RANGE) {
-            ranges = NOTHING_RANGES;
-        }
+    private ScanRanges (List<List<KeyRange>> ranges, RowKeySchema schema) {
         this.ranges = ranges;
         this.schema = schema;
     }
@@ -47,11 +42,11 @@ public class ScanRanges {
     }
     
     public boolean isEverything() {
-        return ranges == EVERYTHING;
+        return this == EVERYTHING;
     }
     
     public boolean isDegenerate() {
-        return ranges == NOTHING;
+        return this == NOTHING;
     }
     
     /**

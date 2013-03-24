@@ -204,9 +204,14 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds);
         assertNotNull(scan.getFilter());
 
-        byte[] startRow = ByteUtil.fillKey(PDataType.VARCHAR.toBytes(tenantId.substring(0,3)),15);
+        byte[] startRow = ByteUtil.concat(ByteUtil.fillKey(PDataType.VARCHAR.toBytes(tenantId.substring(0,3)),15),PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
-        byte[] stopRow = ByteUtil.fillKey(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId.substring(0,3))),15);
+        // Even though the first slot is a non inclusive range, we need to do a next key
+        // on the second slot because of the algorithm we use to seek to and terminate the
+        // loop during skip scan. We could end up having a first slot just under the upper
+        // limit of slot one and a value equal to the value in slot two and we need this to
+        // be less than the upper range that would get formed.
+        byte[] stopRow = ByteUtil.concat(ByteUtil.fillKey(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId.substring(0,3))),15),ByteUtil.nextKey(PDataType.VARCHAR.toBytes(entityId)));
         assertArrayEquals(stopRow, scan.getStopRow());
     }
 

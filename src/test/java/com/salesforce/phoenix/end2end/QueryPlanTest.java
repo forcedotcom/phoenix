@@ -35,8 +35,7 @@ import java.util.Properties;
 
 import org.junit.Test;
 
-// FIXME: with new ScanRanges object
-public abstract class QueryPlanTest extends BaseConnectedQueryTest {
+public class QueryPlanTest extends BaseConnectedQueryTest {
     private static String getPlan(ResultSet rs) throws SQLException {
         StringBuilder buf = new StringBuilder();
         while (rs.next()) {
@@ -57,8 +56,8 @@ public abstract class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SERIAL FULL SCAN OVER ATABLE",
 
                 "SELECT inst,host FROM PTSDB WHERE regexp_substr(inst, '[^-]+') IN ('na1', 'na2','na3')",
-                "CLIENT SERIAL RANGE SCAN OVER PTSDB FROM ('na1') INCLUSIVE TO ('na4') EXCLUSIVE\n" + 
-                "    SERVER FILTER BY FilterList AND (2/2): [SkipScanFilter [[[na1 - na2), [na2 - na3), [na3 - na4)]], REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')]",
+                "CLIENT SERIAL RANGE SCAN ON 3 RANGES OVER PTSDB ['na1'-'na4')\n" + 
+                "    SERVER FILTER BY REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')",
 
                 "SELECT count(*) FROM atable",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
@@ -66,12 +65,12 @@ public abstract class QueryPlanTest extends BaseConnectedQueryTest {
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 "SELECT count(*) FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
-                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE FROM ('000000000000001','003\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') INCLUSIVE TO ('000000000000001','004\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') EXCLUSIVE\n" + 
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001',['003'-'004')\n" + 
                 "    SERVER FILTER BY FirstKeyOnlyFilter\n" + 
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 "SELECT a_string FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','003\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') INCLUSIVE TO ('000000000000001','004\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00') EXCLUSIVE",
+                "CLIENT SERIAL RANGE SCAN OVER ATABLE '000000000000001',['003'-'004')",
 
                 "SELECT count(1) FROM atable GROUP BY a_string",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
@@ -105,34 +104,32 @@ public abstract class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SORT BY [B_STRING asc nulls first]",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id = '000000000000002' AND x_integer = 2 AND a_integer < 5 ",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','000000000000002') INCLUSIVE TO ('000000000000001','000000000000002') INCLUSIVE\n" + 
+                "CLIENT SERIAL RANGE SCAN OVER ATABLE '000000000000001','000000000000002'\n" + 
                 "    SERVER FILTER BY (X_INTEGER = 2 AND A_INTEGER < 5)",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id != '000000000000002' AND x_integer = 2 AND a_integer < 5 LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
                 "    SERVER FILTER BY (ENTITY_ID != '000000000000002' AND X_INTEGER = 2 AND A_INTEGER < 5)",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
                 "CLIENT SORT BY [A_STRING asc nulls first]",
 
                 "SELECT max(a_integer) FROM atable WHERE organization_id = '000000000000001' GROUP BY organization_id,entity_id,ROUND(a_date,'HOUR') ORDER BY entity_id LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
                 "    SERVER AGGREGATE INTO DISTINCT ROWS BY [ORGANIZATION_ID, ENTITY_ID, ROUND(A_DATE)]\n" + 
                 "CLIENT MERGE SORT\n" + 
                 "CLIENT SORT BY [ENTITY_ID asc nulls first]",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000001') INCLUSIVE\n" + 
+                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
                 "CLIENT SORT BY [A_STRING asc nulls first]",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005')",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001') INCLUSIVE TO ('000000000000005') INCLUSIVE\n" + 
-                "    SERVER FILTER BY SkipScanFilter [[000000000000001, 000000000000005]]",
+                "CLIENT SERIAL RANGE SCAN ON 2 KEYS OVER ATABLE ['000000000000001'-'000000000000005']",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005') AND entity_id IN('000000000000001','00000000000000Z')",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE FROM ('000000000000001','000000000000001') INCLUSIVE TO ('000000000000005','00000000000000Z') INCLUSIVE\n" + 
-                "    SERVER FILTER BY SkipScanFilter [[000000000000001, 000000000000005], [000000000000001, 00000000000000Z]]",
+                "CLIENT SERIAL RANGE SCAN ON 4 KEYS OVER ATABLE ['000000000000001'-'000000000000005'],['000000000000001'-'00000000000000Z']",
         };
         for (int i = 0; i < queryPlans.length; i+=2) {
             String query = queryPlans[i];
@@ -145,7 +142,7 @@ public abstract class QueryPlanTest extends BaseConnectedQueryTest {
                 // TODO: figure out a way of verifying that query isn't run during explain execution
                 assertEquals(query, plan, getPlan(rs));
             } catch (Exception e) {
-                throw new Exception(query + e.getMessage(), e);
+                throw new Exception(query + ": "+ e.getMessage(), e);
             } finally {
                 conn.close();
             }

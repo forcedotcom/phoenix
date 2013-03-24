@@ -70,7 +70,7 @@ public class StatementContext {
     private boolean isAggregate;
     private GroupBy groupBy;
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
-    private ScanRanges scanRanges;
+    private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
     public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
         this.connection = connection;

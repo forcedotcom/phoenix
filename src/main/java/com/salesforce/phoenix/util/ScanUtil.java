@@ -159,7 +159,8 @@ public class ScanUtil {
     public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound, byte[] key, int slotIndex, int byteOffset) {
         int offset = byteOffset;
         int nSlots = slots.size();
-        boolean incrementKey = false;
+        // Increment the key if we're setting an upper range by default
+        boolean incrementKey = bound == Bound.UPPER;
         for (int i = slotIndex; i < nSlots; i++) {
             // Build up the key by appending the bound of each key range
             // from the current position of each slot. 

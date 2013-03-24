@@ -138,13 +138,13 @@ public class KeyRange {
     
     public boolean isInRange(byte[] b, int o, int l) {
         if (!lowerUnbound()) {
-            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, 0, l);
+            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
             if (cmp > 0 || cmp == 0 && !lowerInclusive) {
                 return false;
             }
         }
         if (!upperUnbound()) {
-            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, 0, l);
+            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
             if (cmp < 0 || cmp == 0 && !upperInclusive) {
                 return false;
             }
