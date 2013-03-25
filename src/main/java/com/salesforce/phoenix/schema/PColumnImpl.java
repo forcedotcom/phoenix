@@ -91,6 +91,7 @@ public class PColumnImpl implements PColumn {
         this.scale = scale;
         this.nullable = nullable;
         this.position = position;
+        this.sortOrder = sortOrder;
     }
 
     @Override
