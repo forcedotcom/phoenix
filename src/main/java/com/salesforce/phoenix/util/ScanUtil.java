@@ -144,7 +144,7 @@ public class ScanUtil {
             maxLength += range.getRange(bound).length + (schema.getField(i).getType().isFixedWidth() ? 0 : 1);
         }
         byte[] key = new byte[maxLength];
-        int length = setKey(schema, slots, position, bound, key, 0, 0);
+        int length = setKey(schema, slots, position, bound, key, 0, 0, position.length);
         if (length == 0) {
             return null;
         }
@@ -156,12 +156,11 @@ public class ScanUtil {
         return keyCopy;
     }
     
-    public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound, byte[] key, int slotIndex, int byteOffset) {
+    public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound, byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
         int offset = byteOffset;
-        int nSlots = slots.size();
         // Increment the key if we're setting an upper range by default
         boolean incrementKey = bound == Bound.UPPER;
-        for (int i = slotIndex; i < nSlots; i++) {
+        for (int i = slotStartIndex; i < slotEndIndex; i++) {
             // Build up the key by appending the bound of each key range
             // from the current position of each slot. 
             KeyRange range = slots.get(i).get(position[i]);

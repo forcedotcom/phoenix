@@ -674,7 +674,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                 context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
     }
-    @Test @Ignore("scan key setting not working except for most trivial where clauses")
+    @Test
     public void testInListWithAnd1FilterScankey() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";
@@ -691,10 +691,11 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1), PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
-        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId3), PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
+        // TODO: validate scan ranges
     }
 
     private static KeyRange pointRange(String id) {
@@ -762,7 +763,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(wideUpper, scan.getStopRow());
     }
 
-    @Test @Ignore("scan key only works for trivial cases")
+    @Test
     public void testInListWithAnd2FilterScanKey() throws SQLException {
         String tenantId1 = "000000000000001";
         String tenantId2 = "000000000000002";
@@ -780,9 +781,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1),PDataType.VARCHAR.toBytes(entityId1));
         assertArrayEquals(startRow, scan.getStartRow());
-        byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId3),PDataType.VARCHAR.toBytes(entityId2));
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
+        // TODO: validate scan ranges
     }
 }

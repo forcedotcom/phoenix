@@ -33,6 +33,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.http.annotation.Immutable;
 
@@ -134,6 +135,37 @@ public class KeyRange {
     
     public boolean isSingleKey() {
         return isSingleKey;
+    }
+    
+    public int compareLower(ImmutableBytesWritable ptr) {
+        return compareLower(ptr.get(), ptr.getOffset(), ptr.getLength());
+    }
+    
+    public int compareUpper(ImmutableBytesWritable ptr) {
+        return compareUpper(ptr.get(), ptr.getOffset(), ptr.getLength());
+    }
+    
+    public int compareLower( byte[] b, int o, int l) {
+        if (lowerUnbound()) {
+            return -1;
+        }
+        int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
+        if (cmp > 0 || cmp == 0 && !lowerInclusive) {
+            return 1;
+        }
+        return cmp < 0 ? -1 : 0;
+    }
+    
+    
+    public int compareUpper(byte[] b, int o, int l) {
+        if (upperUnbound()) {
+            return 1;
+        }
+        int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
+        if (cmp < 0 || cmp == 0 && !upperInclusive) {
+            return -1;
+        }
+        return cmp > 0 ? 1 : 0;
     }
     
     public boolean isInRange(byte[] b, int o, int l) {

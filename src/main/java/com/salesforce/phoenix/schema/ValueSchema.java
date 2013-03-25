@@ -253,7 +253,7 @@ public abstract class ValueSchema implements Writable {
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL",
             justification="Returns null by design.")
-    protected Boolean positionPtr(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
+    protected Boolean positionPtr(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
         if (position >= getFieldCount()) {
             return null;
         }
@@ -262,16 +262,21 @@ public abstract class ValueSchema implements Writable {
             // to 0 to ensure you never set the ptr past the end of the
             // backing byte array.
             ptr.set(ptr.get(), ptr.getOffset() + ptr.getLength(), 0);
-            int length = nextField(ptr, fields.get(fieldIndexByPosition[position]), 1);
+            int length = nextField(ptr, position, 1, maxOffset);
             ptr.set(ptr.get(),ptr.getOffset()-length,length);
             return ptr.getLength() > 0;
         }
         return false;
     }
     
+    // TODO: wrap these first, next calls into our own Iterator implementation
+    // that supports a reset method, so we don't need to instantiate a new one
+    // on each iteration.
     public Boolean first(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
+        int maxOffset = ptr.getOffset() + ptr.getLength(); // TODO: reliable?
+        assert(maxOffset > 0);
         ptr.set(ptr.get(), ptr.getOffset(), 0);
-        return positionPtr(ptr, position, bitSet);
+        return positionPtr(ptr, position, maxOffset, bitSet);
     }
     
     /**
@@ -280,11 +285,12 @@ public abstract class ValueSchema implements Writable {
      * provided.
      * @param position zero-based index of the field in the value schema at
      *  which to position the ptr.
+     * @param maxOffset TODO
      * @param bitSet bit set representing whether or not a value is null
      * @return true if there is a field after position and false otherwise.
      */
-    public Boolean next(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
-        return positionPtr(ptr, position, bitSet);
+    public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
+        return positionPtr(ptr, position, maxOffset, bitSet);
     }
     
     private int adjustReadFieldCount(int position, int nFields, ValueBitSet bitSet) {
@@ -307,6 +313,7 @@ public abstract class ValueSchema implements Writable {
      *  TODO: should be able to use first for this instead
      */
     private void setAccessor(ImmutableBytesWritable ptr, int startPosition, int endPosition, ValueBitSet bitSet) {
+        int maxLength = ptr.getLength();
         int length = 0;
         int position = startPosition;
         while (position <= endPosition) {
@@ -318,7 +325,7 @@ public abstract class ValueSchema implements Writable {
             int nFields = Math.min(nRepeats, endPosition - position + 1);
             int nSkipFields = adjustReadFieldCount(position, nFields, bitSet);
             if (nSkipFields > 0) {
-                length = nextField(ptr, field, nSkipFields); // remember last length so we can back up at end
+                length = nextField(ptr, position, nSkipFields, maxLength); // remember last length so we can back up at end
             }
             position += nFields;
         }
@@ -346,22 +353,24 @@ public abstract class ValueSchema implements Writable {
         return b;
     }
 
-    protected int nextField(ImmutableBytesWritable ptr, Field field, int nFields) {
+    protected int nextField(ImmutableBytesWritable ptr, int position, int nFields, int maxOffset) {
+        Field field = fields.get(fieldIndexByPosition[position]);
         if (field.getType().isFixedWidth()) {
-            return positionFixedLength(ptr, field, nFields);
+            return positionFixedLength(ptr, position, nFields);
         } else {
-            return positionVarLength(ptr, field, nFields);
+            return positionVarLength(ptr, position, nFields, maxOffset);
         }
     }
     
-    protected int positionFixedLength(ImmutableBytesWritable ptr, Field field, int nFields) {
+    protected int positionFixedLength(ImmutableBytesWritable ptr, int position, int nFields) {
+        Field field = fields.get(fieldIndexByPosition[position]);
         PDataType type = field.getType();
         int length = (type.getByteSize() == null) ? field.getByteSize() : type.getByteSize();
         ptr.set(ptr.get(),ptr.getOffset() + nFields * length, ptr.getLength());
         return length;
     }
     
-    abstract protected int positionVarLength(ImmutableBytesWritable ptr, Field field, int nFields);
+    abstract protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxLength);
     abstract protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset);
     
     /**
