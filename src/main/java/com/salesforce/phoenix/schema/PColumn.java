@@ -53,10 +53,7 @@ public interface PColumn extends PDatum, Writable {
     int getPosition();
     
     /**
-     * @return returns the natural sort order for this column.  
-     * // REVIEW - stoens
-     * Returns null if not a pk column or just expose this on the 
-     * pk constaint instead?
+     * @return The modifier for this column, null if it doesn't have a modifier
      */
-    ColumnSortOrder getSortOrder();
+    ColumnModifier getColumnModifier();
 }

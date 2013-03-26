@@ -27,7 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import com.salesforce.phoenix.schema.ColumnSortOrder;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -45,7 +45,7 @@ public class ColumnDef {
     private final Integer maxLength;
     private final Integer scale;
     private final boolean isPK;
-    private final ColumnSortOrder sortOrder;
+    private final ColumnModifier sortOrder;
  
     ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
             Integer scale, boolean isPK, String sortOrder) {
@@ -81,7 +81,7 @@ public class ColumnDef {
         this.maxLength = maxLength;
         this.scale = scale;
         this.isPK = isPK;
-        this.sortOrder = ColumnSortOrder.fromDDLStatement(sortOrder);
+        this.sortOrder = ColumnModifier.fromDDLStatement(sortOrder);
     }
 
     public ColumnDefName getColumnDefName() {
@@ -108,7 +108,7 @@ public class ColumnDef {
         return isPK;
     }
     
-    public ColumnSortOrder getSortOrder() {
+    public ColumnModifier getSortOrder() {
     	return sortOrder;
     }
 }

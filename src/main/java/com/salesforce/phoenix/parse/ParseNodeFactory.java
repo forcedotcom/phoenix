@@ -42,6 +42,7 @@ import com.salesforce.phoenix.expression.function.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.SchemaUtil;

@@ -27,8 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.math.*;
-import java.sql.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -38,7 +44,10 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -2015,6 +2024,12 @@ public enum PDataType {
     public abstract Integer getByteSize();
 
     public abstract byte[] toBytes(Object object);
+    
+    public byte[] toBytes(Object object, ColumnModifier columnModifier) {
+    	byte[] bytes = toBytes(object);
+  		bytes = ColumnModifier.apply(columnModifier, bytes, 0, bytes.length);
+    	return bytes;
+    }
 
     /**
      * Convert from the object representation of a data type value into
@@ -2046,22 +2061,31 @@ public enum PDataType {
      * @return the object representation of a string value
      */
     public abstract Object toObject(String value);
-
+    
     public Object toObject(Object object, PDataType actualType) {
+    	return toObject(object, actualType, null); 
+    }
+
+    public Object toObject(Object object, PDataType actualType, ColumnModifier sortOrder) {
         if (actualType != this) {
-            byte[] b = actualType.toBytes(object);
+            byte[] b = actualType.toBytes(object, sortOrder);
             return this.toObject(b, 0, b.length, actualType);
         }
         return object;
     }
+    
+    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) { // remove
+        return toObject(bytes, offset, length, actualType, null);
+    }
 
-    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType, ColumnModifier columnModifier) {
+   		bytes = ColumnModifier.apply(columnModifier, bytes, offset, length);
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
     }
-
-    public Object toObject(ImmutableBytesWritable ptr, PDataType actualType) {
-        return this.toObject(ptr.get(),ptr.getOffset(),ptr.getLength(), actualType);
+    
+    public Object toObject(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier sortOrder) { 
+        return this.toObject(ptr.get(),ptr.getOffset(),ptr.getLength(), actualType, sortOrder);
     }
 
     public Object toObject(ImmutableBytesWritable ptr) {

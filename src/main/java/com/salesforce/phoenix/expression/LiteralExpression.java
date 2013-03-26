@@ -94,11 +94,19 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
 
     public static LiteralExpression newConstant(Object value, PDataType type) throws SQLException {
-        return newConstant(value, type, null, null);
+        return newConstant(value, type, null);
+    }
+    
+    public static LiteralExpression newConstant(Object value, PDataType type, ColumnModifier sortOrder) throws SQLException {
+        return newConstant(value, type, null, null, sortOrder);
+    }
+    
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException { // remove?
+    	return newConstant(value, type, maxLength, scale, null);
     }
 
     // TODO: cache?
-    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale)
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale, ColumnModifier sortOrder)
             throws SQLException {
         if (value == null) {
             if (type == null) {
@@ -110,9 +118,9 @@ public class LiteralExpression extends BaseTerminalExpression {
         if (!actualType.isCoercibleTo(type, value)) {
             throw new TypeMismatchException(type, actualType, value.toString());
         }
-        value = type.toObject(value, actualType);
+        value = type.toObject(value, actualType, sortOrder);
         try {
-            byte[] b = type.toBytes(value);
+            byte[] b = type.toBytes(value, sortOrder);
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];
             }

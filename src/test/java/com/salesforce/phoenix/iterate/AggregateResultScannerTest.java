@@ -103,8 +103,8 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             }
             
             @Override
-            public ColumnSortOrder getSortOrder() {
-            	return ColumnSortOrder.defaultValue();
+            public ColumnModifier getColumnModifier() {
+            	return null;
             }
             
             @Override

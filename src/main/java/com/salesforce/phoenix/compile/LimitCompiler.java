@@ -30,6 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 

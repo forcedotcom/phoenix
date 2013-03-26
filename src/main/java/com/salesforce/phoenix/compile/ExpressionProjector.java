@@ -33,6 +33,8 @@ import java.sql.SQLException;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -82,7 +84,14 @@ public class ExpressionProjector implements ColumnProjector {
         if (ptr.getLength() == 0) {
             return null;
         }
-        return type.toObject(ptr, expression.getDataType());
+        
+        
+        ColumnModifier columnModifier = null;
+        if (expression instanceof RowKeyColumnExpression) {
+        	columnModifier = ((RowKeyColumnExpression)expression).getSortOrder();
+        }
+        
+        return type.toObject(ptr, expression.getDataType(), columnModifier);
     }
 
     @Override

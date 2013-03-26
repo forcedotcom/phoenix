@@ -27,12 +27,18 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -46,6 +52,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class RowKeyColumnExpression  extends ColumnExpression {
     private PDataType fromType;
     private RowKeyValueAccessor accessor;
+    private ColumnModifier columnModifier = null;
     
     private final String name;
     
@@ -57,6 +64,11 @@ public class RowKeyColumnExpression  extends ColumnExpression {
         this(datum, accessor, datum.getDataType());
     }
     
+    public RowKeyColumnExpression(PColumn col, RowKeyValueAccessor accessor) {
+        this((PDatum)col, accessor);
+        this.columnModifier = col.getColumnModifier();
+    }    
+    
     public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType) {
         super(datum);
         this.accessor = accessor;
@@ -66,6 +78,10 @@ public class RowKeyColumnExpression  extends ColumnExpression {
     
     public int getPosition() {
         return accessor.getIndex();
+    }
+    
+    public ColumnModifier getSortOrder() {
+    	return columnModifier;
     }
 
     @Override

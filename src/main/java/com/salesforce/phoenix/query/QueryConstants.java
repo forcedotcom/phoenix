@@ -89,7 +89,7 @@ public interface QueryConstants {
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
     public static final String SYSTEM_TABLE_PK_NAME = "pk";
     
-    // Indicate that precision or scale is null for a particular field.
+    // Indicate that the value is null for a particular field.
     public static final Integer NO_MAXLENGTH = Integer.MIN_VALUE;
     public static final Integer NO_SCALE = Integer.MIN_VALUE;
     
