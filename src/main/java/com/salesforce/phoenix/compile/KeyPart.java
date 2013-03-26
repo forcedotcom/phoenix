@@ -30,7 +30,7 @@ public interface KeyPart {
      * @param key the constant on the RHS of an expression.
      * @return the key range that encompasses the range for the
      *  expression for which this keyPart is associated.
-     * @see {@link com.salesforce.phoenix.expression.function.ScalarFunction#newKeyPart(KeyPart)}
+     * @see com.salesforce.phoenix.expression.function.ScalarFunction#newKeyPart(KeyPart)
      */
     public KeyRange getKeyRange(CompareOp op, byte[] key);
     

@@ -33,7 +33,7 @@ import java.sql.SQLFeatureNotSupportedException;
 
 import org.antlr.runtime.*;
 
-import com.salesforce.phoenix.exception.*;
+import com.salesforce.phoenix.exception.PhoenixParserException;
 
 /**
  * 
@@ -115,24 +115,12 @@ public class SQLParser {
 
     /**
      * Parses the input as a SQL select statement.
+     * Used only in tests
      * @throws SQLException 
      */
     public SelectStatement parseQuery() throws SQLException {
         try {
             SelectStatement statement = parser.query();
-            return statement;
-        } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
-        }
-    }
-
-    /**
-     * Parses the input as a SQL upsert statement.
-     * @throws SQLException 
-     */
-    public UpsertStatement parseUpsert() throws SQLException {
-        try {
-            UpsertStatement statement = parser.upsert();
             return statement;
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);

@@ -314,61 +314,34 @@ statement returns [SQLStatement ret]
     :   s=oneStatement {$ret = s;} EOF
     ;
 
-// Parses a single SQL statement (expects an EOF after the select statement).
-oneStatement returns [SQLStatement ret]
-    :   (q=select_node {$ret=q;} 
-    |    u=upsert_node {$ret=u;}
-    |    d=delete_node {$ret=d;}
-    |    ct=create_table {$ret=ct;}
-    |    dt=drop_table {$ret=dt;}
-    |    at=alter_table {$ret=at;}
-    |    e=explain_plan {$ret=e;}
-    |    st=show_tables {$ret=st;}
-        )
-    ;
-
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
 query returns [SelectStatement ret]
     :   q=select_node EOF {$ret=q;}
     ;
 
-// Parses a SHOW TABLES statement which must be the only statement (expects an EOF after the statement).
-show_tables returns [SQLStatement ret]
-    :   SHOW TABLES EOF {$ret=factory.showTables();}
+// Parses a single SQL statement (expects an EOF after the select statement).
+oneStatement returns [SQLStatement ret]
+    :   (q=select_node {$ret=q;} 
+    |    u=upsert_node {$ret=u;}
+    |    d=delete_node {$ret=d;}
+    |    ct=create_table_node {$ret=ct;}
+    |    dt=drop_table_node {$ret=dt;}
+    |    at=alter_table_node {$ret=at;}
+    |    e=explain_node {$ret=e;}
+    |    st=show_tables_node {$ret=st;}
+        )
     ;
 
-// Parses a select statement which must be the only statement (expects an EOF after the statement).
-explain_plan returns [SQLStatement ret]
-    :   EXPLAIN q=statement EOF {$ret=factory.explain(q);}
+show_tables_node returns [SQLStatement ret]
+    :   SHOW TABLES {$ret=factory.showTables();}
     ;
 
-// Parses an upsert statement which must be the only statement (expects an EOF after the statement).
-upsert returns [UpsertStatement ret]
-    :   u=upsert_node EOF {$ret=u;}
-    ;
-
-// Parses a delete statement which must be the only statement (expects an EOF after the statement).
-delete returns [DeleteStatement ret]
-    :   d=delete_node EOF {$ret=d;}
-    ;
-
-// Parses a create table statement which must be the only statement (expects an EOF after the statement).
-createTable returns [CreateTableStatement ret]
-    :   ct=create_table EOF {$ret=ct;}
-    ;
-
-// Parses a drop table statement which must be the only statement (expects an EOF after the statement).
-dropTable returns [DropTableStatement ret]
-    :   dt=drop_table EOF {$ret=dt;}
-    ;
-
-// Parses an alter table statement which must be the only statement (expects an EOF after the statement).
-alterTable returns [AlterTableStatement ret]
-    :   at=alter_table EOF {$ret=at;}
+explain_node returns [SQLStatement ret]
+    :   EXPLAIN q=oneStatement {$ret=factory.explain(q);}
     ;
 
 // Parse a create table statement.
-create_table returns [CreateTableStatement ret]
+create_table_node returns [CreateTableStatement ret]
     :   CREATE (ro=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
         (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
@@ -406,13 +379,13 @@ column_def_name returns [ColumnDefName ret]
 
 	
 // Parse a drop table statement.
-drop_table returns [DropTableStatement ret]
+drop_table_node returns [DropTableStatement ret]
     :   DROP (ro=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
         {ret = factory.dropTable(t, ex!=null, ro!=null); }
     ;
 
 // Parse an alter table statement.
-alter_table returns [AlterTableStatement ret]
+alter_table_node returns [AlterTableStatement ret]
     :   ALTER TABLE t=from_table_name
         ( (DROP COLUMN (IF ex=EXISTS)? c=column_ref) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) )
         {ret = ( c == null ? factory.addColumn(t, d, ex!=null, p) : factory.dropColumn(t, c, ex!=null) ); }

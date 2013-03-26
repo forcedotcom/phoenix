@@ -57,7 +57,7 @@ import com.salesforce.phoenix.schema.PTableImpl;
  * @since 0.1
  */
 public interface MetaDataProtocol extends CoprocessorProtocol {
-    public static final long VERSION = 4L;
+    public static final long VERSION = 5L;
     public static final long MIN_TABLE_TIMESTAMP = 0;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
     
