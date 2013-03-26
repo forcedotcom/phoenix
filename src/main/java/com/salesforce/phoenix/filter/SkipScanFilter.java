@@ -50,7 +50,6 @@ import com.salesforce.phoenix.util.ScanUtil;
  * 
  * Filter that seeks based on CNF containing anded and ored key ranges
  * 
- * TODO: switch includeUntilKey to use endKey
  * TODO: figure out when to reset/not reset position array
  *
  * @author ryang, jtaylor
@@ -64,16 +63,11 @@ public class SkipScanFilter extends FilterBase {
     // current position for each slot
     private int[] position;
     // buffer used for skip hint
+    private int maxKeyLength;
     private byte[] startKey;
     private int startKeyLength;
-    // buffer used for current end key after which we need to increment the position
     private byte[] endKey; 
     private int endKeyLength;
-    private int maxKeyLength;
-
-    // TODO: use endKey for this purpose instead since it's not being used anywhere 
-    private byte[] includeUntilKey; 
-    private int includeUntilKeyLength;
 
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
 
@@ -101,20 +95,17 @@ after the first possible key.
 
     private void init(List<List<KeyRange>> slots, RowKeySchema schema, int maxKeyLength) {
         this.slots = slots;
-        // TODO: add back precondition checks
         this.schema = schema;
         this.maxKeyLength = maxKeyLength;
         this.position = new int[slots.size()];
         startKey = new byte[maxKeyLength];
+        setStartKey();
         endKey = new byte[maxKeyLength];
-        includeUntilKey = new byte[maxKeyLength];
+        endKeyLength = 0;
         // Start key for the scan will initially be set to start at the right place
         // We just need to set the end key for when we need to calculate the next skip hint
         // TODO: shouldn't be necessary, since the start key of the scan should be set to this
         // or a higher value
-        setStartKey();
-        setEndKey();
-        if (endKeyLength > 0); // TODO: remove
     }
 
     @Override
@@ -135,35 +126,24 @@ after the first possible key.
     }
 
     private ReturnCode navigate(final byte[] currentKey, final int offset, final int length) {
-        if (includeUntilKeyLength > 0 && Bytes.compareTo(currentKey, offset, length, includeUntilKey, 0, includeUntilKeyLength) < 0) {
+        // First check to see if we're in-range until we reach our end key
+        if (endKeyLength > 0 && Bytes.compareTo(currentKey, offset, length, endKey, 0, endKeyLength) < 0) {
             return ReturnCode.INCLUDE;
         }
-        includeUntilKeyLength = 0;
+        endKeyLength = 0;
 
-        // TODO: optimize for isSingleKey cases, since we should be
-        // able to skip the comparisons of these slots.
-//        if (!updateEndKey) {
-//            i = 1;
-//            for (; i < nSlots; i++) {
-//                // Stop one slot after the first range, since we
-//                // know we're within the first range based on
-//                // the scan start/stop key
-//                if (!slots.get(i).get(position[i]).isSingleKey()) {
-//                    i++;
-//                    break;
-//                }
-//            }
-//        }
-        
         int i = 0;
         int nSlots = slots.size();
         ptr.set(currentKey, offset, length);
         schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
         while (true) {
+            // Increment to the next range while the upper bound of our current slot is less than our current key
             while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpper(ptr) < 0) {
                 position[i]++;
             }
             if (position[i] >= slots.get(i).size()) {
+                // Our current key is bigger than the last range of the current slot.
+                // Backtrack and increment the key of the previous slot values.
                 while (true) {
                     if (i == 0) {
                         startKey = null;
@@ -173,8 +153,11 @@ after the first possible key.
                         ByteUtil.nextKey(startKey, ptr.getOffset() - offset);
                         startKeyLength = ptr.getOffset() - offset;
                         Arrays.fill(position, i, position.length, 0);
-                        i--;
-                        if (slots.get(i).get(position[i]).compareUpper(startKey, 0, startKeyLength) < 0) {
+                        // If we're still in the same range for the previous slot after incrementing
+                        // to the next key, then we can just seek to the beginning of the next key
+                        // range (if there is one).
+                        if (slots.get(i-1).get(position[i-1]).compareUpper(startKey, 0, startKeyLength) < 0) {
+                            i--;
                             // TODO: implement schema.previous to go backwards
                             ptr.set(currentKey, offset, length);
                             schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
@@ -182,21 +165,20 @@ after the first possible key.
                                 continue;
                             }
                             setStartKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-                        } else {
-                            i++;
                         }
                         appendToStartKey(i, ptr.getOffset() - offset);
                         return ReturnCode.SEEK_NEXT_USING_HINT;
                     }
                 }
             } else if (slots.get(i).get(position[i]).compareLower(ptr) > 0) {
+                // Our current key is less than the lower range of the current position in the current slot.
                 // Seek to the lower range, since it's bigger than the current key
                 setStartKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
                 Arrays.fill(position, i+1, position.length, 0);
-                appendToStartKey(i, ptr.getOffset() - offset); // FIXME: i+1 ?
+                appendToStartKey(i, ptr.getOffset() - offset);
                 position[i] = 0;
                 return ReturnCode.SEEK_NEXT_USING_HINT;
-            } else {
+            } else { // We're in range, check the next slot
                 i++;
                 if (i >= nSlots) {
                     break;
@@ -205,13 +187,11 @@ after the first possible key.
             }
         }
             
-        // Otherwise we're in range for all slots and can include this row plus all rows 
+        // We're in range for all slots and can include this row plus all rows 
         // up to the upper range of our last slot
-        includeUntilKey = copyKey(includeUntilKey, ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-        includeUntilKeyLength = ptr.getOffset() - offset;
-        // TODO: review - don't want next key to automatically be done here
-        includeUntilKeyLength += setKey(Bound.UPPER, includeUntilKey, ptr.getOffset() - offset, nSlots-1);
-        // FIXME: what to set positions to here?
+        setEndKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
+        appendToEndKey(nSlots-1, ptr.getOffset() - offset);
+        // TODO: Figure out if we can optimize this by not always reseting the positions to zero
         Arrays.fill(position, 1, position.length, 0);
         return ReturnCode.INCLUDE;
    }
@@ -229,10 +209,10 @@ after the first possible key.
         startKeyLength = length;
     }
     
-//    private void setEndKey(int maxLength, byte[] sourceKey, int offset, int length) {
-//        endKey = copyKey(endKey, maxLength, sourceKey, offset, length);
-//        endKeyLength = length;
-//    }
+    private void setEndKey(int maxLength, byte[] sourceKey, int offset, int length) {
+        endKey = copyKey(endKey, maxLength, sourceKey, offset, length);
+        endKeyLength = length;
+    }
     
     private int setKey(Bound bound, byte[] key, int keyOffset, int slotStartIndex) {
         return setKey(bound, key, keyOffset, slotStartIndex, position.length);
@@ -250,15 +230,9 @@ after the first possible key.
         startKeyLength += setKey(Bound.LOWER, startKey, byteOffset, slotIndex);
     }
 
-    private void setEndKey() {
-        endKeyLength = setKey(Bound.UPPER, endKey, 0, 0);
-//        endKeyLength = setKey(Bound.LOWER, endKey, 0, 0, position.length-1);
-//        endKeyLength += setKey(Bound.UPPER, endKey, 0, position.length-1, position.length);
+    private void appendToEndKey(int slotIndex, int byteOffset) {
+        endKeyLength += setKey(Bound.UPPER, endKey, byteOffset, slotIndex);
     }
-
-//    private void appendToEndKey(int slotIndex, int byteOffset) {
-//        endKeyLength += setKey(Bound.UPPER, endKey, byteOffset, slotIndex);
-//    }
 
     private int getTerminatorCount(RowKeySchema schema) {
         int nTerminators = 0;
@@ -271,7 +245,8 @@ after the first possible key.
         return nTerminators;
     }
     
-    @Override public void readFields(DataInput in) throws IOException {
+    @Override
+    public void readFields(DataInput in) throws IOException {
         RowKeySchema schema = new RowKeySchema();
         schema.readFields(in);
         int maxLength = getTerminatorCount(schema);
@@ -310,7 +285,8 @@ after the first possible key.
         this.init(slots, schema, maxLength);
     }
 
-    @Override public void write(DataOutput out) throws IOException {
+    @Override
+    public void write(DataOutput out) throws IOException {
         schema.write(out);
         out.writeInt(slots.size());
         for (List<KeyRange> orclause : slots) {
@@ -332,7 +308,8 @@ after the first possible key.
         }
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         HashFunction hf = Hashing.goodFastHash(32);
         Hasher h = hf.newHasher();
         h.putInt(slots.size());
@@ -346,13 +323,15 @@ after the first possible key.
         return h.hash().asInt();
     }
 
-    @Override public boolean equals(Object obj) {
+    @Override
+    public boolean equals(Object obj) {
         if (!(obj instanceof SkipScanFilter)) return false;
         SkipScanFilter other = (SkipScanFilter)obj;
         return Objects.equal(slots, other.slots) && Objects.equal(schema, other.schema);
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         // TODO: make static util methods in ExplainTable that use type to print
         // key ranges
         return "SkipScanFilter "+ slots.toString() ;
