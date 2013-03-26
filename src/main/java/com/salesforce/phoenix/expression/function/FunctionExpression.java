@@ -59,54 +59,6 @@ public abstract class FunctionExpression extends BaseCompoundExpression {
         return false;
     }
 
-    public enum KeyFormationDirective {
-        /**
-         * The function is not usable to help form the scan start/stop key.
-         * For example: WHERE TRUNC(date,'DAY') < TO_DATE('2013-01-01 12:00:00')
-         * cannot be used to form the row key.
-         */
-        UNTRAVERSABLE, 
-        /**
-         * The function may be used to help form the scan key, but should
-         * be left in the filter since all rows in the scan key range may
-         * not match the filter. An example would be:
-         * WHERE REGEXP_REPLACE(name,'\w') = 'he'
-         * which would set the start key to 'hat' and then would filter
-         * cases like 'help' and 'heap'.
-         */
-        TRAVERSE_AND_LEAVE, 
-        /**
-         * The function may be used to help form the scan key and it may
-         * be removed from the where clause since all rows in the scan key
-         * range will match the filter. An example would be:
-         * WHERE SUBSTR(entity_id,1,3) = '001'
-         * which would not require including the SUBSTR in the filter, since
-         * the scan key would filter everything correctly.
-         */
-        TRAVERSE_AND_EXTRACT};
-
-    /**
-     * Method used to maintain certain query optimization that may be possible even through a function invocation.
-     * If the function invocatin will not cause the output to be ordered differently than the input, then UseAndLeave should
-     * be returned. Cases in which equals would be returned for the output while the input would return greater than
-     * may be ok.  For example, SUBSTR(foo,1,3) would return true, since the order produced by the input and the order
-     * produced by the output are the both the same.
-     * @return the scan key formation directive to guide in the formation of the scan key
-     */
-    public KeyFormationDirective getKeyFormationDirective() {
-        return KeyFormationDirective.UNTRAVERSABLE;
-    }
-    
-    /**
-     * Zero-based index of child expression that determines the potential column used to form the row key during optimization.
-     * For example, SUBSTR(prefix,1,3), the first child expression (prefix) would determine the row key column used to
-     * help form the scan start/stop key
-     * @return int
-     */
-    public int getKeyFormationTraversalIndex() {
-        return 0;
-    }
-
     abstract public String getName();
     
     @Override

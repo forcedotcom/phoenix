@@ -32,12 +32,13 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.filter.FilterList;
 
-import com.salesforce.phoenix.compile.ScanKey;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -50,13 +51,35 @@ public abstract class ExplainTable {
         this.table = table;
     }
 
+    private boolean explainSkipScan(StringBuilder buf) {
+        ScanRanges scanRanges = context.getScanRanges();
+        if (scanRanges.useSkipScanFilter()) {
+            int count = 1;
+            boolean hasRanges = false;
+            for (List<KeyRange> ranges : scanRanges.getRanges()) {
+                count *= ranges.size();
+                for (KeyRange range : ranges) {
+                    hasRanges |= !range.isSingleKey();
+                }
+            }
+            buf.append("ON ");
+            buf.append(count);
+            buf.append(hasRanges ? " RANGE" : " KEY");
+            buf.append(count > 1 ? "S " : " ");
+            return true;
+        }
+        return false;
+    }
+    
     protected void explain(String prefix, List<String> planSteps) {
         StringBuilder buf = new StringBuilder(prefix);
-        ScanKey scanKey = context.getScanKey();
-        if (scanKey.getLowerRange().length == 0 && scanKey.getUpperRange().length == 0) {
+        ScanRanges scanRanges = context.getScanRanges();
+        boolean hasSkipScanFilter = false;
+        if (scanRanges.isEverything()) {
             buf.append("FULL SCAN ");
         } else {
             buf.append("RANGE SCAN ");
+            hasSkipScanFilter = explainSkipScan(buf);
         }
         buf.append("OVER " + SchemaUtil.getTableDisplayName(this.table.getSchema().getName(), table.getTable().getName().getString()));
         appendKeyRange(buf);
@@ -65,51 +88,88 @@ public abstract class ExplainTable {
         Scan scan = context.getScan();
         Filter filter = scan.getFilter();
         if (filter != null) {
-            planSteps.add("    SERVER FILTER BY " + filter.toString());
+            String filterDesc = "";
+            if (hasSkipScanFilter) {
+                if (filter instanceof FilterList) {
+                    FilterList filterList = (FilterList) filter;
+                    assert (filterList.getFilters().size() == 2);
+                    filterDesc = filterList.getFilters().get(1).toString();
+                }
+            } else {
+                filterDesc = filter.toString();
+            }
+            if (filterDesc.length() > 0) {
+                planSteps.add("    SERVER FILTER BY " + filterDesc);
+            }
         }
         context.getGroupBy().explain(planSteps);
     }
 
-    private void appendPKColumnValues(StringBuilder buf, byte[] key, int slots, RowKeySchema schema) {
-        ImmutableBytesWritable ptr = context.getTempPtr();
-        ptr.set(key, 0, 0);
-
-        int i = 0;
-        for (Boolean hasValue = i >= slots ? null : schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); hasValue != null; hasValue = ++i >= slots ? null : schema.next(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET)) {
-            if (hasValue) {
-                PDataType type = schema.getField(i).getType();
-                Format formatter = context.getConnection().getFormatter(type);
-                //Object value = type.toObject(ptr);
-                boolean isString = type.isCoercibleTo(PDataType.VARCHAR);
-                if (isString) buf.append('\''); // TODO: PDataType.toString(Object, Format) method?
-                buf.append(formatter == null ? Bytes.toStringBinary(ptr.get(), ptr.getOffset(), ptr.getLength()) : formatter.format(type.toObject(ptr)));
-                if (isString) buf.append('\'');
-            } else {
-                buf.append("null");
-            }
-            buf.append(',');
+    private void appendPKColumnValue(StringBuilder buf, byte[] range, PDataType type) {
+        if (range.length == 0) {
+            buf.append("null");
+            return;
         }
+        Format formatter = context.getConnection().getFormatter(type);
+        //Object value = type.toObject(ptr);
+        boolean isString = type.isCoercibleTo(PDataType.VARCHAR);
+        if (isString) buf.append('\''); // TODO: PDataType.toString(Object, Format) method?
+        Object o = type.toObject(range);
+        if (isString) {
+            String s = (String) o;
+            for (int i = 0; i < s.length() && s.charAt(i) != '\0'; i++) {
+                buf.append(s.charAt(i));
+            }
+        } else {
+            buf.append(formatter == null ? o : formatter.format(o));
+        }
+        if (isString) buf.append('\'');
     }
     
     private void appendKeyRange(StringBuilder buf) {
-        ScanKey scanKey = context.getScanKey();
-        boolean noStartKey = scanKey.getLowerRange().length == 0;
-        boolean noEndKey = scanKey.getUpperRange().length == 0;
-        if (noStartKey && noEndKey) {
+        ScanRanges scanRanges = context.getScanRanges();
+        if (scanRanges == ScanRanges.EVERYTHING || scanRanges == ScanRanges.NOTHING) {
             return;
-        } else {
-            if (!noStartKey) {
-                buf.append(" FROM (");
-                appendPKColumnValues(buf, scanKey.getLowerRange(), scanKey.getLowerSlots(), scanKey.getSchema());
-                buf.setCharAt(buf.length()-1, ')');
-                buf.append(scanKey.isLowerInclusive() ? " INCLUSIVE" : " EXCLUSIVE");
-            }
-            if (!noEndKey) {
-                buf.append(" TO (");
-                appendPKColumnValues(buf, scanKey.getUpperRange(), scanKey.getUpperSlots(), scanKey.getSchema());
-                buf.setCharAt(buf.length()-1, ')');
-                buf.append(scanKey.isUpperInclusive() ? " INCLUSIVE" : " EXCLUSIVE");
-            }
         }
+//        boolean noStartKey = scanKey.getLowerRange().length == 0;
+//        boolean noEndKey = scanKey.getUpperRange().length == 0;
+//        if (!noStartKey) {
+//            buf.append(" FROM (");
+//            appendPKColumnValues(buf, scanKey.getLowerRange(), scanKey.ge
+//            buf.setCharAt(buf.length()-1, ')');
+//            buf.append(scanKey.isLowerInclusive() ? " INCLUSIVE" : " EXCL
+//        }
+//        if (!noEndKey) {
+//            buf.append(" TO (");
+//            appendPKColumnValues(buf, scanKey.getUpperRange(), scanKey.ge
+//            buf.setCharAt(buf.length()-1, ')');
+//            buf.append(scanKey.isUpperInclusive() ? " INCLUSIVE" : " EXCL
+//        }
+        int i = 0;
+        buf.append(' ');
+        for (List<KeyRange> ranges : scanRanges.getRanges()) {
+            KeyRange lower = ranges.get(0);
+            KeyRange upper = ranges.get(ranges.size()-1);
+            PDataType dataType = scanRanges.getSchema().getField(i).getType();
+            if (lower.isSingleKey() && lower == upper) {
+                appendPKColumnValue(buf, lower.getLowerRange(), dataType);
+            } else {
+                buf.append(lower.isLowerInclusive() ? '[' : '(');
+                if (lower.lowerUnbound()) {
+                    buf.append('*');
+                } else {
+                    appendPKColumnValue(buf, lower.getLowerRange(), dataType);
+                }
+                buf.append('-');
+                if (upper.upperUnbound()) {
+                    buf.append('*');
+                } else {
+                    appendPKColumnValue(buf, upper.getUpperRange(), dataType);
+                }
+                buf.append(upper.isUpperInclusive() ? ']' : ')');
+            }
+            buf.append(",");
+        }
+        buf.setLength(buf.length() - 1);
     }
 }

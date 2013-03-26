@@ -33,7 +33,6 @@ import java.text.Format;
 import java.util.*;
 import java.util.concurrent.Executor;
 
-
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
@@ -153,7 +152,9 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
                     }
                 } else if (out != null){
                     int updateCount = stmt.getUpdateCount();
-                    out.println((updateCount == 0 ? "no" : updateCount) + (updateCount == 1 ? " row " : " rows ") + stmt.getUpdateOperation().toString());
+                    if (updateCount >= 0) {
+                        out.println((updateCount == 0 ? "no" : updateCount) + (updateCount == 1 ? " row " : " rows ") + stmt.getUpdateOperation().toString());
+                    }
                 }
                 bindsOffset += paramMetaData.getParameterCount();
                 nStatements++;

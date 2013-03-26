@@ -34,13 +34,13 @@ import java.util.List;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.compile.WhereOptimizer.KeyExpressionVisitor.KeyPart;
+import com.salesforce.phoenix.compile.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.StringUtil;
@@ -103,13 +103,41 @@ public class RTrimFunction extends ScalarFunction {
     }
 
     @Override
-    public KeyFormationDirective getKeyFormationDirective() {
-        return KeyFormationDirective.TRAVERSE_AND_LEAVE;
+    public int getKeyFormationTraversalIndex() {
+        return 0;
     }
 
     @Override
-    public KeyPart newKeyPart(KeyPart part) {
-        return new RTrimKeyPart(part.getBackingDatum(), part.getPosition(), Collections.<Expression>emptyList(), part.getKeyRanges());
+    public KeyPart newKeyPart(final KeyPart childPart) {
+        return new KeyPart() {
+            @Override
+            public KeyRange getKeyRange(CompareOp op, byte[] key) {
+                KeyRange range;
+                switch (op) {
+                case EQUAL:
+                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
+                    break;
+                case LESS_OR_EQUAL:
+                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
+                    break;
+                default:
+                    range = childPart.getKeyRange(op, key);
+                    break;
+                }
+                Integer length = getColumn().getByteSize();
+                return length == null ? range : range.fill(length);
+            }
+
+            @Override
+            public List<Expression> getExtractNodes() {
+                return Collections.<Expression>emptyList();
+            }
+
+            @Override
+            public PColumn getColumn() {
+                return childPart.getColumn();
+            }
+        };
     }
 
     @Override
@@ -126,31 +154,4 @@ public class RTrimFunction extends ScalarFunction {
     public String getName() {
         return NAME;
     }
-    
-    private static class RTrimKeyPart extends KeyPart {
-        
-        public RTrimKeyPart(PDatum backingDatum, int position, List<Expression> nodes, List<KeyRange> keyRanges) {
-            super(backingDatum, position, nodes, keyRanges);
-        }
-
-        @Override
-        public KeyRange getKeyRange(CompareOp op, byte[] key) {
-            KeyRange range;
-            switch (op) {
-            case EQUAL:
-                range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
-                break;
-            case LESS_OR_EQUAL:
-                range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
-                break;
-            default:
-                range = super.getKeyRange(op, key);
-                break;
-            }
-            Integer length = this.getBackingDatum().getDataType().isFixedWidth() ? this.getBackingDatum().getMaxLength() : null;
-            return length == null ? range : fillKey(range, length);
-        }
-
-    }
-
 }

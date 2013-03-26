@@ -33,6 +33,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.http.annotation.Immutable;
 
@@ -136,15 +137,46 @@ public class KeyRange {
         return isSingleKey;
     }
     
+    public int compareLower(ImmutableBytesWritable ptr) {
+        return compareLower(ptr.get(), ptr.getOffset(), ptr.getLength());
+    }
+    
+    public int compareUpper(ImmutableBytesWritable ptr) {
+        return compareUpper(ptr.get(), ptr.getOffset(), ptr.getLength());
+    }
+    
+    public int compareLower( byte[] b, int o, int l) {
+        if (lowerUnbound()) {
+            return -1;
+        }
+        int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
+        if (cmp > 0 || cmp == 0 && !lowerInclusive) {
+            return 1;
+        }
+        return cmp < 0 ? -1 : 0;
+    }
+    
+    
+    public int compareUpper(byte[] b, int o, int l) {
+        if (upperUnbound()) {
+            return 1;
+        }
+        int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
+        if (cmp < 0 || cmp == 0 && !upperInclusive) {
+            return -1;
+        }
+        return cmp > 0 ? 1 : 0;
+    }
+    
     public boolean isInRange(byte[] b, int o, int l) {
         if (!lowerUnbound()) {
-            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, 0, l);
+            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
             if (cmp > 0 || cmp == 0 && !lowerInclusive) {
                 return false;
             }
         }
         if (!upperUnbound()) {
-            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, 0, l);
+            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
             if (cmp < 0 || cmp == 0 && !upperInclusive) {
                 return false;
             }
@@ -409,4 +441,34 @@ public class KeyRange {
         tmp2.add(r);
         return tmp2;
     }
+    
+    /**
+     * Fill both upper and lower range of keyRange to keyLength bytes.
+     * If the upper bound is inclusive, it must be filled such that an
+     * intersection with a longer key would still match if the shorter
+     * length matches.  For example: (*,00C] intersected with [00Caaa,00Caaa]
+     * should still return [00Caaa,00Caaa] since the 00C matches and is
+     * inclusive.
+     * @param keyLength
+     * @return the newly filled KeyRange
+     */
+    public KeyRange fill(int keyLength) {
+        byte[] lowerRange = this.getLowerRange();
+        byte[] newLowerRange = lowerRange;
+        if (!this.lowerUnbound()) {
+            // If lower range is inclusive, fill with 0x00 since conceptually these bytes are included in the range
+            newLowerRange = ByteUtil.fillKey(lowerRange, keyLength);
+        }
+        byte[] upperRange = this.getUpperRange();
+        byte[] newUpperRange = upperRange;
+        if (!this.upperUnbound()) {
+            // If upper range is inclusive, fill with 0xFF since conceptually these bytes are included in the range
+            newUpperRange = ByteUtil.fillKey(upperRange, keyLength);
+        }
+        if (newLowerRange != lowerRange || newUpperRange != upperRange) {
+            return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive());
+        }
+        return this;
+    }
+
 }

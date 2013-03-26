@@ -1,14 +1,12 @@
 package com.salesforce.phoenix.filter;
 
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 import junit.framework.TestCase;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.filter.Filter.ReturnCode;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,13 +25,15 @@ import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 //filterRow(List) -> allows directmodification of the final list to be submitted
 //filterRow() -> last chance to drop entire row based on the sequence of filterValue() calls. Eg: filter a row if it doesn't contain a specified column.
 @RunWith(Parameterized.class)
-public abstract /* TODO: get working again and remove abstract */ class SkipScanFilterTest extends TestCase {
+public class SkipScanFilterTest extends TestCase {
     private final SkipScanFilter skipper;
-    private final Expectation expectation;
+    private final List<List<KeyRange>> cnf;
+    private final List<Expectation> expectations;
 
-    public SkipScanFilterTest(List<List<KeyRange>> cnf, int[] widths, Expectation expectation) {
-        this.expectation = expectation;
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(widths.length);
+    public SkipScanFilterTest(List<List<KeyRange>> cnf, int[] widths, List<Expectation> expectations) {
+        this.expectations = expectations;
+        this.cnf = cnf;
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
         for (final int width : widths) {
             builder.addField(new PDatum() {
 
@@ -68,62 +68,62 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
     }
 
     @Test
-    @Ignore("Need to get working again")
     public void test() {
-        expectation.examine(skipper);
+        System.out.println("CNF: " + cnf + "\n" + "Expectations: " + expectations);
+        for (Expectation expectation : expectations) {
+            expectation.examine(skipper);
+        }
     }
 
     @Parameters(name="{0} {1} {2}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("aac"), true, Bytes.toBytes("aad"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true)
                 }},
                 new int[]{3},
-                new SeekNext("aba", "abc"),
+                new SeekNext("aab", "aac"),
                 new SeekNext("abb", "abc"),
                 new Include("abc"),
                 new Include("abe"),
                 new Include("def"),
                 new Finished("deg")));
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), true)
                 }},
                 new int[]{3},
                 new SeekNext("aba", "abd"),
-                new SeekNext("abb", "abd"),
-                new SeekNext("abc", "abd"),
                 new Include("abe"),
                 new Include("def"),
                 new Finished("deg")));
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), false)
                 }},
                 new int[]{3},
-                new SeekNext("abb", "abd"),
                 new SeekNext("aba", "abd"),
-                new SeekNext("abc", "abd"),
-                new Include("abe"),
                 new Finished("def"))
         );
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
                 }},
                 new int[]{3},
                 new Include("def"),
                 new SeekNext("deg", "dzz"),
-                new SeekNext("dyy", "dzz"),
-                new SeekNext("dzy", "dzz"),
                 new Include("eee"),
                 new Finished("xyz"))
         );
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("abc"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 },
@@ -134,17 +134,16 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
                 }},
                 new int[]{3,2},
                 new Include("abcAB"),
+                new SeekNext("abcAY","abcEB"),
                 new Include("abcEF"),
-                new Include("defPO"),
                 new SeekNext("abcPP","defAB"),
                 new SeekNext("defEZ","defPO"),
-                new SeekNext("abcAY","abcEB"),
-                new Finished("defPP"),
-                new Finished("degAB"),
-                new Finished("defZZ"))
+                new Include("defPO"),
+                new Finished("defPP")
+                )
         );
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
                     KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
@@ -155,39 +154,36 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
                 }},
                 new int[]{2,3},
                 new Include("ABabc"),
-                new Include("EFabc"),
-                new Include("POdef"),
-                new SeekNext("POabd","POdef"),
-                new Finished("PPabc"),
-                new SeekNext("EZdef","POabc"),
-                new SeekNext("AYabc","EBabc"),
-                new Finished("PPdef"),
                 new SeekNext("ABdeg","ACabc"),
-                new Finished("ZZdef"))
+                new Include("AMabc"),
+                new SeekNext("AYabc","EBabc"),
+                new Include("EFabc"),
+                new SeekNext("EZdef","POabc"),
+                new SeekNext("POabd","POdef"),
+                new Include("POdef"),
+                new Finished("PPabc"))
         );
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 },
                 {
                     KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
                 new int[]{2,3},
-                new Finished("PPdef"),
-                new Finished("POdeg"),
-                new Include("POdef"))
+                new Include("POdef"),
+                new Finished("POdeg"))
         );
         testCases.addAll(
-                foreach(new KeyRange[][]{{
+            foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PO"), true),
                 },
                 {
                     KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
                 new int[]{2,3},
-                new Finished("PPdef"),
-                new Finished("POdeg"),
-                new Include("POdef"))
+                new Include("POdef"),
+                new Finished("PPdef"))
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -208,13 +204,12 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
                 }},
                 new int[]{3,2,2,2,2},
                 new SeekNext("abcABABABAB", "abdAAAAAAAA"),
-                new SeekNext("defABABABAB", "dzzAAAAAAAA"),
                 new SeekNext("defAAABABAB", "dzzAAAAAAAA"),
-                new SeekNext("defABABAAAB", "dzzAAAAAAAA"),
                 new Finished("xyyABABABAB"))
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("AAA"), true, Bytes.toBytes("AAA"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
                 },
@@ -224,6 +219,10 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
                     KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 }},
                 new int[]{3,2},
+                new SeekNext("aaaAA", "abcAB"),
+                new SeekNext("abcZZ", "abdAB"),
+                new SeekNext("abdZZ", "abeAB"),
+                new SeekNext(new byte[]{'d','e','a',(byte)0xFF,(byte)0xFF}, new byte[]{'d','e','b','A','B'}),
                 new Include("defAB"),
                 new Include("defAC"),
                 new Include("defAW"),
@@ -231,46 +230,27 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
                 new Include("defEB"),
                 new Include("defPO"),
                 new SeekNext("degAB", "dzzAB"),
-                new SeekNext("dyyPO", "dzzAB"),
-                new SeekNext("aaaAA", "abcAB"),
-                new SeekNext("aaaZZ", "abcAB"),
-                new SeekNext("aaaPP", "abcAB"),
-                new SeekNext("defZZ", "dzzAB"),
-                new SeekNext("defPP", "dzzAB"),
-                new SeekNext("abcZZ", "abdAB"),
-                new SeekNext("abcPP", "abdAB"),
-                new SeekNext("abdZZ", "abeAB"),
-                new SeekNext("abdPP", "abeAB"),
-                new SeekNext("dzyZZ", "dzzAB"),
                 new Include("dzzAX"),
-                new SeekNext("dzzEZ", "dzzPO"),
                 new Include("dzzEY"),
-                new SeekNext("dffAA", "dzzAB"),
-                new SeekNext("deaPP","debAB"),
-                new SeekNext(new byte[]{'d','e','a',(byte)0xFF,(byte)0xFF}, new byte[]{'d','e','b','A','B'}),
-                new SeekNext("dzzAA", "dzzAB"),
+                new SeekNext("dzzEZ", "dzzPO"),
                 new Include("eeeAB"),
                 new Include("eeeAC"),
-                new Include("eeeEF"),
-                new SeekNext("dxxEA", "dzzAB"),
                 new SeekNext("eeeEA", "eeeEB"),
+                new Include("eeeEF"),
                 new SeekNext("eeeEZ","eeePO"),
-                new Finished("xyzAA"),
-                new Finished("xyzAC"),
-                new Finished("zzzAA"))
+                new Finished("xyzAA"))
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("dzz"), true, Bytes.toBytes("xyz"), false),
                 }},
                 new int[]{3},
                 new SeekNext("abb", "abc"),
-                new SeekNext("aba", "abc"),
                 new Include("abc"),
                 new Include("abe"),
-                new Finished("xyz"),
-                new Finished("zzz"))
+                new Finished("xyz"))
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -287,9 +267,9 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
                     KeyRange.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
                 }},
                 new int[]{3,2,3},
-                new Include("abcEB701"),
                 new SeekNext("abcEB700", "abcEB701"),
-                new SeekNext("abcEB250", "abcEB701"),
+                new Include("abcEB701"),
+                new SeekNext("dzzAB250", "dzzAB701"),
                 new Finished("zzzAA000"))
         );
 // TODO variable length columns
@@ -315,9 +295,7 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
     private static Collection<?> foreach(KeyRange[][] ranges, int[] widths, Expectation... expectations) {
         List<List<KeyRange>> cnf = Lists.transform(Lists.newArrayList(ranges), ARRAY_TO_LIST);
         List<Object> ret = Lists.newArrayList();
-        for (int i=0;i<expectations.length;i++) {
-            ret.add(new Object[] { cnf, widths, expectations[i] });
-        }
+        ret.add(new Object[] {cnf, widths, Arrays.asList(expectations)} );
         return ret;
     }
 
@@ -367,8 +345,7 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
             assertFalse(skipper.filterAllRemaining());
             assertFalse(skipper.filterRowKey(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength()));
 
-            assertEquals(ReturnCode.INCLUDE, skipper.filterKeyValue(kv));
-            assertNull(skipper.getNextKeyHint(kv));
+            assertEquals(kv.toString(), ReturnCode.INCLUDE, skipper.filterKeyValue(kv));
         }
 
         @Override public String toString() {
@@ -386,7 +363,7 @@ public abstract /* TODO: get working again and remove abstract */ class SkipScan
             KeyValue kv = KeyValue.createFirstOnRow(rowkey);
             skipper.reset();
             assertFalse(skipper.filterAllRemaining());
-            assertTrue(skipper.filterRowKey(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength()));
+            assertEquals(ReturnCode.NEXT_ROW,skipper.filterKeyValue(kv));
             skipper.reset();
             assertTrue(skipper.filterAllRemaining());
         }

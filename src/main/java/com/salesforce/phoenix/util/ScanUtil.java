@@ -37,6 +37,9 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.KeyRange.Bound;
+import com.salesforce.phoenix.schema.RowKeySchema;
 
 
 
@@ -48,6 +51,7 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
  * @since 0.1
  */
 public class ScanUtil {
+    
     private ScanUtil() {
     }
 
@@ -119,4 +123,84 @@ public class ScanUtil {
             throw new RuntimeException(e);
         }
     }
+
+    public static byte[] getMinKey(RowKeySchema schema, List<List<KeyRange>> slots) {
+        return getKey(schema, slots, Bound.LOWER);
+    }
+    
+    public static byte[] getMaxKey(RowKeySchema schema, List<List<KeyRange>> slots) {
+        return getKey(schema, slots, Bound.UPPER);
+    }
+    
+    private static byte[] getKey(RowKeySchema schema, List<List<KeyRange>> slots, Bound bound) {
+        if (slots.isEmpty()) {
+            return null;
+        }
+        int[] position = new int[slots.size()];
+        int maxLength = 0;
+        for (int i = 0; i < position.length; i++) {
+            position[i] = bound == Bound.LOWER ? 0 : slots.get(i).size()-1;
+            KeyRange range = slots.get(i).get(position[i]);
+            maxLength += range.getRange(bound).length + (schema.getField(i).getType().isFixedWidth() ? 0 : 1);
+        }
+        byte[] key = new byte[maxLength];
+        int length = setKey(schema, slots, position, bound, key, 0, 0, position.length);
+        if (length == 0) {
+            return null;
+        }
+        if (length == maxLength) {
+            return key;
+        }
+        byte[] keyCopy = new byte[length];
+        System.arraycopy(key, 0, keyCopy, 0, length);
+        return keyCopy;
+    }
+    
+    public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound, byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
+        int offset = byteOffset;
+        // Increment the key if we're setting an upper range by default
+        boolean incrementKey = bound == Bound.UPPER;
+        for (int i = slotStartIndex; i < slotEndIndex; i++) {
+            // Build up the key by appending the bound of each key range
+            // from the current position of each slot. 
+            KeyRange range = slots.get(i).get(position[i]);
+            boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
+
+            /*
+             * If the current slot is unbound then stop if:
+             * 1) setting the upper bound. There's no value in
+             *    continuing because nothing will be filtered.
+             * 2) setting the lower bound when the type is fixed length
+             *    for the same reason. However, if the type is variable width
+             *    continue building the key because null values will be filtered
+             *    since our separator byte will be appended and increment.
+             */
+            if (  range.isUnbound(bound) &&
+                ( bound == Bound.UPPER || isFixedWidth) ){
+                break;
+            }
+            incrementKey = range.isInclusive(bound) ^ bound == Bound.LOWER;
+
+            byte[] bytes = range.getRange(bound);
+            System.arraycopy(bytes, 0, key, offset, bytes.length);
+            offset += bytes.length;
+            if (i < schema.getMaxFields()-1 && !isFixedWidth) {
+                key[offset++] = QueryConstants.SEPARATOR_BYTE;
+            }
+            
+            if (!range.isSingleKey() && incrementKey) {
+                if (!ByteUtil.nextKey(key, offset)) {
+                    // Special case for not being able to increment
+                    return -byteOffset;
+                }
+                incrementKey = false;
+            }
+        }
+        
+        if (incrementKey) {
+            ByteUtil.nextKey(key, offset);
+        }
+        return offset - byteOffset;
+    }
+
 }

@@ -367,10 +367,12 @@ public enum PDataType {
             return Bytes.SIZEOF_LONG;
         }
 
+        @Override
         public Integer getMaxLength(Object o) {
             return LONG_PRECISION;
         }
 
+        @Override
         public Integer getScale(Object o) {
             return ZERO;
         }
@@ -500,10 +502,12 @@ public enum PDataType {
             return Bytes.SIZEOF_INT;
         }
 
+        @Override
         public Integer getMaxLength(Object o) {
             return INT_PRECISION;
         }
 
+        @Override
         public Integer getScale(Object o) {
             return ZERO;
         }

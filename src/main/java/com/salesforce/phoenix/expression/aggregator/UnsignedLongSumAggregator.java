@@ -25,30 +25,23 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.expression.aggregator;
+
+import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
- * Exception thrown when we have a numeric ScanKey value that overflows its arithmetic type 
- * value boundery.
- * 
- * @author zhuang
- * @since 0.1
+ * Aggregator that sums unsigned long values
+ * TODO: create these classes dynamically based on the type passed through
+ *
+ * @author jtaylor
+ * @since 0.12
  */
-public class ScanKeyOverflowException extends RuntimeException {
-	private static final long serialVersionUID = 1L;
-
-    public ScanKeyOverflowException() { };
-
-    public ScanKeyOverflowException(String message) {
-        super(message);
+public class UnsignedLongSumAggregator extends NumberSumAggregator {
+    
+    @Override
+    protected PDataType getInputDataType() {
+        return PDataType.UNSIGNED_LONG;
     }
 
-    public ScanKeyOverflowException(Throwable cause) {
-        super(cause);
-    }
-
-    public ScanKeyOverflowException(String message, Throwable cause) {
-        super(message, cause);
-    }
 }

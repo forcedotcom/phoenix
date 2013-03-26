@@ -75,7 +75,7 @@ public class DeleteCompiler {
         Expression whereClause = WhereCompiler.getWhereClause(context, where);
         final int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         
-        if (LiteralExpression.TRUE_EXPRESSION.equals(whereClause) && context.getScanKey().isSingleKey()) {
+        if (LiteralExpression.TRUE_EXPRESSION.equals(whereClause) && context.getScanRanges().isSingleRowScan()) {
             final ImmutableBytesPtr key = new ImmutableBytesPtr(scan.getStartRow());
             return new MutationPlan() {
 

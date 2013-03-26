@@ -89,7 +89,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     protected final PhoenixConnection connection;
     private static final int NO_UPDATE = -1;
-    private final List<PhoenixResultSet> resultSets = new ArrayList<PhoenixResultSet>();
+    private List<PhoenixResultSet> resultSets = new ArrayList<PhoenixResultSet>();
     private QueryPlan lastQueryPlan;
     private PhoenixResultSet lastResultSet;
     private int lastUpdateCount = NO_UPDATE;
@@ -101,6 +101,10 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     
     public PhoenixStatement(PhoenixConnection connection) {
         this.connection = connection;
+    }
+    
+    protected List<PhoenixResultSet> getResultSets() {
+        return resultSets;
     }
     
     protected PhoenixResultSet newResultSet(Scanner scanner) throws SQLException {
@@ -673,6 +677,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public void close() throws SQLException {
         try {
+            List<PhoenixResultSet> resultSets = this.resultSets;
+            // Create new list so that remove of the PhoenixResultSet
+            // during closeAll doesn't needless do a linear search
+            // on this list.
+            this.resultSets = Lists.newArrayList();
             SQLCloseables.closeAll(resultSets);
         } finally {
             try {

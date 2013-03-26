@@ -25,54 +25,22 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.util;
-
-import static org.junit.Assert.*;
-
-import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Test;
+package com.salesforce.phoenix.expression.aggregator;
 
 import com.salesforce.phoenix.schema.PDataType;
 
-
-public class ByteUtilTest {
-
-    @Test
-    public void testSplitBytes() {
-        byte[] startRow = Bytes.toBytes("EA");
-        byte[] stopRow = Bytes.toBytes("EZ");
-        byte[][] splitPoints = Bytes.split(startRow, stopRow, 10);
-        for (byte[] splitPoint : splitPoints) {
-            assertTrue(Bytes.toStringBinary(splitPoint), Bytes.compareTo(startRow, splitPoint) <= 0);
-            assertTrue(Bytes.toStringBinary(splitPoint), Bytes.compareTo(stopRow, splitPoint) >= 0);
-        }
-    }
+/**
+ * 
+ * Aggregator that sums unsigned integer values
+ *
+ * @author jtaylor
+ * @since 0.12
+ */
+public class UnsignedIntSumAggregator extends NumberSumAggregator {
     
-    @Test
-    public void testVIntToBytes() {
-        for (int i = -10000; i <= 10000; i++) {
-            byte[] vint = Bytes.vintToBytes(i);
-            int vintSize = vint.length;
-            byte[] vint2 = new byte[vint.length];
-            assertEquals(vintSize, ByteUtil.vintToBytes(vint2, 0, i));
-            assertTrue(Bytes.BYTES_COMPARATOR.compare(vint,vint2) == 0);
-        }
+    @Override
+    protected PDataType getInputDataType() {
+        return PDataType.UNSIGNED_INT;
     }
-    
-    @Test
-    public void testNextKey() {
-        byte[] key = new byte[] {1};
-        assertEquals((byte)2, ByteUtil.nextKey(key)[0]); 
-        key = new byte[] {1, (byte)255};
-        byte[] nextKey = ByteUtil.nextKey(key);
-        byte[] expectedKey = new byte[] {2,(byte)0};
-        assertArrayEquals(expectedKey, nextKey); 
-        key = ByteUtil.concat(Bytes.toBytes("00D300000000XHP"), PDataType.INTEGER.toBytes(Integer.MAX_VALUE));
-        nextKey = ByteUtil.nextKey(key);
-        expectedKey = ByteUtil.concat(Bytes.toBytes("00D300000000XHQ"), PDataType.INTEGER.toBytes(Integer.MIN_VALUE));
-        assertArrayEquals(expectedKey, nextKey);
-        
-        key = new byte[] {(byte)255};
-        assertNull(ByteUtil.nextKey(key));
-    }
+
 }

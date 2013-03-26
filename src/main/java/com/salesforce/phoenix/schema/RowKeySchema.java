@@ -79,25 +79,33 @@ public class RowKeySchema extends ValueSchema {
     }
 
     @Override
-    public Boolean next(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
+    public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
         // If positioned at SEPARATOR_BYTE, skip it.
-        if (ptr.get()[ptr.getOffset()] == QueryConstants.SEPARATOR_BYTE) {
-            ptr.set(ptr.get(), ptr.getOffset()+1, ptr.getLength());
+        if (position > 0 && !getField(position-1).getType().isFixedWidth() && position-1 < getMaxFields() && ptr.get()[ptr.getOffset()+ptr.getLength()] == QueryConstants.SEPARATOR_BYTE) {
+            ptr.set(ptr.get(), ptr.getOffset()+ptr.getLength()+1, 0);
         }
-        return super.next(ptr,position,bitSet);
+        return super.next(ptr,position,maxOffset, bitSet);
     }
     
     @Override
-    protected int positionVarLength(ImmutableBytesWritable ptr, Field field, int nFields) {
-        byte[] buf = ptr.get();
+    protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxOffset) {
+        int len = 0;
         int initialOffset = ptr.getOffset();
-        int offset = initialOffset;
-        int maxOffset = buf.length;
-        while (offset < maxOffset && buf[offset] != SEPARATOR_BYTE) {
-            offset++;
+        while (nFields-- > 0) {
+            byte[] buf = ptr.get();
+            int offset = initialOffset;
+            if (position+1 == getFieldCount() && nFields == 0) { // Last field has no terminator
+                ptr.set(buf, maxOffset, 0);
+                return maxOffset - initialOffset;
+            }
+            while (offset < maxOffset && buf[offset] != SEPARATOR_BYTE) {
+                offset++;
+            }
+            ptr.set(buf, offset, 0);
+            len = offset - initialOffset;
+            initialOffset = offset + 1; // skip separator byte
         }
-        ptr.set(buf, offset, 0);
-        return offset - initialOffset;
+        return len;
     }
     
     @Override

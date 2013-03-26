@@ -128,7 +128,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
 
     private Scanner newScanner() throws SQLException {
         ConnectionQueryServices services = getConnectionQueryServices(context.getConnection().getQueryServices());
-        if (context.getScanKey().isDegenerate()) { // is degenerate
+        if (context.getScanRanges() == ScanRanges.NOTHING) { // is degenerate
             scanner = new DegenerateScanner(table, getProjector());
         } else {
             scanner = newScanner(services);

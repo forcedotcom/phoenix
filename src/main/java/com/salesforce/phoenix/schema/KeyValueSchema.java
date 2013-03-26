@@ -79,7 +79,7 @@ public class KeyValueSchema extends ValueSchema {
     }
     
     @Override
-    protected int positionVarLength(ImmutableBytesWritable ptr, Field field, int nFields) {
+    protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxLength) {
         int length = 0;
         while (nFields-- > 0) {
             length = ByteUtil.vintFromBytes(ptr);

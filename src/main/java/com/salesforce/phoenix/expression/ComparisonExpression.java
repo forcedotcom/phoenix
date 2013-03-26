@@ -56,7 +56,6 @@ public class ComparisonExpression extends BaseCompoundExpression {
         CompareOpString[CompareOp.LESS.ordinal()] = " < ";
         CompareOpString[CompareOp.GREATER_OR_EQUAL.ordinal()] = " >= ";
         CompareOpString[CompareOp.LESS_OR_EQUAL.ordinal()] = " <= ";
-        CompareOpString[CompareOp.NO_OP.ordinal()] = " LIKE ";
     }
     
     public ComparisonExpression() {

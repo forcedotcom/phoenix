@@ -72,8 +72,12 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
                 return new DecimalSumAggregator();
             case LONG:
                 return new LongSumAggregator();
+            case UNSIGNED_LONG:
+                return new UnsignedLongSumAggregator();
             case INTEGER:
                 return new IntSumAggregator();
+            case UNSIGNED_INT:
+                return new UnsignedIntSumAggregator();
             default:
                 throw new IllegalStateException("Unsupported SUM input type: " + getDataType());
         }
