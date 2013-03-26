@@ -78,7 +78,7 @@ public class QueryServicesOptions {
 
     @SuppressWarnings("deprecation")
     public static QueryServicesOptions withDefaults(Configuration config) {
-        return new QueryServicesOptions(config)
+        QueryServicesOptions options = new QueryServicesOptions(config)
             .setIfUnset(KEEP_ALIVE_MS_ATTRIB, DEFAULT_KEEP_ALIVE_MS)
             .setIfUnset(THREAD_POOL_SIZE_ATTRIB, DEFAULT_THREAD_POOL_SIZE)
             .setIfUnset(QUEUE_SIZE_ATTRIB, DEFAULT_QUEUE_SIZE)
@@ -99,6 +99,16 @@ public class QueryServicesOptions {
             .setIfUnset(MUTATE_BATCH_SIZE_ATTRIB, config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE))
             .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
             ;
+        // HBase sets this to 1, so we reset it to something more appropriate.
+        // Hopefully HBase will change this, because we can't know if a user set
+        // it to 1, so we'll change it.
+        int scanCaching = config.getInt(SCAN_CACHE_SIZE_ATTRIB, 0);
+        if (scanCaching == 1) {
+            config.setInt(SCAN_CACHE_SIZE_ATTRIB, DEFAULT_SCAN_CACHE_SIZE);
+        } else if (scanCaching <= 0) { // Provides the user with a way of setting it to 1
+            config.setInt(SCAN_CACHE_SIZE_ATTRIB, 1);
+        }
+        return options;
     }
     
     public Configuration getConfiguration() {
