@@ -131,6 +131,7 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
             scanner.close();
         } finally {
             isClosed = true;
+            statement.getResultSets().remove(this);
         }
     }
 
