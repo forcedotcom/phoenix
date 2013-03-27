@@ -2094,6 +2094,10 @@ public enum PDataType {
         return this.toObject(o, actualType);
     }
     
+    public Object toObject(ImmutableBytesWritable ptr, PDataType actualType) {
+        return toObject(ptr, actualType, null);
+    }    
+    
     public Object toObject(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier sortOrder) { 
         return this.toObject(ptr.get(),ptr.getOffset(),ptr.getLength(), actualType, sortOrder);
     }
