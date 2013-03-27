@@ -678,7 +678,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testAddKVColumnToExistingFamily() throws Exception {
+    public void testAddKVColumnToExistingFamily() throws Throwable {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
@@ -686,6 +686,10 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn1 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        // Failed attempt to repro table not found bug
+//        TestUtil.clearMetaDataCache(conn1);
+//        PhoenixConnection pconn = conn1.unwrap(PhoenixConnection.class);
+//        pconn.removeTable(ATABLE_SCHEMA_NAME, ATABLE_NAME);
         conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " ADD z_integer integer");
         conn1.close();
  

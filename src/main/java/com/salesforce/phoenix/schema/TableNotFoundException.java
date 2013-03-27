@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
-
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
@@ -40,7 +38,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  * @author jtaylor
  * @since 0.1
  */
-public class TableNotFoundException extends SQLException {
+public class TableNotFoundException extends MetaDataEntityNotFoundException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.TABLE_UNDEFINED;
     private final String schemaName;

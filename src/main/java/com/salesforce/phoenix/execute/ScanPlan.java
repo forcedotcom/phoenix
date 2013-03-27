@@ -65,6 +65,8 @@ public class ScanPlan extends BasicQueryPlan {
     
     @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
+        // Set any scan attributes before creating the scanner, as it will be too later afterwards
+        context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
         ResultIterator scanner;
         // Either way, just use serial result iterator, instead of parallel one.
         // When we get the pre-fetching ClientScanner, this will be better, but even
@@ -81,7 +83,6 @@ public class ScanPlan extends BasicQueryPlan {
         if (!orderBy.getOrderingColumns().isEmpty()) {
             scanner = new OrderedResultIterator(context, scanner, orderBy.getOrderingColumns());
         }
-        context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
 
         return new WrappedScanner(scanner, getProjector());
     }

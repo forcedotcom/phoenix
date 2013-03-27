@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
-
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
@@ -41,7 +39,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  * @author jtaylor
  * @since 0.1
  */
-public class ColumnNotFoundException extends SQLException {
+public class ColumnNotFoundException extends MetaDataEntityNotFoundException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.COLUMN_NOT_FOUND;
     private final String schemaName;

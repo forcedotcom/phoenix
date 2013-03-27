@@ -67,19 +67,17 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     
     @Override
     public Aggregator newServerAggregator() {
-        switch( getAggregatorExpression().getDataType() ) {
+        final PDataType type = getAggregatorExpression().getDataType();
+        switch( type ) {
             case DECIMAL:
                 return new DecimalSumAggregator();
-            case LONG:
-                return new LongSumAggregator();
-            case UNSIGNED_LONG:
-                return new UnsignedLongSumAggregator();
-            case INTEGER:
-                return new IntSumAggregator();
-            case UNSIGNED_INT:
-                return new UnsignedIntSumAggregator();
             default:
-                throw new IllegalStateException("Unsupported SUM input type: " + getDataType());
+                return new NumberSumAggregator() {
+                    @Override
+                    protected PDataType getInputDataType() {
+                        return type;
+                    }
+                };
         }
     }
     
@@ -91,7 +89,7 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
             case LONG:
                 return new LongSumAggregator();
             default:
-                throw new IllegalStateException("Unsupported SUM type: " + getDataType());
+                throw new IllegalStateException("Unexpected SUM type: " + getDataType());
         }
     }
 

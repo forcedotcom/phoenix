@@ -30,20 +30,28 @@ package com.salesforce.phoenix.util;
 import static org.junit.Assert.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.filter.*;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -155,7 +163,7 @@ public class TestUtil {
     }
 
     public static RowKeyComparisonFilter rowKeyFilter(Expression e) {
-        return  new RowKeyComparisonFilter(e);
+        return  new RowKeyComparisonFilter(e, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES);
     }
 
     public static MultiKeyValueComparisonFilter multiKVFilter(Expression e) {
@@ -228,5 +236,19 @@ public class TestUtil {
         }
       }
     }
+    
+    public static void clearMetaDataCache(Connection conn) throws Throwable {
+        PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
+        HTableInterface htable = pconn.getQueryServices().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+        htable.coprocessorExec(MetaDataProtocol.class, HConstants.EMPTY_START_ROW,
+                HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataProtocol, Void>() {
+            @Override
+            public Void call(MetaDataProtocol instance) throws IOException {
+              instance.clearCache();
+              return null;
+            }
+          });
+    }
+    
 
 }

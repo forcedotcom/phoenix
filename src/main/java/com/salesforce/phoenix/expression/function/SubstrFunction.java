@@ -88,7 +88,7 @@ public class SubstrFunction extends PrefixFunction {
                 int offset = offsetNumber.intValue();
                 if (getStrExpression().getDataType().isFixedWidth()) {
                     if (offset >= 0) {
-                        byteSize = getStrExpression().getByteSize() - offset - (offset == 0 ? 0 : 1);
+                        byteSize = getStrExpression().getByteSize() - offset + (offset == 0 ? 0 : 1);
                     } else {
                         byteSize = -offset;
                     }

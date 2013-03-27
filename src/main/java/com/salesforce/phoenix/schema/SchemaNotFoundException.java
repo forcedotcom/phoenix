@@ -27,12 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
-
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
-public class SchemaNotFoundException extends SQLException {
+public class SchemaNotFoundException extends MetaDataEntityNotFoundException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.SCHEMA_NOT_FOUND;
     private final String schemaName;

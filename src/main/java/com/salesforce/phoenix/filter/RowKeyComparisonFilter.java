@@ -27,9 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
+import java.io.*;
+
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,12 +52,14 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
     
     private boolean keepRow = false;
     private RowKeyTuple inputTuple = new RowKeyTuple();
+    private byte[] essentialCF;
 
     public RowKeyComparisonFilter() {
     }
 
-    public RowKeyComparisonFilter(Expression expression) {
+    public RowKeyComparisonFilter(Expression expression, byte[] essentialCF) {
         super(expression);
+        this.essentialCF = essentialCF;
     }
 
     @Override
@@ -129,9 +134,21 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
     
     @Override
     public boolean isFamilyEssential(byte[] name) {
-        // No column families are essential because the expression involves only the row key.
-        // TODO: is this legal or should we use QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES?
-        // The others are for columns projected in the select expression
-        return false;
+        // We only need our "guaranteed to have a key value" column family,
+        // which we pass in and serialize through. In the case of a VIEW where
+        // we don't have this, we have to say that all families are essential.
+        return this.essentialCF.length == 0 ? true : Bytes.compareTo(this.essentialCF, name) == 0;
+    }
+    
+    @Override
+    public void readFields(DataInput input) throws IOException {
+        super.readFields(input);
+        this.essentialCF = WritableUtils.readCompressedByteArray(input);
+    }
+
+    @Override
+    public void write(DataOutput output) throws IOException {
+        super.write(output);
+        WritableUtils.writeCompressedByteArray(output, this.essentialCF);
     }
 }

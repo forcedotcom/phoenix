@@ -422,7 +422,7 @@ public class MetaDataClient {
         while (true) {
             try {
                 table = connection.getPMetaData().getSchema(schemaName).getTable(tableName);
-            } catch (TableNotFoundException e) {
+            } catch (MetaDataEntityNotFoundException e) {
                 if (!retried) {
                     retried = true;
                     if (this.updateCache(schemaName, tableName) < 0) {
