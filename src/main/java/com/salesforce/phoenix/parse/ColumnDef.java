@@ -108,7 +108,7 @@ public class ColumnDef {
         return isPK;
     }
     
-    public ColumnModifier getSortOrder() {
+    public ColumnModifier getColumnModifier() {
     	return sortOrder;
     }
 }

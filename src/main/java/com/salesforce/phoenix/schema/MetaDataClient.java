@@ -173,15 +173,16 @@ public class MetaDataClient {
         colUpsert.execute();
     }
 
-    private PColumn newColumn(int position, ColumnDef def, Set<String> pkColumns) throws SQLException {
+    private PColumn newColumn(int position, ColumnDef def, PrimaryKeyConstraint pkConstraint) throws SQLException {
         try {
+        	Set<String> pkColumnNames = pkConstraint == null ? Collections.<String>emptySet() : pkConstraint.getColumnNames();
             String columnName = def.getColumnDefName().getColumnName().getName();
             PName familyName = null;
-            if (def.isPK() && !pkColumns.isEmpty() ) {
+            if (def.isPK() && !pkColumnNames.isEmpty() ) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_ALREADY_EXISTS)
                     .setColumnName(columnName).build().buildException();
             }
-            boolean isPK = def.isPK() || pkColumns.contains(columnName);
+            boolean isPK = def.isPK() || pkColumnNames.contains(columnName);
             if (def.getColumnDefName().getFamilyName() != null) {
                 String family = def.getColumnDefName().getFamilyName().getName();
                 if (isPK) {
@@ -195,8 +196,14 @@ public class MetaDataClient {
             } else if (!isPK) {
                 familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
             }
+            
+            ColumnModifier columnModifier = def.getColumnModifier();
+            if (pkConstraint.getColumnModifier(columnName) != null) {
+            	columnModifier = pkConstraint.getColumnModifier(columnName);
+            }            
+            
             PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
-                    def.getMaxLength(), def.getScale(), def.isNull(), position, def.getSortOrder());
+                    def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);
@@ -241,7 +248,7 @@ public class MetaDataClient {
                     }
                     isPK = true;
                 }
-                PColumn column = newColumn(columnOrdinal++,colDef,pkColumns);
+                PColumn column = newColumn(columnOrdinal++, colDef, pkConstraint);
                 if (SchemaUtil.isPKColumn(column)) {
                     // TODO: remove this constraint
                     if (!pkColumns.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
@@ -496,7 +503,7 @@ public class MetaDataClient {
                 
                 PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
                 Pair<byte[],Map<String,Object>> family = null;
-                PColumn column = newColumn(ordinalPosition++,colDef,Collections.<String>emptySet());
+                PColumn column = newColumn(ordinalPosition++, colDef, null);
                 addColumnMutation(schemaName, tableName, column, colUpsert);
                 columns.add(column);
                 if (column.getFamilyName() != null) {

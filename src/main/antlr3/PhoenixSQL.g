@@ -129,6 +129,7 @@ import com.google.common.collect.ListMultimap;
 import org.apache.hadoop.hbase.util.Pair;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.HashMap;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -353,9 +354,9 @@ pk_constraint returns [PrimaryKeyConstraint ret]
 	:	CONSTRAINT	n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
 	;
 	
-identifiers returns [List<String> ret]
-@init{ret = new ArrayList<String>(); }
-    :  c = identifier {$ret.add(c);}  (COMMA c = identifier {$ret.add(c);} )*
+identifiers returns [HashMap<String, String> ret]
+@init{ret = new HashMap<String, String>(); }
+    :  c = identifier (order=ASC|order=DESC)? {$ret.put(c,order == null ? null : order.getText());}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.put(c,order == null ? null : order.getText());} )*
 ;
 
 fam_properties returns [ListMultimap<String,Pair<String,Object>> ret]
