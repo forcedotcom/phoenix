@@ -1,19 +1,17 @@
 package com.salesforce.phoenix.schema;
 
-public enum ColumnModifier { // bitvector?
+public enum ColumnModifier {
 	
 	SORT_DESC() {
         @Override
-		public byte[] apply(byte[] bytes, int offset, int length) {
-			byte[] invertedBytes = new byte[bytes.length];
-			for (int i = 0; i < bytes.length; i++) {
+		public void apply(byte[] src, byte[] dest, int offset, int length) {
+			for (int i = 0; i < src.length; i++) {
 				if (i >= offset && i < (length + offset)) {
-					invertedBytes[i] = (byte)(bytes[i] ^ 0xFF);
+					dest[i] = (byte)(src[i] ^ 0xFF);
 				} else {
-					invertedBytes[i] = bytes[i];
+					dest[i] = src[i];
 				}
 			}
-			return invertedBytes;
 		}
 	};
 	
@@ -46,13 +44,6 @@ public enum ColumnModifier { // bitvector?
 		    default: return Integer.MIN_VALUE;
 		}
 	}
-	
-	public static byte[] apply(ColumnModifier columnModifier, byte[] bytes, int offset, int length) {
-		if (columnModifier == null) {
-			return bytes;
-		}
-		return columnModifier.apply(bytes, offset, length);
-	}
-	
-	public abstract byte[] apply(byte[] bytes, int offset, int length);
+		
+	public abstract void apply(byte[] src, byte[] dest, int offset, int length);
 }

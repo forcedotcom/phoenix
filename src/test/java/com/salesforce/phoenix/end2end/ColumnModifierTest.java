@@ -34,7 +34,17 @@ public class ColumnModifierTest extends BaseHBaseManagedTimeTest {
 		runTest(ddl, "pk", Lists.<Object>newArrayList("a", "b", "c"), Lists.<Object>newArrayList("c", "b", "a"));
 	}
 	
+	@Test
+	public void testWhere() throws Exception {
+		String ddl = "CREATE TABLE IF NOT EXISTS testColumnSortOrder (pk VARCHAR NOT NULL PRIMARY KEY DESC)";		
+		runQueryTest(ddl, "pk", Lists.<Object>newArrayList("a", "b", "c"), Lists.<Object>newArrayList("b"), " WHERE pk = 'b'");
+	}
+
 	private void runTest(String ddl, String columnName, List<Object> values, List<Object> expectedValues) throws Exception {
+		runQueryTest(ddl, columnName, values, expectedValues, null);
+	}
+	
+	private void runQueryTest(String ddl, String columnName, List<Object> values, List<Object> expectedValues, String optionalWhereClause) throws Exception {
 		
 		Properties props = new Properties(TEST_PROPERTIES);
 		Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -55,6 +65,10 @@ public class ColumnModifierTest extends BaseHBaseManagedTimeTest {
 			conn.commit();
 			
 			String query = "SELECT " + columnName + " FROM testColumnSortOrder";
+			if (optionalWhereClause != null) {
+				query += " " + optionalWhereClause;
+			}
+			
 			stmt = conn.prepareStatement(query);
 			
 			List<Object> results = Lists.newArrayListWithExpectedSize(values.size());

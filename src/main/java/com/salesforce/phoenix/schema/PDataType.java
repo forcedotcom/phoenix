@@ -2031,7 +2031,9 @@ public enum PDataType {
     
     public byte[] toBytes(Object object, ColumnModifier columnModifier) {
     	byte[] bytes = toBytes(object);
-  		bytes = ColumnModifier.apply(columnModifier, bytes, 0, bytes.length);
+    	if (columnModifier != null) {
+    		columnModifier.apply(bytes, bytes, 0, bytes.length);
+    	}
     	return bytes;
     }
 
@@ -2083,7 +2085,11 @@ public enum PDataType {
     }
 
     public Object toObject(byte[] bytes, int offset, int length, PDataType actualType, ColumnModifier columnModifier) {
-   		bytes = ColumnModifier.apply(columnModifier, bytes, offset, length);
+    	if (columnModifier != null) {
+        	byte[] mbytes = new byte[bytes.length];
+    		columnModifier.apply(bytes, mbytes, offset, length);
+    		bytes = mbytes;
+    	}
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
     }

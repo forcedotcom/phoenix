@@ -110,10 +110,24 @@ public class WhereOptimizer {
             }
             KeyPart keyPart = slot.getKeyPart();
             pkPos = slot.getPKPosition();
-            cnf.add(slot.getKeyRanges());
+            
+            List<KeyRange> keyRanges = Lists.newArrayListWithExpectedSize(slot.getKeyRanges().size());
             for (KeyRange range : slot.getKeyRanges()) {
-                hasUnboundedRange |= range.isUnbound();
-            }
+            	hasUnboundedRange |= range.isUnbound();
+            	
+            	if (slot.getKeyPart().getColumn().getColumnModifier() == ColumnModifier.SORT_DESC) {
+            		byte[] lowerRange = new byte[range.getLowerRange().length];
+            		ColumnModifier.SORT_DESC.apply(range.getLowerRange(), lowerRange, 0, lowerRange.length);
+            		byte[] upperRange = new byte[range.getUpperRange().length];
+            		ColumnModifier.SORT_DESC.apply(range.getUpperRange(), upperRange, 0, upperRange.length);
+            		range = KeyRange.getKeyRange(lowerRange, range.isLowerInclusive(), upperRange, range.isUpperInclusive());
+            	}
+            	
+                keyRanges.add(range);
+            }            
+            
+            cnf.add(keyRanges);
+            
 
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
