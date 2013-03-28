@@ -61,6 +61,11 @@ public class SkipScanFilterTest extends TestCase {
                 public Integer getScale() {
                     return null;
                 }
+
+				@Override
+				public ColumnModifier getColumnModifier() {
+					return null;
+				}
                 
             });
         }

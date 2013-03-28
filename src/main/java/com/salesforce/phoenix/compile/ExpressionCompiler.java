@@ -607,6 +607,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         public Integer getScale() {
             return PDataType.DEFAULT_SCALE;
         }
+    	@Override
+    	public ColumnModifier getColumnModifier() {
+    		return null;
+    	}        
     };
 
     private static PDatum inferBindDatum(List<Expression> children) {
@@ -742,6 +746,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         public Integer getScale() {
                             return expression.getScale();
                         }
+						@Override
+						public ColumnModifier getColumnModifier() {
+							return expression.getColumnModifier();
+						}                        
                     };
                 } else if (expression.getDataType() != null
                         && expression.getDataType().isCoercibleTo(
@@ -767,6 +775,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         public Integer getScale() {
                             return expression.getScale();
                         }
+						@Override
+						public ColumnModifier getColumnModifier() {
+							return expression.getColumnModifier();
+						}
                     };
                 }
                 // Otherwise just go with what was calculated for the expression
@@ -878,6 +890,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             public Integer getScale() {
                                 return expression.getScale();
                             }
+							@Override
+							public ColumnModifier getColumnModifier() {
+								return expression.getColumnModifier();
+							}
                         };
                     }
                     return expression;

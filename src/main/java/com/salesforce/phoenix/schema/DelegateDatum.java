@@ -58,6 +58,11 @@ public class DelegateDatum implements PDatum {
     public Integer getScale() {
         return delegate.getScale();
     }
+    
+	@Override
+	public ColumnModifier getColumnModifier() {
+		return delegate.getColumnModifier();
+	}
 
     protected PDatum getDelegate() {
         return delegate;

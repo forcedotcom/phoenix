@@ -51,9 +51,4 @@ public interface PColumn extends PDatum, Writable {
      * @return the zero-based ordinal position of the column
      */
     int getPosition();
-    
-    /**
-     * @return The modifier for this column, null if it doesn't have a modifier
-     */
-    ColumnModifier getColumnModifier();
 }

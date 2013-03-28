@@ -31,6 +31,7 @@ import java.io.*;
 import java.util.*;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.schema.ColumnModifier;
 
 
 
@@ -62,6 +63,11 @@ public abstract class BaseExpression implements Expression {
     public Integer getScale() {
         return null;
     }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+    	return null;
+    }    
 
     @Override
     public void readFields(DataInput input) throws IOException {

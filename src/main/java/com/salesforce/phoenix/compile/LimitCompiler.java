@@ -59,6 +59,10 @@ public class LimitCompiler {
         public Integer getScale() {
             return null;
         }
+		@Override
+		public ColumnModifier getColumnModifier() {
+			return null;
+		}
     };
     
     private LimitCompiler() {
