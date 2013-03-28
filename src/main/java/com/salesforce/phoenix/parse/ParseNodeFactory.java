@@ -31,6 +31,7 @@ import java.lang.reflect.Constructor;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -248,7 +249,7 @@ public class ParseNodeFactory {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK, sortOrder);
     }
 
-    public PrimaryKeyConstraint primaryKey(String name, Map<String, String> columnNameToModifier) {
+    public PrimaryKeyConstraint primaryKey(String name, LinkedHashMap<String, String> columnNameToModifier) {
         return new PrimaryKeyConstraint(name, columnNameToModifier);
     }
     

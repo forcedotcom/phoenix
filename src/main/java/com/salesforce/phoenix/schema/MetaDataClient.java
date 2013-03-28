@@ -198,7 +198,7 @@ public class MetaDataClient {
             }
             
             ColumnModifier columnModifier = def.getColumnModifier();
-            if (pkConstraint.getColumnModifier(columnName) != null) {
+            if (pkConstraint != null && pkConstraint.getColumnModifier(columnName) != null) {
             	columnModifier = pkConstraint.getColumnModifier(columnName);
             }            
             
