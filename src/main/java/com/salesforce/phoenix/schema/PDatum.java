@@ -59,5 +59,4 @@ public interface PDatum {
      * @return The modifier for this column or null if it doesn't have a modifier
      */
     ColumnModifier getColumnModifier();
-    
 }

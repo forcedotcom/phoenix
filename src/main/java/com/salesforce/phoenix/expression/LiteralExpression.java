@@ -118,7 +118,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         if (!actualType.isCoercibleTo(type, value)) {
             throw new TypeMismatchException(type, actualType, value.toString());
         }
-        value = type.toObject(value, actualType, sortOrder);
+        value = type.toObject(value, actualType);
         try {
             byte[] b = type.toBytes(value, sortOrder);
             if (b.length == 0) {

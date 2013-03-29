@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -35,6 +37,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -99,14 +102,32 @@ public class ComparisonExpression extends BaseCompoundExpression {
         }
         byte[] lhsBytes = ptr.get();
         int lhsOffset = ptr.getOffset();
-        int lhsLength = ptr.getLength();
+        int lhsLength = ptr.getLength();        
+        ColumnModifier lhsMod = children.get(0).getColumnModifier();
         
         if (!children.get(1).evaluate(tuple, ptr)) {
             return false;
         }
         
+        byte[] rhsBytes = ptr.get();
+        int rhsOffset = ptr.getOffset();
+        int rhsLength = ptr.getLength();        
+        ColumnModifier rhsMod = children.get(1).getColumnModifier();
+        
+        if (lhsMod != rhsMod) {
+            if (lhsMod == ColumnModifier.SORT_DESC) {
+                byte[] b = new byte[lhsBytes.length];
+                ColumnModifier.SORT_DESC.apply(lhsBytes, b, lhsOffset, lhsLength);
+                lhsBytes = b;
+            } else if (rhsMod == ColumnModifier.SORT_DESC) {
+                byte[] b = new byte[rhsBytes.length];
+                ColumnModifier.SORT_DESC.apply(rhsBytes, b, rhsOffset, rhsLength);
+                rhsBytes = b;
+            }
+        }
+        
         ptr.set(ByteUtil.compare(op, children.get(0).getDataType().compareTo(lhsBytes, lhsOffset, lhsLength, 
-                    ptr.get(), ptr.getOffset(), ptr.getLength(), children.get(1).getDataType()))
+                    rhsBytes, rhsOffset, rhsLength, children.get(1).getDataType()))
                 ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
     }
