@@ -88,12 +88,28 @@ public class ColumnModifierTest extends BaseHBaseManagedTimeTest {
     
     @Test
     public void testGtDescCompositePK3() throws Exception {
-        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid ASC, code DESC))";
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
         Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o1", 2}, {"o1", 3}};
         Object[][] expectedRows = new Object[][]{{"o1", 2}, {"o1", 1}};
         runQueryTest(ddl, ar("oid", "code"), insertedRows, expectedRows, new Condition("code", "<", "3"));        
-    }      
-
+    }
+    
+    @Test
+    public void testSubstDescCompositePK() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
+        Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o2", 2}, {"o3", 3}};
+        Object[][] expectedRows = new Object[][]{{"o3", 3}, {"o2", 2}};
+        runQueryTest(ddl, ar("oid", "code"), insertedRows, expectedRows, new Condition("SUBSTR(oid, 2, 1)", ">", "'1'"));
+    }
+    
+    @Test
+    public void testLTrimDescCompositePK() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(4) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
+        Object[][] insertedRows = new Object[][]{{" o1 ", 1}, {"  o2", 2}, {"  o3", 3}};
+        Object[][] expectedRows = new Object[][]{{"  o2", 2}};
+        runQueryTest(ddl, ar("oid", "code"), insertedRows, expectedRows, new Condition("LTRIM(oid)", "=", "'o2'"));
+    }    
+    
     private void runQueryTest(String ddl, String columnName, Object[][] values, Object[][] expectedValues) throws Exception {
         runQueryTest(ddl, new String[]{columnName}, values, expectedValues, null);
     }
@@ -157,6 +173,9 @@ public class ColumnModifierTest extends BaseHBaseManagedTimeTest {
         ResultSet rs = stmt.executeQuery();
         int rowCounter = 0;
         while (rs.next()) {
+            if (rowCounter == expectedValues.length) {
+                Assert.assertEquals("Too many result rows for query " + query, expectedValues.length, rowCounter+1);
+            }
             Object[] cols = new Object[expectedValues[rowCounter].length];
             for (int colCounter = 0; colCounter < expectedValues[rowCounter].length; colCounter++) {
                 cols[colCounter] = rs.getObject(colCounter+1);
@@ -193,6 +212,8 @@ public class ColumnModifierTest extends BaseHBaseManagedTimeTest {
         private String getReversedOperator() {
             if (operator.equals("<")) {
                 return ">";
+            } else if (operator.equals(">")) {
+                return "<";
             }
             return operator;
         }
