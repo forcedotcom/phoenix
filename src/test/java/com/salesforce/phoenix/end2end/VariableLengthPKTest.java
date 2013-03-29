@@ -1,28 +1,28 @@
 /*******************************************************************************
  * Copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     Redistributions of source code must retain the above copyright notice,
  *     this list of conditions and the following disclaimer.
  *     Redistributions in binary form must reproduce the above copyright notice,
  *     this list of conditions and the following disclaimer in the documentation
  *     and/or other materials provided with the distribution.
- *     Neither the name of Salesforce.com nor the names of its contributors may 
- *     be used to endorse or promote products derived from this software without 
+ *     Neither the name of Salesforce.com nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
  *     specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
@@ -58,7 +58,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
 
     protected static void initTableValues(byte[][] splits, long ts) throws Exception {
         ensureTableCreated(getUrl(),PTSDB_NAME, splits, ts-2);
-        
+
         // Insert all rows at ts
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
@@ -77,10 +77,10 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setDate(3, new Date(System.currentTimeMillis()));
         stmt.setBigDecimal(4, new BigDecimal(.5));
         stmt.execute();
-        
+
         ensureTableCreated(getUrl(),BTABLE_NAME, splits, ts-2);
         conn.setAutoCommit(false);
-        
+
         // Insert all rows at ts
         stmt = conn.prepareStatement(
                 "upsert into " +
@@ -103,7 +103,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(7, null);
         stmt.setString(8, "0123456789");
         stmt.execute();
-        
+
         stmt.setString(1, "abcd");
         stmt.setString(2, "222");
         stmt.setString(3, "xy");
@@ -111,22 +111,22 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setNull(5, Types.INTEGER);
         stmt.setNull(6, Types.INTEGER);
         stmt.execute();
-        
+
         stmt.setString(3, "xyz");
         stmt.setInt(4, 3);
         stmt.setInt(5, 10);
         stmt.setInt(6, 1000);
         stmt.setString(7, "efg");
         stmt.execute();
-        
+
         stmt.setString(3, "xyzz");
         stmt.setInt(4, 4);
         stmt.setInt(5, 40);
         stmt.setNull(6, Types.INTEGER);
         stmt.setString(7, null);
         stmt.execute();
-        
-        String ddl = "create table VarcharKeyTest" + 
+
+        String ddl = "create table VarcharKeyTest" +
             "   (pk varchar not null primary key)";
         createTestTable(getUrl(), ddl, splits, ts-2);
         stmt = conn.prepareStatement(
@@ -139,7 +139,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.execute();
         stmt.setString(1, "   ghi   ");
         stmt.execute();
-        
+
         conn.commit();
         conn.close();
     }
@@ -381,7 +381,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testNullValueEqualityScan() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+
         // Insert all rows at ts
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
@@ -391,7 +391,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setDate(1, D1);
         stmt.execute();
         conn.close();
-        
+
         // Comparisons against null are always false.
         String query = "SELECT HOST,DATE FROM PTSDB WHERE HOST='' AND INST=''";
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
@@ -409,7 +409,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testVarLengthPKColScan() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -421,7 +421,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(1, "xy");
         stmt.execute();
         conn.close();
-        
+
         String query = "SELECT HOST,DATE FROM PTSDB WHERE INST='x' AND HOST='y'";
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         conn = DriverManager.getConnection(url, props);
@@ -429,7 +429,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(D1, rs.getDate(2));            
+            assertEquals(D1, rs.getDate(2));
         } finally {
             conn.close();
         }
@@ -439,7 +439,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testEscapedQuoteScan() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -451,7 +451,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(1, "x");
         stmt.execute();
         conn.close();
-        
+
         String query1 = "SELECT INST,DATE FROM PTSDB WHERE INST='x''y'";
         String query2 = "SELECT INST,DATE FROM PTSDB WHERE INST='x\\\'y'";
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
@@ -461,14 +461,14 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
             assertEquals("x'y", rs.getString(1));
-            assertEquals(D1, rs.getDate(2));            
+            assertEquals(D1, rs.getDate(2));
             assertFalse(rs.next());
-            
+
             statement = conn.prepareStatement(query2);
             rs = statement.executeQuery();
             assertTrue(rs.next());
             assertEquals("x'y", rs.getString(1));
-            assertEquals(D1, rs.getDate(2));            
+            assertEquals(D1, rs.getDate(2));
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -477,7 +477,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
 
     private static void initPtsdbTableValues(long ts) throws Exception {
         ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -492,7 +492,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testToStringOnDate() throws Exception {
         long ts = nextTimestamp();
         initPtsdbTableValues(ts);
-        
+
         String query = "SELECT HOST,DATE FROM PTSDB WHERE INST='x' AND HOST='y'";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -501,7 +501,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(DateUtil.DEFAULT_DATE_FORMATTER.format(D1), rs.getString(2));            
+            assertEquals(DateUtil.DEFAULT_DATE_FORMATTER.format(D1), rs.getString(2));
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -509,24 +509,36 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     }
 
     private static void initPtsdbTableValues2(long ts, Date d) throws Exception {
-        ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+        ensureTableCreated(getUrl(),PTSDB2_NAME,null, ts-2);
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         conn.setAutoCommit(true);
-        PreparedStatement stmt = conn.prepareStatement("upsert into PTSDB(inst,host,date,val) VALUES (?, ?, ?, 0.5)");
+        PreparedStatement stmt = conn.prepareStatement("upsert into "+PTSDB2_NAME+"(inst,date,val2) VALUES (?, ?, ?)");
         stmt.setString(1, "a");
-        stmt.setString(2, "b");
-        stmt.setDate(3, d);
+        stmt.setDate(2, d);
+        stmt.setDouble(3, 101.3);
         stmt.execute();
-        stmt.setString(1, "c");
-        stmt.setString(2, "d");
-        stmt.setDate(3, new Date(d.getTime() + 1 * MILLIS_IN_DAY));
+        stmt.setString(1, "a");
+        stmt.setDate(2, new Date(d.getTime() + 1 * MILLIS_IN_DAY));
+        stmt.setDouble(3, 99.7);
         stmt.execute();
-        stmt.setString(1, "e");
-        stmt.setString(2, "f");
-        stmt.setDate(3, new Date(d.getTime() + 2 * MILLIS_IN_DAY));
+        stmt.setString(1, "a");
+        stmt.setDate(2, new Date(d.getTime() - 1 * MILLIS_IN_DAY));
+        stmt.setDouble(3, 105.3);
+        stmt.execute();
+        stmt.setString(1, "b");
+        stmt.setDate(2, d);
+        stmt.setDouble(3, 88.5);
+        stmt.execute();
+        stmt.setString(1, "b");
+        stmt.setDate(2, new Date(d.getTime() + 1 * MILLIS_IN_DAY));
+        stmt.setDouble(3, 89.7);
+        stmt.execute();
+        stmt.setString(1, "b");
+        stmt.setDate(2, new Date(d.getTime() - 1 * MILLIS_IN_DAY));
+        stmt.setDouble(3, 94.9);
         stmt.execute();
         conn.close();
     }
@@ -535,24 +547,24 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testRoundOnDate() throws Exception {
         long ts = nextTimestamp();
         Date date = new Date(System.currentTimeMillis());
-        Date roundedDate = new Date((date.getTime() + MILLIS_IN_DAY/2) / MILLIS_IN_DAY * MILLIS_IN_DAY);
-        Date datePlusOne = new Date(date.getTime() + MILLIS_IN_DAY);
-        Date roundedDatePlusOne = new Date(roundedDate.getTime() + MILLIS_IN_DAY);
         initPtsdbTableValues2(ts, date);
-        
-        String query = "SELECT INST,HOST,DATE,VAL FROM PTSDB WHERE INST='c' AND HOST='d' AND ROUND(date,'DAY')=?";
+
+        String query = "SELECT MAX(val2)"
+        + " FROM "+PTSDB2_NAME
+        + " WHERE inst='a'"
+        + " GROUP BY ROUND(date,'day',1)";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
             PreparedStatement statement = conn.prepareStatement(query);
-            statement.setDate(1, roundedDatePlusOne);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals("c", rs.getString(1));            
-            assertEquals("d", rs.getString(2));            
-            assertEquals(datePlusOne, rs.getDate(3));            
-            assertEquals(BigDecimal.valueOf(0.5), rs.getBigDecimal(4));            
+            assertEquals(99.7, rs.getDouble(1), 1e-6);
+            assertTrue(rs.next());
+            assertEquals(101.3, rs.getDouble(1), 1e-6);
+            assertTrue(rs.next());
+            assertEquals(105.3, rs.getDouble(1), 1e-6);
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -560,10 +572,81 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     }
 
     @Test
+    public void testOrderBy() throws Exception {
+        long ts = nextTimestamp();
+        Date date = new Date(System.currentTimeMillis());
+        initPtsdbTableValues2(ts, date);
+
+        String query = "SELECT inst,MAX(val2),MIN(val2)"
+        + " FROM "+PTSDB2_NAME
+        + " GROUP BY inst,ROUND(date,'day',1)"
+        + " ORDER BY inst,ROUND(date,'day',1)"
+        ;
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertEquals(105.3, rs.getDouble(2), 1e-6);
+            assertEquals(105.3, rs.getDouble(3), 1e-6);
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertEquals(101.3, rs.getDouble(2), 1e-6);
+            assertEquals(101.3, rs.getDouble(3), 1e-6);
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertEquals(99.7, rs.getDouble(2), 1e-6);
+            assertEquals(99.7, rs.getDouble(3), 1e-6);
+            assertTrue(rs.next());
+            assertEquals("b", rs.getString(1));
+            assertEquals(94.9, rs.getDouble(2), 1e-6);
+            assertEquals(94.9, rs.getDouble(3), 1e-6);
+            assertTrue(rs.next());
+            assertEquals("b", rs.getString(1));
+            assertEquals(88.5, rs.getDouble(2), 1e-6);
+            assertEquals(88.5, rs.getDouble(3), 1e-6);
+            assertTrue(rs.next());
+            assertEquals("b", rs.getString(1));
+            assertEquals(89.7, rs.getDouble(2), 1e-6);
+            assertEquals(89.7, rs.getDouble(3), 1e-6);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testSelectCount() throws Exception {
+        long ts = nextTimestamp();
+        Date date = new Date(System.currentTimeMillis());
+        initPtsdbTableValues2(ts, date);
+
+        String query = "SELECT COUNT(*)"
+        + " FROM "+PTSDB2_NAME
+        + " WHERE inst='a'";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(3, rs.getInt(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+
+    @Test
     public void testSelectStar() throws Exception {
         long ts = nextTimestamp();
         initPtsdbTableValues(ts);
-        
+
         String query = "SELECT * FROM PTSDB WHERE INST='x' AND HOST='y'";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -586,7 +669,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testToCharOnDate() throws Exception {
         long ts = nextTimestamp();
         initPtsdbTableValues(ts);
-        
+
         String query = "SELECT HOST,TO_CHAR(DATE) FROM PTSDB WHERE INST='x' AND HOST='y'";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -595,7 +678,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(DateUtil.DEFAULT_DATE_FORMATTER.format(D1), rs.getString(2));            
+            assertEquals(DateUtil.DEFAULT_DATE_FORMATTER.format(D1), rs.getString(2));
         } finally {
             conn.close();
         }
@@ -605,7 +688,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testToCharWithFormatOnDate() throws Exception {
         long ts = nextTimestamp();
         initPtsdbTableValues(ts);
-        
+
         String format = "HH:mm:ss";
         Format dateFormatter = DateUtil.getDateFormatter(format);
         String query = "SELECT HOST,TO_CHAR(DATE,'" + format + "') FROM PTSDB WHERE INST='x' AND HOST='y'";
@@ -626,7 +709,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testToDateWithFormatOnDate() throws Exception {
         long ts = nextTimestamp();
         initPtsdbTableValues(ts);
-        
+
         String format = "yyyy-MM-dd HH:mm:ss.S";
         Format dateFormatter = DateUtil.getDateFormatter(format);
         String query = "SELECT HOST,TO_CHAR(DATE,'" + format + "') FROM PTSDB WHERE INST='x' AND HOST='y' and DATE=TO_DATE(?,'" + format + "')";
@@ -638,7 +721,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             statement.setString(1, dateFormatter.format(D1));
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(dateFormatter.format(D1), rs.getString(2));            
+            assertEquals(dateFormatter.format(D1), rs.getString(2));
         } finally {
             conn.close();
         }
@@ -648,7 +731,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testMissingPKColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -668,7 +751,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testNoKVColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),BTABLE_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -688,7 +771,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testMissingKVColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),BTABLE_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -716,7 +799,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testTooShortKVColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),BTABLE_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -738,7 +821,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setInt(4, 1);
         stmt.setString(5, "ab");
         stmt.setString(6, "01234");
-        
+
         try {
             stmt.execute();
             fail();
@@ -753,7 +836,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testTooShortPKColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),BTABLE_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -775,7 +858,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setInt(4, 1);
         stmt.setString(5, "ab");
         stmt.setString(6, "0123456789");
-        
+
         try {
             stmt.execute();
             fail();
@@ -790,7 +873,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testTooLongPKColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),BTABLE_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -812,7 +895,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setInt(4, 1);
         stmt.setString(5, "abc");
         stmt.setString(6, "0123456789");
-        
+
         try {
             stmt.execute();
             fail();
@@ -827,7 +910,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testTooLongKVColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),BTABLE_NAME,null, ts-2);
-        
+
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -851,7 +934,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setString(5, "ab");
         stmt.setString(6,"abcd");
         stmt.setString(7, "0123456789");
-        
+
         try {
             stmt.execute();
             fail();
@@ -879,18 +962,18 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             assertEquals(0, rs.getInt(2));
             assertTrue(rs.wasNull());
             assertEquals(1, rs.getLong(3));
-            
+
             assertTrue(rs.next());
             assertEquals(10, rs.getInt(1));
             assertEquals(1000, rs.getInt(2));
             assertEquals(2, rs.getLong(3));
-            
+
             assertTrue(rs.next());
             assertEquals(40, rs.getInt(1));
             assertEquals(0, rs.getInt(2));
             assertTrue(rs.wasNull());
             assertEquals(1, rs.getLong(3));
-            
+
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -912,11 +995,11 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             assertEquals(0, rs.getInt(1));
             assertTrue(rs.wasNull());
             assertEquals(2, rs.getLong(2));
-            
+
             assertTrue(rs.next());
             assertEquals(1000, rs.getInt(1));
             assertEquals(2, rs.getLong(2));
-            
+
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -940,7 +1023,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             assertEquals(null, rs.getString(3));
             assertEquals(1000, rs.getInt(4));
             assertEquals(1, rs.getInt(5));
-            
+
             assertTrue(rs.next());
             assertEquals("222", rs.getString(1));
             assertEquals("0123456789", rs.getString(2));
@@ -948,14 +1031,14 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             assertEquals(0, rs.getInt(4));
             assertTrue(rs.wasNull());
             assertEquals(2, rs.getInt(5));
-            
+
             assertTrue(rs.next());
             assertEquals("222", rs.getString(1));
             assertEquals("0123456789", rs.getString(2));
             assertEquals("efg", rs.getString(3));
             assertEquals(1000, rs.getInt(4));
             assertEquals(1, rs.getInt(5));
-            
+
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -1020,7 +1103,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testRegexReplaceFunction() throws Exception {
         long ts = nextTimestamp();
         // NOTE: we need to double escape the "\\" here because conn.prepareStatement would
-        // also try to evaluate the escaping. As a result, to represent what normally would be 
+        // also try to evaluate the escaping. As a result, to represent what normally would be
         // a "\d" in this test, it would become "\\\\d".
         String query[] = {
             "SELECT regexp_replace('', '') FROM BTABLE LIMIT 1",
@@ -1211,45 +1294,45 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testLikeOnColumn() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+
         // Insert all rows at ts
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         PreparedStatement stmt = conn.prepareStatement("upsert into PTSDB VALUES (?, ?, ?, 0.5)");
         stmt.setDate(3, D1);
-        
+
         stmt.setString(1, "a");
         stmt.setString(2, "a");
         stmt.execute();
-        
+
         stmt.setString(1, "x");
         stmt.setString(2, "a");
         stmt.execute();
-        
+
         stmt.setString(1, "xy");
         stmt.setString(2, "b");
         stmt.execute();
-        
+
         stmt.setString(1, "xyz");
         stmt.setString(2, "c");
         stmt.execute();
-        
+
         stmt.setString(1, "xyza");
         stmt.setString(2, "d");
         stmt.execute();
-        
+
         stmt.setString(1, "xyzab");
         stmt.setString(2, "e");
         stmt.execute();
-        
+
         stmt.setString(1, "z");
         stmt.setString(2, "e");
         stmt.execute();
-        
+
         conn.commit();
         conn.close();
-        
+
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         conn = DriverManager.getConnection(url, props);
         PreparedStatement statement;
@@ -1258,62 +1341,62 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             // Test 1
             statement = conn.prepareStatement("SELECT INST FROM PTSDB WHERE INST LIKE 'x%'");
             rs = statement.executeQuery();
-            
+
             assertTrue(rs.next());
-            assertEquals("x", rs.getString(1));            
-            
+            assertEquals("x", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("xy", rs.getString(1));            
-            
+            assertEquals("xy", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("xyz", rs.getString(1));            
-            
+            assertEquals("xyz", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("xyza", rs.getString(1));            
-            
+            assertEquals("xyza", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("xyzab", rs.getString(1));            
-            
+            assertEquals("xyzab", rs.getString(1));
+
             assertFalse(rs.next());
-            
+
             // Test 2
             statement = conn.prepareStatement("SELECT INST FROM PTSDB WHERE INST LIKE 'xy_a%'");
             rs = statement.executeQuery();
-            
+
             assertTrue(rs.next());
-            assertEquals("xyza", rs.getString(1));            
-            
+            assertEquals("xyza", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("xyzab", rs.getString(1));            
-            
+            assertEquals("xyzab", rs.getString(1));
+
             assertFalse(rs.next());
-            
+
             // Test 3
             statement = conn.prepareStatement("SELECT INST FROM PTSDB WHERE INST NOT LIKE 'xy_a%'");
             rs = statement.executeQuery();
-            
+
             assertTrue(rs.next());
-            assertEquals("a", rs.getString(1));            
-            
+            assertEquals("a", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("x", rs.getString(1));            
-            
+            assertEquals("x", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("xy", rs.getString(1));            
-            
+            assertEquals("xy", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("xyz", rs.getString(1));            
-            
+            assertEquals("xyz", rs.getString(1));
+
             assertTrue(rs.next());
-            assertEquals("z", rs.getString(1));            
-            
+            assertEquals("z", rs.getString(1));
+
             assertFalse(rs.next());
-            
+
             // Test 4
             statement = conn.prepareStatement("SELECT INST FROM PTSDB WHERE 'xzabc' LIKE 'xy_a%'");
             rs = statement.executeQuery();
             assertFalse(rs.next());
-            
+
         } finally {
             conn.close();
         }
@@ -1323,7 +1406,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
     public void testIsNullInPK() throws Exception {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
-        
+
         // Insert all rows at ts
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1333,7 +1416,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         stmt.setDate(1, D1);
         stmt.execute();
         conn.close();
-        
+
         String query = "SELECT HOST,INST,DATE FROM PTSDB WHERE HOST IS NULL AND INST IS NULL AND DATE=?";
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         conn = DriverManager.getConnection(url, props);
@@ -1557,7 +1640,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(url);
         conn.createStatement().execute("CREATE TABLE substr_test (s1 varchar not null, s2 varchar not null constraint pk primary key(s1,s2))");
         conn.close();
-        
+
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 2);
         conn = DriverManager.getConnection(url);
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abc','a')");
@@ -1566,7 +1649,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcde','d')");
         conn.commit();
         conn.close();
-        
+
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where substr(s1,1,4) = 'abcd'");
@@ -1584,7 +1667,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(url);
         conn.createStatement().execute("CREATE TABLE substr_test (s1 varchar not null, s2 varchar not null constraint pk primary key(s1,s2))");
         conn.close();
-        
+
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 2);
         conn = DriverManager.getConnection(url);
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abc','a')");
@@ -1595,7 +1678,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abcde','d')");
         conn.commit();
         conn.close();
-        
+
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where rtrim(s1) = 'abcd'");
@@ -1615,7 +1698,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(url);
         conn.createStatement().execute("CREATE TABLE substr_test (s1 varchar not null, s2 varchar not null constraint pk primary key(s1,s2))");
         conn.close();
-        
+
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 2);
         conn = DriverManager.getConnection(url);
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abc','a')");
@@ -1625,7 +1708,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("UPSERT INTO substr_test VALUES('abce','d')");
         conn.commit();
         conn.close();
-        
+
         url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         conn = DriverManager.getConnection(url);
         ResultSet rs = conn.createStatement().executeQuery("SELECT s1 from substr_test where s1 like 'abcd%1'");
