@@ -508,6 +508,57 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         }
     }
 
+    private static void initPtsdbTableValues2(long ts, Date d) throws Exception {
+        ensureTableCreated(getUrl(),PTSDB_NAME,null, ts-2);
+        
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts; // Insert at timestamp 0
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        conn.setAutoCommit(true);
+        PreparedStatement stmt = conn.prepareStatement("upsert into PTSDB(inst,host,date,val) VALUES (?, ?, ?, 0.5)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "b");
+        stmt.setDate(3, d);
+        stmt.execute();
+        stmt.setString(1, "c");
+        stmt.setString(2, "d");
+        stmt.setDate(3, new Date(d.getTime() + 1 * MILLIS_IN_DAY));
+        stmt.execute();
+        stmt.setString(1, "e");
+        stmt.setString(2, "f");
+        stmt.setDate(3, new Date(d.getTime() + 2 * MILLIS_IN_DAY));
+        stmt.execute();
+        conn.close();
+    }
+
+    @Test
+    public void testRoundOnDate() throws Exception {
+        long ts = nextTimestamp();
+        Date date = new Date(System.currentTimeMillis());
+        Date roundedDate = new Date((date.getTime() + MILLIS_IN_DAY/2) / MILLIS_IN_DAY * MILLIS_IN_DAY);
+        Date datePlusOne = new Date(date.getTime() + MILLIS_IN_DAY);
+        Date roundedDatePlusOne = new Date(roundedDate.getTime() + MILLIS_IN_DAY);
+        initPtsdbTableValues2(ts, date);
+        
+        String query = "SELECT INST,HOST,DATE,VAL FROM PTSDB WHERE INST='c' AND HOST='d' AND ROUND(date,'DAY')=?";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setDate(1, roundedDatePlusOne);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals("c", rs.getString(1));            
+            assertEquals("d", rs.getString(2));            
+            assertEquals(datePlusOne, rs.getDate(3));            
+            assertEquals(BigDecimal.valueOf(0.5), rs.getBigDecimal(4));            
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
     @Test
     public void testSelectStar() throws Exception {
         long ts = nextTimestamp();
