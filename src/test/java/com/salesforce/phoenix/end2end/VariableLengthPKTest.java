@@ -35,9 +35,7 @@ import java.sql.*;
 import java.text.Format;
 import java.text.ParseException;
 import java.util.Properties;
-
 import org.junit.Test;
-
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -641,6 +639,92 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         }
     }
 
+    @Test
+    public void testBatchUpsert() throws Exception {
+        long ts = nextTimestamp();
+        ensureTableCreated(getUrl(),PTSDB2_NAME,null, ts-2);
+        Date d = new Date(ts);
+        Properties props = new Properties(TEST_PROPERTIES);
+        String query = "SELECT SUM(val1),SUM(val2),SUM(val3) FROM "+PTSDB2_NAME;
+        String sql1 = "UPSERT INTO "+PTSDB2_NAME+"(inst,date,val1) VALUES (?, ?, ?)";
+        String sql2 = "UPSERT INTO "+PTSDB2_NAME+"(inst,date,val2) VALUES (?, ?, ?)";
+        String sql3 = "UPSERT INTO "+PTSDB2_NAME+"(inst,date,val3) VALUES (?, ?, ?)";
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.setAutoCommit(false);
+        // conn.setAutoCommit(true);
+
+        {
+            // verify precondition: SUM(val{1,2,3}) are null
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertNull(rs.getBigDecimal(1));
+            assertNull(rs.getBigDecimal(2));
+            assertNull(rs.getBigDecimal(3));
+            assertFalse(rs.next());
+            statement.close();
+        }
+
+        {
+            PreparedStatement s = conn.prepareStatement(sql1);
+            s.setString(1, "a");
+            s.setDate(2, d);
+            s.setInt(3, 1);
+            assertEquals(1, s.executeUpdate());
+            s.close();
+        }
+        {
+            PreparedStatement s = conn.prepareStatement(sql2);
+            s.setString(1, "b");
+            s.setDate(2, d);
+            s.setInt(3, 1);
+            assertEquals(1, s.executeUpdate());
+            s.close();
+        }
+        {
+            PreparedStatement s = conn.prepareStatement(sql3);
+            s.setString(1, "c");
+            s.setDate(2, d);
+            s.setInt(3, 1);
+            assertEquals(1, s.executeUpdate());
+            s.close();
+        }
+        {
+            PreparedStatement s = conn.prepareStatement(sql1);
+            s.setString(1, "a");
+            s.setDate(2, d);
+            s.setInt(3, 5);
+            assertEquals(1, s.executeUpdate());
+            s.close();
+        }
+        {
+            PreparedStatement s = conn.prepareStatement(sql1);
+            s.setString(1, "b");
+            s.setDate(2, d);
+            s.setInt(3, 5);
+            assertEquals(1, s.executeUpdate());
+            s.close();
+        }
+        {
+            PreparedStatement s = conn.prepareStatement(sql1);
+            s.setString(1, "c");
+            s.setDate(2, d);
+            s.setInt(3, 5);
+            assertEquals(1, s.executeUpdate());
+            s.close();
+        }
+        conn.commit();
+        {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(15, rs.getDouble(1), 1e-6);
+            assertEquals(1, rs.getDouble(2), 1e-6);
+            assertEquals(1, rs.getDouble(3), 1e-6);
+            assertFalse(rs.next());
+            statement.close();
+        }
+    }
 
     @Test
     public void testSelectStar() throws Exception {
