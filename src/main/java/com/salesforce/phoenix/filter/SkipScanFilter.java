@@ -167,7 +167,7 @@ public class SkipScanFilter extends FilterBase {
             // Do not need to care about the length since we set the key from the very beginning.
             setKey(Bound.LOWER, position, lowerBoundKey, 0, 0, position.length);
             lowerInclusive = isKeyInclusive(Bound.LOWER, position, slots);
-            incrementKey(slots, position, step);
+            terminated = !incrementKey(slots, position, step);
             setKey(Bound.UPPER, position, upperBoundKey, 0, 0, position.length);
             // We only mark the lower bound as exclusive if all the key parts making up of the 
             // lower bound are exclusive.
@@ -177,6 +177,7 @@ public class SkipScanFilter extends FilterBase {
                     Arrays.copyOf(lowerBoundKey, lowerBoundKey.length), lowerInclusive,
                     Arrays.copyOf(upperBoundKey, upperBoundKey.length), false);
             splits.add(range);
+            if (terminated) break;
             terminated = !incrementKey(slots, position, 1);
             if (terminated) break;
         }

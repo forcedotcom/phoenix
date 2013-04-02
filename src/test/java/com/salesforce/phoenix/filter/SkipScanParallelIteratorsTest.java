@@ -139,13 +139,22 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                 }));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        
+                        KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                        KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
+                        KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
+                    }, {
+                        KeyRange.getKeyRange(Bytes.toBytes("ddd"), true, Bytes.toBytes("ddd"), true),
+                        KeyRange.getKeyRange(Bytes.toBytes("eee"), true, Bytes.toBytes("eee"), true),
+                        KeyRange.getKeyRange(Bytes.toBytes("fff"), true, Bytes.toBytes("fff"), true),
                     }},
-                    new int[] {3},
+                    new int[] {3,3},
                     new KeyRange[] {
-                        
-                    }
-                    ));
+                        KeyRange.getKeyRange(Bytes.toBytes("aaaddd"), true, Bytes.toBytes("aaaeed"), false),
+                        KeyRange.getKeyRange(Bytes.toBytes("aaafff"), true, Bytes.toBytes("bbbdde"), false),
+                        KeyRange.getKeyRange(Bytes.toBytes("bbbeee"), true, Bytes.toBytes("bbbffg"), false),
+                        KeyRange.getKeyRange(Bytes.toBytes("cccddd"), true, Bytes.toBytes("ccceef"), false),
+                        KeyRange.getKeyRange(Bytes.toBytes("cccfff"), true, Bytes.toBytes("cccffg"), false),
+                    }));
         // Some slots contains range keys.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
