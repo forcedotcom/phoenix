@@ -47,6 +47,7 @@ import com.salesforce.phoenix.schema.ValueSchema.Field;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 
+
 /**
  * 
  * Filter that seeks based on CNF containing anded and ored key ranges
@@ -112,12 +113,12 @@ public class SkipScanFilter extends FilterBase {
     }
 
     // Estimate the number of splits that would be generated from the slots.
-    /* package */ static int estimateSplitNum(List<List<KeyRange>> slots) {
+    private static int estimateSplitNum(List<List<KeyRange>> slots) {
         int [] position = new int[slots.size()];
         int estimate = 0;
         do {
             estimate += 1;
-        } while (incrementKey(slots, position));
+        } while (ScanUtil.incrementKey(slots, position));
         return estimate;
     }
 
@@ -133,8 +134,8 @@ public class SkipScanFilter extends FilterBase {
         while (true) {
             // Do not need to care about the length since we set the key from the very beginning.
             setKey(Bound.LOWER, position, lowerBoundKey, 0, 0, position.length);
-            lowerInclusive = isKeyInclusive(Bound.LOWER, position, slots);
-            terminated = !incrementKey(slots, position, step, Bound.UPPER);
+            lowerInclusive = ScanUtil.isKeyInclusive(Bound.LOWER, position, slots);
+            terminated = !ScanUtil.incrementKey(slots, position, step, Bound.UPPER);
             if (!terminated) {
                 setKey(Bound.UPPER, position, upperBoundKey, 0, 0, position.length);
             } else {
@@ -152,74 +153,10 @@ public class SkipScanFilter extends FilterBase {
                     Arrays.copyOf(lowerBoundKey, lowerBoundKey.length), lowerInclusive,
                     Arrays.copyOf(upperBoundKey, upperBoundKey.length), false);
             splits.add(range);
-            terminated = terminated || !incrementKey(slots, position, 1, Bound.LOWER);
+            terminated = terminated || !ScanUtil.incrementKey(slots, position, 1, Bound.LOWER);
             if (terminated) break;
         }
         return splits;
-    }
-
-    private boolean isKeyInclusive(Bound bound, int[] position, List<List<KeyRange>> slots) {
-        // We declare the key as exclusive only when all the parts make up of it are exclusive.
-        boolean inclusive = false;
-        for (int i=0; i<slots.size(); i++) {
-            if (slots.get(i).get(position[i]).isInclusive(bound)) {
-                inclusive = true;
-            }
-        }
-        return inclusive;
-    }
-
-    private static boolean incrementKey(List<List<KeyRange>> slots, int[] position, int steps, Bound bound) {
-        for (int i=0; i<steps; i++) {
-            if (!incrementKey(slots, position)) {
-                return false;
-            }
-        }
-        setBoundSlotPosition(bound, slots, position);
-        return true;
-    }
-
-    private static boolean incrementKey(List<List<KeyRange>> slots, int[] position) {
-        // Find first index on the current position that is a range slot.
-        int idx;
-        for (idx = 0; idx < slots.size(); idx++) {
-            if (!slots.get(idx).get(position[idx]).isSingleKey()) {
-                break;
-            }
-        }
-        // No slot on the current position is a range.
-        if (idx == slots.size()) {
-            idx = slots.size() - 1;
-        }
-        while (idx >= 0 && (position[idx] = (position[idx] + 1) % slots.get(idx).size()) == 0) {
-            idx--;
-        }
-        return idx >= 0;
-    }
-
-    private static void setBoundSlotPosition(Bound bound, List<List<KeyRange>> slots, int[] position) {
-        // Find first index on the current position that is a range slot.
-        int idx;
-        for (idx = 0; idx < slots.size(); idx++) {
-            if (!slots.get(idx).get(position[idx]).isSingleKey()) {
-                break;
-            }
-        }
-        // If the idx is not the last position, reset the slots beyond to become 0th position. If
-        // we are setting the position for a lower bound, reset all of them to 0. If we are setting
-        // the position for an uppser bound, reset all of them to the last index. If the bound is
-        // not specified, set all positions to 0.
-        if (idx < slots.size() - 1) {
-            if (bound == Bound.LOWER) {
-                for (int i = idx + 1; i < slots.size(); i++) {
-                    position[i] = 0;
-                }
-            } else {
-                for (int i = idx + 1; i < slots.size(); i++) {
-                    position[i] = slots.get(i).size() - 1;
-                }
-            }
-        }
     }
 
     @Override

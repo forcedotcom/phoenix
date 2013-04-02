@@ -55,13 +55,13 @@ import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
  * @author zhuang
  */
 @RunWith(Parameterized.class)
-public class SkipScanParallelIteratorsTest extends BaseTest {
+public class SkipRangeParallelIteratorTest extends BaseTest {
 
     private final ConnectionQueryServices services;
     private final Scan scan;
     private final Expectation expectation;
 
-    public SkipScanParallelIteratorsTest(List<List<KeyRange>> slots, int[] widths, Expectation expectation) throws SQLException {
+    public SkipRangeParallelIteratorTest(List<List<KeyRange>> slots, int[] widths, Expectation expectation) throws SQLException {
         this.services = mock(ConnectionQueryServices.class);
         Configuration config = mock(Configuration.class);
         when(services.getConfig()).thenReturn(config);
@@ -188,9 +188,9 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                 }},
                 new int[] {1,1},
                 new KeyRange[] {
-                    KeyRange.getKeyRange(Bytes.toBytes("a1"), true, Bytes.toBytes("c4"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("c1"), true, Bytes.toBytes("e4"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("e1"), true, Bytes.toBytes("g4"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a1"), true, Bytes.toBytes("b4"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c1"), true, Bytes.toBytes("d4"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("e1"), true, Bytes.toBytes("f4"), false),
                 }));
         // 2 ranges in one chunk.
         testCases.addAll(
@@ -207,11 +207,11 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                 }},
                 new int[] {1,1,1},
                 new KeyRange[] {
-                    KeyRange.getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("a5B"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("a5A"), true, Bytes.toBytes("b3B"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("b3A"), true, Bytes.toBytes("b7B"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("c1A"), true, Bytes.toBytes("c5B"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("c5A"), true, Bytes.toBytes("c7B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("a4B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a5A"), true, Bytes.toBytes("b2B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("b3A"), true, Bytes.toBytes("b6B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c1A"), true, Bytes.toBytes("c4B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c5A"), true, Bytes.toBytes("c6B"), false),
                 }));
         // Combination of cases. 19 ranges, 4 ranges in each chunk, 3 ranges in last chunk.
         testCases.addAll(
@@ -232,10 +232,10 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                 new int[] {1,1,1},
                 new KeyRange[] {
                     KeyRange.getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("a4B"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("a4B"), true, Bytes.toBytes("d3C"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("d3B"), true, Bytes.toBytes("d7C"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a4B"), true, Bytes.toBytes("d2C"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("d3B"), true, Bytes.toBytes("d6C"), false),
                     KeyRange.getKeyRange(Bytes.toBytes("e1A"), true, Bytes.toBytes("e4B"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("e4B"), true, Bytes.toBytes("e7C"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("e4B"), true, Bytes.toBytes("e6C"), false),
                 }));
         return testCases;
     }

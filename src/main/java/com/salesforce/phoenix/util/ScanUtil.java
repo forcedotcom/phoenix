@@ -155,7 +155,62 @@ public class ScanUtil {
         return keyCopy;
     }
 
-    public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound, byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
+    public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound,
+            byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
+        int offset = byteOffset;
+        boolean incrementKey = bound == Bound.UPPER;
+        boolean incrementAtEnd = false;
+        for (int i = slotStartIndex; i < slotEndIndex; i++) {
+            // Build up the key by appending the bound of each key range
+            // from the current position of each slot. 
+            KeyRange range = slots.get(i).get(position[i]);
+            boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
+            /*
+             * If the current slot is unbound then stop if:
+             * 1) setting the upper bound. There's no value in
+             *    continuing because nothing will be filtered.
+             * 2) setting the lower bound when the type is fixed length
+             *    for the same reason. However, if the type is variable width
+             *    continue building the key because null values will be filtered
+             *    since our separator byte will be appended and increment.
+             */
+            if (  range.isUnbound(bound) &&
+                ( bound == Bound.UPPER || isFixedWidth) ){
+                break;
+            }
+            // We increment the key at the current slot if it's an exclusive range key and we are
+            // setting the lower bound.
+            // We also use this argument to remember if this is a single inclusive upper bound key.
+            // But we only increment the key if this is the last slot.
+            incrementKey = (!range.isInclusive(bound) && bound == Bound.LOWER) || 
+                    (range.isSingleKey() && range.isInclusive(bound) && bound == Bound.UPPER);
+            // We remember to increment the last slot if this is an inclusive key, we are setting 
+            // the upper bound and it's a range key;
+            incrementAtEnd = incrementAtEnd ||
+                    (!range.isSingleKey() && range.isInclusive(bound) && bound == Bound.UPPER);
+            byte[] bytes = range.getRange(bound);
+            System.arraycopy(bytes, 0, key, offset, bytes.length);
+            offset += bytes.length;
+            if (i < schema.getMaxFields()-1 && !isFixedWidth) {
+                key[offset++] = QueryConstants.SEPARATOR_BYTE;
+            }
+            
+            if (!range.isSingleKey() && incrementKey) {
+                if (!ByteUtil.nextKey(key, offset)) {
+                    // Special case for not being able to increment
+                    return -byteOffset;
+                }
+                incrementKey = false;
+            }
+        }
+        if (incrementAtEnd || incrementKey) {
+            ByteUtil.nextKey(key, offset);
+        }
+        return offset - byteOffset;
+    }
+
+    public static int setKeyOld(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound,
+            byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
         int offset = byteOffset;
         // Increment the key if we're setting an upper range by default
         boolean incrementKey = bound == Bound.UPPER;
@@ -187,18 +242,82 @@ public class ScanUtil {
                 key[offset++] = QueryConstants.SEPARATOR_BYTE;
             }
             
-//            if (!range.isSingleKey() && incrementKey) {
-//                if (!ByteUtil.nextKey(key, offset)) {
-//                    // Special case for not being able to increment
-//                    return -byteOffset;
-//                }
-//                incrementKey = false;
-//            }
+            if (!range.isSingleKey() && incrementKey) {
+                if (!ByteUtil.nextKey(key, offset)) {
+                    // Special case for not being able to increment
+                    return -byteOffset;
+                }
+                incrementKey = false;
+            }
         }
         
         if (incrementKey) {
             ByteUtil.nextKey(key, offset);
         }
         return offset - byteOffset;
+    }
+
+    public static boolean isKeyInclusive(Bound bound, int[] position, List<List<KeyRange>> slots) {
+        // We declare the key as exclusive only when all the parts make up of it are exclusive.
+        boolean inclusive = false;
+        for (int i=0; i<slots.size(); i++) {
+            if (slots.get(i).get(position[i]).isInclusive(bound)) {
+                inclusive = true;
+            }
+        }
+        return inclusive;
+    }
+
+    public static boolean incrementKey(List<List<KeyRange>> slots, int[] position, int steps, Bound bound) {
+        for (int i=0; i<steps; i++) {
+            if (!incrementKey(slots, position)) {
+                return false;
+            }
+        }
+        setBoundSlotPosition(bound, slots, position);
+        return true;
+    }
+
+    public static boolean incrementKey(List<List<KeyRange>> slots, int[] position) {
+        // Find first index on the current position that is a range slot.
+        int idx;
+        for (idx = 0; idx < slots.size(); idx++) {
+            if (!slots.get(idx).get(position[idx]).isSingleKey()) {
+                break;
+            }
+        }
+        // No slot on the current position is a range.
+        if (idx == slots.size()) {
+            idx = slots.size() - 1;
+        }
+        while (idx >= 0 && (position[idx] = (position[idx] + 1) % slots.get(idx).size()) == 0) {
+            idx--;
+        }
+        return idx >= 0;
+    }
+
+    public static void setBoundSlotPosition(Bound bound, List<List<KeyRange>> slots, int[] position) {
+        // Find first index on the current position that is a range slot.
+        int idx;
+        for (idx = 0; idx < slots.size(); idx++) {
+            if (!slots.get(idx).get(position[idx]).isSingleKey()) {
+                break;
+            }
+        }
+        // If the idx is not the last position, reset the slots beyond to become 0th position. If
+        // we are setting the position for a lower bound, reset all of them to 0. If we are setting
+        // the position for an uppser bound, reset all of them to the last index. If the bound is
+        // not specified, set all positions to 0.
+        if (idx < slots.size() - 1) {
+            if (bound == Bound.LOWER) {
+                for (int i = idx + 1; i < slots.size(); i++) {
+                    position[i] = 0;
+                }
+            } else {
+                for (int i = idx + 1; i < slots.size(); i++) {
+                    position[i] = slots.get(i).size() - 1;
+                }
+            }
+        }
     }
 }
