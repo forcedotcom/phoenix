@@ -46,7 +46,6 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.iterate.SkipRangeParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 
@@ -107,6 +106,7 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // All ranges are single keys.
+        // Only one range, need to split the ranges into sub chunks.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("ddc"), true),
@@ -119,74 +119,124 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                 }));
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("c"), true),
                 }},
-                new int[] {3},
+                new int[] {1},
                 new KeyRange[] {
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aab"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbc"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccd"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("c"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("d"), false),
                 }));
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
                 }, {
-                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("ddd"), true, Bytes.toBytes("ddd"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("c"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("d"), true, Bytes.toBytes("d"), true),
                 }},
-                new int[] {3,3},
+                new int[] {1,1},
                 new KeyRange[] {
-                    KeyRange.getKeyRange(Bytes.toBytes("aaaccc"), true, Bytes.toBytes("aaaccd"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("aaaddd"), true, Bytes.toBytes("aaadde"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbbccc"), true, Bytes.toBytes("bbbccd"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbbddd"), true, Bytes.toBytes("bbbdde"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("ac"), true, Bytes.toBytes("ad"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("ad"), true, Bytes.toBytes("ae"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("bc"), true, Bytes.toBytes("bd"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("bd"), true, Bytes.toBytes("be"), false),
                 }));
+        // chunks 2 ranges into one.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("c"), true),
                 }, {
-                    KeyRange.getKeyRange(Bytes.toBytes("ddd"), true, Bytes.toBytes("ddd"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("eee"), true, Bytes.toBytes("eee"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("fff"), true, Bytes.toBytes("fff"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("d"), true, Bytes.toBytes("d"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("e"), true, Bytes.toBytes("e"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("f"), true, Bytes.toBytes("f"), true),
                 }},
-                new int[] {3,3},
+                new int[] {1,1},
                 new KeyRange[] {
-                    KeyRange.getKeyRange(Bytes.toBytes("aaaddd"), true, Bytes.toBytes("aaaeef"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("aaafff"), true, Bytes.toBytes("bbbdde"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbbeee"), true, Bytes.toBytes("bbbffg"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("cccddd"), true, Bytes.toBytes("ccceef"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("cccfff"), true, Bytes.toBytes("cccffg"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("ad"), true, Bytes.toBytes("af"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("af"), true, Bytes.toBytes("be"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("be"), true, Bytes.toBytes("bg"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("cd"), true, Bytes.toBytes("cf"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("cf"), true, Bytes.toBytes("cg"), false),
                 }));
         // Some slots contains range keys.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("c"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("d"), false),
                 }},
-                new int[] {3},
+                new int[] {1},
                 new KeyRange[] {
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aab"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbc"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccd"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("c"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("d"), false),
                 }));
-        // r/2 > t
-        // split each key range into s splits such that:
-        // s = max(x) where s * x < m
+        testCases.addAll(
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("d"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("e"), true, Bytes.toBytes("f"), true),
+                },{
+                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("2"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("3"), true, Bytes.toBytes("3"), true),
+                }},
+                new int[] {1,1},
+                new KeyRange[] {
+                    KeyRange.getKeyRange(Bytes.toBytes("a1"), true, Bytes.toBytes("c4"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c1"), true, Bytes.toBytes("e4"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("e1"), true, Bytes.toBytes("g4"), false),
+                }));
+        // 2 ranges in one chunk.
+        testCases.addAll(
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("c"), true),
+                },{
+                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("3"), true, Bytes.toBytes("4"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("5"), true, Bytes.toBytes("6"), true),
+                },{
+                    KeyRange.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),
+                }},
+                new int[] {1,1,1},
+                new KeyRange[] {
+                    KeyRange.getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("a5B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a5A"), true, Bytes.toBytes("b3B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("b3A"), true, Bytes.toBytes("b7B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c1A"), true, Bytes.toBytes("c5B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("c5A"), true, Bytes.toBytes("c7B"), false),
+                }));
+        // Combination of cases. 19 ranges, 4 ranges in each chunk, 3 ranges in last chunk.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        
-                    }},
-                    new int[] {3},
-                    new KeyRange[] {
-                        
-                    }
-                    ));
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("c"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("d"), true, Bytes.toBytes("d"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("e"), true, Bytes.toBytes("e"), true),
+                },{
+                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("3"), true, Bytes.toBytes("3"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("4"), true, Bytes.toBytes("4"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("5"), true, Bytes.toBytes("6"), true),
+                },{
+                    KeyRange.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                }},
+                new int[] {1,1,1},
+                new KeyRange[] {
+                    KeyRange.getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("a4B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("a4B"), true, Bytes.toBytes("d3C"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("d3B"), true, Bytes.toBytes("d7C"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("e1A"), true, Bytes.toBytes("e4B"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("e4B"), true, Bytes.toBytes("e7C"), false),
+                }));
         return testCases;
     }
 
@@ -233,16 +283,10 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                     return Bytes.compareTo(o1.getLowerRange(),o2.getLowerRange());
                 }
             });
-            System.out.println("Result:");
             assertEquals("Unexpected number of splits: " + keyRanges, expectedSplits.size(), keyRanges.size());
             for (int i=0; i<keyRanges.size(); i++) {
-                System.out.println(expectedSplits.get(i));
-                System.out.println(keyRanges.get(i));
-                System.out.println(keyRanges.get(i).isInclusive(Bound.LOWER));
-                System.out.println(keyRanges.get(i).isInclusive(Bound.UPPER));
-                assertEquals(expectedSplits.get(i), keyRanges.get(i));
+                assertEquals("Expecting: " + expectedSplits.get(i), expectedSplits.get(i), keyRanges.get(i));
             }
-            System.out.println();
         }
     }
 }

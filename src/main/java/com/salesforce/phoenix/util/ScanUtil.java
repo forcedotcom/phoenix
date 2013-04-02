@@ -57,7 +57,7 @@ public class ScanUtil {
     public static void setTenantId(Scan scan, byte[] tenantId) {
         scan.setAttribute(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId);
     }
-    
+
     // Use getTenantId and pass in column name to match against
     // in as PSchema attribute. If column name matches in 
     // KeyExpressions, set on scan as attribute
@@ -69,7 +69,7 @@ public class ScanUtil {
         }
         return new ImmutableBytesWritable(tenantId);
     }
-    
+
     /**
      * Intersects the scan start/stop row with the startKey and stopKey
      * @param scan
@@ -99,7 +99,7 @@ public class ScanUtil {
         scan.setStopRow(stopKey);
         return mayHaveRows || Bytes.compareTo(scan.getStartRow(), scan.getStopRow()) < 0;
     }
-    
+
     public static void andFilter(Scan scan, Filter andWithFilter) {
         Filter filter = scan.getFilter();
         if (filter == null) {
@@ -126,11 +126,11 @@ public class ScanUtil {
     public static byte[] getMinKey(RowKeySchema schema, List<List<KeyRange>> slots) {
         return getKey(schema, slots, Bound.LOWER);
     }
-    
+
     public static byte[] getMaxKey(RowKeySchema schema, List<List<KeyRange>> slots) {
         return getKey(schema, slots, Bound.UPPER);
     }
-    
+
     private static byte[] getKey(RowKeySchema schema, List<List<KeyRange>> slots, Bound bound) {
         if (slots.isEmpty()) {
             return null;
@@ -154,7 +154,7 @@ public class ScanUtil {
         System.arraycopy(key, 0, keyCopy, 0, length);
         return keyCopy;
     }
-    
+
     public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound, byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
         int offset = byteOffset;
         // Increment the key if we're setting an upper range by default
@@ -164,7 +164,7 @@ public class ScanUtil {
             // from the current position of each slot. 
             KeyRange range = slots.get(i).get(position[i]);
             boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
-
+            
             /*
              * If the current slot is unbound then stop if:
              * 1) setting the upper bound. There's no value in
@@ -187,13 +187,13 @@ public class ScanUtil {
                 key[offset++] = QueryConstants.SEPARATOR_BYTE;
             }
             
-            if (!range.isSingleKey() && incrementKey) {
-                if (!ByteUtil.nextKey(key, offset)) {
-                    // Special case for not being able to increment
-                    return -byteOffset;
-                }
-                incrementKey = false;
-            }
+//            if (!range.isSingleKey() && incrementKey) {
+//                if (!ByteUtil.nextKey(key, offset)) {
+//                    // Special case for not being able to increment
+//                    return -byteOffset;
+//                }
+//                incrementKey = false;
+//            }
         }
         
         if (incrementKey) {
@@ -201,5 +201,4 @@ public class ScanUtil {
         }
         return offset - byteOffset;
     }
-
 }
