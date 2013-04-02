@@ -133,7 +133,7 @@ public class MultiCFCQKeyValueComparisonFilter extends MultiKeyValueComparisonFi
     }
 
 
-    //@Override
+    @SuppressWarnings("all") // suppressing missing @Override since this doesn't exist for HBase 0.94.4
     public boolean isFamilyEssential(byte[] name) {
         // Only the column families involved in the expression are essential.
         // The others are for columns projected in the select expression.

@@ -71,7 +71,7 @@ public class MultiCQKeyValueComparisonFilter extends MultiKeyValueComparisonFilt
     }
 
 
-    //@Override
+    @SuppressWarnings("all") // suppressing missing @Override since this doesn't exist for HBase 0.94.4
     public boolean isFamilyEssential(byte[] name) {
         return Bytes.compareTo(cf, name) == 0;
     }

@@ -132,7 +132,7 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
         return !this.keepRow;
     }
 
-    //@Override
+    @SuppressWarnings("all") // suppressing missing @Override since this doesn't exist for HBase 0.94.4
     public boolean isFamilyEssential(byte[] name) {
         // We only need our "guaranteed to have a key value" column family,
         // which we pass in and serialize through. In the case of a VIEW where

@@ -190,7 +190,11 @@ public class ScanUtil {
             
             if (!range.isSingleKey() && incrementKey) {
                 if (!ByteUtil.nextKey(key, offset)) {
-                    // Special case for not being able to increment
+                    // Special case for not being able to increment.
+                    // In this case we return a negative byteOffset to
+                    // remove this part from the key being formed. Since the
+                    // key has overflowed, this means that we should not
+                    // have an end key specified.
                     return -byteOffset;
                 }
                 incrementKey = false;

@@ -34,7 +34,6 @@ import java.util.*;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 
-
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
@@ -182,7 +181,7 @@ public class ProjectionCompiler {
              * TODO: this could be optimized by detecting:
              * - if a column is projected that's not in the where clause
              * - if a column is grouped by that's not in the where clause
-             * - if we're not using IS NULL or CASE WHEN expressiosn
+             * - if we're not using IS NULL or CASE WHEN expressions
              */
             if (table.getType() == PTableType.VIEW) {
                 projectAllColumnFamilies(table,scan);
