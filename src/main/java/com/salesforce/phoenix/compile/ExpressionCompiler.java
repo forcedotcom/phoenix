@@ -129,7 +129,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     return LiteralExpression.FALSE_EXPRESSION;
                 } else if (node.getFilterOp() == CompareOp.NOT_EQUAL) {
                     return LiteralExpression.TRUE_EXPRESSION;
-                } else {
+                } else { // TODO: generalize this with PDataType.getMinValue(), PDataTypeType.getMaxValue() methods
                     switch(rhs.getDataType()) {
                     case DECIMAL:
                         /*
@@ -155,7 +155,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                          * int has range of -2147483648 to 2147483647, and unsigned_int has a value range of 0 to 4294967295.
                          * 
                          * If lhs is int or unsigned_int, since we already determined that we cannot coerce the rhs 
-                         * to become the lfs, we know the value on the rhs is greater than lhs if it's positive, or smaller than
+                         * to become the lhs, we know the value on the rhs is greater than lhs if it's positive, or smaller than
                          * lhs if it's negative.
                          * 
                          * If lhs is an unsigned_long, then we know the rhs is definitely a negative long. rhs in this case
@@ -195,17 +195,22 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         }
                     }
                 }
-                // Can't possibly be as long as the constant, then FALSE
-                Integer lhsByteSize = lhs.getByteSize();
-                if (lhsByteSize != null && !lhsByteSize.equals(children.get(1).getByteSize())) {
-                    switch (node.getFilterOp()) {
-                        case EQUAL:
-                            return LiteralExpression.FALSE_EXPRESSION;
-                        case NOT_EQUAL:
-                            return LiteralExpression.TRUE_EXPRESSION;
-                        default:
-                            break;
-                    }
+            }
+            
+            // Determine if we know the expression must be TRUE or FALSE based on the byte size of
+            // a fixed length expression.
+            // TODO: For variable length expressions, getByteSize() returns null. Instead, if
+            // it returned the max size, we could have another condition for the
+            // rhsByteSize > lhsByteSize.
+            Integer lhsByteSize = lhs.getByteSize();
+            if (lhsByteSize != null && !lhsByteSize.equals(children.get(1).getByteSize())) {
+                switch (node.getFilterOp()) {
+                    case EQUAL:
+                        return LiteralExpression.FALSE_EXPRESSION;
+                    case NOT_EQUAL:
+                        return LiteralExpression.TRUE_EXPRESSION;
+                    default:
+                        break;
                 }
             }
         }

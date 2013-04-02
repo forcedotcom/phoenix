@@ -539,9 +539,12 @@ public class WhereOptimizer {
         private static class BaseKeyPart implements KeyPart {
             @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
-                Integer length = getColumn().getByteSize();
-                if (length != null) {
-                    key = ByteUtil.fillKey(key, length);
+                // If the column is fixed width, fill is up to it's byte size
+                if (getColumn().getDataType().isFixedWidth()) {
+                    Integer length = getColumn().getByteSize();
+                    if (length != null) {
+                        key = ByteUtil.fillKey(key, length);
+                    }
                 }
                 switch (op) {
                 case EQUAL:
