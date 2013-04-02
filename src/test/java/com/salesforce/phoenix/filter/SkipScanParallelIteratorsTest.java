@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.mockito.Mockito.*;
 import static org.junit.Assert.*;
 
@@ -44,14 +43,12 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.end2end.BaseClientMangedTimeTest;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.iterate.SkipRangeParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
-import com.salesforce.phoenix.util.TestUtil;
 
 /**
  * Test for {@link SkipRangeParallelIteratorRegionSplitter}.
@@ -112,6 +109,16 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
         // All ranges are single keys.
         testCases.addAll(
             foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("ddc"), true),
+                }},
+                new int[] {3},
+                new KeyRange[] {
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("bbb"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("ccc"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ddd"), false),
+                }));
+        testCases.addAll(
+            foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
@@ -138,33 +145,36 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                     KeyRange.getKeyRange(Bytes.toBytes("bbbddd"), true, Bytes.toBytes("bbbdde"), false),
                 }));
         testCases.addAll(
-                foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                        KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
-                        KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
-                    }, {
-                        KeyRange.getKeyRange(Bytes.toBytes("ddd"), true, Bytes.toBytes("ddd"), true),
-                        KeyRange.getKeyRange(Bytes.toBytes("eee"), true, Bytes.toBytes("eee"), true),
-                        KeyRange.getKeyRange(Bytes.toBytes("fff"), true, Bytes.toBytes("fff"), true),
-                    }},
-                    new int[] {3,3},
-                    new KeyRange[] {
-                        KeyRange.getKeyRange(Bytes.toBytes("aaaddd"), true, Bytes.toBytes("aaaeed"), false),
-                        KeyRange.getKeyRange(Bytes.toBytes("aaafff"), true, Bytes.toBytes("bbbdde"), false),
-                        KeyRange.getKeyRange(Bytes.toBytes("bbbeee"), true, Bytes.toBytes("bbbffg"), false),
-                        KeyRange.getKeyRange(Bytes.toBytes("cccddd"), true, Bytes.toBytes("ccceef"), false),
-                        KeyRange.getKeyRange(Bytes.toBytes("cccfff"), true, Bytes.toBytes("cccffg"), false),
-                    }));
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
+                }, {
+                    KeyRange.getKeyRange(Bytes.toBytes("ddd"), true, Bytes.toBytes("ddd"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("eee"), true, Bytes.toBytes("eee"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("fff"), true, Bytes.toBytes("fff"), true),
+                }},
+                new int[] {3,3},
+                new KeyRange[] {
+                    KeyRange.getKeyRange(Bytes.toBytes("aaaddd"), true, Bytes.toBytes("aaaeef"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("aaafff"), true, Bytes.toBytes("bbbdde"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("bbbeee"), true, Bytes.toBytes("bbbffg"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("cccddd"), true, Bytes.toBytes("ccceef"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("cccfff"), true, Bytes.toBytes("cccffg"), false),
+                }));
         // Some slots contains range keys.
         testCases.addAll(
-                foreach(new KeyRange[][]{{
-                        
-                    }},
-                    new int[] {3},
-                    new KeyRange[] {
-                        
-                    }
-                    ));
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbb"), true),
+                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccc"), true),
+                }},
+                new int[] {3},
+                new KeyRange[] {
+                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aab"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("bbc"), false),
+                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ccd"), false),
+                }));
         // r/2 > t
         // split each key range into s splits such that:
         // s = max(x) where s * x < m
@@ -223,14 +233,16 @@ public class SkipScanParallelIteratorsTest extends BaseTest {
                     return Bytes.compareTo(o1.getLowerRange(),o2.getLowerRange());
                 }
             });
+            System.out.println("Result:");
             assertEquals("Unexpected number of splits: " + keyRanges, expectedSplits.size(), keyRanges.size());
-            for (int i=0; i<expectedSplits.size(); i++) {
+            for (int i=0; i<keyRanges.size(); i++) {
                 System.out.println(expectedSplits.get(i));
                 System.out.println(keyRanges.get(i));
                 System.out.println(keyRanges.get(i).isInclusive(Bound.LOWER));
                 System.out.println(keyRanges.get(i).isInclusive(Bound.UPPER));
-//                assertEquals(expectedSplits.get(i), keyRanges.get(i));
+                assertEquals(expectedSplits.get(i), keyRanges.get(i));
             }
+            System.out.println();
         }
     }
 }
