@@ -204,55 +204,9 @@ public class ScanUtil {
             }
         }
         if (incrementAtEnd || incrementKey) {
-            ByteUtil.nextKey(key, offset);
-        }
-        return offset - byteOffset;
-    }
-
-    public static int setKeyOld(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound,
-            byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
-        int offset = byteOffset;
-        // Increment the key if we're setting an upper range by default
-        boolean incrementKey = bound == Bound.UPPER;
-        for (int i = slotStartIndex; i < slotEndIndex; i++) {
-            // Build up the key by appending the bound of each key range
-            // from the current position of each slot. 
-            KeyRange range = slots.get(i).get(position[i]);
-            boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
-            
-            /*
-             * If the current slot is unbound then stop if:
-             * 1) setting the upper bound. There's no value in
-             *    continuing because nothing will be filtered.
-             * 2) setting the lower bound when the type is fixed length
-             *    for the same reason. However, if the type is variable width
-             *    continue building the key because null values will be filtered
-             *    since our separator byte will be appended and increment.
-             */
-            if (  range.isUnbound(bound) &&
-                ( bound == Bound.UPPER || isFixedWidth) ){
-                break;
+            if (!ByteUtil.nextKey(key, offset)) {
+                return -byteOffset;
             }
-            incrementKey = range.isInclusive(bound) ^ bound == Bound.LOWER;
-
-            byte[] bytes = range.getRange(bound);
-            System.arraycopy(bytes, 0, key, offset, bytes.length);
-            offset += bytes.length;
-            if (i < schema.getMaxFields()-1 && !isFixedWidth) {
-                key[offset++] = QueryConstants.SEPARATOR_BYTE;
-            }
-            
-            if (!range.isSingleKey() && incrementKey) {
-                if (!ByteUtil.nextKey(key, offset)) {
-                    // Special case for not being able to increment
-                    return -byteOffset;
-                }
-                incrementKey = false;
-            }
-        }
-        
-        if (incrementKey) {
-            ByteUtil.nextKey(key, offset);
         }
         return offset - byteOffset;
     }
