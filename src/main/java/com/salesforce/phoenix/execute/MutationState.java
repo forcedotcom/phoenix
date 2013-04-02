@@ -102,20 +102,27 @@ public class MutationState implements SQLCloseable {
     public void join(MutationState newMutation) {
         // Merge newMutation with this one, keeping state from newMutation for any overlaps
         for (Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> entry : newMutation.mutations.entrySet()) {
-            Map<ImmutableBytesPtr,Map<PColumn,byte[]>> existing = this.mutations.put(entry.getKey(), entry.getValue());
-            if (existing != null) {
+            // Replace existing entries for the table with new entries
+            Map<ImmutableBytesPtr,Map<PColumn,byte[]>> existingRows = this.mutations.put(entry.getKey(), entry.getValue());
+            if (existingRows != null) { // Rows for that table already exist
+                // Loop through new rows and replace existing with new
                 for (Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry : entry.getValue().entrySet()) {
-                    Map<PColumn,byte[]> existingRow = existing.put(rowEntry.getKey(), rowEntry.getValue());
-                    if (existingRow != null) {
+                    // Replace existing row with new row
+                    Map<PColumn,byte[]> existingValues = existingRows.put(rowEntry.getKey(), rowEntry.getValue());
+                    if (existingValues != null) {
+                        // Replace existing column values with new column values
                         for (Map.Entry<PColumn,byte[]> valueEntry : rowEntry.getValue().entrySet()) {
-                            existingRow.put(valueEntry.getKey(), valueEntry.getValue());
+                            existingValues.put(valueEntry.getKey(), valueEntry.getValue());
                         }
+                        // Now that the existing row has been merged with the new row, replace it back
+                        // again (since it was replaced with the new one above).
+                        existingRows.put(rowEntry.getKey(), existingValues);
                     } else {
                         numEntries++;
                     }
                 }
                 // Put the existing one back now that it's merged
-                this.mutations.put(entry.getKey(), existing);
+                this.mutations.put(entry.getKey(), existingRows);
             } else {
                 numEntries += entry.getValue().size();
             }

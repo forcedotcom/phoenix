@@ -35,7 +35,9 @@ import java.sql.*;
 import java.text.Format;
 import java.text.ParseException;
 import java.util.Properties;
+
 import org.junit.Test;
+
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -550,7 +552,8 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         String query = "SELECT MAX(val2)"
         + " FROM "+PTSDB2_NAME
         + " WHERE inst='a'"
-        + " GROUP BY ROUND(date,'day',1)";
+        + " GROUP BY ROUND(date,'day',1)"
+        + " ORDER BY MAX(val2)"; // disambiguate row order
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -645,6 +648,7 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         ensureTableCreated(getUrl(),PTSDB2_NAME,null, ts-2);
         Date d = new Date(ts);
         Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
         String query = "SELECT SUM(val1),SUM(val2),SUM(val3) FROM "+PTSDB2_NAME;
         String sql1 = "UPSERT INTO "+PTSDB2_NAME+"(inst,date,val1) VALUES (?, ?, ?)";
         String sql2 = "UPSERT INTO "+PTSDB2_NAME+"(inst,date,val2) VALUES (?, ?, ?)";
@@ -714,6 +718,11 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             s.close();
         }
         conn.commit();
+        conn.close();
+        
+        // Query at a time after the upsert to confirm they took place
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+1));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
