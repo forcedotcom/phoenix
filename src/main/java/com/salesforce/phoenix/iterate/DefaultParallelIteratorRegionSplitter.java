@@ -183,5 +183,4 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         } while (!done);
         return splits;
     }
-
 }

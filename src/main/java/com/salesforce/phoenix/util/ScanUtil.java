@@ -42,7 +42,6 @@ import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.RowKeySchema;
 
 
-
 /**
  * 
  * Various utilities for scans

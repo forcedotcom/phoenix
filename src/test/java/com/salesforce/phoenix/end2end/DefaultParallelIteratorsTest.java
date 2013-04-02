@@ -42,7 +42,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
-import com.salesforce.phoenix.iterate.ParallelIterators;
+import com.salesforce.phoenix.iterate.DefaultParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.StatsManagerImpl.TimeKeeper;
@@ -52,12 +52,12 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 /**
- * Tests for {@link ParallelIterators}.
+ * Tests for {@link DefaultParallelIteratorRegionSplitter}.
  * 
  * @author syyang
  * @since 0.1
  */
-public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
+public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
 
     private static final byte[] KMIN  = new byte[] {'!'};
     private static final byte[] KMIN2  = new byte[] {'.'};
@@ -95,26 +95,24 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
         PSchema schema = pconn.getPMetaData().getSchemas().get(STABLE_SCHEMA_NAME);
         return new TableRef(null,schema.getTable(STABLE_NAME),schema, ts);
     }
-    
+
     private static SortedSet<HRegionInfo> getRegions(TableRef table) throws IOException {
         SortedSet<HRegionInfo> allTableRegions = MetaScanner.allTableRegions(driver.getQueryServices().getConfig(), table.getTableName(), false).navigableKeySet();
         return allTableRegions;
     }
-    
+
     private static List<KeyRange> getSplits(TableRef table, Scan scan, SortedSet<HRegionInfo> regions) throws SQLException {
         ConnectionQueryServices services = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES);
-        List<KeyRange> keyRanges = ParallelIterators.getSplits(services, table, scan, regions);
+        List<KeyRange> keyRanges = DefaultParallelIteratorRegionSplitter.getInstance().getSplits(services, table, scan, regions);
         Collections.sort(keyRanges, new Comparator<KeyRange>() {
-
             @Override
             public int compare(KeyRange o1, KeyRange o2) {
                 return Bytes.compareTo(o1.getLowerRange(),o2.getLowerRange());
             }
-            
         });
         return keyRanges;
     }
-    
+
     @Test
     public void testGetSplits() throws Exception {
         long ts = nextTimestamp();
@@ -132,7 +130,7 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
         assertEquals(newKeyRange(K4, K9), keyRanges.get(2));
         assertEquals(newKeyRange(K9, K11), keyRanges.get(3));
         assertEquals(newKeyRange(K11, HConstants.EMPTY_END_ROW), keyRanges.get(4));
-
+        
         // (number of regions / 2) > target query concurrency
         scan.setStartRow(K3);
         scan.setStopRow(K6);
@@ -182,11 +180,11 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
             this.currentTime = currentTime;
         }
     }
-    
+
     private static interface ChangeDetector {
         boolean isChanged();
     }
-    
+
     private boolean waitForAsyncChange(ChangeDetector detector, long maxWaitTimeMs) throws Exception {
         long startTime = System.currentTimeMillis();
         do {
@@ -201,7 +199,7 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
         } while (System.currentTimeMillis() - startTime < maxWaitTimeMs);
         return false;
     }
-    
+
     private static class MinKeyChange implements ChangeDetector {
         private byte[] value;
         private StatsManager stats;
@@ -217,7 +215,7 @@ public class ParallelIteratorsTest extends BaseClientMangedTimeTest {
             return value != stats.getMinKey(table);
         }
     }
-    
+
     private static class MaxKeyChange implements ChangeDetector {
         private byte[] value;
         private StatsManager stats;
