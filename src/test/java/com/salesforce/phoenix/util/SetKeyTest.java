@@ -290,7 +290,7 @@ public class SetKeyTest {
                 new int[] {1,1,1},
                 // Even we specifies lower bound as inclusive, the UNBOUND_LOWER is always considered as
                 // exclusive, and the slot would be bumped up by one.
-                ByteUtil.concat(PDataType.VARCHAR.toBytes("b"), QueryConstants.SEPARATOR_BYTE_ARRAY),
+                ByteUtil.concat(PDataType.VARCHAR.toBytes("a"), new byte[] {1}),
                 Bound.UPPER, 2, false
                 ));
         return testCases;

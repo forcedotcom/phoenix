@@ -218,19 +218,9 @@ public class ScanUtil {
             }
         }
         if (incrementAtEnd || incrementKey) {
-            // The last slot is fixed length, we can increment the keys directly.
-            if (isFixedWidth) {
-                if (!ByteUtil.nextKey(key, offset)) {
-                    return -byteOffset;
-                }
-            } else {
-                // the last slot is variable length, we should increment the actual key value
-                // of the separator byte.
-                if (!ByteUtil.nextKey(key, offset-1)) {
-                    return -byteOffset;
-                }
+            if (!ByteUtil.nextKey(key, offset)) {
+                return -byteOffset;
             }
-            
         }
         return offset - byteOffset;
     }
