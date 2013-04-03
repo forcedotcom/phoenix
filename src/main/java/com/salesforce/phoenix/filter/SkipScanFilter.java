@@ -80,7 +80,7 @@ public class SkipScanFilter extends FilterBase {
      */
     public SkipScanFilter() {
     }
-    
+
     public SkipScanFilter(List<List<KeyRange>> slots, RowKeySchema schema) {
         int maxKeyLength = getTerminatorCount(schema);
         for (List<KeyRange> slot : slots) {
@@ -109,17 +109,7 @@ public class SkipScanFilter extends FilterBase {
         // We just need to set the end key for when we need to calculate the next skip hint
         // TODO: shouldn't be necessary, since the start key of the scan should be set to this
         // or a higher value
-        this.estimateSplitNum = estimateSplitNum(slots);
-    }
-
-    // Estimate the number of splits that would be generated from the slots.
-    private static int estimateSplitNum(List<List<KeyRange>> slots) {
-        int [] position = new int[slots.size()];
-        int estimate = 0;
-        do {
-            estimate += 1;
-        } while (ScanUtil.incrementKey(slots, position));
-        return estimate;
+        this.estimateSplitNum = ScanUtil.estimateSplitNum(slots);
     }
 
     // Used externally by region splitters to generate all split ranges.
@@ -131,7 +121,7 @@ public class SkipScanFilter extends FilterBase {
         // steps we need to increment when chunking multiple key range together.
         int step = (int) Math.ceil(((double) estimateSplitNum) / maxConcurrency) - 1;
         boolean terminated = false, lowerInclusive;
-        while (true) {
+        while (!terminated) {
             // Do not need to care about the length since we set the key from the very beginning.
             setKey(Bound.LOWER, position, lowerBoundKey, 0, 0, position.length);
             lowerInclusive = ScanUtil.isKeyInclusive(Bound.LOWER, position, slots);
@@ -154,7 +144,6 @@ public class SkipScanFilter extends FilterBase {
                     Arrays.copyOf(upperBoundKey, upperBoundKey.length), false);
             splits.add(range);
             terminated = terminated || !ScanUtil.incrementKey(slots, position, 1, Bound.LOWER);
-            if (terminated) break;
         }
         return splits;
     }

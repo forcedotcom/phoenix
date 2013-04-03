@@ -27,16 +27,26 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.util.SortedSet;
+
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.client.Scan;
+
+import com.salesforce.phoenix.filter.SkipScanFilter;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.schema.TableRef;
+
 
 /**
  * Factory class for the Region Splitter used by the project.
- * 
- * @author zhuang
  */
 public class ParallelIteratorRegionSplitterFactory {
 
-    public static ParallelIteratorRegionSplitter getSplitter() {
-        return DefaultParallelIteratorRegionSplitter.getInstance();
+    public static ParallelIteratorRegionSplitter getSplitter(ConnectionQueryServices services, 
+            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
+        if (scan.getFilter() != null && scan.getFilter() instanceof SkipScanFilter) {
+            return SkipRangeParallelIteratorRegionSplitter.getInstance(services, scan);
+        }
+        return DefaultParallelIteratorRegionSplitter.getInstance(services, table, scan, allTableRegions);
     }
-
 }

@@ -58,19 +58,26 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRegionSplitter {
 
-    private static DefaultParallelIteratorRegionSplitter INSTANCE;
-    static {
-        INSTANCE = new DefaultParallelIteratorRegionSplitter();
+    private final ConnectionQueryServices services;
+    private final TableRef table;
+    private final Scan scan;
+    private final SortedSet<HRegionInfo> allTableRegions;
+
+    public static DefaultParallelIteratorRegionSplitter getInstance(ConnectionQueryServices services, 
+            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
+        return new DefaultParallelIteratorRegionSplitter(services, table, scan, allTableRegions);
     }
 
-    private DefaultParallelIteratorRegionSplitter() {}
-
-    public static ParallelIteratorRegionSplitter getInstance() {
-        return INSTANCE;
+    private DefaultParallelIteratorRegionSplitter(ConnectionQueryServices services, 
+            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
+        this.services = services;
+        this.table = table;
+        this.scan = scan;
+        this.allTableRegions = allTableRegions;
     }
 
     @Override
-    public List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
+    public List<KeyRange> getSplits() {
         Configuration config = services.getConfig();
         final int targetConcurrency = config.getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB,
                 QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY);

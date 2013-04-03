@@ -31,7 +31,6 @@ import java.util.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -39,43 +38,34 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.schema.TableRef;
 
 
 /**
  * Split the region according to the information contained in the scan's SkipScanFilter.
- * 
- * @author zhuang
  */
 public class SkipRangeParallelIteratorRegionSplitter implements ParallelIteratorRegionSplitter {
 
-    private static SkipRangeParallelIteratorRegionSplitter INSTANCE;
-    static {
-        INSTANCE = new SkipRangeParallelIteratorRegionSplitter();
+    private final int targetConcurrency;
+    private final int maxConcurrency;
+    private final Scan scan;
+
+    public static SkipRangeParallelIteratorRegionSplitter getInstance(ConnectionQueryServices services, Scan scan) {
+        return new SkipRangeParallelIteratorRegionSplitter(services, scan);
     }
 
-    private SkipRangeParallelIteratorRegionSplitter() {}
-
-    public static SkipRangeParallelIteratorRegionSplitter getInstance() {
-        return INSTANCE;
+    private SkipRangeParallelIteratorRegionSplitter(ConnectionQueryServices services, Scan scan) {
+        Configuration config = services.getConfig();
+        targetConcurrency = config.getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB,
+                QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY);
+        maxConcurrency = config.getInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB,
+                QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY);
+        Preconditions.checkArgument(targetConcurrency >= 1, "Invalid target concurrency: " + targetConcurrency);
+        Preconditions.checkArgument(maxConcurrency >= targetConcurrency , "Invalid max concurrency: " + maxConcurrency);
+        this.scan = scan;
     }
 
     @Override
-    public List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
-        // No SkipScanFilter is defined for the scan. Fall back to the default split.
-        if (scan.getFilter() == null ||
-                (scan.getFilter() != null && !(scan.getFilter() instanceof SkipScanFilter))) {
-            return DefaultParallelIteratorRegionSplitter.getInstance().getSplits(services, table, scan, allTableRegions);
-        }
-        Configuration config = services.getConfig();
-        final int targetConcurrency = config.getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB,
-                QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY);
-        final int maxConcurrency = config.getInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB,
-                QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY);
-        
-        Preconditions.checkArgument(targetConcurrency >= 1, "Invalid target concurrency: " + targetConcurrency);
-        Preconditions.checkArgument(maxConcurrency >= targetConcurrency , "Invalid max concurrency: " + maxConcurrency);
-        
+    public List<KeyRange> getSplits() {
         // The split strategies are split as follows:
         //
         // let's suppose:

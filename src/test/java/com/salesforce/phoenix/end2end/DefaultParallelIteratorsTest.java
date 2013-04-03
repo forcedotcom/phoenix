@@ -103,7 +103,7 @@ public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
 
     private static List<KeyRange> getSplits(TableRef table, Scan scan, SortedSet<HRegionInfo> regions) throws SQLException {
         ConnectionQueryServices services = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES);
-        List<KeyRange> keyRanges = DefaultParallelIteratorRegionSplitter.getInstance().getSplits(services, table, scan, regions);
+        List<KeyRange> keyRanges = DefaultParallelIteratorRegionSplitter.getInstance(services, table, scan, regions).getSplits();
         Collections.sort(keyRanges, new Comparator<KeyRange>() {
             @Override
             public int compare(KeyRange o1, KeyRange o2) {

@@ -155,16 +155,31 @@ public class ScanUtil {
         return keyCopy;
     }
 
+    /*
+     * Set the key by appending the keyRanges inside slots at positions as specified by the position array.
+     * 
+     * We need to increment part of the key range, or increment the whole key at the end, depending on the
+     * bound we are setting and whether the key range is inclusive or exclusive. The logic for determining
+     * whether to increment or not is:
+     * range/single    boundary       bound      increment
+     *  range          inclusive      lower         no
+     *  range          inclusive      upper         yes, at the end if occurs at any slots.
+     *  range          exclusive      lower         yes
+     *  range          exclusive      upper         no
+     *  single         inclusive      lower         no
+     *  single         inclusive      upper         yes, at the end if it is the last slots.
+     */
     public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound,
             byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
         int offset = byteOffset;
         boolean incrementKey = bound == Bound.UPPER;
         boolean incrementAtEnd = false;
+        boolean isFixedWidth = false;
         for (int i = slotStartIndex; i < slotEndIndex; i++) {
             // Build up the key by appending the bound of each key range
             // from the current position of each slot. 
             KeyRange range = slots.get(i).get(position[i]);
-            boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
+            isFixedWidth = schema.getField(i).getType().isFixedWidth();
             /*
              * If the current slot is unbound then stop if:
              * 1) setting the upper bound. There's no value in
@@ -194,7 +209,6 @@ public class ScanUtil {
             if (i < schema.getMaxFields()-1 && !isFixedWidth) {
                 key[offset++] = QueryConstants.SEPARATOR_BYTE;
             }
-            
             if (!range.isSingleKey() && incrementKey) {
                 if (!ByteUtil.nextKey(key, offset)) {
                     // Special case for not being able to increment
@@ -204,9 +218,19 @@ public class ScanUtil {
             }
         }
         if (incrementAtEnd || incrementKey) {
-            if (!ByteUtil.nextKey(key, offset)) {
-                return -byteOffset;
+            // The last slot is fixed length, we can increment the keys directly.
+            if (isFixedWidth) {
+                if (!ByteUtil.nextKey(key, offset)) {
+                    return -byteOffset;
+                }
+            } else {
+                // the last slot is variable length, we should increment the actual key value
+                // of the separator byte.
+                if (!ByteUtil.nextKey(key, offset-1)) {
+                    return -byteOffset;
+                }
             }
+            
         }
         return offset - byteOffset;
     }
@@ -220,6 +244,16 @@ public class ScanUtil {
             }
         }
         return inclusive;
+    }
+
+    // Estimate the number of splits that would be generated from the slots.
+    public static int estimateSplitNum(List<List<KeyRange>> slots) {
+        int [] position = new int[slots.size()];
+        int estimate = 0;
+        do {
+            estimate += 1;
+        } while (ScanUtil.incrementKey(slots, position));
+        return estimate;
     }
 
     public static boolean incrementKey(List<List<KeyRange>> slots, int[] position, int steps, Bound bound) {
@@ -250,7 +284,7 @@ public class ScanUtil {
         return idx >= 0;
     }
 
-    public static void setBoundSlotPosition(Bound bound, List<List<KeyRange>> slots, int[] position) {
+    private static void setBoundSlotPosition(Bound bound, List<List<KeyRange>> slots, int[] position) {
         // Find first index on the current position that is a range slot.
         int idx;
         for (idx = 0; idx < slots.size(); idx++) {

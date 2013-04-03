@@ -49,19 +49,18 @@ import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 
+
 /**
  * Test for {@link SkipRangeParallelIteratorRegionSplitter}.
- *
- * @author zhuang
  */
 @RunWith(Parameterized.class)
 public class SkipRangeParallelIteratorTest extends BaseTest {
 
     private final ConnectionQueryServices services;
     private final Scan scan;
-    private final Expectation expectation;
+    private final List<KeyRange> expectedSplits;
 
-    public SkipRangeParallelIteratorTest(List<List<KeyRange>> slots, int[] widths, Expectation expectation) throws SQLException {
+    public SkipRangeParallelIteratorTest(List<List<KeyRange>> slots, int[] widths, KeyRange[] expectedSplits) throws SQLException {
         this.services = mock(ConnectionQueryServices.class);
         Configuration config = mock(Configuration.class);
         when(services.getConfig()).thenReturn(config);
@@ -94,12 +93,30 @@ public class SkipRangeParallelIteratorTest extends BaseTest {
         }
         this.scan = new Scan();
         this.scan.setFilter(new SkipScanFilter(slots, builder.build()));
-        this.expectation = expectation;
+        List<KeyRange> splits = Arrays.<KeyRange>asList(expectedSplits);
+        Collections.sort(splits, new Comparator<KeyRange>() {
+            @Override
+            public int compare(KeyRange o1, KeyRange o2) {
+                return Bytes.compareTo(o1.getLowerRange(),o2.getLowerRange());
+            }
+        });
+        this.expectedSplits = splits;
     }
 
     @Test
     public void test() {
-        expectation.examine(services, scan);
+        // table and alltableRegions not used for SkipScanParallelIterator.
+        List<KeyRange> keyRanges = SkipRangeParallelIteratorRegionSplitter.getInstance(services, scan).getSplits();
+        Collections.sort(keyRanges, new Comparator<KeyRange>() {
+            @Override
+            public int compare(KeyRange o1, KeyRange o2) {
+                return Bytes.compareTo(o1.getLowerRange(),o2.getLowerRange());
+            }
+        });
+        assertEquals("Unexpected number of splits: " + keyRanges, expectedSplits.size(), keyRanges.size());
+        for (int i=0; i<keyRanges.size(); i++) {
+            assertEquals("Expecting: " + expectedSplits.get(i), expectedSplits.get(i), keyRanges.get(i));
+        }
     }
 
     @Parameters(name="{0} {1} {2}")
@@ -243,7 +260,7 @@ public class SkipRangeParallelIteratorTest extends BaseTest {
     private static Collection<?> foreach(KeyRange[][] ranges, int[] widths, KeyRange[] expectedSplits) {
         List<List<KeyRange>> slots = Lists.transform(Lists.newArrayList(ranges), ARRAY_TO_LIST);
         List<Object> ret = Lists.newArrayList();
-        ret.add(new Object[] {slots, widths, new SplitRanges(expectedSplits)});
+        ret.add(new Object[] {slots, widths, expectedSplits});
         return ret;
     }
 
@@ -254,39 +271,4 @@ public class SkipRangeParallelIteratorTest extends BaseTest {
                     return Lists.newArrayList(input);
                 }
     };
-
-    private static interface Expectation {
-        void examine(ConnectionQueryServices services, Scan scan);
-    }
-
-    private static final class SplitRanges implements Expectation {
-        private final List<KeyRange> expectedSplits;
-        
-        public SplitRanges(KeyRange[] expectedSplits) {
-            List<KeyRange> splits = Arrays.<KeyRange>asList(expectedSplits);
-            Collections.sort(splits, new Comparator<KeyRange>() {
-                @Override
-                public int compare(KeyRange o1, KeyRange o2) {
-                    return Bytes.compareTo(o1.getLowerRange(),o2.getLowerRange());
-                }
-            });
-            this.expectedSplits = splits;
-        }
-        
-        @Override
-        public void examine(ConnectionQueryServices services, Scan scan) {
-            // table and alltableRegions not used for SkipScanParallelIterator.
-            List<KeyRange> keyRanges = SkipRangeParallelIteratorRegionSplitter.getInstance().getSplits(services, null, scan, null);
-            Collections.sort(keyRanges, new Comparator<KeyRange>() {
-                @Override
-                public int compare(KeyRange o1, KeyRange o2) {
-                    return Bytes.compareTo(o1.getLowerRange(),o2.getLowerRange());
-                }
-            });
-            assertEquals("Unexpected number of splits: " + keyRanges, expectedSplits.size(), keyRanges.size());
-            for (int i=0; i<keyRanges.size(); i++) {
-                assertEquals("Expecting: " + expectedSplits.get(i), expectedSplits.get(i), keyRanges.get(i));
-            }
-        }
-    }
 }

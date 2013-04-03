@@ -111,7 +111,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
      */
     // exposed for tests
     public static List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
-        return ParallelIteratorRegionSplitterFactory.getSplitter().getSplits(services, table, scan, allTableRegions);
+        return ParallelIteratorRegionSplitterFactory.getSplitter(services, table, scan, allTableRegions).getSplits();
     }
 
     public List<KeyRange> getSplits() {
