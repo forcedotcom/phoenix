@@ -147,6 +147,18 @@ public class SkipRangeParallelIteratorTest extends BaseTest {
                     KeyRange.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("d"), false),
                 }));
         testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        KeyRange.getKeyRange(Bytes.toBytes("k"), true, Bytes.toBytes("k"), true),
+                        KeyRange.getKeyRange(Bytes.toBytes("t"), true, Bytes.toBytes("t"), true),
+                    }},
+                    new int[] {1},
+                    new KeyRange[] {
+                        KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),
+                        KeyRange.getKeyRange(Bytes.toBytes("k"), true, Bytes.toBytes("l"), false),
+                        KeyRange.getKeyRange(Bytes.toBytes("t"), true, Bytes.toBytes("u"), false),
+                    }));
+        testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
                     KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),

@@ -246,16 +246,6 @@ public class ScanUtil {
         return inclusive;
     }
 
-    // Estimate the number of splits that would be generated from the slots.
-    public static int estimateSplitNum(List<List<KeyRange>> slots) {
-        int [] position = new int[slots.size()];
-        int estimate = 0;
-        do {
-            estimate += 1;
-        } while (ScanUtil.incrementKey(slots, position));
-        return estimate;
-    }
-
     public static boolean incrementKey(List<List<KeyRange>> slots, int[] position, int steps, Bound bound) {
         for (int i=0; i<steps; i++) {
             if (!incrementKey(slots, position)) {

@@ -109,7 +109,16 @@ public class SkipScanFilter extends FilterBase {
         // We just need to set the end key for when we need to calculate the next skip hint
         // TODO: shouldn't be necessary, since the start key of the scan should be set to this
         // or a higher value
-        this.estimateSplitNum = ScanUtil.estimateSplitNum(slots);
+        this.estimateSplitNum = estimateSplitNum();
+    }
+
+    // Estimate the number of splits that would be generated from the slots.
+    private int estimateSplitNum() {
+        int estimate = 0;
+        do {
+            estimate += 1;
+        } while (ScanUtil.incrementKey(slots, position));
+        return estimate;
     }
 
     // Used externally by region splitters to generate all split ranges.
