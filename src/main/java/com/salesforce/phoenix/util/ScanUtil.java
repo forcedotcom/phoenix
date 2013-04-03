@@ -172,8 +172,8 @@ public class ScanUtil {
     public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound,
             byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
         int offset = byteOffset;
-        boolean incrementKey = bound == Bound.UPPER;
-        boolean incrementAtEnd = false;
+        boolean singleInclusiveUpperKeyAtEnd = false;
+        boolean rangeExclusiveUpperKey = false;
         boolean isFixedWidth = false;
         for (int i = slotStartIndex; i < slotEndIndex; i++) {
             // Build up the key by appending the bound of each key range
@@ -193,15 +193,18 @@ public class ScanUtil {
                 ( bound == Bound.UPPER || isFixedWidth) ){
                 break;
             }
-            // We increment the key at the current slot if it's an exclusive range key and we are
-            // setting the lower bound.
-            // We also use this argument to remember if this is a single inclusive upper bound key.
-            // But we only increment the key if this is the last slot.
-            incrementKey = (!range.isInclusive(bound) && bound == Bound.LOWER) || 
-                    (range.isSingleKey() && range.isInclusive(bound) && bound == Bound.UPPER);
-            // We remember to increment the last slot if this is an inclusive key, we are setting 
-            // the upper bound and it's a range key;
-            incrementAtEnd = incrementAtEnd ||
+            // If we are setting the upper bound of using inclusive single key, we remember 
+            // to increment the key if we exit the loop after this iteration.
+            // 
+            // We remember to increment the last slot if we are setting the upper bound with an
+            // inclusive range key.
+            //
+            // We cannot combine the two flags together in case for single-inclusive key followed
+            // by the range-exclusive key. In that case, we do not need to increment the end at the
+            // end. But if we combine the two flag, the single inclusive key in the middle of the
+            // key slots would cause the flag to become true.
+            singleInclusiveUpperKeyAtEnd = range.isSingleKey() && range.isInclusive(bound) && bound == Bound.UPPER;
+            rangeExclusiveUpperKey = rangeExclusiveUpperKey ||
                     (!range.isSingleKey() && range.isInclusive(bound) && bound == Bound.UPPER);
             byte[] bytes = range.getRange(bound);
             System.arraycopy(bytes, 0, key, offset, bytes.length);
@@ -209,15 +212,16 @@ public class ScanUtil {
             if (i < schema.getMaxFields()-1 && !isFixedWidth) {
                 key[offset++] = QueryConstants.SEPARATOR_BYTE;
             }
-            if (!range.isSingleKey() && incrementKey) {
+            // If we are setting the lower bound with an exclusive range key, we need to bump the
+            // slot up;
+            if (!range.isSingleKey() && !range.isInclusive(bound) && bound == Bound.LOWER) {
                 if (!ByteUtil.nextKey(key, offset)) {
                     // Special case for not being able to increment
                     return -byteOffset;
                 }
-                incrementKey = false;
             }
         }
-        if (incrementAtEnd || incrementKey) {
+        if (singleInclusiveUpperKeyAtEnd || rangeExclusiveUpperKey) {
             if (!ByteUtil.nextKey(key, offset)) {
                 return -byteOffset;
             }

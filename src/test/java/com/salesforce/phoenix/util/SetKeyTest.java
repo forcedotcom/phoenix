@@ -191,7 +191,7 @@ public class SetKeyTest {
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a1B"), 3),
                 Bound.LOWER, 3, true
                 ));
-        // 7, Lower bound, unbound key in the middle, fixed length;
+        // 7, Lower bound, unbound key in the middle, fixed length.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
@@ -201,7 +201,18 @@ public class SetKeyTest {
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a"), 1),
                 Bound.LOWER, 1, true
                 ));
-        // 8, Lower bound, unbound key in the middle, variable length;
+        // 8, Lower bound, unbound key in the middle, variable length.
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                        KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),}},
+                    new int[] {1,1},
+                    // Even we specifies lower bound as inclusive, the UNBOUND_LOWER is always considered as
+                    // exclusive, and the slot would be bumped up by one.
+                    ByteUtil.concat(PDataType.VARCHAR.toBytes("a"), QueryConstants.SEPARATOR_BYTE_ARRAY, new byte[] {1}),
+                    Bound.LOWER, 3, false
+                    ));
+        // 9, Lower bound, unbound key at end, variable length.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
@@ -215,7 +226,7 @@ public class SetKeyTest {
                         QueryConstants.SEPARATOR_BYTE_ARRAY),
                 Bound.LOWER, 5, false
                 ));
-        // 9, Upper bound, all single keys, all inclusive, increment at end.
+        // 10, Upper bound, all single keys, all inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
@@ -225,7 +236,7 @@ public class SetKeyTest {
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a1B"), 3),
                 Bound.UPPER, 3, true
                 ));
-        // 10, Upper bound, all range keys, all inclusive, increment at end.
+        // 11, Upper bound, all range keys, all inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
@@ -235,16 +246,26 @@ public class SetKeyTest {
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2C"), 3),
                 Bound.UPPER, 3, true
                 ));
-        // 11, Upper bound, single inclusive, range inclusive, increment at end.
+        // 12, Upper bound, all range keys, all exclusive, no increment at end.
+        testCases.addAll(
+            foreach(new KeyRange[][]{{
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),},{
+                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), false),},{
+                    KeyRange.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), false),}},
+                new int[] {1,1,1},
+                ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2B"), 3),
+                Bound.UPPER, 3, true
+                ));
+        // 13, Upper bound, single inclusive, range inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), false),}},
+                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),}},
                 new int[] {1,1},
-                ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a2"), 2),
+                ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a3"), 2),
                 Bound.UPPER, 2, true
                 ));
-        // 12, Upper bound, range exclusive, single inclusive, increment at end.
+        // 14, Upper bound, range exclusive, single inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),},{
@@ -253,7 +274,7 @@ public class SetKeyTest {
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2"), 2),
                 Bound.UPPER, 2, true
                 ));
-        // 13, Upper bound, range inclusive, single inclusive, increment at end.
+        // 15, Upper bound, range inclusive, single inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
@@ -262,7 +283,7 @@ public class SetKeyTest {
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2"), 2),
                 Bound.UPPER, 2, true
                 ));
-        // 14, Upper bound, single inclusive, range exclusive, no increment at end.
+        // 16, Upper bound, single inclusive, range exclusive, no increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
@@ -271,27 +292,32 @@ public class SetKeyTest {
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a2"), 2),
                 Bound.UPPER, 2, true
                 ));
-        // 15, Upper bound, unbound key in the middle, fixed length;
+        // 17, Upper bound, unbound key, fixed length;
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),},{
-                    KeyRange.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
-                new int[] {1,1,1},
+                    KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),}},
+                new int[] {1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b"), 1),
                 Bound.UPPER, 1, true
                 ));
-        // 16, Upper bound, unbound key in the middle, variable length;
+        // 18, Upper bound, unbound key, variable length;
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),},{
-                    KeyRange.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
-                new int[] {1,1,1},
-                // Even we specifies lower bound as inclusive, the UNBOUND_LOWER is always considered as
-                // exclusive, and the slot would be bumped up by one.
+                    KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),}},
+                new int[] {1,1},
                 ByteUtil.concat(PDataType.VARCHAR.toBytes("a"), new byte[] {1}),
                 Bound.UPPER, 2, false
+                ));
+        // 18, Upper bound, keys wrapped around when incrementing.
+        testCases.addAll(
+            foreach(new KeyRange[][]{{
+                KeyRange.getKeyRange(new byte[] {-1}, true, new byte[] {-1}, true)},{
+                KeyRange.getKeyRange(new byte[] {-1}, true, new byte[] {-1}, true)}},
+                new int[] {1, 1},
+                ByteUtil.concat(new byte[] {0, 0}),
+                Bound.UPPER, 0, true
                 ));
         return testCases;
     }
