@@ -105,6 +105,7 @@ public class CSVLoader {
 		int rowCount = 0;
 		int upsertBatchSize = conn.getUpsertBatchSize();
 		Object upsertValue = null;
+		long start = System.currentTimeMillis();
 
 		// Upsert data based on SqlType of each column
 		while ((nextLine = reader.readNext()) != null) {
@@ -136,7 +137,9 @@ public class CSVLoader {
 			}
 		}
 		conn.commit();
-		System.out.println("CSV Upsert complete. Total number of rows upserted: " + rowCount);
+		double elapsedDuration = ((System.currentTimeMillis() - start) / 1000.0);
+		System.out.println("CSV Upsert complete. " + rowCount + " rows upserted");
+		System.out.println("Time: " + elapsedDuration + " sec(s)\n");
 	}
 	
 	/**

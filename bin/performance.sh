@@ -39,6 +39,7 @@ table="performance_$2"
 ddl="ddl.sql"
 data="data.csv"
 qry="query.sql"
+statements=""
 
 # Phoenix client jar. To generate new jars: $ mvn package -DskipTests
 phoenix_jar_path="../target"
@@ -49,19 +50,15 @@ testjar="$phoenix_jar_path/phoenix-*-tests.jar"
 hbase_config_path="."
 
 execute="java -cp "$hbase_config_path:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties com.salesforce.phoenix.util.PhoenixRuntime -t $table $zookeeper "
-timedexecute="time -p $execute"
 function usage {
 	echo "Performance script arguments not specified. Usage: performance.sh <zookeeper> <row count>"
 	echo "Example: performance.sh localhost 100000"
 	exit
-} 
+}
+
 function queryex {
-	echo ""
-	echo "Query # $1"
-	echo "Query: $2"
-	echo "======================================================================================"
-	echo $2>$qry;$timedexecute $qry
-	echo "--------------------------------------------------------------------------------------"
+	echo "Query # $1 - $2"
+        statements="$statements$2"
 }
 function cleartempfiles {
 	delfile $ddl
@@ -85,11 +82,6 @@ if [ -z "$2" ]
 then usage; fi;
 echo ""; echo "Creating performance table..."
 echo $createtable > $ddl; $execute "$ddl"
-echo ""; echo "Upserting $rowcount rows...";echo "==========================="
-echo "Generating data..."
-java -jar $testjar $rowcount
-echo ""
-$timedexecute $data
 
 # Write real,user,sys time on console for the following queries
 queryex "1 - Count" "SELECT COUNT(1) FROM $table;"
@@ -97,6 +89,12 @@ queryex "2 - Group By First PK" "SELECT HOST FROM $table GROUP BY HOST;"
 queryex "3 - Group By Second PK" "SELECT DOMAIN FROM $table GROUP BY DOMAIN;"
 queryex "4 - Truncate + Group By" "SELECT TRUNC(DATE,'DAY') DAY FROM $table GROUP BY TRUNC(DATE,'DAY');"
 queryex "5 - Filter + Count" "SELECT COUNT(1) FROM $table WHERE CORE<10;"
+
+echo ""; echo "Generating and upserting data..."
+java -jar $testjar $rowcount
+echo ""; 
+echo $statements>$qry
+$execute $data $qry
 
 # clear temporary files
 cleartempfiles

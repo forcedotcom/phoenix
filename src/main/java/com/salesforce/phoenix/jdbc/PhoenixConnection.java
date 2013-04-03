@@ -101,6 +101,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
                 for (int i = 0; i < paramMetaData.getParameterCount(); i++) {
                     stmt.setObject(i+1, binds.get(bindsOffset+i));
                 }
+                long start = System.currentTimeMillis();
                 boolean isQuery = stmt.execute();
                 if (isQuery) {
                     ResultSet rs = stmt.getResultSet();
@@ -157,6 +158,8 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
                     }
                 }
                 bindsOffset += paramMetaData.getParameterCount();
+                double elapsedDuration = ((System.currentTimeMillis() - start) / 1000.0);
+                out.println("Time: " + elapsedDuration + " sec(s)\n");
                 nStatements++;
             }
         } catch (EOFException e) {
