@@ -27,13 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import java.util.SortedSet;
+import java.sql.SQLException;
 
-import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.client.Scan;
 
-import com.salesforce.phoenix.filter.SkipScanFilter;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -42,11 +40,12 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public class ParallelIteratorRegionSplitterFactory {
 
-    public static ParallelIteratorRegionSplitter getSplitter(ConnectionQueryServices services, 
-            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
-        if (scan.getFilter() != null && scan.getFilter() instanceof SkipScanFilter) {
-            return SkipRangeParallelIteratorRegionSplitter.getInstance(services, scan);
+    public static ParallelIteratorRegionSplitter getSplitter(StatementContext context, TableRef table) throws SQLException {
+        Scan scan = context.getScan();
+        if (context.getScanRanges().useSkipScanFilter()) {
+            return SkipRangeParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), scan);
         }
-        return DefaultParallelIteratorRegionSplitter.getInstance(services, table, scan, allTableRegions);
+        return DefaultParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), table,
+                scan, context.getConnection().getQueryServices().getAllTableRegions(table));
     }
 }
