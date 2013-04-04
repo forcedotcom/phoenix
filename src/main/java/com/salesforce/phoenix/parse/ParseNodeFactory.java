@@ -238,7 +238,7 @@ public class ParseNodeFactory {
         return new PropertyName(familyName, propertyName);
     }
 
-    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK) {
+    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK) throws SQLException {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK);
     }
 
