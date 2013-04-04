@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import com.salesforce.phoenix.query.KeyRange;
@@ -39,5 +40,5 @@ import com.salesforce.phoenix.query.KeyRange;
  */
 public interface ParallelIteratorRegionSplitter {
 
-    public List<KeyRange> getSplits();
+    public List<KeyRange> getSplits() throws SQLException;
 }

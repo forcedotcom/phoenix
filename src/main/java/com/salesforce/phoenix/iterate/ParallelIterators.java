@@ -37,8 +37,10 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.base.*;
-import com.google.common.collect.*;
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
@@ -85,7 +87,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
      * @return regions that intersect with the key range given by the startKey and stopKey
      */
     // exposed for tests
-    static List<HRegionInfo> filterRegions(SortedSet<HRegionInfo> allTableRegions, byte[] startKey, byte[] stopKey) {
+    public static List<HRegionInfo> filterRegions(SortedSet<HRegionInfo> allTableRegions, byte[] startKey, byte[] stopKey) {
         Iterable<HRegionInfo> regions;
         final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false);
         if (keyRange == KeyRange.EVERYTHING_RANGE) {

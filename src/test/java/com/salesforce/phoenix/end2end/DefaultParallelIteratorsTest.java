@@ -42,7 +42,9 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.iterate.DefaultParallelIteratorRegionSplitter;
+import com.salesforce.phoenix.iterate.ParallelIterators;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.StatsManagerImpl.TimeKeeper;
@@ -101,9 +103,16 @@ public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
         return allTableRegions;
     }
 
-    private static List<KeyRange> getSplits(TableRef table, Scan scan, SortedSet<HRegionInfo> regions) throws SQLException {
-        ConnectionQueryServices services = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES);
-        List<KeyRange> keyRanges = DefaultParallelIteratorRegionSplitter.getInstance(services, table, scan, regions).getSplits();
+    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final SortedSet<HRegionInfo> regions) throws SQLException {
+        PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        StatementContext context = new StatementContext(connection, null, Collections.emptyList(), 0, scan);
+        DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, table) {
+            @Override
+            protected List<HRegionInfo> getAllRegions() throws SQLException {
+                return ParallelIterators.filterRegions(regions, scan.getStartRow(), scan.getStopRow());
+            }
+        };
+        List<KeyRange> keyRanges = splitter.getSplits();
         Collections.sort(keyRanges, new Comparator<KeyRange>() {
             @Override
             public int compare(KeyRange o1, KeyRange o2) {

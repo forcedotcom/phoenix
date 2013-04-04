@@ -27,14 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.client.Scan;
 
 import com.google.common.collect.ImmutableList;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.filter.SkipScanFilter;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -43,20 +44,21 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIteratorRegionSplitter {
 
-    public static SkipRangeParallelIteratorRegionSplitter getInstance(ConnectionQueryServices services,
-            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
-        return new SkipRangeParallelIteratorRegionSplitter(services, table, scan, allTableRegions);
+    public static SkipRangeParallelIteratorRegionSplitter getInstance(StatementContext context, TableRef table) {
+        return new SkipRangeParallelIteratorRegionSplitter(context, table);
     }
 
-    protected SkipRangeParallelIteratorRegionSplitter(ConnectionQueryServices services, 
-            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
-        super(services, table, scan, allTableRegions);
+    protected SkipRangeParallelIteratorRegionSplitter(StatementContext context, TableRef table) {
+        super(context, table);
     }
 
     @Override
-    protected List<HRegionInfo> getAllRegions() {
+    protected List<HRegionInfo> getAllRegions() throws SQLException {
         Set<HRegionInfo> allRegions = new HashSet<HRegionInfo>();
-        List<KeyRange> keyRanges = ((SkipScanFilter) scan.getFilter()).generateSplitRanges(maxConcurrency);
+        SkipScanFilter filter = new SkipScanFilter(context.getScanRanges().getRanges(), table.getTable().getRowKeySchema());
+        // TODO: put generateSplitRanges on ScanRanges?
+        List<KeyRange> keyRanges = filter.generateSplitRanges(maxConcurrency);
+        SortedSet<HRegionInfo> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
         for (KeyRange range: keyRanges) {
             List<HRegionInfo> regions = ParallelIterators.filterRegions(allTableRegions, range.getLowerRange(), range.getUpperRange());
             allRegions.addAll(regions);

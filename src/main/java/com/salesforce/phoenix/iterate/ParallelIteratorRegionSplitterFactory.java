@@ -40,10 +40,8 @@ public class ParallelIteratorRegionSplitterFactory {
 
     public static ParallelIteratorRegionSplitter getSplitter(StatementContext context, TableRef table) throws SQLException {
         if (context.getScanRanges().useSkipScanFilter()) {
-            return SkipRangeParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), table,
-                    context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
+            return SkipRangeParallelIteratorRegionSplitter.getInstance(context, table);
         }
-        return DefaultParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), table,
-                context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
+        return DefaultParallelIteratorRegionSplitter.getInstance(context, table);
     }
 }
