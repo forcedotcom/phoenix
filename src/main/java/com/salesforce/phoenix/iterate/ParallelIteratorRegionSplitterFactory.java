@@ -29,8 +29,6 @@ package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
 
-import org.apache.hadoop.hbase.client.Scan;
-
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.schema.TableRef;
 
@@ -41,11 +39,11 @@ import com.salesforce.phoenix.schema.TableRef;
 public class ParallelIteratorRegionSplitterFactory {
 
     public static ParallelIteratorRegionSplitter getSplitter(StatementContext context, TableRef table) throws SQLException {
-        Scan scan = context.getScan();
         if (context.getScanRanges().useSkipScanFilter()) {
-            return SkipRangeParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), scan);
+            return SkipRangeParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), table,
+                    context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
         }
         return DefaultParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), table,
-                scan, context.getConnection().getQueryServices().getAllTableRegions(table));
+                context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
     }
 }

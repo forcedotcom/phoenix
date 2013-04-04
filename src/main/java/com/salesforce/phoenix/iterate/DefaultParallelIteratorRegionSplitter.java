@@ -27,12 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.SortedSet;
+import java.util.*;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.client.Scan;
@@ -58,34 +54,41 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRegionSplitter {
 
-    private final ConnectionQueryServices services;
-    private final TableRef table;
-    private final Scan scan;
-    private final SortedSet<HRegionInfo> allTableRegions;
+    protected final int targetConcurrency;
+    protected final int maxConcurrency;
+    protected final ConnectionQueryServices services;
+    protected final TableRef table;
+    protected final Scan scan;
+    protected final SortedSet<HRegionInfo> allTableRegions;
 
     public static DefaultParallelIteratorRegionSplitter getInstance(ConnectionQueryServices services, 
             TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
         return new DefaultParallelIteratorRegionSplitter(services, table, scan, allTableRegions);
     }
 
-    private DefaultParallelIteratorRegionSplitter(ConnectionQueryServices services, 
+    protected DefaultParallelIteratorRegionSplitter(ConnectionQueryServices services, 
             TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
         this.services = services;
         this.table = table;
         this.scan = scan;
         this.allTableRegions = allTableRegions;
-    }
-
-    @Override
-    public List<KeyRange> getSplits() {
-        Configuration config = services.getConfig();
-        final int targetConcurrency = config.getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB,
+        this.targetConcurrency = services.getConfig().getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB,
                 QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY);
-        final int maxConcurrency = config.getInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB,
+        this.maxConcurrency = services.getConfig().getInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB,
                 QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY);
-        
         Preconditions.checkArgument(targetConcurrency >= 1, "Invalid target concurrency: " + targetConcurrency);
         Preconditions.checkArgument(maxConcurrency >= targetConcurrency , "Invalid max concurrency: " + maxConcurrency);
+    }
+
+    // Get the mapping between key range and the regions that contains them.
+    protected List<HRegionInfo> getAllRegions() {
+        return ParallelIterators.filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());
+    }
+
+    protected List<KeyRange> genKeyRanges(List<HRegionInfo> regions) {
+        if (regions.isEmpty()) {
+            return Collections.emptyList();
+        }
         
         // the splits are computed as follows:
         //
@@ -107,12 +110,6 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         // distributed across regions, using this scheme compensates for regions that
         // have more rows than others, by applying tighter splits and therefore spawning
         // off more scans over the overloaded regions.
-        
-        List<HRegionInfo> regions = ParallelIterators.filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());
-        if (regions.isEmpty()) {
-            return Collections.emptyList();
-        }
-        
         int splitsPerRegion = regions.size() >= targetConcurrency ? 1 : (regions.size() > targetConcurrency / 2 ? maxConcurrency : targetConcurrency) / regions.size();
         ListMultimap<Long,KeyRange> keyRangesPerRegion = ArrayListMultimap.create(regions.size(),regions.size() * splitsPerRegion);;
         if (regions.size() >= targetConcurrency) {
@@ -189,5 +186,10 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
             i++;
         } while (!done);
         return splits;
+    }
+
+    @Override
+    public List<KeyRange> getSplits() {
+        return genKeyRanges(getAllRegions());
     }
 }

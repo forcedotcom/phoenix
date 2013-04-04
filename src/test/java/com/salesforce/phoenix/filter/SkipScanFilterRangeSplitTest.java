@@ -27,14 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import static org.mockito.Mockito.*;
 import static org.junit.Assert.*;
 
 import java.sql.SQLException;
 import java.util.*;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,18 +51,13 @@ import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
  * Test for {@link SkipRangeParallelIteratorRegionSplitter}.
  */
 @RunWith(Parameterized.class)
-public class SkipRangeParallelIteratorTest extends BaseTest {
+public class SkipScanFilterRangeSplitTest extends BaseTest {
 
-    private final ConnectionQueryServices services;
-    private final Scan scan;
+    private final static int MAX_CONCURRENCY = 5;
+    private final SkipScanFilter filter;
     private final List<KeyRange> expectedSplits;
 
-    public SkipRangeParallelIteratorTest(List<List<KeyRange>> slots, int[] widths, KeyRange[] expectedSplits) throws SQLException {
-        this.services = mock(ConnectionQueryServices.class);
-        Configuration config = mock(Configuration.class);
-        when(services.getConfig()).thenReturn(config);
-        when(config.getInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, QueryServicesOptions.DEFAULT_TARGET_QUERY_CONCURRENCY)).thenReturn(3);
-        when(config.getInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY)).thenReturn(5);
+    public SkipScanFilterRangeSplitTest(List<List<KeyRange>> slots, int[] widths, KeyRange[] expectedSplits) throws SQLException {
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
         for (final int width : widths) {
             builder.addField(new PDatum() {
@@ -91,8 +83,7 @@ public class SkipRangeParallelIteratorTest extends BaseTest {
                 }
             });
         }
-        this.scan = new Scan();
-        this.scan.setFilter(new SkipScanFilter(slots, builder.build()));
+        this.filter = new SkipScanFilter(slots, builder.build());
         List<KeyRange> splits = Arrays.<KeyRange>asList(expectedSplits);
         Collections.sort(splits, new Comparator<KeyRange>() {
             @Override
@@ -106,7 +97,7 @@ public class SkipRangeParallelIteratorTest extends BaseTest {
     @Test
     public void test() {
         // table and alltableRegions not used for SkipScanParallelIterator.
-        List<KeyRange> keyRanges = SkipRangeParallelIteratorRegionSplitter.getInstance(services, scan).getSplits();
+        List<KeyRange> keyRanges = filter.generateSplitRanges(MAX_CONCURRENCY);
         Collections.sort(keyRanges, new Comparator<KeyRange>() {
             @Override
             public int compare(KeyRange o1, KeyRange o2) {
@@ -123,17 +114,6 @@ public class SkipRangeParallelIteratorTest extends BaseTest {
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // All ranges are single keys.
-        // Only one range, need to split the ranges into sub chunks.
-        testCases.addAll(
-            foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("ddc"), true),
-                }},
-                new int[] {3},
-                new KeyRange[] {
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("bbb"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("bbb"), true, Bytes.toBytes("ccc"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("ccc"), true, Bytes.toBytes("ddd"), false),
-                }));
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
