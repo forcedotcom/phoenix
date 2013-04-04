@@ -347,6 +347,7 @@ public class QueryParserTest {
                     "selects a from b\n" +
                     "where e = d\n"));
             parser.parseStatement();
+            fail("Should have caught exception.");
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"selects\" at line 1, column 1."));
         }
@@ -355,6 +356,7 @@ public class QueryParserTest {
                     "select a froms b\n" +
                     "where e = d\n"));
             parser.parseStatement();
+            fail("Should have caught exception.");
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 602 (42P00): Syntax error. Missing \"FROM\" at line 1, column 16."));
         }
@@ -367,6 +369,7 @@ public class QueryParserTest {
                     "select a,, from b\n" +
                     "where e = d\n"));
             parser.parseStatement();
+            fail("Should have caught exception.");
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \",\" at line 1, column 10."));
         }
@@ -375,6 +378,7 @@ public class QueryParserTest {
                     "select a from from b\n" +
                     "where e = d\n"));
             parser.parseStatement();
+            fail("Should have caught exception.");
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"from\" at line 1, column 15."));
         }
@@ -387,6 +391,7 @@ public class QueryParserTest {
                     "select a b\n" +
                     "where e = d\n"));
             parser.parseStatement();
+            fail("Should have caught exception.");
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \"where\" at line 2, column 1."));
         }
@@ -395,8 +400,53 @@ public class QueryParserTest {
                     "select a from b\n" +
                     "where d\n"));
             parser.parseStatement();
+            fail("Should have caught exception.");
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"d\" at line 2, column 7."));
+        }
+    }
+
+    @Test
+    public void testBadCharDef() throws Exception {
+        try {
+            SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadVarcharDef" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col CHAR(0))");
+            parser.parseStatement();
+            fail("Should have caught bad char definition.");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 208 (22003): CHAR or VARCHAR must have a positive length. columnName=COL"));
+        }
+        try {
+            SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadVarcharDef" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col CHAR)");
+            parser.parseStatement();
+            fail("Should have caught bad char definition.");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 207 (22003): Missing length for CHAR. columnName=COL"));
+        }
+    }
+
+    @Test
+    public void testBadVarcharDef() throws Exception {
+        try {
+            SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadVarcharDef" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col VARCHAR(0))");
+            parser.parseStatement();
+            fail("Should have caught bad varchar definition.");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 208 (22003): CHAR or VARCHAR must have a positive length. columnName=COL"));
+        }
+    }
+
+    @Test
+    public void testBadDecimalDef() throws Exception {
+        try {
+            SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadDecimalDef" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col DECIMAL(0, 5))");
+            parser.parseStatement();
+            fail("Should have caught bad decimal definition.");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 209 (22003): Decimal precision outside of range. Should be within 1 and 31. columnName=COL"));
         }
     }
 }

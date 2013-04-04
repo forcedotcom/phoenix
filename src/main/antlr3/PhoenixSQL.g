@@ -129,6 +129,7 @@ import com.google.common.collect.ListMultimap;
 import org.apache.hadoop.hbase.util.Pair;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -304,13 +305,13 @@ package com.salesforce.phoenix.parse;
 
 // Used to incrementally parse a series of semicolon-terminated SQL statement
 // Note than unlike the rule below an EOF is not expected at the end.
-nextStatement returns [SQLStatement ret]
+nextStatement returns [SQLStatement ret] throws SQLException
     :  s=oneStatement {$ret = s;} SEMICOLON
     |  EOF
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-statement returns [SQLStatement ret]
+statement returns [SQLStatement ret] throws SQLException
     :   s=oneStatement {$ret = s;} EOF
     ;
 
@@ -320,7 +321,7 @@ query returns [SelectStatement ret]
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-oneStatement returns [SQLStatement ret]
+oneStatement returns [SQLStatement ret] throws SQLException
     :   (q=select_node {$ret=q;} 
     |    u=upsert_node {$ret=u;}
     |    d=delete_node {$ret=d;}
@@ -336,12 +337,12 @@ show_tables_node returns [SQLStatement ret]
     :   SHOW TABLES {$ret=factory.showTables();}
     ;
 
-explain_node returns [SQLStatement ret]
+explain_node returns [SQLStatement ret] throws SQLException
     :   EXPLAIN q=oneStatement {$ret=factory.explain(q);}
     ;
 
 // Parse a create table statement.
-create_table_node returns [CreateTableStatement ret]
+create_table_node returns [CreateTableStatement ret] throws SQLException
     :   CREATE (ro=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
         (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
@@ -385,7 +386,7 @@ drop_table_node returns [DropTableStatement ret]
     ;
 
 // Parse an alter table statement.
-alter_table_node returns [AlterTableStatement ret]
+alter_table_node returns [AlterTableStatement ret] throws SQLException
     :   ALTER TABLE t=from_table_name
         ( (DROP COLUMN (IF ex=EXISTS)? c=column_ref) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) )
         {ret = ( c == null ? factory.addColumn(t, d, ex!=null, p) : factory.dropColumn(t, c, ex!=null) ); }
@@ -400,12 +401,12 @@ properties returns [Map<String,Object> ret]
     :  k=prop_name EQ v=prop_value {$ret.put(k,v);}  (COMMA k=prop_name EQ v=prop_value {$ret.put(k,v);} )*
     ;
 
-column_defs returns [List<ColumnDef> ret]
+column_defs returns [List<ColumnDef> ret] throws SQLException
 @init{ret = new ArrayList<ColumnDef>(); }
     :  v = column_def {$ret.add(v);}  (COMMA v = column_def {$ret.add(v);} )*
 ;
 
-column_def returns [ColumnDef ret]
+column_def returns [ColumnDef ret] throws SQLException
     :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY)?
         {$ret = factory.columnDef(c, dt, n==null,
             l == null ? null : Integer.parseInt( l.getText() ),
