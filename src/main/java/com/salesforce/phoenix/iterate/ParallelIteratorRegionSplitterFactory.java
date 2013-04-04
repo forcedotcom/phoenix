@@ -27,16 +27,23 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.sql.SQLException;
+
+import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.schema.TableRef;
+
 
 /**
  * Factory class for the Region Splitter used by the project.
- * 
- * @author zhuang
  */
 public class ParallelIteratorRegionSplitterFactory {
 
-    public static ParallelIteratorRegionSplitter getSplitter() {
-        return DefaultParallelIteratorRegionSplitter.getInstance();
+    public static ParallelIteratorRegionSplitter getSplitter(StatementContext context, TableRef table) throws SQLException {
+        if (context.getScanRanges().useSkipScanFilter()) {
+            return SkipRangeParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), table,
+                    context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
+        }
+        return DefaultParallelIteratorRegionSplitter.getInstance(context.getConnection().getQueryServices(), table,
+                context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
     }
-
 }

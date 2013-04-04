@@ -38,6 +38,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Lists;
 import com.google.common.hash.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
@@ -45,6 +46,7 @@ import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.ValueSchema.Field;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
+
 
 /**
  * 
@@ -68,16 +70,17 @@ public class SkipScanFilter extends FilterBase {
     private int startKeyLength;
     private byte[] endKey; 
     private int endKeyLength;
+    private int estimateSplitNum;
 
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
 
     /**
      * We know that initially the first row will be positioned at or 
-after the first possible key.
+     * after the first possible key.
      */
     public SkipScanFilter() {
     }
-    
+
     public SkipScanFilter(List<List<KeyRange>> slots, RowKeySchema schema) {
         int maxKeyLength = getTerminatorCount(schema);
         for (List<KeyRange> slot : slots) {
@@ -106,6 +109,52 @@ after the first possible key.
         // We just need to set the end key for when we need to calculate the next skip hint
         // TODO: shouldn't be necessary, since the start key of the scan should be set to this
         // or a higher value
+        this.estimateSplitNum = estimateSplitNum();
+    }
+
+    // Estimate the number of splits that would be generated from the slots.
+    private int estimateSplitNum() {
+        int estimate = 0;
+        do {
+            estimate += 1;
+        } while (ScanUtil.incrementKey(slots, position));
+        return estimate;
+    }
+
+    // Used externally by region splitters to generate all split ranges.
+    public List<KeyRange> generateSplitRanges(int maxConcurrency) {
+        List<KeyRange> splits = Lists.newArrayListWithCapacity(estimateSplitNum);
+        int[] position = new int[slots.size()];
+        byte[] lowerBoundKey = new byte[maxKeyLength];
+        byte[] upperBoundKey = new byte[maxKeyLength];
+        // steps we need to increment when chunking multiple key range together.
+        int step = (int) Math.ceil(((double) estimateSplitNum) / maxConcurrency) - 1;
+        boolean terminated = false, lowerInclusive;
+        while (!terminated) {
+            // Do not need to care about the length since we set the key from the very beginning.
+            setKey(Bound.LOWER, position, lowerBoundKey, 0, 0, position.length);
+            lowerInclusive = ScanUtil.isKeyInclusive(Bound.LOWER, position, slots);
+            terminated = !ScanUtil.incrementKey(slots, position, step, Bound.UPPER);
+            if (!terminated) {
+                setKey(Bound.UPPER, position, upperBoundKey, 0, 0, position.length);
+            } else {
+                // We have wrapped around already, set the key to be the last key.
+                for (int i=0; i<slots.size(); i++) {
+                    position[i] = slots.get(i).size() - 1;
+                }
+                setKey(Bound.UPPER, position, upperBoundKey, 0, 0, position.length);
+            }
+            // We only mark the lower bound as exclusive if all the key parts making up of the 
+            // lower bound are exclusive.
+            // Since setKey for upper key always increment it by one byte, we will always mark the
+            // upper bound as not inclusive.
+            KeyRange range = KeyRange.getKeyRange(
+                    Arrays.copyOf(lowerBoundKey, lowerBoundKey.length), lowerInclusive,
+                    Arrays.copyOf(upperBoundKey, upperBoundKey.length), false);
+            splits.add(range);
+            terminated = terminated || !ScanUtil.incrementKey(slots, position, 1, Bound.LOWER);
+        }
+        return splits;
     }
 
     @Override
@@ -219,6 +268,11 @@ after the first possible key.
     }
 
     private int setKey(Bound bound, byte[] key, int keyOffset, int slotStartIndex, int slotEndIndex) {
+        return setKey(bound, position, key, keyOffset, slotStartIndex, slotEndIndex);
+    }
+
+    private int setKey(Bound bound, int[] position, byte[] key, int keyOffset, 
+            int slotStartIndex, int slotEndIndex) {
         return ScanUtil.setKey(schema, slots, position, bound, key, keyOffset, slotStartIndex, slotEndIndex);
     }
 
@@ -244,7 +298,7 @@ after the first possible key.
         }
         return nTerminators;
     }
-    
+
     @Override
     public void readFields(DataInput in) throws IOException {
         RowKeySchema schema = new RowKeySchema();
