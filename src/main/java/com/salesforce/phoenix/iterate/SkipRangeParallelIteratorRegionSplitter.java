@@ -27,17 +27,41 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import java.util.List;
+import java.util.*;
 
-import com.salesforce.phoenix.query.KeyRange;
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.client.Scan;
+
+import com.google.common.collect.ImmutableList;
+import com.salesforce.phoenix.filter.SkipScanFilter;
+import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 /**
- * Interface for strategies determining how to split regions in ParallelIterators.
- * 
- * @author zhuang
+ * Split the region according to the information contained in the scan's SkipScanFilter.
  */
-public interface ParallelIteratorRegionSplitter {
+public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIteratorRegionSplitter {
 
-    public List<KeyRange> getSplits();
+    public static SkipRangeParallelIteratorRegionSplitter getInstance(ConnectionQueryServices services,
+            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
+        return new SkipRangeParallelIteratorRegionSplitter(services, table, scan, allTableRegions);
+    }
+
+    protected SkipRangeParallelIteratorRegionSplitter(ConnectionQueryServices services, 
+            TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
+        super(services, table, scan, allTableRegions);
+    }
+
+    @Override
+    protected List<HRegionInfo> getAllRegions() {
+        Set<HRegionInfo> allRegions = new HashSet<HRegionInfo>();
+        List<KeyRange> keyRanges = ((SkipScanFilter) scan.getFilter()).generateSplitRanges(maxConcurrency);
+        for (KeyRange range: keyRanges) {
+            List<HRegionInfo> regions = ParallelIterators.filterRegions(allTableRegions, range.getLowerRange(), range.getUpperRange());
+            allRegions.addAll(regions);
+        }
+        return ImmutableList.<HRegionInfo>copyOf(allRegions);
+    }
+
 }

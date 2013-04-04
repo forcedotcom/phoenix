@@ -33,6 +33,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.http.annotation.Immutable;
@@ -89,10 +90,17 @@ public class KeyRange {
 
     // Make sure to pass in constants for unbound upper/lower, since an emtpy array means null otherwise
     public static KeyRange getKeyRange(HRegionInfo region) {
-        return KeyRange.getKeyRange(region.getStartKey().length == 0 ? UNBOUND_LOWER : region.getStartKey(), true, region.getEndKey().length == 0 ? UNBOUND_UPPER : region.getEndKey(), false);
+        return KeyRange.getKeyRange(region.getStartKey().length == 0 ? UNBOUND_LOWER : region.getStartKey(), true,
+                region.getEndKey().length == 0 ? UNBOUND_UPPER : region.getEndKey(), false);
     }
 
-    public static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
+    public static KeyRange getKeyRange(Scan scan) {
+        return KeyRange.getKeyRange(scan.getStartRow().length == 0 ? UNBOUND_LOWER : scan.getStartRow(), true,
+                scan.getStopRow().length == 0 ? UNBOUND_UPPER : scan.getStopRow(), false);
+    }
+
+    public static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive,
+            byte[] upperRange, boolean upperInclusive) {
         if (lowerRange == null || upperRange == null) {
             return EMPTY_RANGE;
         }
@@ -118,7 +126,8 @@ public class KeyRange {
         this.lowerInclusive = lowerInclusive;
         this.upperRange = upperRange;
         this.upperInclusive = upperInclusive;
-        this.isSingleKey = lowerRange != UNBOUND_LOWER && upperRange != UNBOUND_UPPER && lowerInclusive && upperInclusive && Bytes.compareTo(lowerRange, upperRange) == 0;
+        this.isSingleKey = lowerRange != UNBOUND_LOWER && upperRange != UNBOUND_UPPER
+                && lowerInclusive && upperInclusive && Bytes.compareTo(lowerRange, upperRange) == 0;
     }
 
     public byte[] getRange(Bound bound) {
@@ -230,7 +239,10 @@ public class KeyRange {
         if (isSingleKey()) {
             return Bytes.toStringBinary(lowerRange);
         }
-        return (lowerInclusive ? "[" : "(") + (lowerUnbound() ? "*" : Bytes.toStringBinary(lowerRange)) + " - " + (upperUnbound() ? "*" : Bytes.toStringBinary(upperRange)) + (upperInclusive ? "]" : ")" );
+        return (lowerInclusive ? "[" : 
+            "(") + (lowerUnbound() ? "*" : 
+                Bytes.toStringBinary(lowerRange)) + " - " + (upperUnbound() ? "*" : 
+                    Bytes.toStringBinary(upperRange)) + (upperInclusive ? "]" : ")" );
     }
 
     @Override
@@ -290,7 +302,8 @@ public class KeyRange {
                 newUpperInclusive = false;
             }
         }
-        if (newLowerRange == lowerRange && newLowerInclusive == lowerInclusive && newUpperRange == upperRange && newUpperInclusive == upperInclusive) {
+        if (newLowerRange == lowerRange && newLowerInclusive == lowerInclusive
+                && newUpperRange == upperRange && newUpperInclusive == upperInclusive) {
             return this;
         }
         return getKeyRange(newLowerRange, newLowerInclusive, newUpperRange, newUpperInclusive);

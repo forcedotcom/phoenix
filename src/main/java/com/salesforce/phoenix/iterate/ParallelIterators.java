@@ -74,7 +74,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     public ParallelIterators(StatementContext context, TableRef table, RowCounter rowCounter) throws SQLException {
         super(context, table);
         this.rowCounter = rowCounter;
-        this.splits = getSplits(context.getConnection().getQueryServices(), table, context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
+        this.splits = getSplits(context, table);
     }
 
     /**
@@ -110,8 +110,8 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
      * @return the key ranges that should be scanned in parallel
      */
     // exposed for tests
-    public static List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
-        return ParallelIteratorRegionSplitterFactory.getSplitter().getSplits(services, table, scan, allTableRegions);
+    public static List<KeyRange> getSplits(StatementContext context, TableRef table) throws SQLException {
+        return ParallelIteratorRegionSplitterFactory.getSplitter(context, table).getSplits();
     }
 
     public List<KeyRange> getSplits() {
