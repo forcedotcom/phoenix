@@ -35,8 +35,7 @@ import java.sql.*;
 import java.util.*;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.MetaScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -98,17 +97,16 @@ public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
         return new TableRef(null,schema.getTable(STABLE_NAME),schema, ts);
     }
 
-    private static SortedSet<HRegionInfo> getRegions(TableRef table) throws IOException {
-        SortedSet<HRegionInfo> allTableRegions = MetaScanner.allTableRegions(driver.getQueryServices().getConfig(), table.getTableName(), false).navigableKeySet();
-        return allTableRegions;
+    private static NavigableMap<HRegionInfo, ServerName> getRegions(TableRef table) throws IOException {
+        return MetaScanner.allTableRegions(driver.getQueryServices().getConfig(), table.getTableName(), false);
     }
 
-    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final SortedSet<HRegionInfo> regions) throws SQLException {
+    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final NavigableMap<HRegionInfo, ServerName> regions) throws SQLException {
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         StatementContext context = new StatementContext(connection, null, Collections.emptyList(), 0, scan);
         DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, table) {
             @Override
-            protected List<HRegionInfo> getAllRegions() throws SQLException {
+            protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
                 return ParallelIterators.filterRegions(regions, scan.getStartRow(), scan.getStopRow());
             }
         };
@@ -131,7 +129,7 @@ public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
         // number of regions > target query concurrency
         scan.setStartRow(K1);
         scan.setStopRow(K12);
-        SortedSet<HRegionInfo> regions = getRegions(table);
+        NavigableMap<HRegionInfo, ServerName> regions = getRegions(table);
         List<KeyRange> keyRanges = getSplits(table, scan, regions);
         assertEquals("Unexpected number of splits: " + keyRanges, 5, keyRanges.size());
         assertEquals(newKeyRange(HConstants.EMPTY_START_ROW, K3), keyRanges.get(0));
@@ -170,7 +168,7 @@ public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
         services.getStatsManager().updateStats(table);
         scan.setStartRow(HConstants.EMPTY_START_ROW);
         scan.setStopRow(K1);
-        SortedSet<HRegionInfo> regions = getRegions(table);
+        NavigableMap<HRegionInfo, ServerName> regions = getRegions(table);
         List<KeyRange> keyRanges = getSplits(table, scan, regions);
         assertEquals("Unexpected number of splits: " + keyRanges, 3, keyRanges.size());
         assertEquals(newKeyRange(KeyRange.UNBOUND_LOWER, new byte[] {'7'}), keyRanges.get(0));

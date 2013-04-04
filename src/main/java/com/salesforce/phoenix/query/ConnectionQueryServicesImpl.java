@@ -79,7 +79,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     /**
      * keep a cache of HRegionInfo objects
      */
-    private final LoadingCache<TableRef, SortedSet<HRegionInfo>> tableRegionCache;
+    private final LoadingCache<TableRef, NavigableMap<HRegionInfo, ServerName>> tableRegionCache;
     
     public ConnectionQueryServicesImpl(QueryServices services, final Configuration config) throws SQLException {
         super(services);
@@ -104,17 +104,17 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
          */
         tableRegionCache = CacheBuilder.newBuilder().
             expireAfterAccess(this.getConfig().getLong(QueryServices.REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB,QueryServicesOptions.DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS), TimeUnit.MILLISECONDS)
-            .removalListener(new RemovalListener<TableRef, SortedSet<HRegionInfo>>(){
+            .removalListener(new RemovalListener<TableRef, NavigableMap<HRegionInfo, ServerName>>(){
                 @Override
-                public void onRemoval(RemovalNotification<TableRef, SortedSet<HRegionInfo>> notification) {
+                public void onRemoval(RemovalNotification<TableRef, NavigableMap<HRegionInfo, ServerName>> notification) {
                     logger.info("REMOVE: {}", notification.getKey());
                 }
             })
-            .build(new CacheLoader<TableRef,SortedSet<HRegionInfo>>(){
+            .build(new CacheLoader<TableRef,NavigableMap<HRegionInfo, ServerName>>(){
                 @Override
-                public SortedSet<HRegionInfo> load(TableRef key) throws Exception {
+                public NavigableMap<HRegionInfo, ServerName> load(TableRef key) throws Exception {
                     logger.info("LOAD: {}", key);
-                    return MetaScanner.allTableRegions(config, key.getTableName(), false).navigableKeySet();
+                    return MetaScanner.allTableRegions(config, key.getTableName(), false);
                 }
             });
     }
@@ -179,7 +179,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public SortedSet<HRegionInfo> getAllTableRegions(TableRef table) throws SQLException {
+    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException {
         try {
             return tableRegionCache.get(table);
         } catch (ExecutionException e) {

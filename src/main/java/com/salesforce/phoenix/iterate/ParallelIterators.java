@@ -33,6 +33,7 @@ import java.util.concurrent.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
@@ -66,10 +67,10 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 100; // 100K
 
-    static final Function<HRegionInfo, KeyRange> TO_KEY_RANGE = new Function<HRegionInfo, KeyRange>() {
+    static final Function<Map.Entry<HRegionInfo, ServerName>, KeyRange> TO_KEY_RANGE = new Function<Map.Entry<HRegionInfo, ServerName>, KeyRange>() {
         @Override
-        public KeyRange apply(HRegionInfo region) {
-            return KeyRange.getKeyRange(region);
+        public KeyRange apply(Map.Entry<HRegionInfo, ServerName> region) {
+            return KeyRange.getKeyRange(region.getKey());
         }
     };
 
@@ -87,16 +88,16 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
      * @return regions that intersect with the key range given by the startKey and stopKey
      */
     // exposed for tests
-    public static List<HRegionInfo> filterRegions(SortedSet<HRegionInfo> allTableRegions, byte[] startKey, byte[] stopKey) {
-        Iterable<HRegionInfo> regions;
+    public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, byte[] startKey, byte[] stopKey) {
+        Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
         final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false);
         if (keyRange == KeyRange.EVERYTHING_RANGE) {
-            regions = allTableRegions;
+            regions = allTableRegions.entrySet();
         } else {
-            regions = Iterables.filter(allTableRegions, new Predicate<HRegionInfo>() {
+            regions = Iterables.filter(allTableRegions.entrySet(), new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
                 @Override
-                public boolean apply(HRegionInfo region) {
-                    KeyRange regionKeyRange = KeyRange.getKeyRange(region);
+                public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
+                    KeyRange regionKeyRange = KeyRange.getKeyRange(region.getKey());
                     return keyRange.intersect(regionKeyRange) != KeyRange.EMPTY_RANGE;
                 }
             });

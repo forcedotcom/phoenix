@@ -29,10 +29,10 @@ package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
 import java.util.*;
+import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -74,13 +74,13 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
     }
 
     // Get the mapping between key range and the regions that contains them.
-    protected List<HRegionInfo> getAllRegions() throws SQLException {
+    protected List<Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
         Scan scan = context.getScan();
-        SortedSet<HRegionInfo> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
+        NavigableMap<HRegionInfo, ServerName> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
         return ParallelIterators.filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());
     }
 
-    protected List<KeyRange> genKeyRanges(List<HRegionInfo> regions) {
+    protected List<KeyRange> genKeyRanges(List<Map.Entry<HRegionInfo, ServerName>> regions) {
         if (regions.isEmpty()) {
             return Collections.emptyList();
         }
@@ -107,19 +107,21 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         // have more rows than others, by applying tighter splits and therefore spawning
         // off more scans over the overloaded regions.
         int splitsPerRegion = regions.size() >= targetConcurrency ? 1 : (regions.size() > targetConcurrency / 2 ? maxConcurrency : targetConcurrency) / regions.size();
-        ListMultimap<Long,KeyRange> keyRangesPerRegion = ArrayListMultimap.create(regions.size(),regions.size() * splitsPerRegion);;
+        // Create a multi-map of ServerName to List<KeyRange> which we'll use to round robin from to ensure
+        // that we keep each region server busy for each query.
+        ListMultimap<ServerName,KeyRange> keyRangesPerRegion = ArrayListMultimap.create(regions.size(),regions.size() * splitsPerRegion);;
         if (regions.size() >= targetConcurrency) {
-            for (HRegionInfo region : regions) {
-                keyRangesPerRegion.put(region.getRegionId(), ParallelIterators.TO_KEY_RANGE.apply(region));
+            for (Map.Entry<HRegionInfo, ServerName> region : regions) {
+                keyRangesPerRegion.put(region.getValue(), ParallelIterators.TO_KEY_RANGE.apply(region));
             }
         } else {
             assert splitsPerRegion >= 2 : "Splits per region has to be greater than 2";
             
             // Maintain bucket for each server and then returns KeyRanges in round-robin
             // order to ensure all servers are utilized.
-            for (HRegionInfo region : regions) {
-                byte[] startKey = region.getStartKey();
-                byte[] stopKey = region.getEndKey();
+            for (Map.Entry<HRegionInfo, ServerName> region : regions) {
+                byte[] startKey = region.getKey().getStartKey();
+                byte[] stopKey = region.getKey().getEndKey();
                 boolean lowerUnbound = Bytes.compareTo(startKey, HConstants.EMPTY_START_ROW) == 0;
                 boolean upperUnbound = Bytes.compareTo(stopKey, HConstants.EMPTY_END_ROW) == 0;
                 /*
@@ -131,14 +133,14 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
                 if (lowerUnbound) {
                     startKey = statsManager.getMinKey(table);
                     if (startKey == null) {
-                        keyRangesPerRegion.put(region.getRegionId(),ParallelIterators.TO_KEY_RANGE.apply(region));
+                        keyRangesPerRegion.put(region.getValue(),ParallelIterators.TO_KEY_RANGE.apply(region));
                         continue;
                     }
                 }
                 if (upperUnbound) {
                     stopKey = statsManager.getMaxKey(table);
                     if (stopKey == null) {
-                        keyRangesPerRegion.put(region.getRegionId(),ParallelIterators.TO_KEY_RANGE.apply(region));
+                        keyRangesPerRegion.put(region.getValue(),ParallelIterators.TO_KEY_RANGE.apply(region));
                         continue;
                     }
                 }
@@ -148,14 +150,14 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
                 if (Bytes.compareTo(startKey, stopKey) >= 0 || (boundaries = Bytes.split(startKey, stopKey, splitsPerRegion - 1)) == null) {
                     // Bytes.split may return null if the key space
                     // between start and end key is too small
-                    keyRangesPerRegion.put(region.getRegionId(),ParallelIterators.TO_KEY_RANGE.apply(region));
+                    keyRangesPerRegion.put(region.getValue(),ParallelIterators.TO_KEY_RANGE.apply(region));
                 } else {
-                    keyRangesPerRegion.put(region.getRegionId(),KeyRange.getKeyRange(lowerUnbound ? HConstants.EMPTY_START_ROW : boundaries[0], true, boundaries[1], false));
+                    keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(lowerUnbound ? HConstants.EMPTY_START_ROW : boundaries[0], true, boundaries[1], false));
                     if (boundaries.length > 1) {
                         for (int i = 1; i < boundaries.length-2; i++) {
-                            keyRangesPerRegion.put(region.getRegionId(),KeyRange.getKeyRange(boundaries[i], true, boundaries[i+1], false));
+                            keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[i], true, boundaries[i+1], false));
                         }
-                        keyRangesPerRegion.put(region.getRegionId(),KeyRange.getKeyRange(boundaries[boundaries.length-2], true, upperUnbound ? HConstants.EMPTY_END_ROW : boundaries[boundaries.length-1], false));
+                        keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[boundaries.length-2], true, upperUnbound ? HConstants.EMPTY_END_ROW : boundaries[boundaries.length-1], false));
                     }
                 }
             }
@@ -164,7 +166,8 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         // as documented for ListMultimap
         Collection<Collection<KeyRange>> values = keyRangesPerRegion.asMap().values();
         List<Collection<KeyRange>> keyRangesList = Lists.newArrayList(values);
-        // Randomize range order to help with even distribution
+        // Randomize range order to ensure that we don't hit the region servers in the same order every time
+        // thus helping to distribute the load more evenly
         Collections.shuffle(keyRangesList);
         // Transpose values in map to get regions in round-robin server order. This ensures that
         // all servers will be used to process the set of parallel threads available in our executor.

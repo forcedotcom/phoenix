@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.ServerName;
 
 import com.google.common.collect.ImmutableList;
 import com.salesforce.phoenix.compile.StatementContext;
@@ -53,17 +54,17 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
     }
 
     @Override
-    protected List<HRegionInfo> getAllRegions() throws SQLException {
-        Set<HRegionInfo> allRegions = new HashSet<HRegionInfo>();
+    protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
+        Set<Map.Entry<HRegionInfo, ServerName>> allRegions = new HashSet<Map.Entry<HRegionInfo, ServerName>>();
         SkipScanFilter filter = new SkipScanFilter(context.getScanRanges().getRanges(), table.getTable().getRowKeySchema());
         // TODO: put generateSplitRanges on ScanRanges?
         List<KeyRange> keyRanges = filter.generateSplitRanges(maxConcurrency);
-        SortedSet<HRegionInfo> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
+        NavigableMap<HRegionInfo, ServerName> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
         for (KeyRange range: keyRanges) {
-            List<HRegionInfo> regions = ParallelIterators.filterRegions(allTableRegions, range.getLowerRange(), range.getUpperRange());
+            List<Map.Entry<HRegionInfo, ServerName>> regions = ParallelIterators.filterRegions(allTableRegions, range.getLowerRange(), range.getUpperRange());
             allRegions.addAll(regions);
         }
-        return ImmutableList.<HRegionInfo>copyOf(allRegions);
+        return ImmutableList.<Map.Entry<HRegionInfo, ServerName>>copyOf(allRegions);
     }
 
 }
