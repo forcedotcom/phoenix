@@ -33,10 +33,12 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.BaseAggregator;
 import com.salesforce.phoenix.expression.aggregator.MinAggregator;
-import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.parse.MinAggregateParseNode;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -74,12 +76,19 @@ public class MinAggregateFunction extends DelegateConstantToCountAggregateFuncti
     @Override 
     public Aggregator newServerAggregator() {
         final PDataType type = getAggregatorExpression().getDataType();
-        return new MinAggregator() {
+        BaseAggregator aggregator = new MinAggregator() {
             @Override
             public PDataType getDataType() {
                 return type;
             }
         };
+        aggregator.setColumnModifier(children.get(0).getColumnModifier());
+        return aggregator;
+    }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+        return children.get(0).getColumnModifier();
     }
 
     @Override

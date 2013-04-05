@@ -56,7 +56,7 @@ public class DecimalSumAggregator extends BaseAggregator {
     
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
-        BigDecimal value = (BigDecimal)getDataType().toObject(ptr, getInputDataType());
+        BigDecimal value = (BigDecimal)getDataType().toObject(ptr, getInputDataType(), columnModifier);
         sum = sum.add(value);
         if (sumBuffer == null) {
             sumBuffer = new byte[getDataType().getByteSize()];

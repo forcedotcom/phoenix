@@ -31,10 +31,12 @@ import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.BaseAggregator;
 import com.salesforce.phoenix.expression.aggregator.MaxAggregator;
-import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.parse.MaxAggregateParseNode;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 
 
@@ -59,13 +61,20 @@ public class MaxAggregateFunction extends MinAggregateFunction {
     @Override 
     public Aggregator newServerAggregator() {
         final PDataType type = getAggregatorExpression().getDataType();
-        return new MaxAggregator() {
+        BaseAggregator aggregator = new MaxAggregator() {
             @Override
             public PDataType getDataType() {
                 return type;
             }
         };
+        aggregator.setColumnModifier(children.get(0).getColumnModifier());
+        return aggregator;
     }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+        return children.get(0).getColumnModifier();
+    }    
 
     @Override
     public String getName() {

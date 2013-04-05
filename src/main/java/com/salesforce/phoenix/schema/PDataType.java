@@ -1618,10 +1618,24 @@ public enum PDataType {
         
         @Override
         public long decodeLong(byte[] bytes, int o, ColumnModifier columnModifier) {
-            long v = bytes[o] ^ 0x80; // Flip sign bit back
-            for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {              
-              v = (v << 8) + (bytes[o + i] & 0xff);
+            byte b = bytes[o];
+            
+            if (columnModifier == ColumnModifier.SORT_DESC) {
+                b = (byte)(b ^ 0xff);
             }
+            
+            long v = b ^ 0x80; // Flip sign bit back
+            
+            for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {
+                b = bytes[o + i];
+                
+                if (columnModifier == ColumnModifier.SORT_DESC) {
+                    b = (byte)(b ^ 0xff);
+                }                
+                
+                v = (v << 8) + (b & 0xff);
+            }
+            
             return v;
         }
         

@@ -88,6 +88,8 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     
     @Override
     public Aggregator newClientAggregator() {
+        // REVIEW - stoens do client aggregators ever run without server aggregators having run first?
+        // if they do, then we have to worry about bit inversion here
         switch( getDataType() ) {
             case DECIMAL:
                 return new DecimalSumAggregator();
