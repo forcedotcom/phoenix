@@ -88,20 +88,16 @@ public class LTrimFunction extends ScalarFunction {
         int offset = ptr.getOffset();
         int length = ptr.getLength();
         
-        ColumnModifier mod = getStringExpression().getColumnModifier();
-        if (mod != null) {
-            mod.apply(string, string, offset, length);
-        }
+        ColumnModifier columnModifier = getStringExpression().getColumnModifier();
+        if (columnModifier != null) {
+            string = applyColumnModifier(string, offset, length, columnModifier);
+        }            
         
         try {
             int i = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length);
             if (i == offset + length) {
                 ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
                 return true;
-            }
-            
-            if (mod != null) {
-                mod.apply(string, string, offset, length);
             }
             
             ptr.set(string, i, offset + length - i);
@@ -111,11 +107,6 @@ public class LTrimFunction extends ScalarFunction {
         }
     }
     
-    @Override
-    public ColumnModifier getColumnModifier() {
-        return getStringExpression().getColumnModifier();
-    }
-
     @Override
     public Integer getByteSize() {
         return byteSize;

@@ -112,7 +112,7 @@ public class RegexpSubstrFunction extends PrefixFunction {
         if (!offsetExpression.evaluate(tuple, ptr)) {
             return false;
         }
-        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr);
+        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr, null); // stoens - REVIEW
 
         int strlen = sourceStr.length();
         // Account for 1 versus 0-based offset

@@ -102,12 +102,11 @@ public class SubstrFunction extends PrefixFunction {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // TODO: multi-byte characters
         Expression offsetExpression = getOffsetExpression();
         if (!offsetExpression.evaluate(tuple,  ptr)) {
             return false;
         }
-        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr);
+        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr, null); // stoens - REVIEW
         
         int length = -1;
         if (hasLengthExpression) {
@@ -115,7 +114,7 @@ public class SubstrFunction extends PrefixFunction {
             if (!lengthExpression.evaluate(tuple, ptr)) {
                 return false;
             }
-            length = lengthExpression.getDataType().getCodec().decodeInt(ptr);
+            length = lengthExpression.getDataType().getCodec().decodeInt(ptr, null); // stoens - REVIEW
             if (length <= 0) {
                 return false;
             }

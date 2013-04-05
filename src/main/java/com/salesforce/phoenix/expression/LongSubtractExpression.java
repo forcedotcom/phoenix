@@ -63,7 +63,7 @@ public class LongSubtractExpression extends SubtractExpression {
             }
             PDataType childType = child.getDataType();
             boolean isDate = childType.isCoercibleTo(PDataType.DATE);
-            long childvalue = childType.getCodec().decodeLong(ptr);
+            long childvalue = childType.getCodec().decodeLong(ptr, null); // REVIEW - stoens
             if (i == 0) {
                 finalResult = childvalue;
             } else {

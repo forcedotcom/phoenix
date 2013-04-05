@@ -196,6 +196,10 @@ public enum PDataType {
            }
            String s = Bytes.toString(bytes, offset, length);
            if (length != s.length()) {
+               for (int i = offset; i < offset + length; i++) {
+                   System.out.print(bytes[i] + " ");
+               }
+               System.out.println(" " +  Bytes.toString(bytes, offset, length));               
                throw new IllegalDataException("CHAR types may only contain single byte characters (" + s + ")");
            }
            return s;
@@ -317,7 +321,7 @@ public enum PDataType {
             case UNSIGNED_LONG:
             case INTEGER:
             case UNSIGNED_INT:
-                return actualType.getCodec().decodeLong(b,o);
+                return actualType.getCodec().decodeLong(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -391,7 +395,7 @@ public enum PDataType {
                 case UNSIGNED_INT:
                 case UNSIGNED_LONG:
                 case INTEGER:
-                    return Longs.compare(getCodec().decodeLong(lhs,lhsOffset), rhsType.getCodec().decodeLong(rhs,rhsOffset));
+                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, null), rhsType.getCodec().decodeLong(rhs, rhsOffset, null));
                 case LONG:
                     return compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
                 case DECIMAL:
@@ -466,7 +470,7 @@ public enum PDataType {
             case UNSIGNED_LONG:
             case INTEGER:
             case UNSIGNED_INT:
-                return actualType.getCodec().decodeInt(b, o);
+                return actualType.getCodec().decodeInt(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -530,7 +534,7 @@ public enum PDataType {
                 case UNSIGNED_INT:
                 case LONG:
                 case UNSIGNED_LONG:
-                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset), rhsType.getCodec().decodeLong(rhs, rhsOffset));
+                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, null), rhsType.getCodec().decodeLong(rhs, rhsOffset, null));
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
                     byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this));
@@ -634,7 +638,7 @@ public enum PDataType {
             case INTEGER:
             case UNSIGNED_LONG:
             case UNSIGNED_INT:
-                return BigDecimal.valueOf(actualType.getCodec().decodeLong(b,o));
+                return BigDecimal.valueOf(actualType.getCodec().decodeLong(b, o, null));
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -860,7 +864,7 @@ public enum PDataType {
                 return v;
             case DATE:
             case TIME:
-                return new Timestamp(getCodec().decodeLong(b, o));
+                return new Timestamp(getCodec().decodeLong(b, o, null));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -937,7 +941,7 @@ public enum PDataType {
             case TIMESTAMP: // TODO: throw if nanos?
             case DATE:
             case TIME:
-                return new Time(this.getCodec().decodeLong(b, o));
+                return new Time(this.getCodec().decodeLong(b, o, null));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -1047,7 +1051,7 @@ public enum PDataType {
             case TIMESTAMP: // TODO: throw if nanos?
             case DATE:
             case TIME:
-                return new Date(this.getCodec().decodeLong(b, o));
+                return new Date(this.getCodec().decodeLong(b, o, null));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -1150,7 +1154,7 @@ public enum PDataType {
             case LONG:
             case UNSIGNED_LONG:
             case UNSIGNED_INT:
-                return actualType.getCodec().decodeLong(b, o);
+                return actualType.getCodec().decodeLong(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1207,7 +1211,7 @@ public enum PDataType {
                 case UNSIGNED_INT:
                 case INTEGER:
                 case LONG:
-                    return Longs.compare(getCodec().decodeLong(lhs,lhsOffset), rhsType.getCodec().decodeLong(rhs,rhsOffset));
+                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, null), rhsType.getCodec().decodeLong(rhs, rhsOffset, null));
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
                     byte[] b = DECIMAL.toBytes(this.toObject(lhs, lhsOffset, lhsLength, DECIMAL));
@@ -1294,7 +1298,7 @@ public enum PDataType {
             case LONG:
             case UNSIGNED_INT:
             case INTEGER:
-                return actualType.getCodec().decodeInt(b,o);
+                return actualType.getCodec().decodeInt(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1333,7 +1337,7 @@ public enum PDataType {
                 case UNSIGNED_LONG:
                 case INTEGER:
                 case LONG:
-                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset), rhsType.getCodec().decodeLong(rhs, rhsOffset));
+                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, null), rhsType.getCodec().decodeLong(rhs, rhsOffset, null));
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
                     byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this));
@@ -1563,10 +1567,10 @@ public enum PDataType {
     }
 
     public static interface PDataCodec {
-        public long decodeLong(ImmutableBytesWritable ptr);
-        public long decodeLong(byte[] b, int o);
-        public int decodeInt(ImmutableBytesWritable ptr);
-        public int decodeInt(byte[] b, int o);
+        public long decodeLong(ImmutableBytesWritable ptr, ColumnModifier columnModifier);
+        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier);
+        public int decodeInt(ImmutableBytesWritable ptr, ColumnModifier columnModifier);
+        public int decodeInt(byte[] b, int o, ColumnModifier columnModifier);
 
         public int encodeLong(long v, ImmutableBytesWritable ptr);
         public int encodeLong(long v, byte[] b, int o);
@@ -1576,13 +1580,13 @@ public enum PDataType {
 
     public static abstract class BaseCodec implements PDataCodec {
         @Override
-        public int decodeInt(ImmutableBytesWritable ptr) {
-            return decodeInt(ptr.get(), ptr.getOffset());
+        public int decodeInt(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
+            return decodeInt(ptr.get(), ptr.getOffset(), columnModifier);
         }
 
         @Override
-        public long decodeLong(ImmutableBytesWritable ptr) {
-            return decodeLong(ptr.get(),ptr.getOffset());
+        public long decodeLong(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
+            return decodeLong(ptr.get(),ptr.getOffset(), columnModifier);
         }
         
         @Override
@@ -1613,18 +1617,18 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o) {
-            long v = b[o] ^ 0x80; // Flip sign bit back
-            for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {
-              v = (v << 8) + (b[o + i] & 0xff);
+        public long decodeLong(byte[] bytes, int o, ColumnModifier columnModifier) {
+            long v = bytes[o] ^ 0x80; // Flip sign bit back
+            for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {              
+              v = (v << 8) + (bytes[o + i] & 0xff);
             }
             return v;
         }
         
 
         @Override
-        public int decodeInt(byte[] b, int o) {
-            long v = decodeLong(b,o);
+        public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
+            long v = decodeLong(b, o, columnModifier);
             if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
                 throw new IllegalDataException("Value " + v + " cannot be cast to Integer without changing its value");
             }
@@ -1651,15 +1655,26 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o) {
-            return decodeInt(b,o);
+        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
+            return decodeInt(b, o, columnModifier);
         }
         
         @Override
-        public int decodeInt(byte[] b, int o) {
-            int v = b[o] ^ 0x80; // Flip sign bit back
+        public int decodeInt(byte[] bytes, int o, ColumnModifier columnModifier) {            
+            byte b = bytes[o];
+            
+            if (columnModifier == ColumnModifier.SORT_DESC) {
+                b = (byte)(bytes[o] ^ 0xff);
+            }
+            
+            int v = b ^ 0x80; // Flip sign bit back
+                        
             for (int i = 1; i < Bytes.SIZEOF_INT; i++) {
-              v = (v << 8) + (b[o + i] & 0xff);
+                b = bytes[o + i];
+                if (columnModifier == ColumnModifier.SORT_DESC) {
+                    b ^= 0xff;
+                }
+                v = (v << 8) + (b & 0xff);
             }
             return v;
         }
@@ -1688,7 +1703,7 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o) {
+        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
             long v = Bytes.toLong(b, o);
             if (v < 0) {
                 throw new IllegalDataException();
@@ -1712,7 +1727,7 @@ public enum PDataType {
         }
         
         @Override
-        public int decodeInt(byte[] b, int o) {
+        public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
             int v = Bytes.toInt(b, o);
             if (v < 0) {
                 throw new IllegalDataException();
@@ -1736,12 +1751,12 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o) {
+        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
             return Bytes.toLong(b, o);
         }
 
         @Override
-        public int decodeInt(byte[] b, int o) {
+        public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
             throw new UnsupportedOperationException();
         }
         
@@ -1749,6 +1764,12 @@ public enum PDataType {
         public int encodeLong(long v, byte[] b, int o) {
             Bytes.putLong(b, o, v);
             return Bytes.SIZEOF_LONG;
+        }
+
+        @Override
+        public int decodeInt(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
+            // TODO Auto-generated method stub
+            return 0;
         }
     }
 
@@ -2080,7 +2101,7 @@ public enum PDataType {
         return object;
     }
     
-    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) { // remove
+    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) { 
         return toObject(bytes, offset, length, actualType, null);
     }
 

@@ -39,6 +39,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -88,6 +89,12 @@ public class RTrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
+        
+        ColumnModifier columnModifier = getStringExpression().getColumnModifier();
+        if (columnModifier != null) {
+            string = applyColumnModifier(string, offset, length, columnModifier);
+        }            
+        
         int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
         if (i == offset - 1) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);

@@ -27,8 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -97,5 +102,11 @@ public abstract class BaseExpression implements Expression {
             }
         }
         return l;
+    }
+    
+    protected final byte[] applyColumnModifier(byte[] bytes, int offset, int length, ColumnModifier columnModifier) {
+        byte[] b = new byte[bytes.length];
+        columnModifier.apply(bytes, b, offset, length);
+        return b;
     }
 }

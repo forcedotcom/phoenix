@@ -60,9 +60,9 @@ public class DateSubtractExpression extends SubtractExpression {
                 BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr);
                 value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
             } else if (type.isCoercibleTo(PDataType.LONG)) {
-                value = type.getCodec().decodeLong(ptr) * QueryConstants.MILLIS_IN_DAY;
+                value = type.getCodec().decodeLong(ptr, null) * QueryConstants.MILLIS_IN_DAY; // REVIEW - stoens
             } else {
-                value = type.getCodec().decodeLong(ptr);
+                value = type.getCodec().decodeLong(ptr, null); // REVIEW - stoens
             }
             if (i == 0) {
                 finalResult = value;

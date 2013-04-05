@@ -73,6 +73,6 @@ public class AggregateRowCounter implements RowCounter {
         // is not null and thus no null column values will be encountered.
         TupleUtil.getAggregateValue(result, ptr);
         schema.setAccessor(ptr, ROW_COUNT_AGGREGATOR_INDEX, ValueBitSet.EMPTY_VALUE_BITSET);
-        return PDataType.LONG.getCodec().decodeLong(ptr.get(), ptr.getOffset());
+        return PDataType.LONG.getCodec().decodeLong(ptr.get(), ptr.getOffset(), null); // stoens - REVIEW
     }
 }

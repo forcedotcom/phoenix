@@ -54,11 +54,11 @@ abstract public class NumberSumAggregator extends BaseAggregator {
     private void initBuffer() {
         buffer = new byte[getBufferLength()];
     }
-    
+        
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
         // Get either IntNative or LongNative depending on input type
-        long value = getInputDataType().getCodec().decodeLong(ptr);
+        long value = getInputDataType().getCodec().decodeLong(ptr, columnModifier);
         sum += value;
         if (buffer == null) {
             initBuffer();

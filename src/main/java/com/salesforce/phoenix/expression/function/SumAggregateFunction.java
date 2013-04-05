@@ -67,20 +67,23 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     
     @Override
     public Aggregator newServerAggregator() {
+        BaseAggregator aggregator = null;
         switch( getAggregatorExpression().getDataType() ) {
             case DECIMAL:
-                return new DecimalSumAggregator();
+                aggregator = new DecimalSumAggregator(); break;
             case LONG:
-                return new LongSumAggregator();
+                aggregator = new LongSumAggregator(); break;
             case UNSIGNED_LONG:
-                return new UnsignedLongSumAggregator();
+                aggregator = new UnsignedLongSumAggregator(); break;
             case INTEGER:
-                return new IntSumAggregator();
+                aggregator = new IntSumAggregator(); break;
             case UNSIGNED_INT:
-                return new UnsignedIntSumAggregator();
+                aggregator = new UnsignedIntSumAggregator(); break;
             default:
                 throw new IllegalStateException("Unsupported SUM input type: " + getDataType());
         }
+        aggregator.setColumnModifier(children.get(0).getColumnModifier());
+        return aggregator;
     }
     
     @Override
@@ -108,7 +111,7 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
                 ptr.set(PDataType.DECIMAL.toBytes(value));
             } else {
                 long constantLongValue = ((Number)constantValue).longValue();
-                long value = constantLongValue * type.getCodec().decodeLong(ptr);
+                long value = constantLongValue * type.getCodec().decodeLong(ptr, null);
                 ptr.set(new byte[type.getByteSize()]);
                 type.getCodec().encodeLong(value, ptr);
             }
