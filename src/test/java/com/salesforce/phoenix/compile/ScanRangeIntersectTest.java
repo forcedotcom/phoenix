@@ -41,9 +41,9 @@ import org.junit.runners.Parameterized.Parameters;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
+import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -65,13 +65,55 @@ public class ScanRangeIntersectTest {
 
     @Test
     public void test() {
-        assertEquals(expectedResult, scanRanges.intersect(keyRange));
+        byte[] lower = keyRange.getLowerRange();
+        if (!keyRange.isLowerInclusive()) {
+            lower = ByteUtil.nextKey(lower);
+        }
+        byte[] upper = keyRange.getUpperRange();
+        if (keyRange.isUpperInclusive()) {
+            upper = ByteUtil.nextKey(upper);
+        }
+        assertEquals(expectedResult, scanRanges.intersect(lower,upper));
     }
 
     @Parameters(name="{0} {1} {2} {3} {4}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
-        // ScanRanges is everything.
+        // KeyRange covers the first scan range.
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
+                    new int[] {1,1,1}, true,
+                    KeyRange.getKeyRange(Bytes.toBytes("a9Z"), true, Bytes.toBytes("c0A"), true), 
+                    true));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
+                    new int[] {1,1,1}, true,
+                    KeyRange.getKeyRange(Bytes.toBytes("b1A"), true, Bytes.toBytes("b1A"), true), 
+                    false));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
+                    new int[] {1,1,1}, true,
+                    KeyRange.getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1C"), true), 
+                    true));
+        // KeyRange intersect with the first scan range on range's upper end.
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
+                    new int[] {1,1,1}, true,
+                    KeyRange.getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1B"), true), 
+                    true));
+         // ScanRanges is everything.
         testCases.addAll(
                 foreach(ScanRanges.EVERYTHING, null, true,
                     KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
@@ -82,6 +124,12 @@ public class ScanRangeIntersectTest {
                     KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
                     false));
         // KeyRange below the first scan range.
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),}},
+                    new int[] {1}, true,
+                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true), 
+                    false));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
                         KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
@@ -98,31 +146,6 @@ public class ScanRangeIntersectTest {
                     new int[] {1,1,1}, true,
                     KeyRange.getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("b1B"), false), 
                     false));
-        testCases.addAll(
-                foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
-                    new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1A"), true, Bytes.toBytes("b1A"), true), 
-                    false));
-        // KeyRange intersect with the first scan range on range's upper end.
-        testCases.addAll(
-                foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
-                    new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1B"), true), 
-                    true));
-        testCases.addAll(
-                foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
-                    new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1C"), true), 
-                    true));
         // KeyRange intersects with the first scan range on range's lower end.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -139,15 +162,6 @@ public class ScanRangeIntersectTest {
                         KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
                     new int[] {1,1,1}, true,
                     KeyRange.getKeyRange(Bytes.toBytes("b1D"), true, Bytes.toBytes("b2E"), true), 
-                    true));
-        // KeyRange covers the first scan range.
-        testCases.addAll(
-                foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
-                    new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("a9Z"), true, Bytes.toBytes("c0A"), true), 
                     true));
         // KeyRange above the first scan range, no intersect.
         testCases.addAll(

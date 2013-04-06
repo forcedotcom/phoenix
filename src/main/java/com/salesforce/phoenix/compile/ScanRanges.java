@@ -4,9 +4,11 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.util.ScanUtil;
 
 public class ScanRanges {
@@ -106,4 +108,77 @@ public class ScanRanges {
             scan.setStopRow(expectedKey);
         }
     }
+
+    private static final ImmutableBytesWritable UNBOUND_LOWER = new ImmutableBytesWritable(KeyRange.UNBOUND_LOWER);
+    private static final ImmutableBytesWritable UNBOUND_UPPER = new ImmutableBytesWritable(KeyRange.UNBOUND_UPPER);
+    
+    public boolean intersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
+        if (this == EVERYTHING) {
+            return true;
+        }
+        if (this == NOTHING) {
+            return false;
+        }
+        int i = 0;
+        int[] position = new int[ranges.size()];
+        
+        ImmutableBytesWritable lowerPtr = new ImmutableBytesWritable();
+        ImmutableBytesWritable upperPtr = new ImmutableBytesWritable();
+        ImmutableBytesWritable lower = lowerPtr, upper = upperPtr;
+        int nSlots = ranges.size();
+        
+        lowerPtr.set(lowerInclusiveKey, 0, lowerInclusiveKey.length);
+        schema.first(lowerPtr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+        upperPtr.set(upperExclusiveKey, 0, upperExclusiveKey.length);
+        schema.first(upperPtr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+        
+        int cmpLowerVsUpper=0,cmpUpperVsLower=0;
+        
+        while (true) {
+            // Increment to the next range while the upper bound of our current slot is less than our lower bound
+            while (position[i] < ranges.get(i).size() && 
+                    (cmpLowerVsUpper=ranges.get(i).get(position[i]).compareUpper(lower, true)) < 0) {
+                position[i]++;
+            }
+            if (position[i] >= ranges.get(i).size()) {
+                // Our current key is bigger than the last range of the current slot.
+                return false;
+            } else if ((cmpUpperVsLower=ranges.get(i).get(position[i]).compareLower(upper, i < nSlots-1)) > 0) {
+                // Our upper bound is less than the lower range of the current position in the current slot.
+                return false;
+            } else { // We're in range, check the next slot
+                i++;
+                // Stop if no more slots or the range we have completely encompasses our key
+                if (i >= nSlots || (cmpLowerVsUpper > 0 && cmpUpperVsLower < 0)) {
+                    break;
+                }
+                
+                // Move to the next part of the key
+                if (schema.next(lowerPtr, i, lowerInclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                    // If no more lower key parts, then we have no constraint for that part of the key,
+                    // so we use unbound lower from here on out.
+                    lower = UNBOUND_LOWER;
+                } else {
+                    lower = lowerPtr;
+                }
+                if (schema.next(upperPtr, i, upperExclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                    // If no more upper key parts, then we have no constraint for that part of the key,
+                    // so we use unbound upper from here on out.
+                    upper = UNBOUND_UPPER;
+                } else {
+                    upper = upperPtr;
+                }
+            }
+        }
+
+        // We're in range for all slots and can include this row plus all rows
+        // up to the upper range of our last slot
+        return true;
+   }
+
+    @Override
+    public String toString() {
+        return "ScanRanges[" + ranges.toString() + "]";
+    }
+
 }
