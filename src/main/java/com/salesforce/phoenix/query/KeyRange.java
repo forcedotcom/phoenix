@@ -158,71 +158,78 @@ public class KeyRange {
         return isSingleKey;
     }
     
-    public int compareLower(ImmutableBytesWritable ptr, boolean isInclusive) {
-        return compareLower(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
+    public int compareLowerVsUpperBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
+        return compareLowerVsUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
     }
     
-    public int compareLower(ImmutableBytesWritable ptr) {
-        return compareLower(ptr, true);
+    public int compareLowerVsUpperBound(ImmutableBytesWritable ptr) {
+        return compareLowerVsUpperBound(ptr, true, false);
     }
     
-    public int compareUpper(ImmutableBytesWritable ptr, boolean isInclusive) {
-        return compareUpper(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
+    public int compareUpperVsLowerBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
+        return compareUpperVsLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
     }
     
-    public int compareUpper(ImmutableBytesWritable ptr) {
-        return compareUpper(ptr, true);
+    public int compareUpperVsLowerBound(ImmutableBytesWritable ptr) {
+        return compareUpperVsLowerBound(ptr, true, false);
     }
     
-    public int compareLower( byte[] b, int o, int l) {
-        return compareLower(b,o,l,true);
+    public int compareLowerVsUpperBound( byte[] b, int o, int l) {
+        return compareLowerVsUpperBound(b,o,l,true, false);
     }
 
-    public int compareLower( byte[] b, int o, int l, boolean isInclusive) {
+    /**
+     * Compares a lower bound against an upper bound
+     * @param b upper bound byte array
+     * @param o upper bound offset
+     * @param l upper bound length
+     * @param isInclusive upper bound inclusive
+     * @param isFixedWidth is value fixed width
+     * @return -1 if the lower bound is less than the upper bound,
+     *          1 if the lower bound is greater than the upper bound,
+     *          and 0 if they are equal.
+     */
+    public int compareLowerVsUpperBound( byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
         if (lowerUnbound()) {
             return -1;
         }
+        if (!isInclusive && !lowerInclusive && isFixedWidth) {
+            /*
+             * If both sides are exclusive and we're comparing fixed width values, we have a
+             * special case. If the lhs lower bound values is one bigger than the rhs upper
+             * bound value, then the rhs value is actually bigger. For example:
+             *   (A-B] compared against [A-B)
+             * An exclusive lower bound A is bigger than an exclusive upper bound B
+             * 
+             * TODO: increment the lower bound of any fixed width exclusive key range and
+             * force it to be inclusive to avoid mucking with the comparison like this.
+             */
+            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length-1, b, o, l-1);
+            if (cmp == 0) {
+                byte lastByte1 = lowerRange[lowerRange.length-1];
+                byte lastByte2 = b[o+l-1];
+                if (lastByte2 > lastByte1) {
+                    if (lastByte2 - 1 == lastByte1) {
+                        return 1;
+                    }
+                    return -1;
+                }
+                if (lastByte2 < lastByte1) {
+                    if (lastByte1 - 1 == lastByte2) {
+                        return -1;
+                    }
+                    return 1;
+                }
+                return 1;
+            }
+            return cmp;
+        }
+        
         int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
         if (cmp > 0) {
-            if (isInclusive || lowerInclusive) {
-                return 1;
-            }
-            // Since we normalize ranges by forcing lowerInclusive to be true and we're always comparing
-            // an upper bound against a lower bound, this crazy code should never actually execute.
-            // TODO: Maybe we should assert false here?
-            if (l != lowerRange.length || Bytes.compareTo(lowerRange, 0, lowerRange.length-1, b, o, l-1) != 0) {
-                return 1;
-            }
-            // If both exclusive, we need to check that they differ by more than one.
-            // If they differ by exactly one than we return -1 otherwise we return 1.
-            // For example: comparing the lower of (A-B] against the upper of [A-B)
-            // should return -1
-            byte lastByte1 = lowerRange[lowerRange.length-1];
-            byte lastByte2 = b[o+l-1];
-            if (lastByte2 - 1 == lastByte1) {
-                return -1;
-            }
             return 1;
         }
         if (cmp < 0) {
-            if (isInclusive || lowerInclusive) {
-                return -1;
-            }
-            // Since we normalize ranges by forcing lowerInclusive to be true and we're always comparing
-            // an upper bound against a lower bound, this crazy code should never actually execute.
-            // TODO: Maybe we should assert false here?
-            if (l != lowerRange.length || Bytes.compareTo(lowerRange, 0, lowerRange.length-1, b, o, l-1) != 0) {
-                return -1;
-            }
-            // If both exclusive, we need to check that they differ by more than one.
-            // If they differ by exactly one than we return 1 otherwise we return -1.
-            // For example: comparing the lower of (A-B] against the upper of [A-B)
-            // should return -1
-            byte lastByte1 = lowerRange[lowerRange.length-1];
-            byte lastByte2 = b[o+l-1];
-            if (lastByte1 + 1 == lastByte2) {
-                return 1;
-            }
             return -1;
         }
         if (lowerInclusive && isInclusive) {
@@ -231,55 +238,51 @@ public class KeyRange {
         return 1;
     }
     
-    public int compareUpper(byte[] b, int o, int l) {
-        return compareUpper(b,o,l,true);
+    public int compareUpperVsLowerBound(byte[] b, int o, int l) {
+        return compareUpperVsLowerBound(b,o,l, true, false);
     }
     
-    public int compareUpper(byte[] b, int o, int l, boolean isInclusive) {
+    public int compareUpperVsLowerBound(byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
         if (upperUnbound()) {
             return 1;
         }
-        int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
-        if (cmp > 0) {
-            if (isInclusive || upperInclusive) {
-                return 1;
-            }
-            // Since we normalize ranges by forcing lowerInclusive to be true and we're always comparing
-            // an upper bound against a lower bound, this crazy code should never actually execute.
-            // TODO: Maybe we should assert false here?
-            if (l != upperRange.length || Bytes.compareTo(upperRange, 0, upperRange.length-1, b, o, l-1) != 0) {
-                return 1;
-            }
-            // If both exclusive, we need to check that they differ by more than one.
-            // If they differ by exactly one than we return -1 otherwise we return 1.
-            // For example: comparing the lower of (A-B] against the upper of [A-B)
-            // should return -1
-            byte lastByte1 = upperRange[upperRange.length-1];
-            byte lastByte2 = b[o+l-1];
-            if (lastByte2 - 1 == lastByte1) {
+        if (!isInclusive && !upperInclusive && isFixedWidth) {
+            /*
+             * If both sides are exclusive and we're comparing fixed width values, we have a
+             * special case. If the lhs lower bound values is one bigger than the rhs upper
+             * bound value, then the rhs value is actually bigger. For example:
+             *   (A-B] compared against [A-B)
+             * An exclusive lower bound A is bigger than an exclusive upper bound B
+             * 
+             * TODO: increment the lower bound of any fixed width exclusive key range and
+             * force it to be inclusive to avoid mucking with the comparison like this.
+             */
+            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length-1, b, o, l-1);
+            if (cmp == 0) {
+                byte lastByte1 = upperRange[upperRange.length-1];
+                byte lastByte2 = b[o+l-1];
+                if (lastByte2 > lastByte1) {
+                    if (lastByte2 - 1 == lastByte1) {
+                        return 1;
+                    }
+                    return -1;
+                }
+                if (lastByte2 < lastByte1) {
+                    if (lastByte1 - 1 == lastByte2) {
+                        return -1;
+                    }
+                    return 1;
+                }
                 return -1;
             }
+            return cmp;
+        }
+        
+        int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
+        if (cmp > 0) {
             return 1;
         }
         if (cmp < 0) {
-            if (isInclusive || upperInclusive) {
-                return -1;
-            }
-            // Since we normalize ranges by forcing lowerInclusive to be true and we're always comparing
-            // an upper bound against a lower bound, this crazy code should never actually execute.
-            // TODO: Maybe we should assert false here?
-            if (l != upperRange.length || Bytes.compareTo(upperRange, 0, upperRange.length-1, b, o, l-1) != 0) {
-                return -1;
-            }
-            // If both exclusive, we need to check that they differ by more than one.
-            // If they differ by exactly one than we return 1 otherwise we return -1.
-            // For example: comparing the lower of (A-B] against the upper of [A-B)
-            // should return -1
-            byte lastByte1 = upperRange[upperRange.length-1];
-            byte lastByte2 = b[o+l-1];
-            if (lastByte1 + 1 == lastByte2) {
-                return 1;
-            }
             return -1;
         }
         if (upperInclusive && isInclusive) {

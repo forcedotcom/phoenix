@@ -135,15 +135,16 @@ public class ScanRanges {
         int cmpLowerVsUpper=0,cmpUpperVsLower=0;
         
         while (true) {
+            boolean isFixedWidth = schema.getField(i).getType().isFixedWidth();
             // Increment to the next range while the upper bound of our current slot is less than our lower bound
             while (position[i] < ranges.get(i).size() && 
-                    (cmpLowerVsUpper=ranges.get(i).get(position[i]).compareUpper(lower, true)) < 0) {
+                    (cmpLowerVsUpper=ranges.get(i).get(position[i]).compareUpperVsLowerBound(lower, true, isFixedWidth)) < 0) {
                 position[i]++;
             }
             if (position[i] >= ranges.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
                 return false;
-            } else if ((cmpUpperVsLower=ranges.get(i).get(position[i]).compareLower(upper, i < nSlots-1)) > 0) {
+            } else if ((cmpUpperVsLower=ranges.get(i).get(position[i]).compareLowerVsUpperBound(upper, i < nSlots-1, isFixedWidth)) > 0) {
                 // Our upper bound is less than the lower range of the current position in the current slot.
                 return false;
             } else { // We're in range, check the next slot
