@@ -158,24 +158,24 @@ public class KeyRange {
         return isSingleKey;
     }
     
-    public int compareLowerVsUpperBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
-        return compareLowerVsUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
+    public int compareLowerToUpperBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
+        return compareLowerToUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
     }
     
-    public int compareLowerVsUpperBound(ImmutableBytesWritable ptr) {
-        return compareLowerVsUpperBound(ptr, true, false);
+    public int compareLowerToUpperBound(ImmutableBytesWritable ptr) {
+        return compareLowerToUpperBound(ptr, true, false);
     }
     
-    public int compareUpperVsLowerBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
-        return compareUpperVsLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
+    public int compareUpperToLowerBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
+        return compareUpperToLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
     }
     
-    public int compareUpperVsLowerBound(ImmutableBytesWritable ptr) {
-        return compareUpperVsLowerBound(ptr, true, false);
+    public int compareUpperToLowerBound(ImmutableBytesWritable ptr) {
+        return compareUpperToLowerBound(ptr, true, false);
     }
     
-    public int compareLowerVsUpperBound( byte[] b, int o, int l) {
-        return compareLowerVsUpperBound(b,o,l,true, false);
+    public int compareLowerToUpperBound( byte[] b, int o, int l) {
+        return compareLowerToUpperBound(b,o,l,true, false);
     }
 
     /**
@@ -189,7 +189,7 @@ public class KeyRange {
      *          1 if the lower bound is greater than the upper bound,
      *          and 0 if they are equal.
      */
-    public int compareLowerVsUpperBound( byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
+    public int compareLowerToUpperBound( byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
         if (lowerUnbound()) {
             return -1;
         }
@@ -238,11 +238,11 @@ public class KeyRange {
         return 1;
     }
     
-    public int compareUpperVsLowerBound(byte[] b, int o, int l) {
-        return compareUpperVsLowerBound(b,o,l, true, false);
+    public int compareUpperToLowerBound(byte[] b, int o, int l) {
+        return compareUpperToLowerBound(b,o,l, true, false);
     }
     
-    public int compareUpperVsLowerBound(byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
+    public int compareUpperToLowerBound(byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
         if (upperUnbound()) {
             return 1;
         }

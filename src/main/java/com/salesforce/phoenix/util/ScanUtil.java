@@ -195,7 +195,12 @@ public class ScanUtil {
             byte[] bytes = range.getRange(bound);
             System.arraycopy(bytes, 0, key, offset, bytes.length);
             offset += bytes.length;
-            if (i < schema.getMaxFields()-1 && !isFixedWidth) {
+            /*
+             * We must add a terminator to a variable length key for the last PK column if
+             * the key is non inclusive. Otherwise, we'd be incrementing the key value itself,
+             * and thus bumping up to much. TODO: unit test for this
+             */
+            if (!isFixedWidth && ( i < schema.getMaxFields()-1 || !range.isInclusive(bound))) {
                 key[offset++] = QueryConstants.SEPARATOR_BYTE;
             }
             // If we are setting the upper bound of using inclusive single key, we remember 
@@ -212,7 +217,8 @@ public class ScanUtil {
             lastInclusiveUpperSingleKey = range.isSingleKey() && inclusiveUpper;
             anyInclusiveUpperRangeKey |= !range.isSingleKey() && inclusiveUpper;
             // If we are setting the lower bound with an exclusive range key, we need to bump the
-            // slot up;
+            // slot up for each key part. For an upper bound, we bump up an inclusive key, but
+            // only after then last key part.
             if (!range.isSingleKey() && !range.isInclusive(bound) && bound == Bound.LOWER) {
                 if (!ByteUtil.nextKey(key, offset)) {
                     // Special case for not being able to increment.

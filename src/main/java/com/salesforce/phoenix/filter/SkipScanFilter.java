@@ -182,7 +182,7 @@ public class SkipScanFilter extends FilterBase {
         schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
         while (true) {
             // Increment to the next range while the upper bound of our current slot is less than our current key
-            while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpperVsLowerBound(ptr) < 0) {
+            while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpperToLowerBound(ptr) < 0) {
                 position[i]++;
             }
             if (position[i] >= slots.get(i).size()) {
@@ -200,7 +200,7 @@ public class SkipScanFilter extends FilterBase {
                         // If we're still in the same range for the previous slot after incrementing
                         // to the next key, then we can just seek to the beginning of the next key
                         // range (if there is one).
-                        if (slots.get(i-1).get(position[i-1]).compareUpperVsLowerBound(startKey, 0, startKeyLength) < 0) {
+                        if (slots.get(i-1).get(position[i-1]).compareUpperToLowerBound(startKey, 0, startKeyLength) < 0) {
                             i--;
                             // TODO: implement schema.previous to go backwards
                             ptr.set(currentKey, offset, length);
@@ -214,7 +214,7 @@ public class SkipScanFilter extends FilterBase {
                         return ReturnCode.SEEK_NEXT_USING_HINT;
                     }
                 }
-            } else if (slots.get(i).get(position[i]).compareLowerVsUpperBound(ptr) > 0) {
+            } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(ptr) > 0) {
                 // Our current key is less than the lower range of the current position in the current slot.
                 // Seek to the lower range, since it's bigger than the current key
                 setStartKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
@@ -352,8 +352,11 @@ public class SkipScanFilter extends FilterBase {
     
     private int getTerminatorCount(RowKeySchema schema) {
         int nTerminators = 0;
-        for (int i = 0; i < schema.getFieldCount() - 1; i++) {
+        for (int i = 0; i < schema.getFieldCount(); i++) {
             Field field = schema.getField(i);
+            // We won't have a terminator on the last PK column
+            // unless it is variable length and exclusive, but
+            // having the extra byte irregardless won't hurt anything
             if (!field.getType().isFixedWidth()) {
                 nTerminators++;
             }
