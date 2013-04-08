@@ -8,6 +8,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.Calendar;
+import java.sql.Date;
+import java.util.GregorianCalendar;
 import java.util.Properties;
 
 import org.junit.Assert;
@@ -71,21 +74,21 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     @Test
     public void equalityDescInlinePK() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (pk VARCHAR NOT NULL PRIMARY KEY DESC)";
-        runQueryTest(ddl, upsert("pk"), new Object[][]{{"a"}, {"b"}, {"c"}}, new Object[][]{{"b"}}, new Condition("pk", "=", "'b'"));
+        runQueryTest(ddl, upsert("pk"), new Object[][]{{"a"}, {"b"}, {"c"}}, new Object[][]{{"b"}}, new WhereCondition("pk", "=", "'b'"));
     }
     
     @Test
     public void equalityDescCompositePK1() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
         Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o2", 2}, {"o3", 3}};
-        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"o2", 2}}, new Condition("oid", "=", "'o2'"));        
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"o2", 2}}, new WhereCondition("oid", "=", "'o2'"));        
     }
     
     @Test
     public void equalityDescCompositePK2() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
         Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o1", 2}, {"o1", 3}};
-        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"o1", 2}}, new Condition("code", "=", "2"));        
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"o1", 2}}, new WhereCondition("code", "=", "2"));        
     }
     
     @Test
@@ -93,7 +96,7 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
         Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o1", 2}, {"o1", 3}};
         Object[][] expectedRows = new Object[][]{{"o1", 2}, {"o1", 1}};
-        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new Condition("code", "<", "3"));        
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("code", "<", "3"));        
     }
     
     @Test
@@ -101,7 +104,7 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
         Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o2", 2}, {"o3", 3}};
         Object[][] expectedRows = new Object[][]{{"o3", 3}, {"o2", 2}};
-        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new Condition("SUBSTR(oid, 2, 1)", ">", "'1'"));
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("SUBSTR(oid, 2, 1)", ">", "'1'"));
     }
     
     @Test
@@ -109,7 +112,7 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(4) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
         Object[][] insertedRows = new Object[][]{{"aaaa", 1}, {"bbbb", 2}, {"cccd", 3}};
         Object[][] expectedRows = new Object[][]{{"cccd", 3}};
-        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new Condition("SUBSTR(oid, 4, 1)", "=", "'d'"));
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("SUBSTR(oid, 4, 1)", "=", "'d'"));
     }    
     
     @Test
@@ -117,7 +120,7 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(4) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
         Object[][] insertedRows = new Object[][]{{" o1 ", 1}, {"  o2", 2}, {"  o3", 3}};
         Object[][] expectedRows = new Object[][]{{"  o2", 2}};
-        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new Condition("LTRIM(oid)", "=", "'o2'"));
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("LTRIM(oid)", "=", "'o2'"));
     }
 
     @Test
@@ -132,8 +135,8 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     public void sumDescCompositePK() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (n1 INTEGER NOT NULL, n2 DECIMAL(10, 2) NOT NULL, n3 BIGINT NOT NULL " + 
             "constraint pk primary key (n1 DESC, n2 DESC, n3 DESC))";
-        Object[][] insertedRows = new Object[][]{{10, bigdec(10.2), 21l}, {20, bigdec(20.2), 32l}, {30, bigdec(30.2), 43l}};
-        Object[][] expectedRows = new Object[][]{{60l, bigdec(60.6), 96l}};
+        Object[][] insertedRows = new Object[][]{{10, bdec(10.2), 21l}, {20, bdec(20.2), 32l}, {30, bdec(30.2), 43l}};
+        Object[][] expectedRows = new Object[][]{{60l, bdec(60.6), 96l}};
         runQueryTest(ddl, upsert("n1", "n2", "n3"), select("SUM(n1), SUM(n2), SUM(n3)"), insertedRows, expectedRows);
     }    
     
@@ -141,8 +144,8 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     public void avgDescCompositePK() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (n1 INTEGER NOT NULL, n2 DECIMAL(10, 2) NOT NULL, n3 BIGINT NOT NULL " + 
             "constraint pk primary key (n1 DESC, n2 DESC, n3 DESC))";
-        Object[][] insertedRows = new Object[][]{{10, bigdec(10.2), 21l}, {20, bigdec(20.2), 32l}, {30, bigdec(30.2), 43l}};
-        Object[][] expectedRows = new Object[][]{{new BigDecimal(bigint(2), -1), bigdec(20.2), BigDecimal.valueOf(32)}};
+        Object[][] insertedRows = new Object[][]{{10, bdec(10.2), 21l}, {20, bdec(20.2), 32l}, {30, bdec(30.2), 43l}};
+        Object[][] expectedRows = new Object[][]{{new BigDecimal(bint(2), -1), bdec(20.2), BigDecimal.valueOf(32)}};
         runQueryTest(ddl, upsert("n1", "n2", "n3"), select("AVG(n1), AVG(n2), AVG(n3)"), insertedRows, expectedRows);
     }
     
@@ -150,8 +153,8 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     public void minDescCompositePK() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (n1 INTEGER NOT NULL, n2 DECIMAL(10, 2) NOT NULL, n3 BIGINT NOT NULL " + 
             "constraint pk primary key (n1 DESC, n2 DESC, n3 DESC))";
-        Object[][] insertedRows = new Object[][]{{10, bigdec(10.2), 21l}, {20, bigdec(20.2), 32l}, {30, bigdec(30.2), 43l}};
-        Object[][] expectedRows = new Object[][]{{10, bigdec(10.2), 21l}};
+        Object[][] insertedRows = new Object[][]{{10, bdec(10.2), 21l}, {20, bdec(20.2), 32l}, {30, bdec(30.2), 43l}};
+        Object[][] expectedRows = new Object[][]{{10, bdec(10.2), 21l}};
         runQueryTest(ddl, upsert("n1", "n2", "n3"), select("MIN(n1), MIN(n2), MIN(n3)"), insertedRows, expectedRows);
     }
     
@@ -159,11 +162,43 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     public void maxDescCompositePK() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (n1 INTEGER NOT NULL, n2 DECIMAL(10, 2) NOT NULL, n3 BIGINT NOT NULL " + 
             "constraint pk primary key (n1 DESC, n2 DESC, n3 DESC))";
-        Object[][] insertedRows = new Object[][]{{10, bigdec(10.2), 21l}, {20, bigdec(20.2), 32l}, {30, bigdec(30.2), 43l}};
-        Object[][] expectedRows = new Object[][]{{30, bigdec(30.2), 43l}};
+        Object[][] insertedRows = new Object[][]{{10, bdec(10.2), 21l}, {20, bdec(20.2), 32l}, {30, bdec(30.2), 43l}};
+        Object[][] expectedRows = new Object[][]{{30, bdec(30.2), 43l}};
         runQueryTest(ddl, upsert("n1", "n2", "n3"), select("MAX(n1), MAX(n2), MAX(n3)"), insertedRows, expectedRows);
-    }    
+    }
     
+    @Test
+    public void havingSumDescCompositePK() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (name CHAR(1) NOT NULL, code INTEGER NOT NULL " + 
+            "constraint pk primary key (name DESC, code DESC))";
+        Object[][] insertedRows = new Object[][]{{"a", 10}, {"a", 20}, {"b", 100}}; 
+        Object[][] expectedRows = new Object[][]{{"a", 30l}};
+        runQueryTest(ddl, upsert("name", "code"), select("name", "SUM(code)"), insertedRows, expectedRows, 
+            new HavingCondition("name", "SUM(code) = 30"));
+    }
+    
+    @Test
+    public void additionOnDescCompositePK() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (n1 INTEGER NOT NULL, n2 DECIMAL(10, 2) NOT NULL, n3 BIGINT NOT NULL, d1 DATE NOT NULL " + 
+            "constraint pk primary key (n1 DESC, n2 DESC, n3 DESC, d1 DESC))";
+        Object[][] insertedRows = new Object[][]{
+            {10, bdec(10.2), 21l, date(1, 10, 2001)}, {20, bdec(20.2), 32l, date(2, 6, 2001)}, {30, bdec(30.2), 43l, date(3, 1, 2001)}};
+        Object[][] expectedRows = new Object[][]{
+            {31l, bdec(32.2), 46l, date(3, 5, 2001)}, {21l, bdec(22.2), 35l, date(2, 10, 2001)}, {11l, bdec(12.2), 24l, date(1, 14, 2001)}};
+        runQueryTest(ddl, upsert("n1", "n2", "n3", "d1"), select("n1+1, n2+2, n3+3", "d1+4"), insertedRows, expectedRows);
+    }
+    
+    @Test
+    public void subtractionOnDescCompositePK() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (n1 INTEGER NOT NULL, n2 DECIMAL(10, 2) NOT NULL, n3 BIGINT NOT NULL, d1 DATE NOT NULL " + 
+            "constraint pk primary key (n1 DESC, n2 DESC, n3 DESC, d1 DESC))";
+        Object[][] insertedRows = new Object[][]{
+            {10, bdec(10.2), 21l, date(1, 10, 2001)}, {20, bdec(20.2), 32l, date(2, 6, 2001)}, {30, bdec(30.2), 43l, date(3, 10, 2001)}};
+        Object[][] expectedRows = new Object[][]{
+            {29l, bdec(28.2), 40l, date(3, 6, 2001)}, {19l, bdec(18.2), 29l, date(2, 2, 2001)}, {9l, bdec(8.2), 18l, date(1, 6, 2001)}};
+        runQueryTest(ddl, upsert("n1", "n2", "n3", "d1"), select("n1-1, n2-2, n3-3", "d1-4"), insertedRows, expectedRows);
+    }
+
     private void runQueryTest(String ddl, String columnName, Object[][] rows, Object[][] expectedRows) throws Exception {
         runQueryTest(ddl, new String[]{columnName}, rows, expectedRows, null);
     }
@@ -172,16 +207,27 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         runQueryTest(ddl, columnNames, rows, expectedRows, null);
     }
     
-    private void runQueryTest(String ddl, String[] columnNames, Object[][] rows, Object[][] expectedRows, Condition condition) throws Exception {
-        runQueryTest(ddl, columnNames, columnNames, rows, expectedRows, condition);
+    private void runQueryTest(String ddl, String[] columnNames, Object[][] rows, Object[][] expectedRows, WhereCondition condition) throws Exception {
+        runQueryTest(ddl, columnNames, columnNames, rows, expectedRows, condition, null);
     }
     
     private void runQueryTest(String ddl, String[] columnNames, String[] projections, Object[][] rows, Object[][] expectedRows) throws Exception {
-        runQueryTest(ddl, columnNames, projections, rows, expectedRows, null);
+        runQueryTest(ddl, columnNames, projections, rows, expectedRows, null, null);
     }
+    
+    private void runQueryTest(String ddl, String[] columnNames, String[] projections, Object[][] rows, Object[][] expectedRows, HavingCondition havingCondition) throws Exception {
+        runQueryTest(ddl, columnNames, projections, rows, expectedRows, null, havingCondition);
+    }
+    
 
-    private void runQueryTest(String ddl, String[] columnNames, String[] projections, Object[][] rows, Object[][] expectedRows, Condition condition) throws Exception {
-
+    private void runQueryTest(
+        String ddl, 
+        String[] columnNames, 
+        String[] projections, 
+        Object[][] rows, Object[][] expectedRows, 
+        WhereCondition whereCondition, 
+        HavingCondition havingCondition) throws Exception 
+    {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
 
@@ -207,13 +253,16 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
             
             String selectClause = "SELECT " + appendColumns(projections) + " FROM " + TABLE;
             
-            if (condition != null) {
-                String query = condition.appendWhere(selectClause);
+            if (whereCondition != null) {
+                String query = whereCondition.appendWhere(selectClause);
+                HavingCondition.appendHaving(havingCondition, query);
                 runQuery(conn, query, expectedRows);
-                query = condition.reverse().appendWhere(selectClause);
+                query = whereCondition.reverse().appendWhere(selectClause);
+                HavingCondition.appendHaving(havingCondition, query);
                 runQuery(conn, query, expectedRows);
-            } else {            
-                runQuery(conn, selectClause, expectedRows);
+            } else {
+                String query = HavingCondition.appendHaving(havingCondition, selectClause);
+                runQuery(conn, query, expectedRows);
             }
             
         } finally {
@@ -262,6 +311,19 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         Assert.assertEquals("Unexpected number of rows for query " + query, expectedValues.length, rowCounter);
     }
     
+    private static Date date(int month, int day, int year) {
+     Calendar cal = new GregorianCalendar();
+     cal.set(Calendar.MONTH, month-1);
+     cal.set(Calendar.DAY_OF_MONTH, day);
+     cal.set(Calendar.YEAR, year);
+     cal.set(Calendar.HOUR_OF_DAY, 10);
+     cal.set(Calendar.MINUTE, 0);
+     cal.set(Calendar.SECOND, 0);
+     cal.set(Calendar.MILLISECOND, 0);
+     Date d = new Date(cal.getTimeInMillis()); 
+     return d;
+    }
+    
     private static String[] upsert(String...args) {
         return args;
     }
@@ -270,30 +332,30 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         return args;
     }
     
-    private static BigDecimal bigdec(double d) {
+    private static BigDecimal bdec(double d) {
         return BigDecimal.valueOf(d);
     }
     
-    private static BigInteger bigint(long l) {
+    private static BigInteger bint(long l) {
         return BigInteger.valueOf(l);
     }    
     
-    private static class Condition {
+    private static class WhereCondition {
         final String lhs;
         final String operator;
         final String rhs;
     
-        Condition(String lhs, String operator, String rhs) {
+        WhereCondition(String lhs, String operator, String rhs) {
             this.lhs = lhs;
             this.operator = operator;
             this.rhs = rhs;
         }
         
-        Condition reverse() {
-            return new Condition(rhs, getReversedOperator(), lhs);
+        WhereCondition reverse() {
+            return new WhereCondition(rhs, getReversedOperator(), lhs);
         }
         
-        String appendWhere(String query) {
+         String appendWhere(String query) {
             return query + " WHERE " + lhs + " " + operator + " " + rhs;
         }
         
@@ -304,6 +366,24 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
                 return "<";
             }
             return operator;
+        }
+    }
+    
+    private static class HavingCondition {
+        
+        private String groupby;
+        private String having;
+        
+        HavingCondition(String groupby, String having) {
+            this.groupby = groupby;
+            this.having = having;
+        }
+        
+        static String appendHaving(HavingCondition havingCondition, String query) {
+            if (havingCondition == null) {
+                return query;
+            }
+            return query + " GROUP BY " + havingCondition.groupby + " HAVING " + havingCondition.having;
         }
     }
 }

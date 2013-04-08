@@ -82,8 +82,8 @@ public class DecimalSubtractExpression extends SubtractExpression {
             PDataType childType = children.get(i).getDataType();
             boolean isDate = childType.isCoercibleTo(PDataType.DATE);
             BigDecimal bd = isDate ?
-                    BigDecimal.valueOf(childType.getCodec().decodeLong(ptr, null)) : // REVIEW - stoens
-                    (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
+                    BigDecimal.valueOf(childType.getCodec().decodeLong(ptr, childExpr.getColumnModifier())) :
+                    (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType, childExpr.getColumnModifier());
             
             if (result == null) {
                 result = bd;

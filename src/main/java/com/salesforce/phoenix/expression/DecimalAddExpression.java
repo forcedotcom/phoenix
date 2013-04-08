@@ -73,7 +73,7 @@ public class DecimalAddExpression extends AddExpression {
             }
             
             PDataType childType = children.get(i).getDataType();
-            BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
+            BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType, children.get(i).getColumnModifier());
             
             if (result == null) {
                 result = bd;

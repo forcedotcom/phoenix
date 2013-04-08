@@ -197,9 +197,7 @@ public enum PDataType {
            String s = Bytes.toString(bytes, offset, length);
            if (length != s.length()) {
                for (int i = offset; i < offset + length; i++) {
-                   System.out.print(bytes[i] + " ");
                }
-               System.out.println(" " +  Bytes.toString(bytes, offset, length));               
                throw new IllegalDataException("CHAR types may only contain single byte characters (" + s + ")");
            }
            return s;
@@ -1765,8 +1763,13 @@ public enum PDataType {
         }
         
         @Override
-        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
-            return Bytes.toLong(b, o);
+        public long decodeLong(byte[] bytes, int o, ColumnModifier columnModifier) {
+            if (columnModifier != null) {
+                byte[] b = new byte[bytes.length];
+                columnModifier.apply(bytes, b, o, bytes.length - o);
+                bytes = b;
+            }
+            return Bytes.toLong(bytes, o);
         }
 
         @Override

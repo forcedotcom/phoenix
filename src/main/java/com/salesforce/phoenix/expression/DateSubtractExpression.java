@@ -57,12 +57,12 @@ public class DateSubtractExpression extends SubtractExpression {
             long value;
             PDataType type = children.get(i).getDataType();
             if (type == PDataType.DECIMAL) {
-                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr);
+                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr); // stoens - REVIEW
                 value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
             } else if (type.isCoercibleTo(PDataType.LONG)) {
-                value = type.getCodec().decodeLong(ptr, null) * QueryConstants.MILLIS_IN_DAY; // REVIEW - stoens
+                value = type.getCodec().decodeLong(ptr, children.get(i).getColumnModifier()) * QueryConstants.MILLIS_IN_DAY;
             } else {
-                value = type.getCodec().decodeLong(ptr, null); // REVIEW - stoens
+                value = type.getCodec().decodeLong(ptr, children.get(i).getColumnModifier());
             }
             if (i == 0) {
                 finalResult = value;

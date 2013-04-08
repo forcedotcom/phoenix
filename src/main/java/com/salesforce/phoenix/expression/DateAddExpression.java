@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -61,12 +62,13 @@ public class DateAddExpression extends AddExpression {
             long value;
             PDataType type = children.get(i).getDataType();
             if (type == PDataType.DECIMAL) {
-                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr);
+                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr); // stoens - REVIEW
                 value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
             } else if (type.isCoercibleTo(PDataType.LONG)) {
-                value = type.getCodec().decodeLong(ptr, null) * QueryConstants.MILLIS_IN_DAY; // REVIEW - stoens
+                value = type.getCodec().decodeLong(ptr, children.get(i).getColumnModifier()) * QueryConstants.MILLIS_IN_DAY;
             } else {
-                value = type.getCodec().decodeLong(ptr, null); // REVIEW - stoens
+                ColumnModifier mod = children.get(i).getColumnModifier();
+                value = type.getCodec().decodeLong(ptr, mod);
             }
             finalResult += value;
         }
