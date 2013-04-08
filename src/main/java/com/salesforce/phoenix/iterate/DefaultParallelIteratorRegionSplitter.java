@@ -152,12 +152,12 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
                     // between start and end key is too small
                     keyRangesPerRegion.put(region.getValue(),ParallelIterators.TO_KEY_RANGE.apply(region));
                 } else {
-                    keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(lowerUnbound ? HConstants.EMPTY_START_ROW : boundaries[0], true, boundaries[1], false));
+                    keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(lowerUnbound ? HConstants.EMPTY_START_ROW : boundaries[0], true, boundaries[1], false, false));
                     if (boundaries.length > 1) {
                         for (int i = 1; i < boundaries.length-2; i++) {
-                            keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[i], true, boundaries[i+1], false));
+                            keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[i], true, boundaries[i+1], false, false));
                         }
-                        keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[boundaries.length-2], true, upperUnbound ? HConstants.EMPTY_END_ROW : boundaries[boundaries.length-1], false));
+                        keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[boundaries.length-2], true, upperUnbound ? HConstants.EMPTY_END_ROW : boundaries[boundaries.length-1], false, false));
                     }
                 }
             }

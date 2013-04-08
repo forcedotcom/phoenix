@@ -241,7 +241,7 @@ public class MetaDataClient {
                 }
                 PColumn column = newColumn(columnOrdinal++,colDef,pkColumns);
                 if (SchemaUtil.isPKColumn(column)) {
-                    // TODO: remove this constraint
+                    // TODO: remove this constraint?
                     if (!pkColumns.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
                             .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
@@ -485,6 +485,7 @@ public class MetaDataClient {
             while (true) {
                 int ordinalPosition = table.getColumns().size();
                     
+                // TODO: disallow adding columns if last column is fixed width and nullable
                 List<PColumn> columns = Lists.newArrayListWithExpectedSize(1);
                 ColumnDef colDef = statement.getColumnDef();
                 if (!colDef.isNull() && colDef.isPK()) {

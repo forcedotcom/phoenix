@@ -145,7 +145,8 @@ public class SkipScanFilter extends FilterBase {
             // upper bound as not inclusive.
             KeyRange range = KeyRange.getKeyRange(
                     Arrays.copyOf(startKey, startKeyLength), lowerInclusive,
-                    Arrays.copyOf(endKey, endKeyLength), false);
+                    Arrays.copyOf(endKey, endKeyLength), false,
+                    false);
             splits.add(range);
             terminated = terminated || !incrementKey(1, Bound.LOWER);
         }
@@ -397,7 +398,7 @@ public class SkipScanFilter extends FilterBase {
                 boolean upperInclusive = in.readBoolean();
                 orclause.add(
                     KeyRange.getKeyRange(lower, lowerInclusive,
-                            upper, upperInclusive));
+                            upper, upperInclusive, false));
             }
             maxLength += maxSlotLength;
         }

@@ -76,137 +76,141 @@ public class ScanRangeIntersectTest {
         assertEquals(expectedResult, scanRanges.intersect(lower,upper));
     }
 
+    private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
+        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, true);
+    }
+    
     @Parameters(name="{0} {1} {2} {3} {4}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // KeyRange covers the first scan range.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("a9Z"), true, Bytes.toBytes("c0A"), true), 
+                    getKeyRange(Bytes.toBytes("a9Z"), true, Bytes.toBytes("c0A"), true), 
                     true));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1A"), true, Bytes.toBytes("b1A"), true), 
+                    getKeyRange(Bytes.toBytes("b1A"), true, Bytes.toBytes("b1A"), true), 
                     false));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1C"), true), 
+                    getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1C"), true), 
                     true));
         // KeyRange intersect with the first scan range on range's upper end.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1B"), true), 
+                    getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b1B"), true), 
                     true));
          // ScanRanges is everything.
         testCases.addAll(
                 foreach(ScanRanges.EVERYTHING, null, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
                     true));
         // ScanRanges is nothing.
         testCases.addAll(
                 foreach(ScanRanges.NOTHING, null, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
                     false));
         // KeyRange below the first scan range.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),}},
                     new int[] {1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true), 
+                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true), 
                     false));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1A"), true, Bytes.toBytes("b1A"), true), 
+                    getKeyRange(Bytes.toBytes("b1A"), true, Bytes.toBytes("b1A"), true), 
                     false));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("c"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("C"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("c"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("C"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("b1B"), false), 
+                    getKeyRange(Bytes.toBytes("a1A"), true, Bytes.toBytes("b1B"), false), 
                     false));
         // KeyRange intersects with the first scan range on range's lower end.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1C"), true, Bytes.toBytes("b2E"), true), 
+                    getKeyRange(Bytes.toBytes("b1C"), true, Bytes.toBytes("b2E"), true), 
                     true));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1D"), true, Bytes.toBytes("b2E"), true), 
+                    getKeyRange(Bytes.toBytes("b1D"), true, Bytes.toBytes("b2E"), true), 
                     true));
         // KeyRange above the first scan range, no intersect.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
-                        KeyRange.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("H"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
+                        getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("H"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1E"), true, Bytes.toBytes("b1F"), true), 
+                    getKeyRange(Bytes.toBytes("b1E"), true, Bytes.toBytes("b1F"), true), 
                     false));
         // KeyRange above the first scan range, with intersects.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
-                        KeyRange.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("I"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
+                        getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("I"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1E"), true, Bytes.toBytes("b1H"), true), 
+                    getKeyRange(Bytes.toBytes("b1E"), true, Bytes.toBytes("b1H"), true), 
                     true));
         // KeyRange above the last scan range.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b1B"), false, Bytes.toBytes("b2A"), true), 
+                    getKeyRange(Bytes.toBytes("b1B"), false, Bytes.toBytes("b2A"), true), 
                     false));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), false),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), false),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), false),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), false),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), false),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), false),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("b2A"), true, Bytes.toBytes("b2A"), true), 
+                    getKeyRange(Bytes.toBytes("b2A"), true, Bytes.toBytes("b2A"), true), 
                     false));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        KeyRange.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                        KeyRange.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
+                        getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
                     new int[] {1,1,1}, true,
-                    KeyRange.getKeyRange(Bytes.toBytes("c1A"), false, Bytes.toBytes("c9Z"), true), 
+                    getKeyRange(Bytes.toBytes("c1A"), false, Bytes.toBytes("c9Z"), true), 
                     false));
         return testCases;
     }

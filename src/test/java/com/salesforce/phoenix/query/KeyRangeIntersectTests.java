@@ -1,14 +1,18 @@
 package com.salesforce.phoenix.query;
 
+import static com.salesforce.phoenix.query.KeyRange.EMPTY_RANGE;
+import static com.salesforce.phoenix.query.KeyRange.EVERYTHING_RANGE;
+import static org.apache.hadoop.hbase.util.Bytes.toBytes;
+
 import java.util.Arrays;
 import java.util.Collection;
+
 import junit.framework.TestCase;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-import static com.salesforce.phoenix.query.KeyRange.*;
-import static org.apache.hadoop.hbase.util.Bytes.toBytes;
 
 @RunWith(Parameterized.class)
 public class KeyRangeIntersectTests extends TestCase {
@@ -20,6 +24,10 @@ public class KeyRangeIntersectTests extends TestCase {
         this.intersection = intersection;
     }
 
+    private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
+        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, true);
+    }
+    
     @Parameters(name="intersection of {0} and {1} is {2}")
     public static Collection<?> data() {
         return Arrays.asList(new Object[][] {

@@ -112,19 +112,19 @@ public class RTrimFunction extends ScalarFunction {
         return new KeyPart() {
             @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
+                Integer length = getColumn().getByteSize();
                 KeyRange range;
                 switch (op) {
                 case EQUAL:
-                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
+                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false, length != null);
                     break;
                 case LESS_OR_EQUAL:
-                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
+                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false, length != null);
                     break;
                 default:
                     range = childPart.getKeyRange(op, key);
                     break;
                 }
-                Integer length = getColumn().getByteSize();
                 return length == null ? range : range.fill(length);
             }
 

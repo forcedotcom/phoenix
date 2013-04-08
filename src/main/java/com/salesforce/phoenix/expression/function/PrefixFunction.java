@@ -45,20 +45,20 @@ abstract public class PrefixFunction extends ScalarFunction {
             @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
                 KeyRange range;
+                Integer length = getColumn().getByteSize();
                 switch (op) {
                 case EQUAL:
-                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false);
+                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false, length != null);
                     break;
                 case GREATER:
-                    range = KeyRange.getKeyRange(ByteUtil.nextKey(key), true, KeyRange.UNBOUND_UPPER, false);
+                    range = KeyRange.getKeyRange(ByteUtil.nextKey(key), true, KeyRange.UNBOUND_UPPER, false, length != null);
                     break;
                 case LESS_OR_EQUAL:
-                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(key), false);
+                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(key), false, length != null);
                     break;
                 default:
                     return childPart.getKeyRange(op, key);
                 }
-                Integer length = getColumn().getByteSize();
                 return length == null ? range : range.fill(length);
             }
         };
