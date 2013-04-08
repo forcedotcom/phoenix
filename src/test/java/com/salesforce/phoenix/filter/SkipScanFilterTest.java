@@ -15,8 +15,10 @@ import org.junit.runners.Parameterized.Parameters;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
+import com.salesforce.phoenix.util.ByteUtil;
 
 //reset()
 //filterAllRemaining() -> true indicates scan is over, false, keep going on.
@@ -33,28 +35,29 @@ public class SkipScanFilterTest extends TestCase {
     public SkipScanFilterTest(List<List<KeyRange>> cnf, int[] widths, List<Expectation> expectations) {
         this.expectations = expectations;
         this.cnf = cnf;
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(widths.length);
         for (final int width : widths) {
-            builder.addField(new PDatum() {
+            builder.addField(
+                new PDatum() {
 
                 @Override
                 public boolean isNullable() {
-                    return false;
+                    return width <= 0;
                 }
 
                 @Override
                 public PDataType getDataType() {
-                    return PDataType.CHAR;
+                    return width <= 0 ? PDataType.VARCHAR : PDataType.CHAR;
                 }
 
                 @Override
                 public Integer getByteSize() {
-                    return width;
+                    return width <= 0 ? null : width;
                 }
 
                 @Override
                 public Integer getMaxLength() {
-                    return width;
+                    return getByteSize();
                 }
 
                 @Override
@@ -79,9 +82,23 @@ public class SkipScanFilterTest extends TestCase {
         return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, true);
     }
     
+    private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive, boolean isFixedWidth) {
+        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, isFixedWidth);
+    }
+    
     @Parameters(name="{0} {1} {2}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        getKeyRange(Bytes.toBytes("j"), false, Bytes.toBytes("k"), true, false),
+                    }},
+                    new int[]{0},
+                    new SeekNext(Bytes.toBytes("a"), ByteUtil.nextKey(new byte[] {'j',QueryConstants.SEPARATOR_BYTE})),
+                    new Include("ja"),
+                    new Include("jz"),
+                    new Include("k"),
+                    new Finished("ka")));
         testCases.addAll(
             foreach(new KeyRange[][]{{
                     getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),

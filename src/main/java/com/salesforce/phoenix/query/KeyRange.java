@@ -114,8 +114,8 @@ public class KeyRange {
          * example:
          *   (A-B] compared against [A-B)
          * An exclusive lower bound A is bigger than an exclusive upper bound B.
-         * By forcing a fixed width exclusive lower bound key to be inclusive
-         * prevents us from having to do this extra logic in the compare function.
+         * Forcing a fixed width exclusive lower bound key to be inclusive prevents
+         * us from having to do this extra logic in the compare function.
          */
         if (!unboundLower && !lowerInclusive && isFixedWidth) {
             lowerRange = ByteUtil.nextKey(lowerRange);
@@ -222,22 +222,6 @@ public class KeyRange {
             return 0;
         }
         return -1;
-    }
-    
-    public boolean isInRange(byte[] b, int o, int l) {
-        if (!lowerUnbound()) {
-            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
-            if (cmp > 0 || cmp == 0 && !lowerInclusive) {
-                return false;
-            }
-        }
-        if (!upperUnbound()) {
-            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
-            if (cmp < 0 || cmp == 0 && !upperInclusive) {
-                return false;
-            }
-        }
-        return true;
     }
     
     public byte[] getLowerRange() {

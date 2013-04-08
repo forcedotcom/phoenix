@@ -196,11 +196,13 @@ public class ScanUtil {
             System.arraycopy(bytes, 0, key, offset, bytes.length);
             offset += bytes.length;
             /*
-             * We must add a terminator to a variable length key for the last PK column if
-             * the key is non inclusive. Otherwise, we'd be incrementing the key value itself,
-             * and thus bumping up to much. TODO: unit test for this
+             * We must add a terminator to a variable length key even for the last PK column if
+             * the lower key is non inclusive or the upper key is inclusive. Otherwise, we'd be
+             * incrementing the key value itself, and thus bumping it up too much.
              */
-            if (!isFixedWidth && ( i < schema.getMaxFields()-1 || !range.isInclusive(bound))) {
+            boolean inclusiveUpper = range.isInclusive(bound) && bound == Bound.UPPER;
+            boolean exclusiveLower = !range.isInclusive(bound) && bound == Bound.LOWER;
+            if (!isFixedWidth && ( i < schema.getMaxFields()-1 || inclusiveUpper || exclusiveLower)) {
                 key[offset++] = QueryConstants.SEPARATOR_BYTE;
             }
             // If we are setting the upper bound of using inclusive single key, we remember 
@@ -213,13 +215,12 @@ public class ScanUtil {
             // by the range-exclusive key. In that case, we do not need to increment the end at the
             // end. But if we combine the two flag, the single inclusive key in the middle of the
             // key slots would cause the flag to become true.
-            boolean inclusiveUpper = range.isInclusive(bound) && bound == Bound.UPPER;
             lastInclusiveUpperSingleKey = range.isSingleKey() && inclusiveUpper;
             anyInclusiveUpperRangeKey |= !range.isSingleKey() && inclusiveUpper;
             // If we are setting the lower bound with an exclusive range key, we need to bump the
             // slot up for each key part. For an upper bound, we bump up an inclusive key, but
             // only after then last key part.
-            if (!range.isSingleKey() && !range.isInclusive(bound) && bound == Bound.LOWER) {
+            if (!range.isSingleKey() && exclusiveLower) {
                 if (!ByteUtil.nextKey(key, offset)) {
                     // Special case for not being able to increment.
                     // In this case we return a negative byteOffset to
