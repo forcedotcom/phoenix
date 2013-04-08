@@ -640,6 +640,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                         Bytes.toBytes(entityId1),
                         true,
                         Bytes.toBytes(entityId2),
+                        true,
                         true))),
                 context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);

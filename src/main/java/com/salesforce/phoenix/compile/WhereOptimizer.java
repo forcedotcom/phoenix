@@ -352,7 +352,7 @@ public class WhereOptimizer {
             }
             // TODO: is there a case where we'd need to go through the childPart to calculate the key range?
             Integer columnFixedLength = childSlot.getKeyPart().getColumn().getByteSize();
-            KeyRange keyRange = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false);
+            KeyRange keyRange = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false, columnFixedLength != null);
             if (columnFixedLength != null) {
                 keyRange = keyRange.fill(columnFixedLength);
             }
@@ -400,11 +400,19 @@ public class WhereOptimizer {
                 return null;
             }
             KeySlot childSlot = childParts.get(0).iterator().next();
-            // TODO: go through childPart to make this range?
-            KeyRange keyRange = node.isNegate() 
-                    ? KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, false, KeyRange.UNBOUND_UPPER, true)
-                    : KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, true, ByteUtil.EMPTY_BYTE_ARRAY, true);
-            return newKeyParts(childSlot, node, keyRange);
+            PColumn column = childSlot.getKeyPart().getColumn();
+            boolean isFixedWidth = column.getDataType().isFixedWidth();
+            if (isFixedWidth) { // if column can't be null
+                return node.isNegate() ? null : 
+                    newKeyParts(childSlot, node, KeyRange.getKeyRange(new byte[column.getByteSize()], true,
+                                                                      KeyRange.UNBOUND_UPPER, true, isFixedWidth));
+            } else {
+                // TODO: go through childPart to make this range?
+                KeyRange keyRange = node.isNegate() 
+                        ? KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, false, KeyRange.UNBOUND_UPPER, true, isFixedWidth)
+                        : KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, true, ByteUtil.EMPTY_BYTE_ARRAY, true, isFixedWidth);
+                return newKeyParts(childSlot, node, keyRange);
+            }
         }
 
         // TODO: rethink default: probably better if we don't automatically walk through constructs
@@ -540,7 +548,8 @@ public class WhereOptimizer {
             @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
                 // If the column is fixed width, fill is up to it's byte size
-                if (getColumn().getDataType().isFixedWidth()) {
+                boolean isFixedWidth = getColumn().getDataType().isFixedWidth();
+                if (isFixedWidth) {
                     Integer length = getColumn().getByteSize();
                     if (length != null) {
                         key = ByteUtil.fillKey(key, length);
@@ -548,15 +557,15 @@ public class WhereOptimizer {
                 }
                 switch (op) {
                 case EQUAL:
-                    return KeyRange.getKeyRange(key, true, key, true);
+                    return KeyRange.getKeyRange(key, true, key, true, isFixedWidth);
                 case GREATER:
-                    return KeyRange.getKeyRange(key, false, KeyRange.UNBOUND_UPPER, false);
+                    return KeyRange.getKeyRange(key, false, KeyRange.UNBOUND_UPPER, false, isFixedWidth);
                 case GREATER_OR_EQUAL:
-                    return KeyRange.getKeyRange(key, true, KeyRange.UNBOUND_UPPER, false);
+                    return KeyRange.getKeyRange(key, true, KeyRange.UNBOUND_UPPER, false, isFixedWidth);
                 case LESS:
-                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, false);
+                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, false, isFixedWidth);
                 case LESS_OR_EQUAL:
-                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, true);
+                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, true, isFixedWidth);
                 default:
                     throw new IllegalArgumentException("Unknown operator " + op);
                 }

@@ -1,16 +1,18 @@
 package com.salesforce.phoenix.query;
 
+import static com.salesforce.phoenix.query.KeyRange.EMPTY_RANGE;
+import static com.salesforce.phoenix.query.KeyRange.EVERYTHING_RANGE;
+import static java.util.Arrays.asList;
+import static org.apache.hadoop.hbase.util.Bytes.toBytes;
+
 import java.util.*;
+
 import junit.framework.TestCase;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-import static com.salesforce.phoenix.query.KeyRange.EMPTY_RANGE;
-import static com.salesforce.phoenix.query.KeyRange.EVERYTHING_RANGE;
-import static com.salesforce.phoenix.query.KeyRange.getKeyRange;
-import static org.apache.hadoop.hbase.util.Bytes.toBytes;
-import static java.util.Arrays.*;
 
 @RunWith(Parameterized.class)
 public class KeyRangeCoalesceTests extends TestCase {
@@ -22,6 +24,10 @@ public class KeyRangeCoalesceTests extends TestCase {
         this.input = input;
     }
 
+    private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
+        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, true);
+    }
+    
     @Parameters(name="{0} coalesces to {1}")
     public static Collection<?> data() {
         return Arrays.asList(new Object[][] {

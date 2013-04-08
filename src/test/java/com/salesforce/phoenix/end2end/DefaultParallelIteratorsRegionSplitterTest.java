@@ -318,6 +318,6 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
     }
 
     private static KeyRange newKeyRange(byte[] lowerRange, byte[] upperRange) {
-        return KeyRange.getKeyRange(lowerRange, true, upperRange, false);
+        return KeyRange.getKeyRange(lowerRange, true, upperRange, false, false);
     }
 }

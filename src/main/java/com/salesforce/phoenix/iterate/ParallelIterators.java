@@ -90,7 +90,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     // exposed for tests
     public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, byte[] startKey, byte[] stopKey) {
         Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
-        final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false);
+        final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false, false);
         if (keyRange == KeyRange.EVERYTHING_RANGE) {
             regions = allTableRegions.entrySet();
         } else {

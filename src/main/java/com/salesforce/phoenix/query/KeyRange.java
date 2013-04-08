@@ -33,7 +33,6 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.http.annotation.Immutable;
@@ -91,16 +90,11 @@ public class KeyRange {
     // Make sure to pass in constants for unbound upper/lower, since an emtpy array means null otherwise
     public static KeyRange getKeyRange(HRegionInfo region) {
         return KeyRange.getKeyRange(region.getStartKey().length == 0 ? UNBOUND_LOWER : region.getStartKey(), true,
-                region.getEndKey().length == 0 ? UNBOUND_UPPER : region.getEndKey(), false);
-    }
-
-    public static KeyRange getKeyRange(Scan scan) {
-        return KeyRange.getKeyRange(scan.getStartRow().length == 0 ? UNBOUND_LOWER : scan.getStartRow(), true,
-                scan.getStopRow().length == 0 ? UNBOUND_UPPER : scan.getStopRow(), false);
+                region.getEndKey().length == 0 ? UNBOUND_UPPER : region.getEndKey(), false, false);
     }
 
     public static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive,
-            byte[] upperRange, boolean upperInclusive) {
+            byte[] upperRange, boolean upperInclusive, boolean isFixedWidth) {
         if (lowerRange == null || upperRange == null) {
             return EMPTY_RANGE;
         }
@@ -111,24 +105,28 @@ public class KeyRange {
         if (unboundLower && unboundUpper) {
             return EVERYTHING_RANGE;
         }
+        /*
+         * Force lower bound to be inclusive for fixed width keys because it makes
+         * comparisons less expensive when you can count on one bound or the other
+         * being inclusive. Comparing two fixed width exclusive bounds against each
+         * other is inherently more expensive, because you need to take into account
+         * if the bigger key is equal to the next key after the smaller key. For
+         * example:
+         *   (A-B] compared against [A-B)
+         * An exclusive lower bound A is bigger than an exclusive upper bound B.
+         * Forcing a fixed width exclusive lower bound key to be inclusive prevents
+         * us from having to do this extra logic in the compare function.
+         */
+        if (!unboundLower && !lowerInclusive && isFixedWidth) {
+            lowerRange = ByteUtil.nextKey(lowerRange);
+            lowerInclusive = true;
+        }
         if (!unboundLower && !unboundUpper) {
             int cmp = Bytes.compareTo(lowerRange, upperRange);
             if (cmp > 0 || (cmp == 0 && !(lowerInclusive && upperInclusive))) {
                 return EMPTY_RANGE;
             }
         }
-        // Force lower bound to be inclusive because it makes comparisons less
-        // expensive when you can count on one bound or the other being inclusive.
-        // Comparing two exclusive bounds against each other is inherently more
-        // expensive, because you need to take into account if the bigger key
-        // is equal to the next key after the smaller key.
-        // TODO: comment back in and change tests accordingly
-//        if (!unboundLower && !lowerInclusive) {
-//            // We don't need to worry about overflow, since we know that the lowerRange
-//            // is less than the upper range.
-//            lowerRange = ByteUtil.nextKey(lowerRange);
-//            lowerInclusive = true;
-//        }
         return new KeyRange(lowerRange, unboundLower ? false : lowerInclusive,
                 upperRange, unboundUpper ? false : upperInclusive);
     }
@@ -158,24 +156,24 @@ public class KeyRange {
         return isSingleKey;
     }
     
-    public int compareLowerToUpperBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
-        return compareLowerToUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
+    public int compareLowerToUpperBound(ImmutableBytesWritable ptr, boolean isInclusive) {
+        return compareLowerToUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
     }
     
     public int compareLowerToUpperBound(ImmutableBytesWritable ptr) {
-        return compareLowerToUpperBound(ptr, true, false);
+        return compareLowerToUpperBound(ptr, true);
     }
     
-    public int compareUpperToLowerBound(ImmutableBytesWritable ptr, boolean isInclusive, boolean isFixedWidth) {
-        return compareUpperToLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive, isFixedWidth);
+    public int compareUpperToLowerBound(ImmutableBytesWritable ptr, boolean isInclusive) {
+        return compareUpperToLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
     }
     
     public int compareUpperToLowerBound(ImmutableBytesWritable ptr) {
-        return compareUpperToLowerBound(ptr, true, false);
+        return compareUpperToLowerBound(ptr, true);
     }
     
     public int compareLowerToUpperBound( byte[] b, int o, int l) {
-        return compareLowerToUpperBound(b,o,l,true, false);
+        return compareLowerToUpperBound(b,o,l,true);
     }
 
     /**
@@ -184,47 +182,14 @@ public class KeyRange {
      * @param o upper bound offset
      * @param l upper bound length
      * @param isInclusive upper bound inclusive
-     * @param isFixedWidth is value fixed width
      * @return -1 if the lower bound is less than the upper bound,
      *          1 if the lower bound is greater than the upper bound,
      *          and 0 if they are equal.
      */
-    public int compareLowerToUpperBound( byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
+    public int compareLowerToUpperBound( byte[] b, int o, int l, boolean isInclusive) {
         if (lowerUnbound()) {
             return -1;
         }
-        if (!isInclusive && !lowerInclusive && isFixedWidth) {
-            /*
-             * If both sides are exclusive and we're comparing fixed width values, we have a
-             * special case. If the lhs lower bound values is one bigger than the rhs upper
-             * bound value, then the rhs value is actually bigger. For example:
-             *   (A-B] compared against [A-B)
-             * An exclusive lower bound A is bigger than an exclusive upper bound B
-             * 
-             * TODO: increment the lower bound of any fixed width exclusive key range and
-             * force it to be inclusive to avoid mucking with the comparison like this.
-             */
-            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length-1, b, o, l-1);
-            if (cmp == 0) {
-                byte lastByte1 = lowerRange[lowerRange.length-1];
-                byte lastByte2 = b[o+l-1];
-                if (lastByte2 > lastByte1) {
-                    if (lastByte2 - 1 == lastByte1) {
-                        return 1;
-                    }
-                    return -1;
-                }
-                if (lastByte2 < lastByte1) {
-                    if (lastByte1 - 1 == lastByte2) {
-                        return -1;
-                    }
-                    return 1;
-                }
-                return 1;
-            }
-            return cmp;
-        }
-        
         int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
         if (cmp > 0) {
             return 1;
@@ -239,45 +204,13 @@ public class KeyRange {
     }
     
     public int compareUpperToLowerBound(byte[] b, int o, int l) {
-        return compareUpperToLowerBound(b,o,l, true, false);
+        return compareUpperToLowerBound(b,o,l, true);
     }
     
-    public int compareUpperToLowerBound(byte[] b, int o, int l, boolean isInclusive, boolean isFixedWidth) {
+    public int compareUpperToLowerBound(byte[] b, int o, int l, boolean isInclusive) {
         if (upperUnbound()) {
             return 1;
         }
-        if (!isInclusive && !upperInclusive && isFixedWidth) {
-            /*
-             * If both sides are exclusive and we're comparing fixed width values, we have a
-             * special case. If the lhs lower bound values is one bigger than the rhs upper
-             * bound value, then the rhs value is actually bigger. For example:
-             *   (A-B] compared against [A-B)
-             * An exclusive lower bound A is bigger than an exclusive upper bound B
-             * 
-             * TODO: increment the lower bound of any fixed width exclusive key range and
-             * force it to be inclusive to avoid mucking with the comparison like this.
-             */
-            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length-1, b, o, l-1);
-            if (cmp == 0) {
-                byte lastByte1 = upperRange[upperRange.length-1];
-                byte lastByte2 = b[o+l-1];
-                if (lastByte2 > lastByte1) {
-                    if (lastByte2 - 1 == lastByte1) {
-                        return 1;
-                    }
-                    return -1;
-                }
-                if (lastByte2 < lastByte1) {
-                    if (lastByte1 - 1 == lastByte2) {
-                        return -1;
-                    }
-                    return 1;
-                }
-                return -1;
-            }
-            return cmp;
-        }
-        
         int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
         if (cmp > 0) {
             return 1;
@@ -289,22 +222,6 @@ public class KeyRange {
             return 0;
         }
         return -1;
-    }
-    
-    public boolean isInRange(byte[] b, int o, int l) {
-        if (!lowerUnbound()) {
-            int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
-            if (cmp > 0 || cmp == 0 && !lowerInclusive) {
-                return false;
-            }
-        }
-        if (!upperUnbound()) {
-            int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
-            if (cmp < 0 || cmp == 0 && !upperInclusive) {
-                return false;
-            }
-        }
-        return true;
     }
     
     public byte[] getLowerRange() {
@@ -420,7 +337,7 @@ public class KeyRange {
                 && newUpperRange == upperRange && newUpperInclusive == upperInclusive) {
             return this;
         }
-        return getKeyRange(newLowerRange, newLowerInclusive, newUpperRange, newUpperInclusive);
+        return getKeyRange(newLowerRange, newLowerInclusive, newUpperRange, newUpperInclusive, false);
     }
 
     public static boolean isDegenerate(byte[] lowerRange, byte[] upperRange) {
@@ -436,7 +353,7 @@ public class KeyRange {
         if (upperBound != UNBOUND_UPPER) {
             upperBound = ByteUtil.concat(upperBound, SEPARATOR_BYTE_ARRAY);
         }
-        return getKeyRange(lowerBound, lowerInclusive, upperBound, upperInclusive);
+        return getKeyRange(lowerBound, lowerInclusive, upperBound, upperInclusive, false);
     }
 
     /**
@@ -485,7 +402,7 @@ public class KeyRange {
             assert !otherRange.lowerUnbound();
             if (range.isUpperInclusive() != otherRange.isLowerInclusive()
                     && Bytes.equals(range.getUpperRange(), otherRange.getLowerRange())) {
-                range = KeyRange.getKeyRange(range.getLowerRange(), range.isLowerInclusive(), otherRange.getUpperRange(), otherRange.isUpperInclusive());
+                range = KeyRange.getKeyRange(range.getLowerRange(), range.isLowerInclusive(), otherRange.getUpperRange(), otherRange.isUpperInclusive(), false);
             } else {
                 tmp3.add(range);
                 range = otherRange;
@@ -534,7 +451,7 @@ public class KeyRange {
                 newUpperInclusive = other.upperInclusive;
             }
         }
-        return KeyRange.getKeyRange(newLower, newLowerInclusive, newUpper, newUpperInclusive);
+        return KeyRange.getKeyRange(newLower, newLowerInclusive, newUpper, newUpperInclusive, false);
     }
 
     public static List<KeyRange> of(List<byte[]> keys) {
@@ -593,7 +510,7 @@ public class KeyRange {
             newUpperRange = ByteUtil.fillKey(upperRange, keyLength);
         }
         if (newLowerRange != lowerRange || newUpperRange != upperRange) {
-            return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive());
+            return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive(), false);
         }
         return this;
     }

@@ -285,7 +285,7 @@ public class SkipScanFilter extends FilterBase {
                 boolean upperInclusive = in.readBoolean();
                 orclause.add(
                     KeyRange.getKeyRange(lower, lowerInclusive,
-                            upper, upperInclusive));
+                            upper, upperInclusive, false));
             }
             maxLength += maxSlotLength;
         }
