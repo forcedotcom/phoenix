@@ -43,7 +43,6 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
-import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -65,15 +64,7 @@ public class ScanRangesTest {
 
     @Test
     public void test() {
-        byte[] lower = keyRange.getLowerRange();
-        if (!keyRange.isLowerInclusive()) {
-            lower = ByteUtil.nextKey(lower);
-        }
-        byte[] upper = keyRange.getUpperRange();
-        if (keyRange.isUpperInclusive()) {
-            upper = ByteUtil.nextKey(upper);
-        }
-        assertEquals(expectedResult, scanRanges.intersect(lower,upper));
+        assertEquals(expectedResult, scanRanges.intersect(keyRange));
     }
 
     private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
@@ -209,6 +200,21 @@ public class ScanRangesTest {
                         getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),}},
                     new int[] {1,1,1}, getKeyRange(Bytes.toBytes("c1A"), false, Bytes.toBytes("c9Z"), true),
                     false));
+        // KeyRange contains unbound lower bound.
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
+                    new int[] {1,1,1}, getKeyRange(KeyRange.UNBOUND_LOWER, false, Bytes.toBytes("a0Z"), true),
+                    false));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                        getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
+                    new int[] {1,1,1}, getKeyRange(KeyRange.UNBOUND_LOWER, false, Bytes.toBytes("a1C"), true),
+                    true));
         return testCases;
     }
 

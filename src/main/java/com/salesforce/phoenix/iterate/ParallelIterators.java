@@ -39,9 +39,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
@@ -78,31 +75,6 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         super(context, table);
         this.rowCounter = rowCounter;
         this.splits = getSplits(context, table);
-    }
-
-    /**
-     * Filters out regions that intersect with key range specified by the startKey and stopKey
-     * @param allTableRegions all region infos for a given table
-     * @param startKey the lower bound of key range, inclusive
-     * @param stopKey the upper bound of key range, inclusive
-     * @return regions that intersect with the key range given by the startKey and stopKey
-     */
-    // exposed for tests
-    public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, byte[] startKey, byte[] stopKey) {
-        Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
-        final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false, false);
-        if (keyRange == KeyRange.EVERYTHING_RANGE) {
-            regions = allTableRegions.entrySet();
-        } else {
-            regions = Iterables.filter(allTableRegions.entrySet(), new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
-                @Override
-                public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
-                    KeyRange regionKeyRange = KeyRange.getKeyRange(region.getKey());
-                    return keyRange.intersect(regionKeyRange) != KeyRange.EMPTY_RANGE;
-                }
-            });
-        }
-        return Lists.newArrayList(regions);
     }
 
     /**
