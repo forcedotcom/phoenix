@@ -50,13 +50,13 @@ import com.salesforce.phoenix.util.ByteUtil;
  * Test for intersect method in {@link ScanRanges}
  */
 @RunWith(Parameterized.class)
-public class ScanRangeIntersectTest {
+public class ScanRangesTest {
 
     private final ScanRanges scanRanges;
     private final KeyRange keyRange;
     private final boolean expectedResult;
 
-    public ScanRangeIntersectTest(ScanRanges scanRanges, int[] widths, boolean fixedWidth,
+    public ScanRangesTest(ScanRanges scanRanges, int[] widths, boolean fixedWidth,
             KeyRange keyRange, boolean expectedResult) {
         this.keyRange = keyRange;
         this.scanRanges = scanRanges;
