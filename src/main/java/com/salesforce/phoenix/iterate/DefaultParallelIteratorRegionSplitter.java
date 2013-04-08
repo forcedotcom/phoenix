@@ -121,7 +121,7 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         //
         // if r >= t:
         //    scan using regional boundaries
-        // elif r/2 > t:
+        // elif r > t/2:
         //    split each region in s splits such that:
         //    s = max(x) where s * x < m
         // else:
