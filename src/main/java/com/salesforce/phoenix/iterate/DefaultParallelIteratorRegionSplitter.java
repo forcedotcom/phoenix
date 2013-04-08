@@ -37,6 +37,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.query.*;
@@ -77,7 +78,32 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
     protected List<Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
         Scan scan = context.getScan();
         NavigableMap<HRegionInfo, ServerName> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
-        return ParallelIterators.filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());
+        return filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());
+    }
+
+    /**
+     * Filters out regions that intersect with key range specified by the startKey and stopKey
+     * @param allTableRegions all region infos for a given table
+     * @param startKey the lower bound of key range, inclusive
+     * @param stopKey the upper bound of key range, inclusive
+     * @return regions that intersect with the key range given by the startKey and stopKey
+     */
+    // exposed for tests
+    public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, byte[] startKey, byte[] stopKey) {
+        Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
+        final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false, false);
+        if (keyRange == KeyRange.EVERYTHING_RANGE) {
+            regions = allTableRegions.entrySet();
+        } else {
+            regions = Iterables.filter(allTableRegions.entrySet(), new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
+                @Override
+                public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
+                    KeyRange regionKeyRange = KeyRange.getKeyRange(region.getKey());
+                    return keyRange.intersect(regionKeyRange) != KeyRange.EMPTY_RANGE;
+                }
+            });
+        }
+        return Lists.newArrayList(regions);
     }
 
     protected List<KeyRange> genKeyRanges(List<Map.Entry<HRegionInfo, ServerName>> regions) {
