@@ -312,11 +312,6 @@
   </build>
 
   <dependencies>
-    <dependency>
-      <groupId>com.salesforce.hbase</groupId>
-      <artifactId>hbase-stat</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
-    </dependency>
     <!-- Make sure we have all the antlr dependencies -->
     <dependency>
       <groupId>org.antlr</groupId>
