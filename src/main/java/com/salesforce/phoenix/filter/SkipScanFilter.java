@@ -38,7 +38,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.Lists;
 import com.google.common.hash.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
@@ -70,7 +69,6 @@ public class SkipScanFilter extends FilterBase {
     private int startKeyLength;
     private byte[] endKey; 
     private int endKeyLength;
-    private int estimateSplitNum;
 
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
 
@@ -107,49 +105,6 @@ public class SkipScanFilter extends FilterBase {
         endKeyLength = 0;
         // Start key for the scan will initially be set to start at the right place
         // We just need to set the end key for when we need to calculate the next skip hint
-        this.estimateSplitNum = estimateSplitNum();
-    }
-
-    // Estimate the number of splits that would be generated from the slots.
-    private int estimateSplitNum() {
-        int estimate = 0;
-        do {
-            estimate += 1;
-        } while (incrementKey());
-        return estimate;
-    }
-
-    // Used externally by region splitters to generate all split ranges.
-    public List<KeyRange> generateSplitRanges(int maxConcurrency) {
-        List<KeyRange> splits = Lists.newArrayListWithCapacity(estimateSplitNum);
-        // steps we need to increment when chunking multiple key range together.
-        int step = (int) Math.ceil(((double) estimateSplitNum) / maxConcurrency) - 1;
-        boolean terminated = false, lowerInclusive;
-        while (!terminated) {
-            // Do not need to care about the length since we set the key from the very beginning.
-            setStartKey();
-            lowerInclusive = isKeyInclusive(Bound.LOWER);
-            terminated = !incrementKey(step, Bound.UPPER);
-            if (!terminated) {
-                setEndKey();
-            } else {
-                // We have wrapped around already, set the key to be the last key.
-                for (int i=0; i<slots.size(); i++) {
-                    position[i] = slots.get(i).size() - 1;
-                }
-                setEndKey();
-            }
-            // We only mark the lower bound as exclusive if all the key parts making up of the 
-            // lower bound are exclusive.
-            // Since setKey for upper key always increment it by one byte, we will always mark the
-            // upper bound as not inclusive.
-            KeyRange range = KeyRange.getKeyRange(
-                    Arrays.copyOf(startKey, startKeyLength), lowerInclusive,
-                    Arrays.copyOf(endKey, endKeyLength), false);
-            splits.add(range);
-            terminated = terminated || !incrementKey(1, Bound.LOWER);
-        }
-        return splits;
     }
 
     @Override
@@ -279,77 +234,10 @@ public class SkipScanFilter extends FilterBase {
         startKeyLength += setKey(Bound.LOWER, startKey, byteOffset, slotIndex);
     }
 
-    private void setEndKey() {
-        endKeyLength = setKey(Bound.UPPER, endKey, 0, 0);
-    }
-
     private void appendToEndKey(int slotIndex, int byteOffset) {
         endKeyLength += setKey(Bound.UPPER, endKey, byteOffset, slotIndex);
     }
 
-    private boolean isKeyInclusive(Bound bound) {
-        // We declare the key as exclusive only when all the parts make up of it are exclusive.
-        for (int i=0; i<slots.size(); i++) {
-            if (!slots.get(i).get(position[i]).isInclusive(bound)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean incrementKey(int steps, Bound bound) {
-        for (int i=0; i<steps; i++) {
-            if (!incrementKey()) {
-                return false;
-            }
-        }
-        setBoundSlotPosition(bound);
-        return true;
-    }
-
-    private boolean incrementKey() {
-        // Find first index on the current position that is a range slot.
-        int idx;
-        for (idx = 0; idx < slots.size(); idx++) {
-            if (!slots.get(idx).get(position[idx]).isSingleKey()) {
-                break;
-            }
-        }
-        // No slot on the current position is a range.
-        if (idx == slots.size()) {
-            idx = slots.size() - 1;
-        }
-        while (idx >= 0 && (position[idx] = (position[idx] + 1) % slots.get(idx).size()) == 0) {
-            idx--;
-        }
-        return idx >= 0;
-    }
-
-    private void setBoundSlotPosition(Bound bound) {
-        // Find first index on the current position that is a range slot.
-        int idx;
-        for (idx = 0; idx < slots.size(); idx++) {
-            if (!slots.get(idx).get(position[idx]).isSingleKey()) {
-                break;
-            }
-        }
-        // If the idx is not the last position, reset the slots beyond to become 0th position. If
-        // we are setting the position for a lower bound, reset all of them to 0. If we are setting
-        // the position for an uppser bound, reset all of them to the last index. If the bound is
-        // not specified, set all positions to 0.
-        if (idx < slots.size() - 1) {
-            if (bound == Bound.LOWER) {
-                for (int i = idx + 1; i < slots.size(); i++) {
-                    position[i] = 0;
-                }
-            } else {
-                for (int i = idx + 1; i < slots.size(); i++) {
-                    position[i] = slots.get(i).size() - 1;
-                }
-            }
-        }
-    }
-    
     private int getTerminatorCount(RowKeySchema schema) {
         int nTerminators = 0;
         for (int i = 0; i < schema.getFieldCount(); i++) {

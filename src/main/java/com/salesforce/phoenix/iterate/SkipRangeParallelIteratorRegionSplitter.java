@@ -33,9 +33,10 @@ import java.util.*;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Predicate;
+import com.google.common.collect.*;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.TableRef;
 
@@ -55,16 +56,27 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
 
     @Override
     protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
-        Set<Map.Entry<HRegionInfo, ServerName>> allRegions = new HashSet<Map.Entry<HRegionInfo, ServerName>>();
-        SkipScanFilter filter = new SkipScanFilter(context.getScanRanges().getRanges(), table.getTable().getRowKeySchema());
-        // TODO: put generateSplitRanges on ScanRanges?
-        List<KeyRange> keyRanges = filter.generateSplitRanges(maxConcurrency);
         NavigableMap<HRegionInfo, ServerName> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
-        for (KeyRange range: keyRanges) {
-            List<Map.Entry<HRegionInfo, ServerName>> regions = ParallelIterators.filterRegions(allTableRegions, range.getLowerRange(), range.getUpperRange());
-            allRegions.addAll(regions);
+        return filterRegions(allTableRegions, context.getScanRanges());
+    }
+
+    public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, final ScanRanges ranges) {
+        Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
+        if (ranges == ScanRanges.EVERYTHING) {
+            regions = allTableRegions.entrySet();
+        } else if (ranges == ScanRanges.NOTHING) {
+            return Lists.<Map.Entry<HRegionInfo, ServerName>>newArrayList();
+        } else {
+            regions = Iterables.filter(allTableRegions.entrySet(),
+                    new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
+                    @Override
+                    public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
+                        KeyRange regionKeyRange = KeyRange.getKeyRange(region.getKey());
+                        return ranges.intersect(regionKeyRange);
+                    }
+            });
         }
-        return ImmutableList.<Map.Entry<HRegionInfo, ServerName>>copyOf(allRegions);
+        return Lists.newArrayList(regions);
     }
 
 }

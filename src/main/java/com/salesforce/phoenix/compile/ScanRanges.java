@@ -9,6 +9,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.ValueBitSet;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 
 public class ScanRanges {
@@ -111,7 +112,19 @@ public class ScanRanges {
 
     private static final ImmutableBytesWritable UNBOUND_LOWER = new ImmutableBytesWritable(KeyRange.UNBOUND_LOWER);
     private static final ImmutableBytesWritable UNBOUND_UPPER = new ImmutableBytesWritable(KeyRange.UNBOUND_UPPER);
-    
+
+    public boolean intersect(KeyRange keyRange) {
+        byte[] lower = keyRange.getLowerRange();
+        if (!keyRange.isLowerInclusive()) {
+            lower = ByteUtil.nextKey(lower);
+        }
+        byte[] upper = keyRange.getUpperRange();
+        if (keyRange.isUpperInclusive()) {
+            upper = ByteUtil.nextKey(upper);
+        }
+        return intersect(lower, upper);
+    }
+
     public boolean intersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
         if (this == EVERYTHING) {
             return true;

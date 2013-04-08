@@ -58,7 +58,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @author syyang
  * @since 0.1
  */
-public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
+public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientMangedTimeTest {
 
     private static final byte[] KMIN  = new byte[] {'!'};
     private static final byte[] KMIN2  = new byte[] {'.'};
