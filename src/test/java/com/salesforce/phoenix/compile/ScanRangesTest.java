@@ -43,6 +43,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
+import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -64,7 +65,21 @@ public class ScanRangesTest {
 
     @Test
     public void test() {
-        assertEquals(expectedResult, scanRanges.intersect(keyRange));
+        byte[] lowerInclusiveKey = keyRange.getLowerRange();
+        if (!keyRange.isLowerInclusive() && !Bytes.equals(lowerInclusiveKey, KeyRange.UNBOUND_LOWER)) {
+            // This assumes the last key is fixed length, otherwise the results may be incorrect
+            // since there's no terminating 0 byte for a variable length key and thus we may be
+            // incrementing the key too much.
+            lowerInclusiveKey = ByteUtil.nextKey(lowerInclusiveKey);
+        }
+        byte[] upperExclusiveKey = keyRange.getUpperRange();
+        if (keyRange.isUpperInclusive()) {
+            // This assumes the last key is fixed length, otherwise the results may be incorrect
+            // since there's no terminating 0 byte for a variable length key and thus we may be
+            // incrementing the key too much.
+            upperExclusiveKey = ByteUtil.nextKey(upperExclusiveKey);
+        }
+        assertEquals(expectedResult, scanRanges.intersect(lowerInclusiveKey,upperExclusiveKey));
     }
 
     private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {

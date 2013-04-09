@@ -32,12 +32,10 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.ValueBitSet;
-import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 
 
@@ -141,20 +139,24 @@ public class ScanRanges {
     private static final ImmutableBytesWritable UNBOUND_LOWER = new ImmutableBytesWritable(KeyRange.UNBOUND_LOWER);
     private static final ImmutableBytesWritable UNBOUND_UPPER = new ImmutableBytesWritable(KeyRange.UNBOUND_UPPER);
 
-    public boolean intersect(KeyRange keyRange) {
+    /**
+     * Return true if the range formed by the lowerInclusiveKey and upperExclusiveKey
+     * intersects with any of the scan ranges and false otherwise. We cannot pass in
+     * a KeyRange here, because the underlying compare functions expect lower inclusive
+     * and upper exclusive keys. We cannot get their next key because the key must
+     * conform to the row key schema and if a null byte is added to a lower inclusive
+     * key, it's no longer a valid, real key.
+     * @param lowerInclusiveKey lower inclusive key
+     * @param upperExclusiveKey upper exclusive key
+     * @return true if the scan range intersects with the specified lower/upper key
+     * range
+     */
+    public boolean intersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
         if (isEverything()) {
             return true;
         }
         if (isDegenerate()) {
             return false;
-        }
-        byte[] lowerInclusiveKey = keyRange.getLowerRange();
-        if (!keyRange.isLowerInclusive() && !Bytes.equals(lowerInclusiveKey, KeyRange.UNBOUND_LOWER)) {
-            lowerInclusiveKey = ByteUtil.nextKey(lowerInclusiveKey);
-        }
-        byte[] upperExclusiveKey = keyRange.getUpperRange();
-        if (keyRange.isUpperInclusive()) {
-            upperExclusiveKey = ByteUtil.nextKey(upperExclusiveKey);
         }
         int i = 0;
         int[] position = new int[ranges.size()];
@@ -165,9 +167,13 @@ public class ScanRanges {
         int nSlots = ranges.size();
         
         lowerPtr.set(lowerInclusiveKey, 0, lowerInclusiveKey.length);
-        schema.first(lowerPtr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+        if (schema.first(lowerPtr, i, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+            lower = UNBOUND_LOWER;
+        }
         upperPtr.set(upperExclusiveKey, 0, upperExclusiveKey.length);
-        schema.first(upperPtr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+        if (schema.first(upperPtr, i, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+            upper = UNBOUND_UPPER;
+        }
         
         int cmpLower=0,cmpUpper=0;
         
@@ -191,19 +197,23 @@ public class ScanRanges {
                 }
                 
                 // Move to the next part of the key
-                if (schema.next(lowerPtr, i, lowerInclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                    // If no more lower key parts, then we have no constraint for that part of the key,
-                    // so we use unbound lower from here on out.
-                    lower = UNBOUND_LOWER;
-                } else {
-                    lower = lowerPtr;
+                if (lower != UNBOUND_LOWER) {
+                    if (schema.next(lowerPtr, i, lowerInclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                        // If no more lower key parts, then we have no constraint for that part of the key,
+                        // so we use unbound lower from here on out.
+                        lower = UNBOUND_LOWER;
+                    } else {
+                        lower = lowerPtr;
+                    }
                 }
-                if (schema.next(upperPtr, i, upperExclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                    // If no more upper key parts, then we have no constraint for that part of the key,
-                    // so we use unbound upper from here on out.
-                    upper = UNBOUND_UPPER;
-                } else {
-                    upper = upperPtr;
+                if (upper != UNBOUND_UPPER) {
+                    if (schema.next(upperPtr, i, upperExclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                        // If no more upper key parts, then we have no constraint for that part of the key,
+                        // so we use unbound upper from here on out.
+                        upper = UNBOUND_UPPER;
+                    } else {
+                        upper = upperPtr;
+                    }
                 }
             }
         }

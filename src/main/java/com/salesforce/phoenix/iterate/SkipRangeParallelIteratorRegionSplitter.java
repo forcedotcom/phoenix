@@ -34,10 +34,10 @@ import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
 
 import com.google.common.base.Predicate;
-import com.google.common.collect.*;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -71,8 +71,7 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
                     new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
                     @Override
                     public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
-                        KeyRange regionKeyRange = KeyRange.getKeyRange(region.getKey());
-                        return ranges.intersect(regionKeyRange);
+                        return ranges.intersect(region.getKey().getStartKey(), region.getKey().getEndKey());
                     }
             });
         }

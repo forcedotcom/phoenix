@@ -273,8 +273,10 @@ public abstract class ValueSchema implements Writable {
     // that supports a reset method, so we don't need to instantiate a new one
     // on each iteration.
     public Boolean first(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
-        int maxOffset = ptr.getOffset() + ptr.getLength(); // TODO: reliable?
-        assert(maxOffset > 0);
+        if (ptr.getLength() == 0) {
+            return null;
+        }
+        int maxOffset = ptr.getOffset() + ptr.getLength();
         ptr.set(ptr.get(), ptr.getOffset(), 0);
         return positionPtr(ptr, position, maxOffset, bitSet);
     }
@@ -290,6 +292,9 @@ public abstract class ValueSchema implements Writable {
      * @return true if there is a field after position and false otherwise.
      */
     public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
+        if (maxOffset == 0) {
+            return null;
+        }
         return positionPtr(ptr, position, maxOffset, bitSet);
     }
     
