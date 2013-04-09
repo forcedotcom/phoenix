@@ -93,6 +93,8 @@ public interface QueryConstants {
     public static final Integer NO_MAXLENGTH = Integer.MIN_VALUE;
     public static final Integer NO_SCALE = Integer.MIN_VALUE;
     
+    public static final Integer NO_BUCKETS = Byte.MIN_VALUE;
+    
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
@@ -110,6 +112,7 @@ public interface QueryConstants {
             REF_GENERATION_NAME + " VARCHAR," +
             TABLE_SEQ_NUM + " BIGINT," +
             COLUMN_COUNT + " INTEGER," +
+            SALT_BUCKETS + " INTEGER," +
             // Column metadata (will be null for table row)
             COLUMN_SIZE + " INTEGER," +
             BUFFER_LENGTH + " INTEGER," +

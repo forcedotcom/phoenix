@@ -48,6 +48,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -119,8 +120,9 @@ public class MetaDataClient {
         TABLE_TYPE_NAME + "," +
         TABLE_SEQ_NUM + "," +
         COLUMN_COUNT + "," +
+        SALT_BUCKETS + "," +
         PK_NAME + 
-        ") VALUES (?, ?, ?, ?, ?, ?)";
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)";
     private static final String MUTATE_TABLE =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -315,13 +317,17 @@ public class MetaDataClient {
                 addColumnMutation(schemaName, tableName, column, colUpsert);
             }
             
+            Integer saltBucketsCount = (Integer) tableProps.get(PhoenixDatabaseMetaData.SALT_BUCKETS);
+            if (saltBucketsCount == null) saltBucketsCount = QueryConstants.NO_BUCKETS; 
+            
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
             tableUpsert.setString(1, schemaName);
             tableUpsert.setString(2, tableName);
             tableUpsert.setString(3, tableType.getSerializedValue());
             tableUpsert.setInt(4, 0);
             tableUpsert.setInt(5, columnOrdinal);
-            tableUpsert.setString(6, pkName);
+            tableUpsert.setInt(6, saltBucketsCount);
+            tableUpsert.setString(7, pkName);
             tableUpsert.execute();
             
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
