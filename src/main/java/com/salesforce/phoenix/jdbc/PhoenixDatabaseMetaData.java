@@ -94,6 +94,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String COLUMN_COUNT = "COLUMN_COUNT";
     public static final byte[] COLUMN_COUNT_BYTES = Bytes.toBytes(COLUMN_COUNT);
     public static final String SALT_BUCKETS = "SALT_BUCKETS";
+    public static final byte[] SALT_BUCKETS_BYTES = Bytes.toBytes(SALT_BUCKETS);
     
     public static final String COLUMN_NAME = "COLUMN_NAME";
     public static final String DATA_TYPE = "DATA_TYPE";
