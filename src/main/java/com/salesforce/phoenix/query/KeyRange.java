@@ -187,7 +187,7 @@ public class KeyRange {
      *          and 0 if they are equal.
      */
     public int compareLowerToUpperBound( byte[] b, int o, int l, boolean isInclusive) {
-        if (lowerUnbound()) {
+        if (lowerUnbound() || (Bytes.equals(b, KeyRange.UNBOUND_UPPER))) {
             return -1;
         }
         int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
@@ -208,7 +208,7 @@ public class KeyRange {
     }
     
     public int compareUpperToLowerBound(byte[] b, int o, int l, boolean isInclusive) {
-        if (upperUnbound()) {
+        if (upperUnbound() || Bytes.equals(b, KeyRange.UNBOUND_LOWER)) {
             return 1;
         }
         int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);

@@ -43,7 +43,6 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.iterate.DefaultParallelIteratorRegionSplitter;
-import com.salesforce.phoenix.iterate.ParallelIterators;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.StatsManagerImpl.TimeKeeper;
@@ -58,7 +57,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @author syyang
  * @since 0.1
  */
-public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
+public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientMangedTimeTest {
 
     private static final byte[] KMIN  = new byte[] {'!'};
     private static final byte[] KMIN2  = new byte[] {'.'};
@@ -101,13 +100,14 @@ public class DefaultParallelIteratorsTest extends BaseClientMangedTimeTest {
         return MetaScanner.allTableRegions(driver.getQueryServices().getConfig(), table.getTableName(), false);
     }
 
-    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final NavigableMap<HRegionInfo, ServerName> regions) throws SQLException {
+    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final NavigableMap<HRegionInfo, ServerName> regions)
+            throws SQLException {
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         StatementContext context = new StatementContext(connection, null, Collections.emptyList(), 0, scan);
         DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, table) {
             @Override
             protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
-                return ParallelIterators.filterRegions(regions, scan.getStartRow(), scan.getStopRow());
+                return DefaultParallelIteratorRegionSplitter.filterRegions(regions, scan.getStartRow(), scan.getStopRow());
             }
         };
         List<KeyRange> keyRanges = splitter.getSplits();
