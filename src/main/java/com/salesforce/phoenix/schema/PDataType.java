@@ -779,8 +779,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
-            case TIME:
                 return new Timestamp(((Date)object).getTime());
+            case TIME:
+                return new Timestamp(((Time)object).getTime());
             case TIMESTAMP:
                 return object;
             default:
@@ -804,6 +805,11 @@ public enum PDataType {
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == DATE || targetType == TIME || targetType == BINARY;
         }
 
         @Override
@@ -875,8 +881,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
-            case TIMESTAMP:
                 return new Time(((Date)object).getTime());
+            case TIMESTAMP:
+                return new Time(((Timestamp)object).getTime());
             case TIME:
                 return object;
             default:
@@ -946,8 +953,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIME:
+                return new Date(((Time)object).getTime());
             case TIMESTAMP:
-                return new Time(((Date)object).getTime());
+                return new Date(((Timestamp)object).getTime());
             case DATE:
                 return object;
             default:
