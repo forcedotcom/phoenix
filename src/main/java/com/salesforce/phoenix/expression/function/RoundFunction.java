@@ -103,7 +103,7 @@ public class RoundFunction extends ScalarFunction {
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         // If divBy is 0 this means <time unit> or <multiplier> was null
         if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
-            long time = getDataType().getCodec().decodeLong(ptr, null); // REVIEW - stoens
+            long time = getDataType().getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
             long value = roundTime(time);
             // TODO: use temporary buffer instead and have way for caller to check if copying is necessary
             byte[] byteValue = getDataType().toBytes(new Date(value));

@@ -93,17 +93,17 @@ public class RegexpReplaceFunction extends ScalarFunction {
         if (!sourceStrExpression.evaluate(tuple, ptr)) {
             return false;
         }
-        String sourceStr = (String)PDataType.VARCHAR.toObject(ptr);
+        String sourceStr = (String)PDataType.VARCHAR.toObject(ptr, sourceStrExpression.getColumnModifier());
         if (sourceStr == null) {
             return false;
         }
         String replaceStr;
         if (hasReplaceStr) {
-         Expression replaceStrExpression = this.getReplaceStrExpression();
+            Expression replaceStrExpression = this.getReplaceStrExpression();
             if (!replaceStrExpression.evaluate(tuple, ptr)) {
                 return false;
             }
-            replaceStr = (String)PDataType.VARCHAR.toObject(ptr);
+            replaceStr = (String)PDataType.VARCHAR.toObject(ptr, replaceStrExpression.getColumnModifier());
         } else {
             replaceStr = "";
         }

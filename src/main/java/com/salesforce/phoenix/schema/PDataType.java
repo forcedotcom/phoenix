@@ -2124,9 +2124,9 @@ public enum PDataType {
 
     public Object toObject(byte[] bytes, int offset, int length, PDataType actualType, ColumnModifier columnModifier) {
     	if (columnModifier != null) {
-        	byte[] mbytes = new byte[bytes.length];
-    		columnModifier.apply(bytes, mbytes, offset, length);
-    		bytes = mbytes;
+        	byte[] b = new byte[bytes.length];
+    		columnModifier.apply(bytes, b, offset, length);
+    		bytes = b;
     	}
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
@@ -2137,12 +2137,16 @@ public enum PDataType {
     }    
     
     public Object toObject(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier sortOrder) { 
-        return this.toObject(ptr.get(),ptr.getOffset(),ptr.getLength(), actualType, sortOrder);
+        return this.toObject(ptr.get(), ptr.getOffset(), ptr.getLength(), actualType, sortOrder);
     }
 
     public Object toObject(ImmutableBytesWritable ptr) {
-        return toObject(ptr.get(),ptr.getOffset(),ptr.getLength());
+        return toObject(ptr.get(), ptr.getOffset(), ptr.getLength());
     }
+    
+    public Object toObject(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
+        return toObject(ptr.get(), ptr.getOffset(), ptr.getLength(), this, columnModifier);        
+    }    
 
     public Object toObject(byte[] bytes, int offset, int length) {
         return toObject(bytes, offset, length, this);

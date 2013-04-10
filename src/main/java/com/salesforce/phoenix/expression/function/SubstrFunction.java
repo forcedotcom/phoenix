@@ -106,7 +106,7 @@ public class SubstrFunction extends PrefixFunction {
         if (!offsetExpression.evaluate(tuple,  ptr)) {
             return false;
         }
-        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr, null); // stoens - REVIEW
+        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr, offsetExpression.getColumnModifier());
         
         int length = -1;
         if (hasLengthExpression) {
@@ -114,7 +114,7 @@ public class SubstrFunction extends PrefixFunction {
             if (!lengthExpression.evaluate(tuple, ptr)) {
                 return false;
             }
-            length = lengthExpression.getDataType().getCodec().decodeInt(ptr, null); // stoens - REVIEW
+            length = lengthExpression.getDataType().getCodec().decodeInt(ptr, lengthExpression.getColumnModifier());
             if (length <= 0) {
                 return false;
             }

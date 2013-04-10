@@ -83,14 +83,15 @@ public class ToNumberFunction extends ScalarFunction {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (!getExpression().evaluate(tuple, ptr)) {
+        Expression expression = getExpression();
+        if (!expression.evaluate(tuple, ptr)) {
             return false;
         } else if (ptr.getLength() == 0) {
             return true;
         }
 
-        PDataType type = getExpression().getDataType();
-        String stringValue = (String)type.toObject(ptr);
+        PDataType type = expression.getDataType();
+        String stringValue = (String)type.toObject(ptr, expression.getColumnModifier());
         if (stringValue == null) {
             ptr.set(EMPTY_BYTE_ARRAY);
             return true;

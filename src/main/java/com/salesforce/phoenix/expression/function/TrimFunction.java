@@ -36,6 +36,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -81,6 +82,12 @@ public class TrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
+        
+        ColumnModifier columnModifier = getStringExpression().getColumnModifier();
+        if (columnModifier != null) {
+            string = applyColumnModifier(string, offset, length, columnModifier);
+        }
+        
         try {
             int end = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
             if (end == offset - 1) {

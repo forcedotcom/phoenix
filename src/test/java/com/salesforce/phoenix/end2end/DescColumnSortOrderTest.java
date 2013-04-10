@@ -100,15 +100,15 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     }
     
     @Test
-    public void substDescCompositePK1() throws Exception {
-        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
-        Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o2", 2}, {"o3", 3}};
-        Object[][] expectedRows = new Object[][]{{"o3", 3}, {"o2", 2}};
-        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("SUBSTR(oid, 2, 1)", ">", "'1'"));
+    public void substrDescCompositePK1() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(3) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
+        Object[][] insertedRows = new Object[][]{{"ao1", 1}, {"bo2", 2}, {"co3", 3}};
+        Object[][] expectedRows = new Object[][]{{"co3", 3}, {"bo2", 2}};
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("SUBSTR(oid, 3, 1)", ">", "'1'"));
     }
-    
+        
     @Test
-    public void substDescCompositePK2() throws Exception {
+    public void substrDescCompositePK2() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(4) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
         Object[][] insertedRows = new Object[][]{{"aaaa", 1}, {"bbbb", 2}, {"cccd", 3}};
         Object[][] expectedRows = new Object[][]{{"cccd", 3}};
@@ -312,16 +312,16 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     }
     
     private static Date date(int month, int day, int year) {
-     Calendar cal = new GregorianCalendar();
-     cal.set(Calendar.MONTH, month-1);
-     cal.set(Calendar.DAY_OF_MONTH, day);
-     cal.set(Calendar.YEAR, year);
-     cal.set(Calendar.HOUR_OF_DAY, 10);
-     cal.set(Calendar.MINUTE, 0);
-     cal.set(Calendar.SECOND, 0);
-     cal.set(Calendar.MILLISECOND, 0);
-     Date d = new Date(cal.getTimeInMillis()); 
-     return d;
+        Calendar cal = new GregorianCalendar();
+        cal.set(Calendar.MONTH, month-1);
+        cal.set(Calendar.DAY_OF_MONTH, day);
+        cal.set(Calendar.YEAR, year);
+        cal.set(Calendar.HOUR_OF_DAY, 10);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date d = new Date(cal.getTimeInMillis()); 
+        return d;
     }
     
     private static String[] upsert(String...args) {

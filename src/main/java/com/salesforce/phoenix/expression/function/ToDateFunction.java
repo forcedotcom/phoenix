@@ -91,11 +91,12 @@ public class ToDateFunction extends ScalarFunction {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (!getExpression().evaluate(tuple, ptr) || ptr.getLength() == 0) {
+        Expression expression = getExpression();
+        if (!expression.evaluate(tuple, ptr) || ptr.getLength() == 0) {
             return false;
         }
-        PDataType type = getExpression().getDataType();
-        String dateStr = (String)type.toObject(ptr);
+        PDataType type = expression.getDataType();
+        String dateStr = (String)type.toObject(ptr, expression.getColumnModifier());
         try {
             Object value = dateParser.parseObject(dateStr);
             byte[] byteValue = getDataType().toBytes(value);

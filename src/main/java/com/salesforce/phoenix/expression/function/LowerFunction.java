@@ -28,7 +28,8 @@ public class LowerFunction extends ScalarFunction {
             return false;
         }
 
-        String sourceStr = (String)PDataType.VARCHAR.toObject(ptr);
+        String sourceStr = (String)PDataType.VARCHAR.toObject(ptr, getStrExpression().getColumnModifier());
+
         if (sourceStr == null) {
             return true;
         }
