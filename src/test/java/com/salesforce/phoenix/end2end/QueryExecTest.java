@@ -2053,4 +2053,24 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         }
     }
 
+    @Test
+    public void testDynColumns() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT entity_id,DYN1,DYN2 FROM aTable (DYN1 VARCHAR,DYN2 VARCHAR)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue (rs.next());
+            assertTrue (rs.next());
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
 }

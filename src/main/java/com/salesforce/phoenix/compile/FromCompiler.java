@@ -35,6 +35,8 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.*;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -72,7 +74,7 @@ public class FromCompiler {
     // TODO: commonize with one for upsert
     public static ColumnResolver getResolver(DropColumnStatement statement, PhoenixConnection connection) throws SQLException {
         TableName tableName = statement.getTableName();
-        NamedTableNode tableNode =  FACTORY.namedTable(null, tableName);
+        NamedTableNode tableNode =  FACTORY.namedTable(null, tableName,null);
         FromClauseVisitor visitor = new DDLFromClauseVisitor(connection);
         tableNode.accept(visitor);
         return visitor;
@@ -102,7 +104,7 @@ public class FromCompiler {
     
     public static ColumnResolver getResolver(MutationStatement statement, PhoenixConnection connection) throws SQLException {
         TableName intoNodeName = statement.getTable();
-        NamedTableNode intoNode =  FACTORY.namedTable(null, intoNodeName);
+        NamedTableNode intoNode =  FACTORY.namedTable(null, intoNodeName,null);
         FromClauseVisitor visitor = new DMLFromClauseVisitor(connection);
         intoNode.accept(visitor);
         return visitor;
@@ -117,7 +119,7 @@ public class FromCompiler {
         }
         
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName,List<ColumnDef> dyn_columns) throws SQLException {
             long timeStamp = Math.abs(client.updateCache(schemaName, tableName));
             PSchema theSchema = null;
             try {
@@ -126,6 +128,19 @@ public class FromCompiler {
                 throw new TableNotFoundException(schemaName, tableName);
             }
             PTable theTable = theSchema.getTable(tableName);
+            if(dyn_columns!=null){
+            	int ordinalPosition = theTable.getColumns().size();
+	        List<PColumn> dyn_column_list = new ArrayList<PColumn>();
+            	dyn_column_list.addAll(theTable.getColumns());
+            	for(ColumnDef cdef:dyn_columns){
+            		PColumn pc = this.newColumn(ordinalPosition, cdef, new HashSet(theTable.getPKColumns()));
+            		if(pc!=null){					
+            			dyn_column_list.add(pc);
+            		}
+		 ordinalPosition++;
+            	}
+            	theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),theTable.getSequenceNumber(), theTable.getPKName(), dyn_column_list);
+            }
             TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
             return tableRef;
         }
@@ -138,7 +153,7 @@ public class FromCompiler {
         }
         
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName,List<ColumnDef> dyn_columns) throws SQLException {
             PSchema theSchema = null;
             try {
                 theSchema = connection.getPMetaData().getSchema(schemaName);
@@ -166,7 +181,7 @@ public class FromCompiler {
         }
         
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName,List<ColumnDef> dyn_columns) throws SQLException {
             SQLException sqlE = null;
             long timeStamp = QueryConstants.UNSET_TIMESTAMP;
             while (true) {
@@ -228,7 +243,7 @@ public class FromCompiler {
             }
         }
         
-        protected abstract TableRef createTableRef(String alias, String schemaName, String tableName) throws SQLException;
+        protected abstract TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dyn_columns) throws SQLException;
         
         @Override
         public void visit(NamedTableNode namedTableNode) throws SQLException {
@@ -236,12 +251,16 @@ public class FromCompiler {
             String schemaName = namedTableNode.getName().getSchemaName();
             
             String alias = namedTableNode.getAlias();
-            TableRef tableRef = createTableRef(alias, schemaName, tableName);
+            List<ColumnDef> dyn_columns = namedTableNode.getDyn_columns();
+           
+            TableRef tableRef = createTableRef(alias, schemaName, tableName,dyn_columns);
             PSchema theSchema = tableRef.getSchema();
             PTable theTable = tableRef.getTable();
+            
             if (alias != null) {
                 tableMap.put(new Key(null,alias), tableRef);
             }
+            
             tableMap.put(new Key(null, theTable.getName().getString()), tableRef);
             tableMap.put(new Key(theSchema.getName(),theTable.getName().getString()), tableRef);
             tables.add(tableRef);
@@ -342,5 +361,36 @@ public class FromCompiler {
                 }
             }
         }
+        
+        protected PColumn newColumn(int position, ColumnDef def, Set<String> pkColumns) throws SQLException {
+            try {
+                String columnName = def.getColumnDefName().getColumnName().getName();
+                PName familyName = null;
+                if (def.isPK() && !pkColumns.isEmpty() ) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_ALREADY_EXISTS)
+                        .setColumnName(columnName).build().buildException();
+                }
+                boolean isPK = def.isPK() || pkColumns.contains(columnName);
+                if (def.getColumnDefName().getFamilyName() != null) {
+                    String family = def.getColumnDefName().getFamilyName().getName();
+                    if (isPK) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_WITH_FAMILY_NAME)
+                            .setColumnName(columnName).setFamilyName(family).build().buildException();
+                    } else if (!def.isNull()) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.KEY_VALUE_NOT_NULL)
+                            .setColumnName(columnName).setFamilyName(family).build().buildException();
+                    }
+                    familyName = new PNameImpl(family);
+                } else if (!isPK) {
+                    familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
+                }
+                PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
+                        def.getMaxLength(), def.getScale(), def.isNull(), position);
+                return column;
+            } catch (IllegalArgumentException e) { // Based on precondition check in constructor
+                throw new SQLException(e);
+            }
+        }
     }
 }
+
