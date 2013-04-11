@@ -67,7 +67,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     static final Function<Map.Entry<HRegionInfo, ServerName>, KeyRange> TO_KEY_RANGE = new Function<Map.Entry<HRegionInfo, ServerName>, KeyRange>() {
         @Override
         public KeyRange apply(Map.Entry<HRegionInfo, ServerName> region) {
-            return KeyRange.getKeyRange(region.getKey());
+            return KeyRange.getKeyRange(region.getKey().getStartKey(), region.getKey().getEndKey());
         }
     };
 

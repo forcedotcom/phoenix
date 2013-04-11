@@ -29,13 +29,13 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
 
+import java.io.*;
 import java.util.*;
 
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.http.annotation.Immutable;
+import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
@@ -51,18 +51,38 @@ import edu.umd.cs.findbugs.annotations.NonNull;
  * @author jtaylor
  * @since 0.1
  */
-@Immutable
-public class KeyRange {
+public class KeyRange implements Writable {
     public enum Bound { LOWER, UPPER };
     private static final byte[] DEGENERATE_KEY = new byte[] {1};
-    public static final byte[] UNBOUND_LOWER = HConstants.EMPTY_START_ROW;
-    public static final byte[] UNBOUND_UPPER = HConstants.EMPTY_END_ROW;
+    public static final byte[] UNBOUND = new byte[0];
+    /**
+     * KeyRange for variable length null values. Since we need to represent this using an empty byte array (which
+     * is what we use for upper/lower bound), we create this range using the private constructor rather than
+     * going through the static creation method (where this would not be possible).
+     */
+    public static final KeyRange IS_NULL_RANGE = new KeyRange(ByteUtil.EMPTY_BYTE_ARRAY, true, ByteUtil.EMPTY_BYTE_ARRAY, true);
+    /**
+     * KeyRange for non null variable length values. Since we need to represent this using an empty byte array (which
+     * is what we use for upper/lower bound), we create this range using the private constructor rather than going
+     * through the static creation method (where this would not be possible).
+     */
+    public static final KeyRange IS_NOT_NULL_RANGE = new KeyRange(ByteUtil.EMPTY_BYTE_ARRAY, false, UNBOUND, false);
+    
+    /**
+     * KeyRange for an empty key range
+     */
     public static final KeyRange EMPTY_RANGE = new KeyRange(DEGENERATE_KEY, false, DEGENERATE_KEY, false);
-    public static final KeyRange EVERYTHING_RANGE = new KeyRange(UNBOUND_LOWER, false, UNBOUND_UPPER, false);
+    
+    /**
+     * KeyRange that contains all values
+     */
+    public static final KeyRange EVERYTHING_RANGE = new KeyRange(UNBOUND, false, UNBOUND, false);
+    
     public static final Function<byte[], KeyRange> POINT = new Function<byte[], KeyRange>() {
-      @Override public KeyRange apply(byte[] input) {
-        return new KeyRange(input, true, input, true);
-      }
+        @Override 
+        public KeyRange apply(byte[] input) {
+            return new KeyRange(input, true, input, true);
+        }
     };
     public static final Comparator<KeyRange> COMPARATOR = new Comparator<KeyRange>() {
         @Override public int compare(KeyRange o1, KeyRange o2) {
@@ -81,45 +101,37 @@ public class KeyRange {
         }
     };
 
-    private final byte[] lowerRange;
-    private final boolean lowerInclusive;
-    private final byte[] upperRange;
-    private final boolean upperInclusive;
-    private final boolean isSingleKey;
+    private byte[] lowerRange;
+    private boolean lowerInclusive;
+    private byte[] upperRange;
+    private boolean upperInclusive;
+    private boolean isSingleKey;
 
-    // Make sure to pass in constants for unbound upper/lower, since an emtpy array means null otherwise
-    public static KeyRange getKeyRange(HRegionInfo region) {
-        return KeyRange.getKeyRange(region.getStartKey().length == 0 ? UNBOUND_LOWER : region.getStartKey(), true,
-                region.getEndKey().length == 0 ? UNBOUND_UPPER : region.getEndKey(), false, false);
+    public static KeyRange getKeyRange(byte[] lowerRange, byte[] upperRange) {
+        return getKeyRange(lowerRange, true, upperRange, false);
     }
 
+    // TODO: make non public and move to com.salesforce.phoenix.type soon
     public static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive,
-            byte[] upperRange, boolean upperInclusive, boolean isFixedWidth) {
+            byte[] upperRange, boolean upperInclusive) {
         if (lowerRange == null || upperRange == null) {
             return EMPTY_RANGE;
         }
-        // Equality comparison, since null comes through as an empty byte array
-        final boolean unboundLower = lowerRange == UNBOUND_LOWER;
-        final boolean unboundUpper = upperRange == UNBOUND_UPPER;
+        boolean unboundLower = false;
+        boolean unboundUpper = false;
+        if (lowerRange.length == 0) {
+            lowerRange = UNBOUND;
+            lowerInclusive = false;
+            unboundLower = true;
+        }
+        if (upperRange.length == 0) {
+            upperRange = UNBOUND;
+            upperInclusive = false;
+            unboundUpper = true;
+        }
 
         if (unboundLower && unboundUpper) {
             return EVERYTHING_RANGE;
-        }
-        /*
-         * Force lower bound to be inclusive for fixed width keys because it makes
-         * comparisons less expensive when you can count on one bound or the other
-         * being inclusive. Comparing two fixed width exclusive bounds against each
-         * other is inherently more expensive, because you need to take into account
-         * if the bigger key is equal to the next key after the smaller key. For
-         * example:
-         *   (A-B] compared against [A-B)
-         * An exclusive lower bound A is bigger than an exclusive upper bound B.
-         * Forcing a fixed width exclusive lower bound key to be inclusive prevents
-         * us from having to do this extra logic in the compare function.
-         */
-        if (!unboundLower && !lowerInclusive && isFixedWidth) {
-            lowerRange = ByteUtil.nextKey(lowerRange);
-            lowerInclusive = true;
         }
         if (!unboundLower && !unboundUpper) {
             int cmp = Bytes.compareTo(lowerRange, upperRange);
@@ -131,12 +143,20 @@ public class KeyRange {
                 upperRange, unboundUpper ? false : upperInclusive);
     }
 
+    public KeyRange() {
+        this.lowerRange = DEGENERATE_KEY;
+        this.lowerInclusive = false;
+        this.upperRange = DEGENERATE_KEY;
+        this.upperInclusive = false;
+        this.isSingleKey = false;
+    }
+    
     private KeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
         this.lowerRange = lowerRange;
         this.lowerInclusive = lowerInclusive;
         this.upperRange = upperRange;
         this.upperInclusive = upperInclusive;
-        this.isSingleKey = lowerRange != UNBOUND_LOWER && upperRange != UNBOUND_UPPER
+        this.isSingleKey = lowerRange != UNBOUND && upperRange != UNBOUND
                 && lowerInclusive && upperInclusive && Bytes.compareTo(lowerRange, upperRange) == 0;
     }
 
@@ -187,7 +207,7 @@ public class KeyRange {
      *          and 0 if they are equal.
      */
     public int compareLowerToUpperBound( byte[] b, int o, int l, boolean isInclusive) {
-        if (lowerUnbound() || b == KeyRange.UNBOUND_UPPER) {
+        if (lowerUnbound() || b == KeyRange.UNBOUND) {
             return -1;
         }
         int cmp = Bytes.compareTo(lowerRange, 0, lowerRange.length, b, o, l);
@@ -208,7 +228,7 @@ public class KeyRange {
     }
     
     public int compareUpperToLowerBound(byte[] b, int o, int l, boolean isInclusive) {
-        if (upperUnbound() || b == KeyRange.UNBOUND_LOWER) {
+        if (upperUnbound() || b == KeyRange.UNBOUND) {
             return 1;
         }
         int cmp = Bytes.compareTo(upperRange, 0, upperRange.length, b, o, l);
@@ -245,11 +265,11 @@ public class KeyRange {
     }
 
     public boolean upperUnbound() {
-        return upperRange == UNBOUND_UPPER;
+        return upperRange == UNBOUND;
     }
 
     public boolean lowerUnbound() {
-        return lowerRange == UNBOUND_LOWER;
+        return lowerRange == UNBOUND;
     }
 
     @Override
@@ -337,7 +357,7 @@ public class KeyRange {
                 && newUpperRange == upperRange && newUpperInclusive == upperInclusive) {
             return this;
         }
-        return getKeyRange(newLowerRange, newLowerInclusive, newUpperRange, newUpperInclusive, false);
+        return getKeyRange(newLowerRange, newLowerInclusive, newUpperRange, newUpperInclusive);
     }
 
     public static boolean isDegenerate(byte[] lowerRange, byte[] upperRange) {
@@ -347,13 +367,13 @@ public class KeyRange {
     public KeyRange appendSeparator() {
         byte[] lowerBound = getLowerRange();
         byte[] upperBound = getUpperRange();
-        if (lowerBound != UNBOUND_LOWER) {
+        if (lowerBound != UNBOUND) {
             lowerBound = ByteUtil.concat(lowerBound, SEPARATOR_BYTE_ARRAY);
         }
-        if (upperBound != UNBOUND_UPPER) {
+        if (upperBound != UNBOUND) {
             upperBound = ByteUtil.concat(upperBound, SEPARATOR_BYTE_ARRAY);
         }
-        return getKeyRange(lowerBound, lowerInclusive, upperBound, upperInclusive, false);
+        return getKeyRange(lowerBound, lowerInclusive, upperBound, upperInclusive);
     }
 
     /**
@@ -402,7 +422,7 @@ public class KeyRange {
             assert !otherRange.lowerUnbound();
             if (range.isUpperInclusive() != otherRange.isLowerInclusive()
                     && Bytes.equals(range.getUpperRange(), otherRange.getLowerRange())) {
-                range = KeyRange.getKeyRange(range.getLowerRange(), range.isLowerInclusive(), otherRange.getUpperRange(), otherRange.isUpperInclusive(), false);
+                range = KeyRange.getKeyRange(range.getLowerRange(), range.isLowerInclusive(), otherRange.getUpperRange(), otherRange.isUpperInclusive());
             } else {
                 tmp3.add(range);
                 range = otherRange;
@@ -419,7 +439,7 @@ public class KeyRange {
         byte[] newLower, newUpper;
         boolean newLowerInclusive, newUpperInclusive;
         if (this.lowerUnbound() || other.lowerUnbound()) {
-            newLower = UNBOUND_LOWER;
+            newLower = UNBOUND;
             newLowerInclusive = false;
         } else {
             int lowerCmp = Bytes.compareTo(this.lowerRange, other.lowerRange);
@@ -436,7 +456,7 @@ public class KeyRange {
         }
 
         if (this.upperUnbound() || other.upperUnbound()) {
-            newUpper = UNBOUND_UPPER;
+            newUpper = UNBOUND;
             newUpperInclusive = false;
         } else {
             int upperCmp = Bytes.compareTo(this.upperRange, other.upperRange);
@@ -451,7 +471,7 @@ public class KeyRange {
                 newUpperInclusive = other.upperInclusive;
             }
         }
-        return KeyRange.getKeyRange(newLower, newLowerInclusive, newUpper, newUpperInclusive, false);
+        return KeyRange.getKeyRange(newLower, newLowerInclusive, newUpper, newUpperInclusive);
     }
 
     public static List<KeyRange> of(List<byte[]> keys) {
@@ -510,9 +530,64 @@ public class KeyRange {
             newUpperRange = ByteUtil.fillKey(upperRange, keyLength);
         }
         if (newLowerRange != lowerRange || newUpperRange != upperRange) {
-            return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive(), false);
+            return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive());
         }
         return this;
     }
 
+    @Override
+    public void readFields(DataInput in) throws IOException {
+        int len = WritableUtils.readVInt(in);
+        if (len == 0) {
+            lowerRange = KeyRange.UNBOUND;
+            lowerInclusive = false;
+        } else {
+            if (len < 0) {
+                lowerInclusive = false;
+                lowerRange = new byte[-len - 1];
+                in.readFully(lowerRange);
+            } else {
+                lowerInclusive = true;
+                lowerRange = new byte[len - 1];
+                in.readFully(lowerRange);
+            }
+        }
+        len = WritableUtils.readVInt(in);
+        if (len == 0) {
+            upperRange = KeyRange.UNBOUND;
+            upperInclusive = false;
+        } else {
+            if (len < 0) {
+                upperInclusive = false;
+                upperRange = new byte[-len - 1];
+                in.readFully(upperRange);
+            } else {
+                upperInclusive = true;
+                upperRange = new byte[len - 1];
+                in.readFully(upperRange);
+            }
+        }
+    }
+
+    private void writeBound(Bound bound, DataOutput out) throws IOException {
+        // Encode unbound by writing a zero
+        if (isUnbound(bound)) {
+            WritableUtils.writeVInt(out, 0);
+            return;
+        }
+        // Otherwise, inclusive is positive and exclusive is negative, offset by 1
+        byte[] range = getRange(bound);
+        if (isInclusive(bound)){
+            WritableUtils.writeVInt(out, range.length+1);
+        } else {
+            WritableUtils.writeVInt(out, -(range.length+1));
+        }
+        out.write(range);
+    }
+    
+    @Override
+    public void write(DataOutput out) throws IOException {
+        writeBound(Bound.LOWER, out);
+        writeBound(Bound.UPPER, out);
+    }
 }

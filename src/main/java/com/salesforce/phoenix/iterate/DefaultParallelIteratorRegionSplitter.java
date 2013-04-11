@@ -91,14 +91,14 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
     // exposed for tests
     public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, byte[] startKey, byte[] stopKey) {
         Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
-        final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false, false);
+        final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false);
         if (keyRange == KeyRange.EVERYTHING_RANGE) {
             regions = allTableRegions.entrySet();
         } else {
             regions = Iterables.filter(allTableRegions.entrySet(), new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
                 @Override
                 public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
-                    KeyRange regionKeyRange = KeyRange.getKeyRange(region.getKey());
+                    KeyRange regionKeyRange = KeyRange.getKeyRange(region.getKey().getStartKey(), region.getKey().getEndKey());
                     return keyRange.intersect(regionKeyRange) != KeyRange.EMPTY_RANGE;
                 }
             });
@@ -178,12 +178,12 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
                     // between start and end key is too small
                     keyRangesPerRegion.put(region.getValue(),ParallelIterators.TO_KEY_RANGE.apply(region));
                 } else {
-                    keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(lowerUnbound ? HConstants.EMPTY_START_ROW : boundaries[0], true, boundaries[1], false, false));
+                    keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(lowerUnbound ? KeyRange.UNBOUND : boundaries[0], boundaries[1]));
                     if (boundaries.length > 1) {
                         for (int i = 1; i < boundaries.length-2; i++) {
-                            keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[i], true, boundaries[i+1], false, false));
+                            keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[i], true, boundaries[i+1], false));
                         }
-                        keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[boundaries.length-2], true, upperUnbound ? HConstants.EMPTY_END_ROW : boundaries[boundaries.length-1], false, false));
+                        keyRangesPerRegion.put(region.getValue(),KeyRange.getKeyRange(boundaries[boundaries.length-2], true, upperUnbound ? KeyRange.UNBOUND : boundaries[boundaries.length-1], false));
                     }
                 }
             }

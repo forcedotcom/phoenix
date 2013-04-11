@@ -27,7 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
@@ -50,7 +50,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.filter.SkipScanFilter;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.SkipRangeParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
@@ -109,7 +109,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
     }
 
     private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
-        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, true);
+        return PDataType.CHAR.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive);
     }
 
     @Parameters(name="{0} {1} {2}")
@@ -125,13 +125,13 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
                 foreach(ScanRanges.EVERYTHING,
                         new int[] {1,1,1},
                         new KeyRange[] {
-                            getKeyRange(KeyRange.UNBOUND_LOWER, true, Ka1A, false),
+                            getKeyRange(KeyRange.UNBOUND, true, Ka1A, false),
                             getKeyRange(Ka1A, true, Ka1B, false),
                             getKeyRange(Ka1B, true, Ka1E, false),
                             getKeyRange(Ka1E, true, Ka1G, false),
                             getKeyRange(Ka1G, true, Ka1I, false),
                             getKeyRange(Ka1I, true, Ka2A, false),
-                            getKeyRange(Ka2A, true, KeyRange.UNBOUND_UPPER, false)
+                            getKeyRange(Ka2A, true, KeyRange.UNBOUND, false)
                 }));
         // Scan range lies inside first region.
         testCases.addAll(
@@ -145,7 +145,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
                         }},
                     new int[] {1,1,1},
                     new KeyRange[] {
-                        getKeyRange(KeyRange.UNBOUND_LOWER, true, Ka1A, false)
+                        getKeyRange(KeyRange.UNBOUND, true, Ka1A, false)
                 }));
         // Scan range lies in between first and second, intersecting bound on second.
         testCases.addAll(
@@ -160,7 +160,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
                         }},
                     new int[] {1,1,1},
                     new KeyRange[] {
-                        getKeyRange(KeyRange.UNBOUND_LOWER, true, Ka1A, false),
+                        getKeyRange(KeyRange.UNBOUND, true, Ka1A, false),
                         getKeyRange(Ka1A, true, Ka1B, false),
                 }));
         // Scan range spans third, split into 3 due to concurrency config.
@@ -231,7 +231,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
                         getKeyRange(Ka1A, true, Ka1B, false),
                         getKeyRange(Ka1B, true, Ka1E, false),
                         getKeyRange(Ka1G, true, Ka1I, false),
-                        getKeyRange(Ka2A, true, KeyRange.UNBOUND_UPPER, false)
+                        getKeyRange(Ka2A, true, KeyRange.UNBOUND, false)
                 }));
         return testCases;
     }
@@ -267,7 +267,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
     
     private static Collection<?> foreach(ScanRanges scanRanges, int[] widths, KeyRange[] expectedSplits) {
          SkipScanFilter filter = new SkipScanFilter(scanRanges.getRanges(), buildSchema(widths));
-        Scan scan = new Scan().setFilter(filter).setStartRow(KeyRange.UNBOUND_LOWER).setStopRow(KeyRange.UNBOUND_UPPER);
+        Scan scan = new Scan().setFilter(filter).setStartRow(KeyRange.UNBOUND).setStopRow(KeyRange.UNBOUND);
         List<Object> ret = Lists.newArrayList();
         ret.add(new Object[] {scan, scanRanges, Arrays.<KeyRange>asList(expectedSplits)});
         return ret;
@@ -279,7 +279,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         SkipScanFilter filter = new SkipScanFilter(slots, schema);
         // Always set start and stop key to max to verify we are using the information in skipscan
         // filter over the scan's KMIN and KMAX.
-        Scan scan = new Scan().setFilter(filter).setStartRow(KeyRange.UNBOUND_LOWER).setStopRow(KeyRange.UNBOUND_UPPER);
+        Scan scan = new Scan().setFilter(filter).setStartRow(KeyRange.UNBOUND).setStopRow(KeyRange.UNBOUND);
         ScanRanges scanRanges = ScanRanges.create(slots, schema);
         List<Object> ret = Lists.newArrayList();
         ret.add(new Object[] {scan, scanRanges, Arrays.<KeyRange>asList(expectedSplits)});
