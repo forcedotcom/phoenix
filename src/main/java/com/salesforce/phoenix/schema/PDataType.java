@@ -1812,11 +1812,12 @@ public enum PDataType {
         }
         // Use long arithmetic for as long as we can
         while (index > begIndex) {
-            int digit100 = signum * bytes[--index] - digitOffset;
-            l += digit100*multiplier;
             if (l >= MAX_LONG_FOR_DESERIALIZE || multiplier >= Long.MAX_VALUE / 100) {
+                multiplier = LongMath.divide(multiplier, 100L, RoundingMode.UNNECESSARY);
                 break; // Exit loop early so we don't overflow our multiplier
             }
+            int digit100 = signum * bytes[--index] - digitOffset;
+            l += digit100*multiplier;
             multiplier = LongMath.checkedMultiply(multiplier, 100);
         }
 
