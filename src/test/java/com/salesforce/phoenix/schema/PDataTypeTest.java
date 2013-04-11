@@ -126,6 +126,12 @@ public class PDataTypeTest {
         assertTrue(na.compareTo(nb) == 0);
         assertTrue(b.length <= PDataType.DECIMAL.estimateByteSize(na));
 
+        na = new BigDecimal("1000.5829999999999913");
+        b = PDataType.DECIMAL.toBytes(na);
+        nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
+        assertTrue(na.compareTo(nb) == 0);
+        assertTrue(b.length <= PDataType.DECIMAL.estimateByteSize(na));
+
         na = TestUtil.computeAverage(11000, 3);
         b = PDataType.DECIMAL.toBytes(na);
         nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
