@@ -124,23 +124,15 @@ public class ScanUtilTest {
         assertArrayEquals(expectedKey, actualKey);
     }
 
-    private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
-        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, true);
-    }
-    
-    private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive, boolean isFixedWidth) {
-        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive, isFixedWidth);
-    }
-    
     @Parameters(name="{0} {1} {2} {3} {4}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // 1, Lower bound, all single keys, all inclusive.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a1A"), 3),
                 Bound.LOWER
@@ -148,9 +140,9 @@ public class ScanUtilTest {
         // 2, Lower bound, all range keys, all inclusive.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a1A"), 3),
                 Bound.LOWER
@@ -158,9 +150,9 @@ public class ScanUtilTest {
         // 3, Lower bound, mixed single and range keys, all inclusive.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a1A"), 3),
                 Bound.LOWER
@@ -168,9 +160,9 @@ public class ScanUtilTest {
         // 4, Lower bound, all range key, all exclusive on lower bound.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), false, Bytes.toBytes("b"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), false, Bytes.toBytes("2"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), false, Bytes.toBytes("b"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), false, Bytes.toBytes("2"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2B"), 3),
                 Bound.LOWER
@@ -178,9 +170,9 @@ public class ScanUtilTest {
         // 5, Lower bound, all range key, some exclusive.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), false, Bytes.toBytes("b"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), false, Bytes.toBytes("b"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b1B"), 3),
                 Bound.LOWER
@@ -188,9 +180,9 @@ public class ScanUtilTest {
         // 6, Lower bound, mixed single and range key, mixed inclusive and exclusive.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a1B"), 3),
                 Bound.LOWER
@@ -198,9 +190,9 @@ public class ScanUtilTest {
         // 7, Lower bound, unbound key in the middle, fixed length.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),},{
-                    getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(KeyRange.UNBOUND, true, KeyRange.UNBOUND, true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), false, Bytes.toBytes("B"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a"), 1),
                 Bound.LOWER
@@ -208,8 +200,8 @@ public class ScanUtilTest {
         // 8, Lower bound, unbound key in the middle, variable length.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                        getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                        getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),}},
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                        PDataType.CHAR.getKeyRange(KeyRange.UNBOUND, true, KeyRange.UNBOUND, true),}},
                     new int[] {1,1},
                     ByteUtil.concat(PDataType.VARCHAR.toBytes("a")),
                     Bound.LOWER
@@ -217,9 +209,9 @@ public class ScanUtilTest {
         // 9, Lower bound, unbound key at end, variable length.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(KeyRange.UNBOUND, true, KeyRange.UNBOUND, true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.concat(PDataType.VARCHAR.toBytes("a")),
                 Bound.LOWER
@@ -227,9 +219,9 @@ public class ScanUtilTest {
         // 10, Upper bound, all single keys, all inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a1B"), 3),
                 Bound.UPPER
@@ -237,9 +229,9 @@ public class ScanUtilTest {
         // 11, Upper bound, all range keys, all inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2C"), 3),
                 Bound.UPPER
@@ -247,9 +239,9 @@ public class ScanUtilTest {
         // 12, Upper bound, all range keys, all exclusive, no increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), false),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), false),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), false),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), false),}},
                 new int[] {1,1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2B"), 3),
                 Bound.UPPER
@@ -257,8 +249,8 @@ public class ScanUtilTest {
         // 13, Upper bound, single inclusive, range inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), true),}},
                 new int[] {1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a3"), 2),
                 Bound.UPPER
@@ -266,8 +258,8 @@ public class ScanUtilTest {
         // 14, Upper bound, range exclusive, single inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), false),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),}},
                 new int[] {1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2"), 2),
                 Bound.UPPER
@@ -275,8 +267,8 @@ public class ScanUtilTest {
         // 15, Upper bound, range inclusive, single inclusive, increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("b"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),}},
                 new int[] {1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b2"), 2),
                 Bound.UPPER
@@ -284,8 +276,8 @@ public class ScanUtilTest {
         // 16, Upper bound, single inclusive, range exclusive, no increment at end.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), false),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("2"), false),}},
                 new int[] {1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("a2"), 2),
                 Bound.UPPER
@@ -293,8 +285,8 @@ public class ScanUtilTest {
         // 17, Upper bound, unbound key, fixed length;
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(KeyRange.UNBOUND, true, KeyRange.UNBOUND, true),}},
                 new int[] {1,1},
                 ByteUtil.fillKey(PDataType.VARCHAR.toBytes("b"), 1),
                 Bound.UPPER
@@ -302,8 +294,8 @@ public class ScanUtilTest {
         // 18, Upper bound, unbound key, variable length;
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(KeyRange.UNBOUND_LOWER, true, KeyRange.UNBOUND_UPPER, true),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.CHAR.getKeyRange(KeyRange.UNBOUND, true, KeyRange.UNBOUND, true),}},
                 new int[] {1,1},
                 ByteUtil.concat(PDataType.VARCHAR.toBytes("b")),
                 Bound.UPPER
@@ -311,8 +303,8 @@ public class ScanUtilTest {
         // 19, Upper bound, keys wrapped around when incrementing.
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                getKeyRange(new byte[] {-1}, true, new byte[] {-1}, true)},{
-                getKeyRange(new byte[] {-1}, true, new byte[] {-1}, true)}},
+                PDataType.CHAR.getKeyRange(new byte[] {-1}, true, new byte[] {-1}, true)},{
+                PDataType.CHAR.getKeyRange(new byte[] {-1}, true, new byte[] {-1}, true)}},
                 new int[] {1, 1},
                 ByteUtil.EMPTY_BYTE_ARRAY,
                 Bound.UPPER
@@ -320,8 +312,8 @@ public class ScanUtilTest {
         // 20, Variable length
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
-                    getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true, false),}},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),},{
+                    PDataType.VARCHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),}},
                 new int[] {1,0},
                 ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes("aB"), QueryConstants.SEPARATOR_BYTE_ARRAY)),
                 Bound.UPPER

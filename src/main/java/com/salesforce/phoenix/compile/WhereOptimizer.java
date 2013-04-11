@@ -351,8 +351,10 @@ public class WhereOptimizer {
                 return DEGENERATE_KEY_PARTS;
             }
             // TODO: is there a case where we'd need to go through the childPart to calculate the key range?
-            Integer columnFixedLength = childSlot.getKeyPart().getColumn().getByteSize();
-            KeyRange keyRange = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false, columnFixedLength != null);
+            PColumn column = childSlot.getKeyPart().getColumn();
+            PDataType type = column.getDataType();
+            KeyRange keyRange = type.getKeyRange(key, true, ByteUtil.nextKey(key), false);
+            Integer columnFixedLength = column.getByteSize();
             if (columnFixedLength != null) {
                 keyRange = keyRange.fill(columnFixedLength);
             }
@@ -401,16 +403,14 @@ public class WhereOptimizer {
             }
             KeySlot childSlot = childParts.get(0).iterator().next();
             PColumn column = childSlot.getKeyPart().getColumn();
-            boolean isFixedWidth = column.getDataType().isFixedWidth();
+            PDataType type = column.getDataType();
+            boolean isFixedWidth = type.isFixedWidth();
             if (isFixedWidth) { // if column can't be null
                 return node.isNegate() ? null : 
-                    newKeyParts(childSlot, node, KeyRange.getKeyRange(new byte[column.getByteSize()], true,
-                                                                      KeyRange.UNBOUND_UPPER, true, isFixedWidth));
+                    newKeyParts(childSlot, node, type.getKeyRange(new byte[column.getByteSize()], true,
+                                                                  KeyRange.UNBOUND, true));
             } else {
-                // TODO: go through childPart to make this range?
-                KeyRange keyRange = node.isNegate() 
-                        ? KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, false, KeyRange.UNBOUND_UPPER, true, isFixedWidth)
-                        : KeyRange.getKeyRange(ByteUtil.EMPTY_BYTE_ARRAY, true, ByteUtil.EMPTY_BYTE_ARRAY, true, isFixedWidth);
+                KeyRange keyRange = node.isNegate() ? KeyRange.IS_NOT_NULL_RANGE : KeyRange.IS_NULL_RANGE;
                 return newKeyParts(childSlot, node, keyRange);
             }
         }
@@ -548,8 +548,8 @@ public class WhereOptimizer {
             @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
                 // If the column is fixed width, fill is up to it's byte size
-                boolean isFixedWidth = getColumn().getDataType().isFixedWidth();
-                if (isFixedWidth) {
+                PDataType type = getColumn().getDataType();
+                if (type.isFixedWidth()) {
                     Integer length = getColumn().getByteSize();
                     if (length != null) {
                         key = ByteUtil.fillKey(key, length);
@@ -557,15 +557,15 @@ public class WhereOptimizer {
                 }
                 switch (op) {
                 case EQUAL:
-                    return KeyRange.getKeyRange(key, true, key, true, isFixedWidth);
+                    return type.getKeyRange(key, true, key, true);
                 case GREATER:
-                    return KeyRange.getKeyRange(key, false, KeyRange.UNBOUND_UPPER, false, isFixedWidth);
+                    return type.getKeyRange(key, false, KeyRange.UNBOUND, false);
                 case GREATER_OR_EQUAL:
-                    return KeyRange.getKeyRange(key, true, KeyRange.UNBOUND_UPPER, false, isFixedWidth);
+                    return type.getKeyRange(key, true, KeyRange.UNBOUND, false);
                 case LESS:
-                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, false, isFixedWidth);
+                    return type.getKeyRange(KeyRange.UNBOUND, false, key, false);
                 case LESS_OR_EQUAL:
-                    return KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, key, true, isFixedWidth);
+                    return type.getKeyRange(KeyRange.UNBOUND, false, key, true);
                 default:
                     throw new IllegalArgumentException("Unknown operator " + op);
                 }

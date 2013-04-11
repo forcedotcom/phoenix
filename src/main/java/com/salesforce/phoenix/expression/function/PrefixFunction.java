@@ -9,6 +9,7 @@ import com.salesforce.phoenix.compile.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
 
 abstract public class PrefixFunction extends ScalarFunction {
@@ -45,20 +46,21 @@ abstract public class PrefixFunction extends ScalarFunction {
             @Override
             public KeyRange getKeyRange(CompareOp op, byte[] key) {
                 KeyRange range;
-                Integer length = getColumn().getByteSize();
+                PDataType type = getColumn().getDataType();
                 switch (op) {
                 case EQUAL:
-                    range = KeyRange.getKeyRange(key, true, ByteUtil.nextKey(key), false, length != null);
+                    range = type.getKeyRange(key, true, ByteUtil.nextKey(key), false);
                     break;
                 case GREATER:
-                    range = KeyRange.getKeyRange(ByteUtil.nextKey(key), true, KeyRange.UNBOUND_UPPER, false, length != null);
+                    range = type.getKeyRange(ByteUtil.nextKey(key), true, KeyRange.UNBOUND, false);
                     break;
                 case LESS_OR_EQUAL:
-                    range = KeyRange.getKeyRange(KeyRange.UNBOUND_LOWER, false, ByteUtil.nextKey(key), false, length != null);
+                    range = type.getKeyRange(KeyRange.UNBOUND, false, ByteUtil.nextKey(key), false);
                     break;
                 default:
                     return childPart.getKeyRange(op, key);
                 }
+                Integer length = getColumn().getByteSize();
                 return length == null ? range : range.fill(length);
             }
         };

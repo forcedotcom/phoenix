@@ -46,8 +46,7 @@ import com.salesforce.phoenix.iterate.DefaultParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.StatsManagerImpl.TimeKeeper;
-import com.salesforce.phoenix.schema.PSchema;
-import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
@@ -132,11 +131,11 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         NavigableMap<HRegionInfo, ServerName> regions = getRegions(table);
         List<KeyRange> keyRanges = getSplits(table, scan, regions);
         assertEquals("Unexpected number of splits: " + keyRanges, 5, keyRanges.size());
-        assertEquals(newKeyRange(HConstants.EMPTY_START_ROW, K3), keyRanges.get(0));
+        assertEquals(newKeyRange(KeyRange.UNBOUND, K3), keyRanges.get(0));
         assertEquals(newKeyRange(K3, K4), keyRanges.get(1));
         assertEquals(newKeyRange(K4, K9), keyRanges.get(2));
         assertEquals(newKeyRange(K9, K11), keyRanges.get(3));
-        assertEquals(newKeyRange(K11, HConstants.EMPTY_END_ROW), keyRanges.get(4));
+        assertEquals(newKeyRange(K11, KeyRange.UNBOUND), keyRanges.get(4));
         
         // (number of regions / 2) > target query concurrency
         scan.setStartRow(K3);
@@ -171,7 +170,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         NavigableMap<HRegionInfo, ServerName> regions = getRegions(table);
         List<KeyRange> keyRanges = getSplits(table, scan, regions);
         assertEquals("Unexpected number of splits: " + keyRanges, 3, keyRanges.size());
-        assertEquals(newKeyRange(KeyRange.UNBOUND_LOWER, new byte[] {'7'}), keyRanges.get(0));
+        assertEquals(newKeyRange(KeyRange.UNBOUND, new byte[] {'7'}), keyRanges.get(0));
         assertEquals(newKeyRange(new byte[] {'7'}, new byte[] {'M'}), keyRanges.get(1));
         assertEquals(newKeyRange(new byte[] {'M'}, K3), keyRanges.get(2));
     }
@@ -318,6 +317,6 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
     }
 
     private static KeyRange newKeyRange(byte[] lowerRange, byte[] upperRange) {
-        return KeyRange.getKeyRange(lowerRange, true, upperRange, false, false);
+        return PDataType.CHAR.getKeyRange(lowerRange, true, upperRange, false);
     }
 }

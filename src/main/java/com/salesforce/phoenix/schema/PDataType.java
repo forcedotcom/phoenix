@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.*;
 
 
@@ -2050,6 +2051,26 @@ public enum PDataType {
 
     public byte[] getSqlTypeNameBytes() {
         return sqlTypeNameBytes;
+    }
+
+    public KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
+        /*
+         * Force lower bound to be inclusive for fixed width keys because it makes
+         * comparisons less expensive when you can count on one bound or the other
+         * being inclusive. Comparing two fixed width exclusive bounds against each
+         * other is inherently more expensive, because you need to take into account
+         * if the bigger key is equal to the next key after the smaller key. For
+         * example:
+         *   (A-B] compared against [A-B)
+         * An exclusive lower bound A is bigger than an exclusive upper bound B.
+         * Forcing a fixed width exclusive lower bound key to be inclusive prevents
+         * us from having to do this extra logic in the compare function.
+         */
+        if (lowerRange != KeyRange.UNBOUND && !lowerInclusive && isFixedWidth()) {
+            lowerRange = ByteUtil.nextKey(lowerRange);
+            lowerInclusive = true;
+        }
+        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive);
     }
 
     public static PDataType fromLiteral(Object value) {

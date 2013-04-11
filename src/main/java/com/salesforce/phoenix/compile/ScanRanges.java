@@ -136,8 +136,7 @@ public class ScanRanges {
         }
     }
 
-    private static final ImmutableBytesWritable UNBOUND_LOWER = new ImmutableBytesWritable(KeyRange.UNBOUND_LOWER);
-    private static final ImmutableBytesWritable UNBOUND_UPPER = new ImmutableBytesWritable(KeyRange.UNBOUND_UPPER);
+    private static final ImmutableBytesWritable UNBOUND = new ImmutableBytesWritable(KeyRange.UNBOUND);
 
     /**
      * Return true if the range formed by the lowerInclusiveKey and upperExclusiveKey
@@ -168,11 +167,11 @@ public class ScanRanges {
         
         lowerPtr.set(lowerInclusiveKey, 0, lowerInclusiveKey.length);
         if (schema.first(lowerPtr, i, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-            lower = UNBOUND_LOWER;
+            lower = UNBOUND;
         }
         upperPtr.set(upperExclusiveKey, 0, upperExclusiveKey.length);
         if (schema.first(upperPtr, i, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-            upper = UNBOUND_UPPER;
+            upper = UNBOUND;
         }
         
         int cmpLower=0,cmpUpper=0;
@@ -197,20 +196,20 @@ public class ScanRanges {
                 }
                 
                 // Move to the next part of the key
-                if (lower != UNBOUND_LOWER) {
+                if (lower != UNBOUND) {
                     if (schema.next(lowerPtr, i, lowerInclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
                         // If no more lower key parts, then we have no constraint for that part of the key,
                         // so we use unbound lower from here on out.
-                        lower = UNBOUND_LOWER;
+                        lower = UNBOUND;
                     } else {
                         lower = lowerPtr;
                     }
                 }
-                if (upper != UNBOUND_UPPER) {
+                if (upper != UNBOUND) {
                     if (schema.next(upperPtr, i, upperExclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
                         // If no more upper key parts, then we have no constraint for that part of the key,
                         // so we use unbound upper from here on out.
-                        upper = UNBOUND_UPPER;
+                        upper = UNBOUND;
                     } else {
                         upper = upperPtr;
                     }
