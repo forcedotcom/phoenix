@@ -290,7 +290,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_UPDATABLE) {
+        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
             throw new SQLFeatureNotSupportedException();
         }
         return createStatement();
@@ -418,7 +418,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException {
-        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_UPDATABLE) {
+        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
             throw new SQLFeatureNotSupportedException();
         }
         return prepareStatement(sql);
