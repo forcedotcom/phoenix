@@ -398,7 +398,7 @@ public enum PDataType {
                     return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
-                    byte[] b = DECIMAL.toBytes(this.toObject(lhs, lhsOffset, lhsLength, DECIMAL));
+                    byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this));
                     return DECIMAL.compareTo(b, 0, b.length, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
                 default:
                     throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
@@ -1212,7 +1212,7 @@ public enum PDataType {
                     return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, lhsColMod), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColMod));
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
-                    byte[] b = DECIMAL.toBytes(this.toObject(lhs, lhsOffset, lhsLength, DECIMAL, lhsColMod));
+                    byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this, lhsColMod));
                     return DECIMAL.compareTo(b, 0, b.length, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
                 default:
                     throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
@@ -2092,7 +2092,9 @@ public enum PDataType {
     public byte[] toBytes(Object object, ColumnModifier columnModifier) {
     	byte[] bytes = toBytes(object);
     	if (columnModifier != null) {
-    	    // stoens - REVIEW modifies constant value for booleans 
+    	    // stoens - REVIEW modifies constant value for booleans
+    	    // to fix, override in BOOLEAN and BINARY 
+    	    // also add comment
     		bytes = columnModifier.apply(bytes, null, 0, bytes.length);
     	}
     	return bytes;
