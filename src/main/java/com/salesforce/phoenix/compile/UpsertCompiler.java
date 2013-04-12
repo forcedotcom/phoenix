@@ -227,7 +227,7 @@ public class UpsertCompiler {
                     projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
                 }
                 // Build table from projectedColumns
-                PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), projectedColumns);
+                PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                 
                 List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
                         NODE_FACTORY.aliasedNode(null, 

@@ -208,6 +208,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (pkNameKv != null) {
             pkName = (String)PDataType.VARCHAR.toObject(pkNameKv.getBuffer(), pkNameKv.getValueOffset(), pkNameKv.getValueLength());
         }
+        KeyValue saltBucketNumKv = tableKeyValues[SALT_BUCKETS_INDEX];
+        int saltBucketNum = (Integer)PDataType.INTEGER.getCodec().decodeInt(saltBucketNumKv.getBuffer(), saltBucketNumKv.getValueOffset());
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         while (true) {
@@ -256,7 +258,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             columns.add(column);
         }
         
-        return new PTableImpl(tableName, tableType, timeStamp, tableSeqNum, pkName, columns);
+        return new PTableImpl(tableName, tableType, timeStamp, tableSeqNum, pkName, saltBucketNum, columns);
     }
     
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {

@@ -57,6 +57,9 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class PTableImpl implements PTable {
+
+    private static final PColumnImpl SALT_BUCKET_COLUMN = new PColumnImpl(new PNameImpl("SALTING_BYTE"),
+            null, PDataType.CHAR, 1, 0, false, 0);
     private PName name;
     private PTableType type;
     private long sequenceNumber;
@@ -76,7 +79,7 @@ public class PTableImpl implements PTable {
     
     public PTableImpl() {
     }
-    
+
     public PTableImpl(long timeStamp) { // For delete marker
         this.type = PTableType.USER;
         this.timeStamp = timeStamp;
@@ -95,20 +98,37 @@ public class PTableImpl implements PTable {
     public String toString() {
         return name.getString();
     }
-    
+
     private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, int bucketNum, List<PColumn> columns, PTableStats stats) {
         this.name = name;
         this.type = type;
         this.timeStamp = timeStamp;
         this.sequenceNumber = sequenceNumber;
-        this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
         this.pkName = pkName;
-        List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
-        PColumn[] allColumns = new PColumn[columns.size()];
+        boolean useSalting = SaltingUtil.useSalting(bucketNum);
+        List<PColumn> pkColumns;
+        if (useSalting) {
+            this.columnsByName = ArrayListMultimap.create(columns.size()+1, 1);
+            pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
+        } else {
+            this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
+            pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
+        }
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
+        PColumn[] allColumns;
+        int idx = 0;
+        if (useSalting) {
+            allColumns = new PColumn[columns.size() + 1];
+            allColumns[idx++] = SALT_BUCKET_COLUMN;
+            pkColumns.add(SALT_BUCKET_COLUMN);
+            builder.addField(SALT_BUCKET_COLUMN);
+            columnsByName.put(SALT_BUCKET_COLUMN.getName().getString(), SALT_BUCKET_COLUMN);
+        } else {
+            allColumns = new PColumn[columns.size()];
+        }
         for (int i = 0; i < allColumns.length; i++) {
             PColumn column = columns.get(i);
-            allColumns[column.getPosition()] = column;
+            allColumns[idx++] = column;
             PName familyName = column.getFamilyName();
             if (familyName == null) {
                 pkColumns.add(column);
@@ -154,7 +174,7 @@ public class PTableImpl implements PTable {
         this.familyByString = familyByString.build();
         this.stats = stats;
     }
-    
+
     @Override
     public List<PColumn> getPKColumns() {
         return pkColumns;
@@ -164,7 +184,7 @@ public class PTableImpl implements PTable {
     public final PName getName() {
         return name;
     }
-    
+
     @Override
     public final PTableType getType() {
         return type;
@@ -174,7 +194,7 @@ public class PTableImpl implements PTable {
     public final List<PColumnFamily> getColumnFamilies() {
         return families;
     }
-    
+
     @Override
     public int newKey(ImmutableBytesWritable key, byte[][] values) {
         int i = 0;
@@ -238,7 +258,7 @@ public class PTableImpl implements PTable {
     }
 
     private PRow newRow(long ts, ImmutableBytesWritable key, int i, Object[] values) {
-        PRow row = new PRowImpl(key, ts);
+        PRow row = new PRowImpl(key, ts, getBucketNum());
         if (i < values.length) {
             for (PColumnFamily family : getColumnFamilies()) {
                 for (PColumn column : family.getColumns()) {
@@ -279,7 +299,7 @@ public class PTableImpl implements PTable {
         }
         return columns.get(0);
     }
-    
+
     /**
      * 
      * PRow implementation for ColumnLayout.MULTI mode which stores column
@@ -294,15 +314,18 @@ public class PTableImpl implements PTable {
         private Delete unsetValues;
         private Delete deleteRow;
         private final long ts;
-        
-        public PRowImpl(ImmutableBytesWritable key, long ts) {
-            byte[] keyBytes = key.copyBytes();
-            this.setValues = new Put(keyBytes);
-            this.unsetValues = new Delete(keyBytes);
+
+        public PRowImpl(ImmutableBytesWritable key, long ts, int bucketNum) {
             this.ts = ts;
-            this.key = keyBytes;
+            if (SaltingUtil.useSalting(bucketNum)) {
+                this.key = SaltingUtil.getSaltedKey(key, bucketNum);
+            } else {
+                this.key = key.copyBytes();
+            }
+            this.setValues = new Put(this.key);
+            this.unsetValues = new Delete(this.key);
         }
-        
+
         @Override
         public List<Mutation> toRowMutations() { // TODO: change to List<Mutation> once it implements Row
             List<Mutation> mutations = new ArrayList<Mutation>(3);
@@ -335,13 +358,13 @@ public class PTableImpl implements PTable {
                 }
             }
         }
-        
+
         @Override
         public void setValue(PColumn column, Object value) {
             byte[] byteValue = value == null ? ByteUtil.EMPTY_BYTE_ARRAY : column.getDataType().toBytes(value);
             setValue(column, byteValue);
         }
-        
+
         @Override
         public void setValue(PColumn column, byte[] byteValue) {
             deleteRow = null;
@@ -390,7 +413,7 @@ public class PTableImpl implements PTable {
         }
         return family;
     }
-    
+
     @Override
     public PColumnFamily getColumnFamily(byte[] familyBytes) throws ColumnFamilyNotFoundException {
         PColumnFamily family = familyByBytes.get(familyBytes);
@@ -430,7 +453,7 @@ public class PTableImpl implements PTable {
         long timeStamp = input.readLong();
         byte[] pkNameBytes = Bytes.readByteArray(input);
         String pkName = pkNameBytes.length == 0 ? null : Bytes.toString(pkNameBytes);
-        int bucketNum = input.readInt();
+        int bucketNum = WritableUtils.readVInt(input);
         int nColumns = WritableUtils.readVInt(input);
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(nColumns);
         for (int i = 0; i < nColumns; i++) {
