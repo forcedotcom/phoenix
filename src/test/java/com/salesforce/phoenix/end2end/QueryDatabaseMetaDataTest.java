@@ -53,12 +53,35 @@ import com.salesforce.phoenix.util.*;
 
 
 public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
+
+    @Test
+    public void testSaltedTableMetaDataScan() throws SQLException {
+        long ts = nextTimestamp();
+        ensureTableCreated(getUrl(), ATABLE_WITH_SALTING, null, ts);
+        
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        DatabaseMetaData dbmd = conn.getMetaData();
+        String aTableName = TestUtil.ATABLE_WITH_SALTING;
+        String aSchemaName = TestUtil.ATABLE_SCHEMA_NAME;
+        ResultSet rs = dbmd.getTables(null, aSchemaName, aTableName, null);
+        assertTrue(rs.next());
+        assertEquals(ATABLE_WITH_SALTING, rs.getString("TABLE_NAME"));
+        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(rs.getString(3),ATABLE_WITH_SALTING);
+        assertEquals(PTableType.USER.getSerializedValue(), rs.getString(4));
+        assertEquals(4, rs.getInt("SALT_BUCKETS"));
+        assertFalse(rs.next());
+    }
+
     @Test
     public void testTableMetadataScan() throws SQLException {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(), ATABLE_NAME, null, ts);
         ensureTableCreated(getUrl(), STABLE_NAME, null, ts);
         ensureTableCreated(getUrl(), CUSTOM_ENTITY_DATA_FULL_NAME, null, ts);
+        
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -110,7 +133,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
     }
-    
+
     @Test
     public void testSchemaMetadataScan() throws SQLException {
         long ts = nextTimestamp();
@@ -338,9 +361,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(SchemaUtil.normalizeIdentifier("custom_entity_data_id"), rs.getString("COLUMN_NAME"));
         assertEquals(3, rs.getInt("KEY_SEQ"));
         assertEquals(SchemaUtil.normalizeIdentifier("pk"), rs.getString("PK_NAME"));
-        
+
         assertFalse(rs.next());
-        
+
         rs = dbmd.getColumns("", CUSTOM_ENTITY_DATA_SCHEMA_NAME, CUSTOM_ENTITY_DATA_NAME, null);
         assertTrue(rs.next());
         assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));

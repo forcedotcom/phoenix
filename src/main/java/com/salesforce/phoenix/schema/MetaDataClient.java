@@ -318,7 +318,9 @@ public class MetaDataClient {
             }
             
             Integer saltBucketNum = (Integer) tableProps.get(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            if (saltBucketNum == null) saltBucketNum = QueryConstants.NO_BUCKETS; 
+            if (saltBucketNum == null) {
+                saltBucketNum = QueryConstants.NO_BUCKETS; 
+            }
             
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
             tableUpsert.setString(1, schemaName);

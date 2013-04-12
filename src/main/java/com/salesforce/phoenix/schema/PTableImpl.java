@@ -114,21 +114,22 @@ public class PTableImpl implements PTable {
             this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
         }
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         PColumn[] allColumns;
-        int idx = 0;
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
+        int offset = 0;
         if (useSalting) {
+            offset = 1;
             allColumns = new PColumn[columns.size() + 1];
-            allColumns[idx++] = SALT_BUCKET_COLUMN;
+            allColumns[0] = SALT_BUCKET_COLUMN;
             pkColumns.add(SALT_BUCKET_COLUMN);
             builder.addField(SALT_BUCKET_COLUMN);
             columnsByName.put(SALT_BUCKET_COLUMN.getName().getString(), SALT_BUCKET_COLUMN);
         } else {
             allColumns = new PColumn[columns.size()];
         }
-        for (int i = 0; i < allColumns.length; i++) {
+        for (int i = 0; i < columns.size(); i++) {
             PColumn column = columns.get(i);
-            allColumns[idx++] = column;
+            allColumns[column.getPosition() + offset] = column;
             PName familyName = column.getFamilyName();
             if (familyName == null) {
                 pkColumns.add(column);

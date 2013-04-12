@@ -93,7 +93,7 @@ public interface QueryConstants {
     public static final Integer NO_MAXLENGTH = Integer.MIN_VALUE;
     public static final Integer NO_SCALE = Integer.MIN_VALUE;
     
-    public static final Integer NO_BUCKETS = Byte.MIN_VALUE;
+    public static final int NO_BUCKETS = Byte.MIN_VALUE;
     
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
