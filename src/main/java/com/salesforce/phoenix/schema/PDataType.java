@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.*;
 
 
@@ -779,8 +780,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
-            case TIME:
                 return new Timestamp(((Date)object).getTime());
+            case TIME:
+                return new Timestamp(((Time)object).getTime());
             case TIMESTAMP:
                 return object;
             default:
@@ -804,6 +806,11 @@ public enum PDataType {
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == DATE || targetType == TIME || targetType == BINARY;
         }
 
         @Override
@@ -875,8 +882,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
-            case TIMESTAMP:
                 return new Time(((Date)object).getTime());
+            case TIMESTAMP:
+                return new Time(((Timestamp)object).getTime());
             case TIME:
                 return object;
             default:
@@ -946,8 +954,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIME:
+                return new Date(((Time)object).getTime());
             case TIMESTAMP:
-                return new Time(((Date)object).getTime());
+                return new Date(((Timestamp)object).getTime());
             case DATE:
                 return object;
             default:
@@ -1803,11 +1812,12 @@ public enum PDataType {
         }
         // Use long arithmetic for as long as we can
         while (index > begIndex) {
-            int digit100 = signum * bytes[--index] - digitOffset;
-            l += digit100*multiplier;
             if (l >= MAX_LONG_FOR_DESERIALIZE || multiplier >= Long.MAX_VALUE / 100) {
+                multiplier = LongMath.divide(multiplier, 100L, RoundingMode.UNNECESSARY);
                 break; // Exit loop early so we don't overflow our multiplier
             }
+            int digit100 = signum * bytes[--index] - digitOffset;
+            l += digit100*multiplier;
             multiplier = LongMath.checkedMultiply(multiplier, 100);
         }
 
@@ -2042,6 +2052,26 @@ public enum PDataType {
 
     public byte[] getSqlTypeNameBytes() {
         return sqlTypeNameBytes;
+    }
+
+    public KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
+        /*
+         * Force lower bound to be inclusive for fixed width keys because it makes
+         * comparisons less expensive when you can count on one bound or the other
+         * being inclusive. Comparing two fixed width exclusive bounds against each
+         * other is inherently more expensive, because you need to take into account
+         * if the bigger key is equal to the next key after the smaller key. For
+         * example:
+         *   (A-B] compared against [A-B)
+         * An exclusive lower bound A is bigger than an exclusive upper bound B.
+         * Forcing a fixed width exclusive lower bound key to be inclusive prevents
+         * us from having to do this extra logic in the compare function.
+         */
+        if (lowerRange != KeyRange.UNBOUND && !lowerInclusive && isFixedWidth()) {
+            lowerRange = ByteUtil.nextKey(lowerRange);
+            lowerInclusive = true;
+        }
+        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive);
     }
 
     public static PDataType fromLiteral(Object value) {

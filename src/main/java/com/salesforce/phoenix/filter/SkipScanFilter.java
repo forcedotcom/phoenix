@@ -28,16 +28,17 @@
 package com.salesforce.phoenix.filter;
 
 import java.io.*;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.KeyValue.Type;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Lists;
 import com.google.common.hash.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
@@ -257,35 +258,23 @@ public class SkipScanFilter extends FilterBase {
         RowKeySchema schema = new RowKeySchema();
         schema.readFields(in);
         int maxLength = getTerminatorCount(schema);
-        int n = in.readInt();
-        List<List<KeyRange>> slots = new ArrayList<List<KeyRange>>();
-        for (int i=0; i<n; i++) {
+        int andLen = in.readInt();
+        List<List<KeyRange>> slots = Lists.newArrayListWithExpectedSize(andLen);
+        for (int i=0; i<andLen; i++) {
             int orlen = in.readInt();
-            List<KeyRange> orclause = new ArrayList<KeyRange>();
+            List<KeyRange> orclause = Lists.newArrayListWithExpectedSize(orlen);
             slots.add(orclause);
             int maxSlotLength = 0;
             for (int j=0; j<orlen; j++) {
-                boolean lowerUnbound = in.readBoolean();
-                byte[] lower = KeyRange.UNBOUND_LOWER;
-                if (!lowerUnbound) {
-                    lower = WritableUtils.readCompressedByteArray(in);
+                KeyRange range = new KeyRange();
+                range.readFields(in);
+                if (range.getLowerRange().length > maxSlotLength) {
+                    maxSlotLength = range.getLowerRange().length;
                 }
-                if (lower.length > maxSlotLength) {
-                    maxSlotLength = lower.length;
+                if (range.getUpperRange().length > maxSlotLength) {
+                    maxSlotLength = range.getUpperRange().length;
                 }
-                boolean lowerInclusive = in.readBoolean();
-                boolean upperUnbound = in.readBoolean();
-                byte[] upper = KeyRange.UNBOUND_UPPER;
-                if (!upperUnbound) {
-                    upper = WritableUtils.readCompressedByteArray(in);
-                }
-                if (upper.length > maxSlotLength) {
-                    maxSlotLength = upper.length;
-                }
-                boolean upperInclusive = in.readBoolean();
-                orclause.add(
-                    KeyRange.getKeyRange(lower, lowerInclusive,
-                            upper, upperInclusive, false));
+                orclause.add(range);
             }
             maxLength += maxSlotLength;
         }
@@ -298,19 +287,8 @@ public class SkipScanFilter extends FilterBase {
         out.writeInt(slots.size());
         for (List<KeyRange> orclause : slots) {
             out.writeInt(orclause.size());
-            for (KeyRange arr : orclause) {
-                boolean lowerUnbound = arr.lowerUnbound();
-                out.writeBoolean(lowerUnbound);
-                if (!lowerUnbound) {
-                    WritableUtils.writeCompressedByteArray(out, arr.getLowerRange());
-                }
-                out.writeBoolean(arr.isLowerInclusive());
-                boolean upperUnbound = arr.upperUnbound();
-                out.writeBoolean(upperUnbound);
-                if (!upperUnbound) {
-                    WritableUtils.writeCompressedByteArray(out, arr.getUpperRange());
-                }
-                out.writeBoolean(arr.isUpperInclusive());
+            for (KeyRange range : orclause) {
+                range.write(out);
             }
         }
     }

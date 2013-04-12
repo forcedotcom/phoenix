@@ -27,11 +27,21 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.*;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
@@ -121,6 +131,12 @@ public class PDataTypeTest {
 
         // If we don't remove trailing zeros, this fails
         na = new BigDecimal(-1000);
+        b = PDataType.DECIMAL.toBytes(na);
+        nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
+        assertTrue(na.compareTo(nb) == 0);
+        assertTrue(b.length <= PDataType.DECIMAL.estimateByteSize(na));
+
+        na = new BigDecimal("1000.5829999999999913");
         b = PDataType.DECIMAL.toBytes(na);
         nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
         assertTrue(na.compareTo(nb) == 0);
@@ -327,6 +343,14 @@ public class PDataTypeTest {
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER, 0L));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.LONG));
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_INT));
+        
+        // Testing coercing Date types
+        assertTrue(PDataType.DATE.isCoercibleTo(PDataType.TIMESTAMP));
+        assertTrue(PDataType.DATE.isCoercibleTo(PDataType.TIME));
+        assertTrue(PDataType.TIMESTAMP.isCoercibleTo(PDataType.DATE));
+        assertTrue(PDataType.TIMESTAMP.isCoercibleTo(PDataType.TIME));
+        assertTrue(PDataType.TIME.isCoercibleTo(PDataType.TIMESTAMP));
+        assertTrue(PDataType.TIME.isCoercibleTo(PDataType.DATE));
     }
 
     @Test
@@ -372,6 +396,29 @@ public class PDataTypeTest {
             testReadDecimalPrecisionAndScaleFromRawBytes(bds[i]);
             testReadDecimalPrecisionAndScaleFromRawBytes(bds[i].negate());
         }
+    }
+    
+    @Test
+    public void testDateConversions() {
+        long now = System.currentTimeMillis();
+        Date date = new Date(now);
+        Time t = new Time(now);
+        Timestamp ts = new Timestamp(now);
+        
+        Object o = PDataType.DATE.toObject(ts, PDataType.TIMESTAMP);
+        assertEquals(o.getClass(), java.sql.Date.class);
+        o = PDataType.DATE.toObject(t, PDataType.TIME);
+        assertEquals(o.getClass(), java.sql.Date.class);
+        
+        o = PDataType.TIME.toObject(date, PDataType.DATE);
+        assertEquals(o.getClass(), java.sql.Time.class);
+        o = PDataType.TIME.toObject(ts, PDataType.TIMESTAMP);
+        assertEquals(o.getClass(), java.sql.Time.class);
+                
+        o = PDataType.TIMESTAMP.toObject(date, PDataType.DATE);
+        assertEquals(o.getClass(), java.sql.Timestamp.class);
+        o = PDataType.TIMESTAMP.toObject(t, PDataType.TIME);
+        assertEquals(o.getClass(), java.sql.Timestamp.class); 
     }
 
     private void testReadDecimalPrecisionAndScaleFromRawBytes(BigDecimal bd) {

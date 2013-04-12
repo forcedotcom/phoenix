@@ -636,11 +636,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                         pointRange(tenantId1),
                         pointRange(tenantId2),
                         pointRange(tenantId3)),
-                    Arrays.asList(KeyRange.getKeyRange(
+                    Arrays.asList(PDataType.CHAR.getKeyRange(
                         Bytes.toBytes(entityId1),
                         true,
                         Bytes.toBytes(entityId2),
-                        true,
                         true))),
                 context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
