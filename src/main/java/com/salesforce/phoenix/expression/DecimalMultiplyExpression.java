@@ -73,7 +73,7 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
             }
             
             PDataType childType = children.get(i).getDataType();
-            BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
+            BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType, childExpr.getColumnModifier());
             
             if (result == null) {
                 result = bd;

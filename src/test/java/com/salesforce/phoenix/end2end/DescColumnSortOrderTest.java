@@ -198,7 +198,7 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
             {29l, bdec(28.2), 40l, date(3, 6, 2001)}, {19l, bdec(18.2), 29l, date(2, 2, 2001)}, {9l, bdec(8.2), 18l, date(1, 6, 2001)}};
         runQueryTest(ddl, upsert("n1", "n2", "n3", "d1"), select("n1-1, n2-2, n3-3", "d1-4"), insertedRows, expectedRows);
     }
-
+    
     private void runQueryTest(String ddl, String columnName, Object[][] rows, Object[][] expectedRows) throws Exception {
         runQueryTest(ddl, new String[]{columnName}, rows, expectedRows, null);
     }

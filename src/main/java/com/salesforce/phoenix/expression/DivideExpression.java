@@ -34,7 +34,7 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 
 /**
  * 
- * Subtract expression implementation
+ * Divide expression implementation
  *
  * @author jtaylor
  * @since 0.1

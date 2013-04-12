@@ -102,8 +102,9 @@ public class ComparisonExpression extends BaseCompoundExpression {
         }
         byte[] lhsBytes = ptr.get();
         int lhsOffset = ptr.getOffset();
-        int lhsLength = ptr.getLength();        
-        ColumnModifier lhsMod = children.get(0).getColumnModifier();
+        int lhsLength = ptr.getLength();
+        PDataType lhsDataType = children.get(0).getDataType();
+        ColumnModifier lhsColumnModifier = children.get(0).getColumnModifier();
         
         if (!children.get(1).evaluate(tuple, ptr)) {
             return false;
@@ -111,24 +112,24 @@ public class ComparisonExpression extends BaseCompoundExpression {
         
         byte[] rhsBytes = ptr.get();
         int rhsOffset = ptr.getOffset();
-        int rhsLength = ptr.getLength();        
-        ColumnModifier rhsMod = children.get(1).getColumnModifier();
+        int rhsLength = ptr.getLength();
+        PDataType rhsDataType = children.get(1).getDataType();
+        ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();
         
-        if (lhsMod != rhsMod) {
-            if (lhsMod == ColumnModifier.SORT_DESC) {
-                byte[] b = new byte[lhsBytes.length];
-                ColumnModifier.SORT_DESC.apply(lhsBytes, b, lhsOffset, lhsLength);
-                lhsBytes = b;
-            } else if (rhsMod == ColumnModifier.SORT_DESC) {
-                byte[] b = new byte[rhsBytes.length];
-                ColumnModifier.SORT_DESC.apply(rhsBytes, b, rhsOffset, rhsLength);
-                rhsBytes = b;
-            }
+        boolean invertComparisonResult = inverseComparisonResult(lhsDataType, lhsColumnModifier, rhsDataType, rhsColumnModifier);
+
+        if (invertComparisonResult) {
+            lhsColumnModifier = null;
+            rhsColumnModifier = null;
+        }
+                
+        int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
+        
+        if (invertComparisonResult) {
+            comparisonResult = -comparisonResult;
         }
         
-        ptr.set(ByteUtil.compare(op, children.get(0).getDataType().compareTo(lhsBytes, lhsOffset, lhsLength, 
-                    rhsBytes, rhsOffset, rhsLength, children.get(1).getDataType()))
-                ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
+        ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
     }
     
@@ -161,5 +162,13 @@ public class ComparisonExpression extends BaseCompoundExpression {
     @Override
     public String toString() {
         return (children.get(0) + CompareOpString[getFilterOp().ordinal()] + children.get(1));
+    }
+    
+    private static boolean inverseComparisonResult(PDataType lhsDataType, ColumnModifier lhsColumnModifier, PDataType rhsDataType, ColumnModifier rhsColumnModifier) {
+        return lhsColumnModifier == ColumnModifier.SORT_DESC && rhsColumnModifier == ColumnModifier.SORT_DESC
+            && lhsDataType != PDataType.DECIMAL && rhsDataType != PDataType.DECIMAL
+            && lhsDataType != PDataType.UNSIGNED_INT && rhsDataType != PDataType.UNSIGNED_INT
+            && lhsDataType != PDataType.UNSIGNED_LONG && rhsDataType != PDataType.UNSIGNED_LONG
+            && lhsDataType != PDataType.BOOLEAN && rhsDataType != PDataType.BOOLEAN;
     }
 }

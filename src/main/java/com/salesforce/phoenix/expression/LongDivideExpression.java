@@ -53,7 +53,7 @@ public class LongDivideExpression extends DivideExpression {
             if (!child.evaluate(tuple, ptr) || ptr.getLength() == 0) {
                 return false;
             }
-            long childvalue = child.getDataType().getCodec().decodeLong(ptr, null); // REVIEW - stoens
+            long childvalue = child.getDataType().getCodec().decodeLong(ptr, child.getColumnModifier()); 
             if (i == 0) {
                 finalResult = childvalue;
             } else {

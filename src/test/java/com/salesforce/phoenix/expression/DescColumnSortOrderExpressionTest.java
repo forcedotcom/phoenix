@@ -12,6 +12,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.TimeZone;
 
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.junit.Test;
 
@@ -128,18 +129,99 @@ public class DescColumnSortOrderExpressionTest {
         evaluateAndAssertResult(new TrimFunction(args), "blah");
     }
     
+    @Test
+    public void divide() throws Exception {
+        List<Expression> args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new DecimalDivideExpression(args), BigDecimal.valueOf(5));
+        
+        args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new LongDivideExpression(args), 5l);
+        
+    }
+    
+    @Test
+    public void multiply() throws Exception {
+        List<Expression> args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new DecimalMultiplyExpression(args), new BigDecimal(BigInteger.valueOf(2), -1));
+        
+        args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new LongMultiplyExpression(args), 20l);        
+    }
+    
+    @Test
+    public void james() throws Exception {
+        List<Expression> args = Lists.newArrayList(getLiteral(10l, PDataType.LONG), getLiteral(2l, PDataType.DECIMAL));
+        evaluateAndAssertResult(new ComparisonExpression(CompareOp.GREATER, args), true);
+        
+//        List<Expression> args = Lists.newArrayList(getLiteral(10l, PDataType.UNSIGNED_LONG), getLiteral(2l, PDataType.DECIMAL));
+//        evaluateAndAssertResult(new ComparisonExpression(CompareOp.GREATER, args), true);        
+    }
+    
+    @Test
+    public void compareNumbers() throws Exception {
+        PDataType[] numberDataTypes = new PDataType[]{PDataType.INTEGER, PDataType.LONG, PDataType.DECIMAL, PDataType.UNSIGNED_INT, PDataType.UNSIGNED_LONG};
+        for (PDataType lhsDataType : numberDataTypes) {
+            for (PDataType rhsDataType : numberDataTypes) {
+                if ((lhsDataType == PDataType.LONG || lhsDataType == PDataType.UNSIGNED_LONG)  && rhsDataType == PDataType.DECIMAL) {
+                    // see james
+                    continue;
+                }
+                runCompareTest(CompareOp.GREATER, true, 10, lhsDataType, 2, rhsDataType);
+            }
+        }
+    }
+    
+    @Test
+    public void compareCharacters() throws Exception {
+        PDataType[] textDataTypes = new PDataType[]{PDataType.CHAR, PDataType.VARCHAR};
+        for (PDataType lhsDataType : textDataTypes) {
+            for (PDataType rhsDataType : textDataTypes) {
+                runCompareTest(CompareOp.GREATER, true, "xxx", lhsDataType, "bbb", rhsDataType);
+            }
+        }
+    }
+    
+    @Test
+    public void compareBooleans() throws Exception {
+        // see review comment in PDataType.toBytes(Object object, ColumnModifier columnModifier)
+        runCompareTest(CompareOp.GREATER, true, true, PDataType.BOOLEAN, false, PDataType.BOOLEAN);        
+    }
+    
+    private void runCompareTest(CompareOp op, boolean expectedResult, Object lhsValue, PDataType lhsDataType, Object rhsValue, PDataType rhsDataType) throws Exception {
+        List<Expression> args = Lists.newArrayList(getLiteral(lhsValue, lhsDataType), getLiteral(rhsValue, rhsDataType));
+        evaluateAndAssertResult(new ComparisonExpression(op, args), expectedResult, "lhsDataType: " + lhsDataType + " rhsDataType: " + rhsDataType);
+        
+        args = Lists.newArrayList(getInvertedLiteral(lhsValue, lhsDataType), getLiteral(rhsValue, rhsDataType));
+        evaluateAndAssertResult(new ComparisonExpression(op, args), expectedResult, "lhs (inverted) dataType: " + lhsDataType + " rhsDataType: " + rhsDataType);
+        
+        args = Lists.newArrayList(getLiteral(lhsValue, lhsDataType), getInvertedLiteral(rhsValue, rhsDataType));
+        evaluateAndAssertResult(new ComparisonExpression(op, args), expectedResult, "lhsDataType: " + lhsDataType + " rhs (inverted) dataType: " + rhsDataType);
+        
+        args = Lists.newArrayList(getInvertedLiteral(lhsValue, lhsDataType), getInvertedLiteral(rhsValue, rhsDataType));
+        evaluateAndAssertResult(new ComparisonExpression(op, args), expectedResult, "lhs (inverted) dataType: " + lhsDataType + " rhs (inverted) dataType: " + rhsDataType);                
+    }
+    
     private void evaluateAndAssertResult(Expression expression, Object expectedResult) {
+        evaluateAndAssertResult(expression, expectedResult, null);
+    }
+    
+    private void evaluateAndAssertResult(Expression expression, Object expectedResult, String context) {
+        context = context == null ? "" : context;
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         assertTrue(expression.evaluate(null, ptr));
         PDataType dataType = expression.getDataType();
         ColumnModifier columnModifier = expression.getColumnModifier();
         Object result = dataType.toObject(ptr.get(), ptr.getOffset(), ptr.getLength(), dataType, columnModifier);
-        assertEquals(expectedResult, result);
+        assertEquals(context, expectedResult, result);
     }
     
-    private Expression getLiteral(Object value) {
+    private Expression getLiteral(Object value) throws Exception {
         return LiteralExpression.newConstant(value);
     }
+    
+    private Expression getLiteral(Object value, PDataType dataType) throws Exception {
+        return LiteralExpression.newConstant(value, dataType);
+    }    
     
     private Expression getInvertedLiteral(Object literal, PDataType dataType) throws Exception {
         return LiteralExpression.newConstant(literal, dataType, ColumnModifier.SORT_DESC);
