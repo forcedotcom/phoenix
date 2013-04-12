@@ -48,6 +48,7 @@ import com.salesforce.phoenix.schema.TableRef;
  * @since 0.1
  */
 public class ScanPlan extends BasicQueryPlan {
+    private List<KeyRange> splits;
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projection, Integer limit, OrderBy orderBy) {
         super(context, table, projection, context.getBindManager().getParameterMetaData(), limit, orderBy);
@@ -55,7 +56,7 @@ public class ScanPlan extends BasicQueryPlan {
     
     @Override
     public List<KeyRange> getSplits() {
-        return null;
+        return splits;
     }
     
     @Override
@@ -74,11 +75,13 @@ public class ScanPlan extends BasicQueryPlan {
         // what the parallel iterator does) in case there are a billion rows and we'll
         // stop iterating after a few.
         if (limit == null) {
-            scanner = new TableResultIterator(context, table);
-            scanner = new SerialLimitingResultIterator(scanner, Long.MAX_VALUE, RowCounter.UNLIMIT_ROW_COUNTER);
+            ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
+            scanner = new ConcatResultIterator(iterators);
+            splits = iterators.getSplits();
         } else {
             scanner = new TableResultIterator(context, table);
             scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
+            splits = null;
         }
         if (!orderBy.getOrderingColumns().isEmpty()) {
             scanner = new OrderedResultIterator(context, scanner, orderBy.getOrderingColumns());
