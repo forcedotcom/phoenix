@@ -28,8 +28,9 @@ package com.salesforce.phoenix.parse;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-
+import com.google.common.collect.ImmutableList;
 
 
 /**
@@ -41,19 +42,19 @@ import java.util.List;
  */
 public class NamedTableNode extends ConcreteTableNode {
 	
-	 private List<ColumnDef> dyn_columns = null;
+	 private final List<ColumnDef> dyncolumns ;
 
     NamedTableNode(String alias, TableName name) {
         super(alias, name);
-        this.dyn_columns = new ArrayList<ColumnDef>();
+	dyncolumns =  Collections.<ColumnDef>emptyList();
     }    
 
     NamedTableNode(String alias, TableName name,List<ColumnDef> dyn_columns) {
 	super(alias, name);
 	if(dyn_columns != null){
-		this.dyn_columns = dyn_columns;
-	}else{
-		this.dyn_columns = new ArrayList<ColumnDef>();
+		this.dyncolumns = ImmutableList.copyOf(dyn_columns);
+        }else{
+		this.dyncolumns =  Collections.<ColumnDef>emptyList();
 	}
     }
 
@@ -62,13 +63,8 @@ public class NamedTableNode extends ConcreteTableNode {
         visitor.visit(this);
     }
 
-	public List<ColumnDef> getDyn_columns() {
-		return dyn_columns;
+	public List<ColumnDef> getDynamicColumns() {
+		return dyncolumns;
 	}
-
-	public void setDyn_columns(List<ColumnDef> dyn_columns) {
-		this.dyn_columns = dyn_columns;
-	}
-
 }
 

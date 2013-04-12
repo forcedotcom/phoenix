@@ -128,12 +128,13 @@ public class FromCompiler {
                 throw new TableNotFoundException(schemaName, tableName);
             }
             PTable theTable = theSchema.getTable(tableName);
-            if(dyn_columns!=null){
+            if(dyn_columns!=null && dyn_columns.isEmpty()) {
+		MetaDataClient client = new MetaDataClient(connection);
             	int ordinalPosition = theTable.getColumns().size();
 	        List<PColumn> dyn_column_list = new ArrayList<PColumn>();
             	dyn_column_list.addAll(theTable.getColumns());
             	for(ColumnDef cdef:dyn_columns){
-            		PColumn pc = this.newColumn(ordinalPosition, cdef, new HashSet(theTable.getPKColumns()));
+            		PColumn pc = client.newColumn(ordinalPosition, cdef, new HashSet(theTable.getPKColumns()));
             		if(pc!=null){					
             			dyn_column_list.add(pc);
             		}
@@ -251,7 +252,7 @@ public class FromCompiler {
             String schemaName = namedTableNode.getName().getSchemaName();
             
             String alias = namedTableNode.getAlias();
-            List<ColumnDef> dyn_columns = namedTableNode.getDyn_columns();
+            List<ColumnDef> dyn_columns = namedTableNode.getDynamicColumns();
            
             TableRef tableRef = createTableRef(alias, schemaName, tableName,dyn_columns);
             PSchema theSchema = tableRef.getSchema();
@@ -362,35 +363,6 @@ public class FromCompiler {
             }
         }
         
-        protected PColumn newColumn(int position, ColumnDef def, Set<String> pkColumns) throws SQLException {
-            try {
-                String columnName = def.getColumnDefName().getColumnName().getName();
-                PName familyName = null;
-                if (def.isPK() && !pkColumns.isEmpty() ) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_ALREADY_EXISTS)
-                        .setColumnName(columnName).build().buildException();
-                }
-                boolean isPK = def.isPK() || pkColumns.contains(columnName);
-                if (def.getColumnDefName().getFamilyName() != null) {
-                    String family = def.getColumnDefName().getFamilyName().getName();
-                    if (isPK) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_WITH_FAMILY_NAME)
-                            .setColumnName(columnName).setFamilyName(family).build().buildException();
-                    } else if (!def.isNull()) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.KEY_VALUE_NOT_NULL)
-                            .setColumnName(columnName).setFamilyName(family).build().buildException();
-                    }
-                    familyName = new PNameImpl(family);
-                } else if (!isPK) {
-                    familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
-                }
-                PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
-                        def.getMaxLength(), def.getScale(), def.isNull(), position);
-                return column;
-            } catch (IllegalArgumentException e) { // Based on precondition check in constructor
-                throw new SQLException(e);
-            }
-        }
     }
 }
 
