@@ -63,7 +63,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, /* comment ok? */ b_string FROM aTable WHERE organization_id=? and a_integer = 5";
+        String query = "SELECT a_string, /* comment ok? */ b_string FROM aTable WHERE ?=organization_id and 5=a_integer";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);

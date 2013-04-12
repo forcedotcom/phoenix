@@ -1,37 +1,47 @@
 /*******************************************************************************
  * Copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     Redistributions of source code must retain the above copyright notice,
  *     this list of conditions and the following disclaimer.
  *     Redistributions in binary form must reproduce the above copyright notice,
  *     this list of conditions and the following disclaimer in the documentation
  *     and/or other materials provided with the distribution.
- *     Neither the name of Salesforce.com nor the names of its contributors may 
- *     be used to endorse or promote products derived from this software without 
+ *     Neither the name of Salesforce.com nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
  *     specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.*;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
@@ -46,14 +56,14 @@ public class PDataTypeTest {
         byte[] b = PDataType.LONG.toBytes(la);
         Long lb = (Long)PDataType.LONG.toObject(b);
         assertEquals(la,lb);
-        
+
         Long na = 1L;
         Long nb = -1L;
         byte[] ba = PDataType.LONG.toBytes(na);
         byte[] bb = PDataType.LONG.toBytes(nb);
         assertTrue(Bytes.compareTo(ba, bb) > 0);
     }
-    
+
     @Test
     public void testInt() {
         Integer na = 4;
@@ -84,20 +94,20 @@ public class PDataTypeTest {
     public void testBigDecimal() {
         byte[] b;
         BigDecimal na, nb;
-        
+
         b = new byte[] {
                 (byte)0xc2,0x02,0x10,0x36,0x22,0x22,0x22,0x22,0x22,0x22,0x0f,0x27,0x38,0x1c,0x05,0x40,0x62,0x21,0x54,0x4d,0x4e,0x01,0x14,0x36,0x0d,0x33
         };
         BigDecimal decodedBytes = (BigDecimal)PDataType.DECIMAL.toObject(b);
         assertTrue(decodedBytes.compareTo(BigDecimal.ZERO) > 0);
- 
+
         na = new BigDecimal(new BigInteger("12345678901239998123456789"), 2);
         //[-52, 13, 35, 57, 79, 91, 13, 40, 100, 82, 24, 46, 68, 90]
         b = PDataType.DECIMAL.toBytes(na);
         nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
         TestUtil.assertRoundEquals(na,nb);
         assertTrue(b.length <= PDataType.DECIMAL.estimateByteSize(na));
-        
+
         na = new BigDecimal("115.533333333333331438552704639732837677001953125");
         b = PDataType.DECIMAL.toBytes(na);
         nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
@@ -118,9 +128,15 @@ public class PDataTypeTest {
         nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
         TestUtil.assertRoundEquals(na,nb);
         assertTrue(b.length <= PDataType.DECIMAL.estimateByteSize(na));
-        
+
         // If we don't remove trailing zeros, this fails
         na = new BigDecimal(-1000);
+        b = PDataType.DECIMAL.toBytes(na);
+        nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
+        assertTrue(na.compareTo(nb) == 0);
+        assertTrue(b.length <= PDataType.DECIMAL.estimateByteSize(na));
+
+        na = new BigDecimal("1000.5829999999999913");
         b = PDataType.DECIMAL.toBytes(na);
         nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
         assertTrue(na.compareTo(nb) == 0);
@@ -137,7 +153,7 @@ public class PDataTypeTest {
         nb = (BigDecimal)PDataType.DECIMAL.toObject(b);
         assertTrue(na.compareTo(nb) == 0);
         assertTrue(b.length <= PDataType.DECIMAL.estimateByteSize(na));
-        
+
         na = new BigDecimal(1);
         nb = new BigDecimal(-1);
         byte[] ba = PDataType.DECIMAL.toBytes(na);
@@ -153,7 +169,7 @@ public class PDataTypeTest {
         assertTrue(Bytes.compareTo(ba, bb) > 0);
         assertTrue(ba.length <= PDataType.DECIMAL.estimateByteSize(na));
         assertTrue(bb.length <= PDataType.DECIMAL.estimateByteSize(nb));
-        
+
         na = new BigDecimal(-3);
         nb = new BigDecimal(-1000);
         assertTrue(na.compareTo(nb) > 0);
@@ -162,7 +178,7 @@ public class PDataTypeTest {
         assertTrue(Bytes.compareTo(ba, bb) > 0);
         assertTrue(ba.length <= PDataType.DECIMAL.estimateByteSize(na));
         assertTrue(bb.length <= PDataType.DECIMAL.estimateByteSize(nb));
-        
+
         na = new BigDecimal(BigInteger.valueOf(12345678901239998L), 2);
         nb = new BigDecimal(97);
         assertTrue(na.compareTo(nb) > 0);
@@ -171,7 +187,7 @@ public class PDataTypeTest {
         assertTrue(Bytes.compareTo(ba, bb) > 0);
         assertTrue(ba.length <= PDataType.DECIMAL.estimateByteSize(na));
         assertTrue(bb.length <= PDataType.DECIMAL.estimateByteSize(nb));
-        
+
         List<BigDecimal> values = Arrays.asList(new BigDecimal[] {
             new BigDecimal(-1000),
             new BigDecimal(-100000000),
@@ -187,12 +203,12 @@ public class PDataTypeTest {
             new BigDecimal(97),
             new BigDecimal(-3)
         });
-        
+
         List<byte[]> byteValues = new ArrayList<byte[]>();
         for (int i = 0; i < values.size(); i++) {
             byteValues.add(PDataType.DECIMAL.toBytes(values.get(i)));
         }
-        
+
         for (int i = 0; i < values.size(); i++) {
             BigDecimal expected = values.get(i);
             BigDecimal actual = (BigDecimal)PDataType.DECIMAL.toObject(byteValues.get(i));
@@ -202,7 +218,7 @@ public class PDataTypeTest {
 
         Collections.sort(values);
         Collections.sort(byteValues, Bytes.BYTES_COMPARATOR);
-        
+
         for (int i = 0; i < values.size(); i++) {
             BigDecimal expected = values.get(i);
             byte[] bytes = PDataType.DECIMAL.toBytes(values.get(i));
@@ -210,16 +226,48 @@ public class PDataTypeTest {
             BigDecimal actual = (BigDecimal)PDataType.DECIMAL.toObject(byteValues.get(i));
             assertTrue("For " + i + " expected " + expected + " but got " + actual,expected.round(PDataType.DEFAULT_MATH_CONTEXT).compareTo(actual.round(PDataType.DEFAULT_MATH_CONTEXT))==0);
         }
-        
+
+
+        {
+            String[] strs ={
+                    "\\xC2\\x03\\x0C\\x10\\x01\\x01\\x01\\x01\\x01\\x019U#\\x13W\\x09\\x09"
+                    ,"\\xC2\\x03<,ddddddN\\x1B\\x1B!.9N"
+                    ,"\\xC2\\x039"
+                    ,"\\xC2\\x03\\x16,\\x01\\x01\\x01\\x01\\x01\\x01E\\x16\\x16\\x03@\\x1EG"
+                    ,"\\xC2\\x02d6dddddd\\x15*]\\x0E<1F"
+                    ,"\\xC2\\x04 3"
+                    ,"\\xC2\\x03$Ldddddd\\x0A\\x06\\x06\\x1ES\\x1C\\x08"
+                    ,"\\xC2\\x03\\x1E\\x0A\\x01\\x01\\x01\\x01\\x01\\x01#\\x0B=4 AV"
+                    ,"\\xC2\\x02\\\\x04dddddd\\x15*]\\x0E<1F"
+                    ,"\\xC2\\x02V\"\\x01\\x01\\x01\\x01\\x01\\x02\\x1A\\x068\\x162&O"
+            };
+            for (String str : strs) {
+                byte[] bytes = Bytes.toBytesBinary(str);
+                Object o = PDataType.DECIMAL.toObject(bytes);
+                assertNotNull(o);
+                //System.out.println(o.getClass() +" " + bytesToHex(bytes)+" " + o+" ");
+            }
+        }
     }
-    
+    public static String bytesToHex(byte[] bytes) {
+        final char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+        char[] hexChars = new char[bytes.length * 2];
+        int v;
+        for ( int j = 0; j < bytes.length; j++ ) {
+            v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
     @Test
     public void testEmptyString() throws Throwable {
         byte[] b1 = PDataType.VARCHAR.toBytes("");
         byte[] b2 = PDataType.VARCHAR.toBytes(null);
         assert (b1.length == 0 && Bytes.compareTo(b1, b2) == 0);
     }
-    
+
     @Test
     public void testNull() throws Throwable {
         byte[] b = new byte[8];
@@ -253,7 +301,7 @@ public class PDataTypeTest {
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_LONG, 10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_LONG, 0));
         assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_LONG, -10));
-        
+
         // Testing coercing long to other values.
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.INTEGER));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.INTEGER, Long.MAX_VALUE));
@@ -277,7 +325,7 @@ public class PDataTypeTest {
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, 0L));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, -10L));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, Long.MIN_VALUE));
-        
+
         // Testing coercing unsigned_int to other values.
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.INTEGER));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.INTEGER, 10));
@@ -288,13 +336,21 @@ public class PDataTypeTest {
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG, 10));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG, 0));
-        
+
         // Testing coercing unsigned_long to other values.
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER, 10L));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER, 0L));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.LONG));
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_INT));
+        
+        // Testing coercing Date types
+        assertTrue(PDataType.DATE.isCoercibleTo(PDataType.TIMESTAMP));
+        assertTrue(PDataType.DATE.isCoercibleTo(PDataType.TIME));
+        assertTrue(PDataType.TIMESTAMP.isCoercibleTo(PDataType.DATE));
+        assertTrue(PDataType.TIMESTAMP.isCoercibleTo(PDataType.TIME));
+        assertTrue(PDataType.TIME.isCoercibleTo(PDataType.TIMESTAMP));
+        assertTrue(PDataType.TIME.isCoercibleTo(PDataType.DATE));
     }
 
     @Test
@@ -305,7 +361,7 @@ public class PDataTypeTest {
         int[] v = PDataType.getDecimalPrecisionAndScale(b, 0, b.length);
         assertEquals(0, v[0]);
         assertEquals(0, v[1]);
-        
+
         BigDecimal[] bds = new BigDecimal[] {
                 new BigDecimal("1"),
                 new BigDecimal("0.11"),
@@ -335,11 +391,34 @@ public class PDataTypeTest {
                 new BigDecimal("0.111111111111111111111111111111"),
                 new BigDecimal("0.1111111111111111111111111111111"),
         };
-        
+
         for (int i=0; i<bds.length; i++) {
             testReadDecimalPrecisionAndScaleFromRawBytes(bds[i]);
             testReadDecimalPrecisionAndScaleFromRawBytes(bds[i].negate());
         }
+    }
+    
+    @Test
+    public void testDateConversions() {
+        long now = System.currentTimeMillis();
+        Date date = new Date(now);
+        Time t = new Time(now);
+        Timestamp ts = new Timestamp(now);
+        
+        Object o = PDataType.DATE.toObject(ts, PDataType.TIMESTAMP);
+        assertEquals(o.getClass(), java.sql.Date.class);
+        o = PDataType.DATE.toObject(t, PDataType.TIME);
+        assertEquals(o.getClass(), java.sql.Date.class);
+        
+        o = PDataType.TIME.toObject(date, PDataType.DATE);
+        assertEquals(o.getClass(), java.sql.Time.class);
+        o = PDataType.TIME.toObject(ts, PDataType.TIMESTAMP);
+        assertEquals(o.getClass(), java.sql.Time.class);
+                
+        o = PDataType.TIMESTAMP.toObject(date, PDataType.DATE);
+        assertEquals(o.getClass(), java.sql.Timestamp.class);
+        o = PDataType.TIMESTAMP.toObject(t, PDataType.TIME);
+        assertEquals(o.getClass(), java.sql.Timestamp.class); 
     }
 
     private void testReadDecimalPrecisionAndScaleFromRawBytes(BigDecimal bd) {

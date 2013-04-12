@@ -51,6 +51,6 @@ public class EqualParseNode extends ComparisonParseNode {
 
     @Override
     public ComparisonParseNode invert(ParseNodeFactory factory) {
-        return this;
+        return factory.equal(this.getRHS(), this.getLHS());
     }
 }

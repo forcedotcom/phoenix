@@ -27,15 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
+import java.sql.SQLException;
 import java.util.List;
-import java.util.SortedSet;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.client.Scan;
-
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.TableRef;
 
 
 /**
@@ -45,5 +40,5 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public interface ParallelIteratorRegionSplitter {
 
-    public List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions);
+    public List<KeyRange> getSplits() throws SQLException;
 }

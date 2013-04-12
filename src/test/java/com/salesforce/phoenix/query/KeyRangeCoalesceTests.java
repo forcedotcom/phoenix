@@ -1,16 +1,20 @@
 package com.salesforce.phoenix.query;
 
+import static com.salesforce.phoenix.query.KeyRange.EMPTY_RANGE;
+import static com.salesforce.phoenix.query.KeyRange.EVERYTHING_RANGE;
+import static java.util.Arrays.asList;
+import static org.apache.hadoop.hbase.util.Bytes.toBytes;
+
 import java.util.*;
+
 import junit.framework.TestCase;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-import static com.salesforce.phoenix.query.KeyRange.EMPTY_RANGE;
-import static com.salesforce.phoenix.query.KeyRange.EVERYTHING_RANGE;
-import static com.salesforce.phoenix.query.KeyRange.getKeyRange;
-import static org.apache.hadoop.hbase.util.Bytes.toBytes;
-import static java.util.Arrays.*;
+
+import com.salesforce.phoenix.schema.PDataType;
 
 @RunWith(Parameterized.class)
 public class KeyRangeCoalesceTests extends TestCase {
@@ -31,64 +35,64 @@ public class KeyRangeCoalesceTests extends TestCase {
                 input(
                 )},
                 {expect(
-                        getKeyRange(toBytes("C"), true, toBytes("E"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("E"), true)
                 ),
                 input(
-                        getKeyRange(toBytes("C"), true, toBytes("E"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("E"), true)
                 )},
                 {expect(
-                        getKeyRange(toBytes("C"), true, toBytes("E"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("E"), true)
                 ),
                 input(
-                        getKeyRange(toBytes("C"), true, toBytes("D"), true),
-                        getKeyRange(toBytes("D"), true, toBytes("E"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("D"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("D"), true, toBytes("E"), true)
                 )},
                 {expect(
-                        getKeyRange(toBytes("C"), true, toBytes("Z"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("Z"), true)
                 ),
                 input(
-                        getKeyRange(toBytes("C"), true, toBytes("D"), true),
-                        getKeyRange(toBytes("D"), true, toBytes("E"), true),
-                        getKeyRange(toBytes("D"), true, toBytes("Z"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("D"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("D"), true, toBytes("E"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("D"), true, toBytes("Z"), true)
                 )},
                 {expect(
-                        getKeyRange(toBytes("B"), true, toBytes("Z"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("B"), true, toBytes("Z"), true)
                 ),
                 input(
-                        getKeyRange(toBytes("C"), true, toBytes("D"), true),
-                        getKeyRange(toBytes("B"), true, toBytes("E"), true),
-                        getKeyRange(toBytes("D"), true, toBytes("Z"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("D"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("B"), true, toBytes("E"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("D"), true, toBytes("Z"), true)
                 )},
                 {expect(
-                        getKeyRange(toBytes("B"), true, toBytes("Z"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("B"), true, toBytes("Z"), true)
                 ),
                 input(
-                        getKeyRange(toBytes("C"), true, toBytes("D"), true),
-                        getKeyRange(toBytes("B"), true, toBytes("Z"), false),
-                        getKeyRange(toBytes("D"), true, toBytes("Z"), true)
+                        PDataType.CHAR.getKeyRange(toBytes("C"), true, toBytes("D"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("B"), true, toBytes("Z"), false),
+                        PDataType.CHAR.getKeyRange(toBytes("D"), true, toBytes("Z"), true)
                 )},
                 {expect(
-                        getKeyRange(toBytes("A"), true, toBytes("A"), true),
-                        getKeyRange(toBytes("B"), true, toBytes("Z"), false)
+                        PDataType.CHAR.getKeyRange(toBytes("A"), true, toBytes("A"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("B"), true, toBytes("Z"), false)
                 ),
                 input(
-                        getKeyRange(toBytes("A"), true, toBytes("A"), true),
-                        getKeyRange(toBytes("B"), true, toBytes("Z"), false)
+                        PDataType.CHAR.getKeyRange(toBytes("A"), true, toBytes("A"), true),
+                        PDataType.CHAR.getKeyRange(toBytes("B"), true, toBytes("Z"), false)
                 )},
                 {expect(
-                        getKeyRange(toBytes("A"), true, toBytes("B"), false),
-                        getKeyRange(toBytes("B"), false, toBytes("Z"), false)
+                        PDataType.CHAR.getKeyRange(toBytes("A"), true, toBytes("B"), false),
+                        PDataType.CHAR.getKeyRange(toBytes("B"), false, toBytes("Z"), false)
                 ),
                 input(
-                        getKeyRange(toBytes("A"), true, toBytes("B"), false),
-                        getKeyRange(toBytes("B"), false, toBytes("Z"), false)
+                        PDataType.CHAR.getKeyRange(toBytes("A"), true, toBytes("B"), false),
+                        PDataType.CHAR.getKeyRange(toBytes("B"), false, toBytes("Z"), false)
                 )},
                 {expect(
-                        getKeyRange(toBytes("A"), true, toBytes("Z"), false)
+                        PDataType.CHAR.getKeyRange(toBytes("A"), true, toBytes("Z"), false)
                 ),
                 input(
-                        getKeyRange(toBytes("A"), true, toBytes("B"), false),
-                        getKeyRange(toBytes("B"), true, toBytes("Z"), false)
+                        PDataType.CHAR.getKeyRange(toBytes("A"), true, toBytes("B"), false),
+                        PDataType.CHAR.getKeyRange(toBytes("B"), true, toBytes("Z"), false)
                 )},
                 {expect(
                     EVERYTHING_RANGE

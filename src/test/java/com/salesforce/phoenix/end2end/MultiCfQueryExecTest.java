@@ -216,4 +216,24 @@ public class MultiCfQueryExecTest extends BaseClientMangedTimeTest {
         }
     }
     
+    @Test
+    public void testEssentialColumnFamilyForRowKeyFilter() throws Exception {
+        long ts = nextTimestamp();
+        String query = "SELECT F.RESPONSE_TIME,G.RESPONSE_TIME from multi_cf where SUBSTR(ID, 15) = '2'";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            initTableValues(ts);
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(2222, rs.getLong(1));
+            assertEquals(22222, rs.getLong(2));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
 }

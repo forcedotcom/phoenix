@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -70,7 +71,7 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public SortedSet<HRegionInfo> getAllTableRegions(TableRef table) throws SQLException {
+    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException {
         return getDelegate().getAllTableRegions(table);
     }
 

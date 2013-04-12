@@ -67,36 +67,36 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     
     @Override
     public Aggregator newServerAggregator() {
-        BaseAggregator aggregator = null;
-        switch( getAggregatorExpression().getDataType() ) {
+        final PDataType type = getAggregatorExpression().getDataType();
+
+        // REVIEW - stoens
+        // add column mod to ctor:
+        
+        switch( type ) {
             case DECIMAL:
-                aggregator = new DecimalSumAggregator(); break;
-            case LONG:
-                aggregator = new LongSumAggregator(); break;
-            case UNSIGNED_LONG:
-                aggregator = new UnsignedLongSumAggregator(); break;
-            case INTEGER:
-                aggregator = new IntSumAggregator(); break;
-            case UNSIGNED_INT:
-                aggregator = new UnsignedIntSumAggregator(); break;
+                return new DecimalSumAggregator();
             default:
-                throw new IllegalStateException("Unsupported SUM input type: " + getDataType());
+                return new NumberSumAggregator() {
+                    @Override
+                    protected PDataType getInputDataType() {
+                        return type;
+                    }
+                };
         }
-        aggregator.setColumnModifier(children.get(0).getColumnModifier());
-        return aggregator;
     }
     
     @Override
     public Aggregator newClientAggregator() {
         // REVIEW - stoens do client aggregators ever run without server aggregators having run first?
         // if they do, then we have to worry about bit inversion here
+        // No, also pass it through here - wait for James' answer
         switch( getDataType() ) {
             case DECIMAL:
                 return new DecimalSumAggregator();
             case LONG:
                 return new LongSumAggregator();
             default:
-                throw new IllegalStateException("Unsupported SUM type: " + getDataType());
+                throw new IllegalStateException("Unexpected SUM type: " + getDataType());
         }
     }
 

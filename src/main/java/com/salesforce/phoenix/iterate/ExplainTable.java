@@ -151,7 +151,7 @@ public abstract class ExplainTable {
             KeyRange lower = ranges.get(0);
             KeyRange upper = ranges.get(ranges.size()-1);
             PDataType dataType = scanRanges.getSchema().getField(i).getType();
-            if (lower.isSingleKey() && lower == upper) {
+            if (lower.isSingleKey() && ranges.size() == 1) {
                 appendPKColumnValue(buf, lower.getLowerRange(), dataType);
             } else {
                 buf.append(lower.isLowerInclusive() ? '[' : '(');

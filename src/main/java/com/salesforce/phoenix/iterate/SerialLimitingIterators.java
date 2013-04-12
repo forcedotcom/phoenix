@@ -33,13 +33,13 @@ import java.util.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.PageFilter;
 
-
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.exception.*;
+import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
@@ -51,9 +51,8 @@ import com.salesforce.phoenix.util.ScanUtil;
 
 /**
  * 
- * Class that executes scans serially for each region in descending order.  Used
- * for scans that have a row count limit and in the most common case are looking
- * for newer rows.
+ * Class that executes scans serially for each region.  Used for non aggregate
+ * scans and aggregate scans that have a row count limit.
  *
  * @author jtaylor
  * @since 0.1
@@ -70,9 +69,9 @@ public class SerialLimitingIterators extends ExplainTable implements ResultItera
         super(context, table);
         this.limit = limit;
         this.rowCounter = rowCounter;
-        Set<HRegionInfo> regions = context.getConnection().getQueryServices().getAllTableRegions(this.table);
+        NavigableMap<HRegionInfo, ServerName> regions = context.getConnection().getQueryServices().getAllTableRegions(this.table);
         regionScans = Lists.newArrayListWithExpectedSize(regions.size());
-        for (HRegionInfo region : regions) {
+        for (HRegionInfo region : regions.keySet()) {
             Scan regionScan;
             try {
                 regionScan = new Scan(context.getScan());

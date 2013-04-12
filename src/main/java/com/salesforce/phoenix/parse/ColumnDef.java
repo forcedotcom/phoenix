@@ -27,9 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.sql.SQLException;
+
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.SchemaUtil;
+
 
 /**
  * 
@@ -48,17 +53,33 @@ public class ColumnDef {
     private final ColumnModifier sortOrder;
  
     ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
-            Integer scale, boolean isPK, String sortOrder) {
+            Integer scale, boolean isPK, String sortOrder) throws SQLException {
         this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;
         if (this.dataType == PDataType.CHAR) {
             if (maxLength == null) {
-                throw new IllegalArgumentException(sqlTypeName + " must declare a length");
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_CHAR_LENGTH)
+                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
+            }
+            if (maxLength < 1) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
+                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
+            }
+            scale = null;
+        } else if (this.dataType == PDataType.VARCHAR) {
+            if (maxLength != null && maxLength < 1) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
+                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException(); 
             }
             scale = null;
         } else if (this.dataType == PDataType.DECIMAL) {
             maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
+            // for deciaml, 1 <= maxLength <= PDataType.MAX_PRECISION;
+            if (maxLength < 1 || maxLength > PDataType.MAX_PRECISION) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.DECIMAL_PRECISION_OUT_OF_RANGE)
+                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
+            }
             // If scale is not specify, it is set to 0. This is the standard as specified in
             // http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
             // and 
@@ -71,11 +92,9 @@ public class ColumnDef {
         } else if (this.dataType == PDataType.LONG) {
             maxLength = PDataType.LONG_PRECISION;
             scale = PDataType.ZERO;
-        } else if (this.dataType != PDataType.VARCHAR) {
-            // Ignore maxLength unless CHAR or VARCHAR for now
-            maxLength = null;
-            scale = null;
         } else {
+            // ignore maxLength and scale for other types.
+            maxLength = null;
             scale = null;
         }
         this.maxLength = maxLength;

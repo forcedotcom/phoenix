@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -63,7 +64,7 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     
     public StatsManager getStatsManager();
     
-    public SortedSet<HRegionInfo> getAllTableRegions(TableRef table) throws SQLException;
+    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException;
 
     public PhoenixConnection connect(String url, Properties info) throws SQLException;
 

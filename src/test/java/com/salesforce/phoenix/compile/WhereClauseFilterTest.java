@@ -52,8 +52,7 @@ import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
-import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.util.*;
@@ -291,7 +290,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                             LiteralExpression.newConstant(1),
                             LiteralExpression.newConstant(3))
                         ),
-                    keyPrefix)),
+                    keyPrefix), QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES),
             filter);
     }
 
@@ -637,7 +636,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                         pointRange(tenantId1),
                         pointRange(tenantId2),
                         pointRange(tenantId3)),
-                    Arrays.asList(KeyRange.getKeyRange(
+                    Arrays.asList(PDataType.CHAR.getKeyRange(
                         Bytes.toBytes(entityId1),
                         true,
                         Bytes.toBytes(entityId2),

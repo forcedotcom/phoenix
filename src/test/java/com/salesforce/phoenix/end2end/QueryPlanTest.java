@@ -53,10 +53,10 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
         ensureTableCreated(getUrl(), PTSDB_NAME, getDefaultSplits(getOrganizationId()));
         String[] queryPlans = new String[] {
                 "SELECT * FROM atable",
-                "CLIENT SERIAL FULL SCAN OVER ATABLE",
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE",
 
                 "SELECT inst,host FROM PTSDB WHERE regexp_substr(inst, '[^-]+') IN ('na1', 'na2','na3')",
-                "CLIENT SERIAL RANGE SCAN ON 3 RANGES OVER PTSDB ['na1'-'na4')\n" + 
+                "CLIENT PARALLEL 1-WAY RANGE SCAN ON 3 RANGES OVER PTSDB ['na1'-'na4')\n" + 
                 "    SERVER FILTER BY REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')",
 
                 "SELECT count(*) FROM atable",
@@ -64,13 +64,14 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "    SERVER FILTER BY FirstKeyOnlyFilter\n" +
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
+                // TODO: review: why does this change with parallelized non aggregate queries?
                 "SELECT count(*) FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
                 "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001',['003'-'004')\n" + 
                 "    SERVER FILTER BY FirstKeyOnlyFilter\n" + 
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 "SELECT a_string FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE '000000000000001',['003'-'004')",
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001',['003'-'004')",
 
                 "SELECT count(1) FROM atable GROUP BY a_string",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
@@ -104,7 +105,7 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SORT BY [B_STRING asc nulls first]",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id = '000000000000002' AND x_integer = 2 AND a_integer < 5 ",
-                "CLIENT SERIAL RANGE SCAN OVER ATABLE '000000000000001','000000000000002'\n" + 
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001','000000000000002'\n" + 
                 "    SERVER FILTER BY (X_INTEGER = 2 AND A_INTEGER < 5)",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id != '000000000000002' AND x_integer = 2 AND a_integer < 5 LIMIT 10",
@@ -126,10 +127,10 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SORT BY [A_STRING asc nulls first]",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005')",
-                "CLIENT SERIAL RANGE SCAN ON 2 KEYS OVER ATABLE ['000000000000001'-'000000000000005']",
+                "CLIENT PARALLEL 1-WAY RANGE SCAN ON 2 KEYS OVER ATABLE ['000000000000001'-'000000000000005']",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005') AND entity_id IN('000000000000001','00000000000000Z')",
-                "CLIENT SERIAL RANGE SCAN ON 4 KEYS OVER ATABLE ['000000000000001'-'000000000000005'],['000000000000001'-'00000000000000Z']",
+                "CLIENT PARALLEL 1-WAY RANGE SCAN ON 4 KEYS OVER ATABLE ['000000000000001'-'000000000000005'],['000000000000001'-'00000000000000Z']",
         };
         for (int i = 0; i < queryPlans.length; i+=2) {
             String query = queryPlans[i];

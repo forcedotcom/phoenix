@@ -66,6 +66,22 @@ public class SelectStatementRewriterTest extends BaseConnectionlessQueryTest {
         String query = "select * from atable where organization_id='" + tenantId + "' and a_integer=0";
         Expression where = compileStatement(query);
         assertTrue(where instanceof ComparisonExpression);
+        ComparisonExpression child = (ComparisonExpression)where;
+        assertEquals(CompareOp.EQUAL, child.getFilterOp());
+        assertTrue(child.getChildren().get(0) instanceof KeyValueColumnExpression);
+        assertTrue(child.getChildren().get(1) instanceof LiteralExpression);
+    }
+    
+    @Test
+    public void testLHSLiteralCollapseAnd() throws SQLException {
+        String tenantId = "000000000000001";
+        String query = "select * from atable where '" + tenantId + "'=organization_id and 0=a_integer";
+        Expression where = compileStatement(query);
+        assertTrue(where instanceof ComparisonExpression);
+        ComparisonExpression child = (ComparisonExpression)where;
+        assertEquals(CompareOp.EQUAL, child.getFilterOp());
+        assertTrue(child.getChildren().get(0) instanceof KeyValueColumnExpression);
+        assertTrue(child.getChildren().get(1) instanceof LiteralExpression);
     }
     
     @Test

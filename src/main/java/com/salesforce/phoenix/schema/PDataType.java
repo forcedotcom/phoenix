@@ -1,28 +1,28 @@
 /*******************************************************************************
  * Copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     Redistributions of source code must retain the above copyright notice,
  *     this list of conditions and the following disclaimer.
  *     Redistributions in binary form must reproduce the above copyright notice,
  *     this list of conditions and the following disclaimer in the documentation
  *     and/or other materials provided with the distribution.
- *     Neither the name of Salesforce.com nor the names of its contributors may 
- *     be used to endorse or promote products derived from this software without 
+ *     Neither the name of Salesforce.com nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
  *     specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
@@ -42,8 +42,10 @@ import org.apache.hadoop.hbase.util.Base64;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.math.LongMath;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
@@ -56,7 +58,7 @@ import com.salesforce.phoenix.util.StringUtil;
  * @author wmacklem
  * @author jtaylor
  * @since 0.1
- * 
+ *
  * TODO: cleanup implementation to reduce copy/paste duplication
  */
 @SuppressWarnings("rawtypes")
@@ -119,7 +121,7 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
                 Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
             if (srcType == PDataType.CHAR && maxLength != null && desiredMaxLength != null) {
                 return maxLength <= desiredMaxLength;
@@ -153,10 +155,17 @@ public enum PDataType {
             return this.compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
         }
 
+        // stoens - REVIEW - see if this is referenced
         @Override
         public Object toObject(String value) {
             return value;
         }
+
+        @Override
+        protected boolean isBytesComparableWith(PDataType otherType) {
+            return this == otherType || this == CHAR;
+        }
+
     },
     /**
      * Fixed length single byte characters
@@ -220,9 +229,9 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
                 Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
-            if ((srcType == PDataType.VARCHAR && ((String)value).length() != b.length) || 
+            if ((srcType == PDataType.VARCHAR && ((String)value).length() != b.length) ||
                     (maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)){
                 return false;
             }
@@ -269,6 +278,11 @@ public enum PDataType {
         @Override
         public Integer estimateByteSizeFromLength(Integer length) {
             return length;
+        }
+
+        @Override
+        protected boolean isBytesComparableWith(PDataType otherType) {
+            return this == otherType || this == VARCHAR;
         }
     },
     LONG("BIGINT", Types.BIGINT, Long.class, new LongCodec()) {
@@ -452,7 +466,7 @@ public enum PDataType {
                 return (int)v;
             case DECIMAL:
                 BigDecimal d = (BigDecimal)object;
-                return d.intValueExact();                
+                return d.intValueExact();
             default:
                 return super.toObject(object, actualType);
             }
@@ -810,7 +824,7 @@ public enum PDataType {
         }
     },
     TIMESTAMP("TIMESTAMP", Types.TIMESTAMP, Timestamp.class, new DateCodec()) {
-        
+
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -841,10 +855,11 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
-            case TIME:
                 return new Timestamp(((Date)object).getTime());
+            case TIME:
+                return new Timestamp(((Time)object).getTime());
             case TIMESTAMP:
-                return object;                
+                return object;
             default:
                 return super.toObject(object, actualType);
             }
@@ -866,6 +881,11 @@ public enum PDataType {
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == DATE || targetType == TIME || targetType == BINARY;
         }
 
         @Override
@@ -912,7 +932,7 @@ public enum PDataType {
         }
     },
     TIME("TIME", Types.TIME, Time.class, new DateCodec()) {
-        
+
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -952,8 +972,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
-            case TIMESTAMP:
                 return new Time(((Date)object).getTime());
+            case TIMESTAMP:
+                return new Time(((Timestamp)object).getTime());
             case TIME:
                 return object;
             default:
@@ -1004,9 +1025,14 @@ public enum PDataType {
             }
             return DateUtil.parseTime(value);
         }
+
+        @Override
+        protected boolean isBytesComparableWith(PDataType otherType) {
+            return this == otherType || this == DATE;
+        }
     },
     DATE("DATE", Types.DATE, Date.class, new DateCodec()) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
-        
+
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -1031,8 +1057,9 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIME:
+                return new Date(((Time)object).getTime());
             case TIMESTAMP:
-                return new Time(((Date)object).getTime());
+                return new Date(((Timestamp)object).getTime());
             case DATE:
                 return object;
             default:
@@ -1086,6 +1113,11 @@ public enum PDataType {
                 return null;
             }
             return DateUtil.parseDate(value);
+        }
+
+        @Override
+        protected boolean isBytesComparableWith(PDataType otherType) {
+            return this == otherType || this == TIME;
         }
     },
     /**
@@ -1280,7 +1312,7 @@ public enum PDataType {
                 return (int)v;
             case DECIMAL:
                 BigDecimal d = (BigDecimal)object;
-                return d.intValueExact();                
+                return d.intValueExact();
             default:
                 return super.toObject(object, actualType);
             }
@@ -1365,7 +1397,7 @@ public enum PDataType {
         }
     },
     BOOLEAN("BOOLEAN", Types.BOOLEAN, Boolean.class, null) {
-        
+
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -1533,7 +1565,11 @@ public enum PDataType {
     public final PDataCodec getCodec() {
         return codec;
     }
-    
+
+    protected boolean isBytesComparableWith(PDataType otherType) {
+        return this == otherType;
+    }
+
     public int estimateByteSize(Object o) {
         if (isFixedWidth()) {
             return getByteSize();
@@ -1574,6 +1610,26 @@ public enum PDataType {
         return clazz;
     }
 
+    public final int compareTo(byte[] lhs, int lhsOffset, int lhsLength,
+                               byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
+        if (this.isBytesComparableWith(rhsType)) { // directly compare the bytes
+            return Bytes.compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
+        }
+        PDataCodec lhsCodec = this.getCodec();
+        if (lhsCodec == null) { // no lhs native type representation, so convert rhsType to bytes representation of lhsType
+            byte[] rhsConverted = this.toBytes(this.toObject(rhs, rhsOffset, rhsLength, rhsType));
+            return Bytes.compareTo(lhs, lhsOffset, lhsLength, rhsConverted, 0, rhsConverted.length);
+        }
+        PDataCodec rhsCodec = rhsType.getCodec();
+        if (rhsCodec == null) {
+            byte[] lhsConverted = rhsType.toBytes(rhsType.toObject(lhs, lhsOffset, lhsLength, this));
+            return Bytes.compareTo(lhsConverted, 0, lhsConverted.length, rhs, rhsOffset, rhsLength);
+        }
+        // convert to native and compare
+        // stoens - REVIEW - pass column mod through
+        return Longs.compare(this.getCodec().decodeLong(lhs, lhsOffset, null), rhsType.getCodec().decodeLong(rhs, rhsOffset, null));
+    }
+
     public static interface PDataCodec {
         public long decodeLong(ImmutableBytesWritable ptr, ColumnModifier columnModifier);
         public long decodeLong(byte[] b, int o, ColumnModifier columnModifier);
@@ -1596,34 +1652,34 @@ public enum PDataType {
         public long decodeLong(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
             return decodeLong(ptr.get(),ptr.getOffset(), columnModifier);
         }
-        
+
         @Override
         public int encodeInt(int v, ImmutableBytesWritable ptr) {
             return encodeInt(v, ptr.get(), ptr.getOffset());
         }
-        
+
         @Override
         public int encodeLong(long v, ImmutableBytesWritable ptr) {
             return encodeLong(v, ptr.get(), ptr.getOffset());
         }
-        
+
         @Override
         public int encodeInt(int v, byte[] b, int o) {
             throw new UnsupportedOperationException();
         }
-        
+
         @Override
         public int encodeLong(long v, byte[] b, int o) {
             throw new UnsupportedOperationException();
         }
     }
 
-    
+
     public static class LongCodec extends BaseCodec {
-        
+
         private LongCodec() {
         }
-        
+
         @Override
         public long decodeLong(byte[] bytes, int o, ColumnModifier columnModifier) {
             byte b = bytes[o];
@@ -1646,7 +1702,7 @@ public enum PDataType {
             
             return v;
         }
-        
+
 
         @Override
         public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
@@ -1672,15 +1728,15 @@ public enum PDataType {
     }
 
     public static class IntCodec extends BaseCodec {
-        
+
         private IntCodec() {
         }
-        
+
         @Override
         public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
             return decodeInt(b, o, columnModifier);
         }
-        
+
         @Override
         public int decodeInt(byte[] bytes, int o, ColumnModifier columnModifier) {            
             byte b = bytes[o];
@@ -1700,7 +1756,7 @@ public enum PDataType {
             }
             return v;
         }
-        
+
         @Override
         public int encodeInt(int v, byte[] b, int o) {
             b[o + 0] = (byte) ((v >> 24) ^ 0x80); // Flip sign bit so that INTEGER is binary comparable
@@ -1720,10 +1776,10 @@ public enum PDataType {
     }
 
     public static class UnsignedLongCodec extends LongCodec {
-        
+
         private UnsignedLongCodec() {
         }
-        
+
         @Override
         public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
             if (columnModifier != null) {
@@ -1735,7 +1791,7 @@ public enum PDataType {
             }
             return v;
         }
-        
+
         @Override
         public int encodeLong(long v, byte[] b, int o) {
             if (v < 0) {
@@ -1747,10 +1803,10 @@ public enum PDataType {
     }
 
     public static class UnsignedIntCodec extends IntCodec {
-        
+
         private UnsignedIntCodec() {
         }
-        
+
         @Override
         public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
             if (columnModifier != null) {
@@ -1762,7 +1818,7 @@ public enum PDataType {
             }
             return v;
         }
-        
+
         @Override
         public int encodeInt(int v, byte[] b, int o) {
             if (v < 0) {
@@ -1774,10 +1830,10 @@ public enum PDataType {
     }
 
     public static class DateCodec extends BaseCodec {
-        
+
         private DateCodec() {
         }
-        
+
         @Override
         public long decodeLong(byte[] bytes, int o, ColumnModifier columnModifier) {
             if (columnModifier != null) {
@@ -1792,7 +1848,7 @@ public enum PDataType {
         public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
             throw new UnsupportedOperationException();
         }
-        
+
         @Override
         public int encodeLong(long v, byte[] b, int o) {
             Bytes.putLong(b, o, v);
@@ -1963,12 +2019,13 @@ public enum PDataType {
         }
         // Use long arithmetic for as long as we can
         while (index > begIndex) {
-            int digit100 = signum * bytes[--index] - digitOffset;
-            l += digit100*multiplier;
-            if (l >= MAX_LONG_FOR_DESERIALIZE) {
+            if (l >= MAX_LONG_FOR_DESERIALIZE || multiplier >= Long.MAX_VALUE / 100) {
+                multiplier = LongMath.divide(multiplier, 100L, RoundingMode.UNNECESSARY);
                 break; // Exit loop early so we don't overflow our multiplier
             }
-            multiplier *= 100;
+            int digit100 = signum * bytes[--index] - digitOffset;
+            l += digit100*multiplier;
+            multiplier = LongMath.checkedMultiply(multiplier, 100);
         }
 
         BigInteger bi;
@@ -2049,7 +2106,7 @@ public enum PDataType {
         return isCoercibleTo(targetType);
     }
 
-    public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, 
+    public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
             Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
         return true;
     }
@@ -2075,6 +2132,7 @@ public enum PDataType {
     public int compareTo(ImmutableBytesWritable ptr1, ImmutableBytesWritable ptr2, PDataType type2) {
         return compareTo(ptr1.get(), ptr1.getOffset(), ptr1.getLength(), null, ptr2.get(), ptr2.getOffset(), ptr2.getLength(), null, type2);
     }
+
 
     public abstract int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType);    
 
@@ -2240,6 +2298,26 @@ public enum PDataType {
 
     public byte[] getSqlTypeNameBytes() {
         return sqlTypeNameBytes;
+    }
+
+    public KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
+        /*
+         * Force lower bound to be inclusive for fixed width keys because it makes
+         * comparisons less expensive when you can count on one bound or the other
+         * being inclusive. Comparing two fixed width exclusive bounds against each
+         * other is inherently more expensive, because you need to take into account
+         * if the bigger key is equal to the next key after the smaller key. For
+         * example:
+         *   (A-B] compared against [A-B)
+         * An exclusive lower bound A is bigger than an exclusive upper bound B.
+         * Forcing a fixed width exclusive lower bound key to be inclusive prevents
+         * us from having to do this extra logic in the compare function.
+         */
+        if (lowerRange != KeyRange.UNBOUND && !lowerInclusive && isFixedWidth()) {
+            lowerRange = ByteUtil.nextKey(lowerRange);
+            lowerInclusive = true;
+        }
+        return KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive);
     }
 
     public static PDataType fromLiteral(Object value) {

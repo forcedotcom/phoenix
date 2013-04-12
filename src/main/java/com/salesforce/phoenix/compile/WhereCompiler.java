@@ -44,8 +44,7 @@ import com.salesforce.phoenix.expression.visitor.KeyValueExpressionVisitor;
 import com.salesforce.phoenix.filter.*;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.ScanUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 
 /**
@@ -175,7 +174,11 @@ public class WhereCompiler {
             });
             switch (counter.getCount()) {
             case NONE:
-                filter = new RowKeyComparisonFilter(whereClause);
+                PTable table = context.getResolver().getTables().get(0).getTable();
+                byte[] essentialCF = table.getType() == PTableType.VIEW 
+                        ? ByteUtil.EMPTY_BYTE_ARRAY 
+                        : SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
+                filter = new RowKeyComparisonFilter(whereClause, essentialCF);
                 break;
             case SINGLE:
                 filter = disambiguateWithFamily ? new SingleCFCQKeyValueComparisonFilter(whereClause) : new SingleCQKeyValueComparisonFilter(whereClause);

@@ -27,28 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import java.sql.SQLException;
 
-/**
- * 
- * Exception thrown when a family name could not be found in the schema
- *
- * @author jtaylor
- * @since 0.1
- */
-public class ColumnFamilyNotFoundException extends MetaDataEntityNotFoundException {
+public abstract class MetaDataEntityNotFoundException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.COLUMN_FAMILY_NOT_FOUND;
-    private final String familyName;
 
-    public ColumnFamilyNotFoundException(String familyName) {
-        super(new SQLExceptionInfo.Builder(code).setFamilyName(familyName).toString(),
-                code.getSQLState());
-        this.familyName = familyName;
-    }
-
-    public String getFamilyName() {
-        return familyName;
+    public MetaDataEntityNotFoundException(String reason, String sqlState) {
+        super(reason, sqlState);
     }
 }

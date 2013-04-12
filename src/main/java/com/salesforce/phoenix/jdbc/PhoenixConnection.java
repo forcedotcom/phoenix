@@ -101,6 +101,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
                 for (int i = 0; i < paramMetaData.getParameterCount(); i++) {
                     stmt.setObject(i+1, binds.get(bindsOffset+i));
                 }
+                long start = System.currentTimeMillis();
                 boolean isQuery = stmt.execute();
                 if (isQuery) {
                     ResultSet rs = stmt.getResultSet();
@@ -157,6 +158,8 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
                     }
                 }
                 bindsOffset += paramMetaData.getParameterCount();
+                double elapsedDuration = ((System.currentTimeMillis() - start) / 1000.0);
+                out.println("Time: " + elapsedDuration + " sec(s)\n");
                 nStatements++;
             }
         } catch (EOFException e) {
@@ -287,7 +290,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_UPDATABLE) {
+        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
             throw new SQLFeatureNotSupportedException();
         }
         return createStatement();
@@ -415,7 +418,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException {
-        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_UPDATABLE) {
+        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
             throw new SQLFeatureNotSupportedException();
         }
         return prepareStatement(sql);

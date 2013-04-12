@@ -15,8 +15,10 @@ import org.junit.runners.Parameterized.Parameters;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
+import com.salesforce.phoenix.util.ByteUtil;
 
 //reset()
 //filterAllRemaining() -> true indicates scan is over, false, keep going on.
@@ -33,28 +35,29 @@ public class SkipScanFilterTest extends TestCase {
     public SkipScanFilterTest(List<List<KeyRange>> cnf, int[] widths, List<Expectation> expectations) {
         this.expectations = expectations;
         this.cnf = cnf;
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(widths.length);
         for (final int width : widths) {
-            builder.addField(new PDatum() {
+            builder.addField(
+                new PDatum() {
 
                 @Override
                 public boolean isNullable() {
-                    return false;
+                    return width <= 0;
                 }
 
                 @Override
                 public PDataType getDataType() {
-                    return PDataType.CHAR;
+                    return width <= 0 ? PDataType.VARCHAR : PDataType.CHAR;
                 }
 
                 @Override
                 public Integer getByteSize() {
-                    return width;
+                    return width <= 0 ? null : width;
                 }
 
                 @Override
                 public Integer getMaxLength() {
-                    return width;
+                    return getByteSize();
                 }
 
                 @Override
@@ -84,10 +87,20 @@ public class SkipScanFilterTest extends TestCase {
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.VARCHAR.getKeyRange(Bytes.toBytes("j"), false, Bytes.toBytes("k"), true),
+                    }},
+                    new int[]{0},
+                    new SeekNext(Bytes.toBytes("a"), ByteUtil.nextKey(new byte[] {'j',QueryConstants.SEPARATOR_BYTE})),
+                    new Include("ja"),
+                    new Include("jz"),
+                    new Include("k"),
+                    new Finished("ka")));
+        testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("aac"), true, Bytes.toBytes("aad"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true)
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("aac"), true, Bytes.toBytes("aad"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true)
                 }},
                 new int[]{3},
                 new SeekNext("aab", "aac"),
@@ -98,8 +111,8 @@ public class SkipScanFilterTest extends TestCase {
                 new Finished("deg")));
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), true)
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), true)
                 }},
                 new int[]{3},
                 new SeekNext("aba", "abd"),
@@ -108,8 +121,8 @@ public class SkipScanFilterTest extends TestCase {
                 new Finished("deg")));
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), false)
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), false, Bytes.toBytes("def"), false)
                 }},
                 new int[]{3},
                 new SeekNext("aba", "abd"),
@@ -117,8 +130,8 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
                 }},
                 new int[]{3},
                 new Include("def"),
@@ -128,14 +141,14 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("abc"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("abc"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 }},
                 new int[]{3,2},
                 new Include("abcAB"),
@@ -149,13 +162,13 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("abc"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("abc"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
                 new int[]{2,3},
                 new Include("ABabc"),
@@ -170,10 +183,10 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
                 new int[]{2,3},
                 new Include("POdef"),
@@ -181,10 +194,10 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
             foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PO"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PO"), true),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
                 new int[]{2,3},
                 new Include("POdef"),
@@ -192,20 +205,20 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
                 }},
                 new int[]{3,2,2,2,2},
                 new SeekNext("abcABABABAB", "abdAAAAAAAA"),
@@ -214,14 +227,14 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("AAA"), true, Bytes.toBytes("AAA"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AAA"), true, Bytes.toBytes("AAA"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 }},
                 new int[]{3,2},
                 new SeekNext("aaaAA", "abcAB"),
@@ -247,9 +260,9 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("dzz"), true, Bytes.toBytes("xyz"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("aaa"), true, Bytes.toBytes("aaa"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("dzz"), true, Bytes.toBytes("xyz"), false),
                 }},
                 new int[]{3},
                 new SeekNext("abb", "abc"),
@@ -259,17 +272,17 @@ public class SkipScanFilterTest extends TestCase {
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
-                    KeyRange.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
-                    KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
                 },
                 {
-                    KeyRange.getKeyRange(Bytes.toBytes("100"), true, Bytes.toBytes("250"), false),
-                    KeyRange.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("100"), true, Bytes.toBytes("250"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
                 }},
                 new int[]{3,2,3},
                 new SeekNext("abcEB700", "abcEB701"),
@@ -280,17 +293,17 @@ public class SkipScanFilterTest extends TestCase {
 // TODO variable length columns
 //        testCases.addAll(
 //                foreach(new KeyRange[][]{{
-//                    KeyRange.getKeyRange(Bytes.toBytes("apple"), true, Bytes.toBytes("lemon"), true),
-//                    KeyRange.getKeyRange(Bytes.toBytes("pear"), false, Bytes.toBytes("yam"), false),
+//                    PDataType.CHAR.getKeyRange(Bytes.toBytes("apple"), true, Bytes.toBytes("lemon"), true),
+//                    PDataType.CHAR.getKeyRange(Bytes.toBytes("pear"), false, Bytes.toBytes("yam"), false),
 //                },
 //                {
-//                    KeyRange.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
-//                    KeyRange.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
-//                    KeyRange.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
+//                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AB"), true, Bytes.toBytes("AX"), true),
+//                    PDataType.CHAR.getKeyRange(Bytes.toBytes("EA"), false, Bytes.toBytes("EZ"), false),
+//                    PDataType.CHAR.getKeyRange(Bytes.toBytes("PO"), true, Bytes.toBytes("PP"), false),
 //                },
 //                {
-//                    KeyRange.getKeyRange(Bytes.toBytes("100"), true, Bytes.toBytes("250"), false),
-//                    KeyRange.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
+//                    PDataType.CHAR.getKeyRange(Bytes.toBytes("100"), true, Bytes.toBytes("250"), false),
+//                    PDataType.CHAR.getKeyRange(Bytes.toBytes("700"), false, Bytes.toBytes("901"), false),
 //                }},
 //                new int[]{3,3})
 //        );

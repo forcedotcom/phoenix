@@ -41,6 +41,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 
 
@@ -53,6 +54,13 @@ import com.salesforce.phoenix.schema.*;
  * @since 0.1
  */
 public class QueryCompiler {
+    /* 
+     * Not using Scan.setLoadColumnFamiliesOnDemand(true) because we don't 
+     * want to introduce a dependency on 0.94.5 (where this feature was
+     * introduced). This will do the same thing. Once we do have a 
+     * dependency on 0.94.5 or above, switch this around.
+     */
+    private static final String LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR = "_ondemand_";
     private final PhoenixConnection connection;
     private final Scan scan;
     private final int maxRows;
@@ -75,6 +83,7 @@ public class QueryCompiler {
         this.maxRows = maxRows;
         this.scan = scan;
         this.targetColumns = targetDatums;
+        this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
     }
 
     /**

@@ -33,12 +33,12 @@ import java.util.concurrent.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.base.*;
-import com.google.common.collect.*;
+import com.google.common.base.Function;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
@@ -64,42 +64,17 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 100; // 100K
 
-    static final Function<HRegionInfo, KeyRange> TO_KEY_RANGE = new Function<HRegionInfo, KeyRange>() {
+    static final Function<Map.Entry<HRegionInfo, ServerName>, KeyRange> TO_KEY_RANGE = new Function<Map.Entry<HRegionInfo, ServerName>, KeyRange>() {
         @Override
-        public KeyRange apply(HRegionInfo region) {
-            return KeyRange.getKeyRange(region);
+        public KeyRange apply(Map.Entry<HRegionInfo, ServerName> region) {
+            return KeyRange.getKeyRange(region.getKey().getStartKey(), region.getKey().getEndKey());
         }
     };
 
     public ParallelIterators(StatementContext context, TableRef table, RowCounter rowCounter) throws SQLException {
         super(context, table);
         this.rowCounter = rowCounter;
-        this.splits = getSplits(context.getConnection().getQueryServices(), table, context.getScan(), context.getConnection().getQueryServices().getAllTableRegions(table));
-    }
-
-    /**
-     * Filters out regions that intersect with key range specified by the startKey and stopKey
-     * @param allTableRegions all region infos for a given table
-     * @param startKey the lower bound of key range, inclusive
-     * @param stopKey the upper bound of key range, inclusive
-     * @return regions that intersect with the key range given by the startKey and stopKey
-     */
-    // exposed for tests
-    static List<HRegionInfo> filterRegions(SortedSet<HRegionInfo> allTableRegions, byte[] startKey, byte[] stopKey) {
-        Iterable<HRegionInfo> regions;
-        final KeyRange keyRange = KeyRange.getKeyRange(startKey, true, stopKey, false);
-        if (keyRange == KeyRange.EVERYTHING_RANGE) {
-            regions = allTableRegions;
-        } else {
-            regions = Iterables.filter(allTableRegions, new Predicate<HRegionInfo>() {
-                @Override
-                public boolean apply(HRegionInfo region) {
-                    KeyRange regionKeyRange = KeyRange.getKeyRange(region);
-                    return keyRange.intersect(regionKeyRange) != KeyRange.EMPTY_RANGE;
-                }
-            });
-        }
-        return Lists.newArrayList(regions);
+        this.splits = getSplits(context, table);
     }
 
     /**
@@ -110,8 +85,8 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
      * @return the key ranges that should be scanned in parallel
      */
     // exposed for tests
-    public static List<KeyRange> getSplits(ConnectionQueryServices services, TableRef table, Scan scan, SortedSet<HRegionInfo> allTableRegions) {
-        return ParallelIteratorRegionSplitterFactory.getSplitter().getSplits(services, table, scan, allTableRegions);
+    public static List<KeyRange> getSplits(StatementContext context, TableRef table) throws SQLException {
+        return ParallelIteratorRegionSplitterFactory.getSplitter(context, table).getSplits();
     }
 
     public List<KeyRange> getSplits() {

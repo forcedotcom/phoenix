@@ -92,6 +92,19 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
+    public void testReverseSingleKeyExpression() throws SQLException {
+        String tenantId = "000000000000001";
+        String query = "select * from atable where '" + tenantId + "' = organization_id";
+        Scan scan = new Scan();
+        List<Object> binds = Collections.emptyList();
+        compileStatement(query, scan, binds);
+
+        compileStatement(query, scan, binds);
+        assertArrayEquals(PDataType.VARCHAR.toBytes(tenantId), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
+    }
+
+    @Test
     public void testStartKeyStopKey() throws SQLException {
         Connection conn = DriverManager.getConnection(getUrl());
         conn.createStatement().execute("CREATE TABLE start_stop_test (pk char(2) not null primary key)");
