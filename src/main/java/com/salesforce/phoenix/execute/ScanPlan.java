@@ -69,11 +69,9 @@ public class ScanPlan extends BasicQueryPlan {
         // Set any scan attributes before creating the scanner, as it will be too later afterwards
         context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
         ResultIterator scanner;
-        // Either way, just use serial result iterator, instead of parallel one.
-        // When we get the pre-fetching ClientScanner, this will be better, but even
-        // without that, it's better not to run through the entire scan (which is
-        // what the parallel iterator does) in case there are a billion rows and we'll
-        // stop iterating after a few.
+        /* If no limit, use parallel iterator so that we get results faster. Otherwise, if
+         * limit is provided, run query serially.
+         */
         if (limit == null) {
             ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
             scanner = new ConcatResultIterator(iterators);
