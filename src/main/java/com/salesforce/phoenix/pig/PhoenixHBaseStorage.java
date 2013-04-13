@@ -105,8 +105,8 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	private final static CommandLineParser parser = new GnuParser();
 	
 	private String contextSignature = null;
-    private ResourceSchema schema;
-    private static final String SCHEMA = "_schema";
+	private ResourceSchema schema;
+	private static final String SCHEMA = "_schema";
 
 	public PhoenixHBaseStorage(String server) throws ParseException {
 		this(server, null);
@@ -134,13 +134,13 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		validOptions.addOption("batchSize", true, "Specify upsert batch size");
 	}
 
-    /**
-     * Returns UDFProperties based on <code>contextSignature</code>.
-     */
-    private Properties getUDFProperties() {
-        return UDFContext.getUDFContext()
-            .getUDFProperties(this.getClass(), new String[] {contextSignature});
-    }
+	/**
+	 * Returns UDFProperties based on <code>contextSignature</code>.
+	 */
+	private Properties getUDFProperties() {
+		return UDFContext.getUDFContext().getUDFProperties(this.getClass(),
+				new String[] { contextSignature });
+	}
 
 	
 	/**
@@ -287,12 +287,12 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		return new NullOutputFormat();
 	}
 
-    @Override
-    public void checkSchema(ResourceSchema s) throws IOException {
-        schema = s;
-        getUDFProperties().setProperty(contextSignature + SCHEMA,
-                                       ObjectSerializer.serialize(schema));
-    }
+	@Override
+	public void checkSchema(ResourceSchema s) throws IOException {
+		schema = s;
+		getUDFProperties().setProperty(contextSignature + SCHEMA,
+				ObjectSerializer.serialize(schema));
+	}
 
 	private String[] getTableMetadata(String table) {
 		String[] schemaAndTable = table.split("\\.");
