@@ -51,8 +51,12 @@ import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.apache.pig.ResourceSchema;
+import org.apache.pig.ResourceSchema.ResourceFieldSchema;
 import org.apache.pig.StoreFuncInterface;
+import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
+import org.apache.pig.impl.util.ObjectSerializer;
+import org.apache.pig.impl.util.UDFContext;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDriver;
@@ -65,11 +69,15 @@ import com.salesforce.phoenix.util.QueryUtil;
  * 
  * Example usage: A = load 'testdata' as (a:chararray, b:chararray, c:chararray,
  * d:chararray, e: datetime); STORE A into 'hbase://CORE.ENTITY_HISTORY' using
- * com.salesforce.bdaas.PhoenixHBaseStorage('localhost','-batchSize 5');
+ * com.salesforce.bdaas.PhoenixHBaseStorage('localhost','-batchSize 5000');
  * 
  * The above reads a file 'testdata' and writes the elements to HBase. First
- * argument to this StoreFunc is the server, the 2nd column is the number of
- * columns being upserted via Phoenix.
+ * argument to this StoreFunc is the server, the 2nd argument is the batch size
+ * for upserts via Phoenix.
+ * 
+ * Note that Pig types must be in sync with the target Phoenix data types. This
+ * StoreFunc tries best to cast based on input Pig types and target Phoenix data
+ * types, but it is recommended to supply appropriate schema.
  * 
  * This is only a STORE implementation. LoadFunc coming soon.
  * 
@@ -95,6 +103,10 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	private final static Options validOptions = new Options();
 	private final CommandLine configuredOptions;
 	private final static CommandLineParser parser = new GnuParser();
+	
+	private String contextSignature = null;
+    private ResourceSchema schema;
+    private static final String SCHEMA = "_schema";
 
 	public PhoenixHBaseStorage(String server) throws ParseException {
 		this(server, null);
@@ -122,6 +134,15 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		validOptions.addOption("batchSize", true, "Specify upsert batch size");
 	}
 
+    /**
+     * Returns UDFProperties based on <code>contextSignature</code>.
+     */
+    private Properties getUDFProperties() {
+        return UDFContext.getUDFContext()
+            .getUDFProperties(this.getClass(), new String[] {contextSignature});
+    }
+
+	
 	/**
 	 * Parse the HBase table name and configure job
 	 */
@@ -133,6 +154,12 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 
 		Configuration conf = job.getConfiguration();
 		PhoenixPigConfiguration.configure(conf);
+		
+        String serializedSchema = getUDFProperties().getProperty(contextSignature + SCHEMA);
+        if (serializedSchema!= null) {
+            schema = (ResourceSchema) ObjectSerializer.deserialize(serializedSchema);
+        }
+
 	}
 
 	/**
@@ -155,7 +182,7 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 			
 			// Generating UPSERT statement without column name information.
 			String upsertStmt = QueryUtil.constructUpsertStatement(null, tableName, columnMetadataList.size());
-			LOG.info("Upsert Statement: " + upsertStmt);
+			LOG.info("Phoenix Upsert Statement: " + upsertStmt);
 			statement = conn.prepareStatement(upsertStmt);
 
 		} catch (SQLException e) {
@@ -170,12 +197,14 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	@Override
 	public void putNext(Tuple t) throws IOException {
 		Object upsertValue = null;
-
+        ResourceFieldSchema[] fieldSchemas = (schema == null) ? null : schema.getFields();      
+        
+        
 		try {
 			for (int i = 0; i < columnMetadataList.size(); i++) {
 				Object o = t.get(i);
-
-				upsertValue = convertTypeSpecificValue(o, columnMetadataList
+				byte type = (fieldSchemas == null) ? DataType.findType(t.get(i)) : fieldSchemas[i].getType();
+				upsertValue = convertTypeSpecificValue(o, type, columnMetadataList
 						.get(i).getSqlType());
 
 				if (upsertValue != null) {
@@ -199,14 +228,15 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 
 	}
 
-	private Object convertTypeSpecificValue(Object o, Integer sqlType) {
+	private Object convertTypeSpecificValue(Object o, byte type, Integer sqlType) {
 		PDataType pDataType = PDataType.fromSqlType(sqlType);
 
-		return TypeUtil.castPigTypeToPhoenix(o, pDataType);
+		return TypeUtil.castPigTypeToPhoenix(o, type, pDataType);
 	}
 
 	@Override
 	public void setStoreFuncUDFContextSignature(String signature) {
+        this.contextSignature = signature;
 	}
 
 	@Override
@@ -257,9 +287,12 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		return new NullOutputFormat();
 	}
 
-	@Override
-	public void checkSchema(ResourceSchema s) throws IOException {
-	}
+    @Override
+    public void checkSchema(ResourceSchema s) throws IOException {
+        schema = s;
+        getUDFProperties().setProperty(contextSignature + SCHEMA,
+                                       ObjectSerializer.serialize(schema));
+    }
 
 	private String[] getTableMetadata(String table) {
 		String[] schemaAndTable = table.split("\\.");
