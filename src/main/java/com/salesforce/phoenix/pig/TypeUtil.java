@@ -29,10 +29,7 @@
 package com.salesforce.phoenix.pig;
 
 import java.io.IOException;
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 
 import org.apache.pig.builtin.Utf8StorageConverter;
 import org.apache.pig.data.DataByteArray;
@@ -72,14 +69,14 @@ public class TypeUtil {
 			break;
 		case DataType.DOUBLE:
 		case DataType.FLOAT:
-		case DataType.BIGDECIMAL:
+		//case DataType.BIGDECIMAL: not in Pig v 0.11.0
 			sqlType = PDataType.DECIMAL;
 			break;
 		case DataType.INTEGER:
 			sqlType = PDataType.INTEGER;
 			break;
 		case DataType.LONG:
-		case DataType.BIGINTEGER:
+		// case DataType.BIGINTEGER: not in Pig v 0.11.0
 			sqlType = PDataType.LONG;
 			break;
 		case DataType.BOOLEAN:
@@ -167,8 +164,10 @@ public class TypeUtil {
             return utf8Converter.bytesToInteger(bytes);
         case BOOLEAN:
             return utf8Converter.bytesToBoolean(bytes);
+//        case DECIMAL: not in Pig v 0.11.0, so using double for now
+//            return utf8Converter.bytesToBigDecimal(bytes);
         case DECIMAL:
-            return utf8Converter.bytesToBigDecimal(bytes);
+            return utf8Converter.bytesToDouble(bytes);
         case UNSIGNED_LONG:
         case LONG:
             return utf8Converter.bytesToLong(bytes);
