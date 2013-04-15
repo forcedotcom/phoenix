@@ -99,6 +99,9 @@ public class WhereOptimizer {
 
         int pkPos = -1;
         List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
+        if (table.getBucketNum() != null) {
+            cnf.add(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
+        }
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
@@ -114,7 +117,7 @@ public class WhereOptimizer {
             for (KeyRange range : slot.getKeyRanges()) {
                 hasUnboundedRange |= range.isUnbound();
             }
-
+            
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
             // set the start key to 'foo' but still need to match the regex at filter time.
