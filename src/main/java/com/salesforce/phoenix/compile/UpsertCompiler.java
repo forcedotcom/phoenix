@@ -70,7 +70,7 @@ public class UpsertCompiler {
         // If the table uses salting, the first byte is the salting byte, set to an empty arrary
         // here and we will fill in the byte later in PRowImpl.
         int offset = 0;
-        if (table.useSalting()) {
+        if (table.getBucketNum() != null) {
             pkValues[0] = new byte[] {0};
             offset = 1;
         }

@@ -6,7 +6,6 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Lists;
-import com.google.common.hash.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -18,26 +17,22 @@ public class SaltingUtil {
 
     public static final String SALTING_COLUMN_NAME = "_SALTING_BYTE";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
-            new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, true, -1);
-    private static final HashFunction MD5 = Hashing.md5();
+            new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, -1);
 
     public static List<KeyRange> generateAllSaltingRanges(int bucketNum) {
-        List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(Byte.MAX_VALUE);
+        List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(bucketNum);
         byte[] lowerBound = new byte[] {0};
         byte[] upperBound = new byte[] {1};
         for (int i=0; i<bucketNum; i++) {
-            allRanges.add(KeyRange.getKeyRange(Arrays.copyOf(lowerBound, lowerBound.length), 
-                    Arrays.copyOf(upperBound, upperBound.length)));
+            allRanges.add(SALTING_COLUMN.getDataType().getKeyRange(
+                    Arrays.copyOf(lowerBound, lowerBound.length), true,
+                    Arrays.copyOf(upperBound, upperBound.length), false));
             ByteUtil.nextKey(lowerBound, 1);
             ByteUtil.nextKey(upperBound, 1);
         }
         return allRanges;
     }
 
-    public static boolean useSalting(int bucketNum) {
-        return 0 < bucketNum && bucketNum <= Byte.MAX_VALUE;
-    }
-    
     public static boolean isSaltingColumn(PColumn col) {
         return col.getName().getString().equals(SALTING_COLUMN_NAME);
     }
@@ -52,9 +47,8 @@ public class SaltingUtil {
 
     // Generate the bucket byte given a byte and the number of buckets.
     private static byte getSaltingByte(byte[] value, int offset, int length, int bucketNum) {
-        HashCode digest = MD5.hashBytes(value, offset, length);
-        byte bucketByte = (byte) ((Math.abs(digest.asInt()) % bucketNum) & 0x0f);
+        int hash = Arrays.hashCode(value);
+        byte bucketByte = (byte) ((Math.abs(hash) % bucketNum));
         return bucketByte;
     }
-
 }

@@ -99,9 +99,6 @@ public class WhereOptimizer {
 
         int pkPos = -1;
         List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
-        if (SaltingUtil.useSalting(table.getBucketNum())) {
-            cnf.add(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
-        }
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
@@ -132,7 +129,7 @@ public class WhereOptimizer {
                 break;
             }
         }
-
+        
         context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
     }

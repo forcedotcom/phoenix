@@ -157,7 +157,5 @@ public interface PTable extends Writable {
      * @return number of buckets used by this table for salting, or QueryConstants.NO_BUCKETS
      * if salting is not turned on.
      */
-    int getBucketNum();
-
-    boolean useSalting();
+    Integer getBucketNum();
 }

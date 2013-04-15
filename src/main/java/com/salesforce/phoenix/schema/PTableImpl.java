@@ -71,8 +71,7 @@ public class PTableImpl implements PTable {
     private Map<String, PColumnFamily> familyByString;
     private ListMultimap<String,PColumn> columnsByName;
     private String pkName;
-    private int bucketNum;
-    private boolean useSalting;
+    private Integer bucketNum;
     // Statistics associated with this table.
     PTableStats stats;
     RowKeySchema rowKeySchema;
@@ -90,28 +89,27 @@ public class PTableImpl implements PTable {
         this.rowKeySchema = RowKeySchema.EMPTY_SCHEMA;
     }
 
-    public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, int bucketNum, List<PColumn> columns) {
+    public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, Integer bucketNum, List<PColumn> columns) {
         init(name, type, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl());
     }
-    
+
     @Override
     public String toString() {
         return name.getString();
     }
 
-    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, int bucketNum, List<PColumn> columns, PTableStats stats) {
+    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, Integer bucketNum, List<PColumn> columns, PTableStats stats) {
         this.name = name;
         this.type = type;
         this.timeStamp = timeStamp;
         this.sequenceNumber = sequenceNumber;
         this.pkName = pkName;
-        boolean useSalting = SaltingUtil.useSalting(bucketNum);
         List<PColumn> pkColumns;
         PColumn[] allColumns;
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
         allColumns = new PColumn[columns.size()];
-        if (useSalting && !columns.get(0).getName().getString().equals(SALTING_COLUMN.getName().getString())) {
+        if (bucketNum != null && !columns.get(0).getName().getString().equals(SALTING_COLUMN.getName().getString())) {
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
             pkColumns.add(SALTING_COLUMN);
             builder.addField(SALTING_COLUMN);
@@ -128,8 +126,7 @@ public class PTableImpl implements PTable {
             }
             columnsByName.put(column.getName().getString(), column);
         }
-        this.bucketNum = (bucketNum <= 0 || bucketNum > Byte.MAX_VALUE) ? QueryConstants.NO_BUCKETS : bucketNum;
-        this.useSalting = SaltingUtil.useSalting(this.bucketNum);
+        this.bucketNum = bucketNum;
         this.pkColumns = ImmutableList.copyOf(pkColumns);
         this.rowKeySchema = builder.setMinNullable(pkColumns.size()).build();
         this.allColumns = ImmutableList.copyOf(allColumns);
@@ -308,9 +305,9 @@ public class PTableImpl implements PTable {
         private Delete deleteRow;
         private final long ts;
 
-        public PRowImpl(ImmutableBytesWritable key, long ts, int bucketNum) {
+        public PRowImpl(ImmutableBytesWritable key, long ts, Integer bucketNum) {
             this.ts = ts;
-            if (SaltingUtil.useSalting(bucketNum)) {
+            if (bucketNum != null) {
                 this.key = SaltingUtil.getSaltedKey(key, bucketNum);
             } else {
                 this.key = key.copyBytes();
@@ -446,7 +443,7 @@ public class PTableImpl implements PTable {
         long timeStamp = input.readLong();
         byte[] pkNameBytes = Bytes.readByteArray(input);
         String pkName = pkNameBytes.length == 0 ? null : Bytes.toString(pkNameBytes);
-        int bucketNum = WritableUtils.readVInt(input);
+        Integer bucketNum = WritableUtils.readVInt(input);
         int nColumns = WritableUtils.readVInt(input);
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(nColumns);
         for (int i = 0; i < nColumns; i++) {
@@ -466,7 +463,8 @@ public class PTableImpl implements PTable {
             guidePosts.put(key, value);
         }
         PTableStats stats = new PTableStatsImpl(guidePosts);
-        init(tableName, tableType, timeStamp, sequenceNumber, pkName, bucketNum, columns, stats);
+        init(tableName, tableType, timeStamp, sequenceNumber, pkName,
+                bucketNum == QueryConstants.NO_SALTING ? null : bucketNum, columns, stats);
     }
 
     @Override
@@ -476,7 +474,11 @@ public class PTableImpl implements PTable {
         WritableUtils.writeVLong(output, sequenceNumber);
         output.writeLong(timeStamp);
         Bytes.writeByteArray(output, pkName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(pkName));
-        WritableUtils.writeVInt(output, bucketNum);
+        if (bucketNum != null) {
+            WritableUtils.writeVInt(output, bucketNum);
+        } else {
+            WritableUtils.writeVInt(output, QueryConstants.NO_SALTING);
+        }
         WritableUtils.writeVInt(output, allColumns.size());
         for (int i = 0; i < allColumns.size(); i++) {
             PColumn column = allColumns.get(i);
@@ -515,12 +517,7 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public int getBucketNum() {
+    public Integer getBucketNum() {
         return bucketNum;
-    }
-
-    @Override
-    public boolean useSalting() {
-        return useSalting;
     }
 }

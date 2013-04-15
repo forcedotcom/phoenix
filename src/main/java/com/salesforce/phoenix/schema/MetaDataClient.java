@@ -309,7 +309,7 @@ public class MetaDataClient {
             
             // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
             if (tableType == PTableType.SYSTEM) {
-                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, QueryConstants.SYSTEM_TABLE_PK_NAME, QueryConstants.NO_BUCKETS, columns);
+                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, QueryConstants.SYSTEM_TABLE_PK_NAME, null, columns);
                 connection.addTable(schemaName, table);
             }
             
@@ -318,8 +318,8 @@ public class MetaDataClient {
             }
             
             Integer saltBucketNum = (Integer) tableProps.get(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            if (saltBucketNum == null) {
-                saltBucketNum = QueryConstants.NO_BUCKETS; 
+            if (saltBucketNum != null && saltBucketNum > 0 && saltBucketNum <= Byte.MAX_VALUE) {
+                saltBucketNum = null;
             }
             
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
@@ -328,7 +328,11 @@ public class MetaDataClient {
             tableUpsert.setString(3, tableType.getSerializedValue());
             tableUpsert.setInt(4, 0);
             tableUpsert.setInt(5, columnOrdinal);
-            tableUpsert.setInt(6, saltBucketNum);
+            if (saltBucketNum != null) {
+                tableUpsert.setInt(6, saltBucketNum);
+            } else {
+                tableUpsert.setNull(6, Types.INTEGER);
+            }
             tableUpsert.setString(7, pkName);
             tableUpsert.execute();
             
