@@ -55,27 +55,6 @@ import com.salesforce.phoenix.util.*;
 public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
 
     @Test
-    public void testSaltedTableMetaDataScan() throws SQLException {
-        long ts = nextTimestamp();
-        ensureTableCreated(getUrl(), ATABLE_WITH_SALTING, null, ts);
-        
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        DatabaseMetaData dbmd = conn.getMetaData();
-        String aTableName = TestUtil.ATABLE_WITH_SALTING;
-        String aSchemaName = TestUtil.ATABLE_SCHEMA_NAME;
-        ResultSet rs = dbmd.getTables(null, aSchemaName, aTableName, null);
-        assertTrue(rs.next());
-        assertEquals(ATABLE_WITH_SALTING, rs.getString("TABLE_NAME"));
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
-        assertEquals(rs.getString(3),ATABLE_WITH_SALTING);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString(4));
-        assertEquals(4, rs.getInt("SALT_BUCKETS"));
-        assertFalse(rs.next());
-    }
-
-    @Test
     public void testTableMetadataScan() throws SQLException {
         long ts = nextTimestamp();
         ensureTableCreated(getUrl(), ATABLE_NAME, null, ts);

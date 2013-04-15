@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.schema;
 
 import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
+import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
 
 import java.io.*;
 import java.util.*;
@@ -58,8 +59,6 @@ import com.salesforce.phoenix.util.*;
  */
 public class PTableImpl implements PTable {
 
-    private static final PColumnImpl SALT_BUCKET_COLUMN = new PColumnImpl(new PNameImpl("SALTING_BYTE"),
-            null, PDataType.CHAR, 1, 0, false, 0);
     private PName name;
     private PTableType type;
     private long sequenceNumber;
@@ -73,6 +72,7 @@ public class PTableImpl implements PTable {
     private ListMultimap<String,PColumn> columnsByName;
     private String pkName;
     private int bucketNum;
+    private boolean useSalting;
     // Statistics associated with this table.
     PTableStats stats;
     RowKeySchema rowKeySchema;
@@ -107,29 +107,20 @@ public class PTableImpl implements PTable {
         this.pkName = pkName;
         boolean useSalting = SaltingUtil.useSalting(bucketNum);
         List<PColumn> pkColumns;
-        if (useSalting) {
-            this.columnsByName = ArrayListMultimap.create(columns.size()+1, 1);
-            pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
-        } else {
-            this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
-            pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
-        }
         PColumn[] allColumns;
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
-        int offset = 0;
-        if (useSalting) {
-            offset = 1;
-            allColumns = new PColumn[columns.size() + 1];
-            allColumns[0] = SALT_BUCKET_COLUMN;
-            pkColumns.add(SALT_BUCKET_COLUMN);
-            builder.addField(SALT_BUCKET_COLUMN);
-            columnsByName.put(SALT_BUCKET_COLUMN.getName().getString(), SALT_BUCKET_COLUMN);
+        this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
+        allColumns = new PColumn[columns.size()];
+        if (useSalting && !columns.get(0).getName().getString().equals(SALTING_COLUMN.getName().getString())) {
+            pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
+            pkColumns.add(SALTING_COLUMN);
+            builder.addField(SALTING_COLUMN);
         } else {
-            allColumns = new PColumn[columns.size()];
+            pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
         }
         for (int i = 0; i < columns.size(); i++) {
             PColumn column = columns.get(i);
-            allColumns[column.getPosition() + offset] = column;
+            allColumns[column.getPosition()] = column;
             PName familyName = column.getFamilyName();
             if (familyName == null) {
                 pkColumns.add(column);
@@ -138,6 +129,7 @@ public class PTableImpl implements PTable {
             columnsByName.put(column.getName().getString(), column);
         }
         this.bucketNum = (bucketNum <= 0 || bucketNum > Byte.MAX_VALUE) ? QueryConstants.NO_BUCKETS : bucketNum;
+        this.useSalting = SaltingUtil.useSalting(this.bucketNum);
         this.pkColumns = ImmutableList.copyOf(pkColumns);
         this.rowKeySchema = builder.setMinNullable(pkColumns.size()).build();
         this.allColumns = ImmutableList.copyOf(allColumns);
@@ -525,5 +517,10 @@ public class PTableImpl implements PTable {
     @Override
     public int getBucketNum() {
         return bucketNum;
+    }
+
+    @Override
+    public boolean useSalting() {
+        return useSalting;
     }
 }

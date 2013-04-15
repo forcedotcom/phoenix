@@ -64,21 +64,6 @@ public abstract class BaseTest {
                 "    y_integer integer\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
                 ")");
-        builder.put(ATABLE_WITH_SALTING,"create table " + ATABLE_WITH_SALTING +
-                "   (organization_id char(15) not null, \n" +
-                "    entity_id char(15) not null,\n" +
-                "    a_string varchar(100),\n" +
-                "    b_string varchar(100),\n" +
-                "    a_integer integer,\n" +
-                "    a_date date,\n" +
-                "    a_time time,\n" +
-                "    a_timestamp timestamp,\n" +
-                "    x_decimal decimal(31,10),\n" +
-                "    x_long bigint,\n" +
-                "    x_integer integer,\n" +
-                "    y_integer integer\n" +
-                "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id))\n" +
-                "   SALT_BUCKETS = 4");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
                 "   (a_string varchar not null, \n" +
                 "    a_id char(3) not null,\n" +
@@ -90,6 +75,14 @@ public abstract class BaseTest {
                 "    d_string varchar(3),\n" +
                 "    e_string char(10)\n" +
                 "    CONSTRAINT my_pk PRIMARY KEY (a_string,a_id,b_string,a_integer,c_string))");
+        builder.put(TABLE_WITH_SALTING,"create table " + TABLE_WITH_SALTING +
+                "   (a_string varchar not null, \n" +
+                "    a_id char(3) not null,\n" +
+                "    a_integer integer not null, \n" +
+                "    b_string varchar, \n" +
+                "    b_integer integer \n" +
+                "    CONSTRAINT pk PRIMARY KEY (a_string, a_id, a_integer))\n" +
+                "   SALT_BUCKETS = 4");
         builder.put(STABLE_NAME,"create table " + STABLE_NAME +
                 "   (id char(1) not null primary key,\n" +
                 "    value integer)");

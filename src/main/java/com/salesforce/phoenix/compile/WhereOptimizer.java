@@ -100,7 +100,7 @@ public class WhereOptimizer {
         int pkPos = -1;
         List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
         if (SaltingUtil.useSalting(table.getBucketNum())) {
-            cnf.add(SaltingUtil.ALL_SALTING_RANGES);
+            cnf.add(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
         }
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key

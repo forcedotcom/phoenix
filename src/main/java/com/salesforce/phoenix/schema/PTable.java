@@ -158,4 +158,6 @@ public interface PTable extends Writable {
      * if salting is not turned on.
      */
     int getBucketNum();
+
+    boolean useSalting();
 }
