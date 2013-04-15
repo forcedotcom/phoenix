@@ -35,8 +35,6 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.*;
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -119,7 +117,7 @@ public class FromCompiler {
         }
         
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName,List<ColumnDef> dyn_columns) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException {
             long timeStamp = Math.abs(client.updateCache(schemaName, tableName));
             PSchema theSchema = null;
             try {
@@ -129,17 +127,17 @@ public class FromCompiler {
             }
             PTable theTable = theSchema.getTable(tableName);
 
-	    //If dynamic columns have been specified add them to the table declaration
-            if(dyn_columns!=null && !dyn_columns.isEmpty()) {
+            //If dynamic columns have been specified add them to the table declaration
+            if(dynamicColumnDefs!=null && !dynamicColumnDefs.isEmpty()) {
             	int ordinalPosition = theTable.getColumns().size();
-	        List<PColumn> dyn_column_list = new ArrayList<PColumn>();
-            	dyn_column_list.addAll(theTable.getColumns());
-            	for(ColumnDef cdef:dyn_columns){
-            		dyn_column_list.add(client.newColumn(ordinalPosition, cdef, new HashSet(theTable.getPKColumns())));
-		        ordinalPosition++;
+            	List<PColumn> dynamicColumns = new ArrayList<PColumn>();
+            	dynamicColumns.addAll(theTable.getColumns());
+            	for(ColumnDef cdef:dynamicColumnDefs){
+            		dynamicColumns.add(client.newColumn(ordinalPosition, cdef, Collections.<String>emptySet()));
+            		ordinalPosition++;
             	}
-		//redclare the new tableImpl with the dynamicColumns
-            	theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),theTable.getSequenceNumber(), theTable.getPKName(), dyn_column_list);
+            	//redeclare the new tableImpl with the dynamicColumnDefs
+            	theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),theTable.getSequenceNumber(), theTable.getPKName(), dynamicColumns);
             }
             TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
             return tableRef;
@@ -153,7 +151,7 @@ public class FromCompiler {
         }
         
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName,List<ColumnDef> dyn_columns) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException {
             PSchema theSchema = null;
             try {
                 theSchema = connection.getPMetaData().getSchema(schemaName);
@@ -181,7 +179,7 @@ public class FromCompiler {
         }
         
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName,List<ColumnDef> dyn_columns) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException {
             SQLException sqlE = null;
             long timeStamp = QueryConstants.UNSET_TIMESTAMP;
             while (true) {
@@ -243,7 +241,7 @@ public class FromCompiler {
             }
         }
         
-        protected abstract TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dyn_columns) throws SQLException;
+        protected abstract TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException;
         
         @Override
         public void visit(NamedTableNode namedTableNode) throws SQLException {
@@ -251,9 +249,9 @@ public class FromCompiler {
             String schemaName = namedTableNode.getName().getSchemaName();
             
             String alias = namedTableNode.getAlias();
-            List<ColumnDef> dyn_columns = namedTableNode.getDynamicColumns();
+            List<ColumnDef> dynamicColumnDefs = namedTableNode.getDynamicColumns();
            
-            TableRef tableRef = createTableRef(alias, schemaName, tableName,dyn_columns);
+            TableRef tableRef = createTableRef(alias, schemaName, tableName, dynamicColumnDefs);
             PSchema theSchema = tableRef.getSchema();
             PTable theTable = tableRef.getTable();
             
