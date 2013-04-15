@@ -136,7 +136,7 @@ public abstract class BaseTest {
                 "    F varchar," +
                 "    A.F1v1 varchar," +
                 "    A.F1v2 varchar," +
-                "    B.F2v2 varchar" +
+                "    B.F2v1 varchar" +
                 "    CONSTRAINT pk PRIMARY KEY (entry))\n");
         builder.put(PRODUCT_METRICS_NAME,"create table " + PRODUCT_METRICS_NAME +
                 "   (organization_id char(15) not null," +

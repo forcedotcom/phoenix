@@ -128,18 +128,17 @@ public class FromCompiler {
                 throw new TableNotFoundException(schemaName, tableName);
             }
             PTable theTable = theSchema.getTable(tableName);
-            if(dyn_columns!=null && dyn_columns.isEmpty()) {
-		MetaDataClient client = new MetaDataClient(connection);
+
+	    //If dynamic columns have been specified add them to the table declaration
+            if(dyn_columns!=null && !dyn_columns.isEmpty()) {
             	int ordinalPosition = theTable.getColumns().size();
 	        List<PColumn> dyn_column_list = new ArrayList<PColumn>();
             	dyn_column_list.addAll(theTable.getColumns());
             	for(ColumnDef cdef:dyn_columns){
-            		PColumn pc = client.newColumn(ordinalPosition, cdef, new HashSet(theTable.getPKColumns()));
-            		if(pc!=null){					
-            			dyn_column_list.add(pc);
-            		}
-		 ordinalPosition++;
+            		dyn_column_list.add(client.newColumn(ordinalPosition, cdef, new HashSet(theTable.getPKColumns())));
+		        ordinalPosition++;
             	}
+		//redclare the new tableImpl with the dynamicColumns
             	theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),theTable.getSequenceNumber(), theTable.getPKName(), dyn_column_list);
             }
             TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);

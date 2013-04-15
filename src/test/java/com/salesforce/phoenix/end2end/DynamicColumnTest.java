@@ -56,10 +56,10 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
 	            List<Row> mutations = new ArrayList<Row>();
 	            byte[] dv = Bytes.toBytes("DV");
 	            byte[] first = Bytes.toBytes("F");
-	            byte[] f1v1 = Bytes.toBytes("F1v1");
-	            byte[] f1v2 = Bytes.toBytes("F1v2");
-	            byte[] f2v1 = Bytes.toBytes("F2v1");
-	            byte[] f2v2 = Bytes.toBytes("F1v2");
+	            byte[] f1v1 = Bytes.toBytes("F1V1");
+	            byte[] f1v2 = Bytes.toBytes("F1V2");
+	            byte[] f2v1 = Bytes.toBytes("F2V1");
+	            byte[] f2v2 = Bytes.toBytes("F2V2");
 	            byte[] key = Bytes.toBytes("entry1");
 	            
 	            Put put = new Put(key);
@@ -80,7 +80,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
 	        // The timestamp of the table creation must be later than the timestamp of the data
 	        ensureTableCreated(getUrl(),HBASE_DYNAMIC_COLUMNS);
 	    }
-	 
+	
 	 @Test
 	    public void testDynamicColums() throws Exception {
 	        String query = "SELECT * FROM HBASE_DYNAMIC_COLUMNS (DV varchar)";
@@ -105,7 +105,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
 	 
 	 @Test
 	    public void testDynamicColumsFamily() throws Exception {
-	        String query = "SELECT * FROM HBASE_DYNAMIC_COLUMNS (DV varchar,B.F2v2 varchar)";
+	        String query = "SELECT * FROM HBASE_DYNAMIC_COLUMNS (DV varchar,B.F2V2 varchar)";
 	        String url = PHOENIX_JDBC_URL + ";";
 	        Properties props = new Properties(TEST_PROPERTIES);
 	        Connection conn = DriverManager.getConnection(url, props);
@@ -128,7 +128,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
 	 
 	 @Test
 	    public void testDynamicColumsSpecificQuery() throws Exception {
-	        String query = "SELECT entry,f2val2 FROM HBASE_DYNAMIC_COLUMNS (DV varchar,B.F2v2 varchar)";
+	        String query = "SELECT entry,F2V2 FROM HBASE_DYNAMIC_COLUMNS (DV varchar,B.F2V2 varchar)";
 	        String url = PHOENIX_JDBC_URL + ";";
 	        Properties props = new Properties(TEST_PROPERTIES);
 	        Connection conn = DriverManager.getConnection(url, props);
