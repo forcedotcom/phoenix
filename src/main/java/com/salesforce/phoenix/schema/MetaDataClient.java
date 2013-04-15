@@ -318,7 +318,7 @@ public class MetaDataClient {
             }
             
             Integer saltBucketNum = (Integer) tableProps.get(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            if (saltBucketNum != null && saltBucketNum > 0 && saltBucketNum <= Byte.MAX_VALUE) {
+            if (saltBucketNum != null && saltBucketNum < 0 && saltBucketNum >= Byte.MAX_VALUE) {
                 saltBucketNum = null;
             }
             

@@ -129,7 +129,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             
-            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " WHERE a_integer = ?";
+            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " WHERE a_string = ?";
             PreparedStatement stmt = conn.prepareStatement(query);
             
             stmt.setInt(1, 1);
