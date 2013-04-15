@@ -1,5 +1,4 @@
-/*******************************************************************************
- * Copyright (c) 2013, Salesforce.com, Inc.
+/*copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +27,10 @@
 package com.salesforce.phoenix.parse;
 
 import java.sql.SQLException;
-
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import com.google.common.collect.ImmutableList;
 
 
 /**
@@ -39,9 +41,21 @@ import java.sql.SQLException;
  * @since 0.1
  */
 public class NamedTableNode extends ConcreteTableNode {
+	
+	 private final List<ColumnDef> dyncolumns ;
 
     NamedTableNode(String alias, TableName name) {
         super(alias, name);
+	dyncolumns =  Collections.<ColumnDef>emptyList();
+    }    
+
+    NamedTableNode(String alias, TableName name,List<ColumnDef> dyn_columns) {
+	super(alias, name);
+	if(dyn_columns != null){
+		this.dyncolumns = ImmutableList.copyOf(dyn_columns);
+        }else{
+		this.dyncolumns =  Collections.<ColumnDef>emptyList();
+	}
     }
 
     @Override
@@ -49,4 +63,8 @@ public class NamedTableNode extends ConcreteTableNode {
         visitor.visit(this);
     }
 
+	public List<ColumnDef> getDynamicColumns() {
+		return dyncolumns;
+	}
 }
+
