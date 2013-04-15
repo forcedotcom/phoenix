@@ -47,8 +47,6 @@ import com.salesforce.phoenix.schema.PDataType;
  * 
  */
 public class CSVLoader {
-    private static final int COLUMN_NAME_POSITION = 4;
-    private static final int DATA_TYPE_POSITION = 5;
 
 	private final PhoenixConnection conn;
 	private final String tableName;
@@ -98,7 +96,7 @@ public class CSVLoader {
 		if (columns == null) {
 		    stmtCache = new PreparedStatement[columnInfo.length];
 		} else {
-		    String upsertStatement = constructUpsertStatement(columnInfo, columnInfo.length - unfoundColumnCount);
+		    String upsertStatement = QueryUtil.constructUpsertStatement(columnInfo, tableName, columnInfo.length - unfoundColumnCount);
 		    stmt = conn.prepareStatement(upsertStatement);
 		}
 		String[] nextLine;
@@ -112,7 +110,7 @@ public class CSVLoader {
 		    if (columns == null) {
 		        stmt = stmtCache[nextLine.length-1];
 		        if (stmt == null) {
-	                String upsertStatement = constructUpsertStatement(columnInfo, nextLine.length);
+	                String upsertStatement = QueryUtil.constructUpsertStatement(columnInfo, tableName, nextLine.length);
 	                stmt = conn.prepareStatement(upsertStatement);
 	                stmtCache[nextLine.length-1] = stmt;
 		        }
@@ -168,7 +166,7 @@ public class CSVLoader {
                         (schemaAndTable.length == 1 ? escapedTableName : schemaAndTable[1]),
                         null);
         while (rs.next()) {
-            columnNameToTypeMap.put(rs.getString(COLUMN_NAME_POSITION), rs.getInt(DATA_TYPE_POSITION));
+            columnNameToTypeMap.put(rs.getString(QueryUtil.COLUMN_NAME_POSITION), rs.getInt(QueryUtil.DATA_TYPE_POSITION));
         }
         ColumnInfo[] columnType;
 	    if (columns == null) {
@@ -199,54 +197,5 @@ public class CSVLoader {
             }
 	    }
 		return columnType;
-	}
-
-	/**
-	 * ColumnInfo used to store Column Name and its associated PDataType
-	 */
-	private class ColumnInfo {
-		private String columnName;
-		private Integer sqlType;
-
-		public ColumnInfo(String columnName, Integer sqlType) {
-			this.columnName = columnName;
-			this.sqlType = sqlType;
-		}
-
-		public String getColumnName() {
-			return columnName;
-		}
-
-		public Integer getSqlType() {
-			return sqlType;
-		}
-	}
-
-	/**
-	 * Constructs upsert statement based on ColumnInfo array
-	 * 
-	 * @param columnTypes
-	 * @return
-	 */
-	private String constructUpsertStatement(ColumnInfo[] columnTypes, int columnCount) {
-		String upsertStatement = "UPSERT INTO ";
-		upsertStatement += tableName;
-		if (columns != null) {
-    		upsertStatement += '(';
-    		for (ColumnInfo columnType : columnTypes) {
-    		    if (columnType != null) {
-        			upsertStatement += columnType.getColumnName();
-        			upsertStatement += ',';
-    		    }
-    		}
-    		upsertStatement += ") ";
-		}
-		upsertStatement += " VALUES (";
-		for (int i = 0; i < columnCount; i++) {
-			upsertStatement += "?,";
-		}
-		upsertStatement += ')';
-		upsertStatement = upsertStatement.replace(",)", ")");
-		return upsertStatement;
 	}
 }
