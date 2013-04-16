@@ -136,13 +136,11 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         // Create a multi-map of ServerName to List<KeyRange> which we'll use to round robin from to ensure
         // that we keep each region server busy for each query.
         ListMultimap<ServerName,KeyRange> keyRangesPerRegion = ArrayListMultimap.create(regions.size(),regions.size() * splitsPerRegion);;
-        if (regions.size() >= targetConcurrency) {
+        if (splitsPerRegion == 1) {
             for (Map.Entry<HRegionInfo, ServerName> region : regions) {
                 keyRangesPerRegion.put(region.getValue(), ParallelIterators.TO_KEY_RANGE.apply(region));
             }
         } else {
-            assert splitsPerRegion >= 2 : "Splits per region has to be greater than 2";
-            
             // Maintain bucket for each server and then returns KeyRanges in round-robin
             // order to ensure all servers are utilized.
             for (Map.Entry<HRegionInfo, ServerName> region : regions) {
