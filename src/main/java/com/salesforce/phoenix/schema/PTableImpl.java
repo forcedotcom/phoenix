@@ -102,6 +102,7 @@ public class PTableImpl implements PTable {
         this.sequenceNumber = sequenceNumber;
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
         this.pkName = pkName;
+	
         List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
         PColumn[] allColumns = new PColumn[columns.size()];
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
