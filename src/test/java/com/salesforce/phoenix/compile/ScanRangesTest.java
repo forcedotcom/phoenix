@@ -259,6 +259,10 @@ public class ScanRangesTest {
                     public Integer getScale() {
                         return null;
                     }
+                    @Override
+                    public ColumnModifier getColumnModifier() {
+                        return null;
+                    }
                 });
             } else {
                 builder.addField(new PDatum() {
@@ -280,6 +284,10 @@ public class ScanRangesTest {
                     }
                     @Override
                     public Integer getScale() {
+                        return null;
+                    }
+                    @Override
+                    public ColumnModifier getColumnModifier() {
                         return null;
                     }
                 });

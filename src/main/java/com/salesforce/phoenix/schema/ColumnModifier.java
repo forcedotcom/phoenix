@@ -25,7 +25,7 @@ public enum ColumnModifier {
 		}
 	};
 	
-	public static ColumnModifier fromDDLStatement(String modifier) {
+	public static ColumnModifier fromDDLValue(String modifier) {
 		if (modifier == null) {
 			return null;
 		} else if (modifier.equalsIgnoreCase("ASC")) {
@@ -34,18 +34,17 @@ public enum ColumnModifier {
 			return SORT_DESC;
 		} else {
 			return null;
-		}
-			
+		}			
 	}
 	
-	public static ColumnModifier fromDbValue(int value) {
+	public static ColumnModifier fromSystemValue(int value) {
 		switch (value) {
 		    case 1: return SORT_DESC;
 		    default: return null;
 		}
 	}
 	
-	public static int toDbValue(ColumnModifier columnModifier) {
+	public static int toSystemValue(ColumnModifier columnModifier) {
 		if (columnModifier == null) {
 			return Integer.MIN_VALUE;
 		}

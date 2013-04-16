@@ -416,12 +416,12 @@ public class QueryParserTest {
     		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
     		List<ColumnDef> columnDefs = stmt.getColumnDefs();
     		assertEquals(1, columnDefs.size());
-    		assertEquals(ColumnModifier.fromDDLStatement(order), columnDefs.iterator().next().getColumnModifier()); 
+    		assertEquals(ColumnModifier.fromDDLValue(order), columnDefs.iterator().next().getColumnModifier()); 
     	}
     }
     
     @Test
-    public void testParseCreateTableOrderWithoutInlinePrimaryKey() throws Exception {
+    public void testParseCreateTableOrderWithoutPrimaryKeyFails() throws Exception {
     	for (String order : new String[]{"asc", "desc"}) {
     		String stmt = "create table core.entity_history_archive (id varchar(20) ${o})".replace("${o}", order);
     		try {
@@ -435,7 +435,7 @@ public class QueryParserTest {
     }
     
     @Test
-    public void testParseCreateTablePrimaryKeyConstraint() throws Exception {
+    public void testParseCreateTablePrimaryKeyConstraintWithOrder() throws Exception {
     	for (String order : new String[]{"asc", "desc", ""}) {
     		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150) constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
     		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
@@ -443,7 +443,7 @@ public class QueryParserTest {
     		Set<String> columnNames = pkConstraint.getColumnNames();
     		assertEquals(2, columnNames.size());
     		for (String columnName : columnNames) {
-    			assertEquals(ColumnModifier.fromDDLStatement(order), pkConstraint.getColumnModifier(columnName));
+    			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumnModifier(columnName));
     		}    		
     	}
     }

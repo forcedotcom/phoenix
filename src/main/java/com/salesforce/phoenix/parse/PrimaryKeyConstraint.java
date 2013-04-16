@@ -1,8 +1,10 @@
 package com.salesforce.phoenix.parse;
 
 import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
+
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -10,11 +12,11 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class PrimaryKeyConstraint extends NamedNode {
     private final LinkedHashMap<String, ColumnModifier> columnNameToModifier;
     
-    PrimaryKeyConstraint(String name, LinkedHashMap<String, String> columnNameToModifier) {
+    PrimaryKeyConstraint(String name, List<Pair<String, ColumnModifier>> columnNameAndModifier) {
         super(name);
-        this.columnNameToModifier = new LinkedHashMap<String, ColumnModifier>(columnNameToModifier.size());
-        for (Map.Entry<String, String> entry : columnNameToModifier.entrySet()) {
-            this.columnNameToModifier.put(SchemaUtil.normalizeIdentifier(entry.getKey()), ColumnModifier.fromDDLStatement(entry.getValue()));
+        this.columnNameToModifier = new LinkedHashMap<String, ColumnModifier>(columnNameAndModifier.size());
+        for (Pair<String, ColumnModifier> p : columnNameAndModifier) {
+            this.columnNameToModifier.put(SchemaUtil.normalizeIdentifier(p.getFirst()), p.getSecond());
         }
     }
 

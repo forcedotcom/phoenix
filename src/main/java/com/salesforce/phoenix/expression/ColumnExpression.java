@@ -133,7 +133,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (type.isFixedWidth() && type.getByteSize() == null) {
             byteSize = WritableUtils.readVInt(input);
         }
-        columnModifier = ColumnModifier.fromDbValue(WritableUtils.readVInt(input));
+        columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
         
     }
 
@@ -145,6 +145,6 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (byteSize != null) {
             WritableUtils.writeVInt(output, byteSize);
         }
-        WritableUtils.writeVInt(output, ColumnModifier.toDbValue(columnModifier));
+        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
     }
 }

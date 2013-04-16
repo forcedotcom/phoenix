@@ -253,7 +253,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
             PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), null));
             KeyValue sortOrderKv = colKeyValues[SORT_ORDER_INDEX];
-            ColumnModifier sortOrder = ColumnModifier.fromDbValue(PDataType.INTEGER.getCodec().decodeInt(sortOrderKv.getBuffer(), sortOrderKv.getValueOffset(), null));
+            ColumnModifier sortOrder = ColumnModifier.fromSystemValue(PDataType.INTEGER.getCodec().decodeInt(sortOrderKv.getBuffer(), sortOrderKv.getValueOffset(), null));
             PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1, sortOrder);
             columns.add(column);
         }

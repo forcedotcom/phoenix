@@ -169,7 +169,7 @@ public class MetaDataClient {
             colUpsert.setInt(8, column.getScale());
         }
         colUpsert.setInt(9, column.getPosition()+1);
-        colUpsert.setInt(10, ColumnModifier.toDbValue(column.getColumnModifier()));
+        colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
         colUpsert.execute();
     }
 

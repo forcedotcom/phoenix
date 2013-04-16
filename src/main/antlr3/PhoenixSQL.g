@@ -133,6 +133,7 @@ import java.util.LinkedHashMap;
 import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.util.SchemaUtil;
 }
 
@@ -355,9 +356,9 @@ pk_constraint returns [PrimaryKeyConstraint ret]
 	:	CONSTRAINT	n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
 	;
 	
-identifiers returns [LinkedHashMap<String, String> ret]
-@init{ret = new LinkedHashMap<String, String>(); }
-    :  c = identifier (order=ASC|order=DESC)? {$ret.put(c,order == null ? null : order.getText());}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.put(c,order == null ? null : order.getText());} )*
+identifiers returns [List<Pair<String, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<String, ColumnModifier>>(); }
+    :  c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));} )*
 ;
 
 fam_properties returns [ListMultimap<String,Pair<String,Object>> ret]
@@ -413,7 +414,7 @@ column_def returns [ColumnDef ret] throws SQLException
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
-            order == null ? null : order.getText() ); }
+            order == null ? null : ColumnModifier.fromDDLValue(order.getText()) ); }
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).

@@ -50,10 +50,10 @@ public class ColumnDef {
     private final Integer maxLength;
     private final Integer scale;
     private final boolean isPK;
-    private final ColumnModifier sortOrder;
+    private final ColumnModifier columnModifier;
  
     ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
-            Integer scale, boolean isPK, String sortOrder) throws SQLException {
+            Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
         this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;
@@ -100,7 +100,7 @@ public class ColumnDef {
         this.maxLength = maxLength;
         this.scale = scale;
         this.isPK = isPK;
-        this.sortOrder = ColumnModifier.fromDDLStatement(sortOrder);
+        this.columnModifier = columnModifier;
     }
 
     public ColumnDefName getColumnDefName() {
@@ -128,6 +128,6 @@ public class ColumnDef {
     }
     
     public ColumnModifier getColumnModifier() {
-    	return sortOrder;
+    	return columnModifier;
     }
 }
