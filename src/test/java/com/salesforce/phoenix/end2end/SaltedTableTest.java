@@ -52,27 +52,49 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             ensureTableCreated(getUrl(), TABLE_WITH_SALTING, splits, ts-2);
             String query = "UPSERT INTO " + TABLE_WITH_SALTING + " VALUES(?,?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setString(1, "abc");
-            stmt.setString(2, "123");
-            stmt.setInt(3, 1);
+            stmt.setInt(1, 1);
+            stmt.setString(2, "abc");
+            stmt.setString(3, "123");
             stmt.setString(4, "abc");
             stmt.setInt(5, 123);
             stmt.execute();
             conn.commit();
             
-            stmt.setString(1, "abc");
-            stmt.setString(2, "123");
-            stmt.setInt(3, 2);
+            stmt.setInt(1, 2);
+            stmt.setString(2, "abc");
+            stmt.setString(3, "123");
             stmt.setString(4, "def");
             stmt.setInt(5, 456);
             stmt.execute();
             conn.commit();
             
-            stmt.setString(1, "abc");
-            stmt.setString(2, "123");
-            stmt.setInt(3, 3);
+            stmt.setInt(1, 3);
+            stmt.setString(2, "abc");
+            stmt.setString(3, "123");
             stmt.setString(4, "ghi");
             stmt.setInt(5, 789);
+            stmt.execute();
+            conn.commit();
+            
+            // Test upsert when we explicitly specify the columns to upsert into.
+            query = "UPSERT INTO " + TABLE_WITH_SALTING +
+                    " (a_integer, a_string, a_id, b_string, b_integer) " + 
+                    " VALUES(?,?,?,?,?)";
+            stmt = conn.prepareStatement(query);
+            
+            stmt.setInt(1, 1);
+            stmt.setString(2, "abc");
+            stmt.setString(3, "456");
+            stmt.setString(4, "abc");
+            stmt.setInt(5, 123);
+            stmt.execute();
+            conn.commit();
+            
+            stmt.setInt(1, 1);
+            stmt.setString(2, "abc");
+            stmt.setString(3, "789");
+            stmt.setString(4, "abc");
+            stmt.setInt(5, 123);
             stmt.execute();
             conn.commit();
         } finally {
@@ -89,30 +111,31 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             
+            // Only retrieve top 3 values.
             String query = "SELECT * FROM " + TABLE_WITH_SALTING + " ORDER BY a_integer ASC LIMIT 3";
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             
             assertTrue(rs.next());
-            assertEquals("abc", rs.getString(1));
-            assertEquals("123", rs.getString(2));
-            assertEquals(1, rs.getInt(3));
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
             assertEquals(123, rs.getInt(5));
             
             assertTrue(rs.next());
-            assertEquals("abc", rs.getString(1));
-            assertEquals("123", rs.getString(2));
-            assertEquals(2, rs.getInt(3));
-            assertEquals("def", rs.getString(4));
-            assertEquals(456, rs.getInt(5));
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("456", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(123, rs.getInt(5));
             
             assertTrue(rs.next());
-            assertEquals("abc", rs.getString(1));
-            assertEquals("123", rs.getString(2));
-            assertEquals(3, rs.getInt(3));
-            assertEquals("ghi", rs.getString(4));
-            assertEquals(789, rs.getInt(5));
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("789", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(123, rs.getInt(5));
             
             assertFalse(rs.next());
         } finally {

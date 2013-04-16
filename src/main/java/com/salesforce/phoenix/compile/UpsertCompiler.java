@@ -138,7 +138,7 @@ public class UpsertCompiler {
             for (int i = 0; i < table.getPKColumns().size(); i++) {
                 PColumn pkCol = table.getPKColumns().get(i);
                 if (!pkColumnsSet.get(i)) {
-                    if (!pkCol.isNullable()) {
+                    if (!pkCol.isNullable() && !SaltingUtil.isSaltingColumn(pkCol)) {
                         throw new ConstraintViolationException(table.getName().getString() + "." + pkCol.getName().getString() + " may not be null");
                     }
                 }
