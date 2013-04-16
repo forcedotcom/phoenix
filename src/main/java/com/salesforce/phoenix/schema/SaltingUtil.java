@@ -60,10 +60,6 @@ public class SaltingUtil {
         return allRanges;
     }
 
-    public static boolean isSaltingColumn(PColumn col) {
-        return col.getName().getString().equals(SALTING_COLUMN_NAME);
-    }
-
     // Compute the hash of the key value stored in key and set its first byte as the value. The
     // first byte of key should be left empty as a place holder for the salting byte.
     public static byte[] getSaltedKey(ImmutableBytesWritable key, int bucketNum) {

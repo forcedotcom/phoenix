@@ -97,7 +97,7 @@ public class WhereOptimizer {
             extractNodes = new HashSet<Expression>(table.getPKColumns().size());
         }
 
-        int pkPos = table.getBucketNum() != null ? 0 : -1;
+        int pkPos = table.getBucketNum() == null ? -1 : 0;
         LinkedList<List<KeyRange>> cnf = new LinkedList<List<KeyRange>>();
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key

@@ -134,10 +134,11 @@ public class UpsertCompiler {
                     pkColumnsSet.set(pkSlotIndexesToBe[i]);
                 }
             }
-            for (int i = 0; i < table.getPKColumns().size(); i++) {
+            int i = table.getBucketNum() == null ? 0 : 1;
+            for ( ; i < table.getPKColumns().size(); i++) {
                 PColumn pkCol = table.getPKColumns().get(i);
                 if (!pkColumnsSet.get(i)) {
-                    if (!pkCol.isNullable() && !SaltingUtil.isSaltingColumn(pkCol)) {
+                    if (!pkCol.isNullable()) {
                         throw new ConstraintViolationException(table.getName().getString() + "." + pkCol.getName().getString() + " may not be null");
                     }
                 }
