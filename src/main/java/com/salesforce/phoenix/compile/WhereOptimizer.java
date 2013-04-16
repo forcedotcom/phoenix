@@ -149,8 +149,7 @@ public class WhereOptimizer {
             ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
             byte saltByte = SaltingUtil.getSaltingByte(key, bucketNum);
             KeyRange saltRange = SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(new byte[] {saltByte}, true, new byte[] {saltByte}, true);
-            List<KeyRange> saltRangeList = new ArrayList<KeyRange>();
-            saltRangeList.add(saltRange);
+            List<KeyRange> saltRangeList = Collections.<KeyRange>singletonList(saltRange);
             return saltRangeList;
         }
         return SaltingUtil.generateAllSaltingRanges(bucketNum);
