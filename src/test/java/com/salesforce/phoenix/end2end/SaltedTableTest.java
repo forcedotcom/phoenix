@@ -115,6 +115,24 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
     }
 
     @Test
+    public void testTableWithInvalidBucketNumber() throws Exception {
+        long ts = nextTimestamp();
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            String query = "create table salted_table (a_integer integer not null CONSTRAINT pk PRIMARY KEY (a_integer)) SALT_BUCKETS = 129";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.execute();
+            fail("Should have caught exception");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1021 (42Y80): Salt bucket numbers should be with 1 and 128."));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
     public void testSelectValueNoWhereClause() throws Exception {
         long ts = nextTimestamp();
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);

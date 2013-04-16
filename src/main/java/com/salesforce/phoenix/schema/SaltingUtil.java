@@ -42,7 +42,7 @@ import com.salesforce.phoenix.util.ByteUtil;
  */
 public class SaltingUtil {
 
-    public static final String SALTING_COLUMN_NAME = "_SALTING_BYTE";
+    public static final String SALTING_COLUMN_NAME = "_SALT";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
             new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, -1);
 

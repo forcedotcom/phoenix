@@ -318,8 +318,9 @@ public class MetaDataClient {
             }
             
             Integer saltBucketNum = (Integer) tableProps.get(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            if (saltBucketNum != null && saltBucketNum < 0 && saltBucketNum >= Byte.MAX_VALUE) {
-                saltBucketNum = null;
+            tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
+            if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum >= Byte.MAX_VALUE)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
             }
             
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);

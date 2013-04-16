@@ -83,7 +83,8 @@ public enum SQLExceptionCode {
     PRIMARY_KEY_MISSING(509, "42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS(510, "42889", "The table already has a primary key."),
     
-    /** HBase and Phoenix specific implementation defined sub-classes.
+    /** 
+     * HBase and Phoenix specific implementation defined sub-classes.
      * Column family related exceptions.
      * 
      * For the following exceptions, use errorcode 10.
@@ -113,6 +114,8 @@ public enum SQLExceptionCode {
     AGGREGATE_WITH_NOT_GROUP_BY_COLUMN(1018, "42Y27", "Aggregate may not contain columns not in GROUP BY."),
     ONLY_AGGREGATE_IN_HAVING_CLAUSE(1019, "42Y26", "Only aggregate maybe used in the HAVING clause."),
     UPSERT_COLUMN_NUMBERS_MISMATCH(1020, "42Y60", "Number of columns upserting must match number of values."),
+    // Table properties exception.
+    INVALID_BUCKET_NUM(1021, "42Y80", "Salt bucket numbers should be with 1 and 128."),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),
