@@ -39,9 +39,9 @@ import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 /**
  *
@@ -98,10 +98,14 @@ public class WhereOptimizer {
         }
 
         int pkPos = table.getBucketNum() != null ? 0 : -1;
-        List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
+        LinkedList<List<KeyRange>> cnf = new LinkedList<List<KeyRange>>();
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
+            // Skip over the salt byte key slot.
+            if (slot == null && pkPos == 0 && table.getBucketNum() != null) {
+                continue;
+            }
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.
@@ -130,8 +134,8 @@ public class WhereOptimizer {
             }
         }
         if (table.getBucketNum() != null) {
-            List<KeyRange> saltBytes = getSaltByteRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
-            cnf.set(0, saltBytes);
+            List<KeyRange> saltByteRange = getSaltByteRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
+            cnf.addFirst(saltByteRange);
         }
         context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
@@ -139,7 +143,15 @@ public class WhereOptimizer {
 
     public static List<KeyRange> getSaltByteRanges(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
         if (ScanRanges.isSingleRowScan(ranges, schema, false)) {
-            
+            int[] position = new int[ranges.size()];
+            int maxLength = ScanUtil.estimateKeyLength(schema, 1, ranges, new int[ranges.size()], Bound.LOWER);
+            byte[] key = new byte[maxLength + 1];
+            ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
+            byte saltByte = SaltingUtil.getSaltingByte(key, bucketNum);
+            KeyRange saltRange = SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(new byte[] {saltByte}, true, new byte[] {saltByte}, true);
+            List<KeyRange> saltRangeList = new ArrayList<KeyRange>();
+            saltRangeList.add(saltRange);
+            return saltRangeList;
         }
         return SaltingUtil.generateAllSaltingRanges(bucketNum);
     }

@@ -64,16 +64,18 @@ public class SaltingUtil {
         return col.getName().getString().equals(SALTING_COLUMN_NAME);
     }
 
+    // Compute the hash of the key value stored in key and set its first byte as the value. The
+    // first byte of key should be left empty as a place holder for the salting byte.
     public static byte[] getSaltedKey(ImmutableBytesWritable key, int bucketNum) {
         byte[] keyBytes = new byte[key.getSize()];
-        byte saltByte = getSaltingByte(key.get(), key.getOffset() + 1, key.getSize() - 1, bucketNum);
+        byte saltByte = getSaltingByte(key.get(), bucketNum);
         keyBytes[0] = saltByte;
         System.arraycopy(key.get(), key.getOffset() + 1, keyBytes, 1, key.getSize() - 1);
         return keyBytes;
     }
 
-    // Generate the bucket byte given a byte and the number of buckets.
-    private static byte getSaltingByte(byte[] value, int offset, int length, int bucketNum) {
+    // Generate the bucket byte given a byte array and the number of buckets.
+    public static byte getSaltingByte(byte[] value, int bucketNum) {
         int hash = Arrays.hashCode(value);
         byte bucketByte = (byte) ((Math.abs(hash) % bucketNum));
         return bucketByte;

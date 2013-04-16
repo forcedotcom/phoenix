@@ -48,7 +48,14 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         
+        // Rows we inserted:
+        // 1abc123abc111
+        // 1abc456abc111
+        // 1def789abc111
+        // 2abc123def222 
+        // 3abc123ghi333
         try {
+            // Upsert with no column specifies.
             ensureTableCreated(getUrl(), TABLE_WITH_SALTING, splits, ts-2);
             String query = "UPSERT INTO " + TABLE_WITH_SALTING + " VALUES(?,?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
@@ -56,7 +63,29 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             stmt.setString(2, "abc");
             stmt.setString(3, "123");
             stmt.setString(4, "abc");
-            stmt.setInt(5, 123);
+            stmt.setInt(5, 111);
+            stmt.execute();
+            conn.commit();
+            
+            stmt.setInt(1, 1);
+            stmt.setString(2, "abc");
+            stmt.setString(3, "456");
+            stmt.setString(4, "abc");
+            stmt.setInt(5, 111);
+            stmt.execute();
+            conn.commit();
+            
+            // Test upsert when statement explicitly specifies the columns to upsert into.
+            query = "UPSERT INTO " + TABLE_WITH_SALTING +
+                    " (a_integer, a_string, a_id, b_string, b_integer) " + 
+                    " VALUES(?,?,?,?,?)";
+            stmt = conn.prepareStatement(query);
+            
+            stmt.setInt(1, 1);
+            stmt.setString(2, "def");
+            stmt.setString(3, "789");
+            stmt.setString(4, "abc");
+            stmt.setInt(5, 111);
             stmt.execute();
             conn.commit();
             
@@ -64,37 +93,20 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             stmt.setString(2, "abc");
             stmt.setString(3, "123");
             stmt.setString(4, "def");
-            stmt.setInt(5, 456);
+            stmt.setInt(5, 222);
             stmt.execute();
             conn.commit();
             
-            stmt.setInt(1, 3);
-            stmt.setString(2, "abc");
-            stmt.setString(3, "123");
-            stmt.setString(4, "ghi");
-            stmt.setInt(5, 789);
-            stmt.execute();
-            conn.commit();
-            
-            // Test upsert when we explicitly specify the columns to upsert into.
+            // Test upsert when order of column is shuffled.
             query = "UPSERT INTO " + TABLE_WITH_SALTING +
-                    " (a_integer, a_string, a_id, b_string, b_integer) " + 
+                    " (a_string, a_integer, a_id, b_string, b_integer) " + 
                     " VALUES(?,?,?,?,?)";
             stmt = conn.prepareStatement(query);
-            
-            stmt.setInt(1, 1);
-            stmt.setString(2, "abc");
-            stmt.setString(3, "456");
-            stmt.setString(4, "abc");
-            stmt.setInt(5, 123);
-            stmt.execute();
-            conn.commit();
-            
-            stmt.setInt(1, 1);
-            stmt.setString(2, "abc");
-            stmt.setString(3, "789");
-            stmt.setString(4, "abc");
-            stmt.setInt(5, 123);
+            stmt.setString(1, "abc");
+            stmt.setInt(2, 3);
+            stmt.setString(3, "123");
+            stmt.setString(4, "ghi");
+            stmt.setInt(5, 333);
             stmt.execute();
             conn.commit();
         } finally {
@@ -111,8 +123,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             
-            // Only retrieve top 3 values.
-            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " ORDER BY a_integer ASC LIMIT 3";
+            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " ORDER BY a_integer, a_string, a_id ASC LIMIT 1";
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             
@@ -121,21 +132,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals("abc", rs.getString(2));
             assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
-            assertEquals(123, rs.getInt(5));
-            
-            assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
-            assertEquals("456", rs.getString(3));
-            assertEquals("abc", rs.getString(4));
-            assertEquals(123, rs.getInt(5));
-            
-            assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
-            assertEquals("789", rs.getString(3));
-            assertEquals("abc", rs.getString(4));
-            assertEquals(123, rs.getInt(5));
+            assertEquals(111, rs.getInt(5));
             
             assertFalse(rs.next());
         } finally {
@@ -152,37 +149,73 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             
-            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " WHERE a_string = ?";
+            // Where with fully qualified key.
+            String query = "SELECT * FROM " + TABLE_WITH_SALTING + 
+                    " WHERE a_integer = 1 AND a_string = 'abc' AND a_id = '123'";
             PreparedStatement stmt = conn.prepareStatement(query);
             
-            stmt.setInt(1, 1);
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
-            assertEquals("abc", rs.getString(1));
-            assertEquals("123", rs.getString(2));
-            assertEquals(1, rs.getInt(3));
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
-            assertEquals(123, rs.getInt(5));
+            assertEquals(111, rs.getInt(5));
             assertFalse(rs.next());
             
-            stmt.setInt(1, 2);
+            // Where without fully qualified key, point query.
+            query = "SELECT * FROM " + TABLE_WITH_SALTING + 
+                    " WHERE a_integer = ? AND a_string = ? ORDER BY a_id ASC LIMIT 2";
+            stmt = conn.prepareStatement(query);
+            
+            stmt.setInt(1, 1);
+            stmt.setString(2, "abc");
             rs = stmt.executeQuery();
             assertTrue(rs.next());
-            assertEquals("abc", rs.getString(1));
-            assertEquals("123", rs.getString(2));
-            assertEquals(2, rs.getInt(3));
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("456", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            assertFalse(rs.next());
+            
+            query = "SELECT * FROM " + TABLE_WITH_SALTING + " WHERE a_string = ?";
+            stmt = conn.prepareStatement(query);
+            
+            stmt.setString(1, "def");
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("def", rs.getString(2));
+            assertEquals("789", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            
+            // Where without fully qualified key, range query.
+            query = "SELECT * FROM " + TABLE_WITH_SALTING + 
+                    " WHERE a_integer >= 2 ORDER BY a_integer ASC LIMIT 2";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(2, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
             assertEquals("def", rs.getString(4));
-            assertEquals(456, rs.getInt(5));
-            assertFalse(rs.next());
+            assertEquals(222, rs.getInt(5));
             
-            stmt.setInt(1, 3);
-            rs = stmt.executeQuery();
             assertTrue(rs.next());
-            assertEquals("abc", rs.getString(1));
-            assertEquals("123", rs.getString(2));
-            assertEquals(3, rs.getInt(3));
+            assertEquals(3, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
             assertEquals("ghi", rs.getString(4));
-            assertEquals(789, rs.getInt(5));
+            assertEquals(333, rs.getInt(5));
             assertFalse(rs.next());
         } finally {
             conn.close();

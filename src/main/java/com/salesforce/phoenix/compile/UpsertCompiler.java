@@ -69,16 +69,14 @@ public class UpsertCompiler {
         byte[][] pkValues = new byte[table.getPKColumns().size()][];
         // If the table uses salting, the first byte is the salting byte, set to an empty arrary
         // here and we will fill in the byte later in PRowImpl.
-        int offset = 0;
         if (table.getBucketNum() != null) {
             pkValues[0] = new byte[] {0};
-            offset = 1;
         }
         for (int i = 0; i < values.length; i++) {
             byte[] value = values[i];
             PColumn column = table.getColumns().get(columnIndexes[i]);
             if (SchemaUtil.isPKColumn(column)) {
-                pkValues[pkSlotIndex[i] + offset] = value;
+                pkValues[pkSlotIndex[i]] = value;
             } else {
                 columnValues.put(column, value);
             }
@@ -110,7 +108,8 @@ public class UpsertCompiler {
             columnIndexesToBe = new int[allColumns.size()];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = new PColumn[columnIndexesToBe.length];
-            for (int i = 0, j = 0; i < allColumns.size() ; i++) {
+            int j = table.getBucketNum() != null ? 1 : 0; // Skip over the salting byte.
+            for (int i = 0; i < allColumns.size() ; i++) {
                 columnIndexesToBe[i] = i;
                 targetColumns[i] = allColumns.get(i);
                 if (SchemaUtil.isPKColumn(allColumns.get(i))) {

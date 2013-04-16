@@ -97,7 +97,7 @@ public class ScanRanges {
         }
         return false;
     }
-    
+
     /**
      * @return true if this represents the full key to a single row
      */
