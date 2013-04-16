@@ -48,6 +48,7 @@ import com.salesforce.phoenix.schema.TableRef;
  * @since 0.1
  */
 public class ScanPlan extends BasicQueryPlan {
+    private List<KeyRange> splits;
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projection, Integer limit, OrderBy orderBy) {
         super(context, table, projection, context.getBindManager().getParameterMetaData(), limit, orderBy);
@@ -55,7 +56,7 @@ public class ScanPlan extends BasicQueryPlan {
     
     @Override
     public List<KeyRange> getSplits() {
-        return null;
+        return splits;
     }
     
     @Override
@@ -68,17 +69,17 @@ public class ScanPlan extends BasicQueryPlan {
         // Set any scan attributes before creating the scanner, as it will be too later afterwards
         context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
         ResultIterator scanner;
-        // Either way, just use serial result iterator, instead of parallel one.
-        // When we get the pre-fetching ClientScanner, this will be better, but even
-        // without that, it's better not to run through the entire scan (which is
-        // what the parallel iterator does) in case there are a billion rows and we'll
-        // stop iterating after a few.
+        /* If no limit, use parallel iterator so that we get results faster. Otherwise, if
+         * limit is provided, run query serially.
+         */
         if (limit == null) {
-            scanner = new TableResultIterator(context, table);
-            scanner = new SerialLimitingResultIterator(scanner, Long.MAX_VALUE, RowCounter.UNLIMIT_ROW_COUNTER);
+            ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
+            scanner = new ConcatResultIterator(iterators);
+            splits = iterators.getSplits();
         } else {
             scanner = new TableResultIterator(context, table);
             scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
+            splits = null;
         }
         if (!orderBy.getOrderingColumns().isEmpty()) {
             scanner = new OrderedResultIterator(context, scanner, orderBy.getOrderingColumns());

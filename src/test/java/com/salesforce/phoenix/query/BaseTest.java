@@ -139,6 +139,13 @@ public abstract class BaseTest {
                 "    \"1\".ulong_col unsigned_long" +
                 "    CONSTRAINT pk PRIMARY KEY (uint_key, ulong_key, string_key))\n" +
                      HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE + "'");
+        builder.put(HBASE_DYNAMIC_COLUMNS,"create table " + HBASE_DYNAMIC_COLUMNS + 
+                "   (entry varchar not null," +
+                "    F varchar," +
+                "    A.F1v1 varchar," +
+                "    A.F1v2 varchar," +
+                "    B.F2v1 varchar" +
+                "    CONSTRAINT pk PRIMARY KEY (entry))\n");
         builder.put(PRODUCT_METRICS_NAME,"create table " + PRODUCT_METRICS_NAME +
                 "   (organization_id char(15) not null," +
                 "    date date not null," +

@@ -106,6 +106,7 @@ public class PTableImpl implements PTable {
         this.pkName = pkName;
         List<PColumn> pkColumns;
         PColumn[] allColumns;
+
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
         allColumns = new PColumn[columns.size()];
