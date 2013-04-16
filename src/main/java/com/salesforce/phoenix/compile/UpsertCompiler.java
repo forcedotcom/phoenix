@@ -67,11 +67,18 @@ public class UpsertCompiler {
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
         Map<PColumn,byte[]> columnValues = Maps.newHashMapWithExpectedSize(columnIndexes.length);
         byte[][] pkValues = new byte[table.getPKColumns().size()][];
+        // If the table uses salting, the first byte is the salting byte, set to an empty arrary
+        // here and we will fill in the byte later in PRowImpl.
+        int offset = 0;
+        if (table.getBucketNum() != null) {
+            pkValues[0] = new byte[] {0};
+            offset = 1;
+        }
         for (int i = 0; i < values.length; i++) {
             byte[] value = values[i];
             PColumn column = table.getColumns().get(columnIndexes[i]);
             if (SchemaUtil.isPKColumn(column)) {
-                pkValues[pkSlotIndex[i]] = value;
+                pkValues[pkSlotIndex[i] + offset] = value;
             } else {
                 columnValues.put(column, value);
             }
@@ -227,7 +234,7 @@ public class UpsertCompiler {
                     projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
                 }
                 // Build table from projectedColumns
-                PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), projectedColumns);
+                PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                 
                 List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
                         NODE_FACTORY.aliasedNode(null, 

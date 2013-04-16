@@ -102,7 +102,11 @@ public class ScanRanges {
      * @return true if this represents the full key to a single row
      */
     public boolean isSingleRowScan() {
-        if (schema == null || ranges.size() < schema.getMaxFields()) {
+        return isSingleRowScan(ranges, schema, true);
+    }
+
+    public static boolean isSingleRowScan(List<List<KeyRange>> ranges, RowKeySchema schema, boolean rangesWithSaltByte) {
+        if (schema == null || ranges.size() < (rangesWithSaltByte ? schema.getMaxFields() : schema.getMaxFields() - 1)) {
             return false;
         }
         boolean isSingleKey = true;

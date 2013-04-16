@@ -76,9 +76,10 @@ public class PColumnImpl implements PColumn {
             // Allow nullable columns in PK, but only if they're variable length.
             // Variable length types may be null, since we use a null-byte terminator
             // (which is a disallowed character in variable length types). However,
-            // fixed widith types do not have a way of representing null.
+            // fixed width types do not have a way of representing null.
             // TODO: we may be able to allow this for columns at the end of the PK
-            Preconditions.checkArgument(!nullable || !dataType.isFixedWidth(), "PK columns may not be both fixed width and nullable: " + name.getString());
+            Preconditions.checkArgument(!nullable || !dataType.isFixedWidth(), 
+                    "PK columns may not be both fixed width and nullable: " + name.getString());
         }
         this.name = name;
         this.familyName = familyName == null ? null : familyName;

@@ -50,22 +50,22 @@ public abstract class BaseTest {
     static {
         ImmutableMap.Builder<String,String> builder = ImmutableMap.builder();
         builder.put(ATABLE_NAME,"create table " + ATABLE_NAME +
-        		"   (organization_id char(15) not null, \n" +
-        		"    entity_id char(15) not null,\n" +
-        		"    a_string varchar(100),\n" +
-        		"    b_string varchar(100),\n" +
-        		"    a_integer integer,\n" +
-        		"    a_date date,\n" +
-        		"    a_time time,\n" +
-        		"    a_timestamp timestamp,\n" +
-        		"    x_decimal decimal(31,10),\n" +
-        		"    x_long bigint,\n" +
-        		"    x_integer integer,\n" +
-        		"    y_integer integer\n" +
-        		"    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
-        		")");
+                "   (organization_id char(15) not null, \n" +
+                "    entity_id char(15) not null,\n" +
+                "    a_string varchar(100),\n" +
+                "    b_string varchar(100),\n" +
+                "    a_integer integer,\n" +
+                "    a_date date,\n" +
+                "    a_time time,\n" +
+                "    a_timestamp timestamp,\n" +
+                "    x_decimal decimal(31,10),\n" +
+                "    x_long bigint,\n" +
+                "    x_integer integer,\n" +
+                "    y_integer integer\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
+                ")");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
-        		"   (a_string varchar not null, \n" +
+                "   (a_string varchar not null, \n" +
                 "    a_id char(3) not null,\n" +
                 "    b_string varchar not null, \n" +
                 "    a_integer integer not null, \n" +
@@ -75,31 +75,39 @@ public abstract class BaseTest {
                 "    d_string varchar(3),\n" +
                 "    e_string char(10)\n" +
                 "    CONSTRAINT my_pk PRIMARY KEY (a_string,a_id,b_string,a_integer,c_string))");
+        builder.put(TABLE_WITH_SALTING,"create table " + TABLE_WITH_SALTING +
+                "   (a_string varchar not null, \n" +
+                "    a_id char(3) not null,\n" +
+                "    a_integer integer not null, \n" +
+                "    b_string varchar, \n" +
+                "    b_integer integer \n" +
+                "    CONSTRAINT pk PRIMARY KEY (a_string, a_id, a_integer))\n" +
+                "   SALT_BUCKETS = 4");
         builder.put(STABLE_NAME,"create table " + STABLE_NAME +
                 "   (id char(1) not null primary key,\n" +
                 "    value integer)");
         builder.put(PTSDB_NAME,"create table " + PTSDB_NAME +
-        		"   (inst varchar null,\n" +
-        		"    host varchar null,\n" +
-        		"    date date not null,\n" +
-        		"    val decimal(31,10)\n" +
-        		"    CONSTRAINT pk PRIMARY KEY (inst, host, date))");
+                "   (inst varchar null,\n" +
+                "    host varchar null,\n" +
+                "    date date not null,\n" +
+                "    val decimal(31,10)\n" +
+                "    CONSTRAINT pk PRIMARY KEY (inst, host, date))");
         builder.put(PTSDB2_NAME,"create table " + PTSDB2_NAME +
-            "   (inst varchar(10) not null,\n" +
-            "    date date not null,\n" +
-            "    val1 decimal,\n" +
-            "    val2 decimal(31,10),\n" +
-            "    val3 decimal\n" +
-            "    CONSTRAINT pk PRIMARY KEY (inst, date))");
+                "   (inst varchar(10) not null,\n" +
+                "    date date not null,\n" +
+                "    val1 decimal,\n" +
+                "    val2 decimal(31,10),\n" +
+                "    val3 decimal\n" +
+                "    CONSTRAINT pk PRIMARY KEY (inst, date))");
         builder.put(FUNKY_NAME,"create table " + FUNKY_NAME +
-        		"   (\"foo!\" varchar not null primary key,\n" +
-        		"    \"1\".\"#@$\" varchar, \n" +
-        		"    \"1\".\"foo.bar-bas\" varchar, \n" +
-        		"    \"1\".\"Value\" integer,\n" +
+                "   (\"foo!\" varchar not null primary key,\n" +
+                "    \"1\".\"#@$\" varchar, \n" +
+                "    \"1\".\"foo.bar-bas\" varchar, \n" +
+                "    \"1\".\"Value\" integer,\n" +
                 "    \"1\".\"VALUE\" integer,\n" +
                 "    \"1\".\"value\" integer,\n" +
-        		"    \"1\".\"_blah^\" varchar)"
-        		);
+                "    \"1\".\"_blah^\" varchar)"
+                );
         builder.put(KEYONLY_NAME,"create table " + KEYONLY_NAME +
                 "   (i1 integer not null, i2 integer not null\n" +
                 "    CONSTRAINT pk PRIMARY KEY (i1,i2))");
@@ -112,13 +120,13 @@ public abstract class BaseTest {
                 "    b.col5 decimal(6,3))\n" +
                 "    a." + HConstants.VERSIONS + "=" + 1 + "," + "a." + HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + DataBlockEncoding.NONE +  "'");
         builder.put(MULTI_CF_NAME,"create table " + MULTI_CF_NAME +
-        		"   (id char(15) not null primary key,\n" +
-        		"    a.unique_user_count integer,\n" +
-        		"    b.unique_org_count integer,\n" +
-        		"    c.db_cpu_utilization decimal(31,10),\n" +
-        		"    d.transaction_count bigint,\n" +
-        		"    e.cpu_utilization decimal(31,10),\n" +
-        		"    f.response_time bigint,\n" +
+                "   (id char(15) not null primary key,\n" +
+                "    a.unique_user_count integer,\n" +
+                "    b.unique_org_count integer,\n" +
+                "    c.db_cpu_utilization decimal(31,10),\n" +
+                "    d.transaction_count bigint,\n" +
+                "    e.cpu_utilization decimal(31,10),\n" +
+                "    f.response_time bigint,\n" +
                 "    g.response_time bigint)");
         builder.put(GROUPBYTEST_NAME,"create table " + GROUPBYTEST_NAME +
                 "   (id varchar not null primary key,\n" +

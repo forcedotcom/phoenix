@@ -97,7 +97,7 @@ public class WhereOptimizer {
             extractNodes = new HashSet<Expression>(table.getPKColumns().size());
         }
 
-        int pkPos = -1;
+        int pkPos = table.getBucketNum() != null ? 0 : -1;
         List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
@@ -114,7 +114,7 @@ public class WhereOptimizer {
             for (KeyRange range : slot.getKeyRanges()) {
                 hasUnboundedRange |= range.isUnbound();
             }
-
+            
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
             // set the start key to 'foo' but still need to match the regex at filter time.
@@ -129,9 +129,19 @@ public class WhereOptimizer {
                 break;
             }
         }
-
+        if (table.getBucketNum() != null) {
+            List<KeyRange> saltBytes = getSaltByteRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
+            cnf.set(0, saltBytes);
+        }
         context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
+    }
+
+    public static List<KeyRange> getSaltByteRanges(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
+        if (ScanRanges.isSingleRowScan(ranges, schema, false)) {
+            
+        }
+        return SaltingUtil.generateAllSaltingRanges(bucketNum);
     }
 
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {

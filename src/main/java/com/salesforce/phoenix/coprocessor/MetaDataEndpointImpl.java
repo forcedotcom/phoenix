@@ -179,7 +179,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
         int i = 0;
         int j = 0;
-        int nFound = 0;
         while (i < results.size() && j < TABLE_KV_COLUMNS.size()) {
             KeyValue kv = results.get(i);
             KeyValue searchKv = TABLE_KV_COLUMNS.get(j);
@@ -187,15 +186,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     searchKv.getBuffer(), searchKv.getQualifierOffset(), searchKv.getQualifierLength());
             if (cmp == 0) {
                 tableKeyValues[j++] = kv;
-                nFound++;
                 i++;
             } else if (cmp > 0) {
                 j++;
             }
         }
-        if (nFound < TABLE_KV_COLUMNS.size()-1 ||
-            (nFound == TABLE_KV_COLUMNS.size()-1 && tableKeyValues[PK_NAME_INDEX] != null) ) { // PK_NAME is optional
-            throw new IllegalStateException("Didn't find expected expected key values for table row in metadata row");
+        // TABLE_TYPE, TABLE_SEQ_NUM and COLUMN_COUNT are required.
+        if (tableKeyValues[TABLE_TYPE_INDEX] == null || tableKeyValues[TABLE_SEQ_NUM_INDEX] == null
+                || tableKeyValues[COLUMN_COUNT_INDEX] == null) {
+            throw new IllegalStateException("Didn't find expected key values for table row in metadata row");
         }
         KeyValue tableTypeKv = tableKeyValues[TABLE_TYPE_INDEX];
         PTableType tableType = PTableType.fromSerializedValue(tableTypeKv.getBuffer()[tableTypeKv.getValueOffset()]);
@@ -204,10 +203,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         KeyValue columnCountKv = tableKeyValues[COLUMN_COUNT_INDEX];
         int columnCount = PDataType.INTEGER.getCodec().decodeInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset());
         KeyValue pkNameKv = tableKeyValues[PK_NAME_INDEX];
-        String pkName = null;
-        if (pkNameKv != null) {
-            pkName = (String)PDataType.VARCHAR.toObject(pkNameKv.getBuffer(), pkNameKv.getValueOffset(), pkNameKv.getValueLength());
-        }
+        String pkName = pkNameKv != null ? (String)PDataType.VARCHAR.toObject(pkNameKv.getBuffer(), pkNameKv.getValueOffset(), pkNameKv.getValueLength()) : null;
+        KeyValue saltBucketNumKv = tableKeyValues[SALT_BUCKETS_INDEX];
+        Integer saltBucketNum = saltBucketNumKv != null ? (Integer)PDataType.INTEGER.getCodec().decodeInt(saltBucketNumKv.getBuffer(), saltBucketNumKv.getValueOffset()) : null;
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         while (true) {
@@ -223,7 +221,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
             i = 0;
             j = 0;
-            nFound = 0;
             while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
                 KeyValue kv = results.get(i);
                 KeyValue searchKv = COLUMN_KV_COLUMNS.get(j);
@@ -231,7 +228,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                         searchKv.getBuffer(), searchKv.getQualifierOffset(), searchKv.getQualifierLength());
                 if (cmp == 0) {
                     colKeyValues[j++] = kv;
-                    nFound++;
                     i++;
                 } else {
                     colKeyValues[j++] = null;
@@ -256,7 +252,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             columns.add(column);
         }
         
-        return new PTableImpl(tableName, tableType, timeStamp, tableSeqNum, pkName, columns);
+        return new PTableImpl(tableName, tableType, timeStamp, tableSeqNum, pkName, saltBucketNum, columns);
     }
     
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {

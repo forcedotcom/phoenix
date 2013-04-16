@@ -148,6 +148,14 @@ public interface PTable extends Writable {
      * @return the statistics table.
      */
     PTableStats getTableStats();
-    
+
     RowKeySchema getRowKeySchema();
+
+    /**
+     * Return the number of buckets used by this table for salting. If the table does
+     * not use salting, returns QueryConstants.NO_BUCKETS.
+     * @return number of buckets used by this table for salting, or QueryConstants.NO_BUCKETS
+     * if salting is not turned on.
+     */
+    Integer getBucketNum();
 }
