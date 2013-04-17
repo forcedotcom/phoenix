@@ -151,11 +151,6 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            return this.compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-        }
-
-        @Override
         public Object toObject(String value) {
             return value;
         }
@@ -254,11 +249,6 @@ public enum PDataType {
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             return VARCHAR.compareTo(lhs, rhs, rhsType);
-        }
-
-        @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            return this.compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
         }
 
         @Override
@@ -399,24 +389,6 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            switch(rhsType) {
-                case UNSIGNED_INT:
-                case UNSIGNED_LONG:
-                case INTEGER:
-                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, lhsColMod), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColMod));
-                case LONG:
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                case DECIMAL:
-                    // TODO: figure out a way to do this in-place?
-                    byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this));
-                    return DECIMAL.compareTo(b, 0, b.length, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                default:
-                    throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
-            }
-        }
-
-        @Override
         public Object toObject(String value) {
             if (value == null || value.length() == 0) {
                 return null;
@@ -533,24 +505,6 @@ public enum PDataType {
         @Override
         public boolean isComparableTo(PDataType targetType) {
             return DECIMAL.isComparableTo(targetType);
-        }
-
-        @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            switch(rhsType) {
-                case INTEGER:
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                case UNSIGNED_INT:
-                case LONG:
-                case UNSIGNED_LONG:
-                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, lhsColMod), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColMod));
-                case DECIMAL:
-                    // TODO: figure out a way to do this in-place?
-                    byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this));
-                    return DECIMAL.compareTo(b, 0, b.length, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                default:
-                    throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
-            }
         }
 
         @Override
@@ -688,23 +642,6 @@ public enum PDataType {
                 return ((BigDecimal)lhs).compareTo((BigDecimal)rhs);
             }
             return -rhsType.compareTo(rhs, lhs, this);
-        }
-
-        @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            switch(rhsType) {
-                case DECIMAL:
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                case LONG:
-                case INTEGER:
-                case UNSIGNED_LONG:
-                case UNSIGNED_INT:
-                    // TODO: figure out a way to do this in-place?
-                    byte[] b = DECIMAL.toBytes(DECIMAL.toObject(rhs, rhsOffset, rhsLength, rhsType, rhsColMod));
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, b, 0, b.length, rhsColMod);
-                default:
-                    throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
-            }
         }
 
         @Override
@@ -906,21 +843,6 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            switch(rhsType) {
-                case TIMESTAMP:
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                case DATE:
-                case TIME:
-                    int c = DATE.compareTo(lhs, lhsOffset, lhsLength-4, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                    if (c != 0) return c;
-                    return lhs[lhsOffset+8] == 0 && lhs[lhsOffset+9] == 0 && lhs[lhsOffset+10] == 0 && lhs[lhsOffset+11] == 0 ? 0 : 1;
-                default:
-                    throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
-            }
-        }
-
-        @Override
         public Object toObject(String value) {
             if (value == null || value.length() == 0) {
                 return null;
@@ -1000,19 +922,6 @@ public enum PDataType {
                 return -TIMESTAMP.compareTo(rhs, lhs, TIME);
             }
             return ((Date)rhs).compareTo((Date)lhs);
-        }
-
-        @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            switch(rhsType) {
-                case DATE:
-                case TIME:
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                case TIMESTAMP:
-                    return -TIMESTAMP.compareTo(rhs, rhsOffset, rhsLength, rhsColMod, lhs, lhsOffset, lhsLength, lhsColMod, this);
-                default:
-                    throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
-            }
         }
 
         @Override
@@ -1097,11 +1006,6 @@ public enum PDataType {
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             return TIME.compareTo(lhs, rhs, rhsType);
-        }
-
-        @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            return TIME.compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod, rhsType);
         }
 
         @Override
@@ -1231,27 +1135,6 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            switch(rhsType) {
-                case UNSIGNED_LONG:
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                case UNSIGNED_INT:
-                case INTEGER:
-                case LONG:
-                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, lhsColMod), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColMod));
-                case DECIMAL:
-                    // TODO: figure out a way to do this in-place?
-                    byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this, lhsColMod));
-                    if (lhsColMod != null) {
-                        lhsColMod = null;
-                    }
-                    return DECIMAL.compareTo(b, 0, b.length, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                default:
-                    throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
-            }
-        }
-
-        @Override
         public Object toObject(String value) {
             if (value == null || value.length() == 0) {
                 return null;
@@ -1360,27 +1243,6 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            switch(rhsType) {
-                case UNSIGNED_INT:
-                    return compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                case UNSIGNED_LONG:
-                case INTEGER:
-                case LONG:
-                    return Longs.compare(getCodec().decodeLong(lhs, lhsOffset, lhsColMod), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColMod));
-                case DECIMAL:
-                    // TODO: figure out a way to do this in-place?
-                    byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this, lhsColMod));
-                    if (lhsColMod != null) {
-                        lhsColMod = null;
-                    }
-                    return DECIMAL.compareTo(b, 0, b.length, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-                default:
-                    throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
-            }
-        }
-
-        @Override
         public Object toObject(String value) {
             if (value == null || value.length() == 0) {
                 return null;
@@ -1446,18 +1308,6 @@ public enum PDataType {
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             return Booleans.compare((Boolean)lhs, (Boolean)rhs);
-        }
-
-        @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            // compare against inverted TRUE_BYTE instead
-            if (lhsColMod != null) {
-                lhs = lhsColMod.apply(lhs, null, lhsOffset, lhsLength);
-            }
-            if (rhsColMod != null) {
-                rhs = rhsColMod.apply(rhs, null, rhsOffset, rhsLength);
-            }            
-            return Booleans.compare(lhs[lhsOffset] == TRUE_BYTE, rhs[rhsOffset] == TRUE_BYTE);
         }
 
         @Override
@@ -1542,11 +1392,6 @@ public enum PDataType {
         }
 
         @Override
-        public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            return this.compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
-        }
-
-        @Override
         public Object toObject(String value) {
             if (value == null || value.length() == 0) {
                 return null;
@@ -1620,24 +1465,41 @@ public enum PDataType {
         return clazz;
     }
 
-    public final int compareTo(byte[] lhs, int lhsOffset, int lhsLength,
-                               byte[] rhs, int rhsOffset, int rhsLength, PDataType rhsType) {
-        if (this.isBytesComparableWith(rhsType)) { // directly compare the bytes
+    public final int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColumnModifier,
+                               byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColumnModifier, PDataType rhsType) {
+        if (this.isBytesComparableWith(rhsType)) { // directly compare the bytes            
+            if (lhsColumnModifier != null) {
+                lhs = lhsColumnModifier.apply(lhs, null, lhsOffset, lhsLength);
+            }            
+            if (rhsColumnModifier != null) {
+                rhs = rhsColumnModifier.apply(rhs, null, rhsOffset, rhsLength);
+            }                        
             return Bytes.compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
         }
         PDataCodec lhsCodec = this.getCodec();
         if (lhsCodec == null) { // no lhs native type representation, so convert rhsType to bytes representation of lhsType
-            byte[] rhsConverted = this.toBytes(this.toObject(rhs, rhsOffset, rhsLength, rhsType));
+            byte[] rhsConverted = this.toBytes(this.toObject(rhs, rhsOffset, rhsLength, rhsType, rhsColumnModifier));            
+            if (rhsColumnModifier != null) {
+                rhsColumnModifier = null;
+            }            
+            if (lhsColumnModifier != null) {
+                lhs = lhsColumnModifier.apply(lhs, null, lhsOffset, lhsLength);
+            }                        
             return Bytes.compareTo(lhs, lhsOffset, lhsLength, rhsConverted, 0, rhsConverted.length);
         }
         PDataCodec rhsCodec = rhsType.getCodec();
         if (rhsCodec == null) {
-            byte[] lhsConverted = rhsType.toBytes(rhsType.toObject(lhs, lhsOffset, lhsLength, this));
+            byte[] lhsConverted = rhsType.toBytes(rhsType.toObject(lhs, lhsOffset, lhsLength, this, lhsColumnModifier));
+            if (lhsColumnModifier != null) {
+                lhsColumnModifier = null;
+            }
+            if (rhsColumnModifier != null) {
+                rhs = rhsColumnModifier.apply(rhs, null, rhsOffset, rhsLength);
+            }            
             return Bytes.compareTo(lhsConverted, 0, lhsConverted.length, rhs, rhsOffset, rhsLength);
         }
         // convert to native and compare
-        // stoens - REVIEW - pass column mod through
-        return Longs.compare(this.getCodec().decodeLong(lhs, lhsOffset, null), rhsType.getCodec().decodeLong(rhs, rhsOffset, null));
+        return Longs.compare(this.getCodec().decodeLong(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColumnModifier));
     }
 
     public static interface PDataCodec {
@@ -2142,9 +2004,6 @@ public enum PDataType {
     public int compareTo(ImmutableBytesWritable ptr1, ImmutableBytesWritable ptr2, PDataType type2) {
         return compareTo(ptr1.get(), ptr1.getOffset(), ptr1.getLength(), null, ptr2.get(), ptr2.getOffset(), ptr2.getLength(), null, type2);
     }
-
-
-    public abstract int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType);    
 
     public abstract int compareTo(Object lhs, Object rhs, PDataType rhsType);
 
