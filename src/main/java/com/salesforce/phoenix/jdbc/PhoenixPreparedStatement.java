@@ -211,7 +211,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setByte(int parameterIndex, byte x) throws SQLException {
-        parameters.set(parameterIndex-1, x);
+        throw new SQLFeatureNotSupportedException();
     }
 
     @Override
