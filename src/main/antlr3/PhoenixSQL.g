@@ -334,6 +334,7 @@ oneStatement returns [SQLStatement ret] throws SQLException
         )
     ;
 
+
 show_tables_node returns [SQLStatement ret]
     :   SHOW TABLES {$ret=factory.showTables();}
     ;
@@ -510,15 +511,16 @@ table_refs returns [List<TableNode> ret]
 
 // parse a field, if it might be a bind name.
 named_table returns [NamedTableNode ret]
-    :   t=from_table_name { $ret = factory.namedTable(null, t); }
+    :   t=from_table_name { $ret = factory.namedTable(null,t,null); }
     ;
 
 
 table_ref returns [TableNode ret]
     :   n=bind_name ((AS)? alias=identifier)? { $ret = factory.bindTable(alias, factory.table(null,n)); } // TODO: review
-    |   t=from_table_name ((AS)? alias=identifier)? { $ret = factory.namedTable(alias, t); }
+    |   t=from_table_name ((AS)? alias=identifier)? (LPAREN cdefs=column_defs RPAREN)? { $ret = factory.namedTable(alias, t,cdefs); }
     |   LPAREN s=select_node RPAREN ((AS)? alias=identifier)? { $ret = factory.subselect(alias, s); }
     ;
+catch[SQLException e]{throw  new RecognitionException();}
 
 join_specs returns [List<TableNode> ret]
     :   t=named_table {$ret.add(t);} (s=join_spec { $ret.add(s); })+

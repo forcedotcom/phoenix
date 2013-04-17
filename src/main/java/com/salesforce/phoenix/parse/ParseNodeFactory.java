@@ -273,8 +273,8 @@ public class ParseNodeFactory {
         return new TableName(schemaName,tableName);
     }
 
-    public NamedTableNode namedTable(String alias, TableName name) {
-        return new NamedTableNode(alias, name);
+    public NamedTableNode namedTable(String alias, TableName name ,List<ColumnDef> dyn_columns) {
+        return new NamedTableNode(alias, name,dyn_columns);
     }
 
     public BindTableNode bindTable(String alias, TableName name) {

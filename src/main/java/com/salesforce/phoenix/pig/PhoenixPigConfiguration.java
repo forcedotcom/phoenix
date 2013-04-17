@@ -1,4 +1,5 @@
-/*copyright (c) 2013, Salesforce.com, Inc.
+/*******************************************************************************
+ * Copyright (c) 2013, Salesforce.com, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -24,47 +25,35 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
 
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
+package com.salesforce.phoenix.pig;
 
-import com.google.common.collect.ImmutableList;
-
+import org.apache.hadoop.conf.Configuration;
 
 /**
+ * A container for configuration to be used with #{@link PhoenixHBaseStorage}
  * 
- * Node representing an explicit table reference in the FROM clause of SQL
- *
- * @author jtaylor
- * @since 0.1
+ * @author pkommireddi
+ * 
  */
-public class NamedTableNode extends ConcreteTableNode {
-	
-	 private final List<ColumnDef> dyncolumns ;
+public class PhoenixPigConfiguration {
 
-    NamedTableNode(String alias, TableName name) {
-        super(alias, name);
-	dyncolumns =  Collections.<ColumnDef>emptyList();
-    }    
-
-    NamedTableNode(String alias, TableName name,List<ColumnDef> dyn_columns) {
-	super(alias, name);
-	if(dyn_columns != null){
-		this.dyncolumns = ImmutableList.copyOf(dyn_columns);
-        }else{
-		this.dyncolumns =  Collections.<ColumnDef>emptyList();
+	private PhoenixPigConfiguration() {
 	}
-    }
 
-    @Override
-    public void accept(TableNodeVisitor visitor) throws SQLException {
-        visitor.visit(this);
-    }
+	/**
+	 * Speculative execution of Map tasks
+	 */
+	public static final String MAP_SPECULATIVE_EXEC = "mapred.map.tasks.speculative.execution";
 
-	public List<ColumnDef> getDynamicColumns() {
-		return dyncolumns;
+	/**
+	 * Speculative execution of Reduce tasks
+	 */
+	public static final String REDUCE_SPECULATIVE_EXEC = "mapred.reduce.tasks.speculative.execution";
+
+	public static void configure(Configuration conf) {
+		conf.setBoolean(MAP_SPECULATIVE_EXEC, false);
+		conf.setBoolean(REDUCE_SPECULATIVE_EXEC, false);
 	}
+
 }
-
