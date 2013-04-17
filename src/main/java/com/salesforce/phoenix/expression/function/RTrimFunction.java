@@ -92,7 +92,7 @@ public class RTrimFunction extends ScalarFunction {
         
         ColumnModifier columnModifier = getStringExpression().getColumnModifier();
         if (columnModifier != null) {
-            string = applyColumnModifier(string, offset, length, columnModifier);
+            string = columnModifier.apply(string, null, offset, length);
         }            
         
         int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);

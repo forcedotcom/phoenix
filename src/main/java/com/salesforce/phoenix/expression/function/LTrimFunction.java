@@ -90,7 +90,7 @@ public class LTrimFunction extends ScalarFunction {
         
         ColumnModifier columnModifier = getStringExpression().getColumnModifier();
         if (columnModifier != null) {
-            string = applyColumnModifier(string, offset, length, columnModifier);
+            string = columnModifier.apply(string, null, offset, length);
         }            
         
         try {

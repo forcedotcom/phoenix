@@ -103,10 +103,4 @@ public abstract class BaseExpression implements Expression {
         }
         return l;
     }
-    
-    protected final byte[] applyColumnModifier(byte[] bytes, int offset, int length, ColumnModifier columnModifier) {
-        byte[] b = new byte[bytes.length];
-        columnModifier.apply(bytes, b, offset, length);
-        return b;
-    }
 }

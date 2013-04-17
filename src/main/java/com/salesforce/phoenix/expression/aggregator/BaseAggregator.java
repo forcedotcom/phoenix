@@ -40,12 +40,9 @@ import com.salesforce.phoenix.util.SizedUtil;
  */
 public abstract class BaseAggregator extends BaseTerminalExpression implements Aggregator {
     
-    protected ColumnModifier columnModifier;    
+    protected final ColumnModifier columnModifier;    
     
-    public BaseAggregator() {
-    }
-    
-    public void setColumnModifier(ColumnModifier columnModifier) {
+    public BaseAggregator(ColumnModifier columnModifier) {
         this.columnModifier = columnModifier;
     }
     

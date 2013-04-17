@@ -45,6 +45,10 @@ import com.salesforce.phoenix.util.SizedUtil;
 abstract public class MinAggregator extends BaseAggregator {
     /** Used to store the accumulate the results of the MIN function */
     protected final ImmutableBytesWritable value = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
+    
+    public MinAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
+    }
 
     @Override
     public void reset() {

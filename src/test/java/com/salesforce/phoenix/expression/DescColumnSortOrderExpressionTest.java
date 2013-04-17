@@ -147,25 +147,12 @@ public class DescColumnSortOrderExpressionTest {
         args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
         evaluateAndAssertResult(new LongMultiplyExpression(args), 20l);        
     }
-    
-    @Test
-    public void james() throws Exception {
-        List<Expression> args = Lists.newArrayList(getLiteral(10l, PDataType.LONG), getLiteral(2l, PDataType.DECIMAL));
-        evaluateAndAssertResult(new ComparisonExpression(CompareOp.GREATER, args), true);
         
-//        List<Expression> args = Lists.newArrayList(getLiteral(10l, PDataType.UNSIGNED_LONG), getLiteral(2l, PDataType.DECIMAL));
-//        evaluateAndAssertResult(new ComparisonExpression(CompareOp.GREATER, args), true);        
-    }
-    
     @Test
     public void compareNumbers() throws Exception {
         PDataType[] numberDataTypes = new PDataType[]{PDataType.INTEGER, PDataType.LONG, PDataType.DECIMAL, PDataType.UNSIGNED_INT, PDataType.UNSIGNED_LONG};
         for (PDataType lhsDataType : numberDataTypes) {
             for (PDataType rhsDataType : numberDataTypes) {
-                if ((lhsDataType == PDataType.LONG || lhsDataType == PDataType.UNSIGNED_LONG)  && rhsDataType == PDataType.DECIMAL) {
-                    // see james
-                    continue;
-                }
                 runCompareTest(CompareOp.GREATER, true, 10, lhsDataType, 2, rhsDataType);
             }
         }

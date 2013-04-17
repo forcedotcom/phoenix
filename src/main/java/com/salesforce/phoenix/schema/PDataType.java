@@ -1245,6 +1245,9 @@ public enum PDataType {
                 case DECIMAL:
                     // TODO: figure out a way to do this in-place?
                     byte[] b = DECIMAL.toBytes(DECIMAL.toObject(lhs, lhsOffset, lhsLength, this, lhsColMod));
+                    if (lhsColMod != null) {
+                        lhsColMod = null;
+                    }
                     return DECIMAL.compareTo(b, 0, b.length, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
                 default:
                     throw new ConstraintViolationException(rhsType + " cannot be coerced to " + this);
@@ -1416,6 +1419,11 @@ public enum PDataType {
         }
 
         @Override
+        public boolean toBytesReturnsNewByteArray() {
+            return false;
+        }
+
+        @Override
         public Object toObject(byte[] bytes, int offset, int length, PDataType targetType) {
             if (!isCoercibleTo(targetType)) {
                 throw new ConstraintViolationException(this + " cannot be coerced to " + targetType);
@@ -1478,6 +1486,11 @@ public enum PDataType {
             // assumes there's enough room
             System.arraycopy(bytes, offset, o, 0, o.length);
             return o.length;
+        }
+        
+        @Override
+        public boolean toBytesReturnsNewByteArray() {
+            return false;
         }
 
         @Override
@@ -2150,14 +2163,22 @@ public enum PDataType {
     public byte[] toBytes(Object object, ColumnModifier columnModifier) {
     	byte[] bytes = toBytes(object);
     	if (columnModifier != null) {
-    	    // stoens - REVIEW modifies constant value for booleans
-    	    // to fix, override in BOOLEAN and BINARY 
-    	    // also add comment
-    		bytes = columnModifier.apply(bytes, null, 0, bytes.length);
+    	    if (toBytesReturnsNewByteArray()) {
+                columnModifier.apply(bytes, bytes, 0, bytes.length);
+    	    } else {
+                bytes = columnModifier.apply(bytes, null, 0, bytes.length);    	        
+    	    }
     	}
     	return bytes;
     }
 
+    /**
+     * Return true if toBytes(object) returns a new byte array that is not shared and can be modified.  Return false otherwise.  
+     */
+    public boolean toBytesReturnsNewByteArray() {
+        return true;
+    }
+    
     /**
      * Convert from the object representation of a data type value into
      * the serialized byte form.

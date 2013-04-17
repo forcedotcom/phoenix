@@ -117,7 +117,7 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     
     @Test
     public void lTrimDescCompositePK() throws Exception {
-        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(4) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code ASC))";
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(4) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid ASC, code ASC))";
         Object[][] insertedRows = new Object[][]{{" o1 ", 1}, {"  o2", 2}, {"  o3", 3}};
         Object[][] expectedRows = new Object[][]{{"  o2", 2}};
         runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("LTRIM(oid)", "=", "'o2'"));

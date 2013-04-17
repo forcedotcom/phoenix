@@ -114,21 +114,8 @@ public class ComparisonExpression extends BaseCompoundExpression {
         int rhsOffset = ptr.getOffset();
         int rhsLength = ptr.getLength();
         PDataType rhsDataType = children.get(1).getDataType();
-        ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();
-        
-        boolean invertComparisonResult = inverseComparisonResult(lhsDataType, lhsColumnModifier, rhsDataType, rhsColumnModifier);
-
-        if (invertComparisonResult) {
-            lhsColumnModifier = null;
-            rhsColumnModifier = null;
-        }
-                
+        ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();                       
         int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
-        
-        if (invertComparisonResult) {
-            comparisonResult = -comparisonResult;
-        }
-        
         ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
     }
@@ -162,13 +149,5 @@ public class ComparisonExpression extends BaseCompoundExpression {
     @Override
     public String toString() {
         return (children.get(0) + CompareOpString[getFilterOp().ordinal()] + children.get(1));
-    }
-    
-    private static boolean inverseComparisonResult(PDataType lhsDataType, ColumnModifier lhsColumnModifier, PDataType rhsDataType, ColumnModifier rhsColumnModifier) {
-        return lhsColumnModifier == ColumnModifier.SORT_DESC && rhsColumnModifier == ColumnModifier.SORT_DESC
-            && lhsDataType != PDataType.DECIMAL && rhsDataType != PDataType.DECIMAL
-            && lhsDataType != PDataType.UNSIGNED_INT && rhsDataType != PDataType.UNSIGNED_INT
-            && lhsDataType != PDataType.UNSIGNED_LONG && rhsDataType != PDataType.UNSIGNED_LONG
-            && lhsDataType != PDataType.BOOLEAN && rhsDataType != PDataType.BOOLEAN;
-    }
+    }    
 }
