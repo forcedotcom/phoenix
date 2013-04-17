@@ -36,7 +36,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
-import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
@@ -165,11 +164,18 @@ public class WhereOptimizer {
             }
             return node;
         }
-
-        // TODO: same visitEnter/visitLeave for OrExpression once we optimize it
     }
 
-    public static class KeyExpressionVisitor extends TraverseAllExpressionVisitor<KeyExpressionVisitor.KeySlots> {
+    /*
+     * TODO: We could potentially rewrite simple expressions to move constants to the RHS
+     * such that we can form a start/stop key for a scan. For example, rewrite this:
+     *     WHEREH a + 1 < 5
+     * to this instead:
+     *     WHERE a < 5 - 1
+     * Currently the first case would not be optimized. This includes other arithmetic
+     * operators, CASE statements, and string concatenation.
+     */
+    public static class KeyExpressionVisitor extends TraverseNoExpressionVisitor<KeyExpressionVisitor.KeySlots> {
         private static final List<KeyRange> EVERYTHING_RANGES = Collections.<KeyRange>singletonList(KeyRange.EVERYTHING_RANGE);
         private static final KeySlots DEGENERATE_KEY_PARTS = new KeySlots() {
             @Override
@@ -248,6 +254,13 @@ public class WhereOptimizer {
         public KeySlots defaultReturn(Expression node, List<KeySlots> l) {
             // Passes the CompositeKeyExpression up the tree
             return l.size() == 1 ? l.get(0) : null;
+        }
+
+
+        // TODO: same visitEnter/visitLeave for OrExpression once we optimize it
+        @Override
+        public Iterator<Expression> visitEnter(AndExpression node) {
+            return node.getChildren().iterator();
         }
 
         @Override
@@ -330,7 +343,7 @@ public class WhereOptimizer {
                 return Iterators.emptyIterator();
             }
 
-            return super.visitEnter(node);
+            return Iterators.singletonIterator(node.getChildren().get(0));
         }
 
         @Override
@@ -360,12 +373,6 @@ public class WhereOptimizer {
             }
             // Only extract LIKE expression if pattern ends with a wildcard and everything else was extracted
             return newKeyParts(childSlot, node.endsWithOnlyWildcard() ? node : null, keyRange);
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(CaseExpression node) {
-            // TODO: optimize for simple case statement with all constants
-            return Iterators.emptyIterator();
         }
 
         @Override
@@ -413,61 +420,6 @@ public class WhereOptimizer {
                 KeyRange keyRange = node.isNegate() ? KeyRange.IS_NOT_NULL_RANGE : KeyRange.IS_NULL_RANGE;
                 return newKeyParts(childSlot, node, keyRange);
             }
-        }
-
-        // TODO: rethink default: probably better if we don't automatically walk through constructs
-
-        @Override
-        public Iterator<Expression> visitEnter(OrExpression node) {
-            // TODO: optimize for cases where LHS column is the same for all
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(StringConcatExpression node) {
-            // TODO: we could optimize by substring-ing the RHS if
-            // the first child is a KeyPart and the rest of the children
-            // are constants. For example: WHERE foo||'bar'='1234bar' we'd
-            // need to replace the rhs with SUBSTR(rhs,-<size-of-constant-strings>)
-            return Iterators.emptyIterator();
-        }
-
-        /*
-         * These prevents our optimizer from trying to form a rowkey for a column in
-         * an arithmetic expression. We could possibly do more later, but for now folks
-         * should write their expressions with constants on the LHS. For example:
-         *    WHERE a + 1 < 5
-         * would cause the rowkey to not be able to formed using column a, while
-         *    WHERE a < 4
-         * would be able to be formed using column a.
-         **/
-        @Override
-        public Iterator<Expression> visitEnter(AddExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(SubtractExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(MultiplyExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(DivideExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(NotExpression node) {
-            return Iterators.emptyIterator();
         }
 
         private static interface KeySlots extends Iterable<KeySlot> {
