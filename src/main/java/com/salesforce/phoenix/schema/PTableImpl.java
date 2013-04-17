@@ -58,7 +58,8 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class PTableImpl implements PTable {
-
+    private static final Integer NO_SALTING = (int) Byte.MIN_VALUE;
+    
     private PName name;
     private PTableType type;
     private long sequenceNumber;
@@ -110,7 +111,7 @@ public class PTableImpl implements PTable {
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
         allColumns = new PColumn[columns.size()];
-        if (bucketNum != null && !columns.get(0).getName().getString().equals(SALTING_COLUMN.getName().getString())) {
+        if (bucketNum != null) {
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
             pkColumns.add(SALTING_COLUMN);
             builder.addField(SALTING_COLUMN);
@@ -311,7 +312,7 @@ public class PTableImpl implements PTable {
             if (bucketNum != null) {
                 this.key = SaltingUtil.getSaltedKey(key, bucketNum);
             } else {
-                this.key = key.copyBytes();
+                this.key = ByteUtil.getPayLoadKeyBytes(key);
             }
             this.setValues = new Put(this.key);
             this.unsetValues = new Delete(this.key);
@@ -465,7 +466,7 @@ public class PTableImpl implements PTable {
         }
         PTableStats stats = new PTableStatsImpl(guidePosts);
         init(tableName, tableType, timeStamp, sequenceNumber, pkName,
-                bucketNum == QueryConstants.NO_SALTING ? null : bucketNum, columns, stats);
+                bucketNum == NO_SALTING ? null : bucketNum, columns, stats);
     }
 
     @Override
@@ -478,7 +479,7 @@ public class PTableImpl implements PTable {
         if (bucketNum != null) {
             WritableUtils.writeVInt(output, bucketNum);
         } else {
-            WritableUtils.writeVInt(output, QueryConstants.NO_SALTING);
+            WritableUtils.writeVInt(output, NO_SALTING);
         }
         WritableUtils.writeVInt(output, allColumns.size());
         for (int i = 0; i < allColumns.size(); i++) {

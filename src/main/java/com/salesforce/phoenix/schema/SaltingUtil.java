@@ -64,16 +64,26 @@ public class SaltingUtil {
     // first byte of key should be left empty as a place holder for the salting byte.
     public static byte[] getSaltedKey(ImmutableBytesWritable key, int bucketNum) {
         byte[] keyBytes = new byte[key.getSize()];
-        byte saltByte = getSaltingByte(key.get(), bucketNum);
+        byte saltByte = getSaltingByte(key.get(), key.getOffset() + 1, key.getLength() - 1, bucketNum);
         keyBytes[0] = saltByte;
         System.arraycopy(key.get(), key.getOffset() + 1, keyBytes, 1, key.getSize() - 1);
         return keyBytes;
     }
 
     // Generate the bucket byte given a byte array and the number of buckets.
-    public static byte getSaltingByte(byte[] value, int bucketNum) {
-        int hash = Arrays.hashCode(value);
+    public static byte getSaltingByte(byte[] value, int offset, int length, int bucketNum) {
+        int hash = hashCode(value, offset, length);
         byte bucketByte = (byte) ((Math.abs(hash) % bucketNum));
         return bucketByte;
+    }
+
+    private static int hashCode(byte a[], int offset, int length) {
+        if (a == null)
+            return 0;
+        int result = 1;
+        for (int i = offset; i < offset + length; i++) {
+            result = 31 * result + a[i];
+        }
+        return result;
     }
 }
