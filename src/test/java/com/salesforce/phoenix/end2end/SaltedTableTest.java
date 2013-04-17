@@ -141,7 +141,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             
-            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " ORDER BY a_integer, a_string, a_id ASC LIMIT 1";
+            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " ORDER BY a_integer, a_string, a_id ASC LIMIT 10";
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             
@@ -152,7 +152,22 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals("abc", rs.getString(4));
             assertEquals(111, rs.getInt(5));
             
-            assertFalse(rs.next());
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("456", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+            
+            assertTrue(rs.next());
+            assertEquals(3, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("ghi", rs.getString(4));
+            assertEquals(333, rs.getInt(5));
         } finally {
             conn.close();
         }
