@@ -58,7 +58,7 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class PTableImpl implements PTable {
-    private static final Integer NO_SALTING = (int) Byte.MIN_VALUE;
+    private static final Integer NO_SALTING = -1;
     
     private PName name;
     private PTableType type;
@@ -115,6 +115,7 @@ public class PTableImpl implements PTable {
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
             pkColumns.add(SALTING_COLUMN);
             builder.addField(SALTING_COLUMN);
+            columnsByName.put(SALTING_COLUMN.getName().getString(), SALTING_COLUMN);
         } else {
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
         }
@@ -312,7 +313,7 @@ public class PTableImpl implements PTable {
             if (bucketNum != null) {
                 this.key = SaltingUtil.getSaltedKey(key, bucketNum);
             } else {
-                this.key = ByteUtil.getPayLoadKeyBytes(key);
+                this.key = ByteUtil.copyKeyBytesIfNecessary(key);
             }
             this.setValues = new Put(this.key);
             this.unsetValues = new Delete(this.key);

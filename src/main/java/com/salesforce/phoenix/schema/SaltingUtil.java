@@ -42,9 +42,10 @@ import com.salesforce.phoenix.util.ByteUtil;
  */
 public class SaltingUtil {
 
+    public static final Integer MAX_BUCKET_NUM = 255; // Unsigned byte.
     public static final String SALTING_COLUMN_NAME = "_SALT";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
-            new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, -1);
+            new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, 0);
 
     public static List<KeyRange> generateAllSaltingRanges(int bucketNum) {
         List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(bucketNum);
@@ -63,10 +64,10 @@ public class SaltingUtil {
     // Compute the hash of the key value stored in key and set its first byte as the value. The
     // first byte of key should be left empty as a place holder for the salting byte.
     public static byte[] getSaltedKey(ImmutableBytesWritable key, int bucketNum) {
-        byte[] keyBytes = new byte[key.getSize()];
+        byte[] keyBytes = new byte[key.getLength()];
         byte saltByte = getSaltingByte(key.get(), key.getOffset() + 1, key.getLength() - 1, bucketNum);
         keyBytes[0] = saltByte;
-        System.arraycopy(key.get(), key.getOffset() + 1, keyBytes, 1, key.getSize() - 1);
+        System.arraycopy(key.get(), key.getOffset() + 1, keyBytes, 1, key.getLength() - 1);
         return keyBytes;
     }
 

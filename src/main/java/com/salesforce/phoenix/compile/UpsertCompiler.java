@@ -108,7 +108,7 @@ public class UpsertCompiler {
             columnIndexesToBe = new int[allColumns.size()];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = new PColumn[columnIndexesToBe.length];
-            int j = table.getBucketNum() != null ? 1 : 0; // Skip over the salting byte.
+            int j = table.getBucketNum() == null ? 0 : 1; // Skip over the salting byte.
             for (int i = 0; i < allColumns.size() ; i++) {
                 columnIndexesToBe[i] = i;
                 targetColumns[i] = allColumns.get(i);

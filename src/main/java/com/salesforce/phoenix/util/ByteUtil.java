@@ -462,7 +462,7 @@ public class ByteUtil {
     /**
      * Given an ImmutableBytesWritable, returns the payload part of the argument as an byte array. 
      */
-    public static byte[] getPayLoadKeyBytes(ImmutableBytesWritable ptr) {
+    public static byte[] copyKeyBytesIfNecessary(ImmutableBytesWritable ptr) {
         if (ptr.getOffset() == 0 && ptr.getLength() == ptr.get().length) {
             return ptr.get();
         }
