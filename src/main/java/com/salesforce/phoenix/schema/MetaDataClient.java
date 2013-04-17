@@ -173,7 +173,7 @@ public class MetaDataClient {
         colUpsert.execute();
     }
 
-    private PColumn newColumn(int position, ColumnDef def, PrimaryKeyConstraint pkConstraint) throws SQLException {
+    public PColumn newColumn(int position, ColumnDef def, PrimaryKeyConstraint pkConstraint) throws SQLException {
         try {
         	Set<String> pkColumnNames = pkConstraint == null ? Collections.<String>emptySet() : pkConstraint.getColumnNames();
             String columnName = def.getColumnDefName().getColumnName().getName();

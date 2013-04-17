@@ -133,7 +133,7 @@ public class FromCompiler {
             	List<PColumn> dynamicColumns = new ArrayList<PColumn>();
             	dynamicColumns.addAll(theTable.getColumns());
             	for(ColumnDef cdef:dynamicColumnDefs){
-            		dynamicColumns.add(client.newColumn(ordinalPosition, cdef, Collections.<String>emptySet()));
+            		dynamicColumns.add(client.newColumn(ordinalPosition, cdef, null));
             		ordinalPosition++;
             	}
             	//redeclare the new tableImpl with the dynamicColumnDefs
