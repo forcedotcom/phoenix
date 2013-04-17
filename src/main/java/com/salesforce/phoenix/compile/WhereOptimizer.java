@@ -115,12 +115,8 @@ public class WhereOptimizer {
             for (KeyRange range : slot.getKeyRanges()) {
             	hasUnboundedRange |= range.isUnbound();
             	
-            	if (slot.getKeyPart().getColumn().getColumnModifier() == ColumnModifier.SORT_DESC) {
-            		byte[] lowerRange = new byte[range.getLowerRange().length];
-            		ColumnModifier.SORT_DESC.apply(range.getLowerRange(), lowerRange, 0, lowerRange.length);
-            		byte[] upperRange = new byte[range.getUpperRange().length];
-            		ColumnModifier.SORT_DESC.apply(range.getUpperRange(), upperRange, 0, upperRange.length);
-            		range = KeyRange.getKeyRange(lowerRange, range.isLowerInclusive(), upperRange, range.isUpperInclusive());
+            	if (slot.getKeyPart().getColumn().getColumnModifier() != null) {
+            		range = applyColumnModifierToKeyRange(range, slot.getKeyPart().getColumn().getColumnModifier());
             	}
             	
                 keyRanges.add(range);
@@ -146,6 +142,12 @@ public class WhereOptimizer {
 
         context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
+    }
+    
+    private static KeyRange applyColumnModifierToKeyRange(KeyRange keyRange, ColumnModifier columnModifier) {
+        byte[] lowerRange = columnModifier.apply(keyRange.getLowerRange(), null, 0, keyRange.getLowerRange().length);
+        byte[] upperRange = columnModifier.apply(keyRange.getUpperRange(), null, 0, keyRange.getUpperRange().length);
+        return KeyRange.getKeyRange(lowerRange, keyRange.isLowerInclusive(), upperRange, keyRange.isUpperInclusive());        
     }
 
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {
