@@ -90,7 +90,7 @@ public class LengthFunction extends ScalarFunction {
         ptr.set(PDataType.INTEGER.toBytes(len));
         return true;
     }
-    
+
     @Override
     public PDataType getDataType() {
         return PDataType.INTEGER;

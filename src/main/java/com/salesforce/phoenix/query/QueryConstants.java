@@ -89,7 +89,7 @@ public interface QueryConstants {
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
     public static final String SYSTEM_TABLE_PK_NAME = "pk";
     
-    // Indicate that the value is null for a particular field.
+    // Indicate that precision or scale is null for a particular field.
     public static final Integer NO_MAXLENGTH = Integer.MIN_VALUE;
     public static final Integer NO_SCALE = Integer.MIN_VALUE;
     
@@ -127,7 +127,7 @@ public interface QueryConstants {
             SCOPE_TABLE + " VARCHAR," +
             SOURCE_DATA_TYPE + " INTEGER," + // supposed to be SHORT
             IS_AUTOINCREMENT + " VARCHAR," +
-            SORT_ORDER + " INTEGER\n" + // CHAR(1) ?
+            COLUMN_MODIFIER + " CHAR(1)\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";

@@ -91,7 +91,7 @@ public final class ColumnRef {
     }
 
     public ColumnExpression newColumnExpression() throws SQLException {
-        if (SchemaUtil.isPKColumn(getColumn())) {
+        if (SchemaUtil.isPKColumn(this.getColumn())) {
             return new RowKeyColumnExpression(getColumn(), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));
         } else {
             return new KeyValueColumnExpression(getColumn());

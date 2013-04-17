@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
@@ -72,8 +73,9 @@ public class DecimalDivideExpression extends DivideExpression {
                 return true;
             }
             
-            PDataType childType = children.get(i).getDataType();
-            BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType, childExpr.getColumnModifier());
+            PDataType childType = childExpr.getDataType();
+            ColumnModifier childColumnModifier = childExpr.getColumnModifier();
+            BigDecimal bd= (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType, childColumnModifier);
             
             if (result == null) {
                 result = bd;

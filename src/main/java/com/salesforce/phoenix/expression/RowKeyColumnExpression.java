@@ -27,16 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDatum;
-import com.salesforce.phoenix.schema.RowKeyValueAccessor;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -60,7 +56,7 @@ public class RowKeyColumnExpression  extends ColumnExpression {
     public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor) {
         this(datum, accessor, datum.getDataType());
     }
-        
+    
     public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType) {
         super(datum);
         this.accessor = accessor;
@@ -71,7 +67,7 @@ public class RowKeyColumnExpression  extends ColumnExpression {
     public int getPosition() {
         return accessor.getIndex();
     }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;

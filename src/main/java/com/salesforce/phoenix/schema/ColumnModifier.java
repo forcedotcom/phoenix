@@ -28,8 +28,6 @@
 package com.salesforce.phoenix.schema;
 
 import com.google.common.base.Preconditions;
-import com.sun.istack.NotNull;
-import com.sun.istack.Nullable;
 
 /**
  * A ColumnModifier implementation modifies how bytes are stored in a primary key column.</p>  
@@ -63,6 +61,9 @@ public enum ColumnModifier {
 		}
 	};
 	
+	/**
+     * Returns the ColumnModifier for the specified DDL stmt keyword.
+	 */
 	public static ColumnModifier fromDDLValue(String modifier) {
 		if (modifier == null) {
 			return null;
@@ -74,14 +75,20 @@ public enum ColumnModifier {
 			return null;
 		}			
 	}
-	
+
+	/**
+     * Returns the ColumnModifier for the specified internal value.
+     */
 	public static ColumnModifier fromSystemValue(int value) {
 		switch (value) {
 		    case 1: return SORT_DESC;
 		    default: return null;
 		}
 	}
-	
+
+    /**
+     * Returns an internal value representing the specified ColumnModifier.
+     */
 	public static int toSystemValue(ColumnModifier columnModifier) {
 		if (columnModifier == null) {
 			return Integer.MIN_VALUE;
@@ -93,7 +100,7 @@ public enum ColumnModifier {
 	}
 	
 	/**
-	 * Copy the bytes from src array to dest array and apply the column modifier operation on the bytes
+	 * Copies the bytes from src array to dest array and applies the column modifier operation on the bytes
 	 * starting at the specified offset index.  The column modifier is applied to the number of bytes matching the 
 	 * specified length.  If dest is null, a new byte array is allocated.
 	 * 
@@ -103,5 +110,5 @@ public enum ColumnModifier {
 	 * @param length apply the column modifier for this many bytes 
 	 * @return       dest or a new byte array if dest is null
 	 */
-	public abstract byte[] apply(@NotNull byte[] src, @Nullable byte[] dest, int offset, int length);
+	public abstract byte[] apply(byte[] src, byte[] dest, int offset, int length);
 }

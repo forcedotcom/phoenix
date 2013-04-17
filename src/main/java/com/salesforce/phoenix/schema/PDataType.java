@@ -155,7 +155,6 @@ public enum PDataType {
             return this.compareTo(lhs, lhsOffset, lhsLength, lhsColMod, rhs, rhsOffset, rhsLength, rhsColMod);
         }
 
-        // stoens - REVIEW - see if this is referenced
         @Override
         public Object toObject(String value) {
             return value;
@@ -205,8 +204,6 @@ public enum PDataType {
            }
            String s = Bytes.toString(bytes, offset, length);
            if (length != s.length()) {
-               for (int i = offset; i < offset + length; i++) {
-               }
                throw new IllegalDataException("CHAR types may only contain single byte characters (" + s + ")");
            }
            return s;
@@ -1453,7 +1450,7 @@ public enum PDataType {
 
         @Override
         public int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColMod, byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColMod, PDataType rhsType) {
-            // stoens - REVIEW - compare against inverted TRUE_BYTE instead
+            // compare against inverted TRUE_BYTE instead
             if (lhsColMod != null) {
                 lhs = lhsColMod.apply(lhs, null, lhsOffset, lhsLength);
             }

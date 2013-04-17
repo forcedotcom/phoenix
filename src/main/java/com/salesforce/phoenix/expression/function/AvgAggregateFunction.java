@@ -82,7 +82,7 @@ public class AvgAggregateFunction extends CompositeAggregateFunction {
         if (!countFunc.evaluate(tuple, ptr)) {
             return false;
         }
-        long count = countFunc.getDataType().getCodec().decodeLong(ptr, null); // stoens - REVIEW
+        long count = countFunc.getDataType().getCodec().decodeLong(ptr, null);
         if (count == 0) {
             return false;
         }
