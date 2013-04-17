@@ -194,7 +194,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(null, ts);
             
-            // Where with fully qualified key, all single slots.
+            // all single slots.
             String query = "SELECT * FROM " + TABLE_WITH_SALTING + 
                     " WHERE a_integer = 1 AND a_string = 'abc' AND a_id = '123'";
             PreparedStatement stmt = conn.prepareStatement(query);
@@ -208,9 +208,9 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals(111, rs.getInt(5));
             assertFalse(rs.next());
             
-            // Where with fully qualify key, fixed length slot with multiple values.
+            // fixed length slot with bounded ranges.
             query = "SELECT * FROM " + TABLE_WITH_SALTING + 
-                    " WHERE a_integer > 1 AND a_string = 'abc' AND a_id = '123'" +
+                    " WHERE a_integer in (2, 3) AND a_string = 'abc' AND a_id = '123'" +
                     " ORDER BY a_integer, a_string, a_id ASC LIMIT 10";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
@@ -227,16 +227,9 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals("123", rs.getString(3));
             assertEquals("ghi", rs.getString(4));
             assertEquals(333, rs.getInt(5));
-            
-            assertTrue(rs.next());
-            assertEquals(4, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
-            assertEquals("123", rs.getString(3));
-            assertEquals("jkl", rs.getString(4));
-            assertEquals(444, rs.getInt(5));
             assertFalse(rs.next());
             
-            // Where with fully qualify key, fixed length slot with ranges.
+            // fixed length slot with unbound ranges.
             query = "SELECT * FROM " + TABLE_WITH_SALTING + 
                     " WHERE a_integer > 1 AND a_string = 'abc' AND a_id = '123'" +
                     " ORDER BY a_integer, a_string, a_id ASC LIMIT 10";
