@@ -112,7 +112,7 @@ public class SaltingUtil {
     }
 
     // Flatten the whole rowkey in the schema into a binary with a salt byte.
-    public static RowKeySchema convertSchemaIntoBinaryRowKey(RowKeySchema schema, int estimateKeyLength) {
+    public static RowKeySchema getBinaryRowKeySchema(int estimateKeyLength) {
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(1);
         PColumn binaryRowKeyColumn = new PColumnImpl(new PNameImpl(SALTED_ROW_KEY_NAME), null, 
                 PDataType.BINARY, estimateKeyLength, 0, false, 0);

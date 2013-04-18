@@ -137,7 +137,7 @@ public class WhereOptimizer {
             if (ScanUtil.isAllSingleRowScan(cnf, table.getRowKeySchema(), false)) {
                 List<List<KeyRange>> expandedRanges = SaltingUtil.expandScanRangesToSaltedKeyRange(
                         cnf, table.getRowKeySchema(), table.getBucketNum());
-                RowKeySchema newSchema = SaltingUtil.convertSchemaIntoBinaryRowKey(table.getRowKeySchema(),
+                RowKeySchema newSchema = SaltingUtil.getBinaryRowKeySchema(
                         ScanUtil.estimateKeyLength(table.getRowKeySchema(), 1, cnf, Bound.LOWER));
                 range = ScanRanges.create(expandedRanges, newSchema);
             } else {
