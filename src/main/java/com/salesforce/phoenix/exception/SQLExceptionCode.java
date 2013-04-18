@@ -115,7 +115,7 @@ public enum SQLExceptionCode {
     ONLY_AGGREGATE_IN_HAVING_CLAUSE(1019, "42Y26", "Only aggregate maybe used in the HAVING clause."),
     UPSERT_COLUMN_NUMBERS_MISMATCH(1020, "42Y60", "Number of columns upserting must match number of values."),
     // Table properties exception.
-    INVALID_BUCKET_NUM(1021, "42Y80", "Salt bucket numbers should be with 1 and 255."),
+    INVALID_BUCKET_NUM(1021, "42Y80", "Salt bucket numbers should be with 1 and 256."),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),

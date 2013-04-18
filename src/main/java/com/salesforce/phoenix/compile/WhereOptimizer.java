@@ -79,6 +79,9 @@ public class WhereOptimizer {
         // TODO: Single table for now
         PTable table = context.getResolver().getTables().get(0).getTable();
         KeyExpressionVisitor visitor = new KeyExpressionVisitor(context, table);
+        // TODO:: When we only have one where clause, the keySlots returns as a single slot object,
+        // instead of an array of slots for the corresponding column. Change the behavior so it
+        // becomes consistent.
         KeyExpressionVisitor.KeySlots keySlots = whereClause.accept(visitor);
 
         if (keySlots == null) {
@@ -152,7 +155,9 @@ public class WhereOptimizer {
             List<KeyRange> saltRangeList = Collections.<KeyRange>singletonList(saltRange);
             return saltRangeList;
         }
-        return SaltingUtil.generateAllSaltingRanges(bucketNum);
+        return Collections.<KeyRange>singletonList(SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(
+                new byte[] {0}, true, 
+                new byte[] {(byte) bucketNum}, true));
     }
 
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {

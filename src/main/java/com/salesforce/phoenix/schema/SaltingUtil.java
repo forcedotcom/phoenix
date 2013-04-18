@@ -27,14 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.util.Arrays;
-import java.util.List;
-
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -42,24 +35,10 @@ import com.salesforce.phoenix.util.ByteUtil;
  */
 public class SaltingUtil {
 
-    public static final Integer MAX_BUCKET_NUM = 255; // Unsigned byte.
+    public static final Integer MAX_BUCKET_NUM = 256; // Unsigned byte.
     public static final String SALTING_COLUMN_NAME = "_SALT";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
             new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, 0);
-
-    public static List<KeyRange> generateAllSaltingRanges(int bucketNum) {
-        List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(bucketNum);
-        byte[] lowerBound = new byte[] {0};
-        byte[] upperBound = new byte[] {1};
-        for (int i=0; i<bucketNum; i++) {
-            allRanges.add(SALTING_COLUMN.getDataType().getKeyRange(
-                    Arrays.copyOf(lowerBound, lowerBound.length), true,
-                    Arrays.copyOf(upperBound, upperBound.length), false));
-            ByteUtil.nextKey(lowerBound, 1);
-            ByteUtil.nextKey(upperBound, 1);
-        }
-        return allRanges;
-    }
 
     // Compute the hash of the key value stored in key and set its first byte as the value. The
     // first byte of key should be left empty as a place holder for the salting byte.

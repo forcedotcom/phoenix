@@ -317,8 +317,7 @@ public class MetaDataClient {
                 addColumnMutation(schemaName, tableName, column, colUpsert);
             }
             
-            Integer saltBucketNum = (Integer) tableProps.get(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
+            Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
             if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
             }
