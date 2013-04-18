@@ -104,10 +104,6 @@ public class WhereOptimizer {
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
-            // Skip over the salt byte key slot.
-            if (slot == null && pkPos == 0 && table.getBucketNum() != null) {
-                continue;
-            }
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.
@@ -248,7 +244,7 @@ public class WhereOptimizer {
 
         private KeySlots andKeySlots(AndExpression andExpression, List<KeySlots> childSlots) {
             int nColumns = table.getPKColumns().size();
-            KeySlot[] newChildSlots = new KeySlot[nColumns];
+            KeySlot[] keySlot = new KeySlot[nColumns];
             for (KeySlots childSlot : childSlots) {
                 if (childSlot == DEGENERATE_KEY_PARTS) {
                     return DEGENERATE_KEY_PARTS;
@@ -259,19 +255,25 @@ public class WhereOptimizer {
                         continue;
                     }
                     int position = slot.getPKPosition();
-                    KeySlot existing = newChildSlots[position];
+                    KeySlot existing = keySlot[position];
                     if (existing == null) {
-                        newChildSlots[position] = slot;
+                        keySlot[position] = slot;
                     } else {
-                        newChildSlots[position] = existing.intersect(slot);
-                        if (newChildSlots[position] == null) {
+                        keySlot[position] = existing.intersect(slot);
+                        if (keySlot[position] == null) {
                             return DEGENERATE_KEY_PARTS;
                         }
                     }
                 }
             }
 
-            return new MultiKeySlot(Arrays.asList(newChildSlots));
+            List<KeySlot> keySlots = Arrays.asList(keySlot);
+            // If we have a salt column, skip that slot because
+            // they'll never be an expression contained by it.
+            if (table.getBucketNum() != null) {
+                keySlots = keySlots.subList(1, keySlots.size());
+            }
+            return new MultiKeySlot(keySlots);
         }
 
         private KeySlots orKeySlots(OrExpression orExpression, List<KeySlots> childSlots) {
