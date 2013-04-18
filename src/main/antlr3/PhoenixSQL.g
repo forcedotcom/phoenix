@@ -62,7 +62,7 @@ tokens
     END='end';
     EXISTS='exists';
     IS='is';
-    FIRST='first';
+    FIRST='first';    
     DISTINCT='distinct';
     JOIN='join';
     INNER='inner';
