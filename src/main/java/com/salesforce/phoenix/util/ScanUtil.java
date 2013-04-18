@@ -50,7 +50,7 @@ import com.salesforce.phoenix.schema.RowKeySchema;
  * @since 0.1
  */
 public class ScanUtil {
-    
+
     private ScanUtil() {
     }
 
@@ -136,7 +136,12 @@ public class ScanUtil {
             return null;
         }
         int[] position = new int[slots.size()];
-        int maxLength = estimateKeyLength(schema, 0, slots, position, bound);
+        int maxLength = 0;
+        for (int i = 0; i < position.length; i++) {
+            position[i] = bound == Bound.LOWER ? 0 : slots.get(i).size()-1;
+            KeyRange range = slots.get(i).get(position[i]);
+            maxLength += range.getRange(bound).length + (schema.getField(i).getType().isFixedWidth() ? 0 : 1);
+        }
         byte[] key = new byte[maxLength];
         int length = setKey(schema, slots, position, bound, key, 0, 0, position.length);
         if (length == 0) {
@@ -150,12 +155,11 @@ public class ScanUtil {
         return keyCopy;
     }
 
-    public static int estimateKeyLength(RowKeySchema schema, int schemaStartIndex, List<List<KeyRange>> slots,
-            int[] position, Bound bound) {
+    public static int estimateKeyLength(RowKeySchema schema, int schemaStartIndex, List<List<KeyRange>> slots, Bound bound) {
         int maxLength = 0;
-        for (int i = 0; i < position.length; i++) {
-            position[i] = bound == Bound.LOWER ? 0 : slots.get(i).size()-1;
-            KeyRange range = slots.get(i).get(position[i]);
+        for (int i = 0; i < slots.size(); i++) {
+            int posIdx = bound == Bound.LOWER ? 0 : slots.get(i).size()-1;
+            KeyRange range = slots.get(i).get(posIdx);
             maxLength += range.getRange(bound).length + (schema.getField(schemaStartIndex++).getType().isFixedWidth() ? 0 : 1);
         }
         return maxLength;
@@ -179,7 +183,7 @@ public class ScanUtil {
             byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex) {
         return setKey(schema, slots, position, bound, key, byteOffset, slotStartIndex, slotEndIndex, slotStartIndex);
     }
-    
+
     public static int setKey(RowKeySchema schema, List<List<KeyRange>> slots, int[] position, Bound bound,
             byte[] key, int byteOffset, int slotStartIndex, int slotEndIndex, int schemaStartIndex) {
         int offset = byteOffset;
@@ -253,5 +257,19 @@ public class ScanUtil {
             }
         }
         return offset - byteOffset;
+    }
+
+    public static boolean isAllSingleRowScan(List<List<KeyRange>> ranges, RowKeySchema schema, boolean rangesWithSaltByte) {
+        if (schema == null || ranges.size() < (rangesWithSaltByte ? schema.getMaxFields() : schema.getMaxFields() - 1)) {
+            return false;
+        }
+        for (List<KeyRange> orRanges : ranges) {
+            for (KeyRange range: orRanges) {
+                if (!range.isSingleKey()) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }
