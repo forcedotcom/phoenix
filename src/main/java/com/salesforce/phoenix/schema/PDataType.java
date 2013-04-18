@@ -1720,12 +1720,6 @@ public enum PDataType {
             Bytes.putLong(b, o, v);
             return Bytes.SIZEOF_LONG;
         }
-
-        @Override
-        public int decodeInt(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
-            // TODO Auto-generated method stub
-            return 0;
-        }
     }
 
     public static final int MAX_PRECISION = 31; // Max precision guaranteed to fit into a long (and this should be plenty)
