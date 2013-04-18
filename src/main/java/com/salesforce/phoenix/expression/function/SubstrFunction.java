@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -36,6 +38,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.StringUtil;
@@ -99,12 +102,11 @@ public class SubstrFunction extends PrefixFunction {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // TODO: multi-byte characters
         Expression offsetExpression = getOffsetExpression();
         if (!offsetExpression.evaluate(tuple,  ptr)) {
             return false;
         }
-        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr);
+        int offset = offsetExpression.getDataType().getCodec().decodeInt(ptr, offsetExpression.getColumnModifier());
         
         int length = -1;
         if (hasLengthExpression) {
@@ -112,7 +114,7 @@ public class SubstrFunction extends PrefixFunction {
             if (!lengthExpression.evaluate(tuple, ptr)) {
                 return false;
             }
-            length = lengthExpression.getDataType().getCodec().decodeInt(ptr);
+            length = lengthExpression.getDataType().getCodec().decodeInt(ptr, lengthExpression.getColumnModifier());
             if (length <= 0) {
                 return false;
             }
@@ -161,6 +163,11 @@ public class SubstrFunction extends PrefixFunction {
     @Override
     public Integer getByteSize() {
         return byteSize;
+    }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+        return getStrExpression().getColumnModifier();
     }
 
     @Override

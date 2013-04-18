@@ -27,12 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.io.WritableUtils;
 
-
 import com.google.common.base.Objects;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 
@@ -49,6 +51,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     private boolean isNullable;
     private Integer maxLength;
     private Integer scale;
+    private ColumnModifier columnModifier;
 
     public ColumnExpression() {
     }
@@ -85,6 +88,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         }
         this.maxLength = datum.getMaxLength();
         this.scale = datum.getScale();
+        this.columnModifier = datum.getColumnModifier();
     }
 
     @Override
@@ -95,6 +99,11 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     @Override
     public PDataType getDataType() {
         return type;
+    }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+    	return columnModifier;
     }
 
     @Override
@@ -124,7 +133,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (type.isFixedWidth() && type.getByteSize() == null) {
             byteSize = WritableUtils.readVInt(input);
         }
-        
+        columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
     }
 
     @Override
@@ -135,5 +144,6 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (byteSize != null) {
             WritableUtils.writeVInt(output, byteSize);
         }
+        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
     }
 }

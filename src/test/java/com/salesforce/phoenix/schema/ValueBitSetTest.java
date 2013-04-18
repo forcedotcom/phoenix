@@ -63,6 +63,10 @@ public class ValueBitSetTest {
                     public Integer getScale() {
                         return null;
                     }
+					@Override
+					public ColumnModifier getColumnModifier() {
+						return null;
+					}
                 };
                 builder.addField(datum);
             }

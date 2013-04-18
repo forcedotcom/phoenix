@@ -81,8 +81,8 @@ public class ExpressionProjector implements ColumnProjector {
         }
         if (ptr.getLength() == 0) {
             return null;
-        }
-        return type.toObject(ptr, expression.getDataType());
+        }        
+        return type.toObject(ptr, expression.getDataType(), expression.getColumnModifier());
     }
 
     @Override

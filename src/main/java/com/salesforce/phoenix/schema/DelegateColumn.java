@@ -44,6 +44,11 @@ public class DelegateColumn extends DelegateDatum implements PColumn {
     public PName getName() {
         return getDelegate().getName();
     }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+    	return getDelegate().getColumnModifier();
+    }
 
     @Override
     public PName getFamilyName() {

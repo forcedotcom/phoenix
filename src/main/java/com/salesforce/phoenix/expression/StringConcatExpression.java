@@ -28,12 +28,15 @@
 package com.salesforce.phoenix.expression;
 
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -80,14 +83,15 @@ public class StringConcatExpression extends BaseCompoundExpression {
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         byte[] result = ByteUtil.EMPTY_BYTE_ARRAY;
         for (int i=0; i<children.size(); i++) {
-            if (children.get(i).getDataType() == null || !children.get(i).evaluate(tuple,ptr)) {
+            if (children.get(i).getDataType() == null || !children.get(i).evaluate(tuple, ptr)) {
                 continue;
             }
             PDataType childType = children.get(i).getDataType();
+            ColumnModifier columnModifier = children.get(i).getColumnModifier();
             if (childType.isCoercibleTo(PDataType.VARCHAR)) {
-                result =ByteUtil.concat(result,ByteUtil.concat(ptr));
+                result = ByteUtil.concat(result, ByteUtil.concat(columnModifier, ptr));
             } else {
-                result= ByteUtil.concat(result,PDataType.VARCHAR.toBytes(childType.toObject(ptr).toString()));
+                result = ByteUtil.concat(result, PDataType.VARCHAR.toBytes(childType.toObject(ptr, columnModifier).toString()));
             }
         }
         ptr.set(result);

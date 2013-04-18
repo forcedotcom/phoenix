@@ -31,6 +31,7 @@ import java.math.BigDecimal;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
@@ -47,7 +48,8 @@ public class DecimalSumAggregator extends BaseAggregator {
     private BigDecimal sum = BigDecimal.ZERO;
     private byte[] sumBuffer;
     
-    public DecimalSumAggregator() {
+    public DecimalSumAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
     }
     
     private PDataType getInputDataType() {
@@ -56,7 +58,7 @@ public class DecimalSumAggregator extends BaseAggregator {
     
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
-        BigDecimal value = (BigDecimal)getDataType().toObject(ptr, getInputDataType());
+        BigDecimal value = (BigDecimal)getDataType().toObject(ptr, getInputDataType(), columnModifier);
         sum = sum.add(value);
         if (sumBuffer == null) {
             sumBuffer = new byte[getDataType().getByteSize()];

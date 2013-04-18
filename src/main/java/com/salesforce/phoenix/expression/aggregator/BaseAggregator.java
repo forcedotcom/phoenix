@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.aggregator;
 
 
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.util.SizedUtil;
 
 /**
@@ -38,7 +39,11 @@ import com.salesforce.phoenix.util.SizedUtil;
  * @since 0.1
  */
 public abstract class BaseAggregator extends BaseTerminalExpression implements Aggregator {
-    public BaseAggregator() {
+    
+    protected final ColumnModifier columnModifier;    
+    
+    public BaseAggregator(ColumnModifier columnModifier) {
+        this.columnModifier = columnModifier;
     }
     
     @Override

@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.aggregator;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
@@ -44,6 +45,10 @@ import com.salesforce.phoenix.util.SizedUtil;
 abstract public class NumberSumAggregator extends BaseAggregator {
     private long sum = 0;
     private byte[] buffer;
+    
+    public NumberSumAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
+    }
 
     abstract protected PDataType getInputDataType();
     
@@ -54,11 +59,11 @@ abstract public class NumberSumAggregator extends BaseAggregator {
     private void initBuffer() {
         buffer = new byte[getBufferLength()];
     }
-    
+        
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
         // Get either IntNative or LongNative depending on input type
-        long value = getInputDataType().getCodec().decodeLong(ptr);
+        long value = getInputDataType().getCodec().decodeLong(ptr, columnModifier);
         sum += value;
         if (buffer == null) {
             initBuffer();

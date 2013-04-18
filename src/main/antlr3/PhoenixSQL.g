@@ -132,6 +132,7 @@ import java.util.Arrays;
 import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.util.SchemaUtil;
 }
 
@@ -355,9 +356,9 @@ pk_constraint returns [PrimaryKeyConstraint ret]
 	:	CONSTRAINT	n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
 	;
 	
-identifiers returns [List<String> ret]
-@init{ret = new ArrayList<String>(); }
-    :  c = identifier {$ret.add(c);}  (COMMA c = identifier {$ret.add(c);} )*
+identifiers returns [List<Pair<String, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<String, ColumnModifier>>(); }
+    :  c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));} )*
 ;
 
 fam_properties returns [ListMultimap<String,Pair<String,Object>> ret]
@@ -408,11 +409,12 @@ column_defs returns [List<ColumnDef> ret] throws SQLException
 ;
 
 column_def returns [ColumnDef ret] throws SQLException
-    :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY)?
+    :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
         {$ret = factory.columnDef(c, dt, n==null,
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
-            pk != null ); }
+            pk != null, 
+            order == null ? null : ColumnModifier.fromDDLValue(order.getText()) ); }
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).

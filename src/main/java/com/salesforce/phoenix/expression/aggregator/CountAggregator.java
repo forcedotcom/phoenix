@@ -45,6 +45,7 @@ public class CountAggregator extends BaseAggregator {
     private byte[] buffer = null;
     
     public CountAggregator() {
+        super(null);
     }
     
     @Override

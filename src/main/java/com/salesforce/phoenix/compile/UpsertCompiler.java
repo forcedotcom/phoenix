@@ -454,7 +454,7 @@ public class UpsertCompiler {
             if (isTopLevel()) {
                 context.getBindManager().addParamMetaData(node, column);
                 Object value = context.getBindManager().getBindValue(node);
-                return LiteralExpression.newConstant(value, column.getDataType());
+                return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier());
             }
             return super.visit(node);
         }    
@@ -462,7 +462,7 @@ public class UpsertCompiler {
         @Override
         public Expression visit(LiteralParseNode node) throws SQLException {
             if (isTopLevel()) {
-                return LiteralExpression.newConstant(node.getValue(), column.getDataType());
+                return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier());
             }
             return super.visit(node);
         }

@@ -34,10 +34,14 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DecimalSumAggregator;
+import com.salesforce.phoenix.expression.aggregator.LongSumAggregator;
+import com.salesforce.phoenix.expression.aggregator.NumberSumAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.SumAggregateParseNode;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -68,11 +72,12 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     @Override
     public Aggregator newServerAggregator() {
         final PDataType type = getAggregatorExpression().getDataType();
+        ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
         switch( type ) {
             case DECIMAL:
-                return new DecimalSumAggregator();
+                return new DecimalSumAggregator(columnModifier);
             default:
-                return new NumberSumAggregator() {
+                return new NumberSumAggregator(columnModifier) {
                     @Override
                     protected PDataType getInputDataType() {
                         return type;
@@ -85,9 +90,9 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     public Aggregator newClientAggregator() {
         switch( getDataType() ) {
             case DECIMAL:
-                return new DecimalSumAggregator();
+                return new DecimalSumAggregator(null);
             case LONG:
-                return new LongSumAggregator();
+                return new LongSumAggregator(null);
             default:
                 throw new IllegalStateException("Unexpected SUM type: " + getDataType());
         }
@@ -106,7 +111,7 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
                 ptr.set(PDataType.DECIMAL.toBytes(value));
             } else {
                 long constantLongValue = ((Number)constantValue).longValue();
-                long value = constantLongValue * type.getCodec().decodeLong(ptr);
+                long value = constantLongValue * type.getCodec().decodeLong(ptr, null);
                 ptr.set(new byte[type.getByteSize()]);
                 type.getCodec().encodeLong(value, ptr);
             }

@@ -31,6 +31,7 @@ import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -49,9 +50,10 @@ public class ColumnDef {
     private final Integer maxLength;
     private final Integer scale;
     private final boolean isPK;
-
+    private final ColumnModifier columnModifier;
+ 
     ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
-            Integer scale, boolean isPK) throws SQLException {
+            Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
         this.columnDefName = columnDefName;
         this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;
@@ -98,6 +100,7 @@ public class ColumnDef {
         this.maxLength = maxLength;
         this.scale = scale;
         this.isPK = isPK;
+        this.columnModifier = columnModifier;
     }
 
     public ColumnDefName getColumnDefName() {
@@ -122,5 +125,9 @@ public class ColumnDef {
 
     public boolean isPK() {
         return isPK;
+    }
+    
+    public ColumnModifier getColumnModifier() {
+    	return columnModifier;
     }
 }

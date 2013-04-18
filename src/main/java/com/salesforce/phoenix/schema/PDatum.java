@@ -54,4 +54,9 @@ public interface PDatum {
      * @return scale of a decimal number.
      */
     Integer getScale();
+    
+    /**
+     * @return The modifier for this column or null if it doesn't have a modifier
+     */
+    ColumnModifier getColumnModifier();
 }

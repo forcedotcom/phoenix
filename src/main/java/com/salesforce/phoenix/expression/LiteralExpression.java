@@ -67,6 +67,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     private Integer byteSize;
     private Integer maxLength;
     private Integer scale;
+    private ColumnModifier columnModifier;
 
     // TODO: cache?
     public static LiteralExpression newConstant(Object value) {
@@ -94,11 +95,19 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
 
     public static LiteralExpression newConstant(Object value, PDataType type) throws SQLException {
-        return newConstant(value, type, null, null);
+        return newConstant(value, type, null);
+    }
+    
+    public static LiteralExpression newConstant(Object value, PDataType type, ColumnModifier columnModifier) throws SQLException {
+        return newConstant(value, type, null, null, columnModifier);
+    }
+    
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException { // remove?
+    	return newConstant(value, type, maxLength, scale, null);
     }
 
     // TODO: cache?
-    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale)
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale, ColumnModifier columnModifier)
             throws SQLException {
         if (value == null) {
             if (type == null) {
@@ -112,11 +121,11 @@ public class LiteralExpression extends BaseTerminalExpression {
         }
         value = type.toObject(value, actualType);
         try {
-            byte[] b = type.toBytes(value);
+            byte[] b = type.toBytes(value, columnModifier);
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];
             }
-            return new LiteralExpression(value, type, b, maxLength, scale);
+            return new LiteralExpression(value, type, b, maxLength, scale, columnModifier);
         } catch (IllegalDataException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.ILLEGAL_DATA).setRootCause(e).build().buildException();
         }
@@ -144,17 +153,18 @@ public class LiteralExpression extends BaseTerminalExpression {
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue) {
         this(value, type, byteValue, type == null? null : type.getMaxLength(value),
-                type == null? null : type.getScale(value));
+                type == null? null : type.getScale(value), null);
     }
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue,
-            Integer maxLength, Integer scale) {
+            Integer maxLength, Integer scale, ColumnModifier columnModifier) {
         this.value = value;
         this.type = type;
         this.byteValue = byteValue;
         this.byteSize = byteValue.length;
         this.maxLength = maxLength;
         this.scale = scale;
+        this.columnModifier = columnModifier;
     }
 
     @Override
@@ -190,6 +200,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             this.value = this.type.toObject(byteValue);
         }
         byteSize = this.byteValue.length;
+        columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
     }
 
     @Override
@@ -198,6 +209,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         if (this.byteValue.length > 0) {
             WritableUtils.writeVInt(output, this.type.ordinal());
         }
+        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
     }
 
     @Override
@@ -225,6 +237,11 @@ public class LiteralExpression extends BaseTerminalExpression {
     @Override
     public Integer getScale() {
         return scale;
+    }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+        return columnModifier;
     }
 
     @Override

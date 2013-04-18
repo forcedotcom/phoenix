@@ -29,7 +29,10 @@ package com.salesforce.phoenix.parse;
 
 import java.lang.reflect.Constructor;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -38,10 +41,14 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.UnknownFunctionException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
-import com.salesforce.phoenix.expression.function.*;
+import com.salesforce.phoenix.expression.function.AvgAggregateFunction;
+import com.salesforce.phoenix.expression.function.CurrentDateFunction;
+import com.salesforce.phoenix.expression.function.CurrentTimeFunction;
+import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -238,12 +245,12 @@ public class ParseNodeFactory {
         return new PropertyName(familyName, propertyName);
     }
 
-    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK) throws SQLException {
-        return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK);
+    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
+        return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK, columnModifier);
     }
 
-    public PrimaryKeyConstraint primaryKey(String name, List<String> columnNames) {
-        return new PrimaryKeyConstraint(name, columnNames);
+    public PrimaryKeyConstraint primaryKey(String name, List<Pair<String, ColumnModifier>> columnNameAndModifier) {
+        return new PrimaryKeyConstraint(name, columnNameAndModifier);
     }
     
     public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {

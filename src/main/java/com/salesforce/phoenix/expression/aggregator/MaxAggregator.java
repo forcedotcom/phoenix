@@ -30,6 +30,8 @@ package com.salesforce.phoenix.expression.aggregator;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.phoenix.schema.ColumnModifier;
+
 
 /**
  * Aggregator that finds the max of values. Inverse of {@link MinAggregator}.
@@ -38,6 +40,11 @@ import org.apache.hadoop.hbase.util.Bytes;
  * @since 0.1
  */
 abstract public class MaxAggregator extends MinAggregator {
+    
+    public MaxAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
+    }
+    
     @Override
     protected boolean keepFirst(ImmutableBytesWritable ibw1, ImmutableBytesWritable ibw2) {
         return !super.keepFirst(ibw1, ibw2);

@@ -92,7 +92,7 @@ public class CountAggregateFunction extends SingleAggregateFunction {
         // Since COUNT can never be null, ensure the aggregator is not nullable.
         // This allows COUNT(*) to return 0 with the initial state of ClientAggregators
         // when no rows are returned. 
-        return new LongSumAggregator() {
+        return new LongSumAggregator(null) {
             @Override
             public boolean isNullable() {
                 return false;
