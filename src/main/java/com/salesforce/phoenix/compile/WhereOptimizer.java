@@ -77,7 +77,7 @@ public class WhereOptimizer {
         }
         // TODO: Single table for now
         PTable table = context.getResolver().getTables().get(0).getTable();
-        KeyExpressionVisitor visitor = new KeyExpressionVisitor(context, table);
+        KeyExpressionVisitor visitor = new KeyExpressionVisitor(table);
         // TODO:: When we only have one where clause, the keySlots returns as a single slot object,
         // instead of an array of slots for the corresponding column. Change the behavior so it
         // becomes consistent.
@@ -172,6 +172,11 @@ public class WhereOptimizer {
         }
 
         @Override
+        public Iterator<Expression> visitEnter(OrExpression node) {
+            return node.getChildren().iterator();
+        }
+
+        @Override
         public Iterator<Expression> visitEnter(AndExpression node) {
             return node.getChildren().iterator();
         }
@@ -241,7 +246,8 @@ public class WhereOptimizer {
             return new SingleKeySlot(part, slot.getPKPosition(), slot.getKeyRanges());
         }
 
-        private static KeySlots andKeyExpression(int nColumns, List<KeySlots> childSlots) {
+        private KeySlots andKeySlots(AndExpression andExpression, List<KeySlots> childSlots) {
+            int nColumns = table.getPKColumns().size();
             KeySlot[] newChildSlots = new KeySlot[nColumns];
             for (KeySlots childSlot : childSlots) {
                 if (childSlot == DEGENERATE_KEY_PARTS) {
@@ -268,11 +274,59 @@ public class WhereOptimizer {
             return new MultiKeySlot(Arrays.asList(newChildSlots));
         }
 
-        private final StatementContext context;
+        private KeySlots orKeySlots(OrExpression orExpression, List<KeySlots> childSlots) {
+            // If any children were filtered out, filter out the entire
+            // OR expression because we don't have enough information to
+            // constraint the scan start/stop key. An example would be:
+            // WHERE organization_id=? OR key_value_column = 'x'
+            // In this case, we cannot simply filter the key_value_column,
+            // because we end up bubbling up only the organization_id=?
+            // expression to form the start/stop key which is obviously wrong.
+            // For an OR expression, you need to be able to extract
+            // everything or nothing.
+            if (orExpression.getChildren().size() != childSlots.size()) {
+                return null;
+            }
+            KeySlot theSlot = null;
+            List<KeyRange> union = Lists.newArrayList();
+            for (KeySlots childSlot : childSlots) {
+                if (childSlot == DEGENERATE_KEY_PARTS) {
+                    // TODO: can this ever happen and can we safely filter the expression tree?
+                    continue;
+                }
+                for (KeySlot slot : childSlot) {
+                    // We have a nested OR with nothing for this slot, so continue
+                    if (slot == null) {
+                        continue;
+                    }
+                    /*
+                     * If we see a different PK column than before, we can't
+                     * optimize it because our SkipScanFilter only handles
+                     * top level expressions that are ANDed together (where in
+                     * the same column expressions may be ORed together).
+                     * For example, WHERE a=1 OR b=2 cannot be handled, while
+                     *  WHERE (a=1 OR a=2) AND (b=2 OR b=3) can be handled.
+                     * TODO: We could potentially handle these cases through
+                     * multiple, nested SkipScanFilters, where each OR expression
+                     * is handled by its own SkipScanFilter and the outer one
+                     * increments the child ones and picks the one with the smallest
+                     * key.
+                     */
+                    if (theSlot == null) {
+                        theSlot = slot;
+                    } else if (theSlot.getPKPosition() != slot.getPKPosition()) {
+                        return null;
+                    }
+                    union.addAll(slot.getKeyRanges());
+                }
+            }
+
+            return theSlot == null ? null : newKeyParts(theSlot, orExpression, KeyRange.coalesce(union));
+        }
+
         private final PTable table;
 
-        public KeyExpressionVisitor(StatementContext context, PTable table) {
-            this.context = context;
+        public KeyExpressionVisitor(PTable table) {
             this.table = table;
         }
 
@@ -291,11 +345,26 @@ public class WhereOptimizer {
 
         @Override
         public KeySlots visitLeave(AndExpression node, List<KeySlots> l) {
-            List<TableRef> tables = context.getResolver().getTables();
-            assert tables.size() == 1;
-            int nColumns = table.getPKColumns().size();
-            KeySlots keyExpr = andKeyExpression(nColumns, l);
+            KeySlots keyExpr = andKeySlots(node, l);
             return keyExpr;
+        }
+
+        @Override
+        public Iterator<Expression> visitEnter(OrExpression node) {
+            return node.getChildren().iterator();
+        }
+
+        @Override
+        public KeySlots visitLeave(OrExpression node, List<KeySlots> l) {
+            KeySlots keySlots = orKeySlots(node, l);
+            if (keySlots == null) {
+                // If we don't clear the child list, we end up passing some of
+                // the child expressions of the OR up the tree, causing only
+                // those expressions to form the scan start/stop key.
+                l.clear();
+                return null;
+            }
+            return keySlots;
         }
 
         @Override
@@ -510,6 +579,10 @@ public class WhereOptimizer {
 
         private static class SingleKeySlot implements KeySlots {
             private final KeySlot slot;
+            
+            private SingleKeySlot(KeySlot slot) {
+                this.slot = slot;
+            }
             
             private SingleKeySlot(KeyPart part, int pkPosition, List<KeyRange> ranges) {
                 this.slot = new KeySlot(part, pkPosition, ranges);
