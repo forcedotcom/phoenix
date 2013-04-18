@@ -129,15 +129,16 @@ public class FromCompiler {
 
             //If dynamic columns have been specified add them to the table declaration
             if(dynamicColumnDefs!=null && !dynamicColumnDefs.isEmpty()) {
-            	int ordinalPosition = theTable.getColumns().size();
-            	List<PColumn> dynamicColumns = new ArrayList<PColumn>();
-            	dynamicColumns.addAll(theTable.getColumns());
-            	for(ColumnDef cdef:dynamicColumnDefs){
-            		dynamicColumns.add(client.newColumn(ordinalPosition, cdef, null));
-            		ordinalPosition++;
-            	}
-            	//redeclare the new tableImpl with the dynamicColumnDefs
-            	theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),theTable.getSequenceNumber(), theTable.getPKName(), dynamicColumns);
+                int ordinalPosition = theTable.getColumns().size();
+                List<PColumn> dynamicColumns = new ArrayList<PColumn>();
+                dynamicColumns.addAll(theTable.getColumns());
+                for(ColumnDef cdef:dynamicColumnDefs){
+                    dynamicColumns.add(client.newColumn(ordinalPosition, cdef, null));
+                    ordinalPosition++;
+                }
+                //redeclare the new tableImpl with the dynamicColumnDefs
+                theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),
+                        theTable.getSequenceNumber(), theTable.getPKName(), theTable.getBucketNum(), dynamicColumns);
             }
             TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
             return tableRef;

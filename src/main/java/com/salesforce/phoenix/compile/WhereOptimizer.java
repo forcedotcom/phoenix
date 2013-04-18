@@ -36,12 +36,11 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
-import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 /**
  *
@@ -78,7 +77,10 @@ public class WhereOptimizer {
         }
         // TODO: Single table for now
         PTable table = context.getResolver().getTables().get(0).getTable();
-        KeyExpressionVisitor visitor = new KeyExpressionVisitor(context, table);
+        KeyExpressionVisitor visitor = new KeyExpressionVisitor(table);
+        // TODO:: When we only have one where clause, the keySlots returns as a single slot object,
+        // instead of an array of slots for the corresponding column. Change the behavior so it
+        // becomes consistent.
         KeyExpressionVisitor.KeySlots keySlots = whereClause.accept(visitor);
 
         if (keySlots == null) {
@@ -97,8 +99,8 @@ public class WhereOptimizer {
             extractNodes = new HashSet<Expression>(table.getPKColumns().size());
         }
 
-        int pkPos = -1;
-        List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
+        int pkPos = table.getBucketNum() == null ? -1 : 0;
+        LinkedList<List<KeyRange>> cnf = new LinkedList<List<KeyRange>>();
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
@@ -114,7 +116,7 @@ public class WhereOptimizer {
             for (KeyRange range : slot.getKeyRanges()) {
                 hasUnboundedRange |= range.isUnbound();
             }
-
+            
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
             // set the start key to 'foo' but still need to match the regex at filter time.
@@ -129,11 +131,30 @@ public class WhereOptimizer {
                 break;
             }
         }
-
+        if (table.getBucketNum() != null) {
+            List<KeyRange> saltByteRange = getSaltByteRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
+            cnf.addFirst(saltByteRange);
+        }
         context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
     }
-    
+
+    public static List<KeyRange> getSaltByteRanges(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
+        if (ScanRanges.isSingleRowScan(ranges, schema, false)) {
+            int[] position = new int[ranges.size()];
+            int maxLength = ScanUtil.estimateKeyLength(schema, 1, ranges, new int[ranges.size()], Bound.LOWER);
+            byte[] key = new byte[maxLength + 1];
+            ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
+            byte saltByte = SaltingUtil.getSaltingByte(key, 1, key.length - 1, bucketNum);
+            KeyRange saltRange = SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(new byte[] {saltByte}, true, new byte[] {saltByte}, true);
+            List<KeyRange> saltRangeList = Collections.<KeyRange>singletonList(saltRange);
+            return saltRangeList;
+        }
+        return Collections.<KeyRange>singletonList(SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(
+                new byte[] {0}, true, 
+                new byte[] {(byte) bucketNum}, true));
+    }
+
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {
         private final Set<Expression> nodesToRemove;
 
@@ -144,6 +165,11 @@ public class WhereOptimizer {
         @Override
         public Expression defaultReturn(Expression node, List<Expression> e) {
             return nodesToRemove.contains(node) ? null : node;
+        }
+
+        @Override
+        public Iterator<Expression> visitEnter(OrExpression node) {
+            return node.getChildren().iterator();
         }
 
         @Override
@@ -165,11 +191,18 @@ public class WhereOptimizer {
             }
             return node;
         }
-
-        // TODO: same visitEnter/visitLeave for OrExpression once we optimize it
     }
 
-    public static class KeyExpressionVisitor extends TraverseAllExpressionVisitor<KeyExpressionVisitor.KeySlots> {
+    /*
+     * TODO: We could potentially rewrite simple expressions to move constants to the RHS
+     * such that we can form a start/stop key for a scan. For example, rewrite this:
+     *     WHEREH a + 1 < 5
+     * to this instead:
+     *     WHERE a < 5 - 1
+     * Currently the first case would not be optimized. This includes other arithmetic
+     * operators, CASE statements, and string concatenation.
+     */
+    public static class KeyExpressionVisitor extends TraverseNoExpressionVisitor<KeyExpressionVisitor.KeySlots> {
         private static final List<KeyRange> EVERYTHING_RANGES = Collections.<KeyRange>singletonList(KeyRange.EVERYTHING_RANGE);
         private static final KeySlots DEGENERATE_KEY_PARTS = new KeySlots() {
             @Override
@@ -209,8 +242,9 @@ public class WhereOptimizer {
             return new SingleKeySlot(part, slot.getPKPosition(), slot.getKeyRanges());
         }
 
-        private static KeySlots andKeyExpression(int nColumns, List<KeySlots> childSlots) {
-            KeySlot[] newChildSlots = new KeySlot[nColumns];
+        private KeySlots andKeySlots(AndExpression andExpression, List<KeySlots> childSlots) {
+            int nColumns = table.getPKColumns().size();
+            KeySlot[] keySlot = new KeySlot[nColumns];
             for (KeySlots childSlot : childSlots) {
                 if (childSlot == DEGENERATE_KEY_PARTS) {
                     return DEGENERATE_KEY_PARTS;
@@ -221,26 +255,80 @@ public class WhereOptimizer {
                         continue;
                     }
                     int position = slot.getPKPosition();
-                    KeySlot existing = newChildSlots[position];
+                    KeySlot existing = keySlot[position];
                     if (existing == null) {
-                        newChildSlots[position] = slot;
+                        keySlot[position] = slot;
                     } else {
-                        newChildSlots[position] = existing.intersect(slot);
-                        if (newChildSlots[position] == null) {
+                        keySlot[position] = existing.intersect(slot);
+                        if (keySlot[position] == null) {
                             return DEGENERATE_KEY_PARTS;
                         }
                     }
                 }
             }
 
-            return new MultiKeySlot(Arrays.asList(newChildSlots));
+            List<KeySlot> keySlots = Arrays.asList(keySlot);
+            // If we have a salt column, skip that slot because
+            // they'll never be an expression contained by it.
+            if (table.getBucketNum() != null) {
+                keySlots = keySlots.subList(1, keySlots.size());
+            }
+            return new MultiKeySlot(keySlots);
         }
 
-        private final StatementContext context;
+        private KeySlots orKeySlots(OrExpression orExpression, List<KeySlots> childSlots) {
+            // If any children were filtered out, filter out the entire
+            // OR expression because we don't have enough information to
+            // constraint the scan start/stop key. An example would be:
+            // WHERE organization_id=? OR key_value_column = 'x'
+            // In this case, we cannot simply filter the key_value_column,
+            // because we end up bubbling up only the organization_id=?
+            // expression to form the start/stop key which is obviously wrong.
+            // For an OR expression, you need to be able to extract
+            // everything or nothing.
+            if (orExpression.getChildren().size() != childSlots.size()) {
+                return null;
+            }
+            KeySlot theSlot = null;
+            List<KeyRange> union = Lists.newArrayList();
+            for (KeySlots childSlot : childSlots) {
+                if (childSlot == DEGENERATE_KEY_PARTS) {
+                    // TODO: can this ever happen and can we safely filter the expression tree?
+                    continue;
+                }
+                for (KeySlot slot : childSlot) {
+                    // We have a nested OR with nothing for this slot, so continue
+                    if (slot == null) {
+                        continue;
+                    }
+                    /*
+                     * If we see a different PK column than before, we can't
+                     * optimize it because our SkipScanFilter only handles
+                     * top level expressions that are ANDed together (where in
+                     * the same column expressions may be ORed together).
+                     * For example, WHERE a=1 OR b=2 cannot be handled, while
+                     *  WHERE (a=1 OR a=2) AND (b=2 OR b=3) can be handled.
+                     * TODO: We could potentially handle these cases through
+                     * multiple, nested SkipScanFilters, where each OR expression
+                     * is handled by its own SkipScanFilter and the outer one
+                     * increments the child ones and picks the one with the smallest
+                     * key.
+                     */
+                    if (theSlot == null) {
+                        theSlot = slot;
+                    } else if (theSlot.getPKPosition() != slot.getPKPosition()) {
+                        return null;
+                    }
+                    union.addAll(slot.getKeyRanges());
+                }
+            }
+
+            return theSlot == null ? null : newKeyParts(theSlot, orExpression, KeyRange.coalesce(union));
+        }
+
         private final PTable table;
 
-        public KeyExpressionVisitor(StatementContext context, PTable table) {
-            this.context = context;
+        public KeyExpressionVisitor(PTable table) {
             this.table = table;
         }
 
@@ -250,13 +338,35 @@ public class WhereOptimizer {
             return l.size() == 1 ? l.get(0) : null;
         }
 
+
+        // TODO: same visitEnter/visitLeave for OrExpression once we optimize it
+        @Override
+        public Iterator<Expression> visitEnter(AndExpression node) {
+            return node.getChildren().iterator();
+        }
+
         @Override
         public KeySlots visitLeave(AndExpression node, List<KeySlots> l) {
-            List<TableRef> tables = context.getResolver().getTables();
-            assert tables.size() == 1;
-            int nColumns = table.getPKColumns().size();
-            KeySlots keyExpr = andKeyExpression(nColumns, l);
+            KeySlots keyExpr = andKeySlots(node, l);
             return keyExpr;
+        }
+
+        @Override
+        public Iterator<Expression> visitEnter(OrExpression node) {
+            return node.getChildren().iterator();
+        }
+
+        @Override
+        public KeySlots visitLeave(OrExpression node, List<KeySlots> l) {
+            KeySlots keySlots = orKeySlots(node, l);
+            if (keySlots == null) {
+                // If we don't clear the child list, we end up passing some of
+                // the child expressions of the OR up the tree, causing only
+                // those expressions to form the scan start/stop key.
+                l.clear();
+                return null;
+            }
+            return keySlots;
         }
 
         @Override
@@ -330,7 +440,7 @@ public class WhereOptimizer {
                 return Iterators.emptyIterator();
             }
 
-            return super.visitEnter(node);
+            return Iterators.singletonIterator(node.getChildren().get(0));
         }
 
         @Override
@@ -360,12 +470,6 @@ public class WhereOptimizer {
             }
             // Only extract LIKE expression if pattern ends with a wildcard and everything else was extracted
             return newKeyParts(childSlot, node.endsWithOnlyWildcard() ? node : null, keyRange);
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(CaseExpression node) {
-            // TODO: optimize for simple case statement with all constants
-            return Iterators.emptyIterator();
         }
 
         @Override
@@ -413,61 +517,6 @@ public class WhereOptimizer {
                 KeyRange keyRange = node.isNegate() ? KeyRange.IS_NOT_NULL_RANGE : KeyRange.IS_NULL_RANGE;
                 return newKeyParts(childSlot, node, keyRange);
             }
-        }
-
-        // TODO: rethink default: probably better if we don't automatically walk through constructs
-
-        @Override
-        public Iterator<Expression> visitEnter(OrExpression node) {
-            // TODO: optimize for cases where LHS column is the same for all
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(StringConcatExpression node) {
-            // TODO: we could optimize by substring-ing the RHS if
-            // the first child is a KeyPart and the rest of the children
-            // are constants. For example: WHERE foo||'bar'='1234bar' we'd
-            // need to replace the rhs with SUBSTR(rhs,-<size-of-constant-strings>)
-            return Iterators.emptyIterator();
-        }
-
-        /*
-         * These prevents our optimizer from trying to form a rowkey for a column in
-         * an arithmetic expression. We could possibly do more later, but for now folks
-         * should write their expressions with constants on the LHS. For example:
-         *    WHERE a + 1 < 5
-         * would cause the rowkey to not be able to formed using column a, while
-         *    WHERE a < 4
-         * would be able to be formed using column a.
-         **/
-        @Override
-        public Iterator<Expression> visitEnter(AddExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(SubtractExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(MultiplyExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(DivideExpression node) {
-            // TODO: optimize by moving constants to LHS
-            return Iterators.emptyIterator();
-        }
-
-        @Override
-        public Iterator<Expression> visitEnter(NotExpression node) {
-            return Iterators.emptyIterator();
         }
 
         private static interface KeySlots extends Iterable<KeySlot> {
@@ -532,6 +581,10 @@ public class WhereOptimizer {
 
         private static class SingleKeySlot implements KeySlots {
             private final KeySlot slot;
+            
+            private SingleKeySlot(KeySlot slot) {
+                this.slot = slot;
+            }
             
             private SingleKeySlot(KeyPart part, int pkPosition, List<KeyRange> ranges) {
                 this.slot = new KeySlot(part, pkPosition, ranges);

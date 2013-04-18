@@ -48,6 +48,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -119,8 +120,9 @@ public class MetaDataClient {
         TABLE_TYPE_NAME + "," +
         TABLE_SEQ_NUM + "," +
         COLUMN_COUNT + "," +
+        SALT_BUCKETS + "," +
         PK_NAME + 
-        ") VALUES (?, ?, ?, ?, ?, ?)";
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)";
     private static final String MUTATE_TABLE =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -316,12 +318,17 @@ public class MetaDataClient {
             
             // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
             if (tableType == PTableType.SYSTEM) {
-                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, QueryConstants.SYSTEM_TABLE_PK_NAME, columns);
+                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, QueryConstants.SYSTEM_TABLE_PK_NAME, null, columns);
                 connection.addTable(schemaName, table);
             }
             
             for (PColumn column : columns) {
                 addColumnMutation(schemaName, tableName, column, colUpsert);
+            }
+            
+            Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
+            if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
             }
             
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
@@ -330,7 +337,12 @@ public class MetaDataClient {
             tableUpsert.setString(3, tableType.getSerializedValue());
             tableUpsert.setInt(4, 0);
             tableUpsert.setInt(5, columnOrdinal);
-            tableUpsert.setString(6, pkName);
+            if (saltBucketNum != null) {
+                tableUpsert.setInt(6, saltBucketNum);
+            } else {
+                tableUpsert.setNull(6, Types.INTEGER);
+            }
+            tableUpsert.setString(7, pkName);
             tableUpsert.execute();
             
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
@@ -352,7 +364,7 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
-                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, columns);
+                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, saltBucketNum, columns);
                 connection.addTable(schemaName, table);
                 if (tableType == PTableType.USER) {
                     connection.setAutoCommit(true);

@@ -35,13 +35,18 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.Filter;
 import org.junit.Test;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
+import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -843,4 +848,100 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds, extractedNodes);
         assertDegenerate(scan);
     }
+    
+    @Test
+    public void testOrSameColExpression() throws SQLException {
+        String tenantId1 = "000000000000001";
+        String tenantId2 = "000000000000003";
+        String query = "select * from atable where organization_id = ? or organization_id  = ?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId1,tenantId2);
+        Set<Expression>extractedNodes = new HashSet<Expression>();
+        StatementContext context = compileStatement(query, scan, binds, extractedNodes);
+
+        Filter filter = scan.getFilter();
+        assertNotNull(filter);
+        assertTrue(filter instanceof SkipScanFilter);
+        ScanRanges scanRanges = context.getScanRanges();
+        assertNotNull(scanRanges);
+        List<List<KeyRange>> ranges = scanRanges.getRanges();
+        assertEquals(1,ranges.size());
+        List<List<KeyRange>> expectedRanges = Collections.singletonList(Arrays.asList(
+                PDataType.CHAR.getKeyRange(PDataType.CHAR.toBytes(tenantId1), true, PDataType.CHAR.toBytes(tenantId1), true), 
+                PDataType.CHAR.getKeyRange(PDataType.CHAR.toBytes(tenantId2), true, PDataType.CHAR.toBytes(tenantId2), true)));
+        assertEquals(expectedRanges, ranges);
+        assertEquals(1, extractedNodes.size());
+        assertTrue(extractedNodes.iterator().next() instanceof OrExpression);
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
+        assertArrayEquals(startRow, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId2)), scan.getStopRow());
+    }
+    
+    @Test
+    public void testAndOrExpression() throws SQLException {
+        String tenantId1 = "000000000000001";
+        String tenantId2 = "000000000000003";
+        String entityId1 = "002333333333331";
+        String entityId2 = "002333333333333";
+        String query = "select * from atable where (organization_id = ? and entity_id  = ?) or (organization_id = ? and entity_id  = ?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId1,entityId1,tenantId2,entityId2);
+        Set<Expression>extractedNodes = new HashSet<Expression>();
+        StatementContext context = compileStatement(query, scan, binds, extractedNodes);
+
+        Filter filter = scan.getFilter();
+        assertNotNull(filter);
+        assertTrue(filter instanceof RowKeyComparisonFilter);
+        ScanRanges scanRanges = context.getScanRanges();
+        assertEquals(ScanRanges.EVERYTHING,scanRanges);
+        assertEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testOrDiffColExpression() throws SQLException {
+        String tenantId1 = "000000000000001";
+        String entityId1 = "002333333333331";
+        String query = "select * from atable where organization_id = ? or entity_id  = ?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId1,entityId1);
+        Set<Expression>extractedNodes = new HashSet<Expression>();
+        StatementContext context = compileStatement(query, scan, binds, extractedNodes);
+
+        Filter filter = scan.getFilter();
+        assertNotNull(filter);
+        assertTrue(filter instanceof RowKeyComparisonFilter);
+        ScanRanges scanRanges = context.getScanRanges();
+        assertEquals(ScanRanges.EVERYTHING,scanRanges);
+        assertEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testOrSameColRangeExpression() throws SQLException {
+        String query = "select * from atable where substr(organization_id,1,3) = ? or organization_id LIKE 'foo%'";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList("00D");
+        Set<Expression>extractedNodes = new HashSet<Expression>();
+        StatementContext context = compileStatement(query, scan, binds, extractedNodes);
+
+        Filter filter = scan.getFilter();
+        assertNotNull(filter);
+        assertTrue(filter instanceof SkipScanFilter);
+        ScanRanges scanRanges = context.getScanRanges();
+        assertNotNull(scanRanges);
+        List<List<KeyRange>> ranges = scanRanges.getRanges();
+        assertEquals(1,ranges.size());
+        List<List<KeyRange>> expectedRanges = Collections.singletonList(Arrays.asList(
+                PDataType.CHAR.getKeyRange(
+                        ByteUtil.fillKey(PDataType.CHAR.toBytes("00D"),15), true, 
+                        ByteUtil.fillKey(ByteUtil.nextKey(PDataType.CHAR.toBytes("00D")),15), false), 
+                PDataType.CHAR.getKeyRange(
+                        ByteUtil.fillKey(PDataType.CHAR.toBytes("foo"),15), true, 
+                        ByteUtil.fillKey(ByteUtil.nextKey(PDataType.CHAR.toBytes("foo")),15), false)));
+        assertEquals(expectedRanges, ranges);
+        assertEquals(1, extractedNodes.size());
+        assertTrue(extractedNodes.iterator().next() instanceof OrExpression);
+    }
+    
 }

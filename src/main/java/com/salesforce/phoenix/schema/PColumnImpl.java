@@ -40,6 +40,9 @@ import com.salesforce.phoenix.util.ByteUtil;
 
 
 public class PColumnImpl implements PColumn {
+    private static final Integer NO_MAXLENGTH = Integer.MIN_VALUE;
+    private static final Integer NO_SCALE = Integer.MIN_VALUE;
+
     private PName name;
     private PName familyName;
     private PDataType dataType;
@@ -81,9 +84,10 @@ public class PColumnImpl implements PColumn {
             // Allow nullable columns in PK, but only if they're variable length.
             // Variable length types may be null, since we use a null-byte terminator
             // (which is a disallowed character in variable length types). However,
-            // fixed widith types do not have a way of representing null.
+            // fixed width types do not have a way of representing null.
             // TODO: we may be able to allow this for columns at the end of the PK
-            Preconditions.checkArgument(!nullable || !dataType.isFixedWidth(), "PK columns may not be both fixed width and nullable: " + name.getString());
+            Preconditions.checkArgument(!nullable || !dataType.isFixedWidth(), 
+                    "PK columns may not be both fixed width and nullable: " + name.getString());
         }
         this.name = name;
         this.familyName = familyName == null ? null : familyName;
@@ -159,8 +163,8 @@ public class PColumnImpl implements PColumn {
         boolean nullable = input.readBoolean();
         int position = WritableUtils.readVInt(input);
         ColumnModifier columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
-        init(columnName, familyName, dataType, maxLength == QueryConstants.NO_MAXLENGTH ? null : maxLength,
-                scale == QueryConstants.NO_SCALE ? null : scale, nullable, position, columnModifier);
+        init(columnName, familyName, dataType, maxLength == NO_MAXLENGTH ? null : maxLength,
+                scale == NO_SCALE ? null : scale, nullable, position, columnModifier);
     }
 
     @Override
@@ -168,8 +172,8 @@ public class PColumnImpl implements PColumn {
         Bytes.writeByteArray(output, name.getBytes());
         Bytes.writeByteArray(output, familyName == null ? ByteUtil.EMPTY_BYTE_ARRAY : familyName.getBytes());
         WritableUtils.writeVInt(output, dataType.ordinal());
-        WritableUtils.writeVInt(output, maxLength == null ? QueryConstants.NO_MAXLENGTH : maxLength);
-        WritableUtils.writeVInt(output, scale == null ? QueryConstants.NO_SCALE : scale);
+        WritableUtils.writeVInt(output, maxLength == null ? NO_MAXLENGTH : maxLength);
+        WritableUtils.writeVInt(output, scale == null ? NO_SCALE : scale);
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
         WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
