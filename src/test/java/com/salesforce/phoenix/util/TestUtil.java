@@ -112,6 +112,7 @@ public class TestUtil {
     public static final String MULTI_CF_NAME = "MULTI_CF";
     public static final String MDTEST_NAME = "MDTEST";
     public static final String KEYONLY_NAME = "KEYONLY";
+    public static final String TABLE_WITH_SALTING = "TABLE_WITH_SALTING";
 
     public static final Properties TEST_PROPERTIES = new Properties();
 
