@@ -39,9 +39,9 @@ import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 /**
  *
@@ -79,6 +79,9 @@ public class WhereOptimizer {
         // TODO: Single table for now
         PTable table = context.getResolver().getTables().get(0).getTable();
         KeyExpressionVisitor visitor = new KeyExpressionVisitor(context, table);
+        // TODO:: When we only have one where clause, the keySlots returns as a single slot object,
+        // instead of an array of slots for the corresponding column. Change the behavior so it
+        // becomes consistent.
         KeyExpressionVisitor.KeySlots keySlots = whereClause.accept(visitor);
 
         if (keySlots == null) {
@@ -97,11 +100,15 @@ public class WhereOptimizer {
             extractNodes = new HashSet<Expression>(table.getPKColumns().size());
         }
 
-        int pkPos = -1;
-        List<List<KeyRange>> cnf = new ArrayList<List<KeyRange>>();
+        int pkPos = table.getBucketNum() == null ? -1 : 0;
+        LinkedList<List<KeyRange>> cnf = new LinkedList<List<KeyRange>>();
         boolean hasUnboundedRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
+            // Skip over the salt byte key slot.
+            if (slot == null && pkPos == 0 && table.getBucketNum() != null) {
+                continue;
+            }
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.
@@ -114,7 +121,7 @@ public class WhereOptimizer {
             for (KeyRange range : slot.getKeyRanges()) {
                 hasUnboundedRange |= range.isUnbound();
             }
-
+            
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
             // set the start key to 'foo' but still need to match the regex at filter time.
@@ -129,9 +136,28 @@ public class WhereOptimizer {
                 break;
             }
         }
-
+        if (table.getBucketNum() != null) {
+            List<KeyRange> saltByteRange = getSaltByteRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
+            cnf.addFirst(saltByteRange);
+        }
         context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
+    }
+
+    public static List<KeyRange> getSaltByteRanges(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
+        if (ScanRanges.isSingleRowScan(ranges, schema, false)) {
+            int[] position = new int[ranges.size()];
+            int maxLength = ScanUtil.estimateKeyLength(schema, 1, ranges, new int[ranges.size()], Bound.LOWER);
+            byte[] key = new byte[maxLength + 1];
+            ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
+            byte saltByte = SaltingUtil.getSaltingByte(key, 1, key.length - 1, bucketNum);
+            KeyRange saltRange = SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(new byte[] {saltByte}, true, new byte[] {saltByte}, true);
+            List<KeyRange> saltRangeList = Collections.<KeyRange>singletonList(saltRange);
+            return saltRangeList;
+        }
+        return Collections.<KeyRange>singletonList(SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(
+                new byte[] {0}, true, 
+                new byte[] {(byte) bucketNum}, true));
     }
 
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {
