@@ -64,7 +64,7 @@ public class WhereOptimizer {
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause) {
         return pushKeyExpressionsToScan(context, whereClause, null);
     }
-
+        
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause, Set<Expression> extractNodes) {
         if (whereClause == null) {
@@ -451,7 +451,7 @@ public class WhereOptimizer {
             // for SUBSTR(<column>,1,3) LIKE 'foo%'
             KeySlot childSlot = childParts.get(0).iterator().next();
             final String startsWith = node.getLiteralPrefix();
-            byte[] key = PDataType.CHAR.toBytes(startsWith);
+            byte[] key = PDataType.CHAR.toBytes(startsWith, node.getChildren().get(0).getColumnModifier());
             // If the expression is an equality expression against a fixed length column
             // and the key length doesn't match the column length, the expression can
             // never be true.

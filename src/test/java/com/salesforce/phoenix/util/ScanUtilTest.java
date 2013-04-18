@@ -82,6 +82,10 @@ public class ScanUtilTest {
                     public Integer getScale() {
                         return null;
                     }
+                    @Override
+                    public ColumnModifier getColumnModifier() {
+                        return null;
+                    }
                 });
             } else {
                 builder.addField(new PDatum() {
@@ -103,6 +107,10 @@ public class ScanUtilTest {
                     }
                     @Override
                     public Integer getScale() {
+                        return null;
+                    }
+                    @Override
+                    public ColumnModifier getColumnModifier() {
                         return null;
                     }
                 });

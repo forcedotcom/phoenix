@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -35,6 +37,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -100,14 +103,20 @@ public class ComparisonExpression extends BaseCompoundExpression {
         byte[] lhsBytes = ptr.get();
         int lhsOffset = ptr.getOffset();
         int lhsLength = ptr.getLength();
+        PDataType lhsDataType = children.get(0).getDataType();
+        ColumnModifier lhsColumnModifier = children.get(0).getColumnModifier();
         
         if (!children.get(1).evaluate(tuple, ptr)) {
             return false;
         }
         
-        ptr.set(ByteUtil.compare(op, children.get(0).getDataType().compareTo(lhsBytes, lhsOffset, lhsLength, 
-                    ptr.get(), ptr.getOffset(), ptr.getLength(), children.get(1).getDataType()))
-                ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
+        byte[] rhsBytes = ptr.get();
+        int rhsOffset = ptr.getOffset();
+        int rhsLength = ptr.getLength();
+        PDataType rhsDataType = children.get(1).getDataType();
+        ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();                       
+        int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
+        ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
     }
     
@@ -140,5 +149,5 @@ public class ComparisonExpression extends BaseCompoundExpression {
     @Override
     public String toString() {
         return (children.get(0) + CompareOpString[getFilterOp().ordinal()] + children.get(1));
-    }
+    }    
 }

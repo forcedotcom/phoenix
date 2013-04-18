@@ -1,25 +1,30 @@
 package com.salesforce.phoenix.parse;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.ImmutableSet;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class PrimaryKeyConstraint extends NamedNode {
-    private final Set<String> columnNames;
+    private final LinkedHashMap<String, ColumnModifier> columnNameToModifier;
     
-    PrimaryKeyConstraint(String name, List<String> columnNames) {
+    PrimaryKeyConstraint(String name, List<Pair<String, ColumnModifier>> columnNameAndModifier) {
         super(name);
-        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-        for (String columnName : columnNames) {
-            builder.add(SchemaUtil.normalizeIdentifier(columnName));
+        this.columnNameToModifier = new LinkedHashMap<String, ColumnModifier>(columnNameAndModifier.size());
+        for (Pair<String, ColumnModifier> p : columnNameAndModifier) {
+            this.columnNameToModifier.put(SchemaUtil.normalizeIdentifier(p.getFirst()), p.getSecond());
         }
-        this.columnNames = builder.build();
     }
 
     public Set<String> getColumnNames() {
-        return columnNames;
+        return columnNameToModifier.keySet();
+    }
+    
+    public ColumnModifier getColumnModifier(String columnName) {
+    	return columnNameToModifier.get(columnName);
     }
 }

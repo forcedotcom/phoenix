@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.NumberUtil;
@@ -79,11 +80,12 @@ public class DecimalSubtractExpression extends SubtractExpression {
                 return true;
             }
             
-            PDataType childType = children.get(i).getDataType();
+            PDataType childType = childExpr.getDataType();
             boolean isDate = childType.isCoercibleTo(PDataType.DATE);
+            ColumnModifier childColumnModifier = childExpr.getColumnModifier();
             BigDecimal bd = isDate ?
-                    BigDecimal.valueOf(childType.getCodec().decodeLong(ptr)) :
-                    (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType);
+                    BigDecimal.valueOf(childType.getCodec().decodeLong(ptr, childColumnModifier)) :
+                    (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType, childColumnModifier);
             
             if (result == null) {
                 result = bd;

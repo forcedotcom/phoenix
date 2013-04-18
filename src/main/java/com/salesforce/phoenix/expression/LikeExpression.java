@@ -246,7 +246,7 @@ public class LikeExpression extends BaseCompoundExpression {
                 }
                 return false;
             }
-            String value = (String)PDataType.VARCHAR.toObject(ptr);
+            String value = (String)PDataType.VARCHAR.toObject(ptr, getPatternExpression().getColumnModifier());
             pattern = Pattern.compile(toPattern(value));
             if (logger.isDebugEnabled()) {
                 logger.debug("LIKE pattern is expression: " + pattern.pattern());
@@ -260,7 +260,7 @@ public class LikeExpression extends BaseCompoundExpression {
             return false;
         }
         
-        String value = (String)PDataType.VARCHAR.toObject(ptr);
+        String value = (String)PDataType.VARCHAR.toObject(ptr, getStrExpression().getColumnModifier());
         boolean matched = pattern.matcher(value).matches();
         ptr.set(matched ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         if (logger.isDebugEnabled()) {

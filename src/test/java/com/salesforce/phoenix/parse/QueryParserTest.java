@@ -27,16 +27,19 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.StringReader;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.List;
+import java.util.Set;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.schema.ColumnModifier;
 
 
 public class QueryParserTest {
@@ -407,6 +410,44 @@ public class QueryParserTest {
     }
 
     @Test
+    public void testParseCreateTableInlinePrimaryKeyWithOrder() throws Exception {
+    	for (String order : new String[]{"asc", "desc", ""}) {
+            String s = "create table core.entity_history_archive (id char(15) primary key ${o})".replace("${o}", order);
+    		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
+    		List<ColumnDef> columnDefs = stmt.getColumnDefs();
+    		assertEquals(1, columnDefs.size());
+    		assertEquals(ColumnModifier.fromDDLValue(order), columnDefs.iterator().next().getColumnModifier()); 
+    	}
+    }
+    
+    @Test
+    public void testParseCreateTableOrderWithoutPrimaryKeyFails() throws Exception {
+    	for (String order : new String[]{"asc", "desc"}) {
+    		String stmt = "create table core.entity_history_archive (id varchar(20) ${o})".replace("${o}", order);
+    		try {
+    			new SQLParser(new StringReader(stmt)).parseStatement();
+    			fail("Expected parse exception to be thrown");
+    		} catch (SQLException e) {
+    			String errorMsg = "ERROR 603 (42P00): Syntax error. Unexpected input. Expecting \"RPAREN\", got \"${o}\"".replace("${o}", order);
+    			assertTrue("Expected message to contain \"" + errorMsg + "\" but got \"" + e.getMessage() + "\"", e.getMessage().contains(errorMsg));
+    		}
+    	}
+    }
+    
+    @Test
+    public void testParseCreateTablePrimaryKeyConstraintWithOrder() throws Exception {
+    	for (String order : new String[]{"asc", "desc", ""}) {
+    		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150) constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
+    		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
+    		PrimaryKeyConstraint pkConstraint = stmt.getPrimaryKeyConstraint();
+    		Set<String> columnNames = pkConstraint.getColumnNames();
+    		assertEquals(2, columnNames.size());
+    		for (String columnName : columnNames) {
+    			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumnModifier(columnName));
+    		}    		
+    	}
+    }
+
     public void testBadCharDef() throws Exception {
         try {
             SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadVarcharDef" + 

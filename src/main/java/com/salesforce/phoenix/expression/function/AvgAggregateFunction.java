@@ -82,12 +82,12 @@ public class AvgAggregateFunction extends CompositeAggregateFunction {
         if (!countFunc.evaluate(tuple, ptr)) {
             return false;
         }
-        long count = countFunc.getDataType().getCodec().decodeLong(ptr);
+        long count = countFunc.getDataType().getCodec().decodeLong(ptr, null);
         if (count == 0) {
             return false;
         }
         
-        // Normal case where a column reference was used as the argumenn to AVG
+        // Normal case where a column reference was used as the argument to AVG
         if (!countFunc.isConstantExpression()) {
             sumFunc.evaluate(tuple, ptr);
             BigDecimal sum = (BigDecimal)PDataType.DECIMAL.toObject(ptr, sumFunc.getDataType());

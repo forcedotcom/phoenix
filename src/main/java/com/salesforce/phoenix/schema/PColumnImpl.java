@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
@@ -48,6 +50,7 @@ public class PColumnImpl implements PColumn {
     private Integer scale;
     private boolean nullable;
     private int position;
+    private ColumnModifier columnModifier;
 
     public PColumnImpl() {
     }
@@ -58,13 +61,14 @@ public class PColumnImpl implements PColumn {
                        Integer maxLength,
                        Integer scale,
                        boolean nullable,
-                       int position) {
-        init(name, familyName, dataType, maxLength, scale, nullable, position);
+                       int position,
+                       ColumnModifier sortOrder) {
+        init(name, familyName, dataType, maxLength, scale, nullable, position, sortOrder);
     }
 
     public PColumnImpl(PColumn column, int position) {
         this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
-                column.getScale(), column.isNullable(), position);
+                column.getScale(), column.isNullable(), position, column.getColumnModifier());
     }
 
     private void init(PName name,
@@ -73,7 +77,8 @@ public class PColumnImpl implements PColumn {
             Integer maxLength,
             Integer scale,
             boolean nullable,
-            int position) {
+            int position,
+            ColumnModifier columnModifier) {
         this.dataType = dataType;
         if (familyName == null) {
             // Allow nullable columns in PK, but only if they're variable length.
@@ -90,6 +95,7 @@ public class PColumnImpl implements PColumn {
         this.scale = scale;
         this.nullable = nullable;
         this.position = position;
+        this.columnModifier = columnModifier;
     }
 
     @Override
@@ -133,6 +139,11 @@ public class PColumnImpl implements PColumn {
     public int getPosition() {
         return position;
     }
+    
+    @Override
+    public ColumnModifier getColumnModifier() {
+    	return columnModifier;
+    }
 
     @Override
     public String toString() {
@@ -151,8 +162,9 @@ public class PColumnImpl implements PColumn {
         int scale = WritableUtils.readVInt(input);
         boolean nullable = input.readBoolean();
         int position = WritableUtils.readVInt(input);
+        ColumnModifier columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
         init(columnName, familyName, dataType, maxLength == NO_MAXLENGTH ? null : maxLength,
-                scale == NO_SCALE ? null : scale, nullable, position);
+                scale == NO_SCALE ? null : scale, nullable, position, columnModifier);
     }
 
     @Override
@@ -164,5 +176,6 @@ public class PColumnImpl implements PColumn {
         WritableUtils.writeVInt(output, scale == null ? NO_SCALE : scale);
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
+        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
     }
 }

@@ -30,6 +30,7 @@ package com.salesforce.phoenix.expression.aggregator;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.SizedUtil;
@@ -44,6 +45,10 @@ import com.salesforce.phoenix.util.SizedUtil;
 abstract public class MinAggregator extends BaseAggregator {
     /** Used to store the accumulate the results of the MIN function */
     protected final ImmutableBytesWritable value = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
+    
+    public MinAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
+    }
 
     @Override
     public void reset() {
@@ -66,7 +71,7 @@ abstract public class MinAggregator extends BaseAggregator {
      * @return true if the first bytes writable should be kept
      */
     protected boolean keepFirst(ImmutableBytesWritable ibw1, ImmutableBytesWritable ibw2) {
-        return 0 >= getDataType().compareTo(ibw1, ibw2);
+        return 0 >= getDataType().compareTo(ibw1, columnModifier, ibw2, columnModifier, getDataType());
     }
 
     private boolean isNull() {

@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 
 /**
@@ -37,6 +38,10 @@ import com.salesforce.phoenix.schema.PDataType;
  * @since 0.1
  */
 public class IntSumAggregator extends NumberSumAggregator {
+    
+    public IntSumAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
+    }
     
     @Override
     protected PDataType getInputDataType() {

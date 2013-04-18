@@ -29,13 +29,14 @@ package com.salesforce.phoenix.expression.function;
 
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -78,6 +79,7 @@ public class LTrimFunction extends ScalarFunction {
         if (!getStringExpression().evaluate(tuple, ptr)) {
             return false;
         }
+        
         if (ptr.getLength() == 0) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return true;
@@ -85,19 +87,26 @@ public class LTrimFunction extends ScalarFunction {
         byte[] string = ptr.get();
         int offset = ptr.getOffset();
         int length = ptr.getLength();
+        
+        ColumnModifier columnModifier = getStringExpression().getColumnModifier();
+        if (columnModifier != null) {
+            string = columnModifier.apply(string, null, offset, length);
+        }            
+        
         try {
             int i = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length);
             if (i == offset + length) {
                 ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
                 return true;
             }
+            
             ptr.set(string, i, offset + length - i);
             return true;
         } catch (UnsupportedEncodingException e) {
             return false;
         }
     }
-
+    
     @Override
     public Integer getByteSize() {
         return byteSize;

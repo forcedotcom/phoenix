@@ -101,6 +101,12 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             public int getPosition() {
                 return 0;
             }
+            
+            @Override
+            public ColumnModifier getColumnModifier() {
+            	return null;
+            }
+            
             @Override
             public void readFields(DataInput arg0) throws IOException {
             }

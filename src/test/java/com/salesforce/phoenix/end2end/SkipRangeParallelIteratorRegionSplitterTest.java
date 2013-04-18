@@ -260,6 +260,10 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
                 public Integer getScale() {
                     return null;
                 }
+                @Override
+                public ColumnModifier getColumnModifier() {
+                    return null;
+                }
             });
         }
         return builder.build();

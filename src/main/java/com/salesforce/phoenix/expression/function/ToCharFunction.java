@@ -91,11 +91,12 @@ public class ToCharFunction extends ScalarFunction {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (!getExpression().evaluate(tuple, ptr)) {
+        Expression expression = getExpression();
+        if (!expression.evaluate(tuple, ptr)) {
             return false;
         }
-        PDataType type = getExpression().getDataType();
-        Object value = dateFormatter.format(type.toObject(ptr));
+        PDataType type = expression.getDataType();
+        Object value = dateFormatter.format(type.toObject(ptr, expression.getColumnModifier()));
         byte[] b = getDataType().toBytes(value);
         ptr.set(b);
         return true;
