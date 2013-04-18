@@ -98,10 +98,6 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         for (int i=0; i<expectedSplits.size(); i++) {
             assertEquals(expectedSplits.get(i), splits.get(i));
         }
-        for (KeyRange range: splits) {
-            System.out.println(range);
-        }
-        System.out.println();
         assertEquals("Unexpected number of splits: " + splits.size(), expectedSplits.size(), splits.size());
         for (int i=0; i<expectedSplits.size(); i++) {
             assertEquals(expectedSplits.get(i), splits.get(i));

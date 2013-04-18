@@ -27,7 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import java.util.*;
+
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
+import com.salesforce.phoenix.compile.ScanRanges;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.KeyRange.Bound;
+import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
+import com.salesforce.phoenix.util.ScanUtil;
 
 
 /**
@@ -37,6 +45,7 @@ public class SaltingUtil {
 
     public static final Integer MAX_BUCKET_NUM = 256; // Unsigned byte.
     public static final String SALTING_COLUMN_NAME = "_SALT";
+    public static final String SALTED_ROW_KEY_NAME = "_SALTED_KEY";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
             new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, 0, null);
 
@@ -65,5 +74,49 @@ public class SaltingUtil {
             result = 31 * result + a[i];
         }
         return result;
+    }
+
+    public static List<List<KeyRange>> expandScanRangesToSaltedKeyRange(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
+        if (ranges == null || ranges.isEmpty()) {
+            return ScanRanges.NOTHING.getRanges();
+        }
+        int count = 1;
+        for (List<KeyRange> orRanges: ranges) {
+            count *= orRanges.size();
+        }
+        KeyRange[] expandedRanges = new KeyRange[count];
+        int[] position = new int[ranges.size()];
+        int estimatedKeyLength = ScanUtil.estimateKeyLength(schema, 1, ranges, Bound.LOWER);
+        byte[] key = new byte[estimatedKeyLength + 1];
+        int idx = 0;
+        do {
+            ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
+            byte saltByte = SaltingUtil.getSaltingByte(key, 1, key.length - 1, bucketNum);
+            key[0] = saltByte;
+            KeyRange range = KeyRange.getKeyRange(
+                    Arrays.copyOf(key, key.length), true, Arrays.copyOf(key, key.length), true);
+            expandedRanges[idx++] = range;
+        } while (incrementKey(ranges, position));
+        // The comparator is imperfect, but sufficient for all single keys.
+        Arrays.sort(expandedRanges, KeyRange.COMPARATOR);
+        List<KeyRange> expandedRangesList = Arrays.asList(expandedRanges);
+        return Collections.singletonList(expandedRangesList);
+    }
+
+    private static boolean incrementKey(List<List<KeyRange>> slots, int[] position) {
+        int idx = slots.size() - 1;
+        while (idx >= 0 && (position[idx] = (position[idx] + 1) % slots.get(idx).size()) == 0) {
+            idx--;
+        }
+        return idx >= 0;
+    }
+
+    // Flatten the whole rowkey in the schema into a binary with a salt byte.
+    public static RowKeySchema getBinaryRowKeySchema(int estimateKeyLength) {
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(1);
+        PColumn binaryRowKeyColumn = new PColumnImpl(new PNameImpl(SALTED_ROW_KEY_NAME), null, 
+                PDataType.BINARY, estimateKeyLength, 0, false, 0);
+        builder.addField(binaryRowKeyColumn);
+        return builder.build();
     }
 }

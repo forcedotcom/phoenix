@@ -42,6 +42,7 @@ import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.*;
 
+
 /**
  *
  * Class that pushes row key expressions from the where clause to form the start/stop
@@ -131,28 +132,27 @@ public class WhereOptimizer {
                 break;
             }
         }
+        ScanRanges range;
         if (table.getBucketNum() != null) {
-            List<KeyRange> saltByteRange = getSaltByteRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
-            cnf.addFirst(saltByteRange);
+            if (ScanUtil.isAllSingleRowScan(cnf, table.getRowKeySchema(), false)) {
+                List<List<KeyRange>> expandedRanges = SaltingUtil.expandScanRangesToSaltedKeyRange(
+                        cnf, table.getRowKeySchema(), table.getBucketNum());
+                RowKeySchema newSchema = SaltingUtil.getBinaryRowKeySchema(
+                        ScanUtil.estimateKeyLength(table.getRowKeySchema(), 1, cnf, Bound.LOWER));
+                range = ScanRanges.create(expandedRanges, newSchema);
+            } else {
+                if (!cnf.isEmpty()) {
+                    cnf.addFirst(Collections.<KeyRange>singletonList(SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(
+                            new byte[] {0}, true, 
+                            new byte[] {(byte) table.getBucketNum().intValue()}, true)));
+                }
+                range = ScanRanges.create(cnf, table.getRowKeySchema());
+            }
+        } else {
+            range = ScanRanges.create(cnf, table.getRowKeySchema());
         }
-        context.setScanRanges(ScanRanges.create(cnf, table.getRowKeySchema()));
+        context.setScanRanges(range);
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
-    }
-
-    public static List<KeyRange> getSaltByteRanges(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
-        if (ScanRanges.isSingleRowScan(ranges, schema, false)) {
-            int[] position = new int[ranges.size()];
-            int maxLength = ScanUtil.estimateKeyLength(schema, 1, ranges, new int[ranges.size()], Bound.LOWER);
-            byte[] key = new byte[maxLength + 1];
-            ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
-            byte saltByte = SaltingUtil.getSaltingByte(key, 1, key.length - 1, bucketNum);
-            KeyRange saltRange = SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(new byte[] {saltByte}, true, new byte[] {saltByte}, true);
-            List<KeyRange> saltRangeList = Collections.<KeyRange>singletonList(saltRange);
-            return saltRangeList;
-        }
-        return Collections.<KeyRange>singletonList(SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(
-                new byte[] {0}, true, 
-                new byte[] {(byte) bucketNum}, true));
     }
 
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {
