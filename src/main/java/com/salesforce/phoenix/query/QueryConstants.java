@@ -89,10 +89,6 @@ public interface QueryConstants {
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
     public static final String SYSTEM_TABLE_PK_NAME = "pk";
     
-    // Indicate that precision or scale is null for a particular field.
-    public static final Integer NO_MAXLENGTH = Integer.MIN_VALUE;
-    public static final Integer NO_SCALE = Integer.MIN_VALUE;
-    
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
@@ -110,6 +106,7 @@ public interface QueryConstants {
             REF_GENERATION_NAME + " VARCHAR," +
             TABLE_SEQ_NUM + " BIGINT," +
             COLUMN_COUNT + " INTEGER," +
+            SALT_BUCKETS + " INTEGER," +
             // Column metadata (will be null for table row)
             COLUMN_SIZE + " INTEGER," +
             BUFFER_LENGTH + " INTEGER," +
