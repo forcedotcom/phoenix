@@ -43,7 +43,10 @@ import java.util.Properties;
 import org.junit.Assert;
 import org.junit.Test;
 
-
+/**
+ * @author stoens
+ * @since 1.2
+ */
 public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     
     private static final String TABLE = "DescColumnSortOrderTest";
@@ -120,6 +123,34 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     }
     
     @Test
+    public void inDescCompositePK1() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
+        Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o1", 2}, {"o1", 3}};
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"o1", 2}}, new WhereCondition("code", "IN", "(2)"));        
+    }
+    
+    @Test
+    public void inDescCompositePK2() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
+        Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o2", 2}, {"o3", 3}};
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"o2", 2}}, new WhereCondition("oid", "IN", "('o2')"));        
+    }
+    
+    @Test
+    public void likeDescCompositePK1() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
+        Object[][] insertedRows = new Object[][]{{"a1", 1}, {"b2", 2}, {"c3", 3}};
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"b2", 2}}, new WhereCondition("oid", "LIKE", "('b%')"));        
+    }
+    
+    @Test
+    public void likeDescCompositePK2() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code CHAR(2) NOT NULL constraint pk primary key (oid DESC, code DESC))";
+        Object[][] insertedRows = new Object[][]{{"a1", "11"}, {"b2", "22"}, {"c3", "33"}};
+        runQueryTest(ddl, upsert("oid", "code"), insertedRows, new Object[][]{{"b2", "22"}}, new WhereCondition("code", "LIKE", "('2%')"));        
+    }
+    
+    @Test
     public void greaterThanDescCompositePK3() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (oid CHAR(2) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
         Object[][] insertedRows = new Object[][]{{"o1", 1}, {"o1", 2}, {"o1", 3}};
@@ -145,8 +176,8 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     
     @Test
     public void lTrimDescCompositePK() throws Exception {
-        String ddl = "CREATE TABLE " + TABLE + " (oid VARCHAR(4) NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
-        Object[][] insertedRows = new Object[][]{{" o1", 1}, {"  o2", 2}, {"  o3", 3}};
+        String ddl = "CREATE TABLE " + TABLE + " (oid VARCHAR NOT NULL, code INTEGER NOT NULL constraint pk primary key (oid DESC, code DESC))";
+        Object[][] insertedRows = new Object[][]{{" o1 ", 1}, {"  o2", 2}, {"  o3", 3}};
         Object[][] expectedRows = new Object[][]{{"  o2", 2}};
         runQueryTest(ddl, upsert("oid", "code"), insertedRows, expectedRows, new WhereCondition("LTRIM(oid)", "=", "'o2'"));
     }
@@ -380,7 +411,11 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         }
         
         WhereCondition reverse() {
-            return new WhereCondition(rhs, getReversedOperator(), lhs);
+            if (operator.equalsIgnoreCase("IN") || operator.equalsIgnoreCase("LIKE")) {
+                return this;
+            } else {
+                return new WhereCondition(rhs, getReversedOperator(), lhs);
+            }
         }
         
          String appendWhere(String query) {

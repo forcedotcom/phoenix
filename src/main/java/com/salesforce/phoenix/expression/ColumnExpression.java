@@ -134,7 +134,6 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
             byteSize = WritableUtils.readVInt(input);
         }
         columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
-        
     }
 
     @Override

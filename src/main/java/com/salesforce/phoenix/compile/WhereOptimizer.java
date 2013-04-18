@@ -65,7 +65,7 @@ public class WhereOptimizer {
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause) {
         return pushKeyExpressionsToScan(context, whereClause, null);
     }
-
+        
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause, Set<Expression> extractNodes) {
         if (whereClause == null) {
@@ -110,20 +110,10 @@ public class WhereOptimizer {
             }
             KeyPart keyPart = slot.getKeyPart();
             pkPos = slot.getPKPosition();
-            
-            List<KeyRange> keyRanges = Lists.newArrayListWithExpectedSize(slot.getKeyRanges().size());
+            cnf.add(slot.getKeyRanges());
             for (KeyRange range : slot.getKeyRanges()) {
-            	hasUnboundedRange |= range.isUnbound();
-            	
-            	if (slot.getKeyPart().getColumn().getColumnModifier() != null) {
-            		range = applyColumnModifierToKeyRange(range, slot.getKeyPart().getColumn().getColumnModifier());
-            	}
-            	
-                keyRanges.add(range);
-            }            
-            
-            cnf.add(keyRanges);
-            
+                hasUnboundedRange |= range.isUnbound();
+            }
 
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
@@ -144,12 +134,6 @@ public class WhereOptimizer {
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
     }
     
-    private static KeyRange applyColumnModifierToKeyRange(KeyRange keyRange, ColumnModifier columnModifier) {
-        byte[] lowerRange = columnModifier.apply(keyRange.getLowerRange(), null, 0, keyRange.getLowerRange().length);
-        byte[] upperRange = columnModifier.apply(keyRange.getUpperRange(), null, 0, keyRange.getUpperRange().length);
-        return KeyRange.getKeyRange(lowerRange, keyRange.isLowerInclusive(), upperRange, keyRange.isUpperInclusive());        
-    }
-
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {
         private final Set<Expression> nodesToRemove;
 
@@ -357,7 +341,7 @@ public class WhereOptimizer {
             // for SUBSTR(<column>,1,3) LIKE 'foo%'
             KeySlot childSlot = childParts.get(0).iterator().next();
             final String startsWith = node.getLiteralPrefix();
-            byte[] key = PDataType.CHAR.toBytes(startsWith);
+            byte[] key = PDataType.CHAR.toBytes(startsWith, node.getChildren().get(0).getColumnModifier());
             // If the expression is an equality expression against a fixed length column
             // and the key length doesn't match the column length, the expression can
             // never be true.

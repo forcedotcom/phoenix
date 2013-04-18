@@ -71,11 +71,7 @@ abstract public class MinAggregator extends BaseAggregator {
      * @return true if the first bytes writable should be kept
      */
     protected boolean keepFirst(ImmutableBytesWritable ibw1, ImmutableBytesWritable ibw2) {
-        if (columnModifier == ColumnModifier.SORT_DESC) {
-            return 0 < getDataType().compareTo(ibw1, ibw2);            
-        } else {
-            return 0 >= getDataType().compareTo(ibw1, ibw2);
-        }
+        return 0 >= getDataType().compareTo(ibw1, columnModifier, ibw2, columnModifier);
     }
 
     private boolean isNull() {

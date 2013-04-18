@@ -200,6 +200,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             this.value = this.type.toObject(byteValue);
         }
         byteSize = this.byteValue.length;
+        columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
     }
 
     @Override
@@ -208,6 +209,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         if (this.byteValue.length > 0) {
             WritableUtils.writeVInt(output, this.type.ordinal());
         }
+        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
     }
 
     @Override

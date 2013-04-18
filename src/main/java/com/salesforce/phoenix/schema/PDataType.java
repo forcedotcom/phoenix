@@ -1467,14 +1467,8 @@ public enum PDataType {
 
     public final int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColumnModifier,
                                byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColumnModifier, PDataType rhsType) {
-        if (this.isBytesComparableWith(rhsType)) { // directly compare the bytes            
-            if (lhsColumnModifier != null) {
-                lhs = lhsColumnModifier.apply(lhs, null, lhsOffset, lhsLength);
-            }            
-            if (rhsColumnModifier != null) {
-                rhs = rhsColumnModifier.apply(rhs, null, rhsOffset, rhsLength);
-            }                        
-            return Bytes.compareTo(lhs, lhsOffset, lhsLength, rhs, rhsOffset, rhsLength);
+        if (this.isBytesComparableWith(rhsType)) { // directly compare the bytes
+            return compareTo(lhs, lhsOffset, lhsLength, lhsColumnModifier, rhs, rhsOffset, rhsLength, rhsColumnModifier);
         }
         PDataCodec lhsCodec = this.getCodec();
         if (lhsCodec == null) { // no lhs native type representation, so convert rhsType to bytes representation of lhsType
@@ -1983,28 +1977,27 @@ public enum PDataType {
         return true;
     }
 
-    public int compareTo(byte[] b1, byte[] b2) {
-        return compareTo(b1, 0, b1.length, null, b2, 0, b2.length, null);
-    }
-
-    public int compareTo(ImmutableBytesWritable ptr1, ImmutableBytesWritable ptr2) {
-        return compareTo(ptr1.get(), ptr1.getOffset(), ptr1.getLength(), null, ptr2.get(), ptr2.getOffset(), ptr2.getLength(), null);
+    public int compareTo(ImmutableBytesWritable ptr1, ColumnModifier ptr1ColumnModifier, ImmutableBytesWritable ptr2, ColumnModifier ptr2ColumnModifier) {
+        return compareTo(ptr1.get(), ptr1.getOffset(), ptr1.getLength(), ptr1ColumnModifier, ptr2.get(), ptr2.getOffset(), ptr2.getLength(), ptr2ColumnModifier);
     }
 
     public int compareTo(byte[] b1, int offset1, int length1, ColumnModifier mod1, byte[] b2, int offset2, int length2, ColumnModifier mod2) {
-        if (mod1 != null) {
-            b1 = mod1.apply(b1, null, offset1, length1);
-        }
-        if (mod2 != null) {
-            b2 = mod2.apply(b2, null, offset2, length2);
-        }
-        return Bytes.compareTo(b1, offset1, length1, b2, offset2, length2);
+        int resultMultiplier = -1;
+        boolean invertResult = (mod1 == mod2 && mod1 == ColumnModifier.SORT_DESC); 
+        
+        if (!invertResult) {
+            if (mod1 != null) {
+                b1 = mod1.apply(b1, null, offset1, length1);
+            }
+            if (mod2 != null) {
+                b2 = mod2.apply(b2, null, offset2, length2);
+            }            
+            
+            resultMultiplier = 1;
+        }        
+        return Bytes.compareTo(b1, offset1, length1, b2, offset2, length2) * resultMultiplier;
     }
-
-    public int compareTo(ImmutableBytesWritable ptr1, ImmutableBytesWritable ptr2, PDataType type2) {
-        return compareTo(ptr1.get(), ptr1.getOffset(), ptr1.getLength(), null, ptr2.get(), ptr2.getOffset(), ptr2.getLength(), null, type2);
-    }
-
+    
     public abstract int compareTo(Object lhs, Object rhs, PDataType rhsType);
 
     public int compareTo(Object lhs, Object rhs) {

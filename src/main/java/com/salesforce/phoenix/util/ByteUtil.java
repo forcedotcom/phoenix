@@ -27,7 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -35,6 +40,8 @@ import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
+
+import com.salesforce.phoenix.schema.ColumnModifier;
 
 
 /**
@@ -261,7 +268,7 @@ public class ByteUtil {
         return result;
     }
 
-    public static byte[] concat(ImmutableBytesWritable... writables) {
+    public static byte[] concat(ColumnModifier columnModifier, ImmutableBytesWritable... writables) {
         int totalLength = 0;
         for (ImmutableBytesWritable writable : writables) {
             totalLength += writable.getLength();
@@ -269,7 +276,11 @@ public class ByteUtil {
         byte[] result = new byte[totalLength];
         int offset = 0;
         for (ImmutableBytesWritable array : writables) {
-            System.arraycopy(array.get(), array.getOffset(), result, offset, array.getLength());
+            byte[] bytes = array.get();
+            if (columnModifier != null) {
+                bytes = columnModifier.apply(bytes, null, array.getOffset(), array.getLength());
+            }
+            System.arraycopy(bytes, array.getOffset(), result, offset, array.getLength());
             offset += array.getLength();
         }
         return result;

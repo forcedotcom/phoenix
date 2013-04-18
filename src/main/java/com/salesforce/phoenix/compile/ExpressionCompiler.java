@@ -122,9 +122,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if (rhsValue != null) {
             // Comparing an unsigned int/long against a negative int/long would be an example. We just need to take
             // into account the comparison operator.
-            if (rhs.getDataType() != lhs.getDataType()) {
+            if (rhs.getDataType() != lhs.getDataType() || rhs.getColumnModifier() != lhs.getColumnModifier()) {
                 if (rhs.getDataType().isCoercibleTo(lhs.getDataType(), rhsValue)) { // will convert 2.0 -> 2
-                    children = Arrays.asList(children.get(0),LiteralExpression.newConstant(rhsValue,lhs.getDataType()));
+                    children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhs.getDataType(), lhs.getColumnModifier()));
                 } else if (node.getFilterOp() == CompareOp.EQUAL) {
                     return LiteralExpression.FALSE_EXPRESSION;
                 } else if (node.getFilterOp() == CompareOp.NOT_EQUAL) {
@@ -146,7 +146,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         default: // Else, we truncate the value
                             BigDecimal bd = (BigDecimal)rhsValue;
                             rhsValue = bd.longValue() + increment;
-                            children = Arrays.asList(children.get(0),LiteralExpression.newConstant(rhsValue,lhs.getDataType()));
+                            children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhs.getDataType(), lhs.getColumnModifier()));
                             break;
                         }
                     case LONG:
@@ -193,6 +193,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 break;
                             }
                         }
+                        children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, rhs.getDataType(), lhs.getColumnModifier()));
                     }
                 }
             }
@@ -552,7 +553,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             ParseNode childNode = node.getChildren().get(i);
             LiteralExpression child = (LiteralExpression)l.get(i);
             PDataType childType = child.getDataType();
-            if (firstChildType != childType) {
+            if (firstChildType != childType || firstChild.getColumnModifier() != child.getColumnModifier()) {
                 if (inChildren == l) {
                     inChildren = new ArrayList<Expression>(l.subList(0, i));
                 }
@@ -563,7 +564,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     }
                     addedNull = true; // Don't add more than one null value since this has no effect
                 } else if (childType.isCoercibleTo(firstChildType, child.getValue())) {
-                    inChildren.add(LiteralExpression.newConstant(child.getValue(), firstChildType));
+                    inChildren.add(LiteralExpression.newConstant(child.getValue(), firstChildType, firstChild.getColumnModifier()));
                 }
             } else if (inChildren != l) {
                 inChildren.add(child);

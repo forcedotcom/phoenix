@@ -62,6 +62,10 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.DateUtil;
 
+/**
+ * @author stoens
+ * @since 1.2
+ */
 public class DescColumnSortOrderExpressionTest {
     
     @Test
@@ -197,8 +201,16 @@ public class DescColumnSortOrderExpressionTest {
     
     @Test
     public void compareBooleans() throws Exception {
-        // see review comment in PDataType.toBytes(Object object, ColumnModifier columnModifier)
         runCompareTest(CompareOp.GREATER, true, true, PDataType.BOOLEAN, false, PDataType.BOOLEAN);        
+    }
+    
+    @Test
+    public void stringConcat() throws Exception {
+        List<Expression> args = Lists.newArrayList(getInvertedLiteral("blah", PDataType.VARCHAR), getInvertedLiteral("foo", PDataType.VARCHAR)); 
+        evaluateAndAssertResult(new StringConcatExpression(args), "blahfoo");
+        
+        args = Lists.newArrayList(getInvertedLiteral("blah", PDataType.VARCHAR), getInvertedLiteral(10, PDataType.INTEGER)); 
+        evaluateAndAssertResult(new StringConcatExpression(args), "blah10");        
     }
     
     private void runCompareTest(CompareOp op, boolean expectedResult, Object lhsValue, PDataType lhsDataType, Object rhsValue, PDataType rhsDataType) throws Exception {
