@@ -155,14 +155,19 @@ public class ScanUtil {
         return keyCopy;
     }
 
-    public static int estimateKeyLength(RowKeySchema schema, int schemaStartIndex, List<List<KeyRange>> slots, Bound bound) {
-        int maxLength = 0;
+    public static int estimateMaximumKeyLength(RowKeySchema schema, int schemaStartIndex, List<List<KeyRange>> slots) {
+        int maxLowerKeyLength = 0, maxUpperKeyLength = 0;
         for (int i = 0; i < slots.size(); i++) {
-            int posIdx = bound == Bound.LOWER ? 0 : slots.get(i).size()-1;
-            KeyRange range = slots.get(i).get(posIdx);
-            maxLength += range.getRange(bound).length + (schema.getField(schemaStartIndex++).getType().isFixedWidth() ? 0 : 1);
+            int maxLowerRangeLength = 0, maxUpperRangeLength = 0;
+            for (KeyRange range: slots.get(i)) {
+                maxLowerRangeLength = Math.max(maxLowerRangeLength, range.getLowerRange().length); 
+                maxUpperRangeLength = Math.max(maxUpperRangeLength, range.getUpperRange().length);
+            }
+            int trailingByte = (schema.getField(schemaStartIndex++).getType().isFixedWidth() ? 0 : 1);
+            maxLowerKeyLength += maxLowerRangeLength + trailingByte;
+            maxUpperKeyLength += maxUpperKeyLength + trailingByte;
         }
-        return maxLength;
+        return Math.max(maxLowerKeyLength, maxUpperKeyLength);
     }
 
     /*
