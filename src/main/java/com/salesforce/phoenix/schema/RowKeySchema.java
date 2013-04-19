@@ -73,6 +73,12 @@ public class RowKeySchema extends ValueSchema {
         }
         
         @Override
+        public RowKeySchemaBuilder addField(PDatum datum) {
+            super.addField(datum);
+            return this;
+        }
+        
+        @Override
         public RowKeySchema build() {
             List<Field> condensedFields = buildFields();
             return new RowKeySchema(this.minNullable, condensedFields);

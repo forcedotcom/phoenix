@@ -38,7 +38,6 @@ import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.*;
 
@@ -137,9 +136,7 @@ public class WhereOptimizer {
             if (ScanUtil.isAllSingleRowScan(cnf, table.getRowKeySchema(), false)) {
                 List<List<KeyRange>> expandedRanges = SaltingUtil.expandScanRangesToSaltedKeyRange(
                         cnf, table.getRowKeySchema(), table.getBucketNum());
-                RowKeySchema newSchema = SaltingUtil.getBinaryRowKeySchema(
-                        ScanUtil.estimateKeyLength(table.getRowKeySchema(), 1, cnf, Bound.LOWER));
-                range = ScanRanges.create(expandedRanges, newSchema);
+                range = ScanRanges.create(expandedRanges, SaltingUtil.BINARY_SCHEMA);
             } else {
                 if (!cnf.isEmpty()) {
                     cnf.addFirst(Collections.<KeyRange>singletonList(SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(

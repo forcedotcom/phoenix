@@ -27,14 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.MathContext;
-import java.math.RoundingMode;
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.math.*;
+import java.sql.*;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -46,10 +40,7 @@ import com.google.common.math.LongMath;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.DateUtil;
-import com.salesforce.phoenix.util.NumberUtil;
-import com.salesforce.phoenix.util.StringUtil;
+import com.salesforce.phoenix.util.*;
 
 
 /**
@@ -1278,8 +1269,15 @@ public enum PDataType {
         }
 
         @Override
-        public boolean toBytesReturnsNewByteArray() {
-            return false;
+        public byte[] toBytes(Object object, ColumnModifier columnModifier) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            // Override to prevent any byte allocation
+            if (columnModifier == null) {
+                return ((Boolean)object).booleanValue() ? TRUE_BYTES : FALSE_BYTES;
+            }
+            return ((Boolean)object).booleanValue() ? MOD_TRUE_BYTES[columnModifier.ordinal()] : MOD_FALSE_BYTES[columnModifier.ordinal()];
         }
 
         @Override
@@ -1335,9 +1333,17 @@ public enum PDataType {
             return o.length;
         }
         
+        /**
+         * Override because we must always create a new byte array
+         */
         @Override
-        public boolean toBytesReturnsNewByteArray() {
-            return false;
+        public byte[] toBytes(Object object, ColumnModifier columnModifier) {
+            byte[] bytes = toBytes(object);
+            // Override because we need to allocate a new buffer in this case
+            if (columnModifier != null) {
+                return columnModifier.apply(bytes, new byte[bytes.length], 0, bytes.length);
+            }
+            return bytes;
         }
 
         @Override
@@ -1477,7 +1483,7 @@ public enum PDataType {
                 rhsColumnModifier = null;
             }            
             if (lhsColumnModifier != null) {
-                lhs = lhsColumnModifier.apply(lhs, null, lhsOffset, lhsLength);
+                lhs = lhsColumnModifier.apply(lhs, new byte[lhs.length], lhsOffset, lhsLength);
             }                        
             return Bytes.compareTo(lhs, lhsOffset, lhsLength, rhsConverted, 0, rhsConverted.length);
         }
@@ -1488,7 +1494,7 @@ public enum PDataType {
                 lhsColumnModifier = null;
             }
             if (rhsColumnModifier != null) {
-                rhs = rhsColumnModifier.apply(rhs, null, rhsOffset, rhsLength);
+                rhs = rhsColumnModifier.apply(rhs, new byte[rhs.length], rhsOffset, rhsLength);
             }            
             return Bytes.compareTo(lhsConverted, 0, lhsConverted.length, rhs, rhsOffset, rhsLength);
         }
@@ -1649,7 +1655,7 @@ public enum PDataType {
         @Override
         public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
             if (columnModifier != null) {
-                b = columnModifier.apply(b, null, o, Bytes.SIZEOF_LONG);
+                b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_LONG);
             }
             long v = Bytes.toLong(b, o);
             if (v < 0) {
@@ -1676,7 +1682,7 @@ public enum PDataType {
         @Override
         public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
             if (columnModifier != null) {
-                b = columnModifier.apply(b, null, o, Bytes.SIZEOF_INT);
+                b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_INT);
             }
             int v = Bytes.toInt(b, o);
             if (v < 0) {
@@ -1743,6 +1749,18 @@ public enum PDataType {
     private static final byte TRUE_BYTE = 1;
     public static final byte[] FALSE_BYTES = new byte[] {FALSE_BYTE};
     public static final byte[] TRUE_BYTES = new byte[] {TRUE_BYTE};
+    public static final byte[] MOD_FALSE_BYTES[] = new byte[ColumnModifier.values().length][];
+    static {
+        for (ColumnModifier columnModifier : ColumnModifier.values()) {
+            MOD_FALSE_BYTES[columnModifier.ordinal()] = columnModifier.apply(FALSE_BYTES, new byte[FALSE_BYTES.length], 0, FALSE_BYTES.length);
+        }
+    }
+    public static final byte[] MOD_TRUE_BYTES[] = new byte[ColumnModifier.values().length][];
+    static {
+        for (ColumnModifier columnModifier : ColumnModifier.values()) {
+            MOD_TRUE_BYTES[columnModifier.ordinal()] = columnModifier.apply(TRUE_BYTES, new byte[TRUE_BYTES.length], 0, TRUE_BYTES.length);
+        }
+    }
     public static final byte[] NULL_BYTES = ByteUtil.EMPTY_BYTE_ARRAY;
     private static final Integer BOOLEAN_LENGTH = 1;
 
@@ -1984,10 +2002,10 @@ public enum PDataType {
         boolean invertResult = (mod1 == mod2 && mod1 == ColumnModifier.SORT_DESC);
         if (!invertResult) {
             if (mod1 != null) {
-                b1 = mod1.apply(b1, null, offset1, length1);
+                b1 = mod1.apply(b1, new byte[b1.length], offset1, length1);
             }
             if (mod2 != null) {
-                b2 = mod2.apply(b2, null, offset2, length2);
+                b2 = mod2.apply(b2, new byte[b2.length], offset2, length2);
             }            
             resultMultiplier = 1;
         }
@@ -2012,22 +2030,11 @@ public enum PDataType {
     public byte[] toBytes(Object object, ColumnModifier columnModifier) {
     	byte[] bytes = toBytes(object);
     	if (columnModifier != null) {
-    	    if (toBytesReturnsNewByteArray()) {
-                columnModifier.apply(bytes, bytes, 0, bytes.length);
-    	    } else {
-                bytes = columnModifier.apply(bytes, null, 0, bytes.length);    	        
-    	    }
+            columnModifier.apply(bytes, bytes, 0, bytes.length);
     	}
     	return bytes;
     }
 
-    /**
-     * Return true if toBytes(object) returns a new byte array that is not shared and can be modified.  Return false otherwise.  
-     */
-    public boolean toBytesReturnsNewByteArray() {
-        return true;
-    }
-    
     /**
      * Convert from the object representation of a data type value into
      * the serialized byte form.
@@ -2077,7 +2084,7 @@ public enum PDataType {
 
     public Object toObject(byte[] bytes, int offset, int length, PDataType actualType, ColumnModifier columnModifier) {
     	if (columnModifier != null) {
-    	    bytes = columnModifier.apply(bytes, null, offset, length);
+    	    bytes = columnModifier.apply(bytes, new byte[bytes.length], offset, length);
     	}
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);

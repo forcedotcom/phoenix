@@ -27,12 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -278,7 +273,7 @@ public class ByteUtil {
         for (ImmutableBytesWritable array : writables) {
             byte[] bytes = array.get();
             if (columnModifier != null) {
-                bytes = columnModifier.apply(bytes, null, array.getOffset(), array.getLength());
+                bytes = columnModifier.apply(bytes, new byte[bytes.length], array.getOffset(), array.getLength());
             }
             System.arraycopy(bytes, array.getOffset(), result, offset, array.getLength());
             offset += array.getLength();

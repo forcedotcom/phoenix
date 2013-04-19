@@ -42,6 +42,39 @@ import com.salesforce.phoenix.util.ScanUtil;
  * Utility methods related to transparent salting of row keys.
  */
 public class SaltingUtil {
+    public static RowKeySchema BINARY_SCHEMA = new RowKeySchemaBuilder().setMinNullable(1).addField(new PDatum() {
+
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+
+        @Override
+        public PDataType getDataType() {
+            return PDataType.BINARY;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return null;
+        }
+
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+
+        @Override
+        public ColumnModifier getColumnModifier() {
+            return null;
+        }
+        
+    }).build();
 
     public static final Integer MAX_BUCKET_NUM = 256; // Unsigned byte.
     public static final String SALTING_COLUMN_NAME = "_SALT";
@@ -109,14 +142,5 @@ public class SaltingUtil {
             idx--;
         }
         return idx >= 0;
-    }
-
-    // Flatten the whole rowkey in the schema into a binary with a salt byte.
-    public static RowKeySchema getBinaryRowKeySchema(int estimateKeyLength) {
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(1);
-        PColumn binaryRowKeyColumn = new PColumnImpl(new PNameImpl(SALTED_ROW_KEY_NAME), null, 
-                PDataType.BINARY, estimateKeyLength, 0, false, 0);
-        builder.addField(binaryRowKeyColumn);
-        return builder.build();
     }
 }

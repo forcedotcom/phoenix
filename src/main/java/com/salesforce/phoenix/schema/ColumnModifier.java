@@ -46,9 +46,7 @@ public enum ColumnModifier {
         @Override
 		public byte[] apply(byte[] src, byte[] dest, int offset, int length) {
             Preconditions.checkNotNull(src);            
-            if (dest == null) {
-                dest = new byte[src.length];
-            }
+            Preconditions.checkNotNull(dest);            
             int maxIndex = length + offset;
 			for (int i = 0; i < src.length; i++) {
 				if (i >= offset && i < maxIndex) {

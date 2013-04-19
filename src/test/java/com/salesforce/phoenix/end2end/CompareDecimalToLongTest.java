@@ -65,13 +65,6 @@ public class CompareDecimalToLongTest extends BaseClientMangedTimeTest {
         try {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
-            /*
-             *  Failing because we're not converting the constant to the type of the RHS
-             *  when forming the start/stop key.
-             *  For this case, 1.5 -> 1L
-             *  if where l < 1.5 then 1.5 -> 1L and then to 2L because it's not inclusive
-             *  
-             */
             assertTrue (rs.next());
             assertEquals(2, rs.getLong(1));
             assertFalse(rs.next());
@@ -148,7 +141,8 @@ public class CompareDecimalToLongTest extends BaseClientMangedTimeTest {
              *  if where l < 1.5 then 1.5 -> 1L and then to 2L because it's not inclusive
              *  
              */
-            assertFalse(rs.next());
+            boolean hasNext = rs.next();
+            assertFalse(hasNext);
         } finally {
             conn.close();
         }
