@@ -51,13 +51,23 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
     public void testExplainPlan() throws Exception {
         ensureTableCreated(getUrl(), ATABLE_NAME, getDefaultSplits(getOrganizationId()));
         ensureTableCreated(getUrl(), PTSDB_NAME, getDefaultSplits(getOrganizationId()));
+        ensureTableCreated(getUrl(), PTSDB3_NAME, getDefaultSplits(getOrganizationId()));
         String[] queryPlans = new String[] {
                 "SELECT * FROM atable",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE",
 
-                "SELECT inst,host FROM PTSDB WHERE regexp_substr(inst, '[^-]+') IN ('na1', 'na2','na3')",
-                "CLIENT PARALLEL 1-WAY RANGE SCAN ON 3 RANGES OVER PTSDB ['na1'-'na4')\n" + 
+                "SELECT inst,host FROM PTSDB WHERE REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1', 'na2','na3')", // REVIEW: should this use skip scan given the regexpr_substr
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 3 RANGES OVER PTSDB ['na1'-'na2')...['na3'-'na4')\n" + 
                 "    SERVER FILTER BY REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')",
+
+                "SELECT inst,host FROM PTSDB WHERE inst IN ('na1', 'na2','na3') AND host IN ('a','b') AND date >= to_date('2013-01-01 00:00:00') AND date < to_date('2013-01-02 00:00:00')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 6 RANGES OVER PTSDB 'na1'...'na3','a'...'b',['2013-01-01 00:00:00'-'2013-01-02 00:00:00')",
+
+                "SELECT inst,host FROM PTSDB WHERE inst LIKE 'na%' AND host IN ('a','b') AND date >= to_date('2013-01-01 00:00:00') AND date < to_date('2013-01-02 00:00:00')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 RANGES OVER PTSDB ['na'-'nb'),'a'...'b',['2013-01-01 00:00:00'-'2013-01-02 00:00:00')",
+
+                "SELECT host FROM PTSDB3 WHERE host IN ('na1', 'na2','na3')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 3 KEYS OVER PTSDB3 'na3'...'na1'",
 
                 "SELECT count(*) FROM atable",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
@@ -127,10 +137,10 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SORT BY [A_STRING asc nulls first]",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005')",
-                "CLIENT PARALLEL 1-WAY RANGE SCAN ON 2 KEYS OVER ATABLE ['000000000000001'-'000000000000005']",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 KEYS OVER ATABLE '000000000000001'...'000000000000005'",
 
-                "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005') AND entity_id IN('000000000000001','00000000000000Z')",
-                "CLIENT PARALLEL 1-WAY RANGE SCAN ON 4 KEYS OVER ATABLE ['000000000000001'-'000000000000005'],['000000000000001'-'00000000000000Z']",
+                "SELECT a_string,b_string FROM atable WHERE organization_id IN ('00D000000000001', '00D000000000005') AND entity_id IN('00E00000000000X','00E00000000000Z')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 4 KEYS OVER ATABLE '00D000000000001'...'00D000000000005','00E00000000000X'...'00E00000000000Z'",
         };
         for (int i = 0; i < queryPlans.length; i+=2) {
             String query = queryPlans[i];

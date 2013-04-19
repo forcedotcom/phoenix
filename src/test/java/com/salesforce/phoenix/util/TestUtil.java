@@ -107,6 +107,7 @@ public class TestUtil {
     public static final String PRODUCT_METRICS_NAME = "PRODUCT_METRICS";
     public static final String PTSDB_NAME = "PTSDB";
     public static final String PTSDB2_NAME = "PTSDB2";
+    public static final String PTSDB3_NAME = "PTSDB3";
     public static final String PTSDB_SCHEMA_NAME = "";
     public static final String FUNKY_NAME = "FUNKY_NAMES";
     public static final String MULTI_CF_NAME = "MULTI_CF";
