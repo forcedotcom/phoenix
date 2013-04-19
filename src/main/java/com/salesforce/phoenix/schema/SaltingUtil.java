@@ -119,7 +119,7 @@ public class SaltingUtil {
         }
         KeyRange[] expandedRanges = new KeyRange[count];
         int[] position = new int[ranges.size()];
-        int estimatedKeyLength = ScanUtil.estimateKeyLength(schema, 1, ranges, Bound.LOWER);
+        int estimatedKeyLength = ScanUtil.estimateMaximumKeyLength(schema, 1, ranges);
         int idx = 0, length;
         byte saltByte;
         byte[] key = new byte[estimatedKeyLength + 1];
