@@ -87,14 +87,16 @@ public class SaltingUtil {
         KeyRange[] expandedRanges = new KeyRange[count];
         int[] position = new int[ranges.size()];
         int estimatedKeyLength = ScanUtil.estimateKeyLength(schema, 1, ranges, Bound.LOWER);
+        int idx = 0, length;
+        byte saltByte;
         byte[] key = new byte[estimatedKeyLength + 1];
-        int idx = 0;
         do {
-            ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
-            byte saltByte = SaltingUtil.getSaltingByte(key, 1, key.length - 1, bucketNum);
+            length = ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
+            saltByte = SaltingUtil.getSaltingByte(key, 1, length, bucketNum);
             key[0] = saltByte;
             KeyRange range = KeyRange.getKeyRange(
-                    Arrays.copyOf(key, key.length), true, Arrays.copyOf(key, key.length), true);
+                    Arrays.copyOf(key, length + 1), true,
+                    Arrays.copyOf(key, length + 1), true);
             expandedRanges[idx++] = range;
         } while (incrementKey(ranges, position));
         // The comparator is imperfect, but sufficient for all single keys.
