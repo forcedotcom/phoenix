@@ -149,6 +149,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhs.getDataType(), lhs.getColumnModifier()));
                             break;
                         }
+                        break;
                     case LONG:
                         /*
                          * We are comparing an int, unsigned_int to a long, or an unsigned_long to a negative long.
@@ -194,6 +195,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             }
                         }
                         children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, rhs.getDataType(), lhs.getColumnModifier()));
+                        break;
                     }
                 }
             }

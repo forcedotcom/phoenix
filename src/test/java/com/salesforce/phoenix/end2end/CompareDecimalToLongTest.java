@@ -141,8 +141,7 @@ public class CompareDecimalToLongTest extends BaseClientMangedTimeTest {
              *  if where l < 1.5 then 1.5 -> 1L and then to 2L because it's not inclusive
              *  
              */
-            boolean hasNext = rs.next();
-            assertFalse(hasNext);
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }
