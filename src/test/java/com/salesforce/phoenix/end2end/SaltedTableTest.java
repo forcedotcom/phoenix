@@ -252,7 +252,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertFalse(rs.next());
             
             query = "SELECT * FROM " + TABLE_WITH_SALTING +
-                    " WHERE a_integer in (1,2,3,4) AND a_string in ('abc', 'de') AND a_id = '123'";
+                    " WHERE a_integer in (1,2,3,4) AND a_string in ('a', 'abc', 'de') AND a_id = '123'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             
