@@ -1554,24 +1554,23 @@ public enum PDataType {
 
         @Override
         public long decodeLong(byte[] bytes, int o, ColumnModifier columnModifier) {
+            long v;
             byte b = bytes[o];
-            
-            if (columnModifier == ColumnModifier.SORT_DESC) {
+            if (columnModifier == null) {
+                v = b ^ 0x80; // Flip sign bit back
+                for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {
+                    b = bytes[o + i];
+                    v = (v << 8) + (b & 0xff);
+                }
+            } else { // ColumnModifier.SORT_DESC
                 b = (byte)(b ^ 0xff);
+                v = b ^ 0x80; // Flip sign bit back
+                for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {
+                    b = bytes[o + i];
+                    b ^= 0xff;
+                    v = (v << 8) + (b & 0xff);
+                }
             }
-            
-            long v = b ^ 0x80; // Flip sign bit back
-            
-            for (int i = 1; i < Bytes.SIZEOF_LONG; i++) {
-                b = bytes[o + i];
-                
-                if (columnModifier == ColumnModifier.SORT_DESC) {
-                    b = (byte)(b ^ 0xff);
-                }                
-                
-                v = (v << 8) + (b & 0xff);
-            }
-            
             return v;
         }
 
@@ -1611,20 +1610,17 @@ public enum PDataType {
 
         @Override
         public int decodeInt(byte[] bytes, int o, ColumnModifier columnModifier) {            
-            byte b = bytes[o];
-            
-            if (columnModifier == ColumnModifier.SORT_DESC) {
-                b = (byte)(bytes[o] ^ 0xff);
-            }
-            
-            int v = b ^ 0x80; // Flip sign bit back
-                        
-            for (int i = 1; i < Bytes.SIZEOF_INT; i++) {
-                b = bytes[o + i];
-                if (columnModifier == ColumnModifier.SORT_DESC) {
-                    b ^= 0xff;
+            int v;
+            if (columnModifier == null) {
+                v = bytes[o] ^ 0x80; // Flip sign bit back
+                for (int i = 1; i < Bytes.SIZEOF_INT; i++) {
+                    v = (v << 8) + (bytes[o + i] & 0xff);
                 }
-                v = (v << 8) + (b & 0xff);
+            } else { // ColumnModifier.SORT_DESC
+                v = bytes[o] ^ 0xff ^ 0x80; // Flip sign bit back
+                for (int i = 1; i < Bytes.SIZEOF_INT; i++) {
+                    v = (v << 8) + ((bytes[o + i] ^ 0xff) & 0xff);
+                }
             }
             return v;
         }
@@ -1654,10 +1650,18 @@ public enum PDataType {
 
         @Override
         public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
-            if (columnModifier != null) {
-                b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_LONG);
+            long v = 0;
+            if (columnModifier == null) {
+                for(int i = o; i < o + Bytes.SIZEOF_LONG; i++) {
+                  v <<= 8;
+                  v ^= b[i] & 0xFF;
+                }
+            } else { // ColumnModifier.SORT_DESC
+                for(int i = o; i < o + Bytes.SIZEOF_LONG; i++) {
+                    v <<= 8;
+                    v ^= (b[i] & 0xFF) ^ 0xFF;
+                  }
             }
-            long v = Bytes.toLong(b, o);
             if (v < 0) {
                 throw new IllegalDataException();
             }
@@ -1701,30 +1705,14 @@ public enum PDataType {
         }
     }
 
-    public static class DateCodec extends BaseCodec {
+    public static class DateCodec extends UnsignedLongCodec {
 
         private DateCodec() {
         }
 
         @Override
-        public long decodeLong(byte[] bytes, int o, ColumnModifier columnModifier) {
-            if (columnModifier != null) {
-                byte[] b = new byte[bytes.length];
-                columnModifier.apply(bytes, b, o, bytes.length - o);
-                bytes = b;
-            }
-            return Bytes.toLong(bytes, o);
-        }
-
-        @Override
         public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
             throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int encodeLong(long v, byte[] b, int o) {
-            Bytes.putLong(b, o, v);
-            return Bytes.SIZEOF_LONG;
         }
     }
 
@@ -1999,7 +1987,8 @@ public enum PDataType {
 
     public int compareTo(byte[] b1, int offset1, int length1, ColumnModifier mod1, byte[] b2, int offset2, int length2, ColumnModifier mod2) {
         int resultMultiplier = -1;
-        boolean invertResult = (mod1 == mod2 && mod1 == ColumnModifier.SORT_DESC);
+        // TODO: have compare go through ColumnModifier?
+        boolean invertResult = (mod1 == ColumnModifier.SORT_DESC && mod2 == ColumnModifier.SORT_DESC);
         if (!invertResult) {
             if (mod1 != null) {
                 b1 = mod1.apply(b1, new byte[b1.length], offset1, length1);

@@ -34,13 +34,10 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DecimalSumAggregator;
-import com.salesforce.phoenix.expression.aggregator.LongSumAggregator;
-import com.salesforce.phoenix.expression.aggregator.NumberSumAggregator;
+import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.SumAggregateParseNode;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -90,6 +87,9 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     public Aggregator newClientAggregator() {
         switch( getDataType() ) {
             case DECIMAL:
+                // On the client, we'll always aggregate over non modified column values,
+                // because we always get them back from the server in their non modified
+                // form.
                 return new DecimalSumAggregator(null);
             case LONG:
                 return new LongSumAggregator(null);
