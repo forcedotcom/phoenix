@@ -222,34 +222,34 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             PreparedStatement stmt = conn.prepareStatement(query);
             
             ResultSet rs = stmt.executeQuery();
-//            assertTrue(rs.next());
-//            assertEquals(1, rs.getInt(1));
-//            assertEquals("ab", rs.getString(2));
-//            assertEquals("123", rs.getString(3));
-//            assertEquals("abc", rs.getString(4));
-//            assertEquals(111, rs.getInt(5));
-//            assertFalse(rs.next());
-//            
-//            // all single slots with multiple values.
-//            query = "SELECT * FROM " + TABLE_WITH_SALTING + 
-//                    " WHERE a_integer in (2, 4) AND a_string = 'abc' AND a_id = '123'";
-//            stmt = conn.prepareStatement(query);
-//            rs = stmt.executeQuery();
-//            
-//            assertTrue(rs.next());
-//            assertEquals(2, rs.getInt(1));
-//            assertEquals("abc", rs.getString(2));
-//            assertEquals("123", rs.getString(3));
-//            assertEquals("def", rs.getString(4));
-//            assertEquals(222, rs.getInt(5));
-//            
-//            assertTrue(rs.next());
-//            assertEquals(4, rs.getInt(1));
-//            assertEquals("abc", rs.getString(2));
-//            assertEquals("123", rs.getString(3));
-//            assertEquals("jkl", rs.getString(4));
-//            assertEquals(444, rs.getInt(5));
-//            assertFalse(rs.next());
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("ab", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            assertFalse(rs.next());
+            
+            // all single slots with multiple values.
+            query = "SELECT * FROM " + TABLE_WITH_SALTING + 
+                    " WHERE a_integer in (2, 4) AND a_string = 'abc' AND a_id = '123'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            
+            assertTrue(rs.next());
+            assertEquals(2, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("def", rs.getString(4));
+            assertEquals(222, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(4, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("jkl", rs.getString(4));
+            assertEquals(444, rs.getInt(5));
+            assertFalse(rs.next());
             
             query = "SELECT * FROM " + TABLE_WITH_SALTING +
                     " WHERE a_integer in (1,2,3,4) AND a_string in ('abc', 'de') AND a_id = '123'";
