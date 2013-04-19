@@ -31,6 +31,8 @@ import java.io.UnsupportedEncodingException;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.phoenix.schema.ColumnModifier;
+
 
 public class StringUtil {
     // Masks to determine how many bytes are in each character
@@ -40,6 +42,14 @@ public class StringUtil {
     private static final int BYTES_2_MASK = 0xFF << 5; // 110xxxxx is a double byte char
     private static final int BYTES_3_MASK = 0xFF << 4; // 1110xxxx is a triple byte char
     private static final int BYTES_4_MASK = 0xFF << 3; // 11110xxx is a quadruple byte char
+    
+    public static final byte[] MOD_SPACE_UTF8 = new byte[ColumnModifier.values().length];
+    static {
+        for (ColumnModifier columnModifier : ColumnModifier.values()) {
+            MOD_SPACE_UTF8[columnModifier.ordinal()] = columnModifier.apply(new byte[] {SPACE_UTF8}, new byte[1], 0, 1)[0];
+        }
+    }
+    
 
     private StringUtil() {
     }
@@ -123,11 +133,12 @@ public class StringUtil {
         throw new UnsupportedEncodingException("Undecodable byte: " + b);
     }
 
-    public static int calculateUTF8Length(byte[] bytes, int offset, int length) throws UnsupportedEncodingException {
+    public static int calculateUTF8Length(byte[] bytes, int offset, int length, ColumnModifier columnModifier) throws UnsupportedEncodingException {
         int i = offset, endOffset = offset + length;
         length = 0;
         while (i < endOffset) {
-            int charLength = getBytesInChar(bytes[i]);
+            byte b = columnModifier == null ? bytes[i] : columnModifier.apply(bytes[i]);
+            int charLength = getBytesInChar(b);
             i += charLength;
             length++;
         }
@@ -138,10 +149,11 @@ public class StringUtil {
     // parameter, return the actual index into the byte array which would represent a substring
     // of <length> starting from the character at <offset>. We assume the <offset> is the start
     // byte of an UTF-8 character.
-    public static int getByteLengthForUtf8SubStr(byte[] bytes, int offset, int length) throws UnsupportedEncodingException {
+    public static int getByteLengthForUtf8SubStr(byte[] bytes, int offset, int length, ColumnModifier columnModifier) throws UnsupportedEncodingException {
         int byteLength = 0;
         while(length > 0 && offset + byteLength < bytes.length) {
-            int charLength = getBytesInChar(bytes[offset + byteLength]);
+            byte b = columnModifier == null ? bytes[offset + byteLength] : columnModifier.apply(bytes[offset + byteLength]);
+            int charLength = getBytesInChar(b);
             byteLength += charLength;
             length--;
         }
@@ -158,26 +170,34 @@ public class StringUtil {
         return false;
     }
 
-    public static int getFirstNonBlankCharIdxFromStart(byte[] string, int offset, int length)
-            throws UnsupportedEncodingException {
+    public static int getFirstNonBlankCharIdxFromStart(byte[] string, int offset, int length, ColumnModifier columnModifier) {
         int i = offset;
+        byte space = columnModifier == null ? SPACE_UTF8 : MOD_SPACE_UTF8[columnModifier.ordinal()];
         for ( ; i < offset + length; i++) {
-            if ((getBytesInChar(string[i]) != 1 ||
-                (getBytesInChar(string[i]) == 1 && SPACE_UTF8 < string[i] && string[i] != 0x7f))) {
+            if (string[i] != space) {
                 break;
             }
+//            if ((getBytesInChar(string[i]) != 1 ||
+//                (getBytesInChar(string[i]) == 1 && SPACE_UTF8 < string[i] && string[i] != 0x7f))) {
+//                break;
+//            }
         }
         return i;
     }
 
-    public static int getFirstNonBlankCharIdxFromEnd(byte[] string, int offset, int length) {
+    //Why is this so complicated? Can't we just test the byte against SPACE_UTF8?
+    public static int getFirstNonBlankCharIdxFromEnd(byte[] string, int offset, int length, ColumnModifier columnModifier) {
         int i = offset + length - 1;
+        byte space = columnModifier == null ? SPACE_UTF8 : MOD_SPACE_UTF8[columnModifier.ordinal()];
         for ( ; i >= offset; i--) {
-            int b = string[i] & 0xff;
-            if (((b & BYTES_1_MASK) != 0) ||
-                ((b & BYTES_1_MASK) == 0 && SPACE_UTF8 < b && b != 0x7f)) {
+            if (string[i] != space) {
                 break;
             }
+//            int b = string[i] & 0xff;
+//            if (((b & BYTES_1_MASK) != 0) ||
+//                ((b & BYTES_1_MASK) == 0 && SPACE_UTF8 < b && b != 0x7f)) {
+//                break;
+//            }
         }
         return i;
     }

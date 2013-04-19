@@ -27,9 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.DataInput;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -78,6 +76,8 @@ public class SubstrFunction extends PrefixFunction {
     }
 
     private void init() {
+        // TODO: when we have ColumnModifier.REVERSE, we'll need to negate offset,
+        // since the bytes are reverse and we'll want to work from the end.
         isOffsetConstant = getOffsetExpression() instanceof LiteralExpression;
         isLengthConstant = getLengthExpression() instanceof LiteralExpression;
         hasLengthExpression = !isLengthConstant || ((LiteralExpression)getLengthExpression()).getValue() != null;
@@ -126,7 +126,8 @@ public class SubstrFunction extends PrefixFunction {
         
         try {
             boolean isCharType = getStrExpression().getDataType() == PDataType.CHAR;
-            int strlen = isCharType ? ptr.getLength() : StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength());
+            ColumnModifier columnModifier = getStrExpression().getColumnModifier();
+            int strlen = isCharType ? ptr.getLength() : StringUtil.calculateUTF8Length(ptr.get(), ptr.getOffset(), ptr.getLength(), columnModifier);
             
             // Account for 1 versus 0-based offset
             offset = offset - (offset <= 0 ? 0 : 1);
@@ -139,8 +140,8 @@ public class SubstrFunction extends PrefixFunction {
             int maxLength = strlen - offset;
             length = length == -1 ? maxLength : Math.min(length,maxLength);
             
-            int byteOffset = isCharType ? offset : StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset(), offset);
-            int byteLength = isCharType ? length : StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset() + byteOffset, length);
+            int byteOffset = isCharType ? offset : StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset(), offset, columnModifier);
+            int byteLength = isCharType ? length : StringUtil.getByteLengthForUtf8SubStr(ptr.get(), ptr.getOffset() + byteOffset, length, columnModifier);
             ptr.set(ptr.get(), ptr.getOffset() + byteOffset, byteLength);
             return true;
         } catch (UnsupportedEncodingException e) {

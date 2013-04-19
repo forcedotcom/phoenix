@@ -74,6 +74,11 @@ public class RTrimFunction extends ScalarFunction {
     }
 
     @Override
+    public ColumnModifier getColumnModifier() {
+        return children.get(0).getColumnModifier();
+    }    
+
+    @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         // Starting from the end of the byte, look for all single bytes at the end of the string
         // that is below SPACE_UTF8 (space and control characters) or above (control chars).
@@ -89,11 +94,7 @@ public class RTrimFunction extends ScalarFunction {
         int length = ptr.getLength();
         
         ColumnModifier columnModifier = getStringExpression().getColumnModifier();
-        if (columnModifier != null) {
-            string = columnModifier.apply(string, new byte[string.length], offset, length);
-        }            
-        
-        int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
+        int i = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length, columnModifier);
         if (i == offset - 1) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return true;

@@ -57,6 +57,11 @@ public enum ColumnModifier {
 			}			
 			return dest;
 		}
+
+        @Override
+        public byte apply(byte src) {
+            return (byte)(src ^ 0xFF);
+        }
 	};
 	
 	/**
@@ -109,4 +114,5 @@ public enum ColumnModifier {
 	 * @return       dest or a new byte array if dest is null
 	 */
 	public abstract byte[] apply(byte[] src, byte[] dest, int offset, int length);
+    public abstract byte apply(byte src);
 }

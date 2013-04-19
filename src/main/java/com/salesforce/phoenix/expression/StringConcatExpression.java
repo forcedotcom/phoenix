@@ -28,9 +28,6 @@
 package com.salesforce.phoenix.expression;
 
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -44,14 +41,13 @@ import com.salesforce.phoenix.util.ByteUtil;
 
 /**
  * 
- * Implementation for || string concatenation expression
+ * Implementation for || string concatenation expression.
  * @author kmahadik
  * @since 0.1
  */
 
 public class StringConcatExpression extends BaseCompoundExpression {
     public StringConcatExpression() {
-
     }
 
     public StringConcatExpression(List<Expression> children) {
@@ -88,6 +84,8 @@ public class StringConcatExpression extends BaseCompoundExpression {
             }
             PDataType childType = children.get(i).getDataType();
             ColumnModifier columnModifier = children.get(i).getColumnModifier();
+            // We could potentially not invert the bytes, but we might as well since we're allocating
+            // additional space here anyway.
             if (childType.isCoercibleTo(PDataType.VARCHAR)) {
                 result = ByteUtil.concat(result, ByteUtil.concat(columnModifier, ptr));
             } else {
@@ -101,15 +99,5 @@ public class StringConcatExpression extends BaseCompoundExpression {
     @Override
     public PDataType getDataType() {
         return PDataType.VARCHAR;
-    }
-
-    @Override
-    public void readFields(DataInput input) throws IOException {
-        super.readFields(input);
-    }
-
-    @Override
-    public void write(DataOutput output) throws IOException {
-        super.write(output);
     }
 }

@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -73,6 +72,11 @@ public class LTrimFunction extends ScalarFunction {
     }
 
     @Override
+    public ColumnModifier getColumnModifier() {
+        return children.get(0).getColumnModifier();
+    }    
+
+    @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         // Starting from the front of the byte, look for all single bytes at the end of the string
         // that is below SPACE_UTF8 (space and control characters) or 0x7f (control chars).
@@ -89,22 +93,16 @@ public class LTrimFunction extends ScalarFunction {
         int length = ptr.getLength();
         
         ColumnModifier columnModifier = getStringExpression().getColumnModifier();
-        if (columnModifier != null) {
-            string = columnModifier.apply(string, new byte[string.length], offset, length);
-        }            
-        
-        try {
-            int i = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length);
-            if (i == offset + length) {
-                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-                return true;
-            }
-            
-            ptr.set(string, i, offset + length - i);
+        // TODO: when we have ColumnModifier.REVERSE, we'll need to trim from the end instead of
+        // the beginning (just delegate to RTrimFunction or replace from ExpressionCompiler instead?)
+        int i = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length, columnModifier);
+        if (i == offset + length) {
+            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return true;
-        } catch (UnsupportedEncodingException e) {
-            return false;
         }
+        
+        ptr.set(string, i, offset + length - i);
+        return true;
     }
     
     @Override

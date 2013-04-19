@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -71,6 +70,11 @@ public class TrimFunction extends ScalarFunction {
     }
 
     @Override
+    public ColumnModifier getColumnModifier() {
+        return children.get(0).getColumnModifier();
+    }    
+
+    @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (!getStringExpression().evaluate(tuple, ptr)) {
             return false;
@@ -83,23 +87,15 @@ public class TrimFunction extends ScalarFunction {
         int offset = ptr.getOffset();
         int length = ptr.getLength();
         
-        ColumnModifier columnModifier = getStringExpression().getColumnModifier();
-        if (columnModifier != null) {
-            string = columnModifier.apply(string, new byte[string.length], offset, length);
+        ColumnModifier columnModifier = getColumnModifier();
+        int end = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length, columnModifier);
+        if (end == offset - 1) {
+            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+            return true; 
         }
-        
-        try {
-            int end = StringUtil.getFirstNonBlankCharIdxFromEnd(string, offset, length);
-            if (end == offset - 1) {
-                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-                return true; 
-            }
-            int head = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length);
-            ptr.set(string, head, end - head + 1);
-            return true;
-        } catch (UnsupportedEncodingException e) {
-            return false;
-        }
+        int head = StringUtil.getFirstNonBlankCharIdxFromStart(string, offset, length, columnModifier);
+        ptr.set(string, head, end - head + 1);
+        return true;
     }
 
     @Override
