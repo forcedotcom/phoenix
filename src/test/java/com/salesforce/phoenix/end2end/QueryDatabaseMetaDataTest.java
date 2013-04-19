@@ -509,7 +509,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertTrue(cdA.getKeepDeletedCells());
         assertEquals(DataBlockEncoding.NONE, cdA.getDataBlockEncoding()); // Overriden using WITH
         assertEquals(1,cdA.getMaxVersions());// Overriden using WITH
-        assertColumnFamily(descriptor.getFamily(cfB));
+        HColumnDescriptor cdB = descriptor.getFamily(cfB);
+        assertTrue(cdB.getKeepDeletedCells());
+        assertEquals(DataBlockEncoding.NONE, cdB.getDataBlockEncoding()); // Should keep the original value.
         // CF c should stay the same since it's not a Phoenix cf.
         HColumnDescriptor cdC = descriptor.getFamily(cfC);
         assertNotNull("Column family not found", cdC);
