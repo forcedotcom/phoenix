@@ -54,9 +54,9 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(url, props);
         
         // Rows we inserted:
-        // 1abc123abc111
+        // 1ab123abc111
         // 1abc456abc111
-        // 1def123abc111
+        // 1de123abc111
         // 2abc123def222 
         // 3abc123ghi333
         // 4abc123jkl444
@@ -66,7 +66,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             String query = "UPSERT INTO " + TABLE_WITH_SALTING + " VALUES(?,?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setInt(1, 1);
-            stmt.setString(2, "abc");
+            stmt.setString(2, "ab");
             stmt.setString(3, "123");
             stmt.setString(4, "abc");
             stmt.setInt(5, 111);
@@ -88,7 +88,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             stmt = conn.prepareStatement(query);
             
             stmt.setInt(1, 1);
-            stmt.setString(2, "def");
+            stmt.setString(2, "de");
             stmt.setString(3, "123");
             stmt.setString(4, "abc");
             stmt.setInt(5, 111);
@@ -168,7 +168,14 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
-            assertEquals("def", rs.getString(2));
+            assertEquals("ab", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("de", rs.getString(2));
             assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
             assertEquals(111, rs.getInt(5));
@@ -186,13 +193,6 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals("123", rs.getString(3));
             assertEquals("jkl", rs.getString(4));
             assertEquals(444, rs.getInt(5));
-            
-            assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
-            assertEquals("123", rs.getString(3));
-            assertEquals("abc", rs.getString(4));
-            assertEquals(111, rs.getInt(5));
             
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
@@ -218,13 +218,13 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             
             // all single slots with one value.
             String query = "SELECT * FROM " + TABLE_WITH_SALTING + 
-                    " WHERE a_integer = 1 AND a_string = 'abc' AND a_id = '123'";
+                    " WHERE a_integer = 1 AND a_string = 'ab' AND a_id = '123'";
             PreparedStatement stmt = conn.prepareStatement(query);
             
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
+            assertEquals("ab", rs.getString(2));
             assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
             assertEquals(111, rs.getInt(5));
@@ -252,7 +252,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertFalse(rs.next());
             
             query = "SELECT * FROM " + TABLE_WITH_SALTING +
-                    " WHERE a_integer in (1,2,3,4) AND a_string in ('abc', 'def') AND a_id = '123'";
+                    " WHERE a_integer in (1,2,3,4) AND a_string in ('a', 'abc', 'de') AND a_id = '123'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             
@@ -265,7 +265,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
-            assertEquals("def", rs.getString(2));
+            assertEquals("de", rs.getString(2));
             assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
             assertEquals(111, rs.getInt(5));
@@ -283,13 +283,6 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals("123", rs.getString(3));
             assertEquals("jkl", rs.getString(4));
             assertEquals(444, rs.getInt(5));
-            
-            assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
-            assertEquals("123", rs.getString(3));
-            assertEquals("abc", rs.getString(4));
-            assertEquals(111, rs.getInt(5));
             assertFalse(rs.next());
             
             // fixed length slot with bounded ranges.
@@ -341,12 +334,12 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             
             // Variable length slot with bounded ranges.
             query = "SELECT * FROM " + TABLE_WITH_SALTING + 
-                    " WHERE a_integer = 1 AND a_string > 'ab' AND a_string <= 'de' AND a_id = '123'";
+                    " WHERE a_integer = 1 AND a_string >= 'ab' AND a_string < 'de' AND a_id = '123'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
+            assertEquals("ab", rs.getString(2));
             assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
             assertEquals(111, rs.getInt(5));
@@ -359,14 +352,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
-            assertEquals("def", rs.getString(2));
-            assertEquals("123", rs.getString(3));
-            assertEquals("abc", rs.getString(4));
-            assertEquals(111, rs.getInt(5));
-            
-            assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
+            assertEquals("de", rs.getString(2));
             assertEquals("123", rs.getString(3));
             assertEquals("abc", rs.getString(4));
             assertEquals(111, rs.getInt(5));
@@ -392,13 +378,6 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             stmt.setInt(1, 1);
             stmt.setString(2, "abc");
             ResultSet rs = stmt.executeQuery();
-            assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals("abc", rs.getString(2));
-            assertEquals("123", rs.getString(3));
-            assertEquals("abc", rs.getString(4));
-            assertEquals(111, rs.getInt(5));
-            
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
             assertEquals("abc", rs.getString(2));
@@ -436,10 +415,10 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             // With point query.
             query = "SELECT a_string FROM " + TABLE_WITH_SALTING + " WHERE a_string = ?";
             stmt = conn.prepareStatement(query);
-            stmt.setString(1, "def");
+            stmt.setString(1, "de");
             rs = stmt.executeQuery();
             assertTrue(rs.next());
-            assertEquals("def", rs.getString(1));
+            assertEquals("de", rs.getString(1));
             assertFalse(rs.next());
             
             query = "SELECT a_id FROM " + TABLE_WITH_SALTING + " WHERE a_id = ?";
