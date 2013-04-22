@@ -149,12 +149,6 @@ public class SkipScanFilter extends FilterBase {
                 position[i]++;
             }
             Arrays.fill(position, i+1, position.length, 0);
-            for (int j=0; j<position.length; j++) {
-                System.out.print(position[j] + " ");
-            }
-            System.out.println("i: " + i 
-                    + "; slot: " + slots.get(i).get(position[i] == slots.get(i).size() ? position[i] -1 : position[i]) 
-                    + "; ptr: " + ptr);
             if (position[i] >= slots.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
                 // Backtrack and increment the key of the previous slot values.
