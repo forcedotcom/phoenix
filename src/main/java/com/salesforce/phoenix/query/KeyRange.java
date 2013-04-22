@@ -176,12 +176,12 @@ public class KeyRange implements Writable {
         return isSingleKey;
     }
 
-    public int compareLowerToLowerBound(ImmutableBytesWritable ptr, boolean isInclusive) {
-        return compareLowerToLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
-    }
-
     public int compareLowerToLowerBound(ImmutableBytesWritable ptr) {
         return compareLowerToLowerBound(ptr, true);
+    }
+
+    public int compareLowerToLowerBound(ImmutableBytesWritable ptr, boolean isInclusive) {
+        return compareLowerToLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
     }
 
     public int compareLowerToLowerBound( byte[] b, int o, int l) {
@@ -222,12 +222,12 @@ public class KeyRange implements Writable {
         }
     }
 
-    public int compareLowerToUpperBound(ImmutableBytesWritable ptr, boolean isInclusive) {
-        return compareLowerToUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
-    }
-
     public int compareLowerToUpperBound(ImmutableBytesWritable ptr) {
         return compareLowerToUpperBound(ptr, true);
+    }
+
+    public int compareLowerToUpperBound(ImmutableBytesWritable ptr, boolean isInclusive) {
+        return compareLowerToUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
     }
 
     public int compareLowerToUpperBound( byte[] b, int o, int l) {
@@ -261,12 +261,12 @@ public class KeyRange implements Writable {
         return 1;
     }
 
-    public int compareUpperToLowerBound(ImmutableBytesWritable ptr, boolean isInclusive) {
-        return compareUpperToLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
-    }
-
     public int compareUpperToLowerBound(ImmutableBytesWritable ptr) {
         return compareUpperToLowerBound(ptr, true);
+    }
+
+    public int compareUpperToLowerBound(ImmutableBytesWritable ptr, boolean isInclusive) {
+        return compareUpperToLowerBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
     }
 
     public int compareUpperToLowerBound(byte[] b, int o, int l) {
@@ -290,12 +290,12 @@ public class KeyRange implements Writable {
         return -1;
     }
 
-    public int compareUpperToUpperBound(ImmutableBytesWritable ptr, boolean isInclusive) {
-        return compareUpperToUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
-    }
-
     public int compareUpperToUpperBound(ImmutableBytesWritable ptr) {
         return compareUpperToUpperBound(ptr, true);
+    }
+
+    public int compareUpperToUpperBound(ImmutableBytesWritable ptr, boolean isInclusive) {
+        return compareUpperToUpperBound(ptr.get(), ptr.getOffset(), ptr.getLength(), isInclusive);
     }
 
     public int compareUpperToUpperBound( byte[] b, int o, int l) {

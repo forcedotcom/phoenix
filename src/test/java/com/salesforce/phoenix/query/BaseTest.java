@@ -99,6 +99,13 @@ public abstract class BaseTest {
                 "    val2 decimal(31,10),\n" +
                 "    val3 decimal\n" +
                 "    CONSTRAINT pk PRIMARY KEY (inst, date))");
+        builder.put(PTSDB3_NAME,"create table " + PTSDB3_NAME +
+                "   (host varchar(10) not null,\n" +
+                "    date date not null,\n" +
+                "    val1 decimal,\n" +
+                "    val2 decimal(31,10),\n" +
+                "    val3 decimal\n" +
+                "    CONSTRAINT pk PRIMARY KEY (host DESC, date DESC))");
         builder.put(FUNKY_NAME,"create table " + FUNKY_NAME +
                 "   (\"foo!\" varchar not null primary key,\n" +
                 "    \"1\".\"#@$\" varchar, \n" +

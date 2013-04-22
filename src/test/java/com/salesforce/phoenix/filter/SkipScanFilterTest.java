@@ -200,8 +200,7 @@ public class SkipScanFilterTest extends TestCase {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
                 new int[]{2,3},
-                new Include("POdef"),
-                new Finished("PPdef"))
+                new Include("POdef", true))
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -353,8 +352,15 @@ public class SkipScanFilterTest extends TestCase {
     }
     private static final class Include implements Expectation {
         private final byte[] rowkey;
+        private final boolean isLastKey;
+        
         public Include(String rowkey) {
+            this(rowkey, false);
+        }
+        
+        public Include(String rowkey, boolean isLastKey) {
             this.rowkey = Bytes.toBytes(rowkey);
+            this.isLastKey = isLastKey;
         }
 
         @Override public void examine(SkipScanFilter skipper) {
@@ -362,8 +368,10 @@ public class SkipScanFilterTest extends TestCase {
             skipper.reset();
             assertFalse(skipper.filterAllRemaining());
             assertFalse(skipper.filterRowKey(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength()));
-
             assertEquals(kv.toString(), ReturnCode.INCLUDE, skipper.filterKeyValue(kv));
+            if (isLastKey) {
+                assertTrue(skipper.filterAllRemaining());
+            }
         }
 
         @Override public String toString() {
@@ -380,7 +388,6 @@ public class SkipScanFilterTest extends TestCase {
         @Override public void examine(SkipScanFilter skipper) {
             KeyValue kv = KeyValue.createFirstOnRow(rowkey);
             skipper.reset();
-            assertFalse(skipper.filterAllRemaining());
             assertEquals(ReturnCode.NEXT_ROW,skipper.filterKeyValue(kv));
             skipper.reset();
             assertTrue(skipper.filterAllRemaining());
