@@ -34,6 +34,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.util.ScanUtil;
@@ -178,10 +179,13 @@ public class ScanRanges {
         
         while (true) {
             // Increment to the next range while the upper bound of our current slot is less than our lower bound
-            while (position[i] < ranges.get(i).size() && 
-                    (cmpLower=ranges.get(i).get(position[i]).compareUpperToLowerBound(lower, true)) < 0) {
-                position[i]++;
+            position[i] = ScanUtil.searchClosestHigherKeyRange(ranges.get(i), Bound.UPPER, lower, true, Bound.LOWER);
+            if (position[i] == ranges.get(i).size()) {
+                cmpLower=ranges.get(i).get(position[i]-1).compareUpperToLowerBound(lower, true);
+            } else {
+                cmpLower=ranges.get(i).get(position[i]).compareUpperToLowerBound(lower, true);
             }
+            
             if (position[i] >= ranges.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
                 return false;

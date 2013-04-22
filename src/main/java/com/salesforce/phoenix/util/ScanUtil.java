@@ -277,4 +277,66 @@ public class ScanUtil {
         }
         return true;
     }
+
+    /**
+     * Perform a binary lookup on the list of KeyRange for the tightest slot such that the slotBound
+     * of the current slot is smaller or equal than the slotBound of our range. 
+     * @return  the index of the slot whose slot bound equals or are the tightest one that is 
+     *          smaller than rangeBound of range, or -1 if no sound bound can be found.
+     */
+    public static int searchClosestLowerKeyRange(List<KeyRange> slots, Bound slotBound, ImmutableBytesWritable ptr, boolean isInclusive, Bound rangeBound) {
+        int lower = 0;
+        int upper = slots.size() - 1;
+        int mid;
+        while (lower <= upper) {
+            mid = (lower + upper) / 2;
+            int cmp = slots.get(mid).compareBoundToBound(ptr.get(), ptr.getOffset(), ptr.getLength(),
+                    isInclusive, rangeBound, slotBound);
+            if (cmp < 0) {
+                lower = mid + 1;
+            } else if (cmp > 0) {
+                upper = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        mid = (lower + upper) / 2;
+        if (slots.get(mid).compareBoundToBound(ptr.get(), ptr.getOffset(), ptr.getLength(),
+                isInclusive, rangeBound, slotBound) > 0) {
+            return -1;
+        } else {
+            return mid;
+        }
+    }
+
+    /**
+     * Perform a binary lookup on the list of KeyRange for the tightest slot such that the slotBound
+     * of the current slot is higher or equal than the slotBound of our range. 
+     * @return  the index of the slot whose slot bound equals or are the tightest one that is 
+     *          smaller than rangeBound of range, or -1 if no sound bound can be found.
+     */
+    public static int searchClosestHigherKeyRange(List<KeyRange> slots, Bound slotBound, ImmutableBytesWritable ptr, boolean isInclusive, Bound rangeBound) {
+        int lower = 0;
+        int upper = slots.size() - 1;
+        int mid;
+        while (lower <= upper) {
+            mid = (lower + upper) / 2;
+            int cmp = slots.get(mid).compareBoundToBound(ptr.get(), ptr.getOffset(), ptr.getLength(),
+                    isInclusive, rangeBound, slotBound);
+            if (cmp < 0) {
+                lower = mid + 1;
+            } else if (cmp > 0) {
+                upper = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        mid = (lower + upper) / 2;
+        if (mid == 0 && slots.get(mid).compareBoundToBound(ptr.get(), ptr.getOffset(), ptr.getLength(),
+                isInclusive, rangeBound, slotBound) > 0) {
+            return mid;
+        } else {
+            return ++mid;
+        }
+    }
 }

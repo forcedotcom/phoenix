@@ -138,9 +138,7 @@ public class SkipScanFilter extends FilterBase {
         schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
         while (true) {
             // Increment to the next range while the upper bound of our current slot is less than our current key
-            while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpperToLowerBound(ptr) < 0) {
-                position[i]++;
-            }
+            position[i] = ScanUtil.searchClosestHigherKeyRange(slots.get(i), Bound.UPPER, ptr, true, Bound.LOWER);
             if (position[i] >= slots.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
                 // Backtrack and increment the key of the previous slot values.
