@@ -175,12 +175,36 @@ public class ScanRanges {
         }
         
         int cmpLower=0,cmpUpper=0;
-        
         while (true) {
-            // Increment to the next range while the upper bound of our current slot is less than our lower bound
-            while (position[i] < ranges.get(i).size() && 
-                    (cmpLower=ranges.get(i).get(position[i]).compareUpperToLowerBound(lower, true)) < 0) {
-                position[i]++;
+            // Binary search to the slot whose upper bound of is closest big bigger or equal to
+            // our lower bound.
+            int low = 0;
+            int high = ranges.get(i).size() - 1;
+            int mid;
+            while (low <= high) {
+                mid = (low + high) / 2;
+                cmpLower = ranges.get(i).get(mid).compareUpperToLowerBound(lower, true);
+                if (cmpLower < 0) {
+                    low = mid + 1;
+                } else if (cmpLower > 0) {
+                    high = mid - 1;
+                } else {
+                    position[i] = mid;
+                    break;
+                }
+            }
+            if (cmpLower != 0) {
+                mid = (low + high) / 2;
+                if (mid == 0 && (cmpLower = ranges.get(i).get(0).compareUpperToLowerBound(lower, true)) > 0) {
+                    position[i] = 0;
+                } else {
+                    position[i] = ++mid;
+                    if (mid == ranges.get(i).size()) {
+                        cmpLower = ranges.get(i).get(mid-1).compareUpperToLowerBound(lower, true);
+                    } else {
+                        cmpLower = ranges.get(i).get(mid).compareUpperToLowerBound(lower, true);
+                    }
+                }
             }
             if (position[i] >= ranges.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
