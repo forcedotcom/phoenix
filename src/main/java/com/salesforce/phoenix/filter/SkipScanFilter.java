@@ -110,7 +110,7 @@ public class SkipScanFilter extends FilterBase {
 
     @Override
     public boolean filterAllRemaining() {
-        return startKey == null;
+        return startKey == null && endKeyLength == 0;
     }
 
     @Override
@@ -125,60 +125,80 @@ public class SkipScanFilter extends FilterBase {
                 null, 0, 0, null, 0, 0, HConstants.LATEST_TIMESTAMP, Type.Maximum, null, 0, 0);
     }
 
-    private ReturnCode navigate(final byte[] currentKey, final int offset, final int length) {
+    private ReturnCode navigate(final byte[] currentKey, int offset, final int length) {
         // First check to see if we're in-range until we reach our end key
         if (endKeyLength > 0 && Bytes.compareTo(currentKey, offset, length, endKey, 0, endKeyLength) < 0) {
             return ReturnCode.INCLUDE;
         }
         endKeyLength = 0;
+        
+        // We could have included the previous
+        if (startKey == null) {
+            return ReturnCode.NEXT_ROW;
+        }
 
         int i = 0;
+        boolean seek = false;
         int nSlots = slots.size();
+        int earliestRangeIndex = nSlots-1;
         ptr.set(currentKey, offset, length);
         schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
         while (true) {
             // Increment to the next range while the upper bound of our current slot is less than our current key
             while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpperToLowerBound(ptr) < 0) {
                 position[i]++;
+                Arrays.fill(position, i+1, position.length, 0);
             }
             if (position[i] >= slots.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
                 // Backtrack and increment the key of the previous slot values.
-                while (true) {
-                    if (i == 0) {
+                if (i == 0) {
+                    startKey = null;
+                    return ReturnCode.NEXT_ROW;
+                }
+                // Increment key and backtrack until in range. We know at this point that we'll be
+                // issuing a seek next hint.
+                seek = true;
+                Arrays.fill(position, i, position.length, 0);
+                i--;
+                // If we're positioned at a single key, no need to copy the current key and get the next key .
+                // Instead, just increment to the next key and continue.
+                if (slots.get(i).get(position[i]).isSingleKey()) {
+                    i = incrementKey(i);
+                    if (i < 0) {
                         startKey = null;
                         return ReturnCode.NEXT_ROW;
-                    } else { // Increment key and backtrack until in range
-                        startKey = copyKey(startKey, ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-                        ByteUtil.nextKey(startKey, ptr.getOffset() - offset);
-                        startKeyLength = ptr.getOffset() - offset;
-                        Arrays.fill(position, i, position.length, 0);
-                        // If we're still in the same range for the previous slot after incrementing
-                        // to the next key, then we can just seek to the beginning of the next key
-                        // range (if there is one).
-                        if (slots.get(i-1).get(position[i-1]).compareUpperToLowerBound(startKey, 0, startKeyLength) < 0) {
-                            i--;
-                            // TODO: implement schema.previous to go backwards
-                            ptr.set(currentKey, offset, length);
-                            schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
-                            if (++position[i] >= slots.get(i).size()) {
-                                continue;
-                            }
-                            setStartKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-                        }
-                        appendToStartKey(i, ptr.getOffset() - offset);
-                        return ReturnCode.SEEK_NEXT_USING_HINT;
                     }
+                    // Continue the loop after setting the start key, because our start key maybe smaller than
+                    // the current key, so we'll end up incrementing the start key until it's bigger than the
+                    // current key.
+                    setStartKey();
+                    ptr.set(ptr.get(), offset, length);
+                } else {
+                    // Copy the leading part of the actual current key into startKey which we'll use
+                    // as our buffer through the rest of the loop.
+                    startKey = copyKey(startKey, ptr.getOffset() - offset + this.maxKeyLength, ptr.get(), offset, ptr.getOffset() - offset);
+                    ByteUtil.nextKey(startKey, ptr.getOffset() - offset);
+                    startKeyLength = ptr.getOffset() - offset;
+                    appendToStartKey(i+1, ptr.getOffset() - offset);
+                    // From here on, we use startKey as our buffer with offset reset to 0
+                    // We've copied the part of the current key above that we need into startKey
+                    offset = 0;
+                    ptr.set(startKey, offset, startKeyLength);
                 }
+                // Position pointer at previous slot position
+                schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
             } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(ptr) > 0) {
                 // Our current key is less than the lower range of the current position in the current slot.
                 // Seek to the lower range, since it's bigger than the current key
                 setStartKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-                Arrays.fill(position, i+1, position.length, 0);
                 appendToStartKey(i, ptr.getOffset() - offset);
-                position[i] = 0;
+                Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
                 return ReturnCode.SEEK_NEXT_USING_HINT;
             } else { // We're in range, check the next slot
+                if (!slots.get(i).get(position[i]).isSingleKey() && i < earliestRangeIndex) {
+                    earliestRangeIndex = i;
+                }
                 i++;
                 if (i >= nSlots) {
                     break;
@@ -187,15 +207,36 @@ public class SkipScanFilter extends FilterBase {
             }
         }
             
-        // We're in range for all slots and can include this row plus all rows 
-        // up to the upper range of our last slot
-        setEndKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-        appendToEndKey(nSlots-1, ptr.getOffset() - offset);
-        // TODO: Figure out if we can optimize this by not always reseting the positions to zero
-        Arrays.fill(position, 1, position.length, 0);
+        if (seek) {
+            return ReturnCode.SEEK_NEXT_USING_HINT;
+        }
+        // If key range of last slot is a single key, we can increment our position
+        // since we know we'll be past the current row after including it.
+        if (slots.get(nSlots-1).get(position[nSlots-1]).isSingleKey()) {
+            if (incrementKey(nSlots-1) < 0) {
+                // Current row will be included, but we have no more
+                startKey = null;
+            }
+        } else {
+            // Else, we're in range for all slots and can include this row plus all rows 
+            // up to the upper range of our last slot.
+            setEndKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
+            appendToEndKey(nSlots-1, ptr.getOffset() - offset);
+            // Reset the positions to zero from the next slot after the earliest ranged slot, since the
+            // next key could be bigger at this ranged slot, and smaller than the current position of
+            // less significant slots.
+            Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
+        }
         return ReturnCode.INCLUDE;
-   }
+    }
 
+    public int incrementKey(int i) {
+        while (i >= 0 && slots.get(i).get(position[i]).isSingleKey() && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
+            i--;
+        }
+        return i;
+    }
+    
     private static byte[] copyKey(byte[] targetKey, int targetLength, byte[] sourceKey, int offset, int length) {
         if (targetLength > targetKey.length) {
             targetKey = new byte[targetLength];
