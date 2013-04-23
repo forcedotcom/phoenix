@@ -37,6 +37,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.RowKeySchema;
@@ -78,6 +79,10 @@ public class ScanUtil {
      * @return false if the Scan cannot possibly return rows and true otherwise
      */
     public static boolean intersectScanRange(Scan scan, byte[] startKey, byte[] stopKey) {
+        return intersectScanRange(scan, startKey, stopKey, false);
+    }
+
+    public static boolean intersectScanRange(Scan scan, byte[] startKey, byte[] stopKey, boolean useSkipScan) {
         boolean mayHaveRows = false;
         byte[] existingStartKey = scan.getStartRow();
         byte[] existingStopKey = scan.getStopRow();
@@ -97,7 +102,30 @@ public class ScanUtil {
         }
         scan.setStartRow(startKey);
         scan.setStopRow(stopKey);
-        return mayHaveRows || Bytes.compareTo(scan.getStartRow(), scan.getStopRow()) < 0;
+        
+        mayHaveRows = mayHaveRows || Bytes.compareTo(scan.getStartRow(), scan.getStopRow()) < 0;
+        
+        // If the scan is using skip scan filter, intersect and replace the filter.
+        if (mayHaveRows && useSkipScan) {
+            Filter filter = scan.getFilter();
+            if (filter instanceof SkipScanFilter) {
+                SkipScanFilter newFilter = new SkipScanFilter((SkipScanFilter)filter);
+                newFilter.intersect(startKey, stopKey);
+                scan.setFilter(newFilter);
+            } else if (filter instanceof FilterList) {
+                FilterList filterList = (FilterList)filter;
+                Filter firstFilter = filterList.getFilters().get(0);
+                if (firstFilter instanceof SkipScanFilter) {
+                    SkipScanFilter newFilter = new SkipScanFilter((SkipScanFilter)firstFilter);
+                    newFilter.intersect(startKey, stopKey);
+                    List<Filter> allFilters = new ArrayList<Filter>(filterList.getFilters().size());
+                    allFilters.addAll(filterList.getFilters());
+                    allFilters.set(0, newFilter);
+                    scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,allFilters));
+                }
+            }
+        }
+        return mayHaveRows;
     }
 
     public static void andFilter(Scan scan, Filter andWithFilter) {

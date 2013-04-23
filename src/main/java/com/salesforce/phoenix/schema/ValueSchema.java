@@ -263,7 +263,7 @@ public abstract class ValueSchema implements Writable {
             // backing byte array.
             ptr.set(ptr.get(), ptr.getOffset() + ptr.getLength(), 0);
             int length = nextField(ptr, position, 1, maxOffset);
-            ptr.set(ptr.get(),ptr.getOffset()-length,length);
+            ptr.set(ptr.get(), ptr.getOffset()-length, length);
             return ptr.getLength() > 0;
         }
         return false;
@@ -403,7 +403,7 @@ public abstract class ValueSchema implements Writable {
                     } else {
                         int nBytes = ptr.getLength();
                         b = ensureSize(b, offset, offset + nBytes);
-                        System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, nBytes);                        
+                        System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, nBytes);
                         offset += nBytes;
                     }
                 }

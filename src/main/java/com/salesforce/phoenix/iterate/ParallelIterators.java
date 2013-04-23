@@ -113,7 +113,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                 for (KeyRange split : splits) {
                     final Scan splitScan = new Scan(this.context.getScan());
                     // Intersect with existing start/stop key
-                    if (ScanUtil.intersectScanRange(splitScan, split.getLowerRange(), split.getUpperRange())) {
+                    if (ScanUtil.intersectScanRange(splitScan, split.getLowerRange(), split.getUpperRange(), this.context.getScanRanges().useSkipScanFilter())) {
                         Future<PeekingResultIterator> future =
                             executor.submit(new JobCallable<PeekingResultIterator>() {
     

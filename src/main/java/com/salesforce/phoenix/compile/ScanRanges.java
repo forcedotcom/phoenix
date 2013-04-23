@@ -176,13 +176,14 @@ public class ScanRanges {
         
         int cmpLower=0,cmpUpper=0;
         while (true) {
-            // Binary search to the slot whose upper bound of is closest big bigger or equal to
-            // our lower bound.
+            // Search to the slot whose upper bound of is closest bigger or equal to our lower bound.
             position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(ranges.get(i), lower);
             if (position[i] == ranges.get(i).size()) {
-                cmpLower=ranges.get(i).get(position[i]-1).compareUpperToLowerBound(lower, true);
+                // The return value indicates that no upper bound can be found to be bigger or equals
+                // to the lower bound, therefore the cmpLower would always be -1.
+                cmpLower = -1;
             } else {
-                cmpLower=ranges.get(i).get(position[i]).compareUpperToLowerBound(lower, true);
+                cmpLower = ranges.get(i).get(position[i]).compareUpperToLowerBound(lower, true);
             }
             if (position[i] >= ranges.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
