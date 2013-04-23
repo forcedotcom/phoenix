@@ -467,12 +467,6 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         }
     }
  
-    private static void assertColumnFamily(HColumnDescriptor cd) {
-        assertNotNull("Column family not found", cd);
-        assertTrue(cd.getKeepDeletedCells());
-        assertEquals(SchemaUtil.DEFAULT_DATA_BLOCK_ENCODING, cd.getDataBlockEncoding());
-    }
-    
     @Test
     public void testCreateOnExistingTable() throws Exception {
         PhoenixConnection pconn = DriverManager.getConnection(PHOENIX_JDBC_URL, TEST_PROPERTIES).unwrap(PhoenixConnection.class);

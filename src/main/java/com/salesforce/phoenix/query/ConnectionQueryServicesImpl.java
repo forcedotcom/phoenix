@@ -49,7 +49,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.*;
-import com.google.common.collect.*;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
@@ -374,7 +375,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             Object value = entry.getValue();
             descriptor.setValue(key, value == null ? null : value.toString());
         }
-        HColumnDescriptor[] existingFamilies = descriptor.getColumnFamilies();
         if (families.isEmpty()) {
             if (!readOnly) {
                 // Add dummy column family so we have key values for tables that 
@@ -437,7 +437,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
                 if (oldDescriptor == null) {
                     if (readOnly) {
-                        throw new ReadOnlyTableException("The HBase column families for a read-only table must already exist(" + Bytes.toStringBinary(columnDescriptor.getName()) + ")");
+                        throw new ReadOnlyTableException("The HBase column families for a read-only table must already exist(" + Bytes.toStringBinary(family.getFirst()) + ")");
                     }
                     columnDescriptor = generateColumnFamilyDescriptor(family, readOnly);
                 } else {
