@@ -49,7 +49,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.*;
-import com.google.common.collect.*;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
@@ -358,8 +359,17 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         return columnDesc;
     }
 
-    private HTableDescriptor generateTableDescriptor(byte[] tableName, boolean readOnly, Map<String,Object> tableProps, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
-        HTableDescriptor descriptor = new HTableDescriptor(tableName);
+    private void modifyColumnFamilyDescriptor(HColumnDescriptor hcd, Pair<byte[],Map<String,Object>> family) throws SQLException {
+      for (Entry<String, Object> entry : family.getSecond().entrySet()) {
+        String key = entry.getKey();
+        Object value = entry.getValue();
+        hcd.setValue(key, value == null ? null : value.toString());
+      }
+      hcd.setKeepDeletedCells(true);
+    }
+    
+    private HTableDescriptor generateTableDescriptor(byte[] tableName, HTableDescriptor existingDesc, boolean readOnly, Map<String,Object> tableProps, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
+        HTableDescriptor descriptor = (existingDesc != null) ? new HTableDescriptor(existingDesc) : new HTableDescriptor(tableName);
         for (Entry<String,Object> entry : tableProps.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
@@ -373,20 +383,41 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
         } else {
             for (Pair<byte[],Map<String,Object>> family : families) {
-                HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(family, readOnly);
-                descriptor.addFamily(columnDescriptor);
+                // If family is only in phoenix description, add it. otherwise, modify its property accordingly.
+                byte[] familyByte = family.getFirst();
+                if (descriptor.getFamily(familyByte) == null) {
+                    if (readOnly) {
+                        throw new ReadOnlyTableException("The HBase column families for a VIEW must already exist(" + Bytes.toStringBinary(familyByte) + ")");
+                    }
+                    HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(family, readOnly);
+                    descriptor.addFamily(columnDescriptor);
+                } else {
+                    if (!readOnly) {
+                        modifyColumnFamilyDescriptor(descriptor.getFamily(familyByte), family);
+                    }
+                }
             }
         }
         // The phoenix jar must be available on HBase classpath
         try {
-            descriptor.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
-            descriptor.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
-            descriptor.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
-            descriptor.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
+            if (!descriptor.hasCoprocessor(ScanRegionObserver.class.getName())) {
+                descriptor.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
+            }
+            if (!descriptor.hasCoprocessor(UngroupedAggregateRegionObserver.class.getName())) {
+                descriptor.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
+            }
+            if (!descriptor.hasCoprocessor(GroupedAggregateRegionObserver.class.getName())) {
+                descriptor.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
+            }
+            if (!descriptor.hasCoprocessor(HashJoiningRegionObserver.class.getName())) {
+                descriptor.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
+            }
             // Setup split policy on Phoenix metadata table to ensure that the key values of a Phoenix table
             // stay on the same region.
             if (SchemaUtil.isMetaTable(tableName)) {
-                descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), null, 1, null);
+                if (!descriptor.hasCoprocessor(MetaDataEndpointImpl.class.getName())) {
+                    descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), null, 1, null);
+                }
             }
         } catch (IOException e) {
             throw new PhoenixIOException(e);
@@ -402,16 +433,26 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             try {
                 HTableDescriptor existingDesc = admin.getTableDescriptor(tableName);
                 HColumnDescriptor oldDescriptor = existingDesc.getFamily(family.getFirst());
-                HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(family, readOnly);
+                HColumnDescriptor columnDescriptor = null;
+
+                if (oldDescriptor == null) {
+                    if (readOnly) {
+                        throw new ReadOnlyTableException("The HBase column families for a read-only table must already exist(" + Bytes.toStringBinary(family.getFirst()) + ")");
+                    }
+                    columnDescriptor = generateColumnFamilyDescriptor(family, readOnly);
+                } else {
+                    columnDescriptor = new HColumnDescriptor(oldDescriptor);
+                    if (!readOnly) {
+                        modifyColumnFamilyDescriptor(columnDescriptor, family);
+                    }
+                }
+                
                 if (columnDescriptor.equals(oldDescriptor)) {
                     // Table already has family and it's the same.
                     return;
                 }
                 admin.disableTable(tableName);
                 if (oldDescriptor == null) {
-                    if (readOnly) {
-                        throw new ReadOnlyTableException("The HBase column families for a read-only table must already exist(" + Bytes.toStringBinary(columnDescriptor.getName()) + ")");
-                    }
                     admin.addColumn(tableName, columnDescriptor);
                 } else {
                     admin.modifyColumn(tableName, columnDescriptor);
@@ -452,13 +493,49 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private boolean ensureTableCreated(byte[] tableName, boolean readOnly, Map<String,Object> props, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         HBaseAdmin admin = null;
         SQLException sqlE = null;
-        Set<byte[]> familyNames = null;
+        HTableDescriptor existingDesc = null;
         boolean isMetaTable = SchemaUtil.isMetaTable(tableName);
+        boolean tableExist = true;
         try {
             admin = new HBaseAdmin(this.getConfig());
-            HTableDescriptor newDesc = generateTableDescriptor(tableName, readOnly, props, families, splits);
             try {
-                HTableDescriptor existingDesc = admin.getTableDescriptor(tableName);
+                existingDesc = admin.getTableDescriptor(tableName);
+            } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
+                tableExist = false;
+                if (readOnly) {
+                    throw new ReadOnlyTableException("An HBase table for a VIEW must already exist(" + SchemaUtil.getTableDisplayName(tableName) + ")");
+                }
+            }
+
+            HTableDescriptor newDesc = generateTableDescriptor(tableName, existingDesc, readOnly, props, families, splits);
+            
+            if (!tableExist) {
+                /*
+                 * Remove the splitPolicy attribute due to an HBase bug (see below)
+                 */
+                if (isMetaTable) {
+                    newDesc.remove(HTableDescriptor.SPLIT_POLICY);
+                }
+                if (splits == null) {
+                    admin.createTable(newDesc);
+                } else {
+                    admin.createTable(newDesc, splits);
+                }
+                if (isMetaTable) {
+                    checkClientServerCompatibility();
+                    /*
+                     * Now we modify the table to add the split policy, since we know that the client and
+                     * server and compatible. This works around a nasty, known HBase bug where if a split
+                     * policy class cannot be found on the server, the HBase table is left in a horrible
+                     * "ghost" state where it can't be used and can't be deleted without bouncing the master. 
+                     */
+                    newDesc.setValue(HTableDescriptor.SPLIT_POLICY, MetaDataSplitPolicy.class.getName());
+                    admin.disableTable(tableName);
+                    admin.modifyTable(tableName, newDesc);
+                    admin.enableTable(tableName);
+                }
+                return true;
+            } else {
                 if (existingDesc.equals(newDesc)) {
                     // Table is already created. Note that the presplits are ignored in this case
                     if (isMetaTable) {
@@ -466,23 +543,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     }
                     return false;
                 }
-                // Add column families from existing table that aren't in phoenix description
-                for (HColumnDescriptor cd : existingDesc.getColumnFamilies()) {
-                    if (newDesc.getFamily(cd.getName()) == null) {
-                        if (readOnly) {
-                            if (familyNames == null) {
-                                familyNames = Sets.newTreeSet(Bytes.BYTES_COMPARATOR);
-                                for (Pair<byte[],Map<String,Object>> family : families) {
-                                    familyNames.add(family.getFirst());
-                                }
-                            }
-                            if (!familyNames.contains(cd.getName())) {
-                                throw new ReadOnlyTableException("The HBase column families for a VIEW must already exist(" + Bytes.toStringBinary(cd.getName()) + ")");
-                            }
-                        }
-                        newDesc.addFamily(cd);
-                    }
-                }
+
                 boolean removePhoenixJarPath = false;
                 if (isMetaTable) {
                     /*
@@ -515,37 +576,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     checkClientServerCompatibility();
                 }
                 return false;
-            } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
             }
-            if (readOnly) {
-                throw new ReadOnlyTableException("An HBase table for a VIEW must already exist(" + SchemaUtil.getTableDisplayName(tableName) + ")");
-            }
-            
-            /*
-             * Remove the splitPolicy attribute due to an HBase bug (see below)
-             */
-            if (isMetaTable) {
-                newDesc.remove(HTableDescriptor.SPLIT_POLICY);
-            }
-            if (splits == null) {
-                admin.createTable(newDesc);
-            } else {
-                admin.createTable(newDesc, splits);
-            }
-            if (isMetaTable) {
-                checkClientServerCompatibility();
-                /*
-                 * Now we modify the table to add the split policy, since we know that the client and
-                 * server and compatible. This works around a nasty, known HBase bug where if a split
-                 * policy class cannot be found on the server, the HBase table is left in a horrible
-                 * "ghost" state where it can't be used and can't be deleted without bouncing the master. 
-                 */
-                newDesc.setValue(HTableDescriptor.SPLIT_POLICY, MetaDataSplitPolicy.class.getName());
-                admin.disableTable(tableName);
-                admin.modifyTable(tableName, newDesc);
-                admin.enableTable(tableName);
-            }
-            return true;
+
         } catch (IOException e) {
             sqlE = new PhoenixIOException(e);
         } finally {
