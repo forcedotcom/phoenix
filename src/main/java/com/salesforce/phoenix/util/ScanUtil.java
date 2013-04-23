@@ -277,4 +277,33 @@ public class ScanUtil {
         }
         return true;
     }
+
+    /**
+     * Perform a binary lookup on the list of KeyRange for the tightest slot such that the slotBound
+     * of the current slot is higher or equal than the slotBound of our range. 
+     * @return  the index of the slot whose slot bound equals or are the tightest one that is 
+     *          smaller than rangeBound of range, or slots.length if no sound bound can be found.
+     */
+    public static int searchClosestKeyRangeWithUpperHigherThanLowerPtr(List<KeyRange> slots, ImmutableBytesWritable ptr) {
+        int lower = 0;
+        int upper = slots.size() - 1;
+        int mid;
+        while (lower <= upper) {
+            mid = (lower + upper) / 2;
+            int cmp = slots.get(mid).compareUpperToLowerBound(ptr, true);
+            if (cmp < 0) {
+                lower = mid + 1;
+            } else if (cmp > 0) {
+                upper = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        mid = (lower + upper) / 2;
+        if (mid == 0 && slots.get(mid).compareUpperToLowerBound(ptr, true) > 0) {
+            return mid;
+        } else {
+            return ++mid;
+        }
+    }
 }

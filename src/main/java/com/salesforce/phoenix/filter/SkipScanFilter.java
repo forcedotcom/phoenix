@@ -147,8 +147,8 @@ public class SkipScanFilter extends FilterBase {
             // Increment to the next range while the upper bound of our current slot is less than our current key
             while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpperToLowerBound(ptr) < 0) {
                 position[i]++;
-                Arrays.fill(position, i+1, position.length, 0);
             }
+            Arrays.fill(position, i+1, position.length, 0);
             if (position[i] >= slots.get(i).size()) {
                 // Our current key is bigger than the last range of the current slot.
                 // Backtrack and increment the key of the previous slot values.
