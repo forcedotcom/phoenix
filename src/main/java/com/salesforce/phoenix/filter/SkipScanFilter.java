@@ -40,6 +40,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.google.common.hash.*;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
@@ -95,6 +96,10 @@ public class SkipScanFilter extends FilterBase {
         init(slots, schema, maxKeyLength);
     }
 
+    public SkipScanFilter(SkipScanFilter other) {
+        init(other.slots, other.schema, other.maxKeyLength);
+    }
+
     private void init(List<List<KeyRange>> slots, RowKeySchema schema, int maxKeyLength) {
         this.slots = slots;
         this.schema = schema;
@@ -123,6 +128,81 @@ public class SkipScanFilter extends FilterBase {
         // TODO: don't allocate new key value every time here if possible
         return startKey == null ? null : new KeyValue(startKey, 0, startKeyLength,
                 null, 0, 0, null, 0, 0, HConstants.LATEST_TIMESTAMP, Type.Maximum, null, 0, 0);
+    }
+
+    /**
+     * Intersect the ranges of this filter with the ranges form by lowerInclusive and upperInclusive
+     * key and filter out the ones that are not included in the region. Return the new slots.
+     */
+    public void intersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
+        ImmutableBytesWritable lowerPtr = new ImmutableBytesWritable();
+        ImmutableBytesWritable upperPtr = new ImmutableBytesWritable();
+        ImmutableBytesWritable lower = lowerPtr, upper = upperPtr;
+        lowerPtr.set(lowerInclusiveKey, 0, lowerInclusiveKey.length);
+        if (schema.first(lowerPtr, 0, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+            lower = ScanRanges.UNBOUND;
+        }
+        upperPtr.set(upperExclusiveKey, 0, upperExclusiveKey.length);
+        if (schema.first(upperPtr, 0, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+            upper = ScanRanges.UNBOUND;
+        }
+        
+        List<List<KeyRange>> newSlots = Lists.newArrayListWithCapacity(slots.size());
+        int i = 0;
+        int nSlots = slots.size();
+        while (true) {
+            // Search to the slot whose upper bound of is closest bigger or equal to our lower bound.
+            position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(i), lower);
+            if (position[i] >= slots.get(i).size()) {
+                // The lower key of the intersect range is higher than the last range of the current slot.
+                // No intersection with the slots is possible. This should not happen.
+                // TODO:: Should warn in this case.
+                slots = ScanRanges.NOTHING.getRanges();
+                return;
+            } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(upper, i < nSlots - 1) > 0) {
+                // Out upper key is less than the lower range of the current position in the current slot.
+                // No intersection with the slots is possible. Again, this should not happen.
+                slots = ScanRanges.NOTHING.getRanges();
+                return;
+            } else { 
+                // We are in range, linear search to the range whose lower bound is bigger than our
+                // upper bound. That would be the subset of slots that have intersection with our range.
+                int end = position[i] + 1;
+                while (end < slots.get(i).size() &&
+                        (slots.get(i).get(end).compareLowerToUpperBound(upper, i < nSlots - 1)) <= 0) {
+                    end++;
+                }
+                List<KeyRange> newSlot = Lists.newArrayListWithCapacity(end - position[i]);
+                for (int idx = position[i]; idx < end; idx++) {
+                    newSlot.add(slots.get(i).get(idx));
+                }
+                newSlots.add(newSlot);
+                i++;
+                if (i >= nSlots) { // done.
+                    break;
+                }
+                // Move to the next part of the key
+                if (lower != ScanRanges.UNBOUND) {
+                    if (schema.next(lowerPtr, i, lowerInclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                        // If no more lower key parts, then we have no constraint for that part of the key,
+                        // so we use unbound lower from here on out.
+                        lower = ScanRanges.UNBOUND;
+                    } else {
+                        lower = lowerPtr;
+                    }
+                }
+                if (upper != ScanRanges.UNBOUND) {
+                    if (schema.next(upperPtr, i, upperExclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                        // If no more upper key parts, then we have no constraint for that part of the key,
+                        // so we use unbound upper from here on out.
+                        upper = ScanRanges.UNBOUND;
+                    } else {
+                        upper = upperPtr;
+                    }
+                }
+            }
+        }
+        slots = newSlots;
     }
 
     private ReturnCode navigate(final byte[] currentKey, int offset, final int length) {
@@ -230,13 +310,13 @@ public class SkipScanFilter extends FilterBase {
         return ReturnCode.INCLUDE;
     }
 
-    public int incrementKey(int i) {
+    private int incrementKey(int i) {
         while (i >= 0 && slots.get(i).get(position[i]).isSingleKey() && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
             i--;
         }
         return i;
     }
-    
+
     private static byte[] copyKey(byte[] targetKey, int targetLength, byte[] sourceKey, int offset, int length) {
         if (targetLength > targetKey.length) {
             targetKey = new byte[targetLength];
@@ -244,17 +324,17 @@ public class SkipScanFilter extends FilterBase {
         System.arraycopy(sourceKey, offset, targetKey, 0, length);
         return targetKey;
     }
-    
+
     private void setStartKey(int maxLength, byte[] sourceKey, int offset, int length) {
         startKey = copyKey(startKey, maxLength, sourceKey, offset, length);
         startKeyLength = length;
     }
-    
+
     private void setEndKey(int maxLength, byte[] sourceKey, int offset, int length) {
         endKey = copyKey(endKey, maxLength, sourceKey, offset, length);
         endKeyLength = length;
     }
-    
+
     private int setKey(Bound bound, byte[] key, int keyOffset, int slotStartIndex) {
         return setKey(bound, key, keyOffset, slotStartIndex, position.length);
     }
