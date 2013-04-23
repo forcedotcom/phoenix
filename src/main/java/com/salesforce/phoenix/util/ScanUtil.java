@@ -118,7 +118,10 @@ public class ScanUtil {
                 if (firstFilter instanceof SkipScanFilter) {
                     SkipScanFilter newFilter = new SkipScanFilter((SkipScanFilter)firstFilter);
                     newFilter.intersect(startKey, stopKey);
-                    filterList.getFilters().set(0, newFilter);
+                    List<Filter> allFilters = new ArrayList<Filter>(filterList.getFilters().size());
+                    allFilters.addAll(filterList.getFilters());
+                    allFilters.set(0, newFilter);
+                    scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,allFilters));
                 }
             }
         }

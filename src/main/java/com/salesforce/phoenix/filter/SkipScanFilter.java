@@ -152,16 +152,18 @@ public class SkipScanFilter extends FilterBase {
         int nSlots = slots.size();
         while (true) {
             // Search to the slot whose upper bound of is closest bigger or equal to our lower bound.
-            position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(i), upperPtr);
+            position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(i), lower);
             if (position[i] >= slots.get(i).size()) {
                 // The lower key of the intersect range is higher than the last range of the current slot.
                 // No intersection with the slots is possible. This should not happen.
                 // TODO:: Should warn in this case.
                 slots = ScanRanges.NOTHING.getRanges();
+                return;
             } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(upper, i < nSlots - 1) > 0) {
                 // Out upper key is less than the lower range of the current position in the current slot.
                 // No intersection with the slots is possible. Again, this should not happen.
                 slots = ScanRanges.NOTHING.getRanges();
+                return;
             } else { 
                 // We are in range, linear search to the range whose lower bound is bigger than our
                 // upper bound. That would be the subset of slots that have intersection with our range.
@@ -171,9 +173,10 @@ public class SkipScanFilter extends FilterBase {
                     end++;
                 }
                 List<KeyRange> newSlot = Lists.newArrayListWithCapacity(end - position[i]);
-                for (int idx = position[i]; idx < end; i++) {
+                for (int idx = position[i]; idx < end; idx++) {
                     newSlot.add(slots.get(i).get(idx));
                 }
+                newSlots.add(newSlot);
                 i++;
                 if (i >= nSlots) { // done.
                     break;
