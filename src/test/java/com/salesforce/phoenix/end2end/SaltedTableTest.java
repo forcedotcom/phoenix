@@ -215,13 +215,29 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(url, props);
         try {
             initTableValues(splits, ts);
+            String query;
+            PreparedStatement stmt;
+            ResultSet rs;
             
+            // Variable length slot with bounded ranges.
+            query = "SELECT * FROM " + TABLE_WITH_SALTING + 
+                    " WHERE a_integer = 1 AND a_string >= 'ab' AND a_string < 'de' AND a_id = '123'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("ab", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            assertFalse(rs.next());
+
             // all single slots with one value.
-            String query = "SELECT * FROM " + TABLE_WITH_SALTING + 
+            query = "SELECT * FROM " + TABLE_WITH_SALTING + 
                     " WHERE a_integer = 1 AND a_string = 'ab' AND a_id = '123'";
-            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt = conn.prepareStatement(query);
             
-            ResultSet rs = stmt.executeQuery();
+            rs = stmt.executeQuery();
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
             assertEquals("ab", rs.getString(2));
@@ -332,19 +348,6 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals(444, rs.getInt(5));
             assertFalse(rs.next());
             
-            // Variable length slot with bounded ranges.
-            query = "SELECT * FROM " + TABLE_WITH_SALTING + 
-                    " WHERE a_integer = 1 AND a_string >= 'ab' AND a_string < 'de' AND a_id = '123'";
-            stmt = conn.prepareStatement(query);
-            rs = stmt.executeQuery();
-            assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals("ab", rs.getString(2));
-            assertEquals("123", rs.getString(3));
-            assertEquals("abc", rs.getString(4));
-            assertEquals(111, rs.getInt(5));
-            assertFalse(rs.next());
-            
             // Variable length slot with unbounded ranges.
             query = "SELECT * FROM " + TABLE_WITH_SALTING + 
                     " WHERE a_integer = 1 AND a_string > 'ab' AND a_id = '123'";
@@ -357,6 +360,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertEquals("abc", rs.getString(4));
             assertEquals(111, rs.getInt(5));
             assertFalse(rs.next());
+
         } finally {
             conn.close();
         }

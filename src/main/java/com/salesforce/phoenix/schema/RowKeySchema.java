@@ -87,7 +87,7 @@ public class RowKeySchema extends ValueSchema {
 
     @Override
     public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
-        if (maxOffset == 0) {
+        if (ptr.getOffset() + ptr.getLength() >= maxOffset) {
             return null;
         }
         // If positioned at SEPARATOR_BYTE, skip it.

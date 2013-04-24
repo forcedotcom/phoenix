@@ -24,7 +24,7 @@ import com.salesforce.phoenix.util.ByteUtil;
 //filterAllRemaining() -> true indicates scan is over, false, keep going on.
 //filterRowKey(byte[],int,int) -> true to drop this row, if false, we will also call
 //filterKeyValue(KeyValue) -> true to drop this key/value
-//filterRow(List) -> allows directmodification of the final list to be submitted
+//filterRow(List) -> allows direct modification of the final list to be submitted
 //filterRow() -> last chance to drop entire row based on the sequence of filterValue() calls. Eg: filter a row if it doesn't contain a specified column.
 @RunWith(Parameterized.class)
 public class SkipScanFilterTest extends TestCase {
@@ -86,6 +86,28 @@ public class SkipScanFilterTest extends TestCase {
     @Parameters(name="{0} {1} {2}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
+                },
+                {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                },
+                {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                },
+                {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                },
+                {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
+                }},
+                new int[]{3,2,2,2,2},
+                //new SeekNext("abcABABABAB", "abdAAAAAAAA"),
+                new SeekNext("defAAABABAB", "dzzAAAAAAAA"),
+                new Finished("xyyABABABAB"))
+        );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
                         PDataType.VARCHAR.getKeyRange(Bytes.toBytes("j"), false, Bytes.toBytes("k"), true),
@@ -200,29 +222,7 @@ public class SkipScanFilterTest extends TestCase {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("def"), true, Bytes.toBytes("def"), true),
                 }},
                 new int[]{2,3},
-                new Include("POdef", true))
-        );
-        testCases.addAll(
-                foreach(new KeyRange[][]{{
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("abc"), true, Bytes.toBytes("def"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("dzy"), false, Bytes.toBytes("xyz"), false),
-                },
-                {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
-                },
-                {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
-                },
-                {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
-                },
-                {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("AA"), true, Bytes.toBytes("AB"), false),
-                }},
-                new int[]{3,2,2,2,2},
-                new SeekNext("abcABABABAB", "abdAAAAAAAA"),
-                new SeekNext("defAAABABAB", "dzzAAAAAAAA"),
-                new Finished("xyyABABABAB"))
+                new Include("POdef"))
         );
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -352,26 +352,17 @@ public class SkipScanFilterTest extends TestCase {
     }
     private static final class Include implements Expectation {
         private final byte[] rowkey;
-        private final boolean isLastKey;
         
         public Include(String rowkey) {
-            this(rowkey, false);
+            this.rowkey = Bytes.toBytes(rowkey);
         }
         
-        public Include(String rowkey, boolean isLastKey) {
-            this.rowkey = Bytes.toBytes(rowkey);
-            this.isLastKey = isLastKey;
-        }
-
         @Override public void examine(SkipScanFilter skipper) {
             KeyValue kv = KeyValue.createFirstOnRow(rowkey);
             skipper.reset();
             assertFalse(skipper.filterAllRemaining());
             assertFalse(skipper.filterRowKey(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength()));
             assertEquals(kv.toString(), ReturnCode.INCLUDE, skipper.filterKeyValue(kv));
-            if (isLastKey) {
-                assertTrue(skipper.filterAllRemaining());
-            }
         }
 
         @Override public String toString() {
