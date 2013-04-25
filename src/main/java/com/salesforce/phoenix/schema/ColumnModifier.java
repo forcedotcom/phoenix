@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+
 import com.google.common.base.Preconditions;
 
 /**
@@ -61,6 +63,24 @@ public enum ColumnModifier {
         @Override
         public byte apply(byte src) {
             return (byte)(src ^ 0xFF);
+        }
+
+        @Override
+        public CompareOp transform(CompareOp op) {
+            switch (op) {
+            case EQUAL:
+                return op;
+            case GREATER:
+                return CompareOp.LESS;
+            case GREATER_OR_EQUAL:
+                return CompareOp.LESS_OR_EQUAL;
+            case LESS:
+                return CompareOp.GREATER;
+            case LESS_OR_EQUAL:
+                return CompareOp.GREATER_OR_EQUAL;
+            default:
+                throw new IllegalArgumentException("Unknown operator " + op);
+            }
         }
 	};
 	
@@ -115,4 +135,6 @@ public enum ColumnModifier {
 	 */
 	public abstract byte[] apply(byte[] src, byte[] dest, int offset, int length);
     public abstract byte apply(byte src);
+    
+    public abstract CompareOp transform(CompareOp op);
 }

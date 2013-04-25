@@ -258,6 +258,22 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         runQueryTest(ddl, upsert("n1", "n2", "n3", "d1"), select("n1-1, n2-2, n3-3", "d1-4"), insertedRows, expectedRows);
     }
     
+    @Test
+    public void lessThanLeadingDescCompositePK() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (id INTEGER NOT NULL, date DATE NOT NULL constraint pk primary key (id DESC, date))";
+        Object[][] insertedRows = new Object[][]{{1, date(1, 1, 2012)}, {3, date(1, 1, 2013)}, {2, date(1, 1, 2011)}};
+        Object[][] expectedRows = new Object[][]{{1, date(1, 1, 2012)}};
+        runQueryTest(ddl, upsert("id", "date"), insertedRows, expectedRows, new WhereCondition("id", "<", "2"));
+    }
+    
+    @Test
+    public void lessThanTrailingDescCompositePK() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (id INTEGER NOT NULL, date DATE NOT NULL constraint pk primary key (id DESC, date))";
+        Object[][] insertedRows = new Object[][]{{1, date(1, 1, 2002)}, {3, date(1, 1, 2003)}, {2, date(1, 1, 2001)}};
+        Object[][] expectedRows = new Object[][]{{2, date(1, 1, 2001)}};
+        runQueryTest(ddl, upsert("id", "date"), insertedRows, expectedRows, new WhereCondition("date", "<", "TO_DATE('02-02-2001','mm-dd-yyyy')"));
+    }
+    
     private void runQueryTest(String ddl, String columnName, Object[][] rows, Object[][] expectedRows) throws Exception {
         runQueryTest(ddl, new String[]{columnName}, rows, expectedRows, null);
     }
