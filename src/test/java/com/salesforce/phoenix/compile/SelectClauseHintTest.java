@@ -68,7 +68,7 @@ public class SelectClauseHintTest extends BaseConnectionlessQueryTest {
         assertEquals(limit, actualLimit);
         GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context);
         statement = HavingCompiler.moveToWhereClause(statement, context, groupBy);
-        WhereCompiler.compileWhereClause(context, statement.getWhere(), extractedNodes);
+        WhereCompiler.compileWhereClause(context, statement.getWhere(), extractedNodes, statement.getHint());
         return context;
     }
 
