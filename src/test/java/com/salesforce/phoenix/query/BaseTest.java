@@ -75,6 +75,13 @@ public abstract class BaseTest {
                 "    d_string varchar(3),\n" +
                 "    e_string char(10)\n" +
                 "    CONSTRAINT my_pk PRIMARY KEY (a_string,a_id,b_string,a_integer,c_string))");
+        builder.put(SIMPLE_TABLE,"create table " + SIMPLE_TABLE +
+                "   (a_integer integer not null, \n" +
+                "    a_string varchar not null, \n" +
+                "    a_id char(3) not null,\n" +
+                "    b_string varchar, \n" +
+                "    b_integer integer \n" +
+                "    CONSTRAINT pk PRIMARY KEY (a_integer, a_string, a_id))\n");
         builder.put(TABLE_WITH_SALTING,"create table " + TABLE_WITH_SALTING +
                 "   (a_integer integer not null, \n" +
                 "    a_string varchar not null, \n" +

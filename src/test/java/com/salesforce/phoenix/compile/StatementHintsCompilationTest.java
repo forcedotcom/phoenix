@@ -48,9 +48,9 @@ import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 
 
 /**
- * Test hints being passed to select statements are being followed.
+ * Test compilation of various statements with hints.
  */
-public class SelectClauseHintTest extends BaseConnectionlessQueryTest {
+public class StatementHintsCompilationTest extends BaseConnectionlessQueryTest {
 
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds) throws SQLException {
         return compileStatement(query, scan, binds, null, null);
@@ -73,7 +73,7 @@ public class SelectClauseHintTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testForceSkipScan() throws Exception {
+    public void testSelectForceSkipScan() throws Exception {
         String id = "000000000000001";
         // A where clause without the first column usually compiles into a range scan.
         String query = "SELECT /*+ SKIP_SCAN */ * FROM atable WHERE entity_id='" + id + "'";
@@ -90,7 +90,7 @@ public class SelectClauseHintTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testForceRangeScan() throws Exception {
+    public void testSelectForceRangeScan() throws Exception {
         String query = "SELECT /*+ RANGE_SCAN */ * FROM atable WHERE organization_id in (" +
                 "'000000000000001', '000000000000002', '000000000000003', '000000000000004')";
         Scan scan = new Scan();
