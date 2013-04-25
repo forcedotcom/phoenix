@@ -51,7 +51,7 @@ public class SaltingUtil {
 
         @Override
         public PDataType getDataType() {
-            return PDataType.BINARY;
+            return PDataType.VARBINARY;
         }
 
         @Override

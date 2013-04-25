@@ -62,7 +62,7 @@ public class TypeUtil {
 
 		switch (type) {
 		case DataType.BYTEARRAY:
-			sqlType = PDataType.BINARY;
+			sqlType = PDataType.VARBINARY;
 			break;
 		case DataType.CHARARRAY:
 			sqlType = PDataType.VARCHAR;
@@ -111,7 +111,7 @@ public class TypeUtil {
 			return null;
 		}
 		
-		if(inferredPType == PDataType.BINARY && targetPhoenixType != PDataType.BINARY) {
+		if(inferredPType == PDataType.VARBINARY && targetPhoenixType != PDataType.VARBINARY) {
 			try {
 				o = castBytes(o, targetPhoenixType);
 				inferredPType = getType(o, DataType.findType(o));

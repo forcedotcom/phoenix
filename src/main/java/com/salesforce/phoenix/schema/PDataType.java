@@ -97,7 +97,7 @@ public enum PDataType {
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
             // TODO: should CHAR not be here?
-            return this == targetType || targetType == CHAR || targetType == BINARY;
+            return this == targetType || targetType == CHAR || targetType == VARBINARY;
         }
 
         @Override
@@ -208,7 +208,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == VARCHAR || targetType == BINARY;
+            return this == targetType || targetType == VARCHAR || targetType == VARBINARY;
         }
 
         @Override
@@ -322,7 +322,7 @@ public enum PDataType {
             // In general, don't allow conversion of LONG to INTEGER. There are times when
             // we check isComparableTo for a more relaxed check and then throw a runtime
             // exception if we overflow
-            return this == targetType || targetType == UNSIGNED_LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == UNSIGNED_LONG || targetType == DECIMAL || targetType == VARBINARY;
         }
 
         @Override
@@ -465,7 +465,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == LONG || targetType == DECIMAL || targetType == VARBINARY;
         }
 
         @Override
@@ -810,7 +810,7 @@ public enum PDataType {
         
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == DATE || targetType == TIME || targetType == BINARY;
+            return this == targetType || targetType == DATE || targetType == TIME || targetType == VARBINARY;
         }
 
         @Override
@@ -894,7 +894,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == DATE || targetType == TIMESTAMP || targetType == BINARY;
+            return this == targetType || targetType == DATE || targetType == TIMESTAMP || targetType == VARBINARY;
         }
 
         @Override
@@ -981,7 +981,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == TIME || targetType == TIMESTAMP || targetType == BINARY;
+            return this == targetType || targetType == TIME || targetType == TIMESTAMP || targetType == VARBINARY;
         }
 
         @Override
@@ -1084,7 +1084,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == LONG || targetType == DECIMAL || targetType == VARBINARY;
         }
 
         @Override
@@ -1210,7 +1210,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == INTEGER || targetType == UNSIGNED_LONG  || targetType == LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == INTEGER || targetType == UNSIGNED_LONG  || targetType == LONG || targetType == DECIMAL || targetType == VARBINARY;
         }
 
         @Override
@@ -1313,7 +1313,7 @@ public enum PDataType {
             return Boolean.parseBoolean(value);
         }
     },
-    BINARY("BINARY", Types.BINARY, byte[].class, null) {
+    VARBINARY("VARBINARY", Types.VARBINARY, byte[].class, null) {
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -1389,7 +1389,7 @@ public enum PDataType {
             } else if (rhs == null) {
                 return 1;
             }
-            if (rhsType == PDataType.BINARY) {
+            if (rhsType == PDataType.VARBINARY) {
                 return Bytes.compareTo((byte[])lhs, (byte[])rhs);
             } else {
                 byte[] rhsBytes = rhsType.toBytes(rhs);
@@ -1960,7 +1960,7 @@ public enum PDataType {
     }
 
     public boolean isCoercibleTo(PDataType targetType) {
-        return this == targetType || targetType == BINARY;
+        return this == targetType || targetType == VARBINARY;
     }
 
     // Specialized on enums to take into account type hierarchy (i.e. UNSIGNED_LONG is comparable to INTEGER)

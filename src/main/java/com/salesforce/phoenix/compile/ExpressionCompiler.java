@@ -1052,7 +1052,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 context.getBindManager().addParamMetaData((BindParseNode)childNode,expression);
             }
             PDataType type=children.get(i).getDataType();
-            if(type==PDataType.BINARY){
+            if(type==PDataType.VARBINARY){
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.TYPE_NOT_SUPPORTED_FOR_OPERATOR)
                     .setMessage("Concatenation does not support "+ type +" in expression" + node).build().buildException();
             }
