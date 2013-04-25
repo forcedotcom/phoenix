@@ -74,7 +74,7 @@ public class WhereOptimizer {
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause,
             Set<Expression> extractNodes, HintNode hint) {
-        boolean forcedSkipScanFilter = hint.hasHint(HintNode.FORCE_SKIP_SCAN_ON_SELECT);
+        boolean forcedSkipScanFilter = (hint == null) ? false : hint.hasHint(HintNode.FORCE_SKIP_SCAN_ON_SELECT);
         if (whereClause == null) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;

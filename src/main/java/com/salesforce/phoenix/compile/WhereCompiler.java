@@ -202,8 +202,9 @@ public class WhereCompiler {
 
         scan.setFilter(filter);
         ScanRanges scanRanges = context.getScanRanges();
-        if (hints.hasHint(HintNode.FORCE_SKIP_SCAN_ON_SELECT) ||
-                (scanRanges.useSkipScanFilter() && !hints.hasHint(HintNode.FORCE_RANGE_SCAN_ON_SELECT))) {
+        boolean forcedSkipScan = hints == null ? false : hints.hasHint(HintNode.FORCE_SKIP_SCAN_ON_SELECT);
+        boolean forcedRangeScan = hints == null ? false : hints.hasHint(HintNode.FORCE_RANGE_SCAN_ON_SELECT);
+        if (forcedSkipScan || (scanRanges.useSkipScanFilter() && !forcedRangeScan)) {
             ScanUtil.andFilter(scan, new SkipScanFilter(scanRanges.getRanges(), scanRanges.getSchema()));
         }
     }
