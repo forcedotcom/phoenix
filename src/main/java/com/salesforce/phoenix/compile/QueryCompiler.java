@@ -114,7 +114,7 @@ public class QueryCompiler {
         Expression having = HavingCompiler.getExpression(statement, context, groupBy);
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
-        WhereCompiler.getWhereClause(context, statement.getWhere());
+        WhereCompiler.getWhereClause(context, statement.getWhere(), statement.getHint());
         OrderBy orderBy = OrderByCompiler.getOrderBy(statement, context, groupBy, limit); 
         RowProjector projector = ProjectionCompiler.getRowProjector(statement, context, groupBy, orderBy, limit, targetColumns);
         
