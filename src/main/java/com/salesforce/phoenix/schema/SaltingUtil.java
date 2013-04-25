@@ -31,10 +31,12 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 
 
@@ -81,6 +83,18 @@ public class SaltingUtil {
     public static final String SALTED_ROW_KEY_NAME = "_SALTED_KEY";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
             new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, 0, null);
+
+    public static List<KeyRange> generateAllSaltingRanges(int bucketNum) {
+        List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(bucketNum);
+        byte[] bound = new byte[] {0};
+        for (int i=0; i<bucketNum; i++) {
+            byte[] boundCopy = Arrays.copyOf(bound, bound.length);
+            allRanges.add(SALTING_COLUMN.getDataType().getKeyRange(
+                    boundCopy, true, boundCopy, true));
+            ByteUtil.nextKey(bound, 1);
+        }
+        return allRanges;
+    }
 
     // Compute the hash of the key value stored in key and set its first byte as the value. The
     // first byte of key should be left empty as a place holder for the salting byte.
