@@ -30,6 +30,7 @@ package com.salesforce.phoenix.query;
 import static com.salesforce.phoenix.query.QueryServices.*;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HConstants;
 
 import com.salesforce.phoenix.util.DateUtil;
 
@@ -107,6 +108,13 @@ public class QueryServicesOptions {
             config.setInt(SCAN_CACHE_SIZE_ATTRIB, DEFAULT_SCAN_CACHE_SIZE);
         } else if (scanCaching <= 0) { // Provides the user with a way of setting it to 1
             config.setInt(SCAN_CACHE_SIZE_ATTRIB, 1);
+        }
+
+        // Ensure that HBase RPC time out value is at least as large as our thread time out for query. 
+        int threadTimeOutMS = config.getInt(THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
+        int hbaseRPCTimeOut = config.getInt(HConstants.HBASE_RPC_TIMEOUT_KEY, HConstants.DEFAULT_HBASE_RPC_TIMEOUT);
+        if (threadTimeOutMS > hbaseRPCTimeOut) {
+            config.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, threadTimeOutMS);
         }
         return options;
     }
