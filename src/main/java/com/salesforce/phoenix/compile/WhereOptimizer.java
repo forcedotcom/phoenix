@@ -37,6 +37,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
+import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.*;
@@ -64,9 +65,16 @@ public class WhereOptimizer {
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause) {
         return pushKeyExpressionsToScan(context, whereClause, null);
     }
-        
+
+    public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause,
+            Set<Expression> extractNodes) {
+        return pushKeyExpressionsToScan(context, whereClause, extractNodes, null);
+    }
+
     // For testing so that the extractedNodes can be verified
-    public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause, Set<Expression> extractNodes) {
+    public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause,
+            Set<Expression> extractNodes, HintNode hint) {
+        boolean forcedSkipScanFilter = (hint == null) ? false : hint.hasHint(HintNode.FORCE_SKIP_SCAN_ON_SELECT);
         if (whereClause == null) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
@@ -107,8 +115,18 @@ public class WhereOptimizer {
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.
-            if (slot == null || slot.getPKPosition() != pkPos + 1) {
-                break;
+            if ((slot == null || slot.getPKPosition() != pkPos + 1)) {
+                if (!forcedSkipScanFilter) {
+                    break;
+                }
+                if (slot == null) {
+                    cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
+                    continue;
+                } else {
+                    for (int i=0; i<slot.getPKPosition(); i++) {
+                        cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
+                    }
+                }
             }
             KeyPart keyPart = slot.getKeyPart();
             pkPos = slot.getPKPosition();

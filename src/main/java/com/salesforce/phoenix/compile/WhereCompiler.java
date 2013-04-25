@@ -70,6 +70,10 @@ public class WhereCompiler {
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
+    public static Expression getWhereClause(StatementContext context, ParseNode where, HintNode hint) throws SQLException {
+        return compileWhereClause(context, where, Sets.<Expression>newHashSet(), hint);
+    }
+
     public static Expression getWhereClause(StatementContext context, ParseNode where) throws SQLException {
         return compileWhereClause(context, where, Sets.<Expression>newHashSet());
     }
@@ -77,7 +81,13 @@ public class WhereCompiler {
     /**
      * Used for testing to get access to the expressions that were used to form the start/stop key of the scan
      */
-    public static Expression compileWhereClause(StatementContext context, ParseNode where, Set<Expression> extractedNodes) throws SQLException {
+    public static Expression compileWhereClause(StatementContext context, ParseNode where,
+            Set<Expression> extractedNodes) throws SQLException {
+        return compileWhereClause(context, where, extractedNodes, null);
+    }
+
+    public static Expression compileWhereClause(StatementContext context, ParseNode where,
+            Set<Expression> extractedNodes, HintNode hints) throws SQLException {
         if (where == null) {
             return null;
         }
@@ -86,8 +96,8 @@ public class WhereCompiler {
         if (whereCompiler.isAggregate()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
         }
-        expression = WhereOptimizer.pushKeyExpressionsToScan(context, expression, extractedNodes);
-        setScanFilter(context, expression, whereCompiler.disambiguateWithFamily);
+        expression = WhereOptimizer.pushKeyExpressionsToScan(context, expression, extractedNodes, hints);
+        setScanFilter(context, expression, whereCompiler.disambiguateWithFamily, hints);
 
         return expression;
     }
@@ -146,7 +156,8 @@ public class WhereCompiler {
      * @param context the shared context during query compilation
      * @param whereClause the final where clause expression.
      */
-    private static void setScanFilter(StatementContext context, Expression whereClause, boolean disambiguateWithFamily) {
+    private static void setScanFilter(StatementContext context, Expression whereClause, boolean disambiguateWithFamily,
+            HintNode hints) {
         Filter filter = null;
         Scan scan = context.getScan();
         assert scan.getFilter() == null;
@@ -191,8 +202,10 @@ public class WhereCompiler {
 
         scan.setFilter(filter);
         ScanRanges scanRanges = context.getScanRanges();
-        if (scanRanges.useSkipScanFilter()) {
-            ScanUtil.andFilter(scan, new SkipScanFilter(scanRanges.getRanges(),scanRanges.getSchema()));
+        boolean forcedSkipScan = hints == null ? false : hints.hasHint(HintNode.FORCE_SKIP_SCAN_ON_SELECT);
+        boolean forcedRangeScan = hints == null ? false : hints.hasHint(HintNode.FORCE_RANGE_SCAN_ON_SELECT);
+        if (forcedSkipScan || (scanRanges.useSkipScanFilter() && !forcedRangeScan)) {
+            ScanUtil.andFilter(scan, new SkipScanFilter(scanRanges.getRanges(), scanRanges.getSchema()));
         }
     }
 }

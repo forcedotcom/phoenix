@@ -27,20 +27,32 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.util.HashSet;
+import java.util.Set;
+
 
 /**
  * Node representing optimizer hints in SQL
- * TODO: parse this to obtain: index to use, table order, and statistics (if optimizer can pass this info through(
- *
  */
 public class HintNode {
-    private final String hint;
-    
-    HintNode(String hint) {
-        this.hint = hint;
+
+    // Force a range scan on an select.
+    public static final String FORCE_RANGE_SCAN_ON_SELECT = "range_scan";
+    // Force a skip scan on an select
+    public static final String FORCE_SKIP_SCAN_ON_SELECT = "skip_scan";
+
+    private final Set<String> hintWords;
+
+    public HintNode(String hint) {
+        hintWords = new HashSet<String>();
+        String[] hints = hint.split(",");
+        for (String hintWord: hints) {
+            hintWords.add(hintWord.trim());
+        }
     }
 
-    public String getHint() {
-        return hint;
+    // Check if a hint is specified.
+    public boolean hasHint(String hint) {
+        return hintWords.contains(hint);
     }
 }
