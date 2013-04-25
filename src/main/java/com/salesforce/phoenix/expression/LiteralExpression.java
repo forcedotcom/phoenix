@@ -195,21 +195,21 @@ public class LiteralExpression extends BaseTerminalExpression {
     @Override
     public void readFields(DataInput input) throws IOException {
         this.byteValue = Bytes.readByteArray(input);
+        columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
         if (this.byteValue.length > 0) {
             this.type = PDataType.values()[WritableUtils.readVInt(input)];
-            this.value = this.type.toObject(byteValue);
+            this.value = this.type.toObject(byteValue, 0, byteValue.length, this.type, columnModifier);
         }
         byteSize = this.byteValue.length;
-        columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
         Bytes.writeByteArray(output, byteValue);
+        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
         if (this.byteValue.length > 0) {
             WritableUtils.writeVInt(output, this.type.ordinal());
         }
-        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
     }
 
     @Override

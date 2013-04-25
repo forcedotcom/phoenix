@@ -406,7 +406,15 @@ public class WhereOptimizer {
                 return DEGENERATE_KEY_PARTS;
             }
             KeySlot childSlot = childParts.get(0).iterator().next();
-            KeyRange keyRange = childSlot.getKeyPart().getKeyRange(node.getFilterOp(), key);
+            KeyPart childPart = childSlot.getKeyPart();
+            ColumnModifier modifier = childPart.getColumn().getColumnModifier();
+            CompareOp op = node.getFilterOp();
+            // For descending columns, the operator needs to be transformed to
+            // it's opposite, since the range is backwards.
+            if (modifier != null) {
+                op = modifier.transform(op);
+            }
+            KeyRange keyRange = childPart.getKeyRange(op, key);
             return newKeyParts(childSlot, node, keyRange);
         }
 
