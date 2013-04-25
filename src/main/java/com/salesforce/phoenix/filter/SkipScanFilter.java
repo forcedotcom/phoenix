@@ -205,10 +205,22 @@ public class SkipScanFilter extends FilterBase {
         slots = newSlots;
     }
 
-    private ReturnCode navigate(final byte[] currentKey, int offset, final int length) {
+    private ReturnCode navigate(final byte[] currentKey, int offset, int length) {
+        int nSlots = slots.size();
         // First check to see if we're in-range until we reach our end key
-        if (endKeyLength > 0 && Bytes.compareTo(currentKey, offset, length, endKey, 0, endKeyLength) < 0) {
-            return ReturnCode.INCLUDE;
+        if (endKeyLength > 0) {
+            if (Bytes.compareTo(currentKey, offset, length, endKey, 0, endKeyLength) < 0) {
+                return ReturnCode.INCLUDE;
+            }
+
+            // If key range of last slot is a single key, we can increment our position
+            // since we know we'll be past the current row after including it.
+            if (slots.get(nSlots-1).get(position[nSlots-1]).isSingleKey()) {
+                if (incrementKey(nSlots-1) < 0) {
+                    // Current row will be included, but we have no more
+                    startKey = null;
+                }
+            }
         }
         endKeyLength = 0;
         
@@ -218,8 +230,9 @@ public class SkipScanFilter extends FilterBase {
         }
 
         int i = 0;
+        final int originalOffset = offset;
+        final int originalLength = length;
         boolean seek = false;
-        int nSlots = slots.size();
         int earliestRangeIndex = nSlots-1;
         ptr.set(currentKey, offset, length);
         schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
@@ -243,36 +256,48 @@ public class SkipScanFilter extends FilterBase {
                 i--;
                 // If we're positioned at a single key, no need to copy the current key and get the next key .
                 // Instead, just increment to the next key and continue.
-                if (slots.get(i).get(position[i]).isSingleKey()) {
-                    i = incrementKey(i);
-                    if (i < 0) {
-                        startKey = null;
-                        return ReturnCode.NEXT_ROW;
-                    }
+                boolean incremented = false;
+                while (i >= 0 && slots.get(i).get(position[i]).isSingleKey() && (incremented=true) && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
+                    i--;
+                    incremented = false;
+                }
+                if (i < 0) {
+                    startKey = null;
+                    return ReturnCode.NEXT_ROW;
+                }
+                if (incremented) {
                     // Continue the loop after setting the start key, because our start key maybe smaller than
                     // the current key, so we'll end up incrementing the start key until it's bigger than the
                     // current key.
                     setStartKey();
                     ptr.set(ptr.get(), offset, length);
+                    // Reinitialize iterator to be positioned at previous slot position
+                    schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
                 } else {
                     // Copy the leading part of the actual current key into startKey which we'll use
                     // as our buffer through the rest of the loop.
                     startKey = copyKey(startKey, ptr.getOffset() - offset + this.maxKeyLength, ptr.get(), offset, ptr.getOffset() - offset);
-                    ByteUtil.nextKey(startKey, ptr.getOffset() - offset);
+                    int nextKeyLength = ptr.getOffset() - offset;
                     startKeyLength = ptr.getOffset() - offset;
                     appendToStartKey(i+1, ptr.getOffset() - offset);
                     // From here on, we use startKey as our buffer with offset reset to 0
                     // We've copied the part of the current key above that we need into startKey
                     offset = 0;
+                    length = startKeyLength;
                     ptr.set(startKey, offset, startKeyLength);
+                    // Reinitialize iterator to be positioned at previous slot position
+                    // TODO: a schema.previous would potentially be more efficient
+                    schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+                    // Do nextKey after setting the accessor b/c otherwise the null byte may have
+                    // been incremented causing us not to find it
+                    ByteUtil.nextKey(startKey, nextKeyLength);
                 }
-                // Position pointer at previous slot position
-                schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
             } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(ptr) > 0) {
                 // Our current key is less than the lower range of the current position in the current slot.
                 // Seek to the lower range, since it's bigger than the current key
-                setStartKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-                appendToStartKey(i, ptr.getOffset() - offset);
+                int currentLength = ptr.getOffset() - offset;
+                setStartKey(currentLength + this.maxKeyLength, ptr.get(), offset, currentLength);
+                appendToStartKey(i, currentLength);
                 Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
                 return ReturnCode.SEEK_NEXT_USING_HINT;
             } else { // We're in range, check the next slot
@@ -280,28 +305,33 @@ public class SkipScanFilter extends FilterBase {
                     earliestRangeIndex = i;
                 }
                 i++;
-                if (i >= nSlots) {
+                // If we're past the last slot or we know we're seeking to the next (in
+                // which case the previously updated slot was verified to be within the
+                // range, so we don't need to check the rest of the slots. If we were
+                // to check the rest of the slots, we'd get into trouble because we may
+                // have a null byte that was incremented which screws up our schema.next call)
+                if (i >= nSlots || seek) {
                     break;
                 }
-                schema.next(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET);
+                // We should never not be able to find the value at a given slot. This would mean
+                // we have an invalid key or we manufactured an invalid seek hint. Either way,
+                // better if we just throw, otherwise we'll end up in an infinite loop.
+                if (schema.next(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                    throw new IllegalStateException("Unexpected key structure for " + 
+                            Bytes.toStringBinary(currentKey, originalOffset,originalLength) + " with slots " + slots);
+                }
             }
         }
             
         if (seek) {
             return ReturnCode.SEEK_NEXT_USING_HINT;
         }
-        // If key range of last slot is a single key, we can increment our position
-        // since we know we'll be past the current row after including it.
-        if (slots.get(nSlots-1).get(position[nSlots-1]).isSingleKey()) {
-            if (incrementKey(nSlots-1) < 0) {
-                // Current row will be included, but we have no more
-                startKey = null;
-            }
-        } else {
-            // Else, we're in range for all slots and can include this row plus all rows 
-            // up to the upper range of our last slot.
-            setEndKey(ptr.getOffset() - offset + this.maxKeyLength, currentKey, offset, ptr.getOffset() - offset);
-            appendToEndKey(nSlots-1, ptr.getOffset() - offset);
+        // Else, we're in range for all slots and can include this row plus all rows 
+        // up to the upper range of our last slot. We do this for ranges and single keys
+        // since we potentially have multiple key values for the same row key.
+        setEndKey(ptr.getOffset() - offset + this.maxKeyLength, ptr.get(), offset, ptr.getOffset() - offset);
+        appendToEndKey(nSlots-1, ptr.getOffset() - offset);
+        if (!slots.get(nSlots-1).get(position[nSlots-1]).isSingleKey()) {
             // Reset the positions to zero from the next slot after the earliest ranged slot, since the
             // next key could be bigger at this ranged slot, and smaller than the current position of
             // less significant slots.

@@ -156,6 +156,10 @@ public class KeyRange implements Writable {
         this.lowerInclusive = lowerInclusive;
         this.upperRange = upperRange;
         this.upperInclusive = upperInclusive;
+        init();
+    }
+    
+    private void init() {
         this.isSingleKey = lowerRange != UNBOUND && upperRange != UNBOUND
                 && lowerInclusive && upperInclusive && Bytes.compareTo(lowerRange, upperRange) == 0;
     }
@@ -567,6 +571,7 @@ public class KeyRange implements Writable {
                 in.readFully(upperRange);
             }
         }
+        init();
     }
 
     private void writeBound(Bound bound, DataOutput out) throws IOException {
