@@ -132,6 +132,21 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
+    public void testVarBinaryInMultipartPK() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (a_binary varbinary not null, a_string varchar not null, col1 decimal, col2 decimal CONSTRAINT pk PRIMARY KEY (a_binary, a_string))";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1005 (42J03): The VARBINARY type may not be used as part of a multi-part row key. columnName=FOO.A_BINARY"));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
     public void testNoPK() throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         try {

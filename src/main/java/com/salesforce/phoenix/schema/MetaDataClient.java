@@ -259,7 +259,7 @@ public class MetaDataClient {
                     }
                 }
                 columns.add(column);
-                if (colDef.getDataType() == PDataType.VARBINARY && pkColumns.size() > 1 && colDef.isPK()) {
+                if (colDef.getDataType() == PDataType.VARBINARY && pkColumns.size() > 1 && SchemaUtil.isPKColumn(column)) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.VARBINARY_IN_ROW_KEY).setSchemaName(schemaName)
                         .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                 }
