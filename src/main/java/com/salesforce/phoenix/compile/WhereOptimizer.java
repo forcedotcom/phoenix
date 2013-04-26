@@ -157,9 +157,7 @@ public class WhereOptimizer {
                 range = ScanRanges.create(expandedRanges, SaltingUtil.BINARY_SCHEMA);
             } else {
                 if (!cnf.isEmpty()) {
-                    cnf.addFirst(Collections.<KeyRange>singletonList(SaltingUtil.SALTING_COLUMN.getDataType().getKeyRange(
-                            new byte[] {0}, true, 
-                            new byte[] {(byte) table.getBucketNum().intValue()}, true)));
+                    cnf.addFirst(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
                 }
                 range = ScanRanges.create(cnf, table.getRowKeySchema());
             }
