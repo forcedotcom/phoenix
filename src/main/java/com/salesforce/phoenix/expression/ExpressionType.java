@@ -29,7 +29,6 @@ package com.salesforce.phoenix.expression;
 
 import java.util.Map;
 
-
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.expression.function.*;
 
@@ -43,6 +42,7 @@ import com.salesforce.phoenix.expression.function.*;
  * @since 0.1
  */
 public enum ExpressionType {
+    ReverseFunction(ReverseFunction.class),
     RowKey(RowKeyColumnExpression.class),
     KeyValue(KeyValueColumnExpression.class),
     LiteralValue(LiteralExpression.class),
