@@ -1405,6 +1405,84 @@ public enum PDataType {
             return Base64.decode(value);
         }
     },
+    BINARY("BINARY", Types.BINARY, byte[].class, null) {
+        @Override
+        public byte[] toBytes(Object object) { // Deligate to VARBINARY
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            return VARBINARY.toBytes(object);
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] bytes, int offset) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            return VARBINARY.toBytes(object, bytes, offset);
+            
+        }
+
+        @Override
+        public byte[] toBytes(Object object, ColumnModifier columnModifier) {
+            byte[] bytes = toBytes(object);
+            if (columnModifier != null) {
+                return columnModifier.apply(bytes, new byte[bytes.length], 0, bytes.length);
+            }
+            return bytes;
+        }
+
+        @Override
+        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+            return VARBINARY.toObject(bytes, offset, length, actualType);
+        }
+
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            return actualType.toBytes(object);
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return false;
+        }
+
+        @Override
+        public int estimateByteSize(Object o) {
+            byte[] value = (byte[]) o;
+            return value == null ? 1 : value.length;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return null;
+        }
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            if (lhs == null && rhs == null) {
+                return 0;
+            } else if (lhs == null) {
+                return -1;
+            } else if (rhs == null) {
+                return 1;
+            }
+            if (rhsType == PDataType.VARBINARY) {
+                return Bytes.compareTo((byte[])lhs, (byte[])rhs);
+            } else {
+                byte[] rhsBytes = rhsType.toBytes(rhs);
+                return Bytes.compareTo((byte[])lhs, rhsBytes);
+            }
+        }
+
+        @Override
+        public Object toObject(String value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            return Base64.decode(value);
+        }
+    },
     ;
 
     private final String sqlTypeName;
