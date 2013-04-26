@@ -31,7 +31,6 @@ tokens
 {
     SELECT='select';
     FROM='from';
-    USING='using';
     WHERE='where';
     NOT='not';
     AND='and';
@@ -54,7 +53,6 @@ tokens
     LIMIT='limit';
     FIRST='first';
     LAST='last';
-    DATA='data';
     CASE='case';
     WHEN='when';
     THEN='then';
