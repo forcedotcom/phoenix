@@ -36,7 +36,6 @@ import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
-import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 
 
@@ -86,12 +85,10 @@ public class SaltingUtil {
 
     public static List<KeyRange> generateAllSaltingRanges(int bucketNum) {
         List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(bucketNum);
-        byte[] bound = new byte[] {0};
         for (int i=0; i<bucketNum; i++) {
-            byte[] boundCopy = Arrays.copyOf(bound, bound.length);
+            byte[] saltByte = new byte[] {(byte) i};
             allRanges.add(SALTING_COLUMN.getDataType().getKeyRange(
-                    boundCopy, true, boundCopy, true));
-            ByteUtil.nextKey(bound, 1);
+                    saltByte, true, saltByte, true));
         }
         return allRanges;
     }

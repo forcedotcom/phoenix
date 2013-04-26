@@ -35,70 +35,68 @@ import java.util.Properties;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.util.PhoenixRuntime;
-
 
 /**
  * End-to-End tests on various statement hints.
  */
-public class StatementHintsTest extends BaseClientMangedTimeTest {
+public class StatementHintsTest extends BaseHBaseManagedTimeTest {
 
-    private static void initTableValues(byte[][] splits, long ts) throws Exception {
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
+    private static void initTableValues() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
-        Connection conn = DriverManager.getConnection(url, props);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         
         try {
-            ensureTableCreated(getUrl(), SIMPLE_TABLE, splits, ts-2);
+            String ddl = "CREATE TABLE test_table" +
+                    "   (a_integer integer not null, \n" +
+                    "    a_string varchar not null, \n" +
+                    "    a_id char(3) not null,\n" +
+                    "    b_string varchar \n" +
+                    "    CONSTRAINT pk PRIMARY KEY (a_integer, a_string, a_id))\n";
+            createTestTable(getUrl(), ddl);
+            
             String query;
             PreparedStatement stmt;
             
-            query = "UPSERT INTO " + SIMPLE_TABLE
-                    + "(a_integer, a_string, a_id, b_string, b_integer) "
-                    + "VALUES(?,?,?,?,?)";
+            query = "UPSERT INTO test_table"
+                    + "(a_integer, a_string, a_id, b_string) "
+                    + "VALUES(?,?,?,?)";
             stmt = conn.prepareStatement(query);
             
             stmt.setInt(1, 1);
             stmt.setString(2, "ab");
             stmt.setString(3, "123");
             stmt.setString(4, "abc");
-            stmt.setInt(5, 111);
             stmt.execute();
             
             stmt.setInt(1, 1);
             stmt.setString(2, "abc");
             stmt.setString(3, "456");
             stmt.setString(4, "abc");
-            stmt.setInt(5, 111);
             stmt.execute();
             
             stmt.setInt(1, 1);
             stmt.setString(2, "de");
             stmt.setString(3, "123");
             stmt.setString(4, "abc");
-            stmt.setInt(5, 111);
             stmt.execute();
             
             stmt.setInt(1, 2);
             stmt.setString(2, "abc");
             stmt.setString(3, "123");
             stmt.setString(4, "def");
-            stmt.setInt(5, 222);
             stmt.execute();
 
             stmt.setInt(1, 3);
             stmt.setString(2, "abc");
             stmt.setString(3, "123");
             stmt.setString(4, "ghi");
-            stmt.setInt(5, 333);
             stmt.execute();
 
             stmt.setInt(1, 4);
             stmt.setString(2, "abc");
             stmt.setString(3, "123");
             stmt.setString(4, "jkl");
-            stmt.setInt(5, 444);
             stmt.execute();
             conn.commit();
         } finally {
@@ -108,13 +106,11 @@ public class StatementHintsTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testSelectForceRangeScan() throws Exception {
-        long ts = nextTimestamp();
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         Properties props = new Properties(TEST_PROPERTIES);
-        Connection conn = DriverManager.getConnection(url, props);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
-            initTableValues(null, ts);
-            String query = "SELECT /*+ RANGE_SCAN */ * FROM " + SIMPLE_TABLE + " WHERE a_integer in (1, 2, 3, 4)";
+            initTableValues();
+            String query = "SELECT /*+ RANGE_SCAN */ * FROM test_table WHERE a_integer IN (1, 2, 3, 4)";
             PreparedStatement stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             
@@ -122,6 +118,7 @@ public class StatementHintsTest extends BaseClientMangedTimeTest {
             assertEquals(1, rs.getInt(1));
             assertEquals("ab", rs.getString(2));
             assertEquals("123", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
             
             assertTrue(rs.next());
             assertTrue(rs.next());
@@ -130,6 +127,7 @@ public class StatementHintsTest extends BaseClientMangedTimeTest {
             assertEquals(2, rs.getInt(1));
             assertEquals("abc", rs.getString(2));
             assertEquals("123", rs.getString(3));
+            assertEquals("def", rs.getString(4));
             
             assertTrue(rs.next());
             assertTrue(rs.next());
@@ -144,14 +142,12 @@ public class StatementHintsTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testSelectForceSkipScan() throws Exception {
-        long ts = nextTimestamp();
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
         Properties props = new Properties(TEST_PROPERTIES);
-        Connection conn = DriverManager.getConnection(url, props);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
-            initTableValues(null, ts);
+            initTableValues();
             // second slot on the 
-            String query = "SELECT /*+ SKIP_SCAN */ * FROM " + SIMPLE_TABLE + " WHERE a_string = 'abc'";
+            String query = "SELECT /*+ SKIP_SCAN */ * FROM test_table WHERE a_string = 'abc'";
             PreparedStatement stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             
