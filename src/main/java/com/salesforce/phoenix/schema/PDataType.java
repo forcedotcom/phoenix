@@ -1412,6 +1412,20 @@ public enum PDataType {
             }
             return Base64.decode(value);
         }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if (srcType == PDataType.BINARY && maxLength != null && desiredMaxLength != null) {
+                return maxLength <= desiredMaxLength;
+            }
+            return true;
+        }
     },
     BINARY("BINARY", Types.BINARY, byte[].class, null) {
         @Override
@@ -1497,6 +1511,21 @@ public enum PDataType {
                 return null;
             }
             return Base64.decode(value);
+        }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == VARBINARY;
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if ((srcType == PDataType.VARBINARY && ((String)value).length() != b.length) ||
+                    (maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)){
+                return false;
+            }
+            return true;
         }
     },
     ;
