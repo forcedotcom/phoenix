@@ -57,6 +57,8 @@ public enum SQLExceptionCode {
     MISSING_CHAR_LENGTH(207, "22003", "Missing length for CHAR."),
     NONPOSITIVE_CHAR_LENGTH(208, "22003", "CHAR or VARCHAR must have a positive length."),
     DECIMAL_PRECISION_OUT_OF_RANGE(209, "22003", "Decimal precision outside of range. Should be within 1 and " + PDataType.MAX_PRECISION + "."),
+    MISSING_BINARY_LENGTH(210, "22003", "Missing length for BINARY."),
+    NONPOSITIVE_BINARY_LENGTH(211, "22003", "BINARY must have a positive length."),
     
     /**
      * Constraint Violation (errorcode 03, sqlstate 23)
