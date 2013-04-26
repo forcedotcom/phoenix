@@ -1465,6 +1465,11 @@ public enum PDataType {
         }
 
         @Override
+        public Integer estimateByteSizeFromLength(Integer length) {
+            return length;
+        }
+
+        @Override
         public Integer getByteSize() {
             return null;
         }
