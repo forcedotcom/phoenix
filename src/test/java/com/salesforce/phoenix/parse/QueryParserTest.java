@@ -490,4 +490,25 @@ public class QueryParserTest {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 209 (22003): Decimal precision outside of range. Should be within 1 and 31. columnName=COL"));
         }
     }
+
+    @Test
+    public void testBadBinaryDef() throws Exception {
+        try {
+            SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadBinaryDef" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col BINARY(0))");
+            parser.parseStatement();
+            fail("Should have caught bad binary definition.");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 211 (22003): BINARY must have a positive length. columnName=COL"));
+        }
+        try {
+            SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadVarcharDef" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col BINARY)");
+            parser.parseStatement();
+            fail("Should have caught bad char definition.");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 210 (22003): Missing length for BINARY. columnName=COL"));
+        }
+    }
+    
 }

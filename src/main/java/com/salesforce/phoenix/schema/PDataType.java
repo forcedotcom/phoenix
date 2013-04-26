@@ -1340,7 +1340,7 @@ public enum PDataType {
             System.arraycopy(bytes, offset, o, 0, o.length);
             return o.length;
         }
-        
+
         /**
          * Override because we must always create a new byte array
          */
@@ -1389,6 +1389,20 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if (srcType == PDataType.BINARY && maxLength != null && desiredMaxLength != null) {
+                return maxLength <= desiredMaxLength;
+            }
+            return true;
+        }
+
+        @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             if (lhs == null && rhs == null) {
                 return 0;
@@ -1411,20 +1425,6 @@ public enum PDataType {
                 return null;
             }
             return Base64.decode(value);
-        }
-
-        @Override
-        public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == BINARY;
-        }
-
-        @Override
-        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
-                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
-            if (srcType == PDataType.BINARY && maxLength != null && desiredMaxLength != null) {
-                return maxLength <= desiredMaxLength;
-            }
-            return true;
         }
     },
     BINARY("BINARY", Types.BINARY, byte[].class, null) {
@@ -1479,6 +1479,21 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == VARBINARY;
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if ((srcType == PDataType.VARBINARY && ((String)value).length() != b.length) ||
+                    (maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)){
+                return false;
+            }
+            return true;
+        }
+
+        @Override
         public Integer estimateByteSizeFromLength(Integer length) {
             return length;
         }
@@ -1511,21 +1526,6 @@ public enum PDataType {
                 return null;
             }
             return Base64.decode(value);
-        }
-
-        @Override
-        public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == VARBINARY;
-        }
-
-        @Override
-        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
-                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
-            if ((srcType == PDataType.VARBINARY && ((String)value).length() != b.length) ||
-                    (maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)){
-                return false;
-            }
-            return true;
         }
     },
     ;
