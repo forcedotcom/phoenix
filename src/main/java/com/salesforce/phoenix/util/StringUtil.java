@@ -119,7 +119,10 @@ public class StringUtil {
         return sb.toString();
     }
 
-    private static int getBytesInChar(byte b) throws UnsupportedEncodingException {
+    public static int getBytesInChar(byte b, ColumnModifier columnModifier) {
+        if (columnModifier != null) {
+            b = columnModifier.apply(b);
+        }
         int c = b & 0xff;
         if ((c & BYTES_1_MASK) == 0)
             return 1;
@@ -130,15 +133,14 @@ public class StringUtil {
         if ((c & BYTES_4_MASK) == 0xF0)
             return 4;
         // Any thing else in the first byte is invalid
-        throw new UnsupportedEncodingException("Undecodable byte: " + b);
+        throw new RuntimeException("Undecodable byte: " + b);
     }
 
     public static int calculateUTF8Length(byte[] bytes, int offset, int length, ColumnModifier columnModifier) throws UnsupportedEncodingException {
         int i = offset, endOffset = offset + length;
         length = 0;
         while (i < endOffset) {
-            byte b = columnModifier == null ? bytes[i] : columnModifier.apply(bytes[i]);
-            int charLength = getBytesInChar(b);
+            int charLength = getBytesInChar(bytes[i], columnModifier);
             i += charLength;
             length++;
         }
@@ -152,8 +154,7 @@ public class StringUtil {
     public static int getByteLengthForUtf8SubStr(byte[] bytes, int offset, int length, ColumnModifier columnModifier) throws UnsupportedEncodingException {
         int byteLength = 0;
         while(length > 0 && offset + byteLength < bytes.length) {
-            byte b = columnModifier == null ? bytes[offset + byteLength] : columnModifier.apply(bytes[offset + byteLength]);
-            int charLength = getBytesInChar(b);
+            int charLength = getBytesInChar(bytes[offset + byteLength], columnModifier);
             byteLength += charLength;
             length--;
         }

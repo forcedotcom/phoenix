@@ -48,12 +48,13 @@ public abstract class FunctionExpression extends BaseCompoundExpression {
     }
     
     /**
-     * Method used to maintain certain query optimization that may be possible even through a function invocation.
-     * If the function invocatin will not cause the output to be ordered differently than the input, then true should
-     * be returned. Cases in which equals would be returned for the output while the input would return greater than
-     * may be ok.  For example, SUBSTR(foo,1,3) would return true, since the order produced by the input and the order
-     * produced by the output are the both the same.
-     * @return true if the function invocation will preserve order for the inputs versus the outputs and false otherwise
+     * Determines whether or not the result of the function invocation
+     * will be ordered in the same way as the input to the function.
+     * Returning true enables an optimization to occur when a
+     * GROUP BY contains function invocations using the leading PK
+     * column(s).
+     * @return true if the function invocation will preserve order for
+     * the inputs versus the outputs and false otherwise
      */
     public boolean preservesOrder() {
         return false;

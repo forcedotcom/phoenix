@@ -54,10 +54,26 @@ public abstract class ScalarFunction extends FunctionExpression {
         return t;
     }
     
+    /**
+     * Determines whether or not a function may be used to form
+     * the start/stop key of a scan
+     * @return the zero-based position of the argument to traverse
+     *  into to look for a primary key column reference, or
+     *  {@value #NO_TRAVERSAL} if the function cannot be used to
+     *  form the scan key.
+     */
     public int getKeyFormationTraversalIndex() {
         return NO_TRAVERSAL;
     }
 
+    /**
+     * Manufactures a KeyPart used to construct the KeyRange given
+     * a constant and a comparison operator.
+     * @param childPart the KeyPart formulated for the child expression
+     *  at the {@link #getKeyFormationTraversalIndex()} position.
+     * @return the KeyPart for constructing the KeyRange for this
+     *  function.
+     */
     public KeyPart newKeyPart(KeyPart childPart) {
         return null;
     }
