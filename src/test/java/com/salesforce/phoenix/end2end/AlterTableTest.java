@@ -57,7 +57,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             fail("Should have caught bad alter.");
         } catch (Exception e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1005 (42J03): The VARBINARY type can only be used as the last part of a multi-part row key."));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1022 (42J04): Cannot add column to table when the last PK column is of type VARBINARY."));
         } finally {
             conn.close();
         }
