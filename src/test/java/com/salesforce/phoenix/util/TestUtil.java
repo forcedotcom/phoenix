@@ -104,6 +104,7 @@ public class TestUtil {
     public static final String CUSTOM_ENTITY_DATA_SCHEMA_NAME = "CORE";
     public static final String HBASE_NATIVE = "HBASE_NATIVE";
     public static final String HBASE_DYNAMIC_COLUMNS = "HBASE_DYNAMIC_COLUMNS";
+    public static final String HBASE_DYNAMIC_FAMILIES = "HBASE_DYNAMIC_FAMILIES";
     public static final String PRODUCT_METRICS_NAME = "PRODUCT_METRICS";
     public static final String PTSDB_NAME = "PTSDB";
     public static final String PTSDB2_NAME = "PTSDB2";
