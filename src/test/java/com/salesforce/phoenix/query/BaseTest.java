@@ -153,6 +153,13 @@ public abstract class BaseTest {
                 "    A.F1v2 varchar," +
                 "    B.F2v1 varchar" +
                 "    CONSTRAINT pk PRIMARY KEY (entry))\n");
+        builder.put(HBASE_DYNAMIC_FAMILIES,"create table " + HBASE_DYNAMIC_FAMILIES + 
+                "   (entry varchar not null," +
+                "    F varchar," +
+                "    A.F1v1 varchar," +
+                "    A.F1v2 varchar," +
+                "    B.F2v1 varchar" +
+                "    CONSTRAINT pk PRIMARY KEY (entry))\n");
         builder.put(PRODUCT_METRICS_NAME,"create table " + PRODUCT_METRICS_NAME +
                 "   (organization_id char(15) not null," +
                 "    date date not null," +
