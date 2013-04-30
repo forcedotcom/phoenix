@@ -365,6 +365,76 @@ public class SkipScanFilterIntersectTest {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
                 }}));
+        // VARCHAR as the last column, various cases.
+        testCases.addAll(foreach(
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
+                }},
+                new int[] {1,1,-1},
+                Bytes.toBytes("d3AA"),
+                Bytes.toBytes("d4FF"),
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
+                }}));
+        testCases.addAll(foreach(
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
+                }},
+                new int[] {1,1,-1},
+                Bytes.toBytes("d0AA"),
+                Bytes.toBytes("d4FF"),
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
+                }}));
+        testCases.addAll(foreach(
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
+                }},
+                new int[] {1,1,-1},
+                Bytes.toBytes("a0AA"),
+                Bytes.toBytes("f4FF"),
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
+                }}));
         return testCases;
     }
 
