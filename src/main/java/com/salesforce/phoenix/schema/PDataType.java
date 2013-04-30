@@ -97,7 +97,7 @@ public enum PDataType {
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
             // TODO: should CHAR not be here?
-            return this == targetType || targetType == CHAR || targetType == BINARY;
+            return this == targetType || targetType == CHAR || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -208,7 +208,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == VARCHAR || targetType == BINARY;
+            return this == targetType || targetType == VARCHAR || targetType == BINARY || targetType == VARBINARY;
         }
 
         @Override
@@ -322,7 +322,8 @@ public enum PDataType {
             // In general, don't allow conversion of LONG to INTEGER. There are times when
             // we check isComparableTo for a more relaxed check and then throw a runtime
             // exception if we overflow
-            return this == targetType || targetType == UNSIGNED_LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == UNSIGNED_LONG || targetType == DECIMAL
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -465,7 +466,8 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == LONG || targetType == DECIMAL
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -810,7 +812,8 @@ public enum PDataType {
         
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == DATE || targetType == TIME || targetType == BINARY;
+            return this == targetType || targetType == DATE || targetType == TIME 
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -894,7 +897,8 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == DATE || targetType == TIMESTAMP || targetType == BINARY;
+            return this == targetType || targetType == DATE || targetType == TIMESTAMP
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -981,7 +985,8 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == TIME || targetType == TIMESTAMP || targetType == BINARY;
+            return this == targetType || targetType == TIME || targetType == TIMESTAMP
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -1084,7 +1089,8 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == LONG || targetType == DECIMAL
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -1210,7 +1216,9 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == INTEGER || targetType == UNSIGNED_LONG  || targetType == LONG || targetType == DECIMAL || targetType == BINARY;
+            return this == targetType || targetType == INTEGER || targetType == UNSIGNED_LONG
+                    || targetType == LONG || targetType == DECIMAL || targetType == VARBINARY
+                    || targetType == BINARY;
         }
 
         @Override
@@ -1313,7 +1321,7 @@ public enum PDataType {
             return Boolean.parseBoolean(value);
         }
     },
-    BINARY("BINARY", Types.BINARY, byte[].class, null) {
+    VARBINARY("VARBINARY", Types.VARBINARY, byte[].class, null) {
         @Override
         public byte[] toBytes(Object object) {
             if (object == null) {
@@ -1332,7 +1340,7 @@ public enum PDataType {
             System.arraycopy(bytes, offset, o, 0, o.length);
             return o.length;
         }
-        
+
         /**
          * Override because we must always create a new byte array
          */
@@ -1381,6 +1389,20 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if (srcType == PDataType.BINARY && maxLength != null && desiredMaxLength != null) {
+                return maxLength <= desiredMaxLength;
+            }
+            return true;
+        }
+
+        @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             if (lhs == null && rhs == null) {
                 return 0;
@@ -1389,7 +1411,108 @@ public enum PDataType {
             } else if (rhs == null) {
                 return 1;
             }
-            if (rhsType == PDataType.BINARY) {
+            if (rhsType == PDataType.VARBINARY || rhsType == PDataType.BINARY) {
+                return Bytes.compareTo((byte[])lhs, (byte[])rhs);
+            } else {
+                byte[] rhsBytes = rhsType.toBytes(rhs);
+                return Bytes.compareTo((byte[])lhs, rhsBytes);
+            }
+        }
+
+        @Override
+        public Object toObject(String value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            return Base64.decode(value);
+        }
+    },
+    BINARY("BINARY", Types.BINARY, byte[].class, null) {
+        @Override
+        public byte[] toBytes(Object object) { // Deligate to VARBINARY
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            return VARBINARY.toBytes(object);
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] bytes, int offset) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            return VARBINARY.toBytes(object, bytes, offset);
+            
+        }
+
+        @Override
+        public byte[] toBytes(Object object, ColumnModifier columnModifier) {
+            byte[] bytes = toBytes(object);
+            if (columnModifier != null) {
+                return columnModifier.apply(bytes, new byte[bytes.length], 0, bytes.length);
+            }
+            return bytes;
+        }
+
+        @Override
+        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+            if (!actualType.isCoercibleTo(this)) {
+                throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
+            }
+            return VARBINARY.toObject(bytes, offset, length, actualType);
+        }
+
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            return actualType.toBytes(object);
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object o) {
+            byte[] value = (byte[]) o;
+            return value == null ? 1 : value.length;
+        }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == VARBINARY;
+        }
+
+        @Override
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
+                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+            if ((srcType == PDataType.VARBINARY && ((String)value).length() != b.length) ||
+                    (maxLength != null && desiredMaxLength != null && maxLength > desiredMaxLength)){
+                return false;
+            }
+            return true;
+        }
+
+        @Override
+        public Integer estimateByteSizeFromLength(Integer length) {
+            return length;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return null;
+        }
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            if (lhs == null && rhs == null) {
+                return 0;
+            } else if (lhs == null) {
+                return -1;
+            } else if (rhs == null) {
+                return 1;
+            }
+            if (rhsType == PDataType.VARBINARY || rhsType == PDataType.BINARY) {
                 return Bytes.compareTo((byte[])lhs, (byte[])rhs);
             } else {
                 byte[] rhsBytes = rhsType.toBytes(rhs);
@@ -1960,7 +2083,7 @@ public enum PDataType {
     }
 
     public boolean isCoercibleTo(PDataType targetType) {
-        return this == targetType || targetType == BINARY;
+        return this == targetType || targetType == VARBINARY;
     }
 
     // Specialized on enums to take into account type hierarchy (i.e. UNSIGNED_LONG is comparable to INTEGER)

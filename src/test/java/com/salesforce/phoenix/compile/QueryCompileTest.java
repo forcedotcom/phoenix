@@ -132,6 +132,27 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
+    public void testVarBinaryInMultipartPK() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        // When the VARBINARY key is the last column, it is allowed.
+        String query = "CREATE TABLE foo (a_string varchar not null, b_string varchar not null, a_binary varbinary not null, " +
+                "col1 decimal, col2 decimal CONSTRAINT pk PRIMARY KEY (a_string, b_string, a_binary))";
+        PreparedStatement statement = conn.prepareStatement(query);
+        statement.execute();
+        try {
+            // VARBINARY key is not allowed in the middle of the key.
+            query = "CREATE TABLE foo (a_binary varbinary not null, a_string varchar not null, col1 decimal, col2 decimal CONSTRAINT pk PRIMARY KEY (a_binary, a_string))";
+            statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1005 (42J03): The VARBINARY type can only be used as the last part of a multi-part row key. columnName=FOO.A_BINARY"));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
     public void testNoPK() throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
@@ -180,7 +201,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_INTEGER"));
         }
     }
-    
+
     @Test
     public void testInvalidGroupExpressionAggregation() throws Exception {
         try {
@@ -200,7 +221,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_INTEGER"));
         }
     }
-    
+
     @Test
     public void testAggInWhereClause() throws Exception {
         try {

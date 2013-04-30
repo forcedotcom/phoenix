@@ -259,8 +259,11 @@ public class MetaDataClient {
                     }
                 }
                 columns.add(column);
-                if (colDef.getDataType() == PDataType.BINARY && colDefs.size() > 1) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.BINARY_IN_ROW_KEY).setSchemaName(schemaName)
+                if (colDef.getDataType() == PDataType.VARBINARY 
+                        && SchemaUtil.isPKColumn(column)
+                        && pkColumns.size() > 1 
+                        && column.getPosition() < pkColumns.size() - 1) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VARBINARY_IN_ROW_KEY).setSchemaName(schemaName)
                         .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                 }
                 if (column.getFamilyName() != null) {
@@ -505,8 +508,20 @@ public class MetaDataClient {
             boolean retried = false;
             while (true) {
                 int ordinalPosition = table.getColumns().size();
-                    
-                // TODO: disallow adding columns if last column is fixed width and nullable
+                
+                List<PColumn> currentPKs = table.getPKColumns();
+                PColumn lastPK = currentPKs.get(currentPKs.size()-1);
+                // Disallow adding columns if the last column is VARBIANRY.
+                if (lastPK.getDataType() == PDataType.VARBINARY) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VARBINARY_LAST_PK)
+                        .setColumnName(lastPK.getName().getString()).build().buildException();
+                }
+                // Disallow adding columns if last column is fixed width and nullable.
+                if (lastPK.isNullable() && lastPK.getDataType().isFixedWidth()) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.NULLABLE_FIXED_WIDTH_LAST_PK)
+                        .setColumnName(lastPK.getName().getString()).build().buildException();
+                }
+                
                 List<PColumn> columns = Lists.newArrayListWithExpectedSize(1);
                 ColumnDef colDef = statement.getColumnDef();
                 if (!colDef.isNull() && colDef.isPK()) {
