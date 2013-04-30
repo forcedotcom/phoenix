@@ -110,6 +110,11 @@ public class SkipScanFilter extends FilterBase {
         endKeyLength = 0;
     }
 
+    // Exposed for testing.
+    List<List<KeyRange>> getSlots() {
+        return slots;
+    }
+
     @Override
     public boolean filterAllRemaining() {
         return startKey == null && endKeyLength == 0;
