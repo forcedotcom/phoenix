@@ -241,12 +241,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             buf.append(conjunction + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
             conjunction = " and ";
         }
-        if (catalog != null) { // if null, will pick up all columns
-            if (catalog.length() == 0) { // will pick up only PK columns
-                buf.append(conjunction + TABLE_CAT_NAME + " is null");
-            } else { // will pick up only KV columns
-                buf.append(conjunction + TABLE_CAT_NAME + " like '" + SchemaUtil.normalizeIdentifier(catalog) + "'" );
-            }
+        if (catalog != null && catalog.length() > 0) { // if null or empty, will pick up all columns
+            // Will pick up only KV columns
+            // We supported only getting the PK columns by using catalog="", but some clients pass this through
+            // instead of null (namely SQLLine), so better to just treat these the same. If only PK columns are
+            // wanted, you can just stop the scan when you get to a non null TABLE_CAT_NAME
+            buf.append(conjunction + TABLE_CAT_NAME + " like '" + SchemaUtil.normalizeIdentifier(catalog) + "'" );
             conjunction = " and ";
         }
         if (columnNamePattern != null) {

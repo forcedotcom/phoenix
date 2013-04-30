@@ -362,7 +362,8 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(null, rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("custom_entity_data_id"), rs.getString("COLUMN_NAME"));
         
-        assertFalse(rs.next());
+        // The above returns all columns, starting with the PK columns
+        assertTrue(rs.next());
     }
     
     @Test
