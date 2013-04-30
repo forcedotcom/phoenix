@@ -40,7 +40,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.google.common.hash.*;
-import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
@@ -96,21 +95,19 @@ public class SkipScanFilter extends FilterBase {
         init(slots, schema, maxKeyLength);
     }
 
-    public SkipScanFilter(SkipScanFilter other) {
-        init(other.slots, other.schema, other.maxKeyLength);
-    }
-
     private void init(List<List<KeyRange>> slots, RowKeySchema schema, int maxKeyLength) {
+        for (List<KeyRange> ranges : slots) {
+            if (ranges.isEmpty()) {
+                throw new IllegalStateException();
+            }
+        }
         this.slots = slots;
         this.schema = schema;
         this.maxKeyLength = maxKeyLength;
         this.position = new int[slots.size()];
         startKey = new byte[maxKeyLength];
-        setStartKey();
         endKey = new byte[maxKeyLength];
         endKeyLength = 0;
-        // Start key for the scan will initially be set to start at the right place
-        // We just need to set the end key for when we need to calculate the next skip hint
     }
 
     @Override
@@ -134,75 +131,81 @@ public class SkipScanFilter extends FilterBase {
      * Intersect the ranges of this filter with the ranges form by lowerInclusive and upperInclusive
      * key and filter out the ones that are not included in the region. Return the new slots.
      */
-    public void intersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
-        ImmutableBytesWritable lowerPtr = new ImmutableBytesWritable();
-        ImmutableBytesWritable upperPtr = new ImmutableBytesWritable();
-        ImmutableBytesWritable lower = lowerPtr, upper = upperPtr;
-        lowerPtr.set(lowerInclusiveKey, 0, lowerInclusiveKey.length);
-        if (schema.first(lowerPtr, 0, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-            lower = ScanRanges.UNBOUND;
-        }
-        upperPtr.set(upperExclusiveKey, 0, upperExclusiveKey.length);
-        if (schema.first(upperPtr, 0, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-            upper = ScanRanges.UNBOUND;
-        }
-        
-        List<List<KeyRange>> newSlots = Lists.newArrayListWithCapacity(slots.size());
-        int i = 0;
-        int nSlots = slots.size();
-        while (true) {
-            // Search to the slot whose upper bound of is closest bigger or equal to our lower bound.
-            position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(i), lower);
-            if (position[i] >= slots.get(i).size()) {
-                // The lower key of the intersect range is higher than the last range of the current slot.
-                // No intersection with the slots is possible. This should not happen.
-                // TODO:: Should warn in this case.
-                slots = ScanRanges.NOTHING.getRanges();
-                return;
-            } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(upper, i < nSlots - 1) > 0) {
-                // Out upper key is less than the lower range of the current position in the current slot.
-                // No intersection with the slots is possible. Again, this should not happen.
-                slots = ScanRanges.NOTHING.getRanges();
-                return;
-            } else { 
-                // We are in range, linear search to the range whose lower bound is bigger than our
-                // upper bound. That would be the subset of slots that have intersection with our range.
-                int end = position[i] + 1;
-                while (end < slots.get(i).size() &&
-                        (slots.get(i).get(end).compareLowerToUpperBound(upper, i < nSlots - 1)) <= 0) {
-                    end++;
-                }
-                List<KeyRange> newSlot = Lists.newArrayListWithCapacity(end - position[i]);
-                for (int idx = position[i]; idx < end; idx++) {
-                    newSlot.add(slots.get(i).get(idx));
-                }
-                newSlots.add(newSlot);
-                i++;
-                if (i >= nSlots) { // done.
-                    break;
-                }
-                // Move to the next part of the key
-                if (lower != ScanRanges.UNBOUND) {
-                    if (schema.next(lowerPtr, i, lowerInclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                        // If no more lower key parts, then we have no constraint for that part of the key,
-                        // so we use unbound lower from here on out.
-                        lower = ScanRanges.UNBOUND;
-                    } else {
-                        lower = lowerPtr;
-                    }
-                }
-                if (upper != ScanRanges.UNBOUND) {
-                    if (schema.next(upperPtr, i, upperExclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                        // If no more upper key parts, then we have no constraint for that part of the key,
-                        // so we use unbound upper from here on out.
-                        upper = ScanRanges.UNBOUND;
-                    } else {
-                        upper = upperPtr;
-                    }
-                }
+    public SkipScanFilter intersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
+        boolean lowerUnbound = (lowerInclusiveKey.length == 0);
+        Arrays.fill(position, 0);
+        int firstSlotStartPos = 0;
+        int lastSlot = slots.size()-1;
+        if (!lowerUnbound) {
+            // Find the position of the first slot of the lower range
+            ptr.set(lowerInclusiveKey);
+            schema.first(ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
+            firstSlotStartPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(0), ptr, 0);
+            // Lower range is past last upper range of first slot
+            if (firstSlotStartPos >= slots.get(0).size()) {
+                return null;            
             }
         }
-        slots = newSlots;
+        boolean upperUnbound = (upperExclusiveKey.length == 0);
+        int firstSlotEndPos = slots.get(0).size()-1;
+        if (!upperUnbound) {
+            // Find the position of the first slot of the upper range
+            ptr.set(upperExclusiveKey);
+            schema.first(ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
+            firstSlotEndPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(0), ptr, firstSlotStartPos);
+            // Upper range lower than first lower range of first slot
+            if (firstSlotEndPos == 0 && Bytes.compareTo(upperExclusiveKey, slots.get(0).get(0).getLowerRange()) <= 0) {
+                return null;            
+            }
+            // Past last position, so we can include everything from the start position
+            if (firstSlotEndPos >= slots.get(0).size()) {
+                upperUnbound = true;
+                firstSlotEndPos = slots.get(0).size()-1;
+            }
+        }
+        if (firstSlotEndPos > firstSlotStartPos || upperUnbound) {
+            List<List<KeyRange>> newSlots = Lists.newArrayListWithCapacity(slots.size());
+            newSlots.add(slots.get(0).subList(firstSlotStartPos, firstSlotEndPos+1));
+            newSlots.addAll(slots.subList(1, slots.size()));
+            return new SkipScanFilter(newSlots, schema);
+        }
+        if (!lowerUnbound) {
+            position[0] = firstSlotStartPos;
+            navigate(lowerInclusiveKey, 0, lowerInclusiveKey.length);
+            if (filterAllRemaining()) {
+                return null;            
+            }
+        }
+        int[] startPosition = Arrays.copyOf(position, position.length);
+        boolean excludeLastKey = false;
+        position[0] = firstSlotEndPos;
+        ReturnCode endCode = navigate(upperExclusiveKey, 0, upperExclusiveKey.length);
+        // Exclude the last key if the upperExclusiveKey needs to be seeked (since it is then outside of the
+        // range of that key) or is included and is a single key (since it's upper exclusive)
+        excludeLastKey = (
+                 endCode == ReturnCode.SEEK_NEXT_USING_HINT ||
+                (endCode == ReturnCode.INCLUDE && slots.get(lastSlot).get(position[lastSlot]).isSingleKey()));
+        if (filterAllRemaining()) { // Include everything up to the last position
+            for (int i = 0; i < slots.size(); i++) {
+                position[i] = slots.get(i).size()-1;
+            }
+        }
+        List<List<KeyRange>> newSlots = Lists.newArrayListWithCapacity(slots.size());
+        // Copy inclusive all positions 
+        for (int i = 0; i < lastSlot; i++) {
+            List<KeyRange> newRanges = slots.get(i).subList(startPosition[i], position[i] + 1);
+            newSlots.add(newRanges);
+            if (newRanges.size() > 1) {
+                newSlots.addAll(slots.subList(i+1, slots.size()));
+                return new SkipScanFilter(newSlots, schema);
+            }
+        }
+        List<KeyRange> newRanges = slots.get(lastSlot).subList(startPosition[lastSlot], position[lastSlot] + (excludeLastKey ? 0 : 1));
+        if (newRanges.isEmpty()) {
+            return null;
+        }
+        newSlots.add(newRanges);
+        return new SkipScanFilter(newSlots, schema);
     }
 
     private ReturnCode navigate(final byte[] currentKey, int offset, int length) {
@@ -221,6 +224,19 @@ public class SkipScanFilter extends FilterBase {
                     startKey = null;
                 }
             }
+            else {
+                // Reset the positions to zero from the next slot after the earliest ranged slot, since the
+                // next key could be bigger at this ranged slot, and smaller than the current position of
+                // less significant slots.
+                int earliestRangeIndex = nSlots-1;
+                for (int i = 0; i < nSlots; i++) {
+                    if (!slots.get(i).get(position[i]).isSingleKey()) {
+                        earliestRangeIndex = i;
+                        break;
+                    }
+                }
+                Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
+            }
         }
         endKeyLength = 0;
         
@@ -230,8 +246,6 @@ public class SkipScanFilter extends FilterBase {
         }
 
         int i = 0;
-        final int originalOffset = offset;
-        final int originalLength = length;
         boolean seek = false;
         int earliestRangeIndex = nSlots-1;
         ptr.set(currentKey, offset, length);
@@ -276,10 +290,10 @@ public class SkipScanFilter extends FilterBase {
                 } else {
                     // Copy the leading part of the actual current key into startKey which we'll use
                     // as our buffer through the rest of the loop.
-                    startKey = copyKey(startKey, ptr.getOffset() - offset + this.maxKeyLength, ptr.get(), offset, ptr.getOffset() - offset);
-                    int nextKeyLength = ptr.getOffset() - offset;
                     startKeyLength = ptr.getOffset() - offset;
-                    appendToStartKey(i+1, ptr.getOffset() - offset);
+                    startKey = copyKey(startKey, startKeyLength + this.maxKeyLength, ptr.get(), offset, startKeyLength);
+                    int nextKeyLength = startKeyLength;
+                    appendToStartKey(i+1, startKeyLength);
                     // From here on, we use startKey as our buffer with offset reset to 0
                     // We've copied the part of the current key above that we need into startKey
                     offset = 0;
@@ -298,7 +312,8 @@ public class SkipScanFilter extends FilterBase {
                 int currentLength = ptr.getOffset() - offset;
                 setStartKey(currentLength + this.maxKeyLength, ptr.get(), offset, currentLength);
                 appendToStartKey(i, currentLength);
-                Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
+                // TODO: come up with test case where this is required or remove
+                //Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
                 return ReturnCode.SEEK_NEXT_USING_HINT;
             } else { // We're in range, check the next slot
                 if (!slots.get(i).get(position[i]).isSingleKey() && i < earliestRangeIndex) {
@@ -313,12 +328,16 @@ public class SkipScanFilter extends FilterBase {
                 if (i >= nSlots || seek) {
                     break;
                 }
-                // We should never not be able to find the value at a given slot. This would mean
-                // we have an invalid key or we manufactured an invalid seek hint. Either way,
-                // better if we just throw, otherwise we'll end up in an infinite loop.
+                // If we run out of slots in our key, it means we have a partial key. In this
+                // case, we seek to the next full key after this one.
+                // TODO: test for this
                 if (schema.next(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                    throw new IllegalStateException("Unexpected key structure for " + 
-                            Bytes.toStringBinary(currentKey, originalOffset,originalLength) + " with slots " + slots);
+                    int currentLength = ptr.getOffset() - offset;
+                    setStartKey(currentLength + this.maxKeyLength, ptr.get(), offset, currentLength);
+                    appendToStartKey(i, currentLength);
+                    // TODO: come up with test case where this is required or remove
+                    //Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
+                    return ReturnCode.SEEK_NEXT_USING_HINT;
                 }
             }
         }
@@ -331,12 +350,6 @@ public class SkipScanFilter extends FilterBase {
         // since we potentially have multiple key values for the same row key.
         setEndKey(ptr.getOffset() - offset + this.maxKeyLength, ptr.get(), offset, ptr.getOffset() - offset);
         appendToEndKey(nSlots-1, ptr.getOffset() - offset);
-        if (!slots.get(nSlots-1).get(position[nSlots-1]).isSingleKey()) {
-            // Reset the positions to zero from the next slot after the earliest ranged slot, since the
-            // next key could be bigger at this ranged slot, and smaller than the current position of
-            // less significant slots.
-            Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
-        }
         return ReturnCode.INCLUDE;
     }
 

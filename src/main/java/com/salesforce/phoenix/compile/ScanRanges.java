@@ -177,7 +177,7 @@ public class ScanRanges {
         int cmpLower=0,cmpUpper=0;
         while (true) {
             // Search to the slot whose upper bound of is closest bigger or equal to our lower bound.
-            position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(ranges.get(i), lower);
+            position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(ranges.get(i), lower, 0);
             if (position[i] == ranges.get(i).size()) {
                 // The return value indicates that no upper bound can be found to be bigger or equals
                 // to the lower bound, therefore the cmpLower would always be -1.

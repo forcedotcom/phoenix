@@ -109,15 +109,23 @@ public class ScanUtil {
         if (mayHaveRows && useSkipScan) {
             Filter filter = scan.getFilter();
             if (filter instanceof SkipScanFilter) {
-                SkipScanFilter newFilter = new SkipScanFilter((SkipScanFilter)filter);
-                newFilter.intersect(startKey, stopKey);
+                SkipScanFilter oldFilter = (SkipScanFilter)filter;
+                SkipScanFilter newFilter = oldFilter.intersect(startKey, stopKey);
+                if (newFilter == null) {
+                    return false;
+                }
+                // Intersect found: replace skip scan with intersected one
                 scan.setFilter(newFilter);
             } else if (filter instanceof FilterList) {
                 FilterList filterList = (FilterList)filter;
                 Filter firstFilter = filterList.getFilters().get(0);
                 if (firstFilter instanceof SkipScanFilter) {
-                    SkipScanFilter newFilter = new SkipScanFilter((SkipScanFilter)firstFilter);
-                    newFilter.intersect(startKey, stopKey);
+                    SkipScanFilter oldFilter = (SkipScanFilter)firstFilter;
+                    SkipScanFilter newFilter = oldFilter.intersect(startKey, stopKey);
+                    if (newFilter == null) {
+                        return false;
+                    }
+                    // Intersect found: replace skip scan with intersected one
                     List<Filter> allFilters = new ArrayList<Filter>(filterList.getFilters().size());
                     allFilters.addAll(filterList.getFilters());
                     allFilters.set(0, newFilter);
@@ -310,10 +318,9 @@ public class ScanUtil {
      * Perform a binary lookup on the list of KeyRange for the tightest slot such that the slotBound
      * of the current slot is higher or equal than the slotBound of our range. 
      * @return  the index of the slot whose slot bound equals or are the tightest one that is 
-     *          smaller than rangeBound of range, or slots.length if no sound bound can be found.
+     *          smaller than rangeBound of range, or slots.length if no bound can be found.
      */
-    public static int searchClosestKeyRangeWithUpperHigherThanLowerPtr(List<KeyRange> slots, ImmutableBytesWritable ptr) {
-        int lower = 0;
+    public static int searchClosestKeyRangeWithUpperHigherThanLowerPtr(List<KeyRange> slots, ImmutableBytesWritable ptr, int lower) {
         int upper = slots.size() - 1;
         int mid;
         while (lower <= upper) {
