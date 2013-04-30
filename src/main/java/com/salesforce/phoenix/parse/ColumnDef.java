@@ -86,6 +86,16 @@ public class ColumnDef {
             // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
             // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
             scale = scale == null ? PDataType.DEFAULT_SCALE : scale > maxLength ? maxLength : scale; 
+        } else if (this.dataType == PDataType.BINARY) {
+            if (maxLength == null) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_BINARY_LENGTH)
+                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
+            }
+            if (maxLength < 1) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_BINARY_LENGTH)
+                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
+            }
+            scale = null;
         } else if (this.dataType == PDataType.INTEGER) {
             maxLength = PDataType.INT_PRECISION;
             scale = PDataType.ZERO;

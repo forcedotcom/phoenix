@@ -261,7 +261,7 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     @Override
     public byte[] getBytes(int columnIndex) throws SQLException {
         checkCursorState();
-        byte[] value = (byte[])rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.BINARY, ptr);
+        byte[] value = (byte[])rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.VARBINARY, ptr);
         wasNull = (value == null);
         return value;
     }

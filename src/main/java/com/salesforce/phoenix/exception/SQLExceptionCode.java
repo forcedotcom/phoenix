@@ -57,6 +57,8 @@ public enum SQLExceptionCode {
     MISSING_CHAR_LENGTH(207, "22003", "Missing length for CHAR."),
     NONPOSITIVE_CHAR_LENGTH(208, "22003", "CHAR or VARCHAR must have a positive length."),
     DECIMAL_PRECISION_OUT_OF_RANGE(209, "22003", "Decimal precision outside of range. Should be within 1 and " + PDataType.MAX_PRECISION + "."),
+    MISSING_BINARY_LENGTH(210, "22003", "Missing length for BINARY."),
+    NONPOSITIVE_BINARY_LENGTH(211, "22003", "BINARY must have a positive length."),
     
     /**
      * Constraint Violation (errorcode 03, sqlstate 23)
@@ -94,8 +96,10 @@ public enum SQLExceptionCode {
     // Primary/row key related exceptions.
     PRIMARY_KEY_WITH_FAMILY_NAME(1003, "42J01", "Primary key should not have a family name."),
     PRIMARY_KEY_OUT_OF_ORDER(1004, "42J02", "Order of columns in primary key constraint must match the order in which they're declared."),
-    BINARY_IN_ROW_KEY(1005, "42J03", "The BINARY type may not be used as part of a multi-part row key."),
+    VARBINARY_IN_ROW_KEY(1005, "42J03", "The VARBINARY type can only be used as the last part of a multi-part row key."),
     NOT_NULLABLE_COLUMN_IN_ROW_KEY(1006, "42J04", "Only nullable columns may be added to a multi-part row key."),
+    VARBINARY_LAST_PK(1022, "42J04", "Cannot add column to table when the last PK column is of type VARBINARY."),
+    NULLABLE_FIXED_WIDTH_LAST_PK(1023, "42J04", "Cannot add column to table when the last PK column is nullable and fixed width."),
     // Key/value column related errors
     KEY_VALUE_NOT_NULL(1007, "42K01", "A key/value column may not be declared as not null."),
     // View related errors.
