@@ -30,6 +30,8 @@ package com.salesforce.phoenix.jdbc;
 import java.sql.*;
 import java.util.*;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -125,12 +127,34 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     
     private final PhoenixConnection connection;
     private final ResultSet emptyResultSet;
-    
+
+    // The encoded value for HBase version and phoenix version.
+    public static final long VERSION;
+
+    static {
+        Configuration config = HBaseConfiguration.create();
+        String[] hbaseVersion = config.get("hbase.defaults.for.version").split("\\.");
+        String[] phoenixVersion = MetaDataProtocol.VERSION.split("\\.");
+        long version = 0L;
+        int shift = Long.SIZE - Byte.SIZE;
+        for (String segment: hbaseVersion) {
+            long val = Long.parseLong(segment);
+            version |= (val << shift);
+            shift -= Byte.SIZE;
+        }
+        for (String segment: phoenixVersion) {
+            long val = Long.parseLong(segment);
+            version |= (val << shift);
+            shift -= Byte.SIZE;
+        }
+        VERSION = version;
+    }
+
     PhoenixDatabaseMetaData(PhoenixConnection connection) throws SQLException {
         this.emptyResultSet = new PhoenixResultSet(EMPTY_SCANNER, new PhoenixStatement(connection));
         this.connection = connection;
     }
-    
+
     @Override
     public boolean allProceduresAreCallable() throws SQLException {
         return false;

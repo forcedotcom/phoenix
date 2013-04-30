@@ -658,7 +658,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     private boolean isCompatible(Long serverVersion) {
-        return serverVersion != null && MetaDataProtocol.VERSION == serverVersion.longValue();
+        return serverVersion != null && PhoenixDatabaseMetaData.VERSION == serverVersion.longValue();
     }
     
     private void checkClientServerCompatibility() throws SQLException {
