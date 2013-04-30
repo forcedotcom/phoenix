@@ -96,6 +96,12 @@ public class ProjectionCompiler {
             scan.addFamily(family.getName().getBytes());
         }
     }
+
+    private static void projectColumnFamily(PTable table, Scan scan,String familyName) {
+        // Will project all colmuns for given CF
+        scan.getFamilyMap().clear();
+        scan.addFamily(familyName.getBytes());
+    }
     
     public static RowProjector getRowProjector(StatementContext context, List<AliasedParseNode> aliasedNodes, GroupBy groupBy,
             OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
@@ -122,6 +128,14 @@ public class ProjectionCompiler {
                     ColumnRef ref = new ColumnRef(tableRef,i);
                     projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), ref.newColumnExpression(), false));
                 }
+            }else if(node instanceof  FamilyParseNode){
+            	 // Project everything for SELECT cf.*
+		PColumnFamily pfamily = table.getColumnFamily(((FamilyParseNode) node).getFamilyName());
+		projectColumnFamily(table,scan,((FamilyParseNode) node).getFamilyName());		
+		for (PColumn column : pfamily.getColumns()) {
+			ColumnRef ref = new ColumnRef(tableRef,column.getPosition());
+		 	projectedColumns.add(new ExpressionProjector(column.getName().toString(), table.getName().getString(),ref.newColumnExpression(), false));
+		}
             } else {
                 Expression expression = node.accept(selectVisitor);
                 if (targetColumns != null && index < targetColumns.length && targetColumns[index].getDataType() != expression.getDataType()) {

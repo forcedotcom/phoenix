@@ -205,6 +205,10 @@ public class ParseNodeFactory {
         return new AndParseNode(children);
     }
 
+    public FamilyParseNode family(String familyName){
+    	return new FamilyParseNode(familyName);
+    }
+
     public WildcardParseNode wildcard() {
         return WildcardParseNode.INSTANCE;
     }

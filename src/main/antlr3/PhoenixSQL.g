@@ -470,8 +470,10 @@ select_list returns [List<AliasedParseNode> ret]
 // Parse either a select field or a sub select.
 selectable returns [AliasedParseNode ret]
     :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
+      | familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
       | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'    
     ;
+
 
 // Parse a group by statement
 group_by returns [List<ParseNode> ret]
@@ -967,3 +969,4 @@ SL_COMMENT
 DOT
     : '.'
     ;
+
