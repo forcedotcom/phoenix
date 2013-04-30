@@ -140,7 +140,7 @@ public class DynamicFamilyTest  extends BaseClientMangedTimeTest {
 	 
 	 @Test
 	    public void testDynamicFamilyDual() throws Exception {
-	        String query = "SELECT A.*,F1V1,F1V2,entry,F2V1 FROM HBASE_DYNAMIC_FAMILIES";
+	        String query = "SELECT A.*,B.*,F1V1,F1V2,entry,F2V1 FROM HBASE_DYNAMIC_FAMILIES";
 	        String url = PHOENIX_JDBC_URL + ";";
 	        Properties props = new Properties(TEST_PROPERTIES);
 	        Connection conn = DriverManager.getConnection(url, props);
@@ -150,10 +150,11 @@ public class DynamicFamilyTest  extends BaseClientMangedTimeTest {
 	            assertTrue(rs.next());
 	            assertEquals("f1value1", rs.getString(1));
 	            assertEquals("f1value2", rs.getString(2));
-	            assertEquals(rs.getString(1), rs.getString(3));
-	            assertEquals(rs.getString(2), rs.getString(4));
-	            assertEquals("entry1", rs.getString(5));
-	            assertEquals("f2value1", rs.getString(6));
+                    assertEquals("f2value1", rs.getString(3));
+	            assertEquals(rs.getString(1), rs.getString(4));
+	            assertEquals(rs.getString(2), rs.getString(5));
+	            assertEquals("entry1", rs.getString(6));
+	            assertEquals("f2value1", rs.getString(7));
 	            assertFalse(rs.next());
 	        } finally {
 	            conn.close();
