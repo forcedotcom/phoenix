@@ -65,7 +65,11 @@ public class QueryCompiler {
     private final Scan scan;
     private final int maxRows;
     private final PColumn[] targetColumns;
-    
+
+    // Should we use essential column family? Would be set during the startup phase
+    // by ConnectionQueryServiceImpl. Default to true.
+    public static volatile boolean useEssentialColumnFamily = true;
+
     public QueryCompiler(PhoenixConnection connection, int maxRows) {
         this(connection, maxRows, new Scan());
     }
@@ -83,7 +87,9 @@ public class QueryCompiler {
         this.maxRows = maxRows;
         this.scan = scan;
         this.targetColumns = targetDatums;
-        this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
+        if (useEssentialColumnFamily) {
+            this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
+        }
     }
 
     /**
