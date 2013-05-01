@@ -57,7 +57,7 @@ import com.salesforce.phoenix.schema.PTableImpl;
  * @since 0.1
  */
 public interface MetaDataProtocol extends CoprocessorProtocol {
-    public static final long VERSION = 5L;
+    public static final String PHOENIX_VERSION = "1.2.0";
     public static final long MIN_TABLE_TIMESTAMP = 0;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
     
@@ -174,7 +174,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     void clearCache();
     
     /**
-     * Get the version of the server-side phoenix.jar. Used when initially connecting
+     * Get the version of the server-side HBase and phoenix.jar. Used when initially connecting
      * to a cluster to ensure that the client and server jars are compatible.
      * 
      * @throws IOException

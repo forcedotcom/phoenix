@@ -52,6 +52,7 @@ import com.google.common.cache.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.MutationPlan;
+import com.salesforce.phoenix.compile.QueryCompiler;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
@@ -62,8 +63,7 @@ import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.TableNotFoundException;
-import com.salesforce.phoenix.util.JDBCUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 public class ConnectionQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices {
     private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
@@ -657,13 +657,24 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         }
     }
 
-    private boolean isCompatible(Long serverVersion) {
-        return serverVersion != null && MetaDataProtocol.VERSION == serverVersion.longValue();
+    // If the server HBase version is below 0.94.6, do not use essentually column family.
+    private boolean useEssentialColumnFamily(Long version) {
+        if (version == null) return true;
+        if (MetaDataUtil.decodeHBaseVersion(version) <= PhoenixDatabaseMetaData.ESSENTIAL_FAMILY_VERSION_THRESHOLD) {
+            return false;
+        }
+        return true;
     }
-    
+
+    private boolean isCompatible(Long serverVersion) {
+        return serverVersion != null && 
+                MetaDataUtil.decodePhoenixVersion(PhoenixDatabaseMetaData.VERSION) == 
+                MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
+    }
+
     private void checkClientServerCompatibility() throws SQLException {
         StringBuilder buf = new StringBuilder("The following servers require an updated " + QueryConstants.DEFAULT_COPROCESS_PATH + " to be put in the classpath of HBase: ");
-        boolean isIncompatible = false;
+        boolean isIncompatible = false, useEssentialColFamily = true;
         try {
             NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(getConfig(), TYPE_TABLE_NAME, false);
             TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
@@ -694,6 +705,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     buf.append(name);
                     buf.append(',');
                 }
+                if (!useEssentialColumnFamily(result.getValue())) {
+                    useEssentialColFamily = false;
+                }
             }
         } catch (Throwable t) {
             // This is the case if the "phoenix.jar" is not on the classpath of HBase on the region server
@@ -704,6 +718,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         if (isIncompatible) {
             buf.setLength(buf.length()-1);
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.OUTDATED_JARS).setMessage(buf.toString()).build().buildException();
+        }
+        if (!useEssentialColFamily) {
+            QueryCompiler.useEssentialColumnFamily = false;
         }
     }
 
