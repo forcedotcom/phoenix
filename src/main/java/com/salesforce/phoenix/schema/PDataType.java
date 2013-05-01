@@ -2289,6 +2289,10 @@ public enum PDataType {
         return sqlTypeNameBytes;
     }
 
+    public KeyRange getKeyRange(byte[] point) {
+        return getKeyRange(point, true, point, true);
+    }
+    
     public KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
         /*
          * Force lower bound to be inclusive for fixed width keys because it makes

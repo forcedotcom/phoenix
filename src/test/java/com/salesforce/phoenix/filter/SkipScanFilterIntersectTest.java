@@ -67,6 +67,9 @@ public class SkipScanFilterIntersectTest {
     @Test
     public void test() {
         SkipScanFilter intersectedFilter = filter.intersect(lowerInclusiveKey, upperExclusiveKey);
+        if (expectedNewSlots == null && intersectedFilter == null) {
+            return;
+        }
         assertNotNull("Intersected filter should not be null", intersectedFilter);
         List<List<KeyRange>> newSlots = intersectedFilter.getSlots();
         assertSameSlots(expectedNewSlots, newSlots);
@@ -92,6 +95,28 @@ public class SkipScanFilterIntersectTest {
     @Parameters(name="{0} {1} {2} {3} {4}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
+        // TODO: test for increment 2 causes increment 1 which forces bump up to next range
+        // Causes increment of slot 2 to increment slot 1
+        testCases.addAll(foreach(
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("e"), false),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("j"), true, Bytes.toBytes("m"), false),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                }},
+                new int[] {1,1,1},
+                Bytes.toBytes("j3A"),
+                Bytes.toBytes("k4C"),
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("j"), true, Bytes.toBytes("m"), false),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                }}));
         // Single matching in the first 2 slots.
         testCases.addAll(foreach(
                 new KeyRange[][] {{
@@ -113,30 +138,31 @@ public class SkipScanFilterIntersectTest {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
                     }, {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
                 }}));
+        // Single matching in the first slot.
         testCases.addAll(foreach(
                 new KeyRange[][] {{
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("d"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
                     }, {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("3"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
                     }, {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
                 }},
                 new int[] {1,1,1},
-                Bytes.toBytes("b1B"),
-                Bytes.toBytes("b1D"),
+                Bytes.toBytes("b1Z"),
+                Bytes.toBytes("b3Z"),
                 new KeyRange[][] {{
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
                     }, {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
                     }, {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
                 }}));
+        // No overlap
         testCases.addAll(foreach(
                 new KeyRange[][] {{
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
@@ -151,13 +177,7 @@ public class SkipScanFilterIntersectTest {
                 new int[] {1,1,1},
                 Bytes.toBytes("a0A"),
                 Bytes.toBytes("b1B"),
-                new KeyRange[][] {{
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
-                    }, {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
-                    }, {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
-                }}));
+                null));
         testCases.addAll(foreach(
                 new KeyRange[][] {{
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
@@ -178,7 +198,6 @@ public class SkipScanFilterIntersectTest {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
                     }, {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
                 }}));
         testCases.addAll(foreach(
                 new KeyRange[][] {{
@@ -215,6 +234,28 @@ public class SkipScanFilterIntersectTest {
                 }},
                 new int[] {1,1,1},
                 Bytes.toBytes("a0A"),
+                Bytes.toBytes("b1D"),
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
+                }}));
+        testCases.addAll(foreach(
+                new KeyRange[][] {{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("d"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("3"), true),
+                    }, {
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
+                }},
+                new int[] {1,1,1},
+                Bytes.toBytes("b1B"),
                 Bytes.toBytes("b1D"),
                 new KeyRange[][] {{
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
@@ -245,30 +286,6 @@ public class SkipScanFilterIntersectTest {
                     }, {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
-                }}));
-        // Single matching in the first slot.
-        testCases.addAll(foreach(
-                new KeyRange[][] {{
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("e"), true),
-                    }, {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
-                    }, {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
-                }},
-                new int[] {1,1,1},
-                Bytes.toBytes("b1Z"),
-                Bytes.toBytes("b3Z"),
-                new KeyRange[][] {{
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
-                    }, {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("4"), true),
-                    }, {
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
-                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
                 }}));
         testCases.addAll(foreach(
                 new KeyRange[][] {{
@@ -441,7 +458,7 @@ public class SkipScanFilterIntersectTest {
     private static Collection<?> foreach(KeyRange[][] ranges, int[] widths, byte[] lowerInclusive,
             byte[] upperExclusive, KeyRange[][] expectedRanges) {
         List<List<KeyRange>> slots = Lists.transform(Lists.newArrayList(ranges), ARRAY_TO_LIST);
-        List<List<KeyRange>> expectedSlots = Lists.transform(Lists.newArrayList(expectedRanges), ARRAY_TO_LIST);
+        List<List<KeyRange>> expectedSlots = expectedRanges == null ? null : Lists.transform(Lists.newArrayList(expectedRanges), ARRAY_TO_LIST);
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
         for (final int width: widths) {
             builder.addField(
