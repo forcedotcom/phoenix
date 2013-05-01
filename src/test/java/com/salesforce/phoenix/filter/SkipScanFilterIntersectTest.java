@@ -95,7 +95,6 @@ public class SkipScanFilterIntersectTest {
     @Parameters(name="{0} {1} {2} {3} {4}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
-        // TODO: test for increment 2 causes increment 1 which forces bump up to next range
         // Causes increment of slot 2 to increment slot 1
         testCases.addAll(foreach(
                 new KeyRange[][] {{
