@@ -698,7 +698,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     buf.append(name);
                     buf.append(',');
                 }
-                if (minHBaseVersion < MetaDataUtil.decodeHBaseVersion(result.getValue())) {
+                if (minHBaseVersion > MetaDataUtil.decodeHBaseVersion(result.getValue())) {
                     minHBaseVersion = MetaDataUtil.decodeHBaseVersion(result.getValue());
                 }
             }
