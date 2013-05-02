@@ -27,19 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.coprocessor.Batch;
 
-import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.exception.*;
-import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.*;
 
 
@@ -88,36 +81,9 @@ public class ConnectionQueryServicesTestImpl extends ConnectionQueryServicesImpl
              * that we do have tables and our create table calls will return the cached
              * meta data instead of creating new metadata.
              */
-            SQLException sqlE = null;
-            HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
-            try {
-                htable.coprocessorExec(MetaDataProtocol.class, HConstants.EMPTY_START_ROW,
-                        HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataProtocol, Void>() {
-                    @Override
-                    public Void call(MetaDataProtocol instance) throws IOException {
-                      instance.clearCache();
-                      return null;
-                    }
-                  });
-            } catch (IOException e) {
-                throw new PhoenixIOException(e);
-            } catch (Throwable e) {
-                sqlE = new SQLException(e);
-            } finally {
-                try {
-                    htable.close();
-                } catch (IOException e) {
-                    if (sqlE == null) {
-                        sqlE = new PhoenixIOException(e);
-                    } else {
-                        sqlE.setNextException(new PhoenixIOException(e));
-                    }
-                } finally {
-                    if (sqlE != null) {
-                        throw sqlE;
-                    }
-                }
-            }
+            clearCache();
+        } catch (SQLException e) {
+            throw e;
         } catch (Exception e) {
             throw new SQLException(e);
         }
