@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
+import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+
 
 public class MetaDataUtil {
 
@@ -41,20 +43,32 @@ public class MetaDataUtil {
     // The second byte in int would be the major version, 3rd byte minor version, and 4th byte 
     // patch version.
     public static int decodeHBaseVersion(long version) {
-        return (int) (version >>> (5 * Byte.SIZE));
+        return (int) (version >>> Byte.SIZE * 5);
     }
 
-    public static int encodeVersions(String major, String minor, String patch) {
+    public static long encodeHBaseAndPhoenixVersions(String hbaseVersion, String phoenixVersion) {
+        return (((long) encodeVersion(hbaseVersion)) << (Byte.SIZE * 5)) 
+                | (((long) encodeVersion(MetaDataProtocol.PHOENIX_VERSION)) << (Byte.SIZE * 2));
+    }
+
+    // Encode a version string in the format of "major.minor.patch" into an integer.
+    public static int encodeVersion(String version) {
+        String[] versionParts = version.split("\\.");
+        return encodeVersion(versionParts[0], versionParts[1], versionParts[2]);
+    }
+
+    // Encode the major as 2nd byte in the int, minor as the first byte and patch as the last byte.
+    public static int encodeVersion(String major, String minor, String patch) {
         int version = 0;
-        int shift = Byte.SIZE * 3;
+        int shift = Byte.SIZE * 2;
         int val = major == null ? 0 : Integer.parseInt(major);
         if (val != 0L) version |= (val << shift);
-        shift = Byte.SIZE * 2;
+        shift = Byte.SIZE;
         val = minor == null ? 0 : Integer.parseInt(minor);
         if (val != 0L) version |= (val << shift);
-        shift = Byte.SIZE;
         val = patch == null ? 0 : Integer.parseInt(patch);
-        if (val != 0L) version |= (val << shift);
+        if (val != 0L) version |= val;
         return version;
     }
+
 }

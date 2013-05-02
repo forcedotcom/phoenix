@@ -60,7 +60,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final String PHOENIX_VERSION = "1.2.0";
     public static final long MIN_TABLE_TIMESTAMP = 0;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
-    
+
     public enum MutationCode {
         TABLE_ALREADY_EXISTS,
         TABLE_NOT_FOUND, 

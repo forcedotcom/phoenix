@@ -39,6 +39,7 @@ import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -66,10 +67,6 @@ public class QueryCompiler {
     private final int maxRows;
     private final PColumn[] targetColumns;
 
-    // Should we use essential column family? Would be set during the startup phase
-    // by ConnectionQueryServiceImpl. Default to true.
-    public static volatile boolean useEssentialColumnFamily = true;
-
     public QueryCompiler(PhoenixConnection connection, int maxRows) {
         this(connection, maxRows, new Scan());
     }
@@ -87,7 +84,7 @@ public class QueryCompiler {
         this.maxRows = maxRows;
         this.scan = scan;
         this.targetColumns = targetDatums;
-        if (useEssentialColumnFamily) {
+        if (connection.getQueryServices().getLowestClusterHBaseVersion() >= PhoenixDatabaseMetaData.ESSENTIAL_FAMILY_VERSION_THRESHOLD) {
             this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
         }
     }

@@ -30,8 +30,6 @@ package com.salesforce.phoenix.jdbc;
 import java.sql.*;
 import java.util.*;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -128,30 +126,14 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     private final PhoenixConnection connection;
     private final ResultSet emptyResultSet;
 
-    // The encoded value for HBase version and phoenix version.
-    public static final long VERSION;
     // Version below which we should turn off essential column family.
-    public static final int ESSENTIAL_FAMILY_VERSION_THRESHOLD = MetaDataUtil.encodeVersions("0", "94", "6");
-
-    static {
-        Configuration config = HBaseConfiguration.create();
-        String[] hbaseVersion;
-        if (config.get("hbase.defaults.for.version") == null) {
-            hbaseVersion = new String[] {"0", "0", "0"};
-        } else {
-            hbaseVersion = config.get("hbase.defaults.for.version").split("\\.");
-        }
-        String[] phoenixVersion = MetaDataProtocol.PHOENIX_VERSION.split("\\.");
-        long hbaseVersionInt = (long) MetaDataUtil.encodeVersions(hbaseVersion[0], hbaseVersion[1], hbaseVersion[2]);
-        long phoenixVersionInt = (long) MetaDataUtil.encodeVersions(phoenixVersion[0], phoenixVersion[1], phoenixVersion[2]);
-        VERSION = (hbaseVersionInt << (Byte.SIZE * 4)) & (phoenixVersionInt << Byte.SIZE);
-    }
+    public static final int ESSENTIAL_FAMILY_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "7");
 
     PhoenixDatabaseMetaData(PhoenixConnection connection) throws SQLException {
         this.emptyResultSet = new PhoenixResultSet(EMPTY_SCANNER, new PhoenixStatement(connection));
         this.connection = connection;
     }
-    
+
     @Override
     public boolean allProceduresAreCallable() throws SQLException {
         return false;
