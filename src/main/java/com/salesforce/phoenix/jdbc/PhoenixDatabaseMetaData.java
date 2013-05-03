@@ -125,12 +125,15 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     
     private final PhoenixConnection connection;
     private final ResultSet emptyResultSet;
-    
+
+    // Version below which we should turn off essential column family.
+    public static final int ESSENTIAL_FAMILY_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "7");
+
     PhoenixDatabaseMetaData(PhoenixConnection connection) throws SQLException {
         this.emptyResultSet = new PhoenixResultSet(EMPTY_SCANNER, new PhoenixStatement(connection));
         this.connection = connection;
     }
-    
+
     @Override
     public boolean allProceduresAreCallable() throws SQLException {
         return false;
@@ -273,12 +276,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     @Override
     public int getDatabaseMajorVersion() throws SQLException {
-        return 1;
+        return MetaDataProtocol.PHOENIX_MAJOR_VERSION;
     }
 
     @Override
     public int getDatabaseMinorVersion() throws SQLException {
-        return 0;
+        return MetaDataProtocol.PHOENIX_MINOR_VERSION;
     }
 
     @Override
@@ -288,7 +291,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     @Override
     public String getDatabaseProductVersion() throws SQLException {
-        return "1.0";
+        return Integer.toString(getDatabaseMajorVersion()) + "." + Integer.toString(getDatabaseMinorVersion());
     }
 
     @Override

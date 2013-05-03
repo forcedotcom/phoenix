@@ -137,4 +137,9 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public MutationState updateData(MutationPlan plan) throws SQLException {
         return getDelegate().updateData(plan);
     }
+
+    @Override
+    public int getLowestClusterHBaseVersion() {
+        return getDelegate().getLowestClusterHBaseVersion();
+    }
 }
