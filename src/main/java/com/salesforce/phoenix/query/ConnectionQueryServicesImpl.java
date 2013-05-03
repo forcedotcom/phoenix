@@ -149,13 +149,25 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      */
     @Override
     public void close() throws SQLException {
+        SQLException sqlE = null;
         try {
-            connection.close();
-        } catch (IOException e) {
-            throw new PhoenixIOException(e);
-        }
-        finally {
-            super.close();
+            // Clear Phoenix metadata cache before closing HConnection
+            clearCache();
+        } catch (SQLException e) {
+            sqlE = e;
+        } finally {
+            try {
+                connection.close();
+            } catch (IOException e) {
+                if (sqlE == null) {
+                    sqlE = new PhoenixIOException(e);
+                } else {
+                    sqlE.setNextException(new PhoenixIOException(e));
+                }
+                throw sqlE;
+            } finally {
+                super.close();
+            }
         }
     }    
 
@@ -852,5 +864,46 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     public int getLowestClusterHBaseVersion() {
         return lowestClusterHBaseVersion;
+    }
+
+    /**
+     * Clears the Phoenix meta data cache on each region server
+     * @throws SQLException
+     */
+    protected void clearCache() throws SQLException {
+        try {
+            SQLException sqlE = null;
+            HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            try {
+                htable.coprocessorExec(MetaDataProtocol.class, HConstants.EMPTY_START_ROW,
+                        HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataProtocol, Void>() {
+                    @Override
+                    public Void call(MetaDataProtocol instance) throws IOException {
+                      instance.clearCache();
+                      return null;
+                    }
+                  });
+            } catch (IOException e) {
+                throw new PhoenixIOException(e);
+            } catch (Throwable e) {
+                sqlE = new SQLException(e);
+            } finally {
+                try {
+                    htable.close();
+                } catch (IOException e) {
+                    if (sqlE == null) {
+                        sqlE = new PhoenixIOException(e);
+                    } else {
+                        sqlE.setNextException(new PhoenixIOException(e));
+                    }
+                } finally {
+                    if (sqlE != null) {
+                        throw sqlE;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new SQLException(e);
+        }
     }
 }
