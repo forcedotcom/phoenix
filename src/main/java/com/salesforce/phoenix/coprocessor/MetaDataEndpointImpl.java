@@ -663,7 +663,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     public long getVersion() {
         // The first 3 bytes of the long is used to encoding the HBase version as major.minor.patch.
         // The next 3 bytes of the value is used to encode the Phoenix version as major.minor.patch.
-        return MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion(), MetaDataProtocol.PHOENIX_VERSION);
+        return MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
     }
 
 }

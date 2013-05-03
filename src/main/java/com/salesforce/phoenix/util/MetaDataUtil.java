@@ -46,9 +46,10 @@ public class MetaDataUtil {
         return (int) (version >>> Byte.SIZE * 5);
     }
 
-    public static long encodeHBaseAndPhoenixVersions(String hbaseVersion, String phoenixVersion) {
-        return (((long) encodeVersion(hbaseVersion)) << (Byte.SIZE * 5)) 
-                | (((long) encodeVersion(MetaDataProtocol.PHOENIX_VERSION)) << (Byte.SIZE * 2));
+    public static long encodeHBaseAndPhoenixVersions(String hbaseVersion) {
+        return (((long) encodeVersion(hbaseVersion)) << (Byte.SIZE * 5)) |
+                (((long) encodeVersion(MetaDataProtocol.PHOENIX_MAJOR_VERSION, MetaDataProtocol.PHOENIX_MINOR_VERSION,
+                        MetaDataProtocol.PHOENIX_PATCH_NUMBER)) << (Byte.SIZE * 2));
     }
 
     // Encode a version string in the format of "major.minor.patch" into an integer.
@@ -59,15 +60,15 @@ public class MetaDataUtil {
 
     // Encode the major as 2nd byte in the int, minor as the first byte and patch as the last byte.
     public static int encodeVersion(String major, String minor, String patch) {
+        return encodeVersion(major == null ? 0 : Integer.parseInt(major), minor == null ? 0 : Integer.parseInt(minor), 
+                        patch == null ? 0 : Integer.parseInt(patch));
+    }
+
+    public static int encodeVersion(int major, int minor, int patch) {
         int version = 0;
-        int shift = Byte.SIZE * 2;
-        int val = major == null ? 0 : Integer.parseInt(major);
-        if (val != 0L) version |= (val << shift);
-        shift = Byte.SIZE;
-        val = minor == null ? 0 : Integer.parseInt(minor);
-        if (val != 0L) version |= (val << shift);
-        val = patch == null ? 0 : Integer.parseInt(patch);
-        if (val != 0L) version |= val;
+        version |= (major << Byte.SIZE * 2);
+        version |= (minor << Byte.SIZE);
+        version |= patch;
         return version;
     }
 

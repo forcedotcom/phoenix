@@ -32,6 +32,7 @@ import java.util.Properties;
 import java.util.StringTokenizer;
 import java.util.logging.Logger;
 
+import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
@@ -60,8 +61,6 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
     public final static String MAJOR_VERSION_PROP = "DriverMajorVersion";
     public final static String MINOR_VERSION_PROP = "DriverMinorVersion";
     public final static String DRIVER_NAME_PROP = "DriverName";
-    private final static int MAJOR_VERSION = 1;
-    private final static int MINOR_VERSION = 0;
     
     private final QueryServices services;
 
@@ -176,12 +175,12 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
     
     @Override
     public int getMajorVersion() {
-        return MAJOR_VERSION;
+        return MetaDataProtocol.PHOENIX_MAJOR_VERSION;
     }
 
     @Override
     public int getMinorVersion() {
-        return MINOR_VERSION;
+        return MetaDataProtocol.PHOENIX_MINOR_VERSION;
     }
 
     @Override

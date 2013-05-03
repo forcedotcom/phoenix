@@ -140,6 +140,6 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
 
     @Override
     public int getLowestClusterHBaseVersion() {
-        return 0;
+        return getDelegate().getLowestClusterHBaseVersion();
     }
 }

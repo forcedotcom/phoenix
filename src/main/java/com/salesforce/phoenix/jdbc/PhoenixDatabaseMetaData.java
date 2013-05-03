@@ -276,12 +276,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     @Override
     public int getDatabaseMajorVersion() throws SQLException {
-        return 1;
+        return MetaDataProtocol.PHOENIX_MAJOR_VERSION;
     }
 
     @Override
     public int getDatabaseMinorVersion() throws SQLException {
-        return 0;
+        return MetaDataProtocol.PHOENIX_MINOR_VERSION;
     }
 
     @Override
@@ -291,7 +291,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     @Override
     public String getDatabaseProductVersion() throws SQLException {
-        return "1.0";
+        return Integer.toString(getDatabaseMajorVersion()) + "." + Integer.toString(getDatabaseMinorVersion());
     }
 
     @Override
