@@ -29,6 +29,8 @@
         <include>org.apache.hbase:hbase*</include>
         <include>net.sf.opencsv:opencsv</include>
         <include>org.antlr:antlr*</include>
+        <include>sqlline:sqlline</include>
+        <include>jline:jline</include>
         <!-- <include>*:jar:*</include> -->
       </includes>
     </dependencySet>
