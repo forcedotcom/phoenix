@@ -62,8 +62,7 @@ import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.TableNotFoundException;
-import com.salesforce.phoenix.util.JDBCUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 public class ConnectionQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices {
     private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
@@ -76,6 +75,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     // Cache the latest meta data here for future connections
     private volatile PMetaData latestMetaData = PMetaDataImpl.EMPTY_META_DATA;
     private final Object latestMetaDataLock = new Object();
+    // Lowest HBase version on the cluster.
+    private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
 
     /**
      * keep a cache of HRegionInfo objects
@@ -670,12 +671,14 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     private boolean isCompatible(Long serverVersion) {
-        return serverVersion != null && MetaDataProtocol.VERSION == serverVersion.longValue();
+        return serverVersion != null &&
+                MetaDataProtocol.PHOENIX_VERSION == MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
     }
-    
+
     private void checkClientServerCompatibility() throws SQLException {
         StringBuilder buf = new StringBuilder("The following servers require an updated " + QueryConstants.DEFAULT_COPROCESS_PATH + " to be put in the classpath of HBase: ");
         boolean isIncompatible = false;
+        int minHBaseVersion = Integer.MAX_VALUE;
         try {
             NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(getConfig(), TYPE_TABLE_NAME, false);
             TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
@@ -706,7 +709,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     buf.append(name);
                     buf.append(',');
                 }
+                if (minHBaseVersion > MetaDataUtil.decodeHBaseVersion(result.getValue())) {
+                    minHBaseVersion = MetaDataUtil.decodeHBaseVersion(result.getValue());
+                }
             }
+            lowestClusterHBaseVersion = minHBaseVersion;
         } catch (Throwable t) {
             // This is the case if the "phoenix.jar" is not on the classpath of HBase on the region server
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.INCOMPATIBLE_CLIENT_SERVER_JAR).setRootCause(t)
@@ -855,6 +862,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         return plan.execute();
     }
 
+    public int getLowestClusterHBaseVersion() {
+        return lowestClusterHBaseVersion;
+    }
+
     /**
      * Clears the Phoenix meta data cache on each region server
      * @throws SQLException
@@ -895,5 +906,4 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             throw new SQLException(e);
         }
     }
-    
 }

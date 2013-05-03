@@ -39,6 +39,7 @@ import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -65,7 +66,7 @@ public class QueryCompiler {
     private final Scan scan;
     private final int maxRows;
     private final PColumn[] targetColumns;
-    
+
     public QueryCompiler(PhoenixConnection connection, int maxRows) {
         this(connection, maxRows, new Scan());
     }
@@ -83,7 +84,9 @@ public class QueryCompiler {
         this.maxRows = maxRows;
         this.scan = scan;
         this.targetColumns = targetDatums;
-        this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
+        if (connection.getQueryServices().getLowestClusterHBaseVersion() >= PhoenixDatabaseMetaData.ESSENTIAL_FAMILY_VERSION_THRESHOLD) {
+            this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
+        }
     }
 
     /**

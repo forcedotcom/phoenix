@@ -61,9 +61,9 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
      * @throws SQLException 
      */
     public HTableInterface getTable(byte[] tableName) throws SQLException;
-    
+
     public StatsManager getStatsManager();
-    
+
     public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException;
 
     public PhoenixConnection connect(String url, Properties info) throws SQLException;
@@ -76,5 +76,6 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     public MutationState updateData(MutationPlan plan) throws SQLException;
 
     public void init(String url, Properties props) throws SQLException;
-    
+
+    public int getLowestClusterHBaseVersion();
 }
