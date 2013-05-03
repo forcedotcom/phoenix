@@ -29,7 +29,6 @@
         <include>org.apache.hbase:hbase*</include>
         <include>net.sf.opencsv:opencsv</include>
         <include>org.antlr:antlr*</include>
-        <include>sqlline:sqlline</include>
         <include>jline:jline</include>
         <!-- <include>*:jar:*</include> -->
       </includes>
@@ -44,6 +43,11 @@
         <include>org.codehaus.jackson:jackson-mapper-asl</include>
       </includes>
     </dependencySet>
+    <dependencySet>
+        <outputDirectory>/</outputDirectory>
+        <unpack>true</unpack>
+        <scope>system</scope>
+    </dependencySet>
   </dependencySets>
 
   <fileSets>
@@ -53,11 +57,6 @@
       <outputDirectory>/com</outputDirectory>
       <fileMode>0755</fileMode>
       <directoryMode>0755</directoryMode>
-    </fileSet>
-    <fileSet>
-      <!--Get application resources -->
-      <directory>src/main/resources</directory>
-      <outputDirectory>conf</outputDirectory>
     </fileSet>
     <fileSet>
       <!--Get misc project files -->

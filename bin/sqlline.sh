@@ -36,4 +36,4 @@ if [ -z "$1" ]
   exit;
 fi
 
-java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties sqlline.SqlLine -u jdbc:phoenix:$1 -n none -p none
+java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties sqlline.SqlLine -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true
