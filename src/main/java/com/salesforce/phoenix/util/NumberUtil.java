@@ -27,7 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import java.math.*;
+import java.math.BigDecimal;
 
 import com.salesforce.phoenix.schema.PDataType;
 
@@ -38,6 +38,8 @@ import com.salesforce.phoenix.schema.PDataType;
  * @since 0.1
  */
 public class NumberUtil {
+    
+    public static final String DEFAULT_NUMBER_FORMAT = "#,##0.###";
 
     /**
      * Strip all trailing zeros to ensure that no digit will be zero and

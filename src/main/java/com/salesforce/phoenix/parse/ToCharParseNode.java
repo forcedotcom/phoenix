@@ -34,9 +34,9 @@ import java.util.List;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.function.FunctionExpression;
-import com.salesforce.phoenix.expression.function.ToCharFunction;
-import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.expression.function.*;
+import com.salesforce.phoenix.expression.function.ToCharFunction.Type;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 public class ToCharParseNode extends FunctionParseNode {
@@ -47,14 +47,32 @@ public class ToCharParseNode extends FunctionParseNode {
 
     @Override
     public FunctionExpression create(List<Expression> children, StatementContext context) throws SQLException {
-        String dateFormat = (String)((LiteralExpression)children.get(1)).getValue();
-        Format dateFormatter;
-        if (dateFormat == null) {
-            dateFormat = context.getDateFormat();
-            dateFormatter = context.getDateFormatter();
-        } else {
-            dateFormatter = DateUtil.getDateFormatter(dateFormat);
+        PDataType dataType = children.get(0).getDataType();
+        String formatString = (String)((LiteralExpression)children.get(1)).getValue(); // either date or number format string
+        Format formatter;
+        ToCharFunction.Type type;
+        switch (dataType) {
+        case DATE:
+        case TIME:
+        case TIMESTAMP:
+            if (formatString == null) {
+                formatString = context.getDateFormat();
+                formatter = context.getDateFormatter();
+            } else {
+                formatter = Type.TEMPORAL.getFormatter(formatString);
+            }
+            type = Type.TEMPORAL;
+            break;
+        case DECIMAL:
+        case INTEGER:
+            if (formatString == null)
+                formatString = context.getNumberFormat();
+            formatter = Type.NUMERIC.getFormatter(formatString);
+            type = Type.NUMERIC;
+            break;
+        default:
+            throw new SQLException(dataType + " type is unsupported for TO_CHAR().  Supported types: DATE, TIMESTAMP, DECIMAL, INTEGER");
         }
-        return new ToCharFunction(children, dateFormat, dateFormatter);
+        return new ToCharFunction(children, type, formatString, formatter);
     }
 }

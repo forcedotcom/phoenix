@@ -55,10 +55,12 @@ public class ToCharFunctionTest extends BaseClientMangedTimeTest {
     public static final String TO_CHAR_TABLE_NAME = "TO_CHAR_TABLE";
     
     private Date row1Date;
+    private Time row1Time;
     private Timestamp row1Timestamp;
     private Integer row1Integer;
     private BigDecimal row1Decimal;
     private Date row2Date;
+    private Time row2Time;
     private Timestamp row2Timestamp;
     private Integer row2Integer;
     private BigDecimal row2Decimal;
@@ -66,6 +68,7 @@ public class ToCharFunctionTest extends BaseClientMangedTimeTest {
     public static final String TO_CHAR_TABLE_DDL = "create table " + TO_CHAR_TABLE_NAME +
         "(pk integer not null, \n" + 
         "col_date date not null, \n" +
+        "col_time date not null, \n" +
         "col_timestamp timestamp not null, \n" +
         "col_integer integer not null, \n" + 
         "col_decimal decimal not null \n" + 
@@ -84,33 +87,38 @@ public class ToCharFunctionTest extends BaseClientMangedTimeTest {
                 "upsert into " + TO_CHAR_TABLE_NAME +
                 "    (pk, " +
                 "    col_date," +
+                "    col_time," +
                 "    col_timestamp," +
                 "    col_integer," +
                 "    col_decimal)" +
-                "VALUES (?, ?, ?, ?, ?)");
+                "VALUES (?, ?, ?, ?, ?, ?)");
         
         row1Date = new Date(System.currentTimeMillis() - 10000);
+        row1Time = new Time(System.currentTimeMillis() - 1000);
         row1Timestamp = new Timestamp(System.currentTimeMillis() + 10000);
         row1Integer = 666;
         row1Decimal = new BigDecimal(33.333);
         
         stmt.setInt(1, 1);
         stmt.setDate(2, row1Date);
-        stmt.setTimestamp(3, row1Timestamp);
-        stmt.setInt(4, row1Integer);
-        stmt.setBigDecimal(5, row1Decimal);
+        stmt.setTime(3, row1Time);
+        stmt.setTimestamp(4, row1Timestamp);
+        stmt.setInt(5, row1Integer);
+        stmt.setBigDecimal(6, row1Decimal);
         stmt.execute();
         
         row2Date = new Date(System.currentTimeMillis() - 1234567);
+        row2Time = new Time(System.currentTimeMillis() - 1234);
         row2Timestamp = new Timestamp(System.currentTimeMillis() + 1234567);
         row2Integer = 10011;
         row2Decimal = new BigDecimal(123456789.66);
         
         stmt.setInt(1, 2);
         stmt.setDate(2, row2Date);
-        stmt.setTimestamp(3, row2Timestamp);
-        stmt.setInt(4, row2Integer);
-        stmt.setBigDecimal(5, row2Decimal);
+        stmt.setTime(3, row2Time);
+        stmt.setTimestamp(4, row2Timestamp);
+        stmt.setInt(5, row2Integer);
+        stmt.setBigDecimal(6, row2Decimal);
         
         stmt.execute();
         conn.commit();
@@ -122,6 +130,14 @@ public class ToCharFunctionTest extends BaseClientMangedTimeTest {
         String pattern = "yyyy.MM.dd G HH:mm:ss z";
         String query = "select to_char(col_date, '" + pattern + "') from " + TO_CHAR_TABLE_NAME + " WHERE pk = 1";
         String expectedString = getGMTDateFormat(pattern).format(row1Date);
+        runOneRowProjectionQuery(query, expectedString);
+    }
+    
+    @Test
+    public void testTimeProjection() throws Exception {
+        String pattern = "HH:mm:ss z";
+        String query = "select to_char(col_time, '" + pattern + "') from " + TO_CHAR_TABLE_NAME + " WHERE pk = 1";
+        String expectedString = getGMTDateFormat(pattern).format(row1Time);
         runOneRowProjectionQuery(query, expectedString);
     }
 
@@ -154,6 +170,14 @@ public class ToCharFunctionTest extends BaseClientMangedTimeTest {
         String pattern = "yyyyMMddHHmmssZ";
         String expectedString = getGMTDateFormat(pattern).format(row1Date);
         String query = "select pk from " + TO_CHAR_TABLE_NAME + " WHERE to_char(col_date, '" + pattern + "') = '" + expectedString + "'";
+        runOneRowFilterQuery(query, 1);
+    }
+    
+    @Test 
+    public void testTimeFilter() throws Exception {
+        String pattern = "ddHHmmssSSSZ";
+        String expectedString = getGMTDateFormat(pattern).format(row1Time);
+        String query = "select pk from " + TO_CHAR_TABLE_NAME + " WHERE to_char(col_time, '" + pattern + "') = '" + expectedString + "'";
         runOneRowFilterQuery(query, 1);
     }
     
