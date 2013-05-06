@@ -155,7 +155,7 @@ public class DynamicFamilyTest extends BaseClientMangedTimeTest {
      * @throws Exception
      */
     // FIXME @Test
-    public void testGetDynColThroughResultSetMetaData() throws Exception {
+    public void testGetAllDynColsInFamily() throws Exception {
         String query = "SELECT A.* FROM WEB_STATS WHERE entry='entry1'";
         String url = PHOENIX_JDBC_URL + ";";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -165,6 +165,35 @@ public class DynamicFamilyTest extends BaseClientMangedTimeTest {
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
             Pair<String,Integer> maxClickCountUserIdAndValue = getMaxClickCountValue(rs);
+            // This fails for two reasons: 1) all column qualifiers in column family A
+            // are not returned in the result, and 2) the dynamic columns are not available
+            // through ResultSetMetaData.
+            assertEquals(USER_ID2_BYTES,maxClickCountUserIdAndValue.getFirst());
+            assertEquals(ENTRY1_CLICK_COUNT,maxClickCountUserIdAndValue.getSecond());
+            
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    /**
+     * Should project all of column family A columns qualifiers. Should also automatically be case insensitive,
+     * since it is a wildcard.
+     * @throws Exception
+     */
+    // FIXME @Test
+    public void testGetAllDynCols() throws Exception {
+        String query = "SELECT * FROM WEB_STATS WHERE entry='entry1'";
+        String url = PHOENIX_JDBC_URL + ";";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            Pair<String,Integer> maxClickCountUserIdAndValue = getMaxClickCountValue(rs);
+            // This fails because the dynamic columns are not available through ResultSetMetaData
             assertEquals(USER_ID2_BYTES,maxClickCountUserIdAndValue.getFirst());
             assertEquals(ENTRY1_CLICK_COUNT,maxClickCountUserIdAndValue.getSecond());
             
