@@ -80,8 +80,6 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     /**
      * Splits the given scan's key range so that each split can be queried in parallel
      *
-     * @param scan the scan to parallelize
-     * @param allTableRegions all online regions for the table to be scanned
      * @return the key ranges that should be scanned in parallel
      */
     // exposed for tests
