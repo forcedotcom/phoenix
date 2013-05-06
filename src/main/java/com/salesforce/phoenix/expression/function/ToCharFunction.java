@@ -55,11 +55,7 @@ import com.salesforce.phoenix.util.DateUtil;
  * @since 0.1
  */
 @BuiltInFunction(name=ToCharFunction.NAME, nodeClass=ToCharParseNode.class, args={
-    @Argument(allowedTypes={PDataType.DATE,
-                            PDataType.TIME,
-                            PDataType.TIMESTAMP,
-                            PDataType.INTEGER,
-                            PDataType.DECIMAL}),
+    @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
     @Argument(allowedTypes={PDataType.VARCHAR},isConstant=true,defaultValue="null") } )
 public class ToCharFunction extends ScalarFunction {
 

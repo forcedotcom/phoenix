@@ -51,10 +51,7 @@ public class ToCharParseNode extends FunctionParseNode {
         String formatString = (String)((LiteralExpression)children.get(1)).getValue(); // either date or number format string
         Format formatter;
         ToCharFunction.Type type;
-        switch (dataType) {
-        case DATE:
-        case TIME:
-        case TIMESTAMP:
+        if (dataType.isCoercibleTo(PDataType.TIMESTAMP)) {
             if (formatString == null) {
                 formatString = context.getDateFormat();
                 formatter = context.getDateFormatter();
@@ -62,16 +59,15 @@ public class ToCharParseNode extends FunctionParseNode {
                 formatter = Type.TEMPORAL.getFormatter(formatString);
             }
             type = Type.TEMPORAL;
-            break;
-        case DECIMAL:
-        case INTEGER:
+        }
+        else if (dataType.isCoercibleTo(PDataType.DECIMAL)) {
             if (formatString == null)
                 formatString = context.getNumberFormat();
             formatter = Type.NUMERIC.getFormatter(formatString);
             type = Type.NUMERIC;
-            break;
-        default:
-            throw new SQLException(dataType + " type is unsupported for TO_CHAR().  Supported types: DATE, TIMESTAMP, DECIMAL, INTEGER");
+        }
+        else {
+            throw new SQLException(dataType + " type is unsupported for TO_CHAR().  Numeric and temporal types are supported.");
         }
         return new ToCharFunction(children, type, formatString, formatter);
     }
