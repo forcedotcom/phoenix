@@ -29,16 +29,18 @@ package com.salesforce.phoenix.expression.function;
 
 import java.io.*;
 import java.sql.SQLException;
+import java.text.DecimalFormat;
 import java.text.Format;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.base.Preconditions;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.DateUtil;
@@ -46,34 +48,56 @@ import com.salesforce.phoenix.util.DateUtil;
 
 /**
  * 
- * Implementation of the TO_CHAR(<date>,[<format-string>] built-in function.
- * The first argument must be of type DATE or TIME and the second argument must be a constant string. 
+ * Implementation of the TO_CHAR(&lt;date&gt;/&lt;number&gt;,[&lt;format-string&gt;] built-in function.
+ * The first argument must be of type DATE or TIME or TIMESTAMP or DECIMAL or INTEGER, and the second argument must be a constant string. 
  *
  * @author jtaylor
  * @since 0.1
  */
 @BuiltInFunction(name=ToCharFunction.NAME, nodeClass=ToCharParseNode.class, args={
-    @Argument(allowedTypes={PDataType.DATE,PDataType.TIME}),
+    @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
     @Argument(allowedTypes={PDataType.VARCHAR},isConstant=true,defaultValue="null") } )
 public class ToCharFunction extends ScalarFunction {
-    public static final String NAME = "TO_CHAR";
-    private Format dateFormatter;
-    private String dateFormat;
 
+    public enum Type {
+        TEMPORAL {
+            @Override
+            public Format getFormatter(String format) {
+                return DateUtil.getDateFormatter(format);
+            }
+        }, 
+        NUMERIC {
+            @Override
+            public Format getFormatter(String format) {
+                return new DecimalFormat(format);
+            }
+        };        
+        public abstract Format getFormatter(String format);
+    };
+    
+    public static final String NAME = "TO_CHAR";
+    private String formatString;
+    private Format formatter;
+    private Type type;
+    
     public ToCharFunction() {
     }
 
-    public ToCharFunction(List<Expression> children, String dateFormat, Format dateFormatter) throws SQLException {
+    public ToCharFunction(List<Expression> children, Type type, String formatString, Format formatter) throws SQLException {
         super(children.subList(0, 1));
-        this.dateFormat = dateFormat;
-        this.dateFormatter = dateFormatter;
+        Preconditions.checkNotNull(formatString);
+        Preconditions.checkNotNull(formatter);
+        Preconditions.checkNotNull(type);
+        this.type = type;
+        this.formatString = formatString;
+        this.formatter = formatter;
     }
     
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + dateFormat.hashCode();
+        result = prime * result + formatString.hashCode();
         result = prime * result + getExpression().hashCode();
         return result;
     }
@@ -85,7 +109,7 @@ public class ToCharFunction extends ScalarFunction {
         if (getClass() != obj.getClass()) return false;
         ToCharFunction other = (ToCharFunction)obj;
         if (!getExpression().equals(other.getExpression())) return false;
-        if (!dateFormat.equals(other.dateFormat)) return false;
+        if (!formatString.equals(other.formatString)) return false;
         return true;
     }
 
@@ -96,7 +120,7 @@ public class ToCharFunction extends ScalarFunction {
             return false;
         }
         PDataType type = expression.getDataType();
-        Object value = dateFormatter.format(type.toObject(ptr, expression.getColumnModifier()));
+        Object value = formatter.format(type.toObject(ptr, expression.getColumnModifier()));
         byte[] b = getDataType().toBytes(value);
         ptr.set(b);
         return true;
@@ -115,14 +139,16 @@ public class ToCharFunction extends ScalarFunction {
     @Override
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
-        dateFormat = WritableUtils.readString(input);
-        dateFormatter = DateUtil.getDateFormatter(dateFormat);
+        formatString = WritableUtils.readString(input);
+        type = WritableUtils.readEnum(input, Type.class);
+        formatter = type.getFormatter(formatString);
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
         super.write(output);
-        WritableUtils.writeString(output, dateFormat);
+        WritableUtils.writeString(output, formatString);
+        WritableUtils.writeEnum(output, type);
     }
 
     private Expression getExpression() {

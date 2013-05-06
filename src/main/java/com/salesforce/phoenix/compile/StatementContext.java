@@ -45,6 +45,7 @@ import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 /**
@@ -64,6 +65,7 @@ public class StatementContext {
     private final String dateFormat;
     private final Format dateFormatter;
     private final Format dateParser;
+    private final String numberFormat;
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
 
@@ -82,6 +84,7 @@ public class StatementContext {
         this.dateFormat = connection.getQueryServices().getConfig().get(QueryServices.DATE_FORMAT_ATTRIB, DateUtil.DEFAULT_DATE_FORMAT);
         this.dateFormatter = DateUtil.getDateFormatter(dateFormat);
         this.dateParser = DateUtil.getDateParser(dateFormat);
+        this.numberFormat = connection.getQueryServices().getConfig().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
         this.groupBy = GroupBy.EMPTY_GROUP_BY;
     }
@@ -98,7 +101,11 @@ public class StatementContext {
     public Format getDateParser() {
         return dateParser;
     }
-
+    
+    public String getNumberFormat() {
+        return numberFormat;
+    }
+    
     public Scan getScan() {
         return scan;
     }
