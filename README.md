@@ -62,11 +62,25 @@ Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, in
 
 <h4>Command Line</h4>
 
+<h5>Execute SQL</h5>
+
+[SqlLine](https://github.com/julianhyde/sqlline) is included in Phoenix (1.2 and above) to execute SQL from command line. Sqlline manual is available [here](http://www.hydromatic.net/sqlline/manual.html)
+	
+	Usage: 
+	$ sqlline.sh <zookeeper> <optional_sql_file> 
+	Example: 
+	$ sqlline.sh localhost
+	$ sqlline.sh localhost ../examples/stock_symbol.sql
+
+
+![sqlline](http://forcedotcom.github.com/phoenix/images/sqlline.png)
+
+<h5>Load Data</h5>
+
 In addition, you can use the bin/psql.sh to execute SQL and/or load CSV data directly. Here are few examples:
 
-	$ psql.sh localhost ../examples/stock_symbol.sql
         $ psql.sh localhost localhost ../examples/web_stat.sql ../examples/web_stat.csv ../examples/web_stat_queries.sql
-        $ psql.sh -t stock_symbol -h symbol,price,date localhost ../examples/stock_symbol.sql
+        $ psql.sh -t stock_symbol -h symbol,price,date localhost ../examples/stock_symbol.sql ../examples/stock_symbol.sql ../examples/stock_symbol.csv
 
 ![psql](http://forcedotcom.github.com/phoenix/images/psql.png)
 
@@ -111,3 +125,4 @@ Join one or both of our Google groups:
 and follow the Phoenix blog [here](http://phoenix-hbase.blogspot.com/).
 
 [![githalytics.com alpha](https://cruel-carlota.pagodabox.com/8438f3b844208e09a811699265666a8d "githalytics.com")](http://githalytics.com/forcedotcom/phoenix.git)
+
