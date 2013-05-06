@@ -1,3 +1,15 @@
+SqlLine
+=======
+https://github.com/julianhyde/sqlline
+
+Execute SQL from command line. Sqlline manual is available at http://www.hydromatic.net/sqlline/manual.html
+	
+	Usage: 
+	$ sqlline.sh <zookeeper> <optional_sql_file> 
+	Example: 
+	$ sqlline.sh localhost
+	$ sqlline.sh localhost ../examples/stock_symbol.sql
+
 psql.sh
 =======
 

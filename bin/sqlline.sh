@@ -32,8 +32,12 @@ phoenix_jar_path="../target"
 phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
 
 if [ -z "$1" ] 
-  then echo "Zookeeper not specified. Usage: sqlline.sh <zookeeper>. Example: sqlline.sh localhost";
+  then echo -e "Zookeeper not specified. \nUsage: sqlline.sh <zookeeper> <optional_sql_file> \nExample: \n 1. sqlline.sh localhost \n 2. sqlline.sh localhost ../examples/stock_symbol.sql";
   exit;
 fi
 
-java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties sqlline.SqlLine -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true --isolation=TRANSACTION_READ_COMMITTED
+if [ "$2" ] 
+  then sqlfile="--run=$2";
+fi
+
+java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties sqlline.SqlLine -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true --isolation=TRANSACTION_READ_COMMITTED $sqlfile
