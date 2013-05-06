@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
+import static com.salesforce.phoenix.expression.function.ToCharFunction.Type.TEMPORAL;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -34,30 +35,14 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.List;
-import java.util.TimeZone;
+import java.util.*;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.expression.function.LTrimFunction;
-import com.salesforce.phoenix.expression.function.LengthFunction;
-import com.salesforce.phoenix.expression.function.LowerFunction;
-import com.salesforce.phoenix.expression.function.RTrimFunction;
-import com.salesforce.phoenix.expression.function.RegexpReplaceFunction;
-import com.salesforce.phoenix.expression.function.RegexpSubstrFunction;
-import com.salesforce.phoenix.expression.function.RoundFunction;
-import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
-import com.salesforce.phoenix.expression.function.SubstrFunction;
-import com.salesforce.phoenix.expression.function.ToCharFunction;
-import com.salesforce.phoenix.expression.function.ToDateFunction;
-import com.salesforce.phoenix.expression.function.ToNumberFunction;
-import com.salesforce.phoenix.expression.function.TrimFunction;
-import com.salesforce.phoenix.expression.function.UpperFunction;
+import com.salesforce.phoenix.expression.function.*;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.DateUtil;
@@ -139,7 +124,7 @@ public class DescColumnSortOrderExpressionTest {
     @Test
     public void toChar() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral(date(12, 11, 2001), PDataType.DATE));
-        evaluateAndAssertResult(new ToCharFunction(args, null, new SimpleDateFormat()), "12/11/01 12:00 AM");
+        evaluateAndAssertResult(new ToCharFunction(args, TEMPORAL, "", new SimpleDateFormat()), "12/11/01 12:00 AM");
     }
     
     @Test
