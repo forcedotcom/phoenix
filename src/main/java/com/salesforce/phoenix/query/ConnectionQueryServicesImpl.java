@@ -862,6 +862,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         return plan.execute();
     }
 
+    @Override
     public int getLowestClusterHBaseVersion() {
         return lowestClusterHBaseVersion;
     }

@@ -37,7 +37,7 @@ public class SchemaNotFoundException extends MetaDataEntityNotFoundException {
 
     public SchemaNotFoundException(String schemaName) {
         super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).build().toString(),
-                code.getSQLState());
+                code.getSQLState(), code.getErrorCode());
         this.schemaName = schemaName;
     }
 
