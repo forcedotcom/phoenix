@@ -27,13 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
-import java.util.Map;
-
 import org.apache.hadoop.hbase.coprocessor.*;
 
 import com.salesforce.phoenix.cache.GlobalCache;
-import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 
 /**
@@ -45,7 +41,6 @@ public class MetaDataRegionObserver extends BaseRegionObserver {
     @Override
     public void preClose(final ObserverContext<RegionCoprocessorEnvironment> c,
             boolean abortRequested) {
-        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(c.getEnvironment().getConfiguration()).getMetaDataCache();
-        metaDataCache.clear();
+        GlobalCache.getInstance(c.getEnvironment().getConfiguration()).getMetaDataCache().clear();
     }
 }
