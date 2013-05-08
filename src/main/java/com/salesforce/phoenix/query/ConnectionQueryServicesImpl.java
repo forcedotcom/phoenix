@@ -431,6 +431,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 if (!descriptor.hasCoprocessor(MetaDataEndpointImpl.class.getName())) {
                     descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), null, 1, null);
                 }
+                if (!descriptor.hasCoprocessor(MetaDataRegionObserver.class.getName())) {
+                    descriptor.addCoprocessor(MetaDataRegionObserver.class.getName(), null, 2, null);
+                }
             }
         } catch (IOException e) {
             throw new PhoenixIOException(e);
