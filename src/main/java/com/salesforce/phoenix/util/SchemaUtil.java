@@ -414,7 +414,7 @@ public class SchemaUtil {
     private static int estimatePartLength(int pos, List<PColumn> pkColumns) {
         int length = 0;
         while (pos < pkColumns.size()) {
-            PColumn column = pkColumns.get(pos);
+            PColumn column = pkColumns.get(pos++);
             if (column.getDataType().isFixedWidth()) {
                 length += column.getByteSize();
             } else {

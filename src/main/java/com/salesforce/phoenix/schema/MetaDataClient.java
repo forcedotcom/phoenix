@@ -238,7 +238,7 @@ public class MetaDataClient {
             
             List<ColumnDef> colDefs = statement.getColumnDefs();
             List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
-            List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(colDefs.size());
+            List<PColumn> pkColumns = new LinkedList<PColumn>();
             PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
             int columnOrdinal = 0;
             Map<String, PName> familyNames = Maps.newLinkedHashMap();
@@ -306,7 +306,7 @@ public class MetaDataClient {
                     }
                 }
             }
-                
+            
             for (PName familyName : familyNames.values()) {
                 Collection<Pair<String,Object>> props = statement.getProps().get(familyName.getString());
                 if (props.isEmpty()) {
@@ -335,6 +335,11 @@ public class MetaDataClient {
             if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
             }
+            if (saltBucketNum != null) {
+                ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
+            }
+            // Switch the Linkedlist to Arraylist to it's faster for position lookup.
+            pkColumns = new ArrayList<PColumn>(pkColumns);
             
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
             tableUpsert.setString(1, schemaName);
