@@ -82,7 +82,7 @@ public class ScanRangesTest {
         assertEquals(expectedResult, scanRanges.intersect(lowerInclusiveKey,upperExclusiveKey));
     }
 
-    @Parameters(name="{0} {1} {2} {3} {4}")
+    @Parameters(name="{0} {2}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // variable length test that demonstrates that null byte
@@ -184,6 +184,16 @@ public class ScanRangesTest {
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("I"), true),}},
                     new int[] {1,1,1}, PDataType.CHAR.getKeyRange(Bytes.toBytes("b1E"), true, Bytes.toBytes("b1H"), true),
+                    true));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("c"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("d"), true, Bytes.toBytes("d"), true),},{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),},{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("I"), true),}},
+                    new int[] {1,1,1}, PDataType.CHAR.getKeyRange(Bytes.toBytes("b00"), true, Bytes.toBytes("d00"), true),
                     true));
         // KeyRange above the last scan range.
         testCases.addAll(

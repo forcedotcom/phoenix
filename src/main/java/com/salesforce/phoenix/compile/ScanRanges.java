@@ -195,7 +195,7 @@ public class ScanRanges {
                 // We're in range, check if this regions contains more than one value in this slot. If so, we have an
                 // intersection with the region.
                 int upperPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(ranges.get(i), upper, position[i]);
-                if (upperPos > position[i]) {
+                if (upperPos > position[i] && upperPos != ranges.get(i).size()) {
                     break;
                 }
                 // Check next slot.
