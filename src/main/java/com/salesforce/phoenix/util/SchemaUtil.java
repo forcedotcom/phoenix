@@ -359,4 +359,68 @@ public class SchemaUtil {
     public static boolean isMetaTable(byte[] tableName) {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
     }
+
+    // Given the splits and the rowKeySchema, find out the keys that 
+    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns) {
+        if (splits == null) return null;
+        byte[][] newSplits = new byte[splits.length][];
+        for (int i=0; i<splits.length; i++) {
+            newSplits[i] = processSplit(splits[i], pkColumns); 
+        }
+        return newSplits;
+    }
+
+    // Go through each slot in the schema and try match it with the split byte array. If the split
+    // does not confer to the schema, extends its length to match the schema.
+    private static byte[] processSplit(byte[] split, List<PColumn> pkColumns) {
+        int pos = 0, offset = 0, maxOffset = split.length;
+        while (pos < pkColumns.size()) {
+            PColumn column = pkColumns.get(pos);
+            if (column.getDataType().isFixedWidth()) { // Fixed width
+                int length = column.getByteSize();
+                if (maxOffset - offset < length) {
+                    // The split truncates the field. Fill in the rest of the part and any fields that
+                    // are missing after this field.
+                    int fillInLength = length - (maxOffset - offset);
+                    fillInLength += estimatePartLength(pos + 1, pkColumns);
+                    return ByteUtil.fillKey(split, split.length + fillInLength);
+                }
+                // Account for this field, move to next position;
+                offset += length;
+                pos++;
+            } else { // Variable length
+                // If we are the last slot, then we are done. Nothing needs to be filled in.
+                if (pos == pkColumns.size() - 1) {
+                    break;
+                }
+                while (offset < maxOffset && split[offset] != QueryConstants.SEPARATOR_BYTE) {
+                    offset++;
+                }
+                if (offset == maxOffset) {
+                    // The var-length field does not end with a separator and it's not the last field.
+                    int fillInLength = 1; // SEPARATOR byte for the current var-length slot.
+                    fillInLength += estimatePartLength(pos + 1, pkColumns);
+                    return ByteUtil.fillKey(split, split.length + fillInLength);
+                }
+                // Move to the next position;
+                offset += 1; // skip separator;
+                pos++;
+            }
+        }
+        return split;
+    }
+
+    // Estimate the key length after pos slot for schema.
+    private static int estimatePartLength(int pos, List<PColumn> pkColumns) {
+        int length = 0;
+        while (pos < pkColumns.size()) {
+            PColumn column = pkColumns.get(pos);
+            if (column.getDataType().isFixedWidth()) {
+                length += column.getByteSize();
+            } else {
+                length += 1; // SEPARATOR byte.
+            }
+        }
+        return length;
+    }
 }

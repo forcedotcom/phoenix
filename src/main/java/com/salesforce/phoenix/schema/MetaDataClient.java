@@ -228,16 +228,17 @@ public class MetaDataClient {
             
             PrimaryKeyConstraint pkConstraint = statement.getPrimaryKeyConstraint();
             String pkName = null;
-            Set<String> pkColumns = Collections.<String>emptySet();
+            Set<String> pkColumnsNames = Collections.<String>emptySet();
             Iterator<String> pkColumnsIterator = Iterators.emptyIterator();
             if (pkConstraint != null) {
-                pkColumns = pkConstraint.getColumnNames();
-                pkColumnsIterator = pkColumns.iterator();
+                pkColumnsNames = pkConstraint.getColumnNames();
+                pkColumnsIterator = pkColumnsNames.iterator();
                 pkName = pkConstraint.getName();
             }
             
             List<ColumnDef> colDefs = statement.getColumnDefs();
             List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
+            List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(colDefs.size());
             PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
             int columnOrdinal = 0;
             Map<String, PName> familyNames = Maps.newLinkedHashMap();
@@ -253,16 +254,17 @@ public class MetaDataClient {
                 PColumn column = newColumn(columnOrdinal++, colDef, pkConstraint);
                 if (SchemaUtil.isPKColumn(column)) {
                     // TODO: remove this constraint?
-                    if (!pkColumns.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
+                    if (!pkColumnsNames.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
                             .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                     }
+                    pkColumns.add(column);
                 }
                 columns.add(column);
                 if (colDef.getDataType() == PDataType.VARBINARY 
                         && SchemaUtil.isPKColumn(column)
-                        && pkColumns.size() > 1 
-                        && column.getPosition() < pkColumns.size() - 1) {
+                        && pkColumnsNames.size() > 1 
+                        && column.getPosition() < pkColumnsNames.size() - 1) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.VARBINARY_IN_ROW_KEY).setSchemaName(schemaName)
                         .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                 }
@@ -270,7 +272,7 @@ public class MetaDataClient {
                     familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
                 }
             }
-            if (!isPK && pkColumns.isEmpty()) {
+            if (!isPK && pkColumnsNames.isEmpty()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
@@ -351,6 +353,7 @@ public class MetaDataClient {
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
             
+            splits = SchemaUtil.processSplits(splits, pkColumns);
             MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
             switch(code) {
