@@ -25,38 +25,22 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.util;
+package com.salesforce.phoenix.coprocessor;
 
-import java.math.BigDecimal;
+import org.apache.hadoop.hbase.coprocessor.*;
 
-import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.cache.GlobalCache;
+
 
 /**
- * Utility methods for numbers like decimal, long, etc.
- *
- * @author elevine
- * @since 0.1
+ * Coprocessor for metadata related operations. This coprocessor would only be registered
+ * to SYSTEM.TABLE.
  */
-public class NumberUtil {
-    
-    public static final String DEFAULT_NUMBER_FORMAT = "#,##0.###";
+public class MetaDataRegionObserver extends BaseRegionObserver {
 
-    /**
-     * Strip all trailing zeros to ensure that no digit will be zero and
-     * round using our default context to ensure precision doesn't exceed max allowed.
-     * @return new {@link BigDecimal} instance
-     */
-    public static BigDecimal normalize(BigDecimal bigDecimal) {
-        return bigDecimal.stripTrailingZeros().round(PDataType.DEFAULT_MATH_CONTEXT);
-    }
-
-    public static BigDecimal setDecimalWidthAndScale(BigDecimal decimal, int precision, int scale) {
-        // If we could not fit all the digits before decimal point into the new desired precision and
-        // scale, return null and the caller method should handle the error.
-        if (((precision - scale) < (decimal.precision() - decimal.scale()))){
-            return null;
-        }
-        decimal = decimal.setScale(scale, BigDecimal.ROUND_DOWN);
-        return decimal;
+    @Override
+    public void preClose(final ObserverContext<RegionCoprocessorEnvironment> c,
+            boolean abortRequested) {
+        GlobalCache.getInstance(c.getEnvironment().getConfiguration()).getMetaDataCache().clear();
     }
 }

@@ -51,7 +51,7 @@ public class TypeUtil {
 	 * {@link #castPigTypeToPhoenix(Object, byte, PDataType)}
 	 * 
 	 * @param obj
-	 * @return
+	 * @return PDataType
 	 */
 	public static PDataType getType(Object obj, byte type) {
 		if (obj == null) {
@@ -102,7 +102,7 @@ public class TypeUtil {
 	 * 
 	 * @param o
 	 * @param targetPhoenixType
-	 * @return
+	 * @return Object
 	 */
 	public static Object castPigTypeToPhoenix(Object o, byte objectType, PDataType targetPhoenixType) {
 		PDataType inferredPType = getType(o, objectType);
@@ -149,7 +149,7 @@ public class TypeUtil {
 	 * 
 	 * @param o
 	 * @param targetPhoenixType
-	 * @return
+	 * @return Object
 	 * @throws IOException
 	 */
     public static Object castBytes(Object o, PDataType targetPhoenixType) throws IOException {

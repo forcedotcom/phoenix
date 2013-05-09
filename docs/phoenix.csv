@@ -714,7 +714,7 @@ REGEXP_REPLACE('abc123ABC', '[0-9]+', '#') evaluates to 'abc#ABC'
 TO_NUMBER( stringTerm [, formatString] )
 ","
 Formats a string as a number, optionally accepting a format string.
-For details of the format, see ""java.text.DecimalFormat"".
+For details on the format, see ""java.text.DecimalFormat"".
 This method returns a decimal number.
 ","
 TO_NUMBER('$123.33', '\u00A4###.##')
@@ -731,6 +731,17 @@ For details of the format, see ""java.text.SimpleDateFormat"".
 This method returns a string.
 ","
 TO_CHAR(TIMESTAMP, '2001-02-03 04:05:06')
+"
+
+"Functions (Number)","TO_CHAR","
+TO_CHAR( number [, formatString] )
+","
+Formats a decimal or integer as a string, optionally accepting a format string.
+The default format string is ""#,##0.###"".
+For details of the format, see ""java.text.DecimalFormat"".
+This method returns a string.
+","
+TO_CHAR(DECIMAL, '#,##0.###')
 "
 
 "Functions (Time and Date)","TO_DATE","
