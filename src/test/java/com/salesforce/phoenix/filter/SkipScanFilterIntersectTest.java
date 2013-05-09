@@ -92,7 +92,7 @@ public class SkipScanFilterIntersectTest {
         }
     }
 
-    @Parameters(name="{0} {1} {2} {3} {4}")
+    @Parameters(name="{0} {4}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // Causes increment of slot 2 to increment slot 1
@@ -162,6 +162,22 @@ public class SkipScanFilterIntersectTest {
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("E"), true),
                 }}));
         // No overlap
+        testCases.addAll(foreach(
+                new KeyRange[][]{{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                    },{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("2"), true),
+                    },{
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("G"), true),
+                }},
+                new int[] {1,1,1}, 
+                Bytes.toBytes("a1I"), 
+                Bytes.toBytes("a2A"),
+                null));
         testCases.addAll(foreach(
                 new KeyRange[][] {{
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true), 

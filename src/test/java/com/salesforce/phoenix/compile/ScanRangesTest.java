@@ -176,6 +176,17 @@ public class ScanRangesTest {
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("H"), true),}},
                     new int[] {1,1,1}, PDataType.CHAR.getKeyRange(Bytes.toBytes("b1E"), true, Bytes.toBytes("b1F"), true),
                     false));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),},{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("2"), true),},{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("A"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("D"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("G"), true),}},
+                    new int[] {1,1,1}, PDataType.CHAR.getKeyRange(Bytes.toBytes("a1I"), true, Bytes.toBytes("a2A"), false),
+                    false));
         // KeyRange above the first scan range, with intersects.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -194,6 +205,16 @@ public class ScanRangesTest {
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("I"), true),}},
                     new int[] {1,1,1}, PDataType.CHAR.getKeyRange(Bytes.toBytes("b00"), true, Bytes.toBytes("d00"), true),
+                    true));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("c"), true, Bytes.toBytes("c"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("d"), true, Bytes.toBytes("d"), true),},{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("3"), true, Bytes.toBytes("4"), true),},{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("D"), true),
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("G"), true, Bytes.toBytes("I"), true),}},
+                    new int[] {1,1,1}, PDataType.CHAR.getKeyRange(Bytes.toBytes("b20"), true, Bytes.toBytes("b50"), true),
                     true));
         // KeyRange above the last scan range.
         testCases.addAll(
