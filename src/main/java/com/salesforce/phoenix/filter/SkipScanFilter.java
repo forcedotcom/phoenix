@@ -147,7 +147,7 @@ public class SkipScanFilter extends FilterBase {
             // Find the position of the first slot of the lower range
             ptr.set(lowerInclusiveKey);
             schema.first(ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
-            startPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(0), ptr, 0);
+            startPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, 0);
             // Lower range is past last upper range of first slot, so cannot possibly be in range
             if (startPos >= slots.get(0).size()) {
                 return null;            
@@ -159,7 +159,7 @@ public class SkipScanFilter extends FilterBase {
             // Find the position of the first slot of the upper range
             ptr.set(upperExclusiveKey);
             schema.first(ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
-            endPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanLowerPtr(slots.get(0), ptr, startPos);
+            endPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, startPos);
             // Upper range lower than first lower range of first slot, so cannot possibly be in range
             if (endPos == 0 && Bytes.compareTo(upperExclusiveKey, slots.get(0).get(0).getLowerRange()) <= 0) {
                 return null;            

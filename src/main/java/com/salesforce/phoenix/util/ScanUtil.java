@@ -320,7 +320,7 @@ public class ScanUtil {
      * @return  the index of the slot whose slot bound equals or are the tightest one that is 
      *          smaller than rangeBound of range, or slots.length if no bound can be found.
      */
-    public static int searchClosestKeyRangeWithUpperHigherThanLowerPtr(List<KeyRange> slots, ImmutableBytesWritable ptr, int lower) {
+    public static int searchClosestKeyRangeWithUpperHigherThanPtr(List<KeyRange> slots, ImmutableBytesWritable ptr, int lower) {
         int upper = slots.size() - 1;
         int mid;
         while (lower <= upper) {
