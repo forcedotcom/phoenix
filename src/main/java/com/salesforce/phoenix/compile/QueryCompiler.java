@@ -107,7 +107,7 @@ public class QueryCompiler {
         
         statement = RHSLiteralStatementRewriter.normalizeWhereClause(statement);
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
-        StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
 
         GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context);
@@ -117,7 +117,7 @@ public class QueryCompiler {
         Expression having = HavingCompiler.getExpression(statement, context, groupBy);
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
-        WhereCompiler.getWhereClause(context, statement.getWhere(), statement.getHint());
+        WhereCompiler.getWhereClause(context, statement.getWhere());
         OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, limit); 
         RowProjector projector = ProjectionCompiler.getRowProjector(statement, context, groupBy, orderBy, limit, targetColumns);
         

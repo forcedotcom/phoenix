@@ -71,7 +71,7 @@ public class DeleteCompiler {
         }
         Scan scan = new Scan();
         ParseNode where = statement.getWhere();
-        final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan);
+        final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
         OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, limit); 
         Expression whereClause = WhereCompiler.getWhereClause(context, where);

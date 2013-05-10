@@ -35,24 +35,35 @@ import java.util.Set;
  * Node representing optimizer hints in SQL
  */
 public class HintNode {
+    public enum Hint {
+        /**
+         * Forces a range scan to be used to process the query
+         */
+        RANGE_SCAN,
+        /**
+         * Forces a skip scan to be used to process the query
+         */
+        SKIP_SCAN,
+        /**
+         * Prevents the spawning of multiple threads during
+         * query processing
+         */
+        NO_INTRA_REGION_PARALLELIZATION};
 
-    // Force a range scan on an select.
-    public static final String FORCE_RANGE_SCAN_ON_SELECT = "range_scan";
-    // Force a skip scan on an select
-    public static final String FORCE_SKIP_SCAN_ON_SELECT = "skip_scan";
-
-    private final Set<String> hintWords;
+    private final Set<Hint> hints = new HashSet<Hint>();
 
     public HintNode(String hint) {
-        hintWords = new HashSet<String>();
-        String[] hints = hint.split(",");
-        for (String hintWord: hints) {
-            hintWords.add(hintWord.trim());
+        String[] hintWords = hint.split(",");
+        for (String hintWord : hintWords) {
+            try {
+                hints.add(Hint.valueOf(hintWord.trim().toUpperCase()));
+            } catch (IllegalArgumentException e) { // Ignore unknown hints
+            }
         }
     }
 
     // Check if a hint is specified.
-    public boolean hasHint(String hint) {
-        return hintWords.contains(hint);
+    public boolean hasHint(Hint hint) {
+        return hints.contains(hint);
     }
 }

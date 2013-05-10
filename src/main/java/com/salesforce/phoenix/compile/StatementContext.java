@@ -40,6 +40,8 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
@@ -68,6 +70,7 @@ public class StatementContext {
     private final String numberFormat;
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
+    private final HintNode hintNode;
 
     private boolean isAggregate;
     private GroupBy groupBy;
@@ -75,6 +78,10 @@ public class StatementContext {
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
     public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
+        this(connection, resolver, binds, bindCount, scan, null);
+    }
+    
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -87,8 +94,12 @@ public class StatementContext {
         this.numberFormat = connection.getQueryServices().getConfig().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
         this.groupBy = GroupBy.EMPTY_GROUP_BY;
+        this.hintNode = hintNode;
     }
 
+    public boolean hasHint(Hint hint) {
+        return hintNode == null ? false : hintNode.hasHint(hint);
+    }
 
     public String getDateFormat() {
         return dateFormat;

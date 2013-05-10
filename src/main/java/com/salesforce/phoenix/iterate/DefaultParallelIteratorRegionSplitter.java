@@ -40,6 +40,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 
@@ -55,6 +56,7 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
 
     protected final int targetConcurrency;
     protected final int maxConcurrency;
+    protected final int maxIntraRegionParallelization;
     protected final StatementContext context;
     protected final TableRef table;
 
@@ -72,6 +74,9 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
                 QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY);
         Preconditions.checkArgument(targetConcurrency >= 1, "Invalid target concurrency: " + targetConcurrency);
         Preconditions.checkArgument(maxConcurrency >= targetConcurrency , "Invalid max concurrency: " + maxConcurrency);
+        this.maxIntraRegionParallelization = context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION) ? 1 : config.getInt(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB,
+                QueryServicesOptions.DEFAULT_MAX_INTRA_REGION_PARALLELIZATION);
+        Preconditions.checkArgument(maxIntraRegionParallelization >= 1 , "Invalid max intra region parallelization: " + maxIntraRegionParallelization);
     }
 
     // Get the mapping between key range and the regions that contains them.
@@ -133,6 +138,7 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         // have more rows than others, by applying tighter splits and therefore spawning
         // off more scans over the overloaded regions.
         int splitsPerRegion = regions.size() >= targetConcurrency ? 1 : (regions.size() > targetConcurrency / 2 ? maxConcurrency : targetConcurrency) / regions.size();
+        splitsPerRegion = Math.min(splitsPerRegion, maxIntraRegionParallelization);
         // Create a multi-map of ServerName to List<KeyRange> which we'll use to round robin from to ensure
         // that we keep each region server busy for each query.
         ListMultimap<ServerName,KeyRange> keyRangesPerRegion = ArrayListMultimap.create(regions.size(),regions.size() * splitsPerRegion);;

@@ -40,6 +40,7 @@ import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.MetaScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -88,6 +89,12 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         this.expectedSplits = expectedSplits;
     }
 
+    @Before
+    public void beforeTest() {
+        Configuration config = driver.getQueryServices().getConfig();
+        config.setInt(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.MAX_VALUE);
+    }
+    
     @Test
     public void testGetSplitsWithSkipScanFilter() throws Exception {
         long ts = nextTimestamp();

@@ -70,6 +70,7 @@ public class QueryServicesOptions {
 	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 60000; // How long to cache region boundary info for parallelization calculation
     public static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 30000; // 30 sec (with no activity)
     public static final int DEFAULT_SCAN_CACHE_SIZE = 1000;
+    public static final int DEFAULT_MAX_INTRA_REGION_PARALLELIZATION = 2;
     
     private final Configuration config;
     
@@ -99,6 +100,7 @@ public class QueryServicesOptions {
             // TODO: remove usage of UPSERT_BATCH_SIZE_ATTRIB in next release
             .setIfUnset(MUTATE_BATCH_SIZE_ATTRIB, config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE))
             .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
+            .setIfUnset(MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, DEFAULT_MAX_INTRA_REGION_PARALLELIZATION)
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
@@ -220,6 +222,10 @@ public class QueryServicesOptions {
         return set(MUTATE_BATCH_SIZE_ATTRIB, mutateBatchSize);
     }
     
+    public QueryServicesOptions setMaxIntraRegionParallelization(int maxIntraRegionParallelization) {
+        return set(MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, maxIntraRegionParallelization);
+    }
+    
     public QueryServicesOptions setRegionBoundaryCacheTTLMs(int regionBoundaryCacheTTL) {
         return set(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, regionBoundaryCacheTTL);
     }
@@ -278,6 +284,10 @@ public class QueryServicesOptions {
     
     public int getMutateBatchSize() {
         return config.getInt(MUTATE_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE);
+    }
+    
+    public int getMaxIntraRegionParallelization() {
+        return config.getInt(MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, DEFAULT_MAX_INTRA_REGION_PARALLELIZATION);
     }
     
     public int getRegionBoundaryCacheTTLMs() {

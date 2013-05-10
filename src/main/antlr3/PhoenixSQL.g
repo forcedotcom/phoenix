@@ -447,11 +447,11 @@ upsert_select_node returns [SelectStatement ret]
     
 // Parse a full delete expression structure.
 delete_node returns [DeleteStatement ret]
-    :   DELETE FROM t=from_table_name
+    :   DELETE (hint=hintClause)? FROM t=from_table_name
         (WHERE v=condition)?
         (ORDER BY order=order_by)?
         (LIMIT l=limit)?
-        {ret = factory.delete(t, v, order, l, getBindCount()); }
+        {ret = factory.delete(t, hint, v, order, l, getBindCount()); }
     ;
 
 limit returns [LimitNode ret]

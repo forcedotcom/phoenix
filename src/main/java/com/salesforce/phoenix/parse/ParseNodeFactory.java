@@ -438,8 +438,8 @@ public class ParseNodeFactory {
         return new UpsertStatement(table, columns, values, select, bindCount);
     }
     
-    public DeleteStatement delete(TableName table, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-        return new DeleteStatement(table, node, orderBy, limit, bindCount);
+    public DeleteStatement delete(TableName table, HintNode hint, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+        return new DeleteStatement(table, hint, node, orderBy, limit, bindCount);
     }
 
     public SelectStatement select(SelectStatement statement, ParseNode where, ParseNode having) {

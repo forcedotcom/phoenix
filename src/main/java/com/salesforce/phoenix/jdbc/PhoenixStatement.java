@@ -223,8 +223,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableDeleteStatement extends DeleteStatement implements MutatableStatement {
-        private ExecutableDeleteStatement(TableName table, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-            super(table, whereNode, orderBy, limit, bindCount);
+        private ExecutableDeleteStatement(TableName table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+            super(table, hint, whereNode, orderBy, limit, bindCount);
         }
 
         @Override
@@ -600,8 +600,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public ExecutableDeleteStatement delete(TableName table, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-            return new ExecutableDeleteStatement(table, whereNode, orderBy, limit, bindCount);
+        public ExecutableDeleteStatement delete(TableName table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+            return new ExecutableDeleteStatement(table, hint, whereNode, orderBy, limit, bindCount);
         }
         
         @Override

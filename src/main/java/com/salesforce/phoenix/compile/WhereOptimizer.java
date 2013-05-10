@@ -37,7 +37,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
-import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.*;
@@ -66,15 +66,10 @@ public class WhereOptimizer {
         return pushKeyExpressionsToScan(context, whereClause, null);
     }
 
-    public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause,
-            Set<Expression> extractNodes) {
-        return pushKeyExpressionsToScan(context, whereClause, extractNodes, null);
-    }
-
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause,
-            Set<Expression> extractNodes, HintNode hint) {
-        boolean forcedSkipScanFilter = (hint == null) ? false : hint.hasHint(HintNode.FORCE_SKIP_SCAN_ON_SELECT);
+            Set<Expression> extractNodes) {
+        boolean forcedSkipScanFilter = context.hasHint(Hint.SKIP_SCAN);
         if (whereClause == null) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;

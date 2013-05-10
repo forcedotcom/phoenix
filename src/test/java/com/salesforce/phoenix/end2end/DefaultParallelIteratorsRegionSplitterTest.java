@@ -76,6 +76,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         Configuration config = driver.getQueryServices().getConfig();
         config.setInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, maxQueryConcurrency);
         config.setInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, targetQueryConcurrency);
+        config.setInt(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.MAX_VALUE);
         ensureTableCreated(getUrl(),STABLE_NAME,splits, ts-2);
         String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);

@@ -1,6 +1,6 @@
 "SECTION","TOPIC","SYNTAX","TEXT","EXAMPLE"
 "Commands","SELECT","
-SELECT selectExpression [,...] FROM tableExpression [ WHERE expression ]
+SELECT [/*+ hint */] selectExpression [,...] FROM tableExpression [ WHERE expression ]
 [ GROUP BY expression [,...] ] [ HAVING expression ]
 [ ORDER BY order [,...] ]
 [ LIMIT {bindParameter | number} ]
@@ -13,6 +13,7 @@ queries or queries with a LIMIT clause.
 LIMIT limits the number of rows returned by the query with no limit applied if specified as null or
 less than zero. The LIMIT clause is executed after the ORDER BY clause to support TopN type queries.
 Only single tables are currently supported - joins are currently not supported.
+An optional hint overrides the default query plan.
 
 ","
 SELECT * FROM TEST;
@@ -50,7 +51,7 @@ UPSERT INTO test.targetTable(col1, col2) SELECT col3, col4 FROM test.sourceTable
 UPSERT INTO foo SELECT * FROM bar;
 "
 "Commands","DELETE","
-DELETE FROM tableName [ WHERE expression ]
+DELETE [/*+ hint */] FROM tableName [ WHERE expression ]
 [ ORDER BY order [,...] ]
 [ LIMIT {bindParameter | number} ]
 ","
@@ -165,6 +166,21 @@ Sets an option on an HBase column by modifying the HColumnDescriptor.
 ","
 DATA_BLOCK_ENCODING='NONE',VERSIONS=10
 MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
+"
+
+"Other Grammar","Hint","
+name [,...]
+","
+Advanced features that overrides default query processing behavior. The
+three supported hints are 1) NO_INTRA_REGION_PARALLELIZATION to prevent the
+spawning of multiple threads to process data within a single region,
+2) SKIP_SCAN to force a skip scan to be performed on the query, and 
+3) RANGE_SCAN to force a range scan to be performed on the query.
+
+","
+/*+ SKIP_SCAN */
+/*+ RANGE_SCAN */
+/*+ NO_INTRA_REGION_PARALLELIZATION */
 "
 
 "Other Grammar","Column","

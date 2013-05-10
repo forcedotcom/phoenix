@@ -43,6 +43,7 @@ import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.*;
@@ -210,7 +211,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     @Override
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException {
-        StringBuilder buf = new StringBuilder("select " + 
+        StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/" +
                 TABLE_CAT_NAME + "," + // use this column for column family name
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
@@ -482,7 +483,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         }
         final int keySeqPosition = 4;
         final int pkNamePosition = 5;
-        StringBuilder buf = new StringBuilder("select " + 
+        StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/" +
                 TABLE_CAT_NAME + "," + // use this column for column family name
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
@@ -641,7 +642,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         if (catalog != null && catalog.length() > 0) {
             return emptyResultSet;
         }
-        StringBuilder buf = new StringBuilder("select " + 
+        StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/" +
                 "null " + TABLE_CATALOG_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
@@ -747,7 +748,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         if (catalog != null && catalog.length() > 0) {
             return emptyResultSet;
         }
-        StringBuilder buf = new StringBuilder("select " + 
+        StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/" +
                 "null " + TABLE_CAT_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
