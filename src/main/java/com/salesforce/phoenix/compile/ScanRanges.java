@@ -33,9 +33,9 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.RowKeySchema;
-import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.util.ScanUtil;
 
 
@@ -54,12 +54,16 @@ public class ScanRanges {
         return new ScanRanges(ranges, schema);
     }
 
+    private SkipScanFilter filter;
     private final List<List<KeyRange>> ranges;
     private final RowKeySchema schema;
 
     private ScanRanges (List<List<KeyRange>> ranges, RowKeySchema schema) {
         this.ranges = ranges;
         this.schema = schema;
+        if (schema != null && !ranges.isEmpty() ) {
+            this.filter = new SkipScanFilter(ranges, schema);
+        }
     }
 
     public List<List<KeyRange>> getRanges() {
@@ -157,79 +161,7 @@ public class ScanRanges {
         if (isDegenerate()) {
             return false;
         }
-        int i = 0;
-        int[] position = new int[ranges.size()];
-        
-        ImmutableBytesWritable lowerPtr = new ImmutableBytesWritable();
-        ImmutableBytesWritable upperPtr = new ImmutableBytesWritable();
-        ImmutableBytesWritable lower = lowerPtr, upper = upperPtr;
-        int nSlots = ranges.size();
-        
-        lowerPtr.set(lowerInclusiveKey, 0, lowerInclusiveKey.length);
-        if (schema.first(lowerPtr, i, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-            lower = UNBOUND;
-        }
-        upperPtr.set(upperExclusiveKey, 0, upperExclusiveKey.length);
-        if (schema.first(upperPtr, i, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-            upper = UNBOUND;
-        }
-        
-        int cmpLower=0,cmpUpper=0;
-        while (true) {
-            // Search to the slot whose upper bound of is closest bigger or equal to our lower bound.
-            position[i] = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(ranges.get(i), lower, 0);
-            if (position[i] == ranges.get(i).size()) {
-                // The return value indicates that no upper bound can be found to be bigger or equals
-                // to the lower bound, therefore the cmpLower would always be -1.
-                cmpLower = -1;
-            } else {
-                cmpLower = ranges.get(i).get(position[i]).compareUpperToLowerBound(lower, true);
-            }
-            if (position[i] >= ranges.get(i).size()) {
-                // Our current key is bigger than the last range of the current slot.
-                return false;
-            } else if ((cmpUpper=ranges.get(i).get(position[i]).compareLowerToUpperBound(upper, i < nSlots-1)) > 0) {
-                // Our upper bound is less than the lower range of the current position in the current slot.
-                return false;
-            } else { 
-                // We're in range, check if this regions contains more than one value in this slot. If so, we have an
-                // intersection with the region.
-                int upperPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(ranges.get(i), upper, position[i]);
-                if (upperPos > position[i] && upperPos != ranges.get(i).size()) {
-                    break;
-                }
-                // Check next slot.
-                i++;
-                // Stop if no more slots or the range we have completely encompasses our key
-                if (i >= nSlots || (cmpLower > 0 && cmpUpper < 0)) {
-                    break;
-                }
-                
-                // Move to the next part of the key
-                if (lower != UNBOUND) {
-                    if (schema.next(lowerPtr, i, lowerInclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                        // If no more lower key parts, then we have no constraint for that part of the key,
-                        // so we use unbound lower from here on out.
-                        lower = UNBOUND;
-                    } else {
-                        lower = lowerPtr;
-                    }
-                }
-                if (upper != UNBOUND) {
-                    if (schema.next(upperPtr, i, upperExclusiveKey.length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                        // If no more upper key parts, then we have no constraint for that part of the key,
-                        // so we use unbound upper from here on out.
-                        upper = UNBOUND;
-                    } else {
-                        upper = upperPtr;
-                    }
-                }
-            }
-        }
-
-        // We're in range for all slots and can include this row plus all rows
-        // up to the upper range of our last slot
-        return true;
+        return (filter.intersect(lowerInclusiveKey, upperExclusiveKey) != null);
    }
 
     @Override

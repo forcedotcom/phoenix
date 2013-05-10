@@ -200,6 +200,9 @@ public class SkipScanFilter extends FilterBase {
         // Copy inclusive all positions 
         for (int i = 0; i <= lastSlot; i++) {
             List<KeyRange> newRanges = slots.get(i).subList(lowerPosition[i], Math.min(position[i] + 1, slots.get(i).size()));
+            if (newRanges.isEmpty()) {
+                return null;
+            }
             newSlots.add(newRanges);
             if (position[i] > lowerPosition[i]) {
                 newSlots.addAll(slots.subList(i+1, slots.size()));
