@@ -150,7 +150,7 @@ public class SkipScanFilter extends FilterBase {
             startPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, 0);
             // Lower range is past last upper range of first slot, so cannot possibly be in range
             if (startPos >= slots.get(0).size()) {
-                return null;            
+                return null;
             }
         }
         boolean upperUnbound = (upperExclusiveKey.length == 0);
@@ -162,7 +162,7 @@ public class SkipScanFilter extends FilterBase {
             endPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, startPos);
             // Upper range lower than first lower range of first slot, so cannot possibly be in range
             if (endPos == 0 && Bytes.compareTo(upperExclusiveKey, slots.get(0).get(0).getLowerRange()) <= 0) {
-                return null;            
+                return null;
             }
             // Past last position, so we can include everything from the start position
             if (endPos >= slots.get(0).size()) {
@@ -171,6 +171,15 @@ public class SkipScanFilter extends FilterBase {
             }
         }
         if (upperUnbound) {
+            // If the lower is not unbound, first check if the there is any slots upper bound that is higher
+            // than or equals to the lowerbound. If not, we does not have an intersection.
+            if (!lowerUnbound) {
+                position[0] = startPos;
+                ReturnCode code = navigate(lowerInclusiveKey, 0, lowerInclusiveKey.length, Terminate.AFTER);
+                if (code == ReturnCode.NEXT_ROW) {
+                    return null;
+                }
+            }
             List<List<KeyRange>> newSlots = Lists.newArrayListWithCapacity(slots.size());
             newSlots.add(slots.get(0).subList(startPos, endPos+1));
             newSlots.addAll(slots.subList(1, slots.size()));
@@ -180,7 +189,7 @@ public class SkipScanFilter extends FilterBase {
             position[0] = startPos;
             navigate(lowerInclusiveKey, 0, lowerInclusiveKey.length, Terminate.AFTER);
             if (filterAllRemaining()) {
-                return null;            
+                return null;
             }
         }
         int[] lowerPosition = Arrays.copyOf(position, position.length);
@@ -193,6 +202,12 @@ public class SkipScanFilter extends FilterBase {
             if (Bytes.compareTo(startKey, 0, startKeyLength, upperExclusiveKey, 0, upperExclusiveKey.length) == 0 &&
                     (previousPosition(lastSlot) < 0 || position[0] < lowerPosition[0])) {
                 // If by backing up one position we have an empty range, then return
+                return null;
+            }
+        } else if (endCode == ReturnCode.SEEK_NEXT_USING_HINT) {
+            // The upperExclusive key is smaller than the slots stored in the position. Check if it's the same position
+            // as the slots for lowerInclusive. If so, we do not have an intersect.
+            if (Arrays.equals(lowerPosition, position)) {
                 return null;
             }
         }
