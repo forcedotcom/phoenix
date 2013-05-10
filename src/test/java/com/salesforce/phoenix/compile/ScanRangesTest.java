@@ -166,6 +166,17 @@ public class ScanRangesTest {
                 foreach(new KeyRange[][]{{
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
                         },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("2"), true, Bytes.toBytes("2"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("C"), true, Bytes.toBytes("C"), true),
+                    }},
+                    new int[] {1,1,1},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("b0A"), true, Bytes.toBytes("b0A"), true),
+                    false));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("b"), true, Bytes.toBytes("b"), true),
+                        },{
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
                         },{
                         PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("B"), true),
