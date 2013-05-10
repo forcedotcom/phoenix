@@ -105,17 +105,13 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         for (int i=0; i<expectedSplits.size(); i++) {
             assertEquals(expectedSplits.get(i), splits.get(i));
         }
-        assertEquals("Unexpected number of splits: " + splits.size(), expectedSplits.size(), splits.size());
-        for (int i=0; i<expectedSplits.size(); i++) {
-            assertEquals(expectedSplits.get(i), splits.get(i));
-        }
     }
 
     private static KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
         return PDataType.CHAR.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive);
     }
 
-    @Parameters(name="{0} {1} {2}")
+    @Parameters(name="{1} {2}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // Scan range is empty.
