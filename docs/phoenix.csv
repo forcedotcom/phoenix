@@ -145,9 +145,11 @@ HTableDescriptor.
 
 One built-in option is SALT_BUCKETS. This option causes an extra byte to transparently
 be prepended to every row key to ensure an even distribution of write load across all
-your region servers. The byte is determined by hashing the row key and mod-ing with the
-SALT_BUCKETS value. For an excellent write-up of this technique, see http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/
-
+your region servers. The byte is determined by hashing the row key and modding it with the
+SALT_BUCKETS value. The value may be from 1 to 256. The value to pick is a trade-off: bigger
+values will distribute your write load more evenly while making your range queries execute
+more slowly. This is because every region must be queried to piece back together the range
+of rows. For an excellent write-up of this technique, see http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/
 
 ","
 SALT_BUCKETS=10
