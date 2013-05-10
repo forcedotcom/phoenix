@@ -29,18 +29,19 @@ package com.salesforce.phoenix.compile;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.*;
 import java.sql.SQLException;
 import java.util.*;
 
+import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.parse.OrderByNode;
-import com.salesforce.phoenix.parse.SelectStatement;
 
 /**
  * Validates ORDER BY clause and builds up a list of referenced columns.
@@ -79,16 +80,16 @@ public class OrderByCompiler {
      * @return the list of columns in the ORDER BY clause
      * @throws SQLException
      */
-    public static OrderBy getOrderBy(SelectStatement statement,
-                                    StatementContext context,
-                                    GroupBy groupBy, Integer limit) throws SQLException {
-        if (statement.getOrderBy().isEmpty()) {
+    public static OrderBy getOrderBy(StatementContext context,
+                                     List<OrderByNode> orderBy,
+                                     GroupBy groupBy, Integer limit) throws SQLException {
+        if (orderBy.isEmpty()) {
             return OrderBy.EMPTY_ORDER_BY;
         }
         // accumulate columns in ORDER BY
         OrderingColumns visitor = new OrderingColumns(context, groupBy);
         Expression nonAggregateExpression = null;
-        for (OrderByNode node : statement.getOrderBy()) {
+        for (OrderByNode node : orderBy) {
             Expression expression = node.getOrderByParseNode().accept(visitor);
             // Detect mix of aggregate and non aggregates (i.e. ORDER BY txns, SUM(txns)
             if (! (expression instanceof LiteralExpression) ) { // Filter out top level literals
@@ -115,12 +116,15 @@ public class OrderByCompiler {
     /**
      * A container for a column that appears in ORDER BY clause.
      */
-    public static class OrderingColumn {
-        private final Expression expression;
-        private final boolean nullsLast;
-        private final boolean ascending;
+    public static class OrderingColumn implements Writable {
+        private Expression expression;
+        private boolean nullsLast;
+        private boolean ascending;
         
-        private OrderingColumn(OrderByNode node, Expression expression) {
+        public OrderingColumn() {
+        }
+        
+        public OrderingColumn(OrderByNode node, Expression expression) {
             checkNotNull(node);
             checkNotNull(expression);
             this.expression = expression;
@@ -166,8 +170,25 @@ public class OrderByCompiler {
         
         @Override
         public String toString() {
-            return this.getExpression() + (ascending ? " asc" : " desc") + " nulls " + (nullsLast ? "last" : "first");
+            return this.getExpression() + (ascending ? "" : " DESC") + (nullsLast ? " NULLS LAST" : "");
         }
+        
+        @Override
+        public void readFields(DataInput input) throws IOException {
+            this.nullsLast = input.readBoolean();
+            this.ascending = input.readBoolean();
+            expression = ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
+            expression.readFields(input);
+        }
+
+        @Override
+        public void write(DataOutput output) throws IOException {
+            output.writeBoolean(nullsLast);
+            output.writeBoolean(ascending);
+            WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
+            expression.write(output);
+        }
+
     }
     
     private OrderByCompiler() {

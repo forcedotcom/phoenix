@@ -132,7 +132,7 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             }
             
         };
-        ResultIterator scanner = new GroupedAggregatingResultIterator(new MergeSortResultIterator(iterators), aggregationManager.getAggregators());
+        ResultIterator scanner = new GroupedAggregatingResultIterator(new MergeSortRowKeyResultIterator(iterators), aggregationManager.getAggregators());
         AssertResults.assertResults(scanner, expectedResults);
     }
 }

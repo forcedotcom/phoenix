@@ -25,54 +25,41 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.iterate;
 
+import java.sql.SQLException;
 import java.util.List;
 
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
-
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
- * Wrapper for ResultScanner to enable joins and aggregations to be composable.
+ * 
+ * Iterates through tuples up to a limit
  *
  * @author jtaylor
- * @since 0.1
+ * @since 1.2
  */
-public class WrappedScanner implements Scanner {
-    public static final int DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
-
-    private final ResultIterator scanner;
-    private final RowProjector projector;
-    // TODO: base on stats
-    private final int estimatedSize = DEFAULT_ESTIMATED_SIZE;
-
-    public WrappedScanner(ResultIterator scanner, RowProjector projector) {
-        this.scanner = scanner;
-        this.projector = projector;
-    }
-
-    @Override
-    public int getEstimatedSize() {
-        return estimatedSize;
-    }
+public class LimitingResultIterator extends DelegateResultIterator {
+    private int rowCount;
+    private final int limit;
     
-    @Override
-    public ResultIterator iterator() {
-        return scanner;
+    public LimitingResultIterator(ResultIterator delegate, int limit) {
+        super(delegate);
+        this.limit = limit;
     }
 
     @Override
-    public RowProjector getProjection() {
-        return projector;
+    public Tuple next() throws SQLException {
+        if (rowCount++ >= limit) {
+            return null;
+        }
+        return super.next();
     }
-    
+
     @Override
-    public ExplainPlan getExplainPlan() {
-        List<String> planSteps = Lists.newArrayListWithExpectedSize(5);
-        scanner.explain(planSteps);
-        return new ExplainPlan(planSteps);
+    public void explain(List<String> planSteps) {
+        super.explain(planSteps);
+        planSteps.add("CLIENT " + limit + " ROW LIMIT");
     }
+
 }

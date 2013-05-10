@@ -29,10 +29,7 @@ package com.salesforce.phoenix.parse;
 
 import java.lang.reflect.Constructor;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -41,16 +38,11 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.UnknownFunctionException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
-import com.salesforce.phoenix.expression.function.AvgAggregateFunction;
-import com.salesforce.phoenix.expression.function.CurrentDateFunction;
-import com.salesforce.phoenix.expression.function.CurrentTimeFunction;
-import com.salesforce.phoenix.expression.function.FunctionExpression;
+import com.salesforce.phoenix.expression.function.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.TypeMismatchException;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -446,8 +438,8 @@ public class ParseNodeFactory {
         return new UpsertStatement(table, columns, values, select, bindCount);
     }
     
-    public DeleteStatement delete(TableName table, ParseNode node, int bindCount) {
-        return new DeleteStatement(table, node, bindCount);
+    public DeleteStatement delete(TableName table, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+        return new DeleteStatement(table, node, orderBy, limit, bindCount);
     }
 
     public SelectStatement select(SelectStatement statement, ParseNode where, ParseNode having) {

@@ -53,16 +53,14 @@ public class AggregatePlan extends BasicQueryPlan {
     private final Aggregators aggregators;
     private final GroupBy groupBy;
     private final Expression having;
-    private final int maxRows;
     private List<KeyRange> splits;
 
     public AggregatePlan(StatementContext context, TableRef table, RowProjector projector, Integer limit,
-            GroupBy groupBy, Expression having, OrderBy orderBy, int maxRows) {
+            GroupBy groupBy, Expression having, OrderBy orderBy) {
         super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy);
         this.groupBy = groupBy;
         this.having = having;
         this.aggregators = context.getAggregationManager().getAggregators();
-        this.maxRows = maxRows;
     }
 
     @Override
@@ -77,31 +75,30 @@ public class AggregatePlan extends BasicQueryPlan {
 
     @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
-        ResultIterators iterators;
-        if (limit == null) {
-            ParallelIterators parallelIterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
-            iterators = parallelIterators;
-            splits = parallelIterators.getSplits();
-        } else {
-            iterators = new SerialLimitingIterators(context, table, limit, new AggregateRowCounter(aggregators));
-        }
+        ParallelIterators parallelIterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
+        splits = parallelIterators.getSplits();
 
-        AggregatingResultIterator resultScanner;
+        AggregatingResultIterator aggResultIterator;
         // No need to merge sort for ungrouped aggregation
         if (groupBy.isEmpty()) {
-            resultScanner = new UngroupedAggregatingResultIterator(new ConcatResultIterator(iterators), aggregators);
+            aggResultIterator = new UngroupedAggregatingResultIterator(new ConcatResultIterator(parallelIterators), aggregators);
         } else {
-            resultScanner = new GroupedAggregatingResultIterator(new MergeSortResultIterator(iterators), aggregators);
+            aggResultIterator = new GroupedAggregatingResultIterator(new MergeSortRowKeyResultIterator(parallelIterators), aggregators);
         }
 
         if (having != null) {
-            resultScanner = new FilterAggregatingResultIterator(resultScanner, having);
+            aggResultIterator = new FilterAggregatingResultIterator(aggResultIterator, having);
         }
 
-        if (!orderBy.getOrderingColumns().isEmpty()) {
-            resultScanner = new OrderedAggregatingResultIterator(context, resultScanner, orderBy.getOrderingColumns());
+        ResultIterator resultScanner = aggResultIterator;
+        if (orderBy.getOrderingColumns().isEmpty()) {
+            if (limit != null) {
+                resultScanner = new LimitingResultIterator(aggResultIterator, limit);
+            }
+        } else {
+            resultScanner = new OrderedAggregatingResultIterator(aggResultIterator, orderBy.getOrderingColumns(), limit);
         }
-
-        return new WrappedScanner(resultScanner, getProjector(), maxRows);
+        
+        return new WrappedScanner(resultScanner, getProjector());
     }
 }

@@ -132,7 +132,7 @@ public class PostDDLCompiler  {
                     }
                 }
                 RowProjector projector = ProjectionCompiler.getRowProjector(context, select, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-                QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY, 0);
+                QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY);
                 Scanner scanner = plan.getScanner();
                 ResultIterator iterator = scanner.iterator();
                 try {

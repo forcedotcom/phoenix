@@ -118,21 +118,21 @@ public class QueryCompiler {
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
         WhereCompiler.getWhereClause(context, statement.getWhere(), statement.getHint());
-        OrderBy orderBy = OrderByCompiler.getOrderBy(statement, context, groupBy, limit); 
+        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, limit); 
         RowProjector projector = ProjectionCompiler.getRowProjector(statement, context, groupBy, orderBy, limit, targetColumns);
         
         // Final step is to build the query plan
         TableRef table = resolver.getTables().get(0);
-        if (context.isAggregate()) {
-            return new AggregatePlan(context, table, projector, limit, groupBy, having, orderBy, maxRows);
-        } else {
-            if (maxRows > 0) {
-                if (limit != null) {
-                    limit = Math.min(limit, maxRows);
-                } else {
-                    limit = maxRows;
-                }
+        if (maxRows > 0) {
+            if (limit != null) {
+                limit = Math.min(limit, maxRows);
+            } else {
+                limit = maxRows;
             }
+        }
+        if (context.isAggregate()) {
+            return new AggregatePlan(context, table, projector, limit, groupBy, having, orderBy);
+        } else {
             return new ScanPlan(context, table, projector, limit, orderBy);
         }
     }

@@ -62,7 +62,7 @@ public class DeleteCompiler {
     }
     
     public MutationPlan compile(DeleteStatement statement, List<Object> binds) throws SQLException {
-        boolean isAutoCommit = connection.getAutoCommit();
+        final boolean isAutoCommit = connection.getAutoCommit();
         ConnectionQueryServices services = connection.getQueryServices();
         final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         final TableRef tableRef = resolver.getTables().get(0);
@@ -72,6 +72,8 @@ public class DeleteCompiler {
         Scan scan = new Scan();
         ParseNode where = statement.getWhere();
         final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan);
+        Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
+        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, limit); 
         Expression whereClause = WhereCompiler.getWhereClause(context, where);
         final int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         
@@ -101,15 +103,16 @@ public class DeleteCompiler {
                     return connection;
                 }
             };
-        } else if (isAutoCommit) {
+        } else if (isAutoCommit && limit == null && orderBy.getOrderingColumns().isEmpty()) {
+            // TODO: better abstraction - DeletePlan ?
+            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>
             // The coprocessor will delete each row returned from the scan
             List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
                     NODE_FACTORY.aliasedNode(null, 
                             NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
             final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
-            final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY, 0);
+            final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY);
             return new MutationPlan() {
 
                 @Override
@@ -151,11 +154,12 @@ public class DeleteCompiler {
                 }
             };
         } else {
+            final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
             List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
                     NODE_FACTORY.aliasedNode(null,
                         NODE_FACTORY.literal(1)));
             final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-            final QueryPlan plan = new ScanPlan(context, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY);
+            final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy);
             return new MutationPlan() {
 
                 @Override
@@ -176,6 +180,7 @@ public class DeleteCompiler {
                     Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutations = Maps.newHashMapWithExpectedSize(estSize);
                     try {
                         Tuple row;
+                        int rowCount = 0;
                         while ((row = iterator.next()) != null) {
                             // Need to create new ptr each time since we're holding on to it
                             ImmutableBytesPtr ptr = new ImmutableBytesPtr();
@@ -184,8 +189,17 @@ public class DeleteCompiler {
                             if (mutations.size() > maxSize) {
                                 throw new IllegalArgumentException("MutationState size of " + mutations.size() + " is bigger than max allowed size of " + maxSize);
                             }
+                            rowCount++;
+                            // Commit a batch if auto commit is true and we're at our batch size
+                            if (isAutoCommit && rowCount % batchSize == 0) {
+                                MutationState state = new MutationState(tableRef, mutations, 0, maxSize, connection);
+                                connection.getMutationState().join(state);
+                                connection.commit();
+                                mutations.clear();
+                            }
                         }
-                        return new MutationState(tableRef,mutations, 0, maxSize, connection);
+                        // If auto commit is true, this last batch will be committed upon return
+                        return new MutationState(tableRef,mutations, rowCount / batchSize * batchSize, maxSize, connection);
                     } finally {
                         iterator.close();
                     }

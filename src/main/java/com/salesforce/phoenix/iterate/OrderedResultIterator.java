@@ -36,10 +36,8 @@ import java.util.*;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-
 import com.google.common.base.Function;
 import com.google.common.collect.*;
-import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -49,7 +47,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * <p>
  * Note that currently the sort is entirely done in memory. 
  *  
- * @author syyang
+ * @author syyang, jtaylor
  * @since 0.1
  */
 public class OrderedResultIterator implements ResultIterator {
@@ -95,42 +93,28 @@ public class OrderedResultIterator implements ResultIterator {
         }
     };
 
+    private final Integer limit;
     private final ResultIterator delegate;
     private final List<OrderingColumn> orderingColumns;
     
-    private Iterator<Tuple> iterator;
+    private ResultIterator resultIterator;
 
     protected ResultIterator getDelegate() {
         return delegate;
     }
     
-    protected Iterator<Tuple> newIterator(final Iterator<ResultEntry> iterator) {
-        return new Iterator<Tuple>() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public Tuple next() {
-                return iterator.next().getResult();
-            }
-
-            @Override
-            public void remove() {
-                throw new UnsupportedOperationException();
-            }
-            
-        };
-    }
-
-    public OrderedResultIterator(StatementContext context,
-                                 ResultIterator delegate,
-                                 List<OrderingColumn> orderingColumns) throws SQLException {
+    public OrderedResultIterator(ResultIterator delegate,
+                                 List<OrderingColumn> orderingColumns,
+                                 Integer limit) {
         checkArgument(!orderingColumns.isEmpty());
         this.delegate = delegate;
         this.orderingColumns = orderingColumns;
+        this.limit = limit;
+    }
+
+    public OrderedResultIterator(ResultIterator delegate,
+            List<OrderingColumn> orderingColumns) throws SQLException {
+        this(delegate, orderingColumns, null);
     }
 
     /**
@@ -155,21 +139,52 @@ public class OrderedResultIterator implements ResultIterator {
 
     @Override
     public Tuple next() throws SQLException {
-        if (iterator == null) {
-            init();
-        }
-        if (!iterator.hasNext()) {
-            return null;
-        }
-        Tuple result = iterator.next();
-        return result;
+        return getResultIterator().next();
     }
     
-    private void init() throws SQLException {
+    private ResultIterator getResultIterator() throws SQLException {
+        if (resultIterator != null) {
+            return resultIterator;
+        }
+        
         final int numSortKeys = orderingColumns.size();
         List<Expression> expressions = Lists.newArrayList(Collections2.transform(orderingColumns, TO_EXPRESSION));
-        // TODO: size
-        List<ResultEntry> entries = Lists.newArrayList();
+        final Comparator<ResultEntry> comparator = buildComparator(orderingColumns);
+        Collection<ResultEntry> entries;
+        if (limit == null) {
+            final List<ResultEntry> listEntries =  Lists.<ResultEntry>newArrayList(); // TODO: size?
+            entries = listEntries;
+            resultIterator = new BaseResultIterator() {
+                private int i = -1;
+
+                @Override
+                public Tuple next() throws SQLException {
+                    if (i == -1) {
+                        Collections.<ResultEntry>sort(listEntries, comparator);
+                    } 
+                    if (++i >= listEntries.size()) {
+                        return null;
+                    }
+                    
+                    return listEntries.get(i).getResult();
+                }
+            };
+        } else {
+            final MinMaxPriorityQueue<ResultEntry> queueEntries = MinMaxPriorityQueue.<ResultEntry>orderedBy(comparator).maximumSize(limit).create();
+            entries = queueEntries;
+            resultIterator = new BaseResultIterator() {
+
+                @Override
+                public Tuple next() throws SQLException {
+                    ResultEntry entry = queueEntries.pollFirst();
+                    if (entry == null) {
+                        return null;
+                    }
+                    return entry.getResult();
+                }
+                
+            };
+        }
         try {
             for (Tuple result = delegate.next(); result != null; result = delegate.next()) {
                 int pos = 0;
@@ -178,18 +193,15 @@ public class OrderedResultIterator implements ResultIterator {
                     final ImmutableBytesWritable sortKey = new ImmutableBytesWritable();
                     boolean evaluated = expression.evaluate(result, sortKey);
                     // set the sort key that failed to get evaluated with null
-                    sortKeys[pos++] = evaluated ? sortKey : null;
+                    sortKeys[pos++] = evaluated && sortKey.getLength() > 0 ? sortKey : null;
                 }
                 entries.add(new ResultEntry(sortKeys, result));
             }
-            
-            // do in-memory sort
-            Collections.sort(entries, buildComparator(orderingColumns));
-            final Iterator<ResultEntry> iterator = entries.iterator();
-            this.iterator = newIterator(iterator);
         } finally {
             delegate.close();
         }
+        
+        return resultIterator;
     }
 
     @Override
@@ -200,6 +212,6 @@ public class OrderedResultIterator implements ResultIterator {
     @Override
     public void explain(List<String> planSteps) {
         delegate.explain(planSteps);
-        planSteps.add("CLIENT SORT BY " + orderingColumns.toString());
+        planSteps.add("CLIENT" + (limit == null ? "" : " TOP " + limit + " ROW"  + (limit == 1 ? "" : "S"))  + " SORTED BY " + orderingColumns.toString());
     }
 }

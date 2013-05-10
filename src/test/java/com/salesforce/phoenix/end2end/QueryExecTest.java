@@ -590,7 +590,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, count(1) FROM atable WHERE organization_id=? GROUP BY a_string LIMIT 6";
+        String query = "SELECT a_string, count(1) FROM atable WHERE organization_id=? GROUP BY a_string LIMIT 2";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -600,10 +600,10 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
             assertEquals(rs.getString(1), A_VALUE);
-            assertEquals(rs.getLong(2), 4L);
+            assertEquals(4L, rs.getLong(2));
             assertTrue(rs.next());
             assertEquals(rs.getString(1), B_VALUE);
-            assertEquals(rs.getLong(2), 2L);
+            assertEquals(4L, rs.getLong(2));
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -824,7 +824,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         statement.setString(2, B_VALUE);
         ResultSet rs = statement.executeQuery();
         assertTrue(rs.next());
-        assertEquals(3, rs.getLong(1));
+        assertEquals(4, rs.getLong(1)); // LIMIT applied at end, so all rows would be counted
         assertFalse(rs.next());
         conn.close();
     }

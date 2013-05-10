@@ -449,7 +449,9 @@ upsert_select_node returns [SelectStatement ret]
 delete_node returns [DeleteStatement ret]
     :   DELETE FROM t=from_table_name
         (WHERE v=condition)?
-        {ret = factory.delete(t, v, getBindCount()); }
+        (ORDER BY order=order_by)?
+        (LIMIT l=limit)?
+        {ret = factory.delete(t, v, order, l, getBindCount()); }
     ;
 
 limit returns [LimitNode ret]

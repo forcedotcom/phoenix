@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.util;
 
 import java.io.IOException;
+import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 
@@ -36,6 +37,14 @@ public class ServerUtil {
     }
     
     public static void throwIOException(String msg, Throwable t) throws IOException {
+        // First unwrap any SQLExceptions
+        if (t instanceof SQLException) {
+            Throwable cause = t.getCause();
+            if (cause instanceof IOException) {
+                t = cause;
+            }
+        }
+        // Throw immediately if DoNotRetryIOException
         if (t instanceof DoNotRetryIOException) {
             throw (DoNotRetryIOException)t;
         } else if (t instanceof IOException) {

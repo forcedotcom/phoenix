@@ -173,7 +173,7 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 			Properties props = new Properties();
 			conn = DriverManager.getConnection(QueryUtil.getUrl(server), props).unwrap(PhoenixConnection.class);
 			// Default to config defined upsert batch size if user did not specify it.
-			batchSize = batchSize <= 0 ? conn.getUpsertBatchSize() : batchSize;
+			batchSize = batchSize <= 0 ? conn.getMutateBatchSize() : batchSize;
 			String[] tableMetadata = getTableMetadata(tableName);
 			ResultSet rs = conn.getMetaData().getColumns(null, tableMetadata[0], tableMetadata[1], null);
 			while (rs.next()) {

@@ -89,8 +89,14 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT MERGE SORT",
 
                 "SELECT count(1) FROM atable GROUP BY a_string LIMIT 5",
-                "CLIENT SERIAL 5 ROW LIMIT FULL SCAN OVER ATABLE\n" +
-                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING]\n" +
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
+                "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING]\n" + 
+                "CLIENT MERGE SORT\n" + 
+                "CLIENT 5 ROW LIMIT",
+
+                "SELECT a_string FROM atable ORDER BY a_string DESC LIMIT 3",
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
+                "    SERVER TOP 3 ROWS SORTED BY [A_STRING DESC]\n" + 
                 "CLIENT MERGE SORT",
 
                 "SELECT count(1) FROM atable GROUP BY a_string,b_string HAVING max(a_string) = 'a'",
@@ -112,7 +118,7 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "    SERVER AGGREGATE INTO DISTINCT ROWS BY [A_STRING, B_STRING]\n" +
                 "CLIENT MERGE SORT\n" +
                 "CLIENT FILTER BY MAX(A_STRING) = 'a'\n" +
-                "CLIENT SORT BY [B_STRING asc nulls first]",
+                "CLIENT SORTED BY [B_STRING]",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id = '000000000000002' AND x_integer = 2 AND a_integer < 5 ",
                 "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001','000000000000002'\n" + 
@@ -122,19 +128,21 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
                 "    SERVER FILTER BY (ENTITY_ID != '000000000000002' AND X_INTEGER = 2 AND A_INTEGER < 5)",
 
-                "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
-                "CLIENT SORT BY [A_STRING asc nulls first]",
+                "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string ASC NULLS FIRST LIMIT 10",
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001'\n" + 
+                "    SERVER TOP 10 ROWS SORTED BY [A_STRING]\n" + 
+                "CLIENT MERGE SORT",
 
-                "SELECT max(a_integer) FROM atable WHERE organization_id = '000000000000001' GROUP BY organization_id,entity_id,ROUND(a_date,'HOUR') ORDER BY entity_id LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
+                "SELECT max(a_integer) FROM atable WHERE organization_id = '000000000000001' GROUP BY organization_id,entity_id,ROUND(a_date,'HOUR') ORDER BY entity_id NULLS LAST LIMIT 10",
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001'\n" + 
                 "    SERVER AGGREGATE INTO DISTINCT ROWS BY [ORGANIZATION_ID, ENTITY_ID, ROUND(A_DATE)]\n" + 
                 "CLIENT MERGE SORT\n" + 
-                "CLIENT SORT BY [ENTITY_ID asc nulls first]",
+                "CLIENT TOP 10 ROWS SORTED BY [ENTITY_ID NULLS LAST]",
 
-                "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
-                "CLIENT SORT BY [A_STRING asc nulls first]",
+                "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string DESC NULLS LAST LIMIT 10",
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001'\n" + 
+                "    SERVER TOP 10 ROWS SORTED BY [A_STRING DESC NULLS LAST]\n" + 
+                "CLIENT MERGE SORT",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id IN ('000000000000001', '000000000000005')",
                 "CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 KEYS OVER ATABLE '000000000000001'...'000000000000005'",

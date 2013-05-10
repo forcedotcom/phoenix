@@ -1117,6 +1117,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         // No count(1) aggregation, so it will get added automatically
+        // LIMIT has no effect, since it's applied at the end and we'll always have a single row for ungrouped aggregation
         String query = "SELECT sum(unique_users),sum(cpu_utilization),sum(transactions),sum(db_utilization),sum(response_time) feature FROM PRODUCT_METRICS WHERE organization_id=? LIMIT 3";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1127,10 +1128,10 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(60, rs.getInt(1));
-            assertEquals(BigDecimal.valueOf(4), rs.getBigDecimal(2));
-            assertEquals(600L, rs.getLong(3));
-            assertEquals(BigDecimal.valueOf(1.2), rs.getBigDecimal(4));
+            assertEquals(210, rs.getInt(1));
+            assertEquals(BigDecimal.valueOf(14.5), rs.getBigDecimal(2));
+            assertEquals(2100L, rs.getLong(3));
+            assertEquals(BigDecimal.valueOf(4.6), rs.getBigDecimal(4));
             assertEquals(0, rs.getLong(5));
             assertEquals(true, rs.wasNull());
             assertFalse(rs.next());
@@ -1379,7 +1380,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initTableValues(tenantId, getSplits(tenantId), ts);
-        String query = "SELECT date FROM PRODUCT_METRICS WHERE organization_id=? AND unique_users <= 30 ORDER BY transactions DESC LIMIT 10";
+        String query = "SELECT date FROM PRODUCT_METRICS WHERE organization_id=? AND unique_users <= 30 ORDER BY transactions DESC LIMIT 2";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
 
@@ -1389,11 +1390,9 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(D3, rs.getDate(1));
+            assertEquals(D3.getTime(), rs.getDate(1).getTime());
             assertTrue(rs.next());
-            assertEquals(D2, rs.getDate(1));
-            assertTrue(rs.next());
-            assertEquals(D1, rs.getDate(1));
+            assertEquals(D2.getTime(), rs.getDate(1).getTime());
             assertFalse(rs.next());
         } finally {
             conn.close();

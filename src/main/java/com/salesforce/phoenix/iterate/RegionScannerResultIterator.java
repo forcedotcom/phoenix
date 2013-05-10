@@ -25,54 +25,49 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.iterate;
 
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
+import org.apache.hadoop.hbase.regionserver.RegionScanner;
+
+import com.salesforce.phoenix.exception.PhoenixIOException;
+import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
-/**
- * Wrapper for ResultScanner to enable joins and aggregations to be composable.
- *
- * @author jtaylor
- * @since 0.1
- */
-public class WrappedScanner implements Scanner {
-    public static final int DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
-
-    private final ResultIterator scanner;
-    private final RowProjector projector;
-    // TODO: base on stats
-    private final int estimatedSize = DEFAULT_ESTIMATED_SIZE;
-
-    public WrappedScanner(ResultIterator scanner, RowProjector projector) {
+public class RegionScannerResultIterator extends BaseResultIterator {
+    private final RegionScanner scanner;
+    
+    public RegionScannerResultIterator(RegionScanner scanner) {
         this.scanner = scanner;
-        this.projector = projector;
-    }
-
-    @Override
-    public int getEstimatedSize() {
-        return estimatedSize;
+        MultiVersionConsistencyControl.setThreadReadPoint(scanner.getMvccReadPoint());
     }
     
     @Override
-    public ResultIterator iterator() {
-        return scanner;
-    }
-
-    @Override
-    public RowProjector getProjection() {
-        return projector;
-    }
-    
-    @Override
-    public ExplainPlan getExplainPlan() {
-        List<String> planSteps = Lists.newArrayListWithExpectedSize(5);
-        scanner.explain(planSteps);
-        return new ExplainPlan(planSteps);
+    public Tuple next() throws SQLException {
+        try {
+            // TODO: size
+            List<KeyValue> results = new ArrayList<KeyValue>();
+            // Results are potentially returned even when the return value of s.next is false
+            // since this is an indication of whether or not there are more values after the
+            // ones returned
+            boolean hasMore = scanner.nextRaw(results, null);
+            if (!hasMore && results.isEmpty()) {
+                return null;
+            }
+            // We instantiate a new tuple because in all cases currently we hang on to it (i.e.
+            // to compute and hold onto the TopN).
+            MultiKeyValueTuple tuple = new MultiKeyValueTuple();
+            tuple.setKeyValues(results);
+            return tuple;
+        } catch (IOException e) {
+            throw new PhoenixIOException(e);
+        }
     }
 }

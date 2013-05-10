@@ -582,7 +582,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             
         });
         ResultSet rs = stmt.executeQuery(buf.toString());
-        if (rs.next()) { // Skip table row - we just use that to get the PK_NAME// Skip table row - we just use that to get the PK_NAME
+        if (rs.next()) { // Skip table row - we just use that to get the PK_NAME
             rs.getString(pkNamePosition+1); // Hack to cause the statement to cache this value
         }
         return rs;

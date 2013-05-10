@@ -11,8 +11,7 @@ HAVING filter rows after grouping.
 ORDER BY sorts the result by the given column(s) or expression(s) and is only allowed for aggregate
 queries or queries with a LIMIT clause.
 LIMIT limits the number of rows returned by the query with no limit applied if specified as null or
-less than zero. The LIMIT clause is executed prior to the ORDER BY clause, so rows which sort above
-the returned rows may be clipped and subsequently not returned.
+less than zero. The LIMIT clause is executed after the ORDER BY clause to support TopN type queries.
 Only single tables are currently supported - joins are currently not supported.
 
 ","
@@ -52,6 +51,8 @@ UPSERT INTO foo SELECT * FROM bar;
 "
 "Commands","DELETE","
 DELETE FROM tableName [ WHERE expression ]
+[ ORDER BY order [,...] ]
+[ LIMIT {bindParameter | number} ]
 ","
 Deletes the rows selected by the where clause. If auto commit is on, the
 deletion is performed completely server-side.
@@ -142,8 +143,14 @@ The option applies to the named family or if omitted to all families if the name
 references an HColumnDescriptor property. Otherwise, the option applies to the
 HTableDescriptor.
 
+One built-in option is SALT_BUCKETS. This option causes an extra byte to transparently
+be prepended to every row key to ensure an even distribution of write load across all
+your region servers. The byte is determined by hashing the row key and mod-ing with the
+SALT_BUCKETS value. For an excellent write-up of this technique, see http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/
+
 
 ","
+SALT_BUCKETS=10
 DATA_BLOCK_ENCODING='NONE',a.VERSIONS=10
 MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
 "

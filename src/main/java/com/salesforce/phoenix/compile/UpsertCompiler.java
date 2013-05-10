@@ -149,17 +149,19 @@ public class UpsertCompiler {
         QueryPlan plan = null;
         RowProjector projector = null;
         int nValuesToSet;
-        boolean sameTable = false;
+        boolean mayAutoCommit = false;
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
-            sameTable = tableRef.equals(selectTableRef);
+            boolean sameTable = tableRef.equals(selectTableRef);
             // Pass scan through if same table in upsert and select so that projection is computed correctly
-            QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable? scan : new Scan(), targetColumns);
+            QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns);
             plan = compiler.compile(select, binds);
             projector = plan.getProjector();
             nValuesToSet = projector.getColumnCount();
+            // Cannot auto commit if doing aggregation or topN
+            mayAutoCommit = !plan.isAggregate() && sameTable && select.getOrderBy().isEmpty();
         } else {
             nValuesToSet = valueNodes.size();
         }
@@ -183,11 +185,12 @@ public class UpsertCompiler {
              * 1) the into table matches from table
              * 2) the select query isn't doing aggregation
              * 3) autoCommit is on
+             * 4) not topN
              * Otherwise, run the query to pull the data from the server
              * and populate the MutationState (upto a limit).
             */
             final boolean isAutoCommit = connection.getAutoCommit();
-            if (isAutoCommit && !plan.isAggregate() && sameTable) { // UPSERT SELECT run server-side
+            if (isAutoCommit && mayAutoCommit) { // UPSERT SELECT run server-side
                 // At most this array will grow bigger my the number of PK columns
                 int[] allColumnsIndexes = Arrays.copyOf(columnIndexes, columnIndexes.length + nValuesToSet);
                 int[] reverseColumnIndexes = new int[table.getColumns().size()];
@@ -250,7 +253,7 @@ public class UpsertCompiler {
                  */
                 scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
                 scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
-                final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, plan.getLimit(), GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY, 0);
+                final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY);
                 return new MutationPlan() {
 
                     @Override
@@ -292,7 +295,7 @@ public class UpsertCompiler {
                     }
                 };
             } else { // UPSERT SELECT run client-side
-                final int batchSize = Math.min(connection.getUpsertBatchSize(), maxSize);
+                final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
                 return new MutationPlan() {
 
                     @Override

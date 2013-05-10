@@ -27,16 +27,31 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.util.Collections;
+import java.util.List;
+
 public class DeleteStatement extends MutationStatement {
     private final ParseNode whereNode;
+    private final List<OrderByNode> orderBy;
+    private final LimitNode limit;
     
-    public DeleteStatement(TableName table, ParseNode whereNode, int bindCount) {
+    public DeleteStatement(TableName table, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
         super(table, bindCount);
         this.whereNode = whereNode;
+        this.orderBy = orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy;
+        this.limit = limit;
     }
 
     public ParseNode getWhere() {
         return whereNode;
+    }
+
+    public List<OrderByNode> getOrderBy() {
+        return orderBy;
+    }
+
+    public LimitNode getLimit() {
+        return limit;
     }
 
 }

@@ -34,20 +34,19 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SQLCloseables;
-import com.salesforce.phoenix.util.TupleUtil;
 
 
 /**
  * 
- * Result iterator that does a merge sort on the list of iterators provided.
- * The rows are returned in ascending key order.
+ * Base class for a ResultIterator that does a merge sort on the list of iterators
+ * provided.
  *
  * @author jtaylor
- * @since 0.1
+ * @since 1.2
  */
-public class MergeSortResultIterator implements PeekingResultIterator {
-    private final ResultIterators resultIterators;
-    private final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+public abstract class MergeSortResultIterator implements PeekingResultIterator {
+    protected final ResultIterators resultIterators;
+    protected final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
     private List<PeekingResultIterator> iterators;
     
     public MergeSortResultIterator(ResultIterators iterators) {
@@ -68,6 +67,8 @@ public class MergeSortResultIterator implements PeekingResultIterator {
         }
     }
 
+    abstract protected int compare(Tuple t1, Tuple t2);
+    
     private PeekingResultIterator minIterator() throws SQLException {
         List<PeekingResultIterator> iterators = getIterators();
         Tuple minResult = null;
@@ -76,7 +77,7 @@ public class MergeSortResultIterator implements PeekingResultIterator {
             PeekingResultIterator iterator = iterators.get(i);
             Tuple r = iterator.peek();
             if (r != null) {
-                if (minResult == null || TupleUtil.compare(r, minResult, tempPtr) < 0) {
+                if (minResult == null || compare(r, minResult) < 0) {
                     minResult = r;
                     minIterator = iterator;
                 }
@@ -98,11 +99,5 @@ public class MergeSortResultIterator implements PeekingResultIterator {
     public Tuple next() throws SQLException {
         PeekingResultIterator iterator = minIterator();
         return iterator.next();
-    }
-
-    @Override
-    public void explain(List<String> planSteps) {
-        resultIterators.explain(planSteps);
-        planSteps.add("CLIENT MERGE SORT");
     }
 }

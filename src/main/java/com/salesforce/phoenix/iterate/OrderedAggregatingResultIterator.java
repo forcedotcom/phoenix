@@ -28,10 +28,8 @@
 package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
-import java.util.Iterator;
 import java.util.List;
 
-import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -46,10 +44,10 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  */
 public class OrderedAggregatingResultIterator extends OrderedResultIterator implements AggregatingResultIterator {
 
-    public OrderedAggregatingResultIterator(StatementContext context,
-                                AggregatingResultIterator delegate,
-                                List<OrderingColumn> orderingColumns) throws SQLException {
-        super (context, delegate, orderingColumns);
+    public OrderedAggregatingResultIterator(AggregatingResultIterator delegate,
+                                List<OrderingColumn> orderingColumns,
+                                Integer limit) throws SQLException {
+        super (delegate, orderingColumns, limit);
     }
 
     @Override
@@ -58,29 +56,14 @@ public class OrderedAggregatingResultIterator extends OrderedResultIterator impl
     }
     
     @Override
-    protected Iterator<Tuple> newIterator(final Iterator<ResultEntry> iterator) {
-        return new Iterator<Tuple>() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public Tuple next() {
-                Tuple tuple = iterator.next().getResult();
-                aggregate(tuple);
-                return tuple;
-            }
-
-            @Override
-            public void remove() {
-                throw new UnsupportedOperationException();
-            }
-            
-        };
+    public Tuple next() throws SQLException {
+        Tuple tuple = super.next();
+        if (tuple != null) {
+            aggregate(tuple);
+        }
+        return tuple;
     }
-
+    
     @Override
     public void aggregate(Tuple result) {
         getDelegate().aggregate(result);

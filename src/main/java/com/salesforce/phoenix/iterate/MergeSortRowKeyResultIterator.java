@@ -25,54 +25,37 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.iterate;
 
 import java.util.List;
 
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.TupleUtil;
 
 
 /**
- * Wrapper for ResultScanner to enable joins and aggregations to be composable.
+ * 
+ * ResultIterator that does a merge sort on the list of iterators provided,
+ * returning the rows in row key ascending order. The iterators provided
+ * must be in row key ascending order.
  *
  * @author jtaylor
  * @since 0.1
  */
-public class WrappedScanner implements Scanner {
-    public static final int DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
-
-    private final ResultIterator scanner;
-    private final RowProjector projector;
-    // TODO: base on stats
-    private final int estimatedSize = DEFAULT_ESTIMATED_SIZE;
-
-    public WrappedScanner(ResultIterator scanner, RowProjector projector) {
-        this.scanner = scanner;
-        this.projector = projector;
-    }
-
-    @Override
-    public int getEstimatedSize() {
-        return estimatedSize;
-    }
+public class MergeSortRowKeyResultIterator extends MergeSortResultIterator {
     
+    public MergeSortRowKeyResultIterator(ResultIterators iterators) {
+        super(iterators);
+    }
+   
     @Override
-    public ResultIterator iterator() {
-        return scanner;
+    protected int compare(Tuple t1, Tuple t2) {
+        return TupleUtil.compare(t1, t2, tempPtr);
     }
 
     @Override
-    public RowProjector getProjection() {
-        return projector;
-    }
-    
-    @Override
-    public ExplainPlan getExplainPlan() {
-        List<String> planSteps = Lists.newArrayListWithExpectedSize(5);
-        scanner.explain(planSteps);
-        return new ExplainPlan(planSteps);
+    public void explain(List<String> planSteps) {
+        resultIterators.explain(planSteps);
+        planSteps.add("CLIENT MERGE SORT");
     }
 }

@@ -84,7 +84,7 @@ public class MergeSortResultIteratorTest {
             }
             
         };
-        ResultIterator scanner = new MergeSortResultIterator(iterators);
+        ResultIterator scanner = new MergeSortRowKeyResultIterator(iterators);
         AssertResults.assertResults(scanner, expectedResults);
     }
 

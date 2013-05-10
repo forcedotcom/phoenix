@@ -52,6 +52,9 @@ public class ScanPlan extends BasicQueryPlan {
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projection, Integer limit, OrderBy orderBy) {
         super(context, table, projection, context.getBindManager().getParameterMetaData(), limit, orderBy);
+        if (limit != null && !orderBy.getOrderingColumns().isEmpty()) { // TopN
+            ScanRegionObserver.serializeIntoScan(context.getScan(), limit, orderBy.getOrderingColumns());
+        }
     }
     
     @Override
@@ -66,23 +69,24 @@ public class ScanPlan extends BasicQueryPlan {
     
     @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
-        // Set any scan attributes before creating the scanner, as it will be too later afterwards
+        // Set any scan attributes before creating the scanner, as it will be too late afterwards
         context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
         ResultIterator scanner;
-        /* If no limit, use parallel iterator so that we get results faster. Otherwise, if
+        /* If no limit or topN, use parallel iterator so that we get results faster. Otherwise, if
          * limit is provided, run query serially.
          */
-        if (limit == null) {
+        if (limit == null || !orderBy.getOrderingColumns().isEmpty()) {
             ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
-            scanner = new ConcatResultIterator(iterators);
             splits = iterators.getSplits();
+            if (orderBy.getOrderingColumns().isEmpty()) {
+                scanner = new ConcatResultIterator(iterators);
+            } else {
+                scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderingColumns());
+            }
         } else {
             scanner = new TableResultIterator(context, table);
             scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
             splits = null;
-        }
-        if (!orderBy.getOrderingColumns().isEmpty()) {
-            scanner = new OrderedResultIterator(context, scanner, orderBy.getOrderingColumns());
         }
 
         return new WrappedScanner(scanner, getProjector());

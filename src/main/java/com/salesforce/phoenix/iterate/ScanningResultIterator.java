@@ -34,7 +34,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 
-import com.salesforce.phoenix.exception.*;
+import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -55,6 +55,8 @@ public class ScanningResultIterator implements ResultIterator {
     public Tuple next() throws SQLException {
         try {
             Result result = scanner.next();
+            // TODO: use ResultTuple.setResult(result)
+            // Need to create a new one if holding on to it (i.e. OrderedResultIterator)
             return result == null ? null : new ResultTuple(result);
         } catch (IOException e) {
             throw new PhoenixIOException(e);

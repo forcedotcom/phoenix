@@ -101,7 +101,7 @@ public class CSVLoader {
 		}
 		String[] nextLine;
 		int rowCount = 0;
-		int upsertBatchSize = conn.getUpsertBatchSize();
+		int upsertBatchSize = conn.getMutateBatchSize();
 		Object upsertValue = null;
 		long start = System.currentTimeMillis();
 
