@@ -170,27 +170,18 @@ public class SkipScanFilter extends FilterBase {
                 endPos = slots.get(0).size()-1;
             }
         }
-        if (upperUnbound) {
-            // If the lower is not unbound, first check if the there is any slots upper bound that is higher
-            // than or equals to the lowerbound. If not, there is no intersection.
-            if (!lowerUnbound) {
-                position[0] = startPos;
-                ReturnCode code = navigate(lowerInclusiveKey, 0, lowerInclusiveKey.length, Terminate.AFTER);
-                if (code == ReturnCode.NEXT_ROW) {
-                    return null;
-                }
-            }
-            List<List<KeyRange>> newSlots = Lists.newArrayListWithCapacity(slots.size());
-            newSlots.add(slots.get(0).subList(startPos, endPos+1));
-            newSlots.addAll(slots.subList(1, slots.size()));
-            return new SkipScanFilter(newSlots, schema);
-        }
         if (!lowerUnbound) {
             position[0] = startPos;
             navigate(lowerInclusiveKey, 0, lowerInclusiveKey.length, Terminate.AFTER);
             if (filterAllRemaining()) {
                 return null;
             }
+        }
+        if (upperUnbound) {
+            List<List<KeyRange>> newSlots = Lists.newArrayListWithCapacity(slots.size());
+            newSlots.add(slots.get(0).subList(startPos, endPos+1));
+            newSlots.addAll(slots.subList(1, slots.size()));
+            return new SkipScanFilter(newSlots, schema);
         }
         int[] lowerPosition = Arrays.copyOf(position, position.length);
         // Navigate to the upperExclusiveKey, but not past it
