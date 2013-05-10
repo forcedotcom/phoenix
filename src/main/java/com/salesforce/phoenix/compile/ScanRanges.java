@@ -161,8 +161,7 @@ public class ScanRanges {
         if (isDegenerate()) {
             return false;
         }
-        SkipScanFilter newFilter = filter.intersect(lowerInclusiveKey, upperExclusiveKey);
-        return (newFilter != null);
+        return (filter.intersect(lowerInclusiveKey, upperExclusiveKey) != null);
    }
 
     @Override
