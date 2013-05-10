@@ -34,8 +34,7 @@ import java.util.*;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
@@ -103,6 +102,17 @@ public class ProjectionCompiler {
         scan.addFamily(familyName.getBytes());
     }
     
+    public static Map<String, ParseNode> buildAliasParseNodeMap(StatementContext context, List<AliasedParseNode> aliasedNodes) {
+        Map<String, ParseNode> aliasParseNodeMap = Maps.newHashMapWithExpectedSize(aliasedNodes.size());
+        for (AliasedParseNode aliasedNode : aliasedNodes) {
+            String alias = aliasedNode.getAlias();
+            if (alias != null) {
+                aliasParseNodeMap.put(alias, aliasedNode.getNode());
+            }
+        }
+        return aliasParseNodeMap;
+    }
+    
     public static RowProjector getRowProjector(StatementContext context, List<AliasedParseNode> aliasedNodes, GroupBy groupBy,
             OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
         // Setup projected columns in Scan
@@ -128,14 +138,14 @@ public class ProjectionCompiler {
                     ColumnRef ref = new ColumnRef(tableRef,i);
                     projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), ref.newColumnExpression(), false));
                 }
-            }else if(node instanceof  FamilyParseNode){
-            	 // Project everything for SELECT cf.*
-		PColumnFamily pfamily = table.getColumnFamily(((FamilyParseNode) node).getFamilyName());
-		projectColumnFamily(table,scan,((FamilyParseNode) node).getFamilyName());		
-		for (PColumn column : pfamily.getColumns()) {
-			ColumnRef ref = new ColumnRef(tableRef,column.getPosition());
-		 	projectedColumns.add(new ExpressionProjector(column.getName().toString(), table.getName().getString(),ref.newColumnExpression(), false));
-		}
+            } else if (node instanceof  FamilyParseNode){
+                // Project everything for SELECT cf.*
+        		PColumnFamily pfamily = table.getColumnFamily(((FamilyParseNode) node).getFamilyName());
+        		projectColumnFamily(table,scan,((FamilyParseNode) node).getFamilyName());		
+        		for (PColumn column : pfamily.getColumns()) {
+        			ColumnRef ref = new ColumnRef(tableRef,column.getPosition());
+        		 	projectedColumns.add(new ExpressionProjector(column.getName().toString(), table.getName().getString(),ref.newColumnExpression(), false));
+        		}
             } else {
                 Expression expression = node.accept(selectVisitor);
                 if (targetColumns != null && index < targetColumns.length && targetColumns[index].getDataType() != expression.getDataType()) {

@@ -42,6 +42,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.parse.OrderByNode;
+import com.salesforce.phoenix.parse.ParseNode;
 
 /**
  * Validates ORDER BY clause and builds up a list of referenced columns.
@@ -82,12 +83,13 @@ public class OrderByCompiler {
      */
     public static OrderBy getOrderBy(StatementContext context,
                                      List<OrderByNode> orderBy,
-                                     GroupBy groupBy, Integer limit) throws SQLException {
+                                     GroupBy groupBy, Integer limit,
+                                     Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
         if (orderBy.isEmpty()) {
             return OrderBy.EMPTY_ORDER_BY;
         }
         // accumulate columns in ORDER BY
-        OrderingColumns visitor = new OrderingColumns(context, groupBy);
+        OrderByClauseVisitor visitor = new OrderByClauseVisitor(context, groupBy, aliasParseNodeMap);
         Expression nonAggregateExpression = null;
         for (OrderByNode node : orderBy) {
             Expression expression = node.getOrderByParseNode().accept(visitor);
@@ -194,12 +196,12 @@ public class OrderByCompiler {
     private OrderByCompiler() {
     }
     
-    private static class OrderingColumns extends ExpressionCompiler {
+    private static class OrderByClauseVisitor extends AliasingExpressionCompiler {
         private final Set<OrderingColumn> visited = Sets.newHashSet();
         private final List<OrderingColumn> orderingColumns = Lists.newArrayList();
         
-        private OrderingColumns(StatementContext context, GroupBy groupBy) {
-            super(context, groupBy);
+        private OrderByClauseVisitor(StatementContext context, GroupBy groupBy, Map<String, ParseNode> aliasParseNodeMap) {
+            super(context, groupBy, aliasParseNodeMap);
         }
         
         private List<OrderingColumn> getOrderingColumns() {

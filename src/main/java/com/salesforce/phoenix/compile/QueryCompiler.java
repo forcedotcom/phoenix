@@ -30,6 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
 
@@ -40,8 +41,7 @@ import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.RHSLiteralStatementRewriter;
-import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 
@@ -108,9 +108,10 @@ public class QueryCompiler {
         statement = RHSLiteralStatementRewriter.normalizeWhereClause(statement);
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
+        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
 
-        GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context);
+        GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context, aliasParseNodeMap);
         // Optimize the HAVING clause by finding any group by expressions that can be moved
         // to the WHERE clause
         statement = HavingCompiler.moveToWhereClause(statement, context, groupBy);
@@ -118,7 +119,7 @@ public class QueryCompiler {
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
         WhereCompiler.getWhereClause(context, statement.getWhere());
-        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, limit); 
+        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, limit, aliasParseNodeMap); 
         RowProjector projector = ProjectionCompiler.getRowProjector(statement, context, groupBy, orderBy, limit, targetColumns);
         
         // Final step is to build the query plan

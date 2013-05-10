@@ -301,7 +301,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     public void testDateRangeAggregation() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        String query = "SELECT count(1), feature FROM PRODUCT_METRICS WHERE organization_id=? AND date >= to_date(?) AND date <= to_date(?) GROUP BY feature";
+        String query = "SELECT count(1), feature f FROM PRODUCT_METRICS WHERE organization_id=? AND date >= to_date(?) AND date <= to_date(?) GROUP BY f";
         //String query = "SELECT count(1), feature FROM PRODUCT_METRICS GROUP BY feature";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -470,7 +470,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     public void testRoundAggregation() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        String query = "SELECT round(date,'hour',1),count(1) FROM PRODUCT_METRICS WHERE organization_id=? GROUP BY round(date,'hour',1)";
+        String query = "SELECT round(date,'hour',1) r,count(1) FROM PRODUCT_METRICS WHERE organization_id=? GROUP BY r";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -1380,7 +1380,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initTableValues(tenantId, getSplits(tenantId), ts);
-        String query = "SELECT date FROM PRODUCT_METRICS WHERE organization_id=? AND unique_users <= 30 ORDER BY transactions DESC LIMIT 2";
+        String query = "SELECT date, transactions t FROM PRODUCT_METRICS WHERE organization_id=? AND unique_users <= 30 ORDER BY t DESC LIMIT 2";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
 
@@ -1403,10 +1403,10 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     public void testOrderByUngroupedAggregation() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        String query = "SELECT sum(unique_users),count(feature) " +
+        String query = "SELECT sum(unique_users) sumUsers,count(feature) " +
                        "FROM PRODUCT_METRICS " + 
                        "WHERE organization_id=? " +
-                       "ORDER BY sum(unique_users)";
+                       "ORDER BY 100000-sumUsers";
 
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1429,11 +1429,11 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     public void testOrderByGroupedAggregation() throws Exception {        
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        String query = "SELECT feature,sum(unique_users),count(feature) " +
+        String query = "SELECT feature,sum(unique_users) s,count(feature),round(date,'hour',1) r " +
                        "FROM PRODUCT_METRICS " + 
                        "WHERE organization_id=? " +
-                       "GROUP BY feature,round(date,'hour',1) " +
-                       "ORDER BY 1 desc,feature desc,round(date,'hour',1),feature,sum(unique_users)";
+                       "GROUP BY feature, r " +
+                       "ORDER BY 1 desc,feature desc,r,feature,s";
 
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1468,11 +1468,11 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     public void testOrderByUnprojectedOrderingColumn() throws Exception {        
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        String query = "SELECT sum(unique_users) " +
+        String query = "SELECT sum(unique_users), count(feature) c " +
                        "FROM PRODUCT_METRICS " + 
                        "WHERE organization_id=? " +
                        "GROUP BY feature " +
-                       "ORDER BY count(feature),feature";
+                       "ORDER BY 100-c,feature";
 
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1483,7 +1483,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
             
-            int[] expected = {40, 50, 120};
+            int[] expected = {120, 40, 50};
             for (int i = 0; i < expected.length; i++) {
                 assertTrue(rs.next());
                 assertEquals(expected[i], rs.getInt(1));

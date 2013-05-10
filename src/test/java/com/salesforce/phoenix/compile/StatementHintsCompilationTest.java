@@ -63,10 +63,11 @@ public class StatementHintsCompilationTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, statement.getHint());
+        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
 
         Integer actualLimit = LimitCompiler.getLimit(context, statement.getLimit());
         assertEquals(limit, actualLimit);
-        GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context);
+        GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context, aliasParseNodeMap);
         statement = HavingCompiler.moveToWhereClause(statement, context, groupBy);
         WhereCompiler.compileWhereClause(context, statement.getWhere(), extractedNodes);
         return context;

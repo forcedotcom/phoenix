@@ -41,19 +41,19 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 public class GroupByCaseTest extends BaseClientMangedTimeTest {
 
     private static String GROUPBY1 = "select " +
-            "case when uri LIKE 'Report%' then 'Reports' else 'Other' END" +
+            "case when uri LIKE 'Report%' then 'Reports' else 'Other' END category" +
             ", avg(appcpu) from " + GROUPBYTEST_NAME +
-            " group by " + "case when uri LIKE 'Report%' then 'Reports' else 'Other' END";
+            " group by category";
 
     private static String GROUPBY2 = "select " +
-            "case uri when 'Report%' then 'Reports' else 'Other' END" +
+            "case uri when 'Report%' then 'Reports' else 'Other' END category" +
             ", avg(appcpu) from " + GROUPBYTEST_NAME +
-            " group by appcpu, " + "case uri when 'Report%' then 'Reports' else 'Other' END";
+            " group by appcpu, category";
 
     private static String GROUPBY3 = "select " +
-            "case uri when 'Report%' then 'Reports' else 'Other' END" +
+            "case uri when 'Report%' then 'Reports' else 'Other' END category" +
             ", avg(appcpu) from " + GROUPBYTEST_NAME +
-            " group by avg(appcpu), " + "case uri when 'Report%' then 'Reports' else 'Other' END";
+            " group by avg(appcpu), category";
     
     private int id;
 

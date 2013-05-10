@@ -33,7 +33,6 @@ import java.util.*;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.http.annotation.Immutable;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
@@ -131,11 +130,12 @@ public class GroupByCompiler {
      * Get list of columns in the GROUP BY clause.
      * @param statement SQL statement being compiled
      * @param context query context kept between compilation of different query clauses
+     * @param aliasParseNodeMap map to resolve alias name references to parse node
      * @return the {@link GroupBy} instance encapsulating the group by clause
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public static GroupBy getGroupBy(SelectStatement statement, StatementContext context) throws SQLException {
+    public static GroupBy getGroupBy(SelectStatement statement, StatementContext context, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
         List<ParseNode> groupByNodes = statement.getGroupBy();
         if (groupByNodes.isEmpty()) {
             return GroupBy.EMPTY_GROUP_BY;
@@ -143,7 +143,7 @@ public class GroupByCompiler {
         // Accumulate expressions in GROUP BY
         List<Pair<Expression,Integer>> groupByPairs = Lists.newArrayListWithCapacity(groupByNodes.size());
         int groupByNodeCount = groupByNodes.size();
-        GroupByClauseVisitor groupByVisitor = new GroupByClauseVisitor(context);
+        GroupByClauseVisitor groupByVisitor = new GroupByClauseVisitor(context, aliasParseNodeMap);
         for (int i = 0; i < groupByNodeCount; i++) {
             ParseNode node = groupByNodes.get(i);
             Expression expression = node.accept(groupByVisitor);
@@ -283,12 +283,12 @@ public class GroupByCompiler {
      * 
      * TODO: should isRowKeyOrderedGrouping be set to false more often?
      */
-    private static class GroupByClauseVisitor  extends ExpressionCompiler {
+    private static class GroupByClauseVisitor  extends AliasingExpressionCompiler {
         private boolean isRowKeyOrderedGrouping = true;
         private Integer columnPosition = null;
         
-        private GroupByClauseVisitor(StatementContext context) {
-            super(context);
+        private GroupByClauseVisitor(StatementContext context, Map<String, ParseNode> aliasParseNodeMap) {
+            super(context, aliasParseNodeMap);
         }
         
         @Override

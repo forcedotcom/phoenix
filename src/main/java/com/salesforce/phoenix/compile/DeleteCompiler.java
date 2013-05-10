@@ -73,7 +73,7 @@ public class DeleteCompiler {
         ParseNode where = statement.getWhere();
         final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
-        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, limit); 
+        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, limit, Collections.<String,ParseNode>emptyMap()); 
         Expression whereClause = WhereCompiler.getWhereClause(context, where);
         final int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         
