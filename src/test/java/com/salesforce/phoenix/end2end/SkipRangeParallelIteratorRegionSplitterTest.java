@@ -104,7 +104,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         return PDataType.CHAR.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive);
     }
 
-    @Parameters(name="{0} {1} {2}")
+    @Parameters(name="{1} {2}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // Scan range is empty.

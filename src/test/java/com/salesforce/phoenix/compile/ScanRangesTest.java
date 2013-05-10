@@ -106,7 +106,7 @@ public class ScanRangesTest {
                     new int[] {1,1,1},
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("a9Z"), true, Bytes.toBytes("c0A"), true),
                     true));
-        // KeyRange that requires a fixed width  exclusive lower bound to be bumped up
+        // KeyRange that requires a fixed width exclusive lower bound to be bumped up
         // and made inclusive. Otherwise, the comparison thinks its bigger than it really is.
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -183,6 +183,17 @@ public class ScanRangesTest {
                     }},
                     new int[] {1,1,1},
                     PDataType.CHAR.getKeyRange(Bytes.toBytes("b1A"), true, Bytes.toBytes("b1A"), true),
+                    false));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("B"), true, Bytes.toBytes("E"), true),
+                    }},
+                    new int[] {1,1,1},
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a0Z"), false, Bytes.toBytes("a1A"), false),
                     false));
         testCases.addAll(
                 foreach(new KeyRange[][]{{
@@ -344,6 +355,62 @@ public class ScanRangesTest {
                     new int[] {1,1,1}, 
                     PDataType.CHAR.getKeyRange(KeyRange.UNBOUND, false, Bytes.toBytes("a1C"), true),
                     true));
+        // KeyRange contains unbound upper bound
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),
+                    }},
+                    new int[] {1,1,1}, 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a0A"), true, KeyRange.UNBOUND, false),
+                    true));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),
+                    }},
+                    new int[] {1,1,1}, 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a1B"), true, KeyRange.UNBOUND, false),
+                    true));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),
+                    }},
+                    new int[] {1,1,1}, 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a1C"), true, KeyRange.UNBOUND, false),
+                    false));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("0"), true, Bytes.toBytes("0"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("Z"), true),
+                    }},
+                    new int[] {1,1,1}, 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("a2A"), true, KeyRange.UNBOUND, false),
+                    false));
+        testCases.addAll(
+                foreach(new KeyRange[][]{{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("a"), true, Bytes.toBytes("a"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("1"), true, Bytes.toBytes("1"), true),
+                        },{
+                        PDataType.CHAR.getKeyRange(Bytes.toBytes("A"), true, Bytes.toBytes("B"), true),
+                    }},
+                    new int[] {1,1,1}, 
+                    PDataType.CHAR.getKeyRange(Bytes.toBytes("d1A"), true, KeyRange.UNBOUND, false),
+                    false));
         return testCases;
     }
 
