@@ -172,7 +172,7 @@ public class SkipScanFilter extends FilterBase {
         }
         if (upperUnbound) {
             // If the lower is not unbound, first check if the there is any slots upper bound that is higher
-            // than or equals to the lowerbound. If not, we does not have an intersection.
+            // than or equals to the lowerbound. If not, there is no intersection.
             if (!lowerUnbound) {
                 position[0] = startPos;
                 ReturnCode code = navigate(lowerInclusiveKey, 0, lowerInclusiveKey.length, Terminate.AFTER);
@@ -206,7 +206,7 @@ public class SkipScanFilter extends FilterBase {
             }
         } else if (endCode == ReturnCode.SEEK_NEXT_USING_HINT) {
             // The upperExclusive key is smaller than the slots stored in the position. Check if it's the same position
-            // as the slots for lowerInclusive. If so, we do not have an intersect.
+            // as the slots for lowerInclusive. If so, there is no intersection.
             if (Arrays.equals(lowerPosition, position)) {
                 return null;
             }

@@ -338,7 +338,7 @@ public class MetaDataClient {
             if (saltBucketNum != null) {
                 ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
             }
-            // Switch the Linkedlist to Arraylist to it's faster for position lookup.
+            // Switch the LinkedList to ArrayList for faster position lookup.
             pkColumns = new ArrayList<PColumn>(pkColumns);
             
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
