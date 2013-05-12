@@ -37,12 +37,10 @@ import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
-import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.CoerceExpression;
-import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.aggregator.ClientAggregators;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
@@ -187,7 +185,7 @@ public class ProjectionCompiler {
         }
 
         if (isDistinct) {
-            for (OrderingColumn orderByNode : orderBy.getOrderingColumns()) {
+            for (OrderByExpression orderByNode : orderBy.getOrderByExpressions()) {
                 Expression expression = orderByNode.getExpression();
                 if (!projectedExpressions.contains(expression)) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.ORDER_BY_NOT_IN_SELECT_DISTINCT)

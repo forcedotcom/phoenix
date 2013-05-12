@@ -1465,7 +1465,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     }
 
     @Test
-    public void testOrderByUnprojectedOrderingColumn() throws Exception {        
+    public void testOrderByUnprojected() throws Exception {        
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         String query = "SELECT sum(unique_users), count(feature) c " +

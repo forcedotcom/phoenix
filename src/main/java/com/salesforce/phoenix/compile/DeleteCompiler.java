@@ -40,8 +40,7 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.execute.*;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -103,7 +102,7 @@ public class DeleteCompiler {
                     return connection;
                 }
             };
-        } else if (isAutoCommit && limit == null && orderBy.getOrderingColumns().isEmpty()) {
+        } else if (isAutoCommit && limit == null && orderBy.getOrderByExpressions().isEmpty()) {
             // TODO: better abstraction - DeletePlan ?
             scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>

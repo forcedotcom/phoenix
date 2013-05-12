@@ -30,7 +30,7 @@ package com.salesforce.phoenix.iterate;
 import java.sql.SQLException;
 import java.util.List;
 
-import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
+import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -45,9 +45,9 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class OrderedAggregatingResultIterator extends OrderedResultIterator implements AggregatingResultIterator {
 
     public OrderedAggregatingResultIterator(AggregatingResultIterator delegate,
-                                List<OrderingColumn> orderingColumns,
+                                List<OrderByExpression> orderByExpressions,
                                 Integer limit) throws SQLException {
-        super (delegate, orderingColumns, limit);
+        super (delegate, orderByExpressions, limit);
     }
 
     @Override

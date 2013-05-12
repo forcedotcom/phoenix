@@ -41,7 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
+import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -62,13 +62,13 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
     public static final String NON_AGGREGATE_QUERY = "NonAggregateQuery";
     private static final String TOPN = "TopN";
 
-    public static void serializeIntoScan(Scan scan, int limit, List<OrderingColumn> orderingColumns) {
+    public static void serializeIntoScan(Scan scan, int limit, List<OrderByExpression> orderByExpressions) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream(); // TODO: size?
         try {
             DataOutputStream output = new DataOutputStream(stream);
             WritableUtils.writeVInt(output, limit);
-            WritableUtils.writeVInt(output, orderingColumns.size());
-            for (OrderingColumn orderingCol : orderingColumns) {
+            WritableUtils.writeVInt(output, orderByExpressions.size());
+            for (OrderByExpression orderingCol : orderByExpressions) {
                 orderingCol.write(output);
             }
             scan.setAttribute(TOPN, stream.toByteArray());
@@ -93,9 +93,9 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
             DataInputStream input = new DataInputStream(stream);
             int limit = WritableUtils.readVInt(input);
             int size = WritableUtils.readVInt(input);
-            List<OrderingColumn> orderByExpressions = Lists.newArrayListWithExpectedSize(size);           
+            List<OrderByExpression> orderByExpressions = Lists.newArrayListWithExpectedSize(size);           
             for (int i = 0; i < size; i++) {
-                OrderingColumn orderByExpression = new OrderingColumn();
+                OrderByExpression orderByExpression = new OrderByExpression();
                 orderByExpression.readFields(input);
                 orderByExpressions.add(orderByExpression);
             }

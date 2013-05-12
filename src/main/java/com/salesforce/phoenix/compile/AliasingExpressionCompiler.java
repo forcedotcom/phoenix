@@ -50,7 +50,7 @@ public class AliasingExpressionCompiler extends ExpressionCompiler {
         this(context, GroupBy.EMPTY_GROUP_BY, aliasParseNodeMap);
     }
     
-    AliasingExpressionCompiler(StatementContext context, GroupBy groupBy, Map<String, ParseNode> aliasParseNodeMap) {
+    protected AliasingExpressionCompiler(StatementContext context, GroupBy groupBy, Map<String, ParseNode> aliasParseNodeMap) {
         super(context, groupBy);
         this.aliasParseNodeMap = aliasParseNodeMap;
     }

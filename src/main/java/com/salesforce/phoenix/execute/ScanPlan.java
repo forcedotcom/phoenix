@@ -53,8 +53,8 @@ public class ScanPlan extends BasicQueryPlan {
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projection, Integer limit, OrderBy orderBy) {
         super(context, table, projection, context.getBindManager().getParameterMetaData(), limit, orderBy);
-        if (limit != null && !orderBy.getOrderingColumns().isEmpty()) { // TopN
-            ScanRegionObserver.serializeIntoScan(context.getScan(), limit, orderBy.getOrderingColumns());
+        if (limit != null && !orderBy.getOrderByExpressions().isEmpty()) { // TopN
+            ScanRegionObserver.serializeIntoScan(context.getScan(), limit, orderBy.getOrderByExpressions());
         }
     }
     
@@ -76,13 +76,13 @@ public class ScanPlan extends BasicQueryPlan {
         /* If no limit or topN, use parallel iterator so that we get results faster. Otherwise, if
          * limit is provided, run query serially.
          */
-        if (limit == null || !orderBy.getOrderingColumns().isEmpty()) {
+        if (limit == null || !orderBy.getOrderByExpressions().isEmpty()) {
             ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY);
             splits = iterators.getSplits();
-            if (orderBy.getOrderingColumns().isEmpty()) {
+            if (orderBy.getOrderByExpressions().isEmpty()) {
                 scanner = new ConcatResultIterator(iterators);
             } else {
-                scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderingColumns());
+                scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
             }
         } else {
             scanner = new TableResultIterator(context, table);

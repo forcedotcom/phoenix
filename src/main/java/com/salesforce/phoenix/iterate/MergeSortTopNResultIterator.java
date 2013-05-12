@@ -34,15 +34,15 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
  * 
  * ResultIterator that does a merge sort on the list of iterators provided,
- * returning the rows ordered by the OrderingColumn expressions. The input
- * iterators must be ordered by the OrderingColumn expressions.
+ * returning the rows ordered by the OrderByExpression. The input
+ * iterators must be ordered by the OrderByExpression.
  *
  * @author jtaylor
  * @since 0.1
@@ -51,11 +51,11 @@ public class MergeSortTopNResultIterator extends MergeSortResultIterator {
 
     private final int limit;
     private int count = 0;
-    private final List<OrderingColumn> orderByColumns;
+    private final List<OrderByExpression> orderByColumns;
     private final ImmutableBytesWritable ptr1 = new ImmutableBytesWritable();
     private final ImmutableBytesWritable ptr2 = new ImmutableBytesWritable();
     
-    public MergeSortTopNResultIterator(ResultIterators iterators, Integer limit, List<OrderingColumn> orderByColumns) {
+    public MergeSortTopNResultIterator(ResultIterators iterators, Integer limit, List<OrderByExpression> orderByColumns) {
         super(iterators);
         checkNotNull(limit);
         this.limit = limit;
@@ -65,7 +65,7 @@ public class MergeSortTopNResultIterator extends MergeSortResultIterator {
     @Override
     protected int compare(Tuple t1, Tuple t2) {
         for (int i = 0; i < orderByColumns.size(); i++) {
-            OrderingColumn order = orderByColumns.get(i);
+            OrderByExpression order = orderByColumns.get(i);
             Expression orderExpr = order.getExpression();
             boolean isNull1 = !orderExpr.evaluate(t1, ptr1) || ptr1.getLength() == 0;
             boolean isNull2 = !orderExpr.evaluate(t2, ptr2) || ptr2.getLength() == 0;

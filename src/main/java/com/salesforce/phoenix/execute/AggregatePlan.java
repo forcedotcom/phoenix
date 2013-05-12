@@ -101,12 +101,12 @@ public class AggregatePlan extends BasicQueryPlan {
         }
 
         ResultIterator resultScanner = aggResultIterator;
-        if (orderBy.getOrderingColumns().isEmpty()) {
+        if (orderBy.getOrderByExpressions().isEmpty()) {
             if (limit != null) {
                 resultScanner = new LimitingResultIterator(aggResultIterator, limit);
             }
         } else {
-            resultScanner = new OrderedAggregatingResultIterator(aggResultIterator, orderBy.getOrderingColumns(), limit);
+            resultScanner = new OrderedAggregatingResultIterator(aggResultIterator, orderBy.getOrderByExpressions(), limit);
         }
         
         return new WrappedScanner(resultScanner, getProjector());

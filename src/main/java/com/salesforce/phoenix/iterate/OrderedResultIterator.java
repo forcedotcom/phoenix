@@ -38,8 +38,8 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.base.Function;
 import com.google.common.collect.*;
-import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
@@ -85,17 +85,17 @@ public class OrderedResultIterator implements ResultIterator {
         }
     }
 
-    /** Returns the expression of a given {@link OrderingColumn}. */
-    private static final Function<OrderingColumn, Expression> TO_EXPRESSION = new Function<OrderingColumn, Expression>() {
+    /** Returns the expression of a given {@link OrderByExpression}. */
+    private static final Function<OrderByExpression, Expression> TO_EXPRESSION = new Function<OrderByExpression, Expression>() {
         @Override
-        public Expression apply(OrderingColumn column) {
+        public Expression apply(OrderByExpression column) {
             return column.getExpression();
         }
     };
 
     private final Integer limit;
     private final ResultIterator delegate;
-    private final List<OrderingColumn> orderingColumns;
+    private final List<OrderByExpression> orderByExpressions;
     
     private ResultIterator resultIterator;
 
@@ -104,30 +104,30 @@ public class OrderedResultIterator implements ResultIterator {
     }
     
     public OrderedResultIterator(ResultIterator delegate,
-                                 List<OrderingColumn> orderingColumns,
+                                 List<OrderByExpression> orderByExpressions,
                                  Integer limit) {
-        checkArgument(!orderingColumns.isEmpty());
+        checkArgument(!orderByExpressions.isEmpty());
         this.delegate = delegate;
-        this.orderingColumns = orderingColumns;
+        this.orderByExpressions = orderByExpressions;
         this.limit = limit;
     }
 
     public OrderedResultIterator(ResultIterator delegate,
-            List<OrderingColumn> orderingColumns) throws SQLException {
-        this(delegate, orderingColumns, null);
+            List<OrderByExpression> orderByExpressions) throws SQLException {
+        this(delegate, orderByExpressions, null);
     }
 
     /**
      * Builds a comparator from the list of columns in ORDER BY clause.
-     * @param orderingColumns the columns in ORDER BY clause.
+     * @param orderByExpressions the columns in ORDER BY clause.
      * @return the comparator built from the list of columns in ORDER BY clause.
      */
     // ImmutableBytesWritable.Comparator doesn't implement generics
     @SuppressWarnings("unchecked")
-    private static Comparator<ResultEntry> buildComparator(List<OrderingColumn> orderingColumns) {
+    private static Comparator<ResultEntry> buildComparator(List<OrderByExpression> orderByExpressions) {
         Ordering<ResultEntry> ordering = null;
         int pos = 0;
-        for (OrderingColumn col : orderingColumns) {
+        for (OrderByExpression col : orderByExpressions) {
             Ordering<ImmutableBytesWritable> o = Ordering.from(new ImmutableBytesWritable.Comparator());
             if(!col.isAscending()) o = o.reverse();
             o = col.isNullsLast() ? o.nullsLast() : o.nullsFirst();
@@ -147,9 +147,9 @@ public class OrderedResultIterator implements ResultIterator {
             return resultIterator;
         }
         
-        final int numSortKeys = orderingColumns.size();
-        List<Expression> expressions = Lists.newArrayList(Collections2.transform(orderingColumns, TO_EXPRESSION));
-        final Comparator<ResultEntry> comparator = buildComparator(orderingColumns);
+        final int numSortKeys = orderByExpressions.size();
+        List<Expression> expressions = Lists.newArrayList(Collections2.transform(orderByExpressions, TO_EXPRESSION));
+        final Comparator<ResultEntry> comparator = buildComparator(orderByExpressions);
         Collection<ResultEntry> entries;
         if (limit == null) {
             final List<ResultEntry> listEntries =  Lists.<ResultEntry>newArrayList(); // TODO: size?
@@ -215,6 +215,6 @@ public class OrderedResultIterator implements ResultIterator {
     @Override
     public void explain(List<String> planSteps) {
         delegate.explain(planSteps);
-        planSteps.add("CLIENT" + (limit == null ? "" : " TOP " + limit + " ROW"  + (limit == 1 ? "" : "S"))  + " SORTED BY " + orderingColumns.toString());
+        planSteps.add("CLIENT" + (limit == null ? "" : " TOP " + limit + " ROW"  + (limit == 1 ? "" : "S"))  + " SORTED BY " + orderByExpressions.toString());
     }
 }
