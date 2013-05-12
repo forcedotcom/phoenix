@@ -39,6 +39,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.base.Function;
+import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
@@ -71,8 +72,8 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         }
     };
 
-    public ParallelIterators(StatementContext context, TableRef table, RowCounter rowCounter) throws SQLException {
-        super(context, table);
+    public ParallelIterators(StatementContext context, TableRef table, RowCounter rowCounter, GroupBy groupBy) throws SQLException {
+        super(context, table, groupBy);
         this.rowCounter = rowCounter;
         this.splits = getSplits(context, table);
     }

@@ -34,8 +34,8 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 
-import com.salesforce.phoenix.compile.ScanRanges;
-import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
+import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -44,10 +44,16 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public abstract class ExplainTable {
     protected final StatementContext context;
     protected final TableRef table;
+    protected final GroupBy groupBy;
    
     public ExplainTable(StatementContext context, TableRef table) {
+        this(context,table,GroupBy.EMPTY_GROUP_BY);
+    }
+
+    public ExplainTable(StatementContext context, TableRef table, GroupBy groupBy) {
         this.context = context;
         this.table = table;
+        this.groupBy = groupBy;
     }
 
     private boolean explainSkipScan(StringBuilder buf) {
@@ -103,7 +109,7 @@ public abstract class ExplainTable {
                 planSteps.add("    SERVER FILTER BY " + filterDesc);
             }
         }
-        context.getGroupBy().explain(planSteps);
+        groupBy.explain(planSteps);
     }
 
     private void appendPKColumnValue(StringBuilder buf, byte[] range, int slotIndex) {

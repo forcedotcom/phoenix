@@ -128,24 +128,57 @@ public class GroupByCompiler {
 
     /**
      * Get list of columns in the GROUP BY clause.
-     * @param statement SQL statement being compiled
      * @param context query context kept between compilation of different query clauses
+     * @param statement SQL statement being compiled
      * @param aliasParseNodeMap map to resolve alias name references to parse node
      * @return the {@link GroupBy} instance encapsulating the group by clause
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public static GroupBy getGroupBy(SelectStatement statement, StatementContext context, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
+    public static GroupBy getGroupBy(StatementContext context, SelectStatement statement, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
         List<ParseNode> groupByNodes = statement.getGroupBy();
+        /**
+         * Distinct can use an aggregate plan if there's no group by.
+         * Otherwise, we need to insert a step after the Merge that dedups.
+         * Order by only allowed on columns in the select distinct
+         */
         if (groupByNodes.isEmpty()) {
-            return GroupBy.EMPTY_GROUP_BY;
+            AggregationVisitor visitor = new AggregationVisitor();
+            
+            for (AliasedNode aliasedNode : statement.getSelect()) {
+                aliasedNode.getNode().accept(visitor);
+                if (visitor.isAggregate()) {
+                    break;
+                }
+            }
+            if (!visitor.isAggregate()) {
+                for (OrderByNode orderNode : statement.getOrderBy()) {
+                    orderNode.getNode().accept(visitor);
+                    if (visitor.isAggregate()) {
+                        break;
+                    }
+                }
+            }
+            
+            if (visitor.isAggregate()) {
+                context.setAggregate(true);
+                return new GroupBy.GroupByBuilder().setScanAttribName(UngroupedAggregateRegionObserver.UNGROUPED_AGG).build();
+            }
+            if (!statement.isDistinct()) {
+                return GroupBy.EMPTY_GROUP_BY;
+            }
+            
+            groupByNodes = Lists.newArrayListWithExpectedSize(statement.getSelect().size());
+            for (AliasedNode aliasedNode : statement.getSelect()) {
+                groupByNodes.add(aliasedNode.getNode());
+            }
         }
-        // Accumulate expressions in GROUP BY
+
+        context.setAggregate(true);
+       // Accumulate expressions in GROUP BY
         List<Pair<Expression,Integer>> groupByPairs = Lists.newArrayListWithCapacity(groupByNodes.size());
-        int groupByNodeCount = groupByNodes.size();
         GroupByClauseVisitor groupByVisitor = new GroupByClauseVisitor(context, aliasParseNodeMap);
-        for (int i = 0; i < groupByNodeCount; i++) {
-            ParseNode node = groupByNodes.get(i);
+        for (ParseNode node : groupByNodes) {
             Expression expression = node.accept(groupByVisitor);
             if (groupByVisitor.isAggregate()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_GROUP_BY)
@@ -254,8 +287,8 @@ public class GroupByCompiler {
 
         // Set attribute with serialized expressions for coprocessor
         // FIXME: what if group by is empty (i.e. only literals)?
+        GroupedAggregateRegionObserver.serializeIntoScan(context.getScan(), groupExprAttribName, keyExpressions);
         GroupBy groupBy = new GroupBy.GroupByBuilder().setScanAttribName(groupExprAttribName).setExpressions(expressions).setKeyExpressions(keyExpressions).build();
-        context.setGroupBy(groupBy);
         return groupBy;
     }
     
@@ -274,6 +307,19 @@ public class GroupByCompiler {
     private GroupByCompiler() {
     }
     
+    private static class AggregationVisitor extends StatelessTraverseAllParseNodeVisitor {
+        private boolean isAggregate = false;
+        
+        @Override
+        public Void visitLeave(FunctionParseNode node, List<Void> l) throws SQLException {
+            isAggregate |= node.isAggregate();
+            return null;
+        }
+        
+        public boolean isAggregate() {
+            return isAggregate;
+        }
+    }
     /**
      * Visitor that builds the expressions of a GROUP BY clause. While traversing the parse
      * node tree, the visitor also determines when we can use an optimization during

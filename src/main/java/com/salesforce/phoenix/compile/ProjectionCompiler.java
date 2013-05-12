@@ -37,8 +37,10 @@ import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.compile.OrderByCompiler.OrderingColumn;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
-import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.ClientAggregators;
@@ -68,24 +70,24 @@ public class ProjectionCompiler {
     
     /**
      * Builds the projection for the scan
-     * @param statement SQL statement being compiled
      * @param context query context kept between compilation of different query clauses
-     * @param limit maximum number of rows to scan during query execution or null if unbounded
+     * @param statement SQL statement being compiled
      * @param groupBy list of GROUP BY expressions or the empty list if no GROUP BY
+     * @param limit maximum number of rows to scan during query execution or null if unbounded
      * @return projector used to access row values during scan
      * @throws SQLException 
      * @throws SQLFeatureNotSupportedException if an unsupported construct is encountered.
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public static RowProjector getRowProjector(SelectStatement statement, StatementContext context, GroupBy groupBy, OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
-        return getRowProjector(context, statement.getSelect(), groupBy, orderBy, limit, targetColumns);
+    public static RowProjector getRowProjector(StatementContext context, List<AliasedNode> aliasedNodes, boolean isDistinct, GroupBy groupBy, OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
+        return getRowProjector(context, isDistinct, aliasedNodes, groupBy, orderBy, limit, targetColumns);
     }
 
 
-    public static RowProjector getRowProjector(StatementContext context, List<AliasedParseNode> aliasedNodes, GroupBy groupBy,
+    public static RowProjector getRowProjector(StatementContext context, List<AliasedNode> aliasedNodes, boolean isDistinct, GroupBy groupBy,
             OrderBy orderBy, Integer limit) throws SQLException  {
-        return getRowProjector(context, aliasedNodes, groupBy, orderBy, limit, null);
+        return getRowProjector(context, isDistinct, aliasedNodes, groupBy, orderBy, limit, null);
     }
     
     private static void projectAllColumnFamilies(PTable table, Scan scan) {
@@ -102,9 +104,9 @@ public class ProjectionCompiler {
         scan.addFamily(familyName.getBytes());
     }
     
-    public static Map<String, ParseNode> buildAliasParseNodeMap(StatementContext context, List<AliasedParseNode> aliasedNodes) {
+    public static Map<String, ParseNode> buildAliasParseNodeMap(StatementContext context, List<AliasedNode> aliasedNodes) {
         Map<String, ParseNode> aliasParseNodeMap = Maps.newHashMapWithExpectedSize(aliasedNodes.size());
-        for (AliasedParseNode aliasedNode : aliasedNodes) {
+        for (AliasedNode aliasedNode : aliasedNodes) {
             String alias = aliasedNode.getAlias();
             if (alias != null) {
                 aliasParseNodeMap.put(alias, aliasedNode.getNode());
@@ -113,7 +115,7 @@ public class ProjectionCompiler {
         return aliasParseNodeMap;
     }
     
-    public static RowProjector getRowProjector(StatementContext context, List<AliasedParseNode> aliasedNodes, GroupBy groupBy,
+    public static RowProjector getRowProjector(StatementContext context, boolean isDistinct, List<AliasedNode> aliasedNodes, GroupBy groupBy,
             OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
         // Setup projected columns in Scan
         SelectClauseVisitor selectVisitor = new SelectClauseVisitor(context, groupBy, limit);
@@ -124,8 +126,9 @@ public class ProjectionCompiler {
         boolean isWildcard = false;
         Scan scan = context.getScan();
         int index = 0;
+        List<Expression> projectedExpressions = Lists.newArrayListWithExpectedSize(aliasedNodes.size());
         // TODO: support cf.* expressions in projection to project all columns in a  CF
-        for (AliasedParseNode aliasedNode : aliasedNodes) {
+        for (AliasedNode aliasedNode : aliasedNodes) {
             ParseNode node = aliasedNode.getNode();
             if (node == WildcardParseNode.INSTANCE) {
                 if (context.isAggregate()) {
@@ -136,7 +139,9 @@ public class ProjectionCompiler {
                 projectAllColumnFamilies(table,scan);
                 for (int i = 0; i < table.getColumns().size(); i++) {
                     ColumnRef ref = new ColumnRef(tableRef,i);
-                    projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), ref.newColumnExpression(), false));
+                    Expression expression = ref.newColumnExpression();
+                    projectedExpressions.add(expression);
+                    projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), expression, false));
                 }
             } else if (node instanceof  FamilyParseNode){
                 // Project everything for SELECT cf.*
@@ -144,10 +149,13 @@ public class ProjectionCompiler {
         		projectColumnFamily(table,scan,((FamilyParseNode) node).getFamilyName());		
         		for (PColumn column : pfamily.getColumns()) {
         			ColumnRef ref = new ColumnRef(tableRef,column.getPosition());
-        		 	projectedColumns.add(new ExpressionProjector(column.getName().toString(), table.getName().getString(),ref.newColumnExpression(), false));
+                    Expression expression = ref.newColumnExpression();
+                    projectedExpressions.add(expression);
+        		 	projectedColumns.add(new ExpressionProjector(column.getName().toString(), table.getName().getString(),expression, false));
         		}
             } else {
                 Expression expression = node.accept(selectVisitor);
+                projectedExpressions.add(expression);
                 if (targetColumns != null && index < targetColumns.length && targetColumns[index].getDataType() != expression.getDataType()) {
                     PDataType targetType = targetColumns[index].getDataType();
                     // Check if coerce allowed using more relaxed isComparible check, since we promote INTEGER to LONG 
@@ -162,12 +170,7 @@ public class ProjectionCompiler {
                     context.getBindManager().addParamMetaData((BindParseNode)node, expression);
                 }
                 if (!node.isConstant()) {
-                    if (selectVisitor.isAggregate()) {
-                        // Catch case where ORDER BY uses non aggregate and projection uses aggregate
-                        if (!orderBy.isAggregate() && !orderBy.getOrderingColumns().isEmpty()) {
-                            ExpressionCompiler.throwNonAggExpressionInAggException(orderBy.getOrderingColumns().get(0).getExpression().toString());
-                        }
-                    } else {
+                    if (!selectVisitor.isAggregate()) {
                         nonAggregateExpression = expression;
                     }
                     if (context.isAggregate() && nonAggregateExpression != null) {
@@ -183,12 +186,20 @@ public class ProjectionCompiler {
             index++;
         }
 
+        if (isDistinct) {
+            for (OrderingColumn orderByNode : orderBy.getOrderingColumns()) {
+                Expression expression = orderByNode.getExpression();
+                if (!projectedExpressions.contains(expression)) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.ORDER_BY_NOT_IN_SELECT_DISTINCT)
+                    .setMessage(expression.toString()).build().buildException();
+                }
+            }
+        }
         selectVisitor.compile();
         RowProjector projector = new RowProjector(projectedColumns);
         boolean projectNotNull = true;
         if (context.isAggregate()) {
             if (groupBy.isEmpty()) {
-                context.setGroupBy(new GroupBy.GroupByBuilder().setScanAttribName(UngroupedAggregateRegionObserver.UNGROUPED_AGG).build());
                 // If nothing projected into scan and we only have one column family, just allow everything
                 // to be projected and use a FirstKeyOnlyFilter to skip from row to row.
                 // TODO: benchmark versus projecting our empty column

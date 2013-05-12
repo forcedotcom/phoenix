@@ -83,6 +83,10 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         region.batchMutate(mutations.toArray(mutationArray));
     }
     
+    public static void serializeIntoScan(Scan scan) {
+        scan.setAttribute(UNGROUPED_AGG, QueryConstants.TRUE);
+    }
+
     @Override
     protected RegionScanner doPostScannerOpen(final ObserverContext<RegionCoprocessorEnvironment> c, final Scan scan, final RegionScanner s) throws IOException {
         byte[] isUngroupedAgg = scan.getAttribute(UNGROUPED_AGG);

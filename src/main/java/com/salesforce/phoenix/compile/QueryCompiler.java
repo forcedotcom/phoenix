@@ -105,22 +105,23 @@ public class QueryCompiler {
         
         assert(binds.size() == statement.getBindCount());
         
-        statement = RHSLiteralStatementRewriter.normalizeWhereClause(statement);
+        statement = RHSLiteralStatementRewriter.normalize(statement);
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
 
-        GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context, aliasParseNodeMap);
+        GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
+        boolean isDistinct = statement.getGroupBy().isEmpty() && statement.isDistinct();
         // Optimize the HAVING clause by finding any group by expressions that can be moved
         // to the WHERE clause
-        statement = HavingCompiler.moveToWhereClause(statement, context, groupBy);
+        statement = HavingCompiler.moveToWhereClause(context, statement, groupBy);
         Expression having = HavingCompiler.getExpression(statement, context, groupBy);
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
         WhereCompiler.getWhereClause(context, statement.getWhere());
-        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, limit, aliasParseNodeMap); 
-        RowProjector projector = ProjectionCompiler.getRowProjector(statement, context, groupBy, orderBy, limit, targetColumns);
+        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, isDistinct, limit, aliasParseNodeMap); 
+        RowProjector projector = ProjectionCompiler.getRowProjector(context, statement.getSelect(), statement.isDistinct(), groupBy, orderBy, limit, targetColumns);
         
         // Final step is to build the query plan
         TableRef table = resolver.getTables().get(0);
@@ -132,7 +133,9 @@ public class QueryCompiler {
             }
         }
         if (context.isAggregate()) {
-            return new AggregatePlan(context, table, projector, limit, groupBy, having, orderBy);
+            // We must add an extra dedup step if there's a group by and a select distinct
+            boolean dedup = !statement.getGroupBy().isEmpty() && statement.isDistinct();
+            return new AggregatePlan(context, table, projector, limit, groupBy, dedup, having, orderBy);
         } else {
             return new ScanPlan(context, table, projector, limit, orderBy);
         }

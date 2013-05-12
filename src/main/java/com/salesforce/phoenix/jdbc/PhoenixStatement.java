@@ -125,9 +125,9 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableSelectStatement extends SelectStatement implements ExecutableStatement {
-        private ExecutableSelectStatement(List<TableNode> from, HintNode hint, List<AliasedParseNode> select, ParseNode where,
+        private ExecutableSelectStatement(List<TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where,
                 List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-            super(from, hint, select, where, groupBy, having, orderBy, limit, bindCount);
+            super(from, hint, isDistinct, select, where, groupBy, having, orderBy, limit, bindCount);
         }
 
         @Override
@@ -588,10 +588,10 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     protected class ExecutableNodeFactory extends ParseNodeFactory {
         @Override
-        public ExecutableSelectStatement select(List<TableNode> from, HintNode hint, List<AliasedParseNode> select,
+        public ExecutableSelectStatement select(List<TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select,
                                                 ParseNode where, List<ParseNode> groupBy, ParseNode having,
                                                 List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-            return new ExecutableSelectStatement(from, hint, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
+            return new ExecutableSelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
         }
         
         @Override

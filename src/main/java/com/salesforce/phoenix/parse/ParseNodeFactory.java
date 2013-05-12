@@ -177,8 +177,8 @@ public class ParseNodeFactory {
         return new ShowTablesStatement();
     }
 
-    public AliasedParseNode aliasedNode(String alias, ParseNode expression) {
-        return new AliasedParseNode(alias, expression);
+    public AliasedNode aliasedNode(String alias, ParseNode expression) {
+        return new AliasedNode(alias, expression);
     }
 
     public AddParseNode add(List<ParseNode> children) {
@@ -428,10 +428,10 @@ public class ParseNodeFactory {
         return new OuterJoinParseNode(node);
     }
 
-    public SelectStatement select(List<TableNode> from, HintNode hint, List<AliasedParseNode> select, ParseNode where,
+    public SelectStatement select(List<TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where,
             List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
 
-        return new SelectStatement(from, hint, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
+        return new SelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
     }
     
     public UpsertStatement upsert(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
@@ -443,7 +443,7 @@ public class ParseNodeFactory {
     }
 
     public SelectStatement select(SelectStatement statement, ParseNode where, ParseNode having) {
-        return select(statement.getFrom(), statement.getHint(), statement.getSelect(), where, statement.getGroupBy(), having, statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return select(statement.getFrom(), statement.getHint(), statement.isDistinct(), statement.getSelect(), where, statement.getGroupBy(), having, statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
 
     public SubqueryParseNode subquery(SelectStatement select) {

@@ -27,18 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.io.*;
 import java.sql.SQLException;
 import java.text.Format;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
@@ -73,7 +68,6 @@ public class StatementContext {
     private final HintNode hintNode;
 
     private boolean isAggregate;
-    private GroupBy groupBy;
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
@@ -93,7 +87,6 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getConfig().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
-        this.groupBy = GroupBy.EMPTY_GROUP_BY;
         this.hintNode = hintNode;
     }
 
@@ -185,34 +178,4 @@ public class StatementContext {
         return isAggregate;
     }
 
-    public GroupBy getGroupBy() {
-        return groupBy;
-    }
-
-    public void setGroupBy(GroupBy groupBy) {
-        setAggregate(true);
-        this.groupBy = groupBy;
-        ByteArrayOutputStream stream = new ByteArrayOutputStream(Math.max(1, groupBy.getExpressions().size() * 10));
-        try {
-            if (groupBy.getExpressions().isEmpty()) {
-                stream.write(QueryConstants.TRUE);
-            } else {
-                DataOutputStream output = new DataOutputStream(stream);
-                for (Expression expression : groupBy.getKeyExpressions()) {
-                    WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
-                    expression.write(output);
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e); // Impossible
-        } finally {
-            try {
-                stream.close();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        getScan().setAttribute(groupBy.getScanAttribName(), stream.toByteArray());
-
-    }
 }

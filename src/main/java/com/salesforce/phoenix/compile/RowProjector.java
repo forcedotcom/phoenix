@@ -30,7 +30,6 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.util.*;
 
-
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -100,5 +99,16 @@ public class RowProjector {
  
     public int getColumnCount() {
         return columnProjectors.size();
+    }
+    
+    @Override
+    public String toString() {
+        StringBuilder buf = new StringBuilder("[");
+        for (ColumnProjector projector : columnProjectors) {
+            buf.append(projector.getExpression());
+            buf.append(',');
+        }
+        buf.setCharAt(buf.length()-1, ']');
+        return buf.toString();
     }
 }

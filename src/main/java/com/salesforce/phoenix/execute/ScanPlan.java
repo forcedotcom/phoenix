@@ -31,6 +31,7 @@ package com.salesforce.phoenix.execute;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
@@ -76,7 +77,7 @@ public class ScanPlan extends BasicQueryPlan {
          * limit is provided, run query serially.
          */
         if (limit == null || !orderBy.getOrderingColumns().isEmpty()) {
-            ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
+            ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY);
             splits = iterators.getSplits();
             if (orderBy.getOrderingColumns().isEmpty()) {
                 scanner = new ConcatResultIterator(iterators);

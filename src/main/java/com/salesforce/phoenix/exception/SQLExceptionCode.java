@@ -84,6 +84,7 @@ public enum SQLExceptionCode {
     UNSUPPORTED_ORDER_BY_QUERY(508, "42878", "ORDER BY only allowed for limited or aggregate queries"),
     PRIMARY_KEY_MISSING(509, "42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS(510, "42889", "The table already has a primary key."),
+    ORDER_BY_NOT_IN_SELECT_DISTINCT(511, "42890", "All ORDER BY expressions must appear in SELECT DISTINCT:"),
     
     /** 
      * HBase and Phoenix specific implementation defined sub-classes.

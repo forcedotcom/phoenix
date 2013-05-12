@@ -239,11 +239,11 @@ public class UpsertCompiler {
                 // Build table from projectedColumns
                 PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                 
-                List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
+                List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                         NODE_FACTORY.aliasedNode(null, 
                                 NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
                 // Ignore order by - it has no impact
-                final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+                final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
                 /*
                  * Transfer over PTable representing subset of columns selected, but all PK columns.
                  * Move columns setting PK first in pkSlot order, adding LiteralExpression of null for any missing ones.
@@ -253,7 +253,7 @@ public class UpsertCompiler {
                  */
                 scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
                 scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
-                final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY);
+                final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
                 return new MutationPlan() {
 
                     @Override

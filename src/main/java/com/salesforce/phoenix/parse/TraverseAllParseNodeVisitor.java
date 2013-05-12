@@ -128,6 +128,11 @@ public abstract class TraverseAllParseNodeVisitor<T> extends BaseParseNodeVisito
     public T visit(WildcardParseNode node) throws SQLException {
         return null;
     }
+
+    @Override
+    public T visit(FamilyParseNode node) throws SQLException {
+        return null;
+    }
     @Override
     public boolean visitEnter(StringConcatParseNode node) throws SQLException {
         return true;

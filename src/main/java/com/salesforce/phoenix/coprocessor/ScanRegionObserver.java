@@ -93,14 +93,14 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
             DataInputStream input = new DataInputStream(stream);
             int limit = WritableUtils.readVInt(input);
             int size = WritableUtils.readVInt(input);
-            List<OrderingColumn> orderingColumns = Lists.newArrayListWithExpectedSize(size);           
+            List<OrderingColumn> orderByExpressions = Lists.newArrayListWithExpectedSize(size);           
             for (int i = 0; i < size; i++) {
-                OrderingColumn orderingColumn = new OrderingColumn();
-                orderingColumn.readFields(input);
-                orderingColumns.add(orderingColumn);
+                OrderingColumn orderByExpression = new OrderingColumn();
+                orderByExpression.readFields(input);
+                orderByExpressions.add(orderByExpression);
             }
             ResultIterator inner = new RegionScannerResultIterator(s);
-            return new OrderedResultIterator(inner, orderingColumns, limit);
+            return new OrderedResultIterator(inner, orderByExpressions, limit);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {

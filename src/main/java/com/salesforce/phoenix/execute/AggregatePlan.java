@@ -34,6 +34,7 @@ import java.util.List;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.iterate.*;
@@ -53,13 +54,15 @@ public class AggregatePlan extends BasicQueryPlan {
     private final Aggregators aggregators;
     private final GroupBy groupBy;
     private final Expression having;
+    private final boolean dedup;
     private List<KeyRange> splits;
 
     public AggregatePlan(StatementContext context, TableRef table, RowProjector projector, Integer limit,
-            GroupBy groupBy, Expression having, OrderBy orderBy) {
+            GroupBy groupBy, boolean dedup, Expression having, OrderBy orderBy) {
         super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy);
         this.groupBy = groupBy;
         this.having = having;
+        this.dedup = dedup;
         this.aggregators = context.getAggregationManager().getAggregators();
     }
 
@@ -75,7 +78,10 @@ public class AggregatePlan extends BasicQueryPlan {
 
     @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
-        ParallelIterators parallelIterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER);
+        if (groupBy.isEmpty()) {
+            UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
+        }
+        ParallelIterators parallelIterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER, groupBy);
         splits = parallelIterators.getSplits();
 
         AggregatingResultIterator aggResultIterator;
@@ -88,6 +94,10 @@ public class AggregatePlan extends BasicQueryPlan {
 
         if (having != null) {
             aggResultIterator = new FilterAggregatingResultIterator(aggResultIterator, having);
+        }
+        
+        if (dedup) { // Dedup on client if group by and select distinct
+            aggResultIterator = new DistinctAggregatingResultIterator(aggResultIterator, getProjector());
         }
 
         ResultIterator resultScanner = aggResultIterator;

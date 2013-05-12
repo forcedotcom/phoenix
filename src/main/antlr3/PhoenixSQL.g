@@ -87,6 +87,7 @@ tokens
     CONSTRAINT='constraint';
     SHOW='show';
     TABLES='tables';
+    ALL='all';
 }
 
 
@@ -422,14 +423,14 @@ select_expression returns [ParseNode ret]
     
 // Parse a full select expression structure.
 select_node returns [SelectStatement ret]
-    :   SELECT (hint=hintClause)? sel=select_list
+    :   SELECT (hint=hintClause)? (d=DISTINCT | ALL)? sel=select_list
         FROM from=parseFrom
         (WHERE where=condition)?
         (GROUP BY group=group_by)?
         (HAVING having=condition)?
         (ORDER BY order=order_by)?
         (LIMIT l=limit)?
-        {$ret = factory.select(from, hint, sel, where, group, having, order, l, getBindCount()); }
+        {$ret = factory.select(from, hint, d!=null, sel, where, group, having, order, l, getBindCount()); }
     ;
 
 // Parse a full upsert expression structure.
@@ -464,13 +465,13 @@ hintClause returns [HintNode ret]
     ;
 
 // Parse the column/expression select list part of a select.
-select_list returns [List<AliasedParseNode> ret]
-@init{ret = new ArrayList<AliasedParseNode>();}
+select_list returns [List<AliasedNode> ret]
+@init{ret = new ArrayList<AliasedNode>();}
     :   n=selectable {ret.add(n);} (COMMA n=selectable {ret.add(n);})*
     ;
 
 // Parse either a select field or a sub select.
-selectable returns [AliasedParseNode ret]
+selectable returns [AliasedNode ret]
     :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
       | familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
       | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'    

@@ -98,7 +98,7 @@ public class PostDDLCompiler  {
                  * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
                  * 3) updating the necessary rows to have an empty KV
                  */
-                List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
+                List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                         NODE_FACTORY.aliasedNode(null, 
                                 NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
                 Scan scan = new Scan();
@@ -131,8 +131,8 @@ public class PostDDLCompiler  {
                         scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
                     }
                 }
-                RowProjector projector = ProjectionCompiler.getRowProjector(context, select, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-                QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY);
+                RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+                QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
                 Scanner scanner = plan.getScanner();
                 ResultIterator iterator = scanner.iterator();
                 try {

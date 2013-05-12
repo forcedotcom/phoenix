@@ -81,6 +81,53 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testAllScan() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT ALL a_string, /* comment ok? */ b_string FROM aTable WHERE ?=organization_id and 5=a_integer";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), B_VALUE);
+            assertEquals(rs.getString("B_string"), C_VALUE);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDistinctScan() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT DISTINCT a_string FROM aTable WHERE organization_id=?";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), A_VALUE);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), B_VALUE);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), C_VALUE);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
     public void testInListSkipScan() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
@@ -579,6 +626,103 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
             assertEquals(rs.getString(1), C_VALUE);
             assertEquals(rs.getLong(2), 1L);
             assertEquals(rs.getString(3), "foo");
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testDistinctGroupedAggregation() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT DISTINCT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string, b_string ORDER BY a_string, count(1)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            
+            assertTrue(rs.next());
+            assertEquals(rs.getString(1), A_VALUE);
+            assertEquals(rs.getLong(2), 1L);
+            assertEquals(rs.getString(3), "foo");
+            
+            assertTrue(rs.next());
+            assertEquals(rs.getString(1), A_VALUE);
+            assertEquals(rs.getLong(2), 2L);
+            assertEquals(rs.getString(3), "foo");
+            
+            assertTrue(rs.next());
+            assertEquals(rs.getString(1), B_VALUE);
+            assertEquals(rs.getLong(2), 1L);
+            assertEquals(rs.getString(3), "foo");
+            
+            assertTrue(rs.next());
+            assertEquals(rs.getString(1), B_VALUE);
+            assertEquals(rs.getLong(2), 2L);
+            assertEquals(rs.getString(3), "foo");
+            
+            assertTrue(rs.next());
+            assertEquals(rs.getString(1), C_VALUE);
+            assertEquals(rs.getLong(2), 1L);
+            assertEquals(rs.getString(3), "foo");
+            
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testDistinctLimitedGroupedAggregation() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT DISTINCT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string, b_string ORDER BY count(1) desc,a_string LIMIT 2";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            
+            assertTrue(rs.next());
+            assertEquals(rs.getString(1), A_VALUE);
+            assertEquals(rs.getLong(2), 2L);
+            assertEquals(rs.getString(3), "foo");
+            
+            assertTrue(rs.next());
+            assertEquals(rs.getString(1), B_VALUE);
+            assertEquals(rs.getLong(2), 2L);
+            assertEquals(rs.getString(3), "foo");
+            
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testDistinctUngroupedAggregation() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT DISTINCT count(1), 'foo' FROM atable WHERE organization_id=?";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            
+            assertTrue(rs.next());
+            assertEquals(9L, rs.getLong(1));
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -1162,7 +1306,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     public void testPartialEvalCaseStatement() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? and CASE WHEN a_integer = 1234 THEN 1 WHEN x_integer = 5 THEN 2 ELSE 3 END = 2";
+        String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? and CASE WHEN 1234 = a_integer THEN 1 WHEN x_integer = 5 THEN 2 ELSE 3 END = 2";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);

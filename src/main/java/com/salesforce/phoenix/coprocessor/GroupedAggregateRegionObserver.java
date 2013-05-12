@@ -118,6 +118,31 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         return SizedUtil.sizeOfMap(nRows, SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE, valueSize);
     }
 
+    public static void serializeIntoScan(Scan scan, String attribName, List<Expression> groupByExpressions) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream(Math.max(1, groupByExpressions.size() * 10));
+        try {
+            if (groupByExpressions.isEmpty()) { // FIXME ?
+                stream.write(QueryConstants.TRUE);
+            } else {
+                DataOutputStream output = new DataOutputStream(stream);
+                for (Expression expression : groupByExpressions) {
+                    WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
+                    expression.write(output);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e); // Impossible
+        } finally {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        scan.setAttribute(attribName, stream.toByteArray());
+
+    }
+
     private List<Expression> deserializeGroupByExpressions(byte[] expressionBytes) throws IOException {
         List<Expression> expressions = new ArrayList<Expression>(3);
         ByteArrayInputStream stream = new ByteArrayInputStream(expressionBytes);

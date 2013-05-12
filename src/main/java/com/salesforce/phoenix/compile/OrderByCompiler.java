@@ -72,19 +72,20 @@ public class OrderByCompiler {
     }
     /**
      * Gets a list of columns in the ORDER BY clause
-     * 
-     * @param statement the select statement
      * @param context the query context for tracking various states
      * associated with the given select statement
-     * @param limit 
      * @param groupBy the list of columns in the GROUP BY clause
+     * @param isDistinct TODO
+     * @param limit 
+     * @param statement the select statement
+     * 
      * @return the list of columns in the ORDER BY clause
      * @throws SQLException
      */
     public static OrderBy getOrderBy(StatementContext context,
                                      List<OrderByNode> orderBy,
-                                     GroupBy groupBy, Integer limit,
-                                     Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
+                                     GroupBy groupBy, boolean isDistinct,
+                                     Integer limit, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
         if (orderBy.isEmpty()) {
             return OrderBy.EMPTY_ORDER_BY;
         }
@@ -92,7 +93,7 @@ public class OrderByCompiler {
         OrderByClauseVisitor visitor = new OrderByClauseVisitor(context, groupBy, aliasParseNodeMap);
         Expression nonAggregateExpression = null;
         for (OrderByNode node : orderBy) {
-            Expression expression = node.getOrderByParseNode().accept(visitor);
+            Expression expression = node.getNode().accept(visitor);
             // Detect mix of aggregate and non aggregates (i.e. ORDER BY txns, SUM(txns)
             if (! (expression instanceof LiteralExpression) ) { // Filter out top level literals
                 if (!visitor.isAggregate()) {
@@ -100,6 +101,10 @@ public class OrderByCompiler {
                 }
                 if (nonAggregateExpression != null) {
                     if (context.isAggregate()) {
+                        if (isDistinct) {
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.ORDER_BY_NOT_IN_SELECT_DISTINCT)
+                            .setMessage(nonAggregateExpression.toString()).build().buildException();
+                        }
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
                     } else if (limit == null) {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNSUPPORTED_ORDER_BY_QUERY).build().buildException();
@@ -130,8 +135,8 @@ public class OrderByCompiler {
             checkNotNull(node);
             checkNotNull(expression);
             this.expression = expression;
-            this.nullsLast = node.getNullsLast();
-            this.ascending = node.getOrderAscending();
+            this.nullsLast = node.isNullsLast();
+            this.ascending = node.isAscending();
         }
 
         public Expression getExpression() {

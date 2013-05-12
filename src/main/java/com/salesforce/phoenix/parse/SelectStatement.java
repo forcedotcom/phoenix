@@ -40,7 +40,8 @@ import java.util.List;
 public class SelectStatement implements SQLStatement {
     private final List<TableNode> fromTable;
     private final HintNode hint;
-    private final List<AliasedParseNode> select;
+    private final boolean isDistinct;
+    private final List<AliasedNode> select;
     private final ParseNode where;
     private final List<ParseNode> groupBy;
     private final ParseNode having;
@@ -48,9 +49,10 @@ public class SelectStatement implements SQLStatement {
     private final LimitNode limit;
     private final int bindCount;
     
-    protected SelectStatement(List<TableNode> from, HintNode hint, List<AliasedParseNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+    protected SelectStatement(List<TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
         this.fromTable = Collections.unmodifiableList(from);
         this.hint = hint;
+        this.isDistinct = isDistinct;
         this.select = Collections.unmodifiableList(select);
         this.where = where;
         this.groupBy = Collections.unmodifiableList(groupBy);
@@ -58,6 +60,10 @@ public class SelectStatement implements SQLStatement {
         this.orderBy = Collections.unmodifiableList(orderBy);
         this.limit = limit;
         this.bindCount = bindCount;
+    }
+    
+    public boolean isDistinct() {
+        return isDistinct;
     }
     
     public LimitNode getLimit() {
@@ -77,7 +83,7 @@ public class SelectStatement implements SQLStatement {
         return hint;
     }
     
-    public List<AliasedParseNode> getSelect() {
+    public List<AliasedNode> getSelect() {
         return select;
     }
     /**

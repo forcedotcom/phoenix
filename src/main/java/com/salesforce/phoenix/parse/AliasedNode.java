@@ -36,12 +36,12 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @author jtaylor
  * @since 0.1
  */
-public class AliasedParseNode {
+public class AliasedNode {
     private final String alias;
     private final ParseNode node;
     private final boolean isCaseSensitve;
 
-    AliasedParseNode(String alias, ParseNode node) {
+    AliasedNode(String alias, ParseNode node) {
         this.isCaseSensitve = alias != null && SchemaUtil.isCaseSensitive(alias);
         this.alias = alias == null ? null : SchemaUtil.normalizeIdentifier(alias);
         this.node = node;

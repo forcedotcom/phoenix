@@ -73,7 +73,7 @@ public class DeleteCompiler {
         ParseNode where = statement.getWhere();
         final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
-        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, limit, Collections.<String,ParseNode>emptyMap()); 
+        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, false, limit, Collections.<String,ParseNode>emptyMap()); 
         Expression whereClause = WhereCompiler.getWhereClause(context, where);
         final int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         
@@ -108,11 +108,11 @@ public class DeleteCompiler {
             scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>
             // The coprocessor will delete each row returned from the scan
-            List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
+            List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                     NODE_FACTORY.aliasedNode(null, 
                             NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-            final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, null, OrderBy.EMPTY_ORDER_BY);
+            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+            final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
             return new MutationPlan() {
 
                 @Override
@@ -155,10 +155,10 @@ public class DeleteCompiler {
             };
         } else {
             final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
-            List<AliasedParseNode> select = Collections.<AliasedParseNode>singletonList(
+            List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                     NODE_FACTORY.aliasedNode(null,
                         NODE_FACTORY.literal(1)));
-            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
             final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy);
             return new MutationPlan() {
 

@@ -55,7 +55,7 @@ public class SelectStatementRewriterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
-        statement = RHSLiteralStatementRewriter.normalizeWhereClause(statement);
+        statement = RHSLiteralStatementRewriter.normalize(statement);
         Expression whereClause = WhereCompiler.getWhereClause(context, statement.getWhere());
         return WhereOptimizer.pushKeyExpressionsToScan(context, whereClause);
     }

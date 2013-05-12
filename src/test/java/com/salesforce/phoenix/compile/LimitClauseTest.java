@@ -51,15 +51,15 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
     private static Integer compileStatement(String query, List<Object> binds, Scan scan) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
-        statement = RHSLiteralStatementRewriter.normalizeWhereClause(statement);
+        statement = RHSLiteralStatementRewriter.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
 
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
-        GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context, aliasParseNodeMap);
-        statement = HavingCompiler.moveToWhereClause(statement, context, groupBy);
+        GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
+        statement = HavingCompiler.moveToWhereClause(context, statement, groupBy);
         HavingCompiler.getExpression(statement, context, groupBy);
         Expression where = WhereCompiler.getWhereClause(context, statement.getWhere());
         assertNull(where);

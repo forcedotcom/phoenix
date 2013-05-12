@@ -43,12 +43,13 @@ import java.util.List;
 public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
     
     /**
-     * Rewrite the select statement by filtering out expression nodes from the WHERE clause
-     * @param statement the select statement from which to filter.
+     * Rewrite the select statement by switching any constants to the right hand side
+     * of the expression.
+     * @param statement the select statement
      * @return new select statement
      * @throws SQLException 
      */
-    public static SelectStatement normalizeWhereClause(SelectStatement statement) throws SQLException {
+    public static SelectStatement normalize(SelectStatement statement) throws SQLException {
         ParseNode where = statement.getWhere();
         ParseNode normWhere = where;
         if (where != null) {
@@ -61,11 +62,70 @@ public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
             RHSLiteralStatementRewriter rewriter = new RHSLiteralStatementRewriter();
             normHaving = having.accept(rewriter);
         }
+        List<AliasedNode> selectNodes = statement.getSelect();
+        List<AliasedNode> normSelectNodes = selectNodes;
+        for (int i = 0; i < selectNodes.size(); i++) {
+            AliasedNode aliasedNode = selectNodes.get(i);
+            RHSLiteralStatementRewriter rewriter = new RHSLiteralStatementRewriter();
+            ParseNode selectNode = aliasedNode.getNode();
+            ParseNode normSelectNode = selectNode.accept(rewriter);
+            if (selectNode == normSelectNode) {
+                if (selectNodes != normSelectNodes) {
+                    normSelectNodes.add(aliasedNode);
+                }
+                continue;
+            }
+            if (selectNodes == normSelectNodes) {
+                normSelectNodes = selectNodes.subList(0, i+1);
+            }
+            normSelectNodes.add(NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode));
+        }
+        List<ParseNode> groupByNodes = statement.getGroupBy();
+        List<ParseNode> normGroupByNodes = groupByNodes;
+        for (int i = 0; i < groupByNodes.size(); i++) {
+            ParseNode groupByNode = groupByNodes.get(i);
+            RHSLiteralStatementRewriter rewriter = new RHSLiteralStatementRewriter();
+            ParseNode normGroupByNode = groupByNode.accept(rewriter);
+            if (groupByNode == normGroupByNode) {
+                if (groupByNodes != normGroupByNodes) {
+                    normGroupByNodes.add(groupByNode);
+                }
+                continue;
+            }
+            if (groupByNodes == normGroupByNodes) {
+                normGroupByNodes = groupByNodes.subList(0, i+1);
+            }
+            normGroupByNodes.add(normGroupByNode);
+        }
+        List<OrderByNode> orderByNodes = statement.getOrderBy();
+        List<OrderByNode> normOrderByNodes = orderByNodes;
+        for (int i = 0; i < orderByNodes.size(); i++) {
+            OrderByNode orderByNode = orderByNodes.get(i);
+            RHSLiteralStatementRewriter rewriter = new RHSLiteralStatementRewriter();
+            ParseNode node = orderByNode.getNode();
+            ParseNode normNode = node.accept(rewriter);
+            if (node == normNode) {
+                if (orderByNodes != normOrderByNodes) {
+                    normOrderByNodes.add(orderByNode);
+                }
+                continue;
+            }
+            if (orderByNodes == normOrderByNodes) {
+                normOrderByNodes = orderByNodes.subList(0, i+1);
+            }
+            normOrderByNodes.add(NODE_FACTORY.orderBy(normNode, orderByNode.isNullsLast(), orderByNode.isAscending()));
+        }
         // Return new SELECT statement with updated WHERE clause
-        if (normWhere == where && normHaving == having) {
+        if (normWhere == where && 
+                normHaving == having && 
+                selectNodes == normSelectNodes && 
+                groupByNodes == normGroupByNodes &&
+                orderByNodes == normOrderByNodes) {
             return statement;
         }
-        return NODE_FACTORY.select(statement, normWhere, normHaving);
+        return NODE_FACTORY.select(statement.getFrom(), statement.getHint(), statement.isDistinct(),
+                normSelectNodes, normWhere, normGroupByNodes, normHaving, normOrderByNodes,
+                statement.getLimit(), statement.getBindCount());
     }
     
     private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
@@ -152,7 +212,57 @@ public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
         });
     }
     
-     @Override
+    @Override
+    public ParseNode visitLeave(CaseParseNode node, List<ParseNode> nodes) throws SQLException {
+        return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                return NODE_FACTORY.caseWhen(children);
+            }
+        });
+    }
+
+    @Override
+    public ParseNode visitLeave(final LikeParseNode node, List<ParseNode> nodes) throws SQLException {
+        return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                return NODE_FACTORY.like(children.get(0),children.get(1),node.isNegate());
+            }
+        });
+    }
+    
+    @Override
+    public ParseNode visitLeave(NotParseNode node, List<ParseNode> nodes) throws SQLException {
+        return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                return NODE_FACTORY.not(children.get(0));
+            }
+        });
+    }
+    
+    @Override
+    public ParseNode visitLeave(final InListParseNode node, List<ParseNode> nodes) throws SQLException {
+        return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                return NODE_FACTORY.inList(children, node.isNegate());
+            }
+        });
+    }
+    
+    @Override
+    public ParseNode visitLeave(final IsNullParseNode node, List<ParseNode> nodes) throws SQLException {
+        return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                return NODE_FACTORY.isNull(children.get(0), node.isNegate());
+            }
+        });
+    }
+    
+    @Override
     public ParseNode visitLeave(ComparisonParseNode node, List<ParseNode> nodes) throws SQLException {
          if (nodes.get(0).isConstant() && !nodes.get(1).isConstant()) {
              node = node.invert(NODE_FACTORY);

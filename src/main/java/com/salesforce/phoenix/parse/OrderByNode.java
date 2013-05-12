@@ -46,15 +46,15 @@ public final class OrderByNode {
         this.orderAscending = orderAscending;
     }
     
-    public boolean getNullsLast() {
+    public boolean isNullsLast() {
         return nullsLast;
     }
     
-    public boolean getOrderAscending() {
+    public boolean isAscending() {
         return orderAscending;
     }
     
-    public ParseNode getOrderByParseNode() {
+    public ParseNode getNode() {
         return child;
     }
     

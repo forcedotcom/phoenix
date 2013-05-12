@@ -40,7 +40,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
-import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
@@ -371,7 +371,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertTrue(query, Bytes.compareTo(QueryConstants.TRUE,scan.getAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG)) == 0);
         // Projects nothing, but adds FirstKeyOnlyFilter
         assertTrue(scan.getFamilyMap().isEmpty());
         assertTrue(scan.getFilter() instanceof FirstKeyOnlyFilter);
@@ -384,7 +383,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertTrue(query, Bytes.compareTo(QueryConstants.TRUE,scan.getAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG)) == 0);
         // Projects nothing, but adds FirstKeyOnlyFilter
         Set<byte[]> projectedFamilies = scan.getFamilyMap().keySet();
         assertEquals(1, scan.getFamilyMap().values().size());
@@ -758,6 +756,78 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             fail();
         } catch (SQLException e) { // expected
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 507 (42846): Cannot convert type. COALESCE expected INTEGER, but got VARCHAR"));
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testOrderByNotInSelectDistinct() throws Exception {
+        long ts = nextTimestamp();
+        String query = "SELECT distinct a_string,b_string from atable order by x_integer";
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.executeQuery();
+            fail();
+        } catch (SQLException e) { // expected
+            assertEquals(SQLExceptionCode.ORDER_BY_NOT_IN_SELECT_DISTINCT.getErrorCode(), e.getErrorCode());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testSelectDistinctAndAll() throws Exception {
+        long ts = nextTimestamp();
+        String query = "SELECT all distinct a_string,b_string from atable order by x_integer";
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.executeQuery();
+            fail();
+        } catch (SQLException e) { // expected
+            assertEquals(SQLExceptionCode.PARSER_ERROR.getErrorCode(), e.getErrorCode());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testOrderByNotInSelectDistinctAgg() throws Exception {
+        long ts = nextTimestamp();
+        String query = "SELECT distinct count(1) from atable order by x_integer";
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.executeQuery();
+            fail();
+        } catch (SQLException e) { // expected
+            assertEquals(SQLExceptionCode.ORDER_BY_NOT_IN_SELECT_DISTINCT.getErrorCode(), e.getErrorCode());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testSelectDistinctWithAggregation() throws Exception {
+        long ts = nextTimestamp();
+        String query = "SELECT distinct a_string,count(*) from atable";
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.executeQuery();
+            fail();
+        } catch (SQLException e) { // expected
+            assertEquals(SQLExceptionCode.AGGREGATE_WITH_NOT_GROUP_BY_COLUMN.getErrorCode(), e.getErrorCode());
         } finally {
             conn.close();
         }

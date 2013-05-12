@@ -34,10 +34,9 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Scan;
 
-
 import com.google.common.io.Closeables;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.exception.*;
+import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 

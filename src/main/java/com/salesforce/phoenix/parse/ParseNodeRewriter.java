@@ -109,6 +109,11 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
     
     @Override
+    public ParseNode visit(FamilyParseNode node) throws SQLException {
+        return node;
+    }
+    
+    @Override
     public List<ParseNode> newElementList(int size) {
         return new ArrayList<ParseNode>(size);
     }

@@ -59,7 +59,7 @@ public class StatementHintsCompilationTest extends BaseConnectionlessQueryTest {
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds, Integer limit, Set<Expression> extractedNodes) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
-        statement = RHSLiteralStatementRewriter.normalizeWhereClause(statement);
+        statement = RHSLiteralStatementRewriter.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, statement.getHint());
@@ -67,8 +67,8 @@ public class StatementHintsCompilationTest extends BaseConnectionlessQueryTest {
 
         Integer actualLimit = LimitCompiler.getLimit(context, statement.getLimit());
         assertEquals(limit, actualLimit);
-        GroupBy groupBy = GroupByCompiler.getGroupBy(statement, context, aliasParseNodeMap);
-        statement = HavingCompiler.moveToWhereClause(statement, context, groupBy);
+        GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
+        statement = HavingCompiler.moveToWhereClause(context, statement, groupBy);
         WhereCompiler.compileWhereClause(context, statement.getWhere(), extractedNodes);
         return context;
     }

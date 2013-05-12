@@ -123,6 +123,11 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     public T visit(WildcardParseNode node) throws SQLException {
         return null;
     }
+    
+    @Override
+    public T visit(FamilyParseNode node) throws SQLException {
+        return null;
+    }
 
     @Override
     public T visitLeave(AndParseNode node, List<T> l) throws SQLException {

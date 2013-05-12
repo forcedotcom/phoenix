@@ -61,7 +61,7 @@ import com.salesforce.phoenix.util.*;
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
     private static SelectStatement compileStatement(StatementContext context, SelectStatement statement, ColumnResolver resolver, List<Object> binds, Scan scan, Integer expectedExtractedNodesSize, Integer expectedLimit) throws SQLException {
-        statement = RHSLiteralStatementRewriter.normalizeWhereClause(statement);
+        statement = RHSLiteralStatementRewriter.normalize(statement);
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
         assertEquals(expectedLimit, limit);
 

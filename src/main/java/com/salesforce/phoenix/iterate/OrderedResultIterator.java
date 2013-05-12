@@ -53,7 +53,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class OrderedResultIterator implements ResultIterator {
 
     /** A container that holds pointers to a {@link Result} and its sort keys. */
-    protected static class ResultEntry {
+    private static class ResultEntry {
         private final ImmutableBytesWritable[] sortKeys;
         private final Tuple result;
 
@@ -163,6 +163,7 @@ public class OrderedResultIterator implements ResultIterator {
                         Collections.<ResultEntry>sort(listEntries, comparator);
                     } 
                     if (++i >= listEntries.size()) {
+                        resultIterator = ResultIterator.EMPTY_ITERATOR;
                         return null;
                     }
                     
@@ -178,6 +179,7 @@ public class OrderedResultIterator implements ResultIterator {
                 public Tuple next() throws SQLException {
                     ResultEntry entry = queueEntries.pollFirst();
                     if (entry == null) {
+                        resultIterator = ResultIterator.EMPTY_ITERATOR;
                         return null;
                     }
                     return entry.getResult();
@@ -206,6 +208,7 @@ public class OrderedResultIterator implements ResultIterator {
 
     @Override
     public void close()  {
+        resultIterator = ResultIterator.EMPTY_ITERATOR;
     }
 
 
