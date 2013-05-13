@@ -361,8 +361,11 @@ public class SchemaUtil {
     }
 
     // Given the splits and the rowKeySchema, find out the keys that 
-    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns) {
-        if (splits == null) return null;
+    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum) {
+        if (splits == null) {
+            if (saltBucketNum == null) return null;
+            splits = SaltingUtil.getSalteByteSplitPoints(saltBucketNum);
+        }
         byte[][] newSplits = new byte[splits.length][];
         for (int i=0; i<splits.length; i++) {
             newSplits[i] = processSplit(splits[i], pkColumns); 
