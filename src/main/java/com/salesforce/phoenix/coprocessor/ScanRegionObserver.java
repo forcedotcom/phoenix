@@ -35,16 +35,21 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.cache.GlobalCache;
+import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.ServerUtil;
 
 
@@ -62,11 +67,12 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
     public static final String NON_AGGREGATE_QUERY = "NonAggregateQuery";
     private static final String TOPN = "TopN";
 
-    public static void serializeIntoScan(Scan scan, int limit, List<OrderByExpression> orderByExpressions) {
+    public static void serializeIntoScan(Scan scan, int limit, List<OrderByExpression> orderByExpressions, int estimatedRowSize) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream(); // TODO: size?
         try {
             DataOutputStream output = new DataOutputStream(stream);
             WritableUtils.writeVInt(output, limit);
+            WritableUtils.writeVInt(output, estimatedRowSize);
             WritableUtils.writeVInt(output, orderByExpressions.size());
             for (OrderByExpression orderingCol : orderByExpressions) {
                 orderingCol.write(output);
@@ -83,7 +89,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         }
     }
     
-    public static ResultIterator deserializeFromScan(Scan scan, RegionScanner s) {
+    public static OrderedResultIterator deserializeFromScan(Scan scan, RegionScanner s) {
         byte[] topN = scan.getAttribute(TOPN);
         if (topN == null) {
             return null;
@@ -92,6 +98,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         try {
             DataInputStream input = new DataInputStream(stream);
             int limit = WritableUtils.readVInt(input);
+            int estimatedRowSize = WritableUtils.readVInt(input);
             int size = WritableUtils.readVInt(input);
             List<OrderByExpression> orderByExpressions = Lists.newArrayListWithExpectedSize(size);           
             for (int i = 0; i < size; i++) {
@@ -100,7 +107,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
                 orderByExpressions.add(orderByExpression);
             }
             ResultIterator inner = new RegionScannerResultIterator(s);
-            return new OrderedResultIterator(inner, orderByExpressions, limit);
+            return new OrderedResultIterator(inner, orderByExpressions, limit, estimatedRowSize);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
@@ -119,12 +126,12 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         if (isScanQuery == null || Bytes.compareTo(PDataType.FALSE_BYTES, isScanQuery) == 0) {
             return s;
         }
-        final ResultIterator iterator = deserializeFromScan(scan,s);
+        final OrderedResultIterator iterator = deserializeFromScan(scan,s);
         if (iterator == null) {
             return getWrappedScanner(c, s);
         }
         
-        return getTopNScanner(c,s, iterator);
+        return getTopNScanner(c,s, iterator, ScanUtil.getTenantId(scan));
     }
     
     /**
@@ -133,14 +140,20 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
      *  getting the first Tuple (which forces running through the entire region)
      *  since after this everything is held in memory
      */
-    private RegionScanner getTopNScanner(final ObserverContext<RegionCoprocessorEnvironment> c, final RegionScanner s, final ResultIterator iterator) throws Throwable {
+    private RegionScanner getTopNScanner(final ObserverContext<RegionCoprocessorEnvironment> c, final RegionScanner s, final OrderedResultIterator iterator, ImmutableBytesWritable tenantId) throws Throwable {
         final Tuple firstTuple;
+        TenantCache tenantCache = GlobalCache.getTenantCache(c.getEnvironment().getConfiguration(), tenantId);
+        int estSize = iterator.getEstimatedByteSize();
+        final MemoryChunk chunk = tenantCache.getMemoryManager().allocate(estSize);
         final HRegion region = c.getEnvironment().getRegion();
         region.startRegionOperation();
         try {
             // Once we return from the first call to next, we've run through and cached
             // the topN rows, so we no longer need to start/stop a region operation.
             firstTuple = iterator.next();
+            // Now that the topN are cached, we can resize based on the real size
+            int actualSize = iterator.getByteSize();
+            chunk.resize(actualSize);
         } catch (Throwable t) {
             ServerUtil.throwIOException(region.getRegionNameAsString(), t);
             return null;
@@ -181,7 +194,10 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
 
             @Override
             public void close() throws IOException {
-                s.close();
+                try {
+                    s.close();
+                } finally {
+                    chunk.close();                }
             }
         };
     }

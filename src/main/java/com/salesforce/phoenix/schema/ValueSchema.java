@@ -47,7 +47,7 @@ import com.salesforce.phoenix.expression.aggregator.Aggregator;
  * @since 0.1
  */
 public abstract class ValueSchema implements Writable {
-    private static final int ESTIMATED_VARIABLE_LENGTH_SIZE = 10;
+    public static final int ESTIMATED_VARIABLE_LENGTH_SIZE = 10;
     private int[] fieldIndexByPosition;
     private List<Field> fields;
     private int estimatedLength;

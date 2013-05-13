@@ -49,8 +49,7 @@ import com.salesforce.phoenix.expression.visitor.SingleAggregateFunctionVisitor;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.ScanUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 
 /**
@@ -193,8 +192,32 @@ public class ProjectionCompiler {
                 }
             }
         }
+        
+        int estimatedKeySize = table.getRowKeySchema().getEstimatedValueLength();
+        int estimatedRowSize = 0;
+        for (Map.Entry<byte[],NavigableSet<byte[]>> entry : scan.getFamilyMap().entrySet()) {
+            PColumnFamily family = table.getColumnFamily(entry.getKey());
+            if (entry.getValue() == null) {
+                for (PColumn column : family.getColumns()) {
+                    Integer byteSize = column.getByteSize();
+                    estimatedRowSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
+                }
+            } else {
+                for (byte[] cq : entry.getValue()) {
+                    // This check is needed for UPSERT SELECT where we the same Scan is used
+                    // to form the QueryPlan for SELECT and then the AggregatePlan that will
+                    // run on the server side when auto commit is true.
+                    if (!QueryConstants.EMPTY_COLUMN_BYTES.equals(cq)) {
+                        PColumn column = family.getColumn(cq);
+                        Integer byteSize = column.getByteSize();
+                        estimatedRowSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
+                    }
+                }
+            }
+        }
+        
         selectVisitor.compile();
-        RowProjector projector = new RowProjector(projectedColumns);
+        RowProjector projector = new RowProjector(projectedColumns, estimatedRowSize);
         boolean projectNotNull = true;
         if (context.isAggregate()) {
             if (groupBy.isEmpty()) {

@@ -36,6 +36,7 @@ import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
 import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 
@@ -51,10 +52,10 @@ import com.salesforce.phoenix.schema.TableRef;
 public class ScanPlan extends BasicQueryPlan {
     private List<KeyRange> splits;
     
-    public ScanPlan(StatementContext context, TableRef table, RowProjector projection, Integer limit, OrderBy orderBy) {
-        super(context, table, projection, context.getBindManager().getParameterMetaData(), limit, orderBy);
-        if (limit != null && !orderBy.getOrderByExpressions().isEmpty()) { // TopN
-            ScanRegionObserver.serializeIntoScan(context.getScan(), limit, orderBy.getOrderByExpressions());
+    public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy) {
+        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy);
+        if (limit != null && !orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
+            ScanRegionObserver.serializeIntoScan(context.getScan(), limit, orderBy.getOrderByExpressions(), projector.getEstimatedByteSize());
         }
     }
     
@@ -82,7 +83,14 @@ public class ScanPlan extends BasicQueryPlan {
             if (orderBy.getOrderByExpressions().isEmpty()) {
                 scanner = new ConcatResultIterator(iterators);
             } else {
-                scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
+                // If we expect to have a small amount of data in a single region
+                // do the sort on the client side
+                if (context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) {
+                    scanner = new ConcatResultIterator(iterators);
+                    scanner = new OrderedResultIterator(scanner, orderBy.getOrderByExpressions(), limit);
+                } else {
+                    scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
+                }
             }
         } else {
             scanner = new TableResultIterator(context, table);

@@ -36,8 +36,8 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
-import com.salesforce.phoenix.parse.OrderByNode;
-import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.*;
 
 /**
  * Validates ORDER BY clause and builds up a list of referenced columns.
@@ -101,7 +101,8 @@ public class OrderByCompiler {
                             .setMessage(nonAggregateExpression.toString()).build().buildException();
                         }
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
-                    } else if (limit == null) {
+                    } else if (limit == null && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) {
+                        // Throw if no limit unless hint indicates that all data is in single region
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNSUPPORTED_ORDER_BY_QUERY).build().buildException();
                     }
                 }

@@ -33,6 +33,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import java.sql.SQLException;
 import java.util.*;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
@@ -41,6 +42,7 @@ import com.google.common.collect.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.SizedUtil;
 
 /**
  * Result scanner that sorts aggregated rows by columns specified in the ORDER BY clause.
@@ -96,8 +98,10 @@ public class OrderedResultIterator implements ResultIterator {
     private final Integer limit;
     private final ResultIterator delegate;
     private final List<OrderByExpression> orderByExpressions;
+    private final int estimatedByteSize;
     
     private ResultIterator resultIterator;
+    private int byteSize;
 
     protected ResultIterator getDelegate() {
         return delegate;
@@ -106,10 +110,7 @@ public class OrderedResultIterator implements ResultIterator {
     public OrderedResultIterator(ResultIterator delegate,
                                  List<OrderByExpression> orderByExpressions,
                                  Integer limit) {
-        checkArgument(!orderByExpressions.isEmpty());
-        this.delegate = delegate;
-        this.orderByExpressions = orderByExpressions;
-        this.limit = limit;
+        this(delegate, orderByExpressions, limit, 0);
     }
 
     public OrderedResultIterator(ResultIterator delegate,
@@ -117,6 +118,32 @@ public class OrderedResultIterator implements ResultIterator {
         this(delegate, orderByExpressions, null);
     }
 
+    public OrderedResultIterator(ResultIterator delegate, List<OrderByExpression> orderByExpressions, Integer limit,
+            int estimatedRowSize) {
+        checkArgument(!orderByExpressions.isEmpty());
+        this.delegate = delegate;
+        this.orderByExpressions = orderByExpressions;
+        this.limit = limit;
+        this.estimatedByteSize = limit == null ? 0 : limit * (
+            // ResultEntry
+            SizedUtil.OBJECT_SIZE + 
+            // ImmutableBytesWritable[]
+            SizedUtil.ARRAY_SIZE + orderByExpressions.size() * SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE +
+            // Tuple
+            SizedUtil.OBJECT_SIZE + estimatedRowSize);
+    }
+
+    public Integer getLimit() {
+        return limit;
+    }
+
+    public int getEstimatedByteSize() {
+        return estimatedByteSize;
+    }
+
+    public int getByteSize() {
+        return byteSize;
+    }
     /**
      * Builds a comparator from the list of columns in ORDER BY clause.
      * @param orderByExpressions the columns in ORDER BY clause.
@@ -188,6 +215,7 @@ public class OrderedResultIterator implements ResultIterator {
             };
         }
         try {
+            int byteSize = 0;
             for (Tuple result = delegate.next(); result != null; result = delegate.next()) {
                 int pos = 0;
                 ImmutableBytesWritable[] sortKeys = new ImmutableBytesWritable[numSortKeys];
@@ -198,7 +226,18 @@ public class OrderedResultIterator implements ResultIterator {
                     sortKeys[pos++] = evaluated && sortKey.getLength() > 0 ? sortKey : null;
                 }
                 entries.add(new ResultEntry(sortKeys, result));
+                for (int i = 0; i < result.size(); i++) {
+                    KeyValue keyValue = result.getValue(i);
+                    byteSize += 
+                        // ResultEntry
+                        SizedUtil.OBJECT_SIZE + 
+                        // ImmutableBytesWritable[]
+                        SizedUtil.ARRAY_SIZE + numSortKeys * SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE +
+                        // Tuple
+                        SizedUtil.OBJECT_SIZE + keyValue.getLength();
+                }
             }
+            this.byteSize = byteSize;
         } finally {
             delegate.close();
         }

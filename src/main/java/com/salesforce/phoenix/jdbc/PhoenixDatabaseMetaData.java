@@ -121,8 +121,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getString();
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getBytes();
     
-    private static final int ROW_LIMIT = 1000000;
-    private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList()));
+    private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList(), 0));
     
     private final PhoenixConnection connection;
     private final ResultSet emptyResultSet;
@@ -259,7 +258,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             buf.append(conjunction + COLUMN_NAME + " is not null" );
         }
         buf.append(" order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION);
-        buf.append(" limit " + ROW_LIMIT);
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
     }
@@ -496,7 +494,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         buf.append(" and " + TABLE_NAME_NAME + " = '" + SchemaUtil.normalizeIdentifier(table) + "'" );
         buf.append(" and " + TABLE_CAT_NAME + " is null" );
         buf.append(" order by " + ORDINAL_POSITION);
-        buf.append(" limit " + ROW_LIMIT);
         // Dynamically replaces the KEY_SEQ with an expression that gets incremented after each next call.
         Statement stmt = connection.createStatement(new PhoenixStatementFactory() {
 
@@ -554,7 +551,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                                 },
                                 column.isCaseSensitive())
                         );
-                        final RowProjector newProjector = new RowProjector(columns);
+                        final RowProjector newProjector = new RowProjector(columns, projector.getEstimatedByteSize());
                         Scanner delegate = new DelegateScanner(scanner) {
                             @Override
                             public RowProjector getProjection() {
@@ -642,7 +639,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         if (catalog != null && catalog.length() > 0) {
             return emptyResultSet;
         }
-        StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/" +
+        StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/ distinct " +
                 "null " + TABLE_CATALOG_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
@@ -650,8 +647,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         if (schemaPattern != null) {
             buf.append(" and " + TABLE_SCHEM_NAME + " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'");
         }
-        buf.append(" group by " + TABLE_SCHEM_NAME);
-        buf.append(" limit " + ROW_LIMIT); // limit to prevent parallelization: we don't need it here
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
     }
@@ -718,7 +713,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             new ExpressionProjector(TABLE_TYPE_NAME, TYPE_SCHEMA_AND_TABLE, 
                     new RowKeyColumnExpression(TABLE_TYPE_DATUM,
                             new RowKeyValueAccessor(Collections.<PDatum>singletonList(TABLE_TYPE_DATUM), 0)), false)
-            ));
+            ), 0);
     private static final Collection<Tuple> TABLE_TYPE_TUPLES = Lists.newArrayListWithExpectedSize(PTableType.values().length);
     static {
         for (PTableType tableType : PTableType.values()) {
@@ -776,7 +771,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             buf.setCharAt(buf.length()-1, ')');
         }
         buf.append(" order by " + TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
-        buf.append(" limit " + ROW_LIMIT);
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
     }
