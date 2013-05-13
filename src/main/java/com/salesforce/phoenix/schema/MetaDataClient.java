@@ -358,7 +358,7 @@ public class MetaDataClient {
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
             
-            splits = SchemaUtil.processSplits(splits, pkColumns);
+            splits = SchemaUtil.processSplits(splits, pkColumns, saltBucketNum);
             MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
             switch(code) {
