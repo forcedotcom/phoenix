@@ -43,8 +43,6 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  */
 public class SaltedTableTest extends BaseClientMangedTimeTest {
 
-    private static byte[][] splits = null;
-
     private static void initTableValues(byte[][] splits, long ts) throws Exception {
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
@@ -150,7 +148,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initTableValues(splits, ts);
+            initTableValues(null, ts);
             
             String query = "SELECT * FROM " + TABLE_WITH_SALTING;
             PreparedStatement statement = conn.prepareStatement(query);
@@ -211,7 +209,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initTableValues(splits, ts);
+            initTableValues(null, ts);
             String query;
             PreparedStatement stmt;
             ResultSet rs;
@@ -370,7 +368,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initTableValues(splits, ts);
+            initTableValues(null, ts);
             
             // Where without fully qualified key, point query.
             String query = "SELECT * FROM " + TABLE_WITH_SALTING + " WHERE a_integer = ? AND a_string = ?";
@@ -429,6 +427,29 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             assertTrue(rs.next());
             assertEquals("456", rs.getString(1));
             assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testSelectWithGroupBy() throws Exception {
+        long ts = nextTimestamp();
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            // Force all entries to fall in one region.
+            initTableValues(new byte[][] {{(byte) 5}}, ts);
+            
+            String query = "SELECT a_integer FROM " + TABLE_WITH_SALTING + " GROUP BY a_integer";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+            int count = 0;
+            while (rs.next()) {
+                count++;
+            }
+            assertEquals("Group by does not return the right count.", count, 4);
         } finally {
             conn.close();
         }
