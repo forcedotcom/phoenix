@@ -335,6 +335,7 @@ public class GroupByCompiler {
         
         private GroupByClauseVisitor(StatementContext context, Map<String, ParseNode> aliasParseNodeMap) {
             super(context, aliasParseNodeMap);
+            isRowKeyOrderedGrouping = (context.getResolver().getTables().get(0).getTable().getBucketNum() == null);
         }
         
         @Override
