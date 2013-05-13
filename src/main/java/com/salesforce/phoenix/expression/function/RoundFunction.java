@@ -30,17 +30,23 @@ package com.salesforce.phoenix.expression.function;
 import java.io.*;
 import java.sql.Date;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.phoenix.compile.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PDataType.PDataCodec;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -165,6 +171,65 @@ public class RoundFunction extends ScalarFunction {
     @Override
     public boolean preservesOrder() {
         return true;
+    }
+
+    @Override
+    public int getKeyFormationTraversalIndex() {
+        return 0;
+    }
+
+    /**
+     * Form the key range from the key to the key right before or at the
+     * next rounded value.
+     */
+    @Override
+    public KeyPart newKeyPart(final KeyPart childPart) {
+        return new KeyPart() {
+
+            @Override
+            public PColumn getColumn() {
+                return childPart.getColumn();
+            }
+
+            @Override
+            public List<Expression> getExtractNodes() {
+                return Collections.<Expression>singletonList(RoundFunction.this);
+            }
+
+            @Override
+            public KeyRange getKeyRange(CompareOp op, byte[] key) {
+                PDataType type = getColumn().getDataType();
+                // No need to take into account column modifier, because ROUND
+                // always forces the value to be in ascending order
+                PDataCodec codec = type.getCodec();
+                int offset = ByteUtil.isInclusive(op) ? 1 : 0;
+                long value = codec.decodeLong(key, 0, null);
+                byte[] nextKey = new byte[type.getByteSize()];
+                switch (op) {
+                case EQUAL:
+                    // If the value isn't evenly divisible by the div amount, then it
+                    // can't possibly be equal to any rounded value. For example, if you
+                    // had ROUND(dateCol,'DAY') = TO_DATE('2013-01-01 23:00:00')
+                    // it could never be equal, since date constant isn't at a day
+                    // boundary.
+                    if (value % divBy != 0) {
+                        return KeyRange.EMPTY_RANGE;
+                    }
+                    codec.encodeLong(value + divBy, nextKey, 0);
+                    return type.getKeyRange(key, true, nextKey, false);
+                case GREATER:
+                case GREATER_OR_EQUAL:
+                    codec.encodeLong((value + divBy - offset)/divBy*divBy, nextKey, 0);
+                    return type.getKeyRange(nextKey, true, KeyRange.UNBOUND, false);
+                case LESS:
+                case LESS_OR_EQUAL:
+                    codec.encodeLong((value + divBy - (1 -offset))/divBy*divBy, nextKey, 0);
+                    return type.getKeyRange(KeyRange.UNBOUND, false, nextKey, false);
+                default:
+                    return childPart.getKeyRange(op, key);
+                }
+            }
+        };
     }
 
     @Override

@@ -31,6 +31,7 @@ import static com.salesforce.phoenix.util.TestUtil.*;
 import static org.junit.Assert.*;
 
 import java.sql.*;
+import java.sql.Date;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -45,11 +46,11 @@ import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
-import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
 
 
 
@@ -190,10 +191,182 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId,keyPrefix);
         compileStatement(query, scan, binds);
 
-        compileStatement(query, scan, binds);
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),ByteUtil.fillKey(PDataType.VARCHAR.toBytes(keyPrefix),15));
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),ByteUtil.fillKey(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(keyPrefix)),15));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testEqualRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 00:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-02 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')=?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(startDate));
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testDegenerateRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 01:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')=?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+        assertDegenerate(scan);
+    }
+
+    @Test
+    public void testBoundaryGreaterThanRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 00:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-02 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')>?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testBoundaryGreaterThanOrEqualRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 00:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-01 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')>=?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testGreaterThanRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 01:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-02 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')>?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testLessThanRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 01:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-02 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')<?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY);
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testBoundaryLessThanRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 00:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-01 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')<?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY);
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testLessThanOrEqualRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 01:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-02 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')<=?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY);
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
+        assertArrayEquals(stopRow, scan.getStopRow());
+    }
+
+    @Test
+    public void testBoundaryLessThanOrEqualRound() throws Exception {
+        String inst = "a";
+        String host = "b";
+        Date startDate = DateUtil.parseDate("2012-01-01 00:00:00");
+        Date endDate = DateUtil.parseDate("2012-01-02 00:00:00");
+        String query = "select * from ptsdb where inst=? and host=? and round(date,'DAY')<=?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(inst,host,startDate);
+        compileStatement(query, scan, binds);
+
+        byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY);
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(inst),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.VARCHAR.toBytes(host),QueryConstants.SEPARATOR_BYTE_ARRAY,
+                PDataType.DATE.toBytes(endDate));
         assertArrayEquals(stopRow, scan.getStopRow());
     }
 
@@ -205,8 +378,6 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         String query = "select * from atable where organization_id='" + tenantId + "' and substr(entity_id,1,3)='" + keyPrefix + "' and entity_id='" + entityId + "'";
         Scan scan = new Scan();
         List<Object> binds = Collections.emptyList();
-        compileStatement(query, scan, binds);
-
         compileStatement(query, scan, binds);
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId),PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());

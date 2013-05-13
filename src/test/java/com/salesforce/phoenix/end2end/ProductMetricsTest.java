@@ -1719,6 +1719,30 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testEqualsRound() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        String query = "SELECT feature FROM PRODUCT_METRICS WHERE organization_id = ? and trunc(date,'DAY')=?"; 
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            Date startDate = new Date(System.currentTimeMillis());
+            Date equalDate = new Date((startDate.getTime() + 2 * QueryConstants.MILLIS_IN_DAY)/ QueryConstants.MILLIS_IN_DAY*QueryConstants.MILLIS_IN_DAY);
+            initDateTableValues(tenantId, getSplits(tenantId), ts, startDate, 1.0);
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setDate(2, equalDate);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals("C", rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testDateSubtractionCompareNumber() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();

@@ -446,6 +446,20 @@ public class ByteUtil {
         return count;
     }
 
+    public static boolean isInclusive(CompareOp op) {
+        switch (op) {
+            case LESS:
+            case GREATER:
+                return false;
+            case EQUAL:
+            case NOT_EQUAL:
+            case LESS_OR_EQUAL:
+            case GREATER_OR_EQUAL:
+                return true;
+            default:
+              throw new RuntimeException("Unknown Compare op " + op.name());
+        }
+    }
     public static boolean compare(CompareOp op, int compareResult) {
         switch (op) {
             case LESS:
