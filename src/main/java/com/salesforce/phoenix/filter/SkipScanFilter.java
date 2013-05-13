@@ -71,6 +71,7 @@ public class SkipScanFilter extends FilterBase {
     private int startKeyLength;
     private byte[] endKey; 
     private int endKeyLength;
+    private boolean isDone;
 
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
 
@@ -118,7 +119,7 @@ public class SkipScanFilter extends FilterBase {
 
     @Override
     public boolean filterAllRemaining() {
-        return startKey == null && endKeyLength == 0;
+        return isDone;
     }
 
     @Override
@@ -129,11 +130,11 @@ public class SkipScanFilter extends FilterBase {
     @Override
     public KeyValue getNextKeyHint(KeyValue kv) {
         // TODO: don't allocate new key value every time here if possible
-        return startKey == null ? null : new KeyValue(startKey, 0, startKeyLength,
+        return isDone ? null : new KeyValue(startKey, 0, startKeyLength,
                 null, 0, 0, null, 0, 0, HConstants.LATEST_TIMESTAMP, Type.Maximum, null, 0, 0);
     }
 
-    public boolean hasIntersection(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
+    public boolean hasIntersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey) {
         return intersect(lowerInclusiveKey, upperExclusiveKey, null);
     }
     /**
@@ -152,6 +153,7 @@ public class SkipScanFilter extends FilterBase {
     private boolean intersect(byte[] lowerInclusiveKey, byte[] upperExclusiveKey, List<List<KeyRange>> newSlots) {
         boolean lowerUnbound = (lowerInclusiveKey.length == 0);
         Arrays.fill(position, 0);
+        isDone = false;
         int startPos = 0;
         int lastSlot = slots.size()-1;
         if (!lowerUnbound) {
@@ -254,7 +256,7 @@ public class SkipScanFilter extends FilterBase {
             if (slots.get(nSlots-1).get(position[nSlots-1]).isSingleKey()) {
                 if (nextPosition(nSlots-1) < 0) {
                     // Current row will be included, but we have no more
-                    startKey = null;
+                    isDone = true;
                     return ReturnCode.NEXT_ROW;
                 }
             }
@@ -275,7 +277,7 @@ public class SkipScanFilter extends FilterBase {
         endKeyLength = 0;
         
         // We could have included the previous
-        if (startKey == null) {
+        if (isDone) {
             return ReturnCode.NEXT_ROW;
         }
 
@@ -298,7 +300,7 @@ public class SkipScanFilter extends FilterBase {
                     return ReturnCode.SEEK_NEXT_USING_HINT;
                 }
                 if (i == 0) {
-                    startKey = null;
+                    isDone = true;
                     return ReturnCode.NEXT_ROW;
                 }
                 // Increment key and backtrack until in range. We know at this point that we'll be
@@ -314,7 +316,7 @@ public class SkipScanFilter extends FilterBase {
                     incremented = false;
                 }
                 if (i < 0) {
-                    startKey = null;
+                    isDone = true;
                     return ReturnCode.NEXT_ROW;
                 }
                 if (incremented) {
@@ -371,8 +373,6 @@ public class SkipScanFilter extends FilterBase {
                     int currentLength = ptr.getOffset() - offset;
                     setStartKey(currentLength + this.maxKeyLength, ptr.get(), offset, currentLength);
                     appendToStartKey(i, currentLength);
-                    // TODO: come up with test case where this is required or remove
-                    //Arrays.fill(position, earliestRangeIndex+1, position.length, 0);
                     return ReturnCode.SEEK_NEXT_USING_HINT;
                 }
             }
@@ -517,8 +517,6 @@ public class SkipScanFilter extends FilterBase {
 
     @Override
     public String toString() {
-        // TODO: make static util methods in ExplainTable that use type to print
-        // key ranges
         return "SkipScanFilter "+ slots.toString() ;
     }
 }

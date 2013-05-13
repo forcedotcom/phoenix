@@ -165,7 +165,7 @@ public class ScanRanges {
         if (isDegenerate()) {
             return false;
         }
-        return filter.hasIntersection(lowerInclusiveKey, upperExclusiveKey);
+        return filter.hasIntersect(lowerInclusiveKey, upperExclusiveKey);
    }
 
     @Override
