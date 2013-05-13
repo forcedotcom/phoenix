@@ -137,6 +137,9 @@ public class ScanUtil {
     }
 
     public static void andFilter(Scan scan, Filter andWithFilter) {
+        if (andWithFilter == null) {
+            return;
+        }
         Filter filter = scan.getFilter();
         if (filter == null) {
             scan.setFilter(andWithFilter); 

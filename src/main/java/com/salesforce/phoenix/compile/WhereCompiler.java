@@ -196,7 +196,7 @@ public class WhereCompiler {
         boolean forcedSkipScan = context.hasHint(Hint.SKIP_SCAN);
         boolean forcedRangeScan = context.hasHint(Hint.RANGE_SCAN);
         if (forcedSkipScan || (scanRanges.useSkipScanFilter() && !forcedRangeScan)) {
-            ScanUtil.andFilter(scan, new SkipScanFilter(scanRanges.getRanges(), scanRanges.getSchema()));
+            ScanUtil.andFilter(scan, scanRanges.getSkipScanFilter());
         }
     }
 }

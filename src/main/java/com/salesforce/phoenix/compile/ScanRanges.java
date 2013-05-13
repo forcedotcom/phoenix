@@ -66,6 +66,10 @@ public class ScanRanges {
         }
     }
 
+    public SkipScanFilter getSkipScanFilter() {
+        return filter;
+    }
+    
     public List<List<KeyRange>> getRanges() {
         return ranges;
     }
@@ -161,7 +165,7 @@ public class ScanRanges {
         if (isDegenerate()) {
             return false;
         }
-        return (filter.intersect(lowerInclusiveKey, upperExclusiveKey) != null);
+        return filter.hasIntersection(lowerInclusiveKey, upperExclusiveKey);
    }
 
     @Override
