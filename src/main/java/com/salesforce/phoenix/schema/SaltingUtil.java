@@ -93,6 +93,14 @@ public class SaltingUtil {
         return allRanges;
     }
 
+    public static byte[][] getSalteByteSplitPoints(int saltBucketNum) {
+        byte[][] splits = new byte[saltBucketNum-1][];
+        for (int i = 1; i < saltBucketNum; i++) {
+            splits[i-1] = new byte[] {(byte) i};
+        }
+        return splits;
+    }
+
     // Compute the hash of the key value stored in key and set its first byte as the value. The
     // first byte of key should be left empty as a place holder for the salting byte.
     public static byte[] getSaltedKey(ImmutableBytesWritable key, int bucketNum) {
