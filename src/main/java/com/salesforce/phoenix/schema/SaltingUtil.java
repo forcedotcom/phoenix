@@ -96,7 +96,7 @@ public class SaltingUtil {
     public static byte[][] getSalteByteSplitPoints(int saltBucketNum) {
         byte[][] splits = new byte[saltBucketNum-1][];
         for (int i = 1; i < saltBucketNum; i++) {
-            splits[i] = new byte[] {(byte) i};
+            splits[i-1] = new byte[] {(byte) i};
         }
         return splits;
     }

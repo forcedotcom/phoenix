@@ -43,11 +43,8 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  */
 public class SaltedTableTest extends BaseClientMangedTimeTest {
 
-    private static final byte[] K1 = new byte[] {1};
-    private static final byte[] K2 = new byte[] {2};
-    private static final byte[] K3 = new byte[] {3};
-    private static byte[][] splits = new byte[][] {K1, K2, K3};
-    
+    private static byte[][] splits = null;
+
     private static void initTableValues(byte[][] splits, long ts) throws Exception {
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
