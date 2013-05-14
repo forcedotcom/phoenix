@@ -44,9 +44,30 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 ## Getting Started ##
 
-<h4>Squirrel SQL Client</h4>
+<h4>Command Line</h4>
 
-One way to experiment with Phoenix is to download and install a SQL client such as [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
+A terminal interface to execute SQL from the command line is now bundled with Phoenix v 1.2. To
+start it, execute the following from the bin directory:
+
+	$ sqlline.sh localhost
+
+To execute SQL scripts from the command line, you can include a SQL file argument like this:
+
+	$ sqlline.sh localhost ../examples/stock_symbol.sql
+
+![sqlline](http://forcedotcom.github.com/phoenix/images/sqlline.png)
+
+For more information, see the [manual](http://www.hydromatic.net/sqlline/manual.html).
+
+<h5>Loading Data</h5>
+
+In addition, you can use the bin/psql.sh to execute to load CSV data or execute SQL scripts. For example:
+
+        $ psql.sh localhost ../examples/web_stat.sql ../examples/web_stat.csv ../examples/web_stat_queries.sql
+
+<h4>SQL Client</h4>
+
+If you'd rather use a client GUI to interact with Phoenix download and install [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
 1. Remove prior phoenix-[version]-client.jar from the lib directory of SQuirrel
 2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel
@@ -62,30 +83,6 @@ One way to experiment with Phoenix is to download and install a SQL client such 
 Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 
 ![squirrel](http://forcedotcom.github.com/phoenix/images/squirrel.png)
-
-<h4>Command Line</h4>
-
-<h5>Execute SQL</h5>
-
-[SqlLine](https://github.com/julianhyde/sqlline) is included in Phoenix (1.2 and above) to execute SQL from command line. Sqlline manual is available [here](http://www.hydromatic.net/sqlline/manual.html)
-	
-	Usage: 
-	$ sqlline.sh <zookeeper> <optional_sql_file> 
-	Example: 
-	$ sqlline.sh localhost
-	$ sqlline.sh localhost ../examples/stock_symbol.sql
-
-
-![sqlline](http://forcedotcom.github.com/phoenix/images/sqlline.png)
-
-<h5>Load Data</h5>
-
-In addition, you can use the bin/psql.sh to execute SQL and/or load CSV data directly. Here are few examples:
-
-        $ psql.sh localhost localhost ../examples/web_stat.sql ../examples/web_stat.csv ../examples/web_stat_queries.sql
-        $ psql.sh -t stock_symbol -h symbol,price,date localhost ../examples/stock_symbol.sql ../examples/stock_symbol.sql ../examples/stock_symbol.csv
-
-![psql](http://forcedotcom.github.com/phoenix/images/psql.png)
 
 ## Maven ##
 
@@ -117,7 +114,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     </dependency>
 ```
 ## Samples ##
-The best place to see samples are in our unit tests under test/func/java. These are end-to-end tests demonstrating how to use all aspects of the Phoenix JDBC driver. We also have some examples in the examples directory.
+The best place to see samples are in our unit tests under src/test/java. The ones in the endToEnd package are tests demonstrating how to use all aspects of the Phoenix JDBC driver. We also have some examples in the examples directory.
 
 ##Mailing List##
 Join one or both of our Google groups:
