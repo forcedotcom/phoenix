@@ -380,7 +380,7 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         assertFalse(rs.next());
         
     }
-    
+
     @Test
     public void testUpsertSelectLongToInt() throws Exception {
         long ts = nextTimestamp();
@@ -414,6 +414,15 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         assertEquals(2,rs.getInt(1));
         assertFalse(rs.next());
         conn.close();
+        
+    }
+
+    @Test
+    // This test specifically test the case in which upsert select is touching
+    // the row key, i.e, create new rows instead of modifying existing rows. If it is
+    // run on the server side, there maybe problems when the new rows does not reside
+    // on the same region as the old one.
+    public void testUpsertSelectRowKeyMutation() throws Exception {
         
     }
 }

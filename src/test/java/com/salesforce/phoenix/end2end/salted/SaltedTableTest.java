@@ -25,7 +25,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.end2end;
+package com.salesforce.phoenix.end2end.salted;
 
 import static com.salesforce.phoenix.util.TestUtil.*;
 import static org.junit.Assert.*;
@@ -35,6 +35,7 @@ import java.util.Properties;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.end2end.BaseClientMangedTimeTest;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 

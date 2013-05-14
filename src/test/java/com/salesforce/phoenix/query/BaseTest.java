@@ -82,7 +82,7 @@ public abstract class BaseTest {
                 "    b_string varchar, \n" +
                 "    b_integer integer \n" +
                 "    CONSTRAINT pk PRIMARY KEY (a_integer, a_string, a_id))\n" +
-                "   SALT_BUCKETS = 4");
+                "    SALT_BUCKETS = 4");
         builder.put(STABLE_NAME,"create table " + STABLE_NAME +
                 "   (id char(1) not null primary key,\n" +
                 "    value integer)");
@@ -307,13 +307,14 @@ public abstract class BaseTest {
     protected static void createTestTable(String url, String ddl, byte[][] splits, Long ts) throws SQLException {
         assertNotNull(ddl);
         StringBuilder buf = new StringBuilder(ddl);
-        if (splits != null) {
-            buf.append(" SPLIT ON (");
-            for (int i = 0; i < splits.length; i++) {
-                buf.append("?,");
-            }
-            buf.setCharAt(buf.length()-1, ')');
-        }
+        buf.append(" SALT_BUCKETS=4");
+//        if (splits != null) {
+//            buf.append(" SPLIT ON (");
+//            for (int i = 0; i < splits.length; i++) {
+//                buf.append("?,");
+//            }
+//            buf.setCharAt(buf.length()-1, ')');
+//        }
         ddl = buf.toString();
         Properties props = new Properties();
         if (ts != null) {
@@ -322,11 +323,11 @@ public abstract class BaseTest {
         Connection conn = DriverManager.getConnection(url, props);
         try {
             PreparedStatement stmt = conn.prepareStatement(ddl);
-            if (splits != null) {
-                for (int i = 0; i < splits.length; i++) {
-                    stmt.setBytes(i+1, splits[i]);
-                }
-            }
+//            if (splits != null) {
+//                for (int i = 0; i < splits.length; i++) {
+//                    stmt.setBytes(i+1, splits[i]);
+//                }
+//            }
             stmt.execute(ddl);
         } catch (TableAlreadyExistsException e) {
         } finally {
