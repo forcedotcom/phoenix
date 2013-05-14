@@ -60,16 +60,16 @@ public class TupleUtil {
         t2.getKey(ptr);
         return Bytes.compareTo(buf, offset, length, ptr.get(), ptr.getOffset(), ptr.getLength()) == 0;
     }
-    
-    public static int compare(Tuple t1, Tuple t2, ImmutableBytesWritable ptr) {
+
+    public static int compare(Tuple t1, Tuple t2, ImmutableBytesWritable ptr, int byteOffset) {
         t1.getKey(ptr);
         byte[] buf = ptr.get();
-        int offset = ptr.getOffset();
-        int length = ptr.getLength();
+        int offset = ptr.getOffset() + byteOffset;
+        int length = ptr.getLength() - byteOffset;
         t2.getKey(ptr);
-        return Bytes.compareTo(buf, offset, length, ptr.get(), ptr.getOffset(), ptr.getLength());
+        return Bytes.compareTo(buf, offset, length, ptr.get(), ptr.getOffset() + byteOffset, ptr.getLength() - byteOffset);
     }
-    
+
     /**
      * Set ptr to point to the value contained in the first KeyValue without
      * exploding Result into KeyValue array.

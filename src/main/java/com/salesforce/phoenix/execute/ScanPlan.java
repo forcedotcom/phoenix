@@ -81,7 +81,11 @@ public class ScanPlan extends BasicQueryPlan {
             ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY);
             splits = iterators.getSplits();
             if (orderBy.getOrderByExpressions().isEmpty()) {
-                scanner = new ConcatResultIterator(iterators);
+                if (context.getResolver().getTables().get(0).getTable().getBucketNum() != null) {
+                    scanner = new MergeSortRowKeyResultIterator(iterators, 1);
+                } else {
+                    scanner = new ConcatResultIterator(iterators);
+                }
             } else {
                 // If we expect to have a small amount of data in a single region
                 // do the sort on the client side

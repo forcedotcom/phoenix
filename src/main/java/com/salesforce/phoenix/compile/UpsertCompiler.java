@@ -190,7 +190,9 @@ public class UpsertCompiler {
              * and populate the MutationState (upto a limit).
             */
             final boolean isAutoCommit = connection.getAutoCommit();
-            if (isAutoCommit && mayAutoCommit) { // UPSERT SELECT run server-side
+            // TODO:: We currently disabled upsert-select on server side with salted table due to bugs on around line 210
+            //        on mismatch between pkColumns size and the projectedExpressions size. Need to fix it.
+            if (isAutoCommit && mayAutoCommit && table.getBucketNum() == null) { // UPSERT SELECT run server-side
                 // At most this array will grow bigger my the number of PK columns
                 int[] allColumnsIndexes = Arrays.copyOf(columnIndexes, columnIndexes.length + nValuesToSet);
                 int[] reverseColumnIndexes = new int[table.getColumns().size()];

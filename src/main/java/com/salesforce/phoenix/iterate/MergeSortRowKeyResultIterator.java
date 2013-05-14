@@ -44,13 +44,21 @@ import com.salesforce.phoenix.util.TupleUtil;
  */
 public class MergeSortRowKeyResultIterator extends MergeSortResultIterator {
     
+    private final int byteOffset;
+    
     public MergeSortRowKeyResultIterator(ResultIterators iterators) {
         super(iterators);
+        byteOffset = 0;
+    }
+    
+    public MergeSortRowKeyResultIterator(ResultIterators iterators, int byteOffset) {
+        super(iterators);
+        this.byteOffset = byteOffset;
     }
    
     @Override
     protected int compare(Tuple t1, Tuple t2) {
-        return TupleUtil.compare(t1, t2, tempPtr);
+        return TupleUtil.compare(t1, t2, tempPtr, byteOffset);
     }
 
     @Override

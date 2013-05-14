@@ -144,6 +144,10 @@ public class SaltingUtil {
         byte[] key = new byte[estimatedKeyLength + 1];
         do {
             length = ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
+            if (!schema.getField(schema.getFieldCount()-1).getType().isFixedWidth()) {
+                key = Arrays.copyOf(key, key.length-1);
+                length--;
+            }
             saltByte = SaltingUtil.getSaltingByte(key, 1, length, bucketNum);
             key[0] = saltByte;
             KeyRange range = KeyRange.getKeyRange(

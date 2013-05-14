@@ -60,7 +60,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueOne' LIMIT 1";
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueOne'";
             stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
@@ -78,7 +78,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueTwo' LIMIT 1";
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueTwo'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
@@ -310,13 +310,20 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            // INT has a default precision and scale of (10, 0)
-            // LONG has a default precision and scale of (19, 0)
-            query = "SELECT col1 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            query = "SELECT col1 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
             BigDecimal result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1234567890123456789012345678901"), result);
+            
+            // INT has a default precision and scale of (10, 0)
+            // LONG has a default precision and scale of (19, 0)
+            query = "SELECT col1 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
             assertEquals(new BigDecimal("1234567890123456789012345678911"), result);
             
             query = "SELECT col1 + col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";

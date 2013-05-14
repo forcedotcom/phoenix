@@ -202,9 +202,11 @@ public class ScanUtil {
                 maxLowerRangeLength = Math.max(maxLowerRangeLength, range.getLowerRange().length); 
                 maxUpperRangeLength = Math.max(maxUpperRangeLength, range.getUpperRange().length);
             }
-            int trailingByte = (schema.getField(schemaStartIndex++).getType().isFixedWidth() ? 0 : 1);
+            int trailingByte = (schema.getField(schemaStartIndex).getType().isFixedWidth() ||
+                    schemaStartIndex == schema.getFieldCount() - 1 ? 0 : 1);
             maxLowerKeyLength += maxLowerRangeLength + trailingByte;
             maxUpperKeyLength += maxUpperKeyLength + trailingByte;
+            schemaStartIndex++;
         }
         return Math.max(maxLowerKeyLength, maxUpperKeyLength);
     }
