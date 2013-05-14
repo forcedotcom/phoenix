@@ -310,20 +310,13 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1 FROM testDecimalArithmatic WHERE pk='testValueOne'";
-            stmt = conn.prepareStatement(query);
-            ResultSet rs = stmt.executeQuery();
-            assertTrue(rs.next());
-            BigDecimal result = rs.getBigDecimal(1);
-            assertEquals(new BigDecimal("1234567890123456789012345678901"), result);
-            
             // INT has a default precision and scale of (10, 0)
             // LONG has a default precision and scale of (19, 0)
             query = "SELECT col1 + col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
-            rs = stmt.executeQuery();
+            ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
-            result = rs.getBigDecimal(1);
+            BigDecimal result = rs.getBigDecimal(1);
             assertEquals(new BigDecimal("1234567890123456789012345678911"), result);
             
             query = "SELECT col1 + col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
