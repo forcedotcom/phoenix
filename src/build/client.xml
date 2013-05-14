@@ -59,6 +59,11 @@
       <directoryMode>0755</directoryMode>
     </fileSet>
     <fileSet>
+      <!--Get application resources -->
+      <directory>src/main/resources</directory>
+      <outputDirectory>resources</outputDirectory>
+    </fileSet>
+    <fileSet>
       <!--Get misc project files -->
       <directory>${project.basedir}</directory>
       <outputDirectory>/</outputDirectory>
