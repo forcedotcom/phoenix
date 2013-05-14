@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.client.Scan;
@@ -68,14 +67,15 @@ public class ProjectionCompiler {
     /**
      * Builds the projection for the scan
      * @param context query context kept between compilation of different query clauses
-     * @param statement SQL statement being compiled
-     * @param groupBy list of GROUP BY expressions or the empty list if no GROUP BY
+     * @param aliasedNodes the list of select nodes with their aliases
+     * @param isDistinct true if SELECT DISTINCT and false otherwise
+     * @param groupBy compiled GROUP BY clause
+     * @param orderBy compiled ORDER BY clause
      * @param limit maximum number of rows to scan during query execution or null if unbounded
+     * @param targetColumns list of columns, parallel to aliasedNodes, that are being set for an
+     * UPSERT SELECT statement. Used to coerce expression types to the expected target type.
      * @return projector used to access row values during scan
      * @throws SQLException 
-     * @throws SQLFeatureNotSupportedException if an unsupported construct is encountered.
-     * @throws ColumnNotFoundException if column name could not be resolved
-     * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
     public static RowProjector getRowProjector(StatementContext context, List<AliasedNode> aliasedNodes, boolean isDistinct, GroupBy groupBy, OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
         return getRowProjector(context, isDistinct, aliasedNodes, groupBy, orderBy, limit, targetColumns);
