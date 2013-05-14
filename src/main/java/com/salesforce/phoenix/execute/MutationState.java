@@ -110,13 +110,17 @@ public class MutationState implements SQLCloseable {
                     // Replace existing row with new row
                     Map<PColumn,byte[]> existingValues = existingRows.put(rowEntry.getKey(), rowEntry.getValue());
                     if (existingValues != null) {
-                        // Replace existing column values with new column values
-                        for (Map.Entry<PColumn,byte[]> valueEntry : rowEntry.getValue().entrySet()) {
-                            existingValues.put(valueEntry.getKey(), valueEntry.getValue());
+                        Map<PColumn,byte[]> newRow = rowEntry.getValue();
+                        // if new row is null, it means delete, and we don't need to merge it with existing row. 
+                        if (newRow != null) {
+                            // Replace existing column values with new column values
+                            for (Map.Entry<PColumn,byte[]> valueEntry : newRow.entrySet()) {
+                                existingValues.put(valueEntry.getKey(), valueEntry.getValue());
+                            }
+                            // Now that the existing row has been merged with the new row, replace it back
+                            // again (since it was replaced with the new one above).
+                            existingRows.put(rowEntry.getKey(), existingValues);
                         }
-                        // Now that the existing row has been merged with the new row, replace it back
-                        // again (since it was replaced with the new one above).
-                        existingRows.put(rowEntry.getKey(), existingValues);
                     } else {
                         numEntries++;
                     }

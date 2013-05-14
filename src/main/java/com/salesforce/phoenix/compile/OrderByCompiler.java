@@ -69,12 +69,14 @@ public class OrderByCompiler {
      * Gets a list of columns in the ORDER BY clause
      * @param context the query context for tracking various states
      * associated with the given select statement
+     * @param orderByNodes the list of ORDER BY expressions
      * @param groupBy the list of columns in the GROUP BY clause
-     * @param isDistinct TODO
-     * @param limit 
-     * @param statement the select statement
+     * @param isDistinct true if SELECT DISTINCT and false otherwise
+     * @param limit the row limit or null if no limit
+     * @param aliasParseNodeMap the map of aliased parse nodes used
+     * to resolve alias usage in the ORDER BY clause
      * 
-     * @return the list of columns in the ORDER BY clause
+     * @return the compiled ORDER BY clause
      * @throws SQLException
      */
     public static OrderBy getOrderBy(StatementContext context,
