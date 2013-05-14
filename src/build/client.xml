@@ -60,8 +60,8 @@
     </fileSet>
     <fileSet>
       <!--Get application resources -->
-      <directory>src/main/resources</directory>
-      <outputDirectory>resources</outputDirectory>
+      <directory>src/main/external_resources</directory>
+      <outputDirectory>/</outputDirectory>
     </fileSet>
     <fileSet>
       <!--Get misc project files -->
