@@ -81,6 +81,8 @@ syntax-end -->
 
     <a href="#options" >Options</a><br />
 
+    <a href="#hint" >Hint</a><br />
+
     <a href="#column" >Column</a><br />
 
     <a href="#select_expression" >Select Expression</a><br />
@@ -153,6 +155,8 @@ syntax-end -->
             
                 <a href="#options" >Options</a><br />
             
+                <a href="#hint" >Hint</a><br />
+            
                 <a href="#column" >Column</a><br />
             
                 <a href="#select_expression" >Select Expression</a><br />
@@ -191,9 +195,9 @@ syntax-end -->
                 <a href="#name" >Name</a><br />
             
                 <a href="#quoted_name" >Quoted Name</a><br />
-                    </td><td class="index">
             
                 <a href="#alias" >Alias</a><br />
+                    </td><td class="index">
             
                 <a href="#null" >Null</a><br />
             
@@ -223,27 +227,27 @@ syntax-end -->
 <h3 id="select" class="notranslate">SELECT</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-SELECT <a href="index.html#select_expression">selectExpression</a> [,...] FROM <a href="index.html#table_expression">tableExpression</a> [ WHERE <a href="index.html#expression">expression</a> ]
+SELECT [/*+ <a href="index.html#hint">hint</a> */] [DISTINCT | ALL] <a href="index.html#select_expression">selectExpression</a> [,...]
+FROM <a href="index.html#table_expression">tableExpression</a> [( <a href="index.html#column">column</a> [,...] )] [ WHERE <a href="index.html#expression">expression</a> ]
 [ GROUP BY <a href="index.html#expression">expression</a> [,...] ] [ HAVING <a href="index.html#expression">expression</a> ]
-[ ORDER BY <a href="index.html#order">order</a> [,...] ]
-[ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
+[ ORDER BY <a href="index.html#order">order</a> [,...] ] [ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SELECT <a href="index.html#select_expression">selectExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">FROM <a href="index.html#table_expression">tableExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">WHERE <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">GROUP BY <a href="index.html#expression">expression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">HAVING <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ORDER BY <a href="index.html#order">order</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">LIMIT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#number">number</a></code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SELECT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">/ * + <a href="index.html#hint">hint</a> * /</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">DISTINCT</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">ALL</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#select_expression">selectExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><code class="c">FROM <a href="index.html#table_expression">tableExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#column">column</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">WHERE <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">GROUP BY <a href="index.html#expression">expression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">HAVING <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ORDER BY <a href="index.html#order">order</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">LIMIT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#number">number</a></code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-SELECT <a href="index.html#select_expression">selectExpression</a> [,...] FROM <a href="index.html#table_expression">tableExpression</a> [ WHERE <a href="index.html#expression">expression</a> ]
+SELECT [/*+ <a href="index.html#hint">hint</a> */] [DISTINCT | ALL] <a href="index.html#select_expression">selectExpression</a> [,...]
+FROM <a href="index.html#table_expression">tableExpression</a> [( <a href="index.html#column">column</a> [,...] )] [ WHERE <a href="index.html#expression">expression</a> ]
 [ GROUP BY <a href="index.html#expression">expression</a> [,...] ] [ HAVING <a href="index.html#expression">expression</a> ]
-[ ORDER BY <a href="index.html#order">order</a> [,...] ]
-[ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
+[ ORDER BY <a href="index.html#order">order</a> [,...] ] [ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
 </pre>
 syntax-end -->
-<p>Selects data from a table. <code>GROUP BY</code> groups the the result by the given expression(s). <code>HAVING</code> filter rows after grouping. <code>ORDER BY</code> sorts the result by the given column(s) or expression(s) and is only allowed for aggregate queries or queries with a <code>LIMIT</code> clause. <code>LIMIT</code> limits the number of rows returned by the query with no limit applied if specified as null or less than zero. The <code>LIMIT</code> clause is executed prior to the <code>ORDER BY</code> clause, so rows which sort above the returned rows may be clipped and subsequently not returned. Only single tables are currently supported - joins are currently not supported.</p>
+<p>Selects data from a table. <code>DISTINCT</code> filters out duplicate results while <code>ALL</code>, the default, includes all results. <code>FROM</code> identifies the table being queried (single table only currently - no joins or derived tables yet). Dynamic columns not declared at create time may be defined in parenthesis after the table name and then used in the query. <code>GROUP BY</code> groups the the result by the given expression(s). <code>HAVING</code> filter rows after grouping. <code>ORDER BY</code> sorts the result by the given column(s) or expression(s) and is only allowed for aggregate queries or queries with a <code>LIMIT</code> clause. <code>LIMIT</code> limits the number of rows returned by the query with no limit applied if specified as null or less than zero. The <code>LIMIT</code> clause is executed after the <code>ORDER BY</code> clause to support TopN type queries. An optional hint overrides the default query plan.</p>
 <p>Example:</p>
 <p class="notranslate">
-SELECT * FROM TEST;<br />SELECT ID, COUNT(1) FROM TEST GROUP BY ID;<br />SELECT NAME, SUM(VAL) FROM TEST GROUP BY NAME HAVING COUNT(1) &gt; 2;<br />SELECT &#39;ID&#39; COL, MAX(ID) AS MAX FROM TEST;<br />SELECT * FROM TEST LIMIT 1000;</p>
+SELECT * FROM TEST;<br />SELECT a.* FROM TEST;<br />SELECT DISTINCT NAME FROM TEST;<br />SELECT ID, COUNT(1) FROM TEST GROUP BY ID;<br />SELECT NAME, SUM(VAL) FROM TEST GROUP BY NAME HAVING COUNT(1) &gt; 2;<br />SELECT &#39;ID&#39; COL, MAX(ID) AS MAX FROM TEST;<br />SELECT * FROM TEST LIMIT 1000;</p>
 
 <h3 id="upsert_values" class="notranslate">UPSERT VALUES</h3>
 <!-- railroad-start -->
@@ -286,15 +290,17 @@ UPSERT INTO test.targetTable(col1, col2) SELECT col3, col4 FROM test.sourceTable
 <h3 id="delete" class="notranslate">DELETE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-DELETE FROM <a href="index.html#name">tableName</a> [ WHERE <a href="index.html#expression">expression</a> ]
+DELETE [/*+ <a href="index.html#hint">hint</a> */] FROM <a href="index.html#name">tableName</a> [ WHERE <a href="index.html#expression">expression</a> ]
+[ ORDER BY <a href="index.html#order">order</a> [,...] ] [ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">DELETE FROM <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">WHERE <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">DELETE</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">/ * + <a href="index.html#hint">hint</a> * /</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">FROM <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">WHERE <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ORDER BY <a href="index.html#order">order</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">LIMIT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#number">number</a></code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-DELETE FROM <a href="index.html#name">tableName</a> [ WHERE <a href="index.html#expression">expression</a> ]
+DELETE [/*+ <a href="index.html#hint">hint</a> */] FROM <a href="index.html#name">tableName</a> [ WHERE <a href="index.html#expression">expression</a> ]
+[ ORDER BY <a href="index.html#order">order</a> [,...] ] [ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
 </pre>
 syntax-end -->
 <p>Deletes the rows selected by the where clause. If auto commit is on, the deletion is performed completely server-side.</p>
@@ -323,7 +329,7 @@ syntax-end -->
 <p>Creates a new table or view. For the creation of a table, the <code>HBase</code> table and any column families referenced are created if they don&#39;t already exist (using uppercase names unless they are double quoted in which case they are case sensitive). Column families outside of the ones listed are not affected. At create time, an empty key value is added to the first column family of any existing rows. Upserts will also add this empty key value. This is done to improve query performance by having a key value column we can guarantee always being there (minimizing the amount of data that must be projected). Alternately, if a view is created, the <code>HBase</code> table and column families must already exist. No empty key value is added to existing rows and no data mutations are allowed - the view is read-only. Query performance for a view will not be as good as performance for a table. For a table only, <code>HBase</code> table and column configuration options may be passed through as key/value pairs to setup the <code>HBase</code> table as needed.</p>
 <p>Example:</p>
 <p class="notranslate">
-CREATE TABLE my_table ( id BIGINT not null primary key, date DATE not null)<br />CREATE TABLE my_table ( id INTEGER not null primary key, date DATE not null, m.db_utilization DECIMAL, i.db_utilization) m.DATA_BLOCK_ENCODING=&#39;DIFF&#39;<br />CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null, txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )<br />CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer) DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)</p>
+CREATE TABLE my_table ( id BIGINT not null primary key, date DATE not null)<br />CREATE TABLE my_table ( id INTEGER not null primary key desc, date DATE not null,<br />&nbsp;&nbsp;&nbsp;&nbsp;m.db_utilization DECIMAL, i.db_utilization)<br />&nbsp;&nbsp;&nbsp;&nbsp;m.DATA_BLOCK_ENCODING=&#39;DIFF&#39;<br />CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null,<br />&nbsp;&nbsp;&nbsp;&nbsp;txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )<br />CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer)<br />&nbsp;&nbsp;&nbsp;&nbsp;DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)</p>
 
 <h3 id="drop" class="notranslate">DROP</h3>
 <!-- railroad-start -->
@@ -385,16 +391,16 @@ EXPLAIN SELECT NAME, COUNT(*) FROM TEST GROUP BY NAME HAVING COUNT(*) &gt; 2;<br
 
 <h3 id="constraint" class="notranslate">Constraint</h3>
 <!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CONSTRAINT <a href="index.html#name">constraintName</a> PRIMARY KEY ( <a href="index.html#name">columnName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CONSTRAINT <a href="index.html#name">constraintName</a> PRIMARY KEY ( <a href="index.html#name">columnName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-CONSTRAINT <a href="index.html#name">constraintName</a> PRIMARY KEY (<a href="index.html#name">columnName</a> [,...])
+CONSTRAINT <a href="index.html#name">constraintName</a> PRIMARY KEY (<a href="index.html#name">columnName</a> [ASC | DESC] [,...])
 </pre>
 syntax-end -->
-<p>Defines a multi-part primary key constraint.</p>
+<p>Defines a multi-part primary key constraint. Each column may be declared to be sorted in ascending or descending ordering. The default is ascending.</p>
 <p>Example:</p>
-<p class="notranslate">CONSTRAINT my_pk PRIMARY KEY (host,created_date)</p>
+<p class="notranslate">CONSTRAINT my_pk PRIMARY KEY (host,created_date)<br />CONSTRAINT my_pk PRIMARY KEY (host ASC,created_date DESC)</p>
 
 <h3 id="table_options" class="notranslate">Table Options</h3>
 <!-- railroad-start -->
@@ -405,9 +411,9 @@ syntax-end -->
 { [<a href="index.html#name">familyName</a> .] <a href="index.html#name">name</a>= {<a href="index.html#value">value</a> | <a href="index.html#bind_parameter">bindParameter</a>}} [,...]
 </pre>
 syntax-end -->
-<p>Sets an option on an <code>HBase</code> table or column by modifying the respective <code>HBase</code> metadata. The option applies to the named family or if omitted to all families if the name references an <code>HColumnDescriptor</code> property. Otherwise, the option applies to the <code>HTableDescriptor</code>.</p>
+<p>Sets an option on an <code>HBase</code> table or column by modifying the respective <code>HBase</code> metadata. The option applies to the named family or if omitted to all families if the name references an <code>HColumnDescriptor</code> property. Otherwise, the option applies to the <code>HTableDescriptor</code>.</p><p>One built-in option is <code>SALT_BUCKETS</code>. This option causes an extra byte to be transparently prepended to every row key to ensure an even distribution of write load across all your region servers. This is useful when your row key is always monotonically increasing causing hot spotting on a single region server. The byte is determined by hashing the row key and modding it with the <code>SALT_BUCKETS</code> value. The value may be from 1 to 256. If not split points are defined for the table, it will automatically be pre-split at each possible salt bucket value. For an excellent write-up of this technique, see http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/</p>
 <p>Example:</p>
-<p class="notranslate">DATA_BLOCK_ENCODING=&#39;NONE&#39;,a.VERSIONS=10<br />MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000</p>
+<p class="notranslate">SALT_BUCKETS=10<br />DATA_BLOCK_ENCODING=&#39;NONE&#39;,a.VERSIONS=10<br />MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000</p>
 
 <h3 id="options" class="notranslate">Options</h3>
 <!-- railroad-start -->
@@ -422,31 +428,44 @@ syntax-end -->
 <p>Example:</p>
 <p class="notranslate">DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=10<br />MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000</p>
 
-<h3 id="column" class="notranslate">Column</h3>
+<h3 id="hint" class="notranslate">Hint</h3>
 <!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">familyName</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">columnName</a> <a href="index.html#data_type">dataType</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">NOT</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">NULL</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">PRIMARY KEY</code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">name</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-[<a href="index.html#name">familyName</a> .] <a href="index.html#name">columnName</a> <a href="index.html#data_type">dataType</a> [[NOT] NULL] [PRIMARY KEY]
+<a href="index.html#name">name</a> [,...]
 </pre>
 syntax-end -->
-<p>Define a new primary key column. The column name is case insensitive by default and case sensitive if double quoted.</p>
+<p>Advanced features that overrides default query processing behavior. The three supported hints are 1) <code>SKIP_SCAN</code> to force a skip scan to be performed on the query when it otherwise would not. This option may improve performance if a query does not include the leading primary key column, but does include other, very selective primary key columns. 2) <code>RANGE_SCAN</code> to force a range scan to be performed on the query. This option may improve performance if a query filters on a range for non selective leading primary key column along with other primary key columns 3) <code>NO_INTRA_REGION_PARALLELIZATION</code> to prevent the spawning of multiple threads to process data within a single region. This option is useful when the overall data set being queries is known to be small.</p>
+<p>Example:</p>
+<p class="notranslate">/*+ SKIP_SCAN */<br />/*+ RANGE_SCAN */<br />/*+ NO_INTRA_REGION_PARALLELIZATION */</p>
+
+<h3 id="column" class="notranslate">Column</h3>
+<!-- railroad-start -->
+<table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">familyName</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">columnName</a> <a href="index.html#data_type">dataType</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">NOT</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">NULL</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">PRIMARY KEY</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+[<a href="index.html#name">familyName</a> .] <a href="index.html#name">columnName</a> <a href="index.html#data_type">dataType</a> [[NOT] NULL] [PRIMARY KEY [ASC | DESC] ]
+</pre>
+syntax-end -->
+<p>Define a new primary key column. The column name is case insensitive by default and case sensitive if double quoted. The sort order of a primary key may be ascending (<code>ASC</code>) or descending. The default is ascending.</p>
 <p>Example:</p>
 <p class="notranslate">id char(15) not null primary key<br />key integer null<br />m.response_time bigint</p>
 
 <h3 id="select_expression" class="notranslate">Select Expression</h3>
 <!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#term">term</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">AS</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#alias">columnAlias</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">*</code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#name">familyName</a> . * )</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#term">term</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">AS</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#alias">columnAlias</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-<a href="index.html#term">term</a> [ [ AS ] <a href="index.html#alias">columnAlias</a> ]
+* | ( <a href="index.html#name">familyName</a> . *) | <a href="index.html#term">term</a> [ [ AS ] <a href="index.html#alias">columnAlias</a> ]
 </pre>
 syntax-end -->
-<p>An expression in a <code>SELECT</code> statement.</p>
+<p>An expression in a <code>SELECT</code> statement. All columns in a table may be selected using *, and all columns in a column family may be selected using &lt;familyName&gt;.*.</p>
 <p>Example:</p>
-<p class="notranslate">ID AS VALUE</p>
+<p class="notranslate">*<br />cf.*<br />ID AS VALUE<br />VALUE + 1 VALUE_PLUS_ONE</p>
 
 <h3 id="split_point" class="notranslate">Split Point</h3>
 <!-- railroad-start -->
@@ -711,16 +730,16 @@ syntax-end -->
 
 <h3 id="data_type" class="notranslate">Data Type</h3>
 <!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="datatypes.html#char_type">charType</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#varchar_type">varcharType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#integer_type">integerType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#bigint_type">bigintType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#decimal_type">decimalType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#timestamp_type">timestampType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#date_type">dateType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#time_type">timeType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#unsigned_long_type">unsignedLongType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#unsigned_int_type">unsignedIntType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="datatypes.html#binary_type">binaryType</a></code></td><td class="le"></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="datatypes.html#char_type">charType</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#varchar_type">varcharType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#integer_type">integerType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#bigint_type">bigintType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#decimal_type">decimalType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#timestamp_type">timestampType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#date_type">dateType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#time_type">timeType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#unsigned_long_type">unsignedLongType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#unsigned_int_type">unsignedIntType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="datatypes.html#binary_type">binaryType</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="datatypes.html#binary_type">varBinaryType</a></code></td><td class="le"></td></tr></table>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-<a href="datatypes.html#char_type">charType</a> | <a href="datatypes.html#varchar_type">varcharType</a> | <a href="datatypes.html#integer_type">integerType</a> | <a href="datatypes.html#bigint_type">bigintType</a> | <a href="datatypes.html#decimal_type">decimalType</a> | <a href="datatypes.html#timestamp_type">timestampType</a> | <a href="datatypes.html#date_type">dateType</a> | <a href="datatypes.html#time_type">timeType</a> | <a href="datatypes.html#unsigned_long_type">unsignedLongType</a> | <a href="datatypes.html#unsigned_int_type">unsignedIntType</a> | <a href="datatypes.html#binary_type">binaryType</a>
+<a href="datatypes.html#char_type">charType</a> | <a href="datatypes.html#varchar_type">varcharType</a> | <a href="datatypes.html#integer_type">integerType</a> | <a href="datatypes.html#bigint_type">bigintType</a> | <a href="datatypes.html#decimal_type">decimalType</a> | <a href="datatypes.html#timestamp_type">timestampType</a> | <a href="datatypes.html#date_type">dateType</a> | <a href="datatypes.html#time_type">timeType</a> | <a href="datatypes.html#unsigned_long_type">unsignedLongType</a> | <a href="datatypes.html#unsigned_int_type">unsignedIntType</a> | <a href="datatypes.html#binary_type">binaryType</a> | <a href="datatypes.html#binary_type">varBinaryType</a>
 </pre>
 syntax-end -->
 <p>A type name.</p>
 <p>Example:</p>
-<p class="notranslate">CHAR(15)<br />VARCHAR<br />VARCHAR(1000)<br />INTEGER</p>
+<p class="notranslate">CHAR(15)<br />VARCHAR<br />VARCHAR(1000)<br />INTEGER<br />BINARY(200)</p>
 
 <h3 id="string" class="notranslate">String</h3>
 <!-- railroad-start -->

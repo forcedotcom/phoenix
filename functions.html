@@ -75,6 +75,14 @@ syntax-end -->
     <a href="#regexp_substr" >REGEXP_SUBSTR</a><br />
 
     <a href="#regexp_replace" >REGEXP_REPLACE</a><br />
+
+    <a href="#upper" >UPPER</a><br />
+
+    <a href="#lower" >LOWER</a><br />
+
+    <a href="#reverse" >REVERSE</a><br />
+
+    <a href="#to_char" >TO_CHAR</a><br />
 </p>
 syntax-end -->
 <!-- railroad-start -->
@@ -87,20 +95,49 @@ syntax-end -->
                 <a href="#trim" >TRIM</a><br />
             
                 <a href="#ltrim" >LTRIM</a><br />
-                    </td><td class="index">
             
                 <a href="#rtrim" >RTRIM</a><br />
+                    </td><td class="index">
             
                 <a href="#length" >LENGTH</a><br />
             
                 <a href="#regexp_substr" >REGEXP_SUBSTR</a><br />
-                    </td><td class="index">
             
                 <a href="#regexp_replace" >REGEXP_REPLACE</a><br />
+            
+                <a href="#upper" >UPPER</a><br />
+                    </td><td class="index">
+            
+                <a href="#lower" >LOWER</a><br />
+            
+                <a href="#reverse" >REVERSE</a><br />
+            
+                <a href="#to_char" >TO_CHAR</a><br />
                     </td>
     </tr>
 </table>
 <!-- railroad-end -->
+
+<h3>General Functions</h3>
+<!-- syntax-start
+<p class="notranslate">
+
+    <a href="#coalesce" >COALESCE</a><br />
+</p>
+syntax-end -->
+<!-- railroad-start -->
+<table class="notranslate index">
+    <tr>
+        <td class="index">
+            
+                <a href="#coalesce" >COALESCE</a><br />
+                    </td><td class="index">
+                    </td><td class="index">
+                    </td>
+    </tr>
+</table>
+<!-- railroad-end -->
+
 
 <h3>Time and Date Functions</h3>
 <!-- syntax-start
@@ -109,8 +146,6 @@ syntax-end -->
     <a href="#round" >ROUND</a><br />
 
     <a href="#truncate" >TRUNCATE</a><br />
-
-    <a href="#to_char" >TO_CHAR</a><br />
 
     <a href="#to_date" >TO_DATE</a><br />
 
@@ -129,12 +164,10 @@ syntax-end -->
                 <a href="#truncate" >TRUNCATE</a><br />
                     </td><td class="index">
             
-                <a href="#to_char" >TO_CHAR</a><br />
-            
                 <a href="#to_date" >TO_DATE</a><br />
-                    </td><td class="index">
             
                 <a href="#current_date" >CURRENT_DATE</a><br />
+                    </td><td class="index">
             
                 <a href="#current_time" >CURRENT_TIME</a><br />
                     </td>
@@ -250,6 +283,24 @@ syntax-end -->
 <p>Returns the value of the first argument if not null and the second argument otherwise. Useful to guarantee that a column in an <code>UPSERT SELECT</code> command will evaluate to a non null value.</p>
 <p>Example:</p>
 <p class="notranslate">COALESCE(last_update_date, CURRENT_DATE())</p>
+
+<h3 id="to_number" class="notranslate">TO_NUMBER</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+TO_NUMBER( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_NUMBER ( <a href="index.html#term">stringTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+TO_NUMBER( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+syntax-end -->
+<p>Formats a string as a number, optionally accepting a format string. For details on the format, see <code>java.text.DecimalFormat</code>. This method returns a decimal number.</p>
+<p>Example:</p>
+<p class="notranslate">TO_NUMBER(&#39;&#36;123.33&#39;, &#39;\u00A4###.##&#39;)</p>
 
 <h3 id="substr" class="notranslate">SUBSTR</h3>
 <!-- railroad-start -->
@@ -377,6 +428,78 @@ syntax-end -->
 <p>Example:</p>
 <p class="notranslate">REGEXP_REPLACE(&#39;abc123ABC&#39;, &#39;[0-9]+&#39;, &#39;#&#39;) evaluates to &#39;abc#ABC&#39;</p>
 
+<h3 id="upper" class="notranslate">UPPER</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+UPPER( <a href="index.html#term">stringTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPPER ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+UPPER( <a href="index.html#term">stringTerm</a> )
+</pre>
+syntax-end -->
+<p>Returns upper case string of the string argument.</p>
+<p>Example:</p>
+<p class="notranslate">UPPER(&#39;Hello&#39;)</p>
+
+<h3 id="lower" class="notranslate">LOWER</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+LOWER( <a href="index.html#term">stringTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LOWER ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+LOWER( <a href="index.html#term">stringTerm</a> )
+</pre>
+syntax-end -->
+<p>Returns lower case string of the string argument.</p>
+<p>Example:</p>
+<p class="notranslate">LOWER(&#39;HELLO&#39;)</p>
+
+<h3 id="reverse" class="notranslate">REVERSE</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+REVERSE( <a href="index.html#term">stringTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REVERSE ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+REVERSE( <a href="index.html#term">stringTerm</a> )
+</pre>
+syntax-end -->
+<p>Returns reversed string of the string argument.</p>
+<p>Example:</p>
+<p class="notranslate">REVERSE(&#39;Hello&#39;)</p>
+
+<h3 id="to_char" class="notranslate">TO_CHAR</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+TO_CHAR( <a href="index.html#term">timestampTerm</a> | <a href="index.html#term">numberTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_CHAR ( <a href="index.html#term">timestampTerm</a></code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#term">numberTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+TO_CHAR( <a href="index.html#term">timestampTerm</a> | <a href="index.html#term">numberTerm</a> [, <a href="index.html#string">formatString</a>] )
+</pre>
+syntax-end -->
+<p>Formats a date, time, timestamp, or number as a string. The default date format is <code>yyyy-MM-dd HH:mm:ss</code> and the default number format is <code>#,##0.###</code>. For details, see <code>java.text.SimpleDateFormat</code> for date/time values and <code>java.text.DecimalFormat</code> for numbers. This method returns a string.</p>
+<p>Example:</p>
+<p class="notranslate">TO_CHAR(myDate, &#39;2001-02-03 04:05:06&#39;)<br />TO_CHAR(myDecimal, &#39;#,##0.###&#39;)</p>
+
 <h3 id="round" class="notranslate">ROUND</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
@@ -412,24 +535,6 @@ syntax-end -->
 <p>Truncates the timestamp to the next time unit closer to 0. The multiplier is used to truncate to a multiple of a time unit (i.e. 10 minute) and defaults to 1 if not specified. This method returns a date.</p>
 <p>Example:</p>
 <p class="notranslate">TRUNCATE(timestamp, &#39;SECOND&#39;, 30)<br />TRUNCATE(date, &#39;DAY&#39;, 7)</p>
-
-<h3 id="to_char" class="notranslate">TO_CHAR</h3>
-<!-- railroad-start -->
-<pre name="bnf" style="display: none">
-TO_CHAR( <a href="index.html#term">timestampTerm</a> [, <a href="index.html#string">formatString</a>] )
-</pre>
-<div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_CHAR ( <a href="index.html#term">timestampTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
-</div>
-<!-- railroad-end -->
-<!-- syntax-start
-<pre>
-TO_CHAR( <a href="index.html#term">timestampTerm</a> [, <a href="index.html#string">formatString</a>] )
-</pre>
-syntax-end -->
-<p>Formats a date, time or timestamp as a string. The most important format characters are: y year, M month, d day, H hour, m minute, s second. The default format string is <code>yyyy-MM-dd HH:mm:ss</code>. For details of the format, see <code>java.text.SimpleDateFormat</code>. This method returns a string.</p>
-<p>Example:</p>
-<p class="notranslate">TO_CHAR(TIMESTAMP, &#39;2001-02-03 04:05:06&#39;)</p>
 
 <h3 id="to_date" class="notranslate">TO_DATE</h3>
 <!-- railroad-start -->

@@ -49,6 +49,8 @@ The top level commands, SQL syntax, built-in functions, and supported data types
     <a href="#char_type" >CHAR Type</a><br />
 
     <a href="#binary_type" >BINARY Type</a><br />
+
+    <a href="#varbinary_type" >VARBINARY Type</a><br />
 </p>
 syntax-end -->
 <!-- railroad-start -->
@@ -63,24 +65,26 @@ syntax-end -->
                 <a href="#bigint_type" >BIGINT Type</a><br />
             
                 <a href="#unsigned_long_type" >UNSIGNED_LONG Type</a><br />
-                    </td><td class="index">
             
                 <a href="#decimal_type" >DECIMAL Type</a><br />
+                    </td><td class="index">
             
                 <a href="#boolean_type" >BOOLEAN Type</a><br />
             
                 <a href="#time_type" >TIME Type</a><br />
             
                 <a href="#date_type" >DATE Type</a><br />
-                    </td><td class="index">
             
                 <a href="#timestamp_type" >TIMESTAMP Type</a><br />
             
                 <a href="#varchar_type" >VARCHAR Type</a><br />
+                    </td><td class="index">
             
                 <a href="#char_type" >CHAR Type</a><br />
             
                 <a href="#binary_type" >BINARY Type</a><br />
+            
+                <a href="#varbinary_type" >VARBINARY Type</a><br />
                     </td>
     </tr>
 </table>
@@ -288,20 +292,38 @@ syntax-end -->
 <h3 id="binary_type" class="notranslate">BINARY Type</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-BINARY
+BINARY ( <a href="index.html#int">precisionInt</a> )
 </pre>
 <div name="railroad">
-<code class="c">BINARY</code>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">BINARY ( <a href="index.html#int">precisionInt</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-BINARY
+BINARY ( <a href="index.html#int">precisionInt</a> )
 </pre>
 syntax-end -->
-<p>Raw byte array.</p><p>Mapped to <code>byte[]</code>.</p>
+<p>Raw fixed length byte array.</p><p>Mapped to <code>byte[]</code>.</p>
 <p>Example:</p>
 <p class="notranslate">BINARY</p>
+
+<h3 id="varbinary_type" class="notranslate">VARBINARY Type</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+VARBINARY
+</pre>
+<div name="railroad">
+<code class="c">VARBINARY</code>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+VARBINARY
+</pre>
+syntax-end -->
+<p>Raw variable length byte array.</p><p>Mapped to <code>byte[]</code>.</p>
+<p>Example:</p>
+<p class="notranslate">VARBINARY</p>
 
 <!-- [close] { -->
 </div>
