@@ -165,6 +165,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB = "phoenix.query.regionBoundaryCacheTTL";
     public static final String MAX_HASH_CACHE_TIME_TO_LIVE_MS = "phoenix.coprocessor.maxHashCacheTimeToLiveMs";
     public static final String MAX_INTRA_REGION_PARALLELIZATION_ATTRIB  = "phoenix.query.maxIntraRegionParallelization";
+    public static final String ROW_KEY_ORDER_SALTED_TABLE_ATTRIB  = "phoenix.query.rowKeyOrderSaltedTable";
 
     public static final String CALL_QUEUE_PRODUCER_ATTRIB_NAME = "CALL_QUEUE_PRODUCER";
     

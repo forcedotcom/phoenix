@@ -31,14 +31,17 @@ package com.salesforce.phoenix.execute;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.*;
 
 
 
@@ -74,15 +77,21 @@ public class ScanPlan extends BasicQueryPlan {
         // Set any scan attributes before creating the scanner, as it will be too late afterwards
         context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
         ResultIterator scanner;
+        TableRef tableRef = this.getTable();
+        PTable table = tableRef.getTable();
+        boolean isSalted = table.getBucketNum() != null;
         /* If no limit or topN, use parallel iterator so that we get results faster. Otherwise, if
          * limit is provided, run query serially.
          */
         if (limit == null || !orderBy.getOrderByExpressions().isEmpty()) {
-            ParallelIterators iterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY);
+            ParallelIterators iterators = new ParallelIterators(context, tableRef, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY);
             splits = iterators.getSplits();
             if (orderBy.getOrderByExpressions().isEmpty()) {
-                if (context.getResolver().getTables().get(0).getTable().getBucketNum() != null) {
-                    scanner = new MergeSortRowKeyResultIterator(iterators, 1);
+                if (isSalted && 
+                        services.getConfig().getBoolean(
+                                QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
+                                QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
+                    scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
                 } else {
                     scanner = new ConcatResultIterator(iterators);
                 }
@@ -97,8 +106,24 @@ public class ScanPlan extends BasicQueryPlan {
                 }
             }
         } else {
-            scanner = new TableResultIterator(context, table);
+            scanner = new TableResultIterator(context, tableRef);
             scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
+            // If the table is salted and you want the results in pk order, we have to do an explicit
+            // in-memory sort after the scan, since otherwise they'll be scrambled.
+            if (isSalted && 
+                    services.getConfig().getBoolean(
+                            QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
+                            QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
+                List<PColumn> pkColumns = table.getPKColumns();
+                // Create ORDER BY for PK columns
+                List<OrderByExpression> orderByExpressions = Lists.newArrayListWithExpectedSize(pkColumns.size());
+                for (PColumn pkColumn : pkColumns) {
+                    Expression expression = new ColumnRef(tableRef, pkColumn.getPosition()).newColumnExpression();
+                    orderByExpressions.add(new OrderByExpression(expression, false, pkColumn.getColumnModifier() == null));
+                }
+                // Add step for client side order by
+                scanner = new OrderedResultIterator(scanner, orderByExpressions, limit);
+            }
             splits = null;
         }
 

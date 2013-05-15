@@ -59,6 +59,8 @@ public class QueryServicesOptions {
     public static final int DEFAULT_MAX_STATS_AGE_MS = 24 * 60 * 60000; // 1 day
     public static final boolean DEFAULT_CALL_QUEUE_ROUND_ROBIN = true; 
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
+    public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = false; // Merge sort on client to ensure salted tables are row key ordered
+    
     /**
      * Use {@link #DEFAULT_MUTATE_BATCH_SIZE} instead
      * @deprecated
@@ -101,6 +103,7 @@ public class QueryServicesOptions {
             .setIfUnset(MUTATE_BATCH_SIZE_ATTRIB, config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE))
             .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
             .setIfUnset(MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, DEFAULT_MAX_INTRA_REGION_PARALLELIZATION)
+            .setIfUnset(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
@@ -228,6 +231,10 @@ public class QueryServicesOptions {
     
     public QueryServicesOptions setRegionBoundaryCacheTTLMs(int regionBoundaryCacheTTL) {
         return set(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, regionBoundaryCacheTTL);
+    }
+    
+    public QueryServicesOptions setRowKeyOrderSaltedTable(boolean rowKeyOrderSaltedTable) {
+        return set(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, rowKeyOrderSaltedTable);
     }
     
     private QueryServicesOptions set(String name, boolean value) {
