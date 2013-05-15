@@ -1,6 +1,6 @@
 <h1>Phoenix: A SQL skin over HBase<br /> 
 <em><sup><sup>'We put the SQL back in NoSQL'</sup></sup></em></h1>
-Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), and read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki).
+Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki), and download it [here](https://github.com/forcedotcom/phoenix/wiki/Download).
 ## Mission
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
 
@@ -67,7 +67,7 @@ In addition, you can use the bin/psql.sh to execute to load CSV data or execute 
 
 <h4>SQL Client</h4>
 
-If you'd rather use a client GUI to interact with Phoenix download and install [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
+If you'd rather use a client GUI to interact with Phoenix, download and install [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
 1. Remove prior phoenix-[version]-client.jar from the lib directory of SQuirrel
 2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel

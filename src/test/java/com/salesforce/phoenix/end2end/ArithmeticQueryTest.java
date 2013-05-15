@@ -60,7 +60,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueOne' LIMIT 1";
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueOne'";
             stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
@@ -78,7 +78,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueTwo' LIMIT 1";
+            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueTwo'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
