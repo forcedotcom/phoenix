@@ -119,7 +119,9 @@ public class WhereOptimizer {
                     cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
                     continue;
                 } else {
-                    for (int i=0; i<slot.getPKPosition(); i++) {
+                    
+                    int limit = table.getBucketNum() == null ? slot.getPKPosition() : slot.getPKPosition() - 1;
+                    for (int i=0; i<limit; i++) {
                         cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
                     }
                 }
