@@ -420,12 +420,43 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
     }
 
     @Test
-    // This test specifically test the case in which upsert select is touching
-    // the row key, i.e, create new rows instead of modifying existing rows. If it is
-    // run on the server side, there maybe problems when the new rows does not reside
-    // on the same region as the old ones. Veriy that we would not run into trouble
-    // in that particular case.
-    public void testUpsertSelectRowKeyMutation() throws Exception {
+    public void testUpsertSelectRunOnServer() throws Exception {
+        byte[][] splits = new byte[][] {PDataType.INTEGER.toBytes(1), PDataType.INTEGER.toBytes(2),
+                PDataType.INTEGER.toBytes(3), PDataType.INTEGER.toBytes(4)};
+        long ts = nextTimestamp();
+        createTestTable(getUrl(), "create table IntKeyTest (i integer not null primary key, j integer)" ,splits, ts-2);
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        String upsert = "UPSERT INTO IntKeyTest VALUES(1, 1)";
+        PreparedStatement upsertStmt = conn.prepareStatement(upsert);
+        int rowsInserted = upsertStmt.executeUpdate();
+        assertEquals(1, rowsInserted);
+        conn.commit();
+        conn.close();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.setAutoCommit(true); // Force to run on server side.
+        upsert = "UPSERT INTO IntKeyTest(i,j) select i, j+1 from IntKeyTest";
+        upsertStmt = conn.prepareStatement(upsert);
+        rowsInserted = upsertStmt.executeUpdate();
+        assertEquals(1, rowsInserted);
+        conn.commit();
+        conn.close();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        String select = "SELECT j FROM IntKeyTest";
+        ResultSet rs = conn.createStatement().executeQuery(select);
+        assertTrue(rs.next());
+        assertEquals(2,rs.getInt(1));
+        assertFalse(rs.next());
+        conn.close();
+    }
+
+    @Test
+    public void testUpsertSelectRowKeyMutationOnSplitedTable() throws Exception {
         byte[][] splits = new byte[][] {PDataType.INTEGER.toBytes(1), PDataType.INTEGER.toBytes(2),
                 PDataType.INTEGER.toBytes(3), PDataType.INTEGER.toBytes(4)};
         long ts = nextTimestamp();
@@ -444,6 +475,8 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        // Normally this would force a server side update. But since this changes the PK column, it would
+        // for to run on the client side.
         conn.setAutoCommit(true);
         upsert = "UPSERT INTO IntKeyTest(i) SELECT i+1 from IntKeyTest";
         upsertStmt = conn.prepareStatement(upsert);
