@@ -38,6 +38,7 @@ import java.util.Properties;
 import org.junit.Test;
 
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
@@ -383,8 +384,10 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testUpsertSelectLongToInt() throws Exception {
+        byte[][] splits = new byte[][] {PDataType.INTEGER.toBytes(1), PDataType.INTEGER.toBytes(2),
+                PDataType.INTEGER.toBytes(3), PDataType.INTEGER.toBytes(4)};
         long ts = nextTimestamp();
-        ensureTableCreated(getUrl(),"IntKeyTest",null, ts-2);
+        ensureTableCreated(getUrl(),"IntKeyTest",splits, ts-2);
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1));
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -414,15 +417,52 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         assertEquals(2,rs.getInt(1));
         assertFalse(rs.next());
         conn.close();
-        
     }
 
     @Test
     // This test specifically test the case in which upsert select is touching
     // the row key, i.e, create new rows instead of modifying existing rows. If it is
     // run on the server side, there maybe problems when the new rows does not reside
-    // on the same region as the old one.
+    // on the same region as the old ones. Veriy that we would not run into trouble
+    // in that particular case.
     public void testUpsertSelectRowKeyMutation() throws Exception {
+        byte[][] splits = new byte[][] {PDataType.INTEGER.toBytes(1), PDataType.INTEGER.toBytes(2),
+                PDataType.INTEGER.toBytes(3), PDataType.INTEGER.toBytes(4)};
+        long ts = nextTimestamp();
+        ensureTableCreated(getUrl(),"IntKeyTest",splits,ts-2);
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        String upsert = "UPSERT INTO IntKeyTest VALUES(?)";
+        PreparedStatement upsertStmt = conn.prepareStatement(upsert);
+        upsertStmt.setInt(1, 1);
+        upsertStmt.executeUpdate();
+        upsertStmt.setInt(1, 3);
+        upsertStmt.executeUpdate();
+        conn.commit();
+        conn.close();
         
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.setAutoCommit(true);
+        upsert = "UPSERT INTO IntKeyTest(i) SELECT i+1 from IntKeyTest";
+        upsertStmt = conn.prepareStatement(upsert);
+        int rowsInserted = upsertStmt.executeUpdate();
+        assertEquals(2, rowsInserted);
+        conn.commit();
+        conn.close();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        String select = "SELECT i FROM IntKeyTest";
+        ResultSet rs = conn.createStatement().executeQuery(select);
+        assertTrue(rs.next());
+        assertEquals(1,rs.getInt(1));
+        assertTrue(rs.next());
+        assertTrue(rs.next());
+        assertTrue(rs.next());
+        assertEquals(4,rs.getInt(1));
+        assertFalse(rs.next());
+        conn.close();
     }
 }
