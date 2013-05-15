@@ -43,14 +43,20 @@ import com.salesforce.phoenix.util.TupleUtil;
  * @since 0.1
  */
 public class MergeSortRowKeyResultIterator extends MergeSortResultIterator {
+    private final int keyOffset;
     
     public MergeSortRowKeyResultIterator(ResultIterators iterators) {
+        this(iterators, 0);
+    }
+   
+    public MergeSortRowKeyResultIterator(ResultIterators iterators, int keyOffset) {
         super(iterators);
+        this.keyOffset = keyOffset;
     }
    
     @Override
     protected int compare(Tuple t1, Tuple t2) {
-        return TupleUtil.compare(t1, t2, tempPtr);
+        return TupleUtil.compare(t1, t2, tempPtr, keyOffset);
     }
 
     @Override

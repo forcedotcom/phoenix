@@ -77,6 +77,7 @@ public class SaltingUtil {
         
     }).build();
 
+    public static final int NUM_SALTING_BYTES = 1;
     public static final Integer MAX_BUCKET_NUM = 256; // Unsigned byte.
     public static final String SALTING_COLUMN_NAME = "_SALT";
     public static final String SALTED_ROW_KEY_NAME = "_SALTED_KEY";

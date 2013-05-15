@@ -62,12 +62,16 @@ public class TupleUtil {
     }
     
     public static int compare(Tuple t1, Tuple t2, ImmutableBytesWritable ptr) {
+        return compare(t1, t2, ptr, 0);
+    }
+    
+    public static int compare(Tuple t1, Tuple t2, ImmutableBytesWritable ptr, int keyOffset) {
         t1.getKey(ptr);
         byte[] buf = ptr.get();
-        int offset = ptr.getOffset();
-        int length = ptr.getLength();
+        int offset = ptr.getOffset() + keyOffset;
+        int length = ptr.getLength() - keyOffset;
         t2.getKey(ptr);
-        return Bytes.compareTo(buf, offset, length, ptr.get(), ptr.getOffset(), ptr.getLength());
+        return Bytes.compareTo(buf, offset, length, ptr.get(), ptr.getOffset() + keyOffset, ptr.getLength() - keyOffset);
     }
     
     /**
