@@ -52,8 +52,7 @@ import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 public class UpsertCompiler {
     private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
@@ -158,11 +157,15 @@ public class UpsertCompiler {
             // Pass scan through if same table in upsert and select so that projection is computed correctly
             QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns);
             plan = compiler.compile(select, binds);
+            // Remove projection of empty column, since it can lead to problems when building another projection
+            // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
+            // prevent having to do this.
+            ScanUtil.removeEmptyColumnFamily(context.getScan(), table);
             projector = plan.getProjector();
             nValuesToSet = projector.getColumnCount();
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
-            runOnServer = !plan.isAggregate() && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() != null;
+            runOnServer = !plan.isAggregate() && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() == null;
         } else {
             nValuesToSet = valueNodes.size();
         }

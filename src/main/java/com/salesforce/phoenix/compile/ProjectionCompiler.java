@@ -204,14 +204,9 @@ public class ProjectionCompiler {
                 }
             } else {
                 for (byte[] cq : entry.getValue()) {
-                    // This check is needed for UPSERT SELECT where we the same Scan is used
-                    // to form the QueryPlan for SELECT and then the AggregatePlan that will
-                    // run on the server side when auto commit is true.
-                    if (!QueryConstants.EMPTY_COLUMN_BYTES.equals(cq)) {
-                        PColumn column = family.getColumn(cq);
-                        Integer byteSize = column.getByteSize();
-                        estimatedRowSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
-                    }
+                    PColumn column = family.getColumn(cq);
+                    Integer byteSize = column.getByteSize();
+                    estimatedRowSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
                 }
             }
         }
