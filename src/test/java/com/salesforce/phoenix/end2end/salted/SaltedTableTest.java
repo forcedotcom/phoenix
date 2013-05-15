@@ -143,6 +143,17 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
     }
 
     @Test
+    public void testTableWithSplit() throws Exception {
+        try {
+            createTestTable(getUrl(), "create table salted_table (a_integer integer not null primary key) SALT_BUCKETS = 4",
+                    new byte[][] {{1}, {2,3}, {2,5}, {3}}, nextTimestamp());
+            fail("Should have caught exception");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1022 (42Y81): Should not specify split points on salted table with default row key order."));
+        }
+    }
+    
+    @Test
     public void testSelectValueNoWhereClause() throws Exception {
         long ts = nextTimestamp();
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
