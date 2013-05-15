@@ -361,8 +361,27 @@ public class SchemaUtil {
     }
 
     // Given the splits and the rowKeySchema, find out the keys that 
-    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum) {
+    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum, boolean defaultRowKeyOrder) throws SQLException {
         if (splits == null) return null;
+        // If split points are specified and the table is salted, and DEFAULT_ROW_KEY_ORDER_SALTED_TABLE is
+        // specified, check if the split points span more than one salt bucket boundary. 
+        if (splits != null && splits.length > 0 && saltBucketNum != null && defaultRowKeyOrder) {
+            // Walk through the split points, check if all the salt bytes appear in the split point. If one
+            // of the salt byte is missing, we know one bucket contains more than one salt byte.
+            boolean[] flags = new boolean[saltBucketNum];
+            for (byte[] split: splits) {
+                flags[split[0]] = true;
+            }
+            boolean hasMissing = false;
+            for (int i = 1; i < flags.length; i++) {
+                hasMissing |= !flags[i];
+                if (hasMissing) break;
+            }
+            if (hasMissing) {
+                throw new SQLException("Bad split key.");
+            }
+        }
+        // If the splits are not specified and table is salted, pre-split the table. 
         if (splits.length == 0 && saltBucketNum != null) {
             splits = SaltingUtil.getSalteByteSplitPoints(saltBucketNum);
         }
