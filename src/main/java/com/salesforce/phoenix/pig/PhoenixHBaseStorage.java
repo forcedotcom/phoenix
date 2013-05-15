@@ -117,7 +117,7 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		populateValidOptions();
 		this.server = server;
 
-		String[] optsArr = optString.split(" ");
+		String[] optsArr = optString == null ? new String[0] : optString.split(" ");
 		try {
 			configuredOptions = parser.parse(validOptions, optsArr);
 		} catch (ParseException e) {
