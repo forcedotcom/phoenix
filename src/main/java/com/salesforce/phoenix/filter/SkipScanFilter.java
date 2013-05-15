@@ -243,6 +243,9 @@ public class SkipScanFilter extends FilterBase {
         return i;
     }
     
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="QBA_QUESTIONABLE_BOOLEAN_ASSIGNMENT", 
+            justification="Assignment designed to work this way.")
     private ReturnCode navigate(final byte[] currentKey, int offset, int length, Terminate terminate) {
         int nSlots = slots.size();
         // First check to see if we're in-range until we reach our end key

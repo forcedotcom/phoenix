@@ -272,6 +272,9 @@ public abstract class ValueSchema implements Writable {
     // TODO: wrap these first, next calls into our own Iterator implementation
     // that supports a reset method, so we don't need to instantiate a new one
     // on each iteration.
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
     public Boolean first(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
         if (ptr.getLength() == 0) {
             return null;
@@ -291,6 +294,9 @@ public abstract class ValueSchema implements Writable {
      * @param bitSet bit set representing whether or not a value is null
      * @return true if there is a field after position and false otherwise.
      */
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
     public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
         if (maxOffset == 0) {
             return null;

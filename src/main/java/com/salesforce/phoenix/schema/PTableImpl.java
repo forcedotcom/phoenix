@@ -478,7 +478,7 @@ public class PTableImpl implements PTable {
         }
         PTableStats stats = new PTableStatsImpl(guidePosts);
         init(tableName, tableType, timeStamp, sequenceNumber, pkName,
-                bucketNum == NO_SALTING ? null : bucketNum, columns, stats);
+                bucketNum.equals(NO_SALTING) ? null : bucketNum, columns, stats);
     }
 
     @Override
