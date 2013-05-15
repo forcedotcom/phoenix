@@ -145,7 +145,7 @@ public class SaltingUtil {
         byte saltByte;
         byte[] key = new byte[estimatedKeyLength];
         do {
-            length = ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 1, ranges.size(), 1);
+            length = ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
             saltByte = SaltingUtil.getSaltingByte(key, 1, length, bucketNum);
             key[0] = saltByte;
             byte[] saltedKey = Arrays.copyOf(key, length + 1);

@@ -82,7 +82,7 @@ public abstract class BaseTest {
                 "    b_string varchar, \n" +
                 "    b_integer integer \n" +
                 "    CONSTRAINT pk PRIMARY KEY (a_integer, a_string, a_id))\n" +
-                "   SALT_BUCKETS = 4");
+                "    SALT_BUCKETS = 4");
         builder.put(STABLE_NAME,"create table " + STABLE_NAME +
                 "   (id char(1) not null primary key,\n" +
                 "    value integer)");
