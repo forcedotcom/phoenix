@@ -248,7 +248,7 @@ public class PTableImpl implements PTable {
             byte[] buf = os.getBuffer();
             int size = os.size();
             if (bucketNum != null) {
-                buf[0] = SaltingUtil.getSaltingByte(buf, 1, size, bucketNum);
+                buf[0] = SaltingUtil.getSaltingByte(buf, 1, size-1, bucketNum);
             }
             key.set(buf,0,size);
             return i;

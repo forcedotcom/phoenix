@@ -41,6 +41,8 @@ import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -361,8 +363,14 @@ public class SchemaUtil {
     }
 
     // Given the splits and the rowKeySchema, find out the keys that 
-    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum) {
+    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum, boolean defaultRowKeyOrder) throws SQLException {
         if (splits == null) return null;
+        // We do not accept user specified splits if the table is salted and we specify defaultRowKeyOrder. In this case,
+        // throw an exception.
+        if (splits.length > 0 && saltBucketNum != null && defaultRowKeyOrder) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NO_SPLITS_ON_SALTED_TABLE).build().buildException();
+        }
+        // If the splits are not specified and table is salted, pre-split the table. 
         if (splits.length == 0 && saltBucketNum != null) {
             splits = SaltingUtil.getSalteByteSplitPoints(saltBucketNum);
         }
