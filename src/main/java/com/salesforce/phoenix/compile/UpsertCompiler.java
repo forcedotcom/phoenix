@@ -157,10 +157,6 @@ public class UpsertCompiler {
             // Pass scan through if same table in upsert and select so that projection is computed correctly
             QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns);
             plan = compiler.compile(select, binds);
-            // Remove projection of empty column, since it can lead to problems when building another projection
-            // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
-            // prevent having to do this.
-            ScanUtil.removeEmptyColumnFamily(context.getScan(), table);
             projector = plan.getProjector();
             nValuesToSet = projector.getColumnCount();
             // Cannot auto commit if doing aggregation or topN or salted
@@ -269,6 +265,10 @@ public class UpsertCompiler {
                     // Build table from projectedColumns
                     PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                     
+                    // Remove projection of empty column, since it can lead to problems when building another projection
+                    // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
+                    // prevent having to do this.
+                    ScanUtil.removeEmptyColumnFamily(context.getScan(), table);
                     List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                             NODE_FACTORY.aliasedNode(null, 
                                     NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
