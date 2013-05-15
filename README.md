@@ -109,7 +109,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     <dependency>
         <groupId>com.salesforce</groupId>
         <artifactId>phoenix</artifactId>
-        <version>1.2</version>
+        <version>1.2.0</version>
     </dependency>
     ...
   </dependencies>
