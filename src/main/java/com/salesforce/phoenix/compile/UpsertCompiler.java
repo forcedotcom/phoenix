@@ -149,7 +149,7 @@ public class UpsertCompiler {
         QueryPlan plan = null;
         RowProjector projector = null;
         int nValuesToSet;
-        boolean mayAutoCommit = false;
+        boolean runOnServer = false;
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
@@ -160,8 +160,9 @@ public class UpsertCompiler {
             plan = compiler.compile(select, binds);
             projector = plan.getProjector();
             nValuesToSet = projector.getColumnCount();
-            // Cannot auto commit if doing aggregation or topN
-            mayAutoCommit = !plan.isAggregate() && sameTable && select.getOrderBy().isEmpty();
+            // Cannot auto commit if doing aggregation or topN or salted
+            // Salted causes problems because the row may end up living on a different region
+            runOnServer = !plan.isAggregate() && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() != null;
         } else {
             nValuesToSet = valueNodes.size();
         }
@@ -180,7 +181,12 @@ public class UpsertCompiler {
         
         final int[] columnIndexes = columnIndexesToBe;
         final int[] pkSlotIndexes = pkSlotIndexesToBe;
-        if (valueNodes == null) { // UPSERT SELECT
+        
+        // TODO: break this up into multiple functions
+        ////////////////////////////////////////////////////////////////////
+        // UPSERT SELECT
+        /////////////////////////////////////////////////////////////////////
+        if (valueNodes == null) {
             /* We can run the upsert in a coprocessor if:
              * 1) the into table matches from table
              * 2) the select query isn't doing aggregation
@@ -190,8 +196,13 @@ public class UpsertCompiler {
              * and populate the MutationState (upto a limit).
             */
             final boolean isAutoCommit = connection.getAutoCommit();
-            if (isAutoCommit && mayAutoCommit) { // UPSERT SELECT run server-side
-                // At most this array will grow bigger my the number of PK columns
+            runOnServer |= isAutoCommit;
+            
+            ////////////////////////////////////////////////////////////////////
+            // UPSERT SELECT run server-side (maybe)
+            /////////////////////////////////////////////////////////////////////
+            if (runOnServer) {
+                // At most this array will grow bigger by the number of PK columns
                 int[] allColumnsIndexes = Arrays.copyOf(columnIndexes, columnIndexes.length + nValuesToSet);
                 int[] reverseColumnIndexes = new int[table.getColumns().size()];
                 List<Expression> projectedExpressions = Lists.newArrayListWithExpectedSize(reverseColumnIndexes.length);
@@ -229,157 +240,182 @@ public class UpsertCompiler {
                     reverseColumnIndexes[tempPos] = reverseColumnIndexes[i];
                     reverseColumnIndexes[i] = i;
                 }
-                // Iterate through columns being projected
-                List<PColumn> projectedColumns = Lists.newArrayListWithExpectedSize(projectedExpressions.size());
-                for (int i = 0; i < projectedExpressions.size(); i++) {
-                    // Must make new column if position has changed
-                    PColumn column = allColumns.get(allColumnsIndexes[i]);
-                    projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
+                // If any pk slots are changing, be conservative and don't run this server side.
+                // If the row ends up living in a different region, we'll get an error otherwise.
+                for (int i = 0; i < table.getPKColumns().size(); i++) {
+                    PColumn column = table.getPKColumns().get(i);
+                    Expression source = projectedExpressions.get(i);
+                    if (source == null || !source.equals(new ColumnRef(tableRef, column.getPosition()).newColumnExpression())) {
+                        // TODO: we could check the region boundaries to see if the pk will still be in it.
+                        runOnServer = false; // bail on running server side, since PK may be changing
+                        break;
+                    }
                 }
-                // Build table from projectedColumns
-                PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                 
-                List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                        NODE_FACTORY.aliasedNode(null, 
-                                NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-                // Ignore order by - it has no impact
-                final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-                /*
-                 * Transfer over PTable representing subset of columns selected, but all PK columns.
-                 * Move columns setting PK first in pkSlot order, adding LiteralExpression of null for any missing ones.
-                 * Transfer over List<Expression> for projection.
-                 * In region scan, evaluate expressions in order, collecting first n columns for PK and collection non PK in mutation Map
-                 * Create the PRow and get the mutations, adding them to the batch
-                 */
-                scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
-                scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
-                final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
-                return new MutationPlan() {
-
-                    @Override
-                    public PhoenixConnection getConnection() {
-                        return connection;
+                ////////////////////////////////////////////////////////////////////
+                // UPSERT SELECT run server-side
+                /////////////////////////////////////////////////////////////////////
+                if (runOnServer) {
+                    // Iterate through columns being projected
+                    List<PColumn> projectedColumns = Lists.newArrayListWithExpectedSize(projectedExpressions.size());
+                    for (int i = 0; i < projectedExpressions.size(); i++) {
+                        // Must make new column if position has changed
+                        PColumn column = allColumns.get(allColumnsIndexes[i]);
+                        projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
                     }
-
-                    @Override
-                    public ParameterMetaData getParameterMetaData() {
-                        return context.getBindManager().getParameterMetaData();
-                    }
-
-                    @Override
-                    public MutationState execute() throws SQLException {
-                        Scanner scanner = aggPlan.getScanner();
-                        ResultIterator iterator = scanner.iterator();
-                        try {
-                            Tuple row = iterator.next();
-                            ImmutableBytesWritable ptr = context.getTempPtr();
-                            final long mutationCount = (Long)aggProjector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
-                            return new MutationState(maxSize, connection) {
-                                @Override
-                                public long getUpdateCount() {
-                                    return mutationCount;
-                                }
-                            };
-                        } finally {
-                            iterator.close();
-                        }
-                    }
-
-                    @Override
-                    public ExplainPlan getExplainPlan() throws SQLException {
-                        List<String> queryPlanSteps =  aggPlan.getExplainPlan().getPlanSteps();
-                        List<String> planSteps = Lists.newArrayListWithExpectedSize(queryPlanSteps.size()+1);
-                        planSteps.add("UPSERT ROWS");
-                        planSteps.addAll(queryPlanSteps);
-                        return new ExplainPlan(planSteps);
-                    }
-                };
-            } else { // UPSERT SELECT run client-side
-                final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
-                return new MutationPlan() {
-
-                    @Override
-                    public PhoenixConnection getConnection() {
-                        return connection;
-                    }
+                    // Build table from projectedColumns
+                    PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                     
-                    @Override
-                    public ParameterMetaData getParameterMetaData() {
-                        return context.getBindManager().getParameterMetaData();
-                    }
-
-                    @Override
-                    public MutationState execute() throws SQLException {
-                        byte[][] values = new byte[columnIndexes.length][];
-                        Scanner scanner = queryPlan.getScanner();
-                        int estSize = scanner.getEstimatedSize();
-                        int rowCount = 0;
-                        Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(estSize);
-                        ResultSet rs = new PhoenixResultSet(scanner, statement);
-                        PTable table = tableRef.getTable();
-                        PColumn column;
-                        while (rs.next()) {
-                            for (int i = 0; i < values.length; i++) {
-                                column = table.getColumns().get(columnIndexes[i]);
-                                // We are guaranteed that the two column will have the same type.
-                                if (!column.getDataType().isSizeCompatible(column.getDataType(),
-                                        null, rs.getBytes(i+1),
-                                        null, column.getMaxLength(), 
-                                        null, column.getScale())) {
-                                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
-                                        .setColumnName(column.getName().getString()).build().buildException();
-                                }
-                                values[i] = column.getDataType().coerceBytes(rs.getBytes(i+1), null, column.getDataType(),
-                                        null, null, column.getMaxLength(), column.getScale());
-                            }
-                            setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
-                            rowCount++;
-                            // Commit a batch if auto commit is true and we're at our batch size
-                            if (isAutoCommit && rowCount % batchSize == 0) {
-                                MutationState state = new MutationState(tableRef, mutation, 0, maxSize, connection);
-                                connection.getMutationState().join(state);
-                                connection.commit();
-                                mutation.clear();
+                    List<AliasedNode> select = Collections.<AliasedNode>singletonList(
+                            NODE_FACTORY.aliasedNode(null, 
+                                    NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
+                    // Ignore order by - it has no impact
+                    final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+                    /*
+                     * Transfer over PTable representing subset of columns selected, but all PK columns.
+                     * Move columns setting PK first in pkSlot order, adding LiteralExpression of null for any missing ones.
+                     * Transfer over List<Expression> for projection.
+                     * In region scan, evaluate expressions in order, collecting first n columns for PK and collection non PK in mutation Map
+                     * Create the PRow and get the mutations, adding them to the batch
+                     */
+                    scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
+                    scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
+                    final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
+                    return new MutationPlan() {
+    
+                        @Override
+                        public PhoenixConnection getConnection() {
+                            return connection;
+                        }
+    
+                        @Override
+                        public ParameterMetaData getParameterMetaData() {
+                            return context.getBindManager().getParameterMetaData();
+                        }
+    
+                        @Override
+                        public MutationState execute() throws SQLException {
+                            Scanner scanner = aggPlan.getScanner();
+                            ResultIterator iterator = scanner.iterator();
+                            try {
+                                Tuple row = iterator.next();
+                                ImmutableBytesWritable ptr = context.getTempPtr();
+                                final long mutationCount = (Long)aggProjector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
+                                return new MutationState(maxSize, connection) {
+                                    @Override
+                                    public long getUpdateCount() {
+                                        return mutationCount;
+                                    }
+                                };
+                            } finally {
+                                iterator.close();
                             }
                         }
-                        // If auto commit is true, this last batch will be committed upon return
-                        return new MutationState(tableRef, mutation, rowCount / batchSize * batchSize, maxSize, connection);
-                    }
-
-                    @Override
-                    public ExplainPlan getExplainPlan() throws SQLException {
-                        List<String> queryPlanSteps =  queryPlan.getExplainPlan().getPlanSteps();
-                        List<String> planSteps = Lists.newArrayListWithExpectedSize(queryPlanSteps.size()+1);
-                        planSteps.add("UPSERT SELECT");
-                        planSteps.addAll(queryPlanSteps);
-                        return new ExplainPlan(planSteps);
-                    }
-                    
-                };
-            } 
-        } else { // UPSERT VALUES
-            int nodeIndex = 0;
-            // Allocate array based on size of all columns in table,
-            // since some values may not be set (if they're nullable).
-            UpsertValuesCompiler expressionBuilder = new UpsertValuesCompiler(context);
-            final byte[][] values = new byte[nValuesToSet][];
-            for (ParseNode valueNode : valueNodes) {
-                if (!valueNode.isConstant()) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
+    
+                        @Override
+                        public ExplainPlan getExplainPlan() throws SQLException {
+                            List<String> queryPlanSteps =  aggPlan.getExplainPlan().getPlanSteps();
+                            List<String> planSteps = Lists.newArrayListWithExpectedSize(queryPlanSteps.size()+1);
+                            planSteps.add("UPSERT ROWS");
+                            planSteps.addAll(queryPlanSteps);
+                            return new ExplainPlan(planSteps);
+                        }
+                    };
                 }
-                PColumn column = allColumns.get(columnIndexes[nodeIndex]);
-                expressionBuilder.setColumn(column);
-                LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
-                if (literalExpression.getDataType() != null) {
-                    if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) {
-                        throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
+            }
+
+            ////////////////////////////////////////////////////////////////////
+            // UPSERT SELECT run client-side
+            /////////////////////////////////////////////////////////////////////
+            final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
+            return new MutationPlan() {
+
+                @Override
+                public PhoenixConnection getConnection() {
+                    return connection;
+                }
+                
+                @Override
+                public ParameterMetaData getParameterMetaData() {
+                    return context.getBindManager().getParameterMetaData();
+                }
+
+                @Override
+                public MutationState execute() throws SQLException {
+                    byte[][] values = new byte[columnIndexes.length][];
+                    Scanner scanner = queryPlan.getScanner();
+                    int estSize = scanner.getEstimatedSize();
+                    int rowCount = 0;
+                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(estSize);
+                    ResultSet rs = new PhoenixResultSet(scanner, statement);
+                    PTable table = tableRef.getTable();
+                    PColumn column;
+                    while (rs.next()) {
+                        for (int i = 0; i < values.length; i++) {
+                            column = table.getColumns().get(columnIndexes[i]);
+                            // We are guaranteed that the two column will have the same type.
+                            if (!column.getDataType().isSizeCompatible(column.getDataType(),
+                                    null, rs.getBytes(i+1),
+                                    null, column.getMaxLength(), 
+                                    null, column.getScale())) {
+                                throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
+                                    .setColumnName(column.getName().getString()).build().buildException();
+                            }
+                            values[i] = column.getDataType().coerceBytes(rs.getBytes(i+1), null, column.getDataType(),
+                                    null, null, column.getMaxLength(), column.getScale());
+                        }
+                        setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
+                        rowCount++;
+                        // Commit a batch if auto commit is true and we're at our batch size
+                        if (isAutoCommit && rowCount % batchSize == 0) {
+                            MutationState state = new MutationState(tableRef, mutation, 0, maxSize, connection);
+                            connection.getMutationState().join(state);
+                            connection.commit();
+                            mutation.clear();
+                        }
                     }
-                    if (!column.getDataType().isSizeCompatible(literalExpression.getDataType(),
-                            literalExpression.getValue(), literalExpression.getBytes(),
-                            literalExpression.getMaxLength(), column.getMaxLength(), 
-                            literalExpression.getScale(), column.getScale())) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
-                            .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
+                    // If auto commit is true, this last batch will be committed upon return
+                    return new MutationState(tableRef, mutation, rowCount / batchSize * batchSize, maxSize, connection);
+                }
+
+                @Override
+                public ExplainPlan getExplainPlan() throws SQLException {
+                    List<String> queryPlanSteps =  queryPlan.getExplainPlan().getPlanSteps();
+                    List<String> planSteps = Lists.newArrayListWithExpectedSize(queryPlanSteps.size()+1);
+                    planSteps.add("UPSERT SELECT");
+                    planSteps.addAll(queryPlanSteps);
+                    return new ExplainPlan(planSteps);
+                }
+                
+            };
+        }
+
+            
+        ////////////////////////////////////////////////////////////////////
+        // UPSERT VALUES
+        /////////////////////////////////////////////////////////////////////
+        int nodeIndex = 0;
+        // Allocate array based on size of all columns in table,
+        // since some values may not be set (if they're nullable).
+        UpsertValuesCompiler expressionBuilder = new UpsertValuesCompiler(context);
+        final byte[][] values = new byte[nValuesToSet][];
+        for (ParseNode valueNode : valueNodes) {
+            if (!valueNode.isConstant()) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
+            }
+            PColumn column = allColumns.get(columnIndexes[nodeIndex]);
+            expressionBuilder.setColumn(column);
+            LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
+            if (literalExpression.getDataType() != null) {
+                if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) {
+                    throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
+                }
+                if (!column.getDataType().isSizeCompatible(literalExpression.getDataType(),
+                        literalExpression.getValue(), literalExpression.getBytes(),
+                        literalExpression.getMaxLength(), column.getMaxLength(), 
+                        literalExpression.getScale(), column.getScale())) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
+                        .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
                     }
                 }
                 byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType(),
@@ -409,10 +445,9 @@ public class UpsertCompiler {
                 @Override
                 public ExplainPlan getExplainPlan() throws SQLException {
                     return new ExplainPlan(Collections.singletonList("PUT SINGLE ROW"));
-                }
-                
-            };
-        }
+            }
+            
+        };
     }
     
     private static final class ColumnUpsertCompiler extends ExpressionCompiler {

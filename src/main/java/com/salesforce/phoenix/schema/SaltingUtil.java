@@ -128,27 +128,27 @@ public class SaltingUtil {
         return result;
     }
 
-    public static List<List<KeyRange>> expandScanRangesToSaltedKeyRange(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
+    public static List<List<KeyRange>> flattenRanges(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
         if (ranges == null || ranges.isEmpty()) {
             return ScanRanges.NOTHING.getRanges();
         }
         int count = 1;
-        for (List<KeyRange> orRanges: ranges) {
-            count *= orRanges.size();
+        // Skip salt byte range in the first position
+        for (int i = 1; i < ranges.size(); i++) {
+            count *= ranges.get(i).size();
         }
         KeyRange[] expandedRanges = new KeyRange[count];
         int[] position = new int[ranges.size()];
         int estimatedKeyLength = ScanUtil.estimateMaximumKeyLength(schema, 1, ranges);
         int idx = 0, length;
         byte saltByte;
-        byte[] key = new byte[estimatedKeyLength + 1];
+        byte[] key = new byte[estimatedKeyLength];
         do {
-            length = ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 0, ranges.size(), 1);
+            length = ScanUtil.setKey(schema, ranges, position, Bound.LOWER, key, 1, 1, ranges.size(), 1);
             saltByte = SaltingUtil.getSaltingByte(key, 1, length, bucketNum);
             key[0] = saltByte;
-            KeyRange range = KeyRange.getKeyRange(
-                    Arrays.copyOf(key, length + 1), true,
-                    Arrays.copyOf(key, length + 1), true);
+            byte[] saltedKey = Arrays.copyOf(key, length + 1);
+            KeyRange range = PDataType.VARBINARY.getKeyRange(saltedKey, true, saltedKey, true);
             expandedRanges[idx++] = range;
         } while (incrementKey(ranges, position));
         // The comparator is imperfect, but sufficient for all single keys.

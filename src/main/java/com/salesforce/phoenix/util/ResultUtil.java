@@ -55,7 +55,8 @@ public class ResultUtil {
     }
     
     public static void getKey(Result r, ImmutableBytesWritable key) {
-        key.set(getRawBytes(r), getKeyOffset(r), getKeyLength(r));
+        key.set(r.getRow());
+        //key.set(getRawBytes(r), getKeyOffset(r), getKeyLength(r));
     }
     
     public static void getKey(KeyValue value, ImmutableBytesWritable key) {

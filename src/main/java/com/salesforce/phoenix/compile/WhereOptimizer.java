@@ -39,6 +39,7 @@ import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.*;
 
@@ -52,7 +53,7 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class WhereOptimizer {
-
+    private static final List<KeyRange> SALT_PLACEHOLDER = Collections.singletonList(PDataType.CHAR.getKeyRange(QueryConstants.SEPARATOR_BYTE_ARRAY));
     private WhereOptimizer() {
     }
 
@@ -144,22 +145,21 @@ public class WhereOptimizer {
                 break;
             }
         }
-        ScanRanges range;
+        RowKeySchema schema = table.getRowKeySchema();
+        List<List<KeyRange>> ranges = cnf;
         if (table.getBucketNum() != null) {
-            if (ScanUtil.isAllSingleRowScan(cnf, table.getRowKeySchema(), false)) {
-                List<List<KeyRange>> expandedRanges = SaltingUtil.expandScanRangesToSaltedKeyRange(
-                        cnf, table.getRowKeySchema(), table.getBucketNum());
-                range = ScanRanges.create(expandedRanges, SaltingUtil.BINARY_SCHEMA);
-            } else {
-                if (!cnf.isEmpty()) {
+            if (!cnf.isEmpty()) {
+                // If we have all single keys, we can optimize by adding the salt byte up front
+                if (ScanUtil.isAllSingleRowScan(cnf, table.getRowKeySchema())) {
+                    cnf.addFirst(SALT_PLACEHOLDER);
+                    ranges = SaltingUtil.flattenRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
+                    schema = SaltingUtil.BINARY_SCHEMA;
+                } else {
                     cnf.addFirst(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
                 }
-                range = ScanRanges.create(cnf, table.getRowKeySchema());
             }
-        } else {
-            range = ScanRanges.create(cnf, table.getRowKeySchema());
         }
-        context.setScanRanges(range);
+        context.setScanRanges(ScanRanges.create(ranges, schema));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
     }
 

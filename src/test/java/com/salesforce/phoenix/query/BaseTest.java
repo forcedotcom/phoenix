@@ -234,15 +234,15 @@ public abstract class BaseTest {
     protected static PhoenixTestDriver driver;
     private static int driverRefCount = 0;
 
-    protected static synchronized void initDriver(QueryServices services, String url) throws Exception {
+    protected static synchronized PhoenixTestDriver initDriver(QueryServices services) throws Exception {
         if (driver == null) {
             if (driverRefCount == 0) {
-                BaseTest.driver = new PhoenixTestDriver(services, url, TEST_PROPERTIES);
+                BaseTest.driver = new PhoenixTestDriver(services);
                 DriverManager.registerDriver(driver);
-                assertTrue(DriverManager.getDriver(url) == driver);
                 driverRefCount++;
             }
         }
+        return BaseTest.driver;
     }
 
     // We need to deregister an already existing driver in order
@@ -271,7 +271,9 @@ public abstract class BaseTest {
     }
 
     protected static void startServer(String url) throws Exception {
-        initDriver(new QueryServicesTestImpl(), url);
+        PhoenixTestDriver driver = initDriver(new QueryServicesTestImpl());
+        assertTrue(DriverManager.getDriver(url) == driver);
+        driver.connect(url, TEST_PROPERTIES);
     }
 
     protected static void stopServer() throws Exception {

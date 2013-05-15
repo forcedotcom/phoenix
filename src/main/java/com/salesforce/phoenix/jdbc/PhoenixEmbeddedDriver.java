@@ -78,7 +78,7 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
     }
      
     protected static ConnectionInfo getConnectionInfo(String url) throws SQLException {
-        StringTokenizer tokenizer = new StringTokenizer(url.substring(PhoenixRuntime.JDBC_PROTOCOL.length()),DELIMITERS, true);
+        StringTokenizer tokenizer = new StringTokenizer(url == null ? "" : url.substring(PhoenixRuntime.JDBC_PROTOCOL.length()),DELIMITERS, true);
         int i = 0;
         boolean isMalformedUrl = false;
         String[] tokens = new String[3];

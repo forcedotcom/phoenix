@@ -193,6 +193,12 @@ public class PTableImpl implements PTable {
         int i = 0;
         TrustedByteArrayOutputStream os = new TrustedByteArrayOutputStream(SchemaUtil.estimateKeyLength(this));
         try {
+            Integer bucketNum = this.getBucketNum();
+            if (bucketNum != null) {
+                // Write place holder for salt byte
+                i++;
+                os.write(QueryConstants.SEPARATOR_BYTE_ARRAY);
+            }
             List<PColumn> columns = getPKColumns();
             int nColumns = columns.size();
             PColumn lastPKColumn = columns.get(nColumns - 1);
@@ -239,7 +245,12 @@ public class PTableImpl implements PTable {
                     os.write(SEPARATOR_BYTE);
                 }
             }
-            key.set(os.getBuffer(),0,os.size());
+            byte[] buf = os.getBuffer();
+            int size = os.size();
+            if (bucketNum != null) {
+                buf[0] = SaltingUtil.getSaltingByte(buf, 1, size, bucketNum);
+            }
+            key.set(buf,0,size);
             return i;
         } finally {
             try {
