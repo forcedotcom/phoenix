@@ -1066,8 +1066,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(filter instanceof RowKeyComparisonFilter);
         ScanRanges scanRanges = context.getScanRanges();
         assertEquals(ScanRanges.EVERYTHING,scanRanges);
-        assertEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
-        assertEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
     
     @Test
@@ -1085,8 +1085,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(filter instanceof RowKeyComparisonFilter);
         ScanRanges scanRanges = context.getScanRanges();
         assertEquals(ScanRanges.EVERYTHING,scanRanges);
-        assertEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
-        assertEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
     
     @Test

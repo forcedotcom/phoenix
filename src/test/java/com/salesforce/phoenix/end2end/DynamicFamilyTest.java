@@ -44,6 +44,9 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 1.2
  */
 
+@edu.umd.cs.findbugs.annotations.SuppressWarnings(
+        value="RV_RETURN_VALUE_IGNORED", 
+        justification="Designed to ignore.")
 public class DynamicFamilyTest extends BaseClientMangedTimeTest {
     private static final String WEB_STATS = "WEB_STATS";
     private static final byte[] A_CF = Bytes.toBytes(SchemaUtil.normalizeIdentifier("A"));

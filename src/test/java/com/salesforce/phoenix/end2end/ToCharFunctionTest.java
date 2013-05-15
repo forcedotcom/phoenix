@@ -75,6 +75,9 @@ public class ToCharFunctionTest extends BaseClientMangedTimeTest {
         "CONSTRAINT my_pk PRIMARY KEY (pk))";
 
     @Before
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="DMI_BIGDECIMAL_CONSTRUCTED_FROM_DOUBLE", 
+            justification="Test code.")
     public void initTable() throws Exception {
         long ts = nextTimestamp();
         createTestTable(getUrl(), TO_CHAR_TABLE_DDL, null, ts-2);

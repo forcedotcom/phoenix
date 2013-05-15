@@ -86,6 +86,9 @@ public class RowKeySchema extends ValueSchema {
     }
 
     @Override
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
     public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
         if (ptr.getOffset() + ptr.getLength() >= maxOffset) {
             return null;
