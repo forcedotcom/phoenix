@@ -424,8 +424,7 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            // Force all entries to fall in one region.
-            initTableValues(new byte[][] {{(byte) 5}}, ts);
+            initTableValues(null, ts);
             
             String query = "SELECT a_integer FROM " + TABLE_WITH_SALTING + " GROUP BY a_integer";
             PreparedStatement stmt = conn.prepareStatement(query);
