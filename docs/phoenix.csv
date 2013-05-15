@@ -1,22 +1,27 @@
 "SECTION","TOPIC","SYNTAX","TEXT","EXAMPLE"
 "Commands","SELECT","
-SELECT [/*+ hint */] selectExpression [,...] FROM tableExpression [ WHERE expression ]
+SELECT [/*+ hint */] [DISTINCT | ALL] selectExpression [,...] 
+FROM tableExpression [( column [,...] )] [ WHERE expression ]
 [ GROUP BY expression [,...] ] [ HAVING expression ]
-[ ORDER BY order [,...] ]
-[ LIMIT {bindParameter | number} ]
+[ ORDER BY order [,...] ] [ LIMIT {bindParameter | number} ]
 ","
 Selects data from a table.
+DISTINCT filters out duplicate results while ALL, the default, includes all results.
+FROM identifies the table being queried (single table only currently - no joins or derived tables yet).
+Dynamic columns not declared at create time may be defined in parenthesis after the table name and then
+used in the query.
 GROUP BY groups the the result by the given expression(s).
 HAVING filter rows after grouping.
 ORDER BY sorts the result by the given column(s) or expression(s) and is only allowed for aggregate
 queries or queries with a LIMIT clause.
 LIMIT limits the number of rows returned by the query with no limit applied if specified as null or
 less than zero. The LIMIT clause is executed after the ORDER BY clause to support TopN type queries.
-Only single tables are currently supported - joins are currently not supported.
 An optional hint overrides the default query plan.
 
 ","
 SELECT * FROM TEST;
+SELECT a.* FROM TEST;
+SELECT DISTINCT NAME FROM TEST;
 SELECT ID, COUNT(1) FROM TEST GROUP BY ID;
 SELECT NAME, SUM(VAL) FROM TEST GROUP BY NAME HAVING COUNT(1) > 2;
 SELECT 'ID' COL, MAX(ID) AS MAX FROM TEST;
@@ -52,8 +57,7 @@ UPSERT INTO foo SELECT * FROM bar;
 "
 "Commands","DELETE","
 DELETE [/*+ hint */] FROM tableName [ WHERE expression ]
-[ ORDER BY order [,...] ]
-[ LIMIT {bindParameter | number} ]
+[ ORDER BY order [,...] ] [ LIMIT {bindParameter | number} ]
 ","
 Deletes the rows selected by the where clause. If auto commit is on, the
 deletion is performed completely server-side.
@@ -82,9 +86,13 @@ be passed through as key/value pairs to setup the HBase table as needed.
 
 ","
 CREATE TABLE my_table ( id BIGINT not null primary key, date DATE not null)
-CREATE TABLE my_table ( id INTEGER not null primary key, date DATE not null, m.db_utilization DECIMAL, i.db_utilization) m.DATA_BLOCK_ENCODING='DIFF'
-CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null, txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )
-CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer) DATA_BLOCK_ENCODING='NONE',VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)
+CREATE TABLE my_table ( id INTEGER not null primary key desc, date DATE not null,
+    m.db_utilization DECIMAL, i.db_utilization)
+    m.DATA_BLOCK_ENCODING='DIFF'
+CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null,
+    txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )
+CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer)
+    DATA_BLOCK_ENCODING='NONE',VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)
 "
 
 "Commands","DROP","
@@ -128,12 +136,14 @@ EXPLAIN SELECT entity_id FROM CORE.CUSTOM_ENTITY_DATA WHERE organization_id='00D
 "
 
 "Other Grammar","Constraint","
-CONSTRAINT constraintName PRIMARY KEY (columnName [,...])
+CONSTRAINT constraintName PRIMARY KEY (columnName [ASC | DESC] [,...])
 ","
-Defines a multi-part primary key constraint.
+Defines a multi-part primary key constraint. Each column may be declared to be
+sorted in ascending or descending ordering. The default is ascending.
 
 ","
 CONSTRAINT my_pk PRIMARY KEY (host,created_date)
+CONSTRAINT my_pk PRIMARY KEY (host ASC,created_date DESC)
 "
 
 "Other Grammar","Table Options","
@@ -144,13 +154,14 @@ The option applies to the named family or if omitted to all families if the name
 references an HColumnDescriptor property. Otherwise, the option applies to the
 HTableDescriptor.
 
-One built-in option is SALT_BUCKETS. This option causes an extra byte to transparently
-be prepended to every row key to ensure an even distribution of write load across all
-your region servers. The byte is determined by hashing the row key and modding it with the
-SALT_BUCKETS value. The value may be from 1 to 256. The value to pick is a trade-off: bigger
-values will distribute your write load more evenly while making your range queries execute
-more slowly. This is because every region must be queried to piece back together the range
-of rows. For an excellent write-up of this technique, see http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/
+One built-in option is SALT_BUCKETS. This option causes an extra byte to be transparently
+prepended to every row key to ensure an even distribution of write load across all
+your region servers. This is useful when your row key is always monotonically increasing 
+causing hot spotting on a single region server. The byte is determined by hashing the row
+key and modding it with the SALT_BUCKETS value. The value may be from 1 to 256. If not
+split points are defined for the table, it will automatically be pre-split at each possible
+salt bucket value. For an excellent write-up of this technique, see
+http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/
 
 ","
 SALT_BUCKETS=10
@@ -172,10 +183,16 @@ MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
 name [,...]
 ","
 Advanced features that overrides default query processing behavior. The
-three supported hints are 1) NO_INTRA_REGION_PARALLELIZATION to prevent the
-spawning of multiple threads to process data within a single region,
-2) SKIP_SCAN to force a skip scan to be performed on the query, and 
-3) RANGE_SCAN to force a range scan to be performed on the query.
+three supported hints are 1) SKIP_SCAN to force a skip scan to be performed on the query when
+it otherwise would not. This option may improve performance if a query does
+not include the leading primary key column, but does include other, very
+selective primary key columns. 2) RANGE_SCAN to force a range scan to be
+performed on the query. This option may improve performance if a query
+filters on a range for non selective leading primary key column along
+with other primary key columns 3) NO_INTRA_REGION_PARALLELIZATION to prevent the
+spawning of multiple threads to process data within a single region. This
+option is useful when the overall data set being queries is known to be
+small. 
 
 ","
 /*+ SKIP_SCAN */
@@ -184,10 +201,11 @@ spawning of multiple threads to process data within a single region,
 "
 
 "Other Grammar","Column","
-[familyName .] columnName dataType [[NOT] NULL] [PRIMARY KEY]
+[familyName .] columnName dataType [[NOT] NULL] [PRIMARY KEY [ASC | DESC] ]
 ","
 Define a new primary key column. The column name is case insensitive by default and
-case sensitive if double quoted.
+case sensitive if double quoted. The sort order of a primary key may be ascending (ASC)
+or descending. The default is ascending.
 
 ","
 id char(15) not null primary key
@@ -196,11 +214,15 @@ m.response_time bigint
 "
 
 "Other Grammar","Select Expression","
-term [ [ AS ] columnAlias ]
+* | ( familyName . *) | term [ [ AS ] columnAlias ]
 ","
-An expression in a SELECT statement.
+An expression in a SELECT statement. All columns in a table may be selected using
+*, and all columns in a column family may be selected using <familyName>.*.
 ","
+*
+cf.*
 ID AS VALUE
+VALUE + 1 VALUE_PLUS_ONE
 "
 
 "Other Grammar","Split Point","
@@ -384,7 +406,7 @@ NULL
 "
 
 "Other Grammar","Data Type","
-charType | varcharType | integerType | bigintType | decimalType | timestampType | dateType | timeType | unsignedLongType | unsignedIntType | binaryType
+charType | varcharType | integerType | bigintType | decimalType | timestampType | dateType | timeType | unsignedLongType | unsignedIntType | binaryType | varBinaryType
 ","
 A type name.
 ","
@@ -392,6 +414,7 @@ CHAR(15)
 VARCHAR
 VARCHAR(1000)
 INTEGER
+BINARY(200)
 "
 
 "Other Grammar","String","
@@ -584,13 +607,23 @@ CHAR(10)
 "
 
 "Data Types","BINARY Type","
-BINARY
+BINARY ( precisionInt )
 ","
-Raw byte array.
+Raw fixed length byte array.
 
 Mapped to ""byte[]"".
 ","
 BINARY
+"
+
+"Data Types","VARBINARY Type","
+VARBINARY
+","
+Raw variable length byte array.
+
+Mapped to ""byte[]"".
+","
+VARBINARY
 "
 
 "Functions (Aggregate)","AVG","
@@ -745,28 +778,42 @@ This method returns a decimal number.
 TO_NUMBER('$123.33', '\u00A4###.##')
 "
 
-"Functions (Time and Date)","TO_CHAR","
-TO_CHAR( timestampTerm [, formatString] )
+"Functions (String)","UPPER","
+UPPER( stringTerm )
 ","
-Formats a date, time or timestamp as a string.
-The most important format characters are:
-y year, M month, d day, H hour, m minute, s second.
-The default format string is ""yyyy-MM-dd HH:mm:ss"".
-For details of the format, see ""java.text.SimpleDateFormat"".
-This method returns a string.
+Returns upper case string of the string argument.
 ","
-TO_CHAR(TIMESTAMP, '2001-02-03 04:05:06')
+UPPER('Hello')
 "
 
-"Functions (Number)","TO_CHAR","
-TO_CHAR( number [, formatString] )
+"Functions (String)","LOWER","
+LOWER( stringTerm )
 ","
-Formats a decimal or integer as a string, optionally accepting a format string.
-The default format string is ""#,##0.###"".
-For details of the format, see ""java.text.DecimalFormat"".
-This method returns a string.
+Returns lower case string of the string argument.
 ","
-TO_CHAR(DECIMAL, '#,##0.###')
+LOWER('HELLO')
+"
+
+"Functions (String)","REVERSE","
+REVERSE( stringTerm )
+","
+Returns reversed string of the string argument.
+","
+REVERSE('Hello')
+"
+
+"Functions (String)","TO_CHAR","
+TO_CHAR( timestampTerm | numberTerm [, formatString] )
+","
+Formats a date, time, timestamp, or number as a string.
+The default date format is ""yyyy-MM-dd HH:mm:ss"" and
+the default number format is ""#,##0.###"".
+For details, see ""java.text.SimpleDateFormat""
+for date/time values and ""java.text.DecimalFormat"" for
+numbers. This method returns a string.
+","
+TO_CHAR(myDate, '2001-02-03 04:05:06')
+TO_CHAR(myDecimal, '#,##0.###')
 "
 
 "Functions (Time and Date)","TO_DATE","

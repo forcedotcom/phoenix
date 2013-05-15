@@ -305,11 +305,12 @@ public class ScanUtil {
         return offset - byteOffset;
     }
 
-    public static boolean isAllSingleRowScan(List<List<KeyRange>> ranges, RowKeySchema schema, boolean rangesWithSaltByte) {
-        if (schema == null || ranges.size() < (rangesWithSaltByte ? schema.getMaxFields() : schema.getMaxFields() - 1)) {
+    public static boolean isAllSingleRowScan(List<List<KeyRange>> ranges, RowKeySchema schema) {
+        if (ranges.size() < schema.getMaxFields()) {
             return false;
         }
-        for (List<KeyRange> orRanges : ranges) {
+        for (int i = 0; i < ranges.size(); i++) {
+            List<KeyRange> orRanges = ranges.get(i);
             for (KeyRange range: orRanges) {
                 if (!range.isSingleKey()) {
                     return false;

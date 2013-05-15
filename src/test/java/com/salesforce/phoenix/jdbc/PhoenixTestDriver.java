@@ -27,8 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
+import static com.salesforce.phoenix.query.QueryServicesOptions.withDefaults;
+
 import java.sql.SQLException;
 import java.util.Properties;
+
+import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import com.salesforce.phoenix.end2end.ConnectionQueryServicesTestImpl;
 import com.salesforce.phoenix.query.*;
@@ -45,17 +49,14 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @since 0.1
  */
 public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
-    private final ConnectionQueryServices queryServices;
+    private ConnectionQueryServices queryServices;
     
-    public PhoenixTestDriver(QueryServices services, String url, Properties props) throws SQLException {
+    public PhoenixTestDriver() {
+        this(new QueryServicesTestImpl(withDefaults(HBaseConfiguration.create())));
+    }
+
+    public PhoenixTestDriver(QueryServices services) {
         super(services);
-        ConnectionInfo connInfo = getConnectionInfo(url);
-        if (PhoenixRuntime.CONNECTIONLESS.equals(connInfo.getZookeeperQuorum())) {
-            queryServices =  new ConnectionlessQueryServicesImpl(services);
-        } else {
-            queryServices =  new ConnectionQueryServicesTestImpl(services, services.getConfig());
-        }
-        queryServices.init(url, props);
     }
 
     @Override
@@ -66,6 +67,17 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
 
     @Override // public for testing
     public ConnectionQueryServices getConnectionQueryServices(String url, Properties info) throws SQLException {
+        if (queryServices != null) {
+            return queryServices;
+        }
+        QueryServices services = getQueryServices();
+        ConnectionInfo connInfo = getConnectionInfo(url);
+        if (PhoenixRuntime.CONNECTIONLESS.equals(connInfo.getZookeeperQuorum())) {
+            queryServices =  new ConnectionlessQueryServicesImpl(services);
+        } else {
+            queryServices =  new ConnectionQueryServicesTestImpl(services, services.getConfig());
+        }
+        queryServices.init(url, info);
         return queryServices;
     }
     
