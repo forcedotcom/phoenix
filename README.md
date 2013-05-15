@@ -67,7 +67,7 @@ In addition, you can use the bin/psql.sh to execute to load CSV data or execute 
 
 <h4>SQL Client</h4>
 
-If you'd rather use a client GUI to interact with Phoenix download and install [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
+If you'd rather use a client GUI to interact with Phoenix, download and install [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
 1. Remove prior phoenix-[version]-client.jar from the lib directory of SQuirrel
 2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel
