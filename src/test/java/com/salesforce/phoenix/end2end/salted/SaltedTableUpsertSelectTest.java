@@ -161,4 +161,43 @@ public class SaltedTableUpsertSelectTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
     }
+
+    @Test
+    public void testUpsertSelectOnSameSaltedTableWithEmptyPKColumn() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE IF NOT EXISTS source" + 
+                    " (pk1 varchar NULL, pk2 varchar NULL, pk3 integer NOT NULL, col1 INTEGER" + 
+                    " CONSTRAINT pk PRIMARY KEY (pk1, pk2, pk3)) SALT_BUCKETS=4";
+            createTestTable(getUrl(), ddl);
+            
+            String query = "UPSERT INTO source(pk1, pk2, pk3, col1) VALUES(?,?,?,?)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, "1");
+            stmt.setString(2, "2");
+            stmt.setInt(3, 1);
+            stmt.setInt(4, 1);
+            stmt.execute();
+            conn.commit();
+            
+            conn.setAutoCommit(true);
+            query = "UPSERT INTO source(pk3, col1, pk1) SELECT pk3+1, col1+1, pk2 from source";
+            stmt = conn.prepareStatement(query);
+            stmt.execute();
+            conn.commit();
+            
+            query = "SELECT col1 FROM source";
+            stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertTrue(rs.next());
+            assertEquals(2, rs.getInt(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
 }
