@@ -46,13 +46,12 @@ public class MergeSortRowKeyResultIterator extends MergeSortResultIterator {
     private final int keyOffset;
     
     public MergeSortRowKeyResultIterator(ResultIterators iterators) {
-        super(iterators);
-        keyOffset = 0;
+        this(iterators, 0);
     }
     
-    public MergeSortRowKeyResultIterator(ResultIterators iterators, int byteOffset) {
+    public MergeSortRowKeyResultIterator(ResultIterators iterators, int keyOffset) {
         super(iterators);
-        this.keyOffset = byteOffset;
+        this.keyOffset = keyOffset;
     }
    
     @Override
