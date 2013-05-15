@@ -109,9 +109,10 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     <dependency>
         <groupId>com.salesforce</groupId>
         <artifactId>phoenix</artifactId>
-        <version>1.1</version>
-     ...
+        <version>1.2</version>
     </dependency>
+    ...
+  </dependencies>
 ```
 ## Samples ##
 The best place to see samples are in our unit tests under src/test/java. The ones in the endToEnd package are tests demonstrating how to use all aspects of the Phoenix JDBC driver. We also have some examples in the examples directory.
