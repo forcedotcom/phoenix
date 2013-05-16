@@ -116,8 +116,9 @@ public class ScanPlan extends BasicQueryPlan {
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
                 List<PColumn> pkColumns = table.getPKColumns();
                 // Create ORDER BY for PK columns
-                List<OrderByExpression> orderByExpressions = Lists.newArrayListWithExpectedSize(pkColumns.size());
-                for (PColumn pkColumn : pkColumns) {
+                List<OrderByExpression> orderByExpressions = Lists.newArrayListWithExpectedSize(pkColumns.size()-1);
+                for (int i = 1; i < pkColumns.size(); i++) {
+                    PColumn pkColumn = pkColumns.get(i);
                     Expression expression = new ColumnRef(tableRef, pkColumn.getPosition()).newColumnExpression();
                     orderByExpressions.add(new OrderByExpression(expression, false, pkColumn.getColumnModifier() == null));
                 }
