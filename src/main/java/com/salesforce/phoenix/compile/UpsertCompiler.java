@@ -214,8 +214,9 @@ public class UpsertCompiler {
                  * Order projected columns and projected expressions with PK columns
                  * leading order by slot position
                  */
-                for (int i = 0; i < table.getPKColumns().size(); i++) {
-                    PColumn column = table.getPKColumns().get(i);
+                int offset = table.getBucketNum() == null ? 0 : 1;
+                for (int i = 0; i < table.getPKColumns().size() - offset; i++) {
+                    PColumn column = table.getPKColumns().get(i + offset);
                     int pos = reverseColumnIndexes[column.getPosition()];
                     if (pos == -1) {
                         // Last PK column may be fixed width and nullable
