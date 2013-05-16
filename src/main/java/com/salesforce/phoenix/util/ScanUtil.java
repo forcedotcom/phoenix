@@ -72,6 +72,13 @@ public class ScanUtil {
         return new ImmutableBytesWritable(tenantId);
     }
 
+    public static Scan newScan(Scan scan) {
+        try {
+            return new Scan(scan);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
     /**
      * Intersects the scan start/stop row with the startKey and stopKey
      * @param scan

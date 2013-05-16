@@ -31,13 +31,10 @@ package com.salesforce.phoenix.execute;
 import java.sql.SQLException;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
@@ -106,25 +103,19 @@ public class ScanPlan extends BasicQueryPlan {
                 }
             }
         } else {
-            scanner = new TableResultIterator(context, tableRef);
-            scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
-            // If the table is salted and you want the results in pk order, we have to do an explicit
-            // in-memory sort after the scan, since otherwise they'll be scrambled.
+            // If we're a salted table and we're guaranteeing the same row key order traversal,
+            // use a ResultIterators implementation that runs one serial scan per bucket and
+            // then does a merge sort against those.  Otherwise, we can use a regular table scan.
             if (isSalted && 
                     services.getConfig().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
-                List<PColumn> pkColumns = table.getPKColumns();
-                // Create ORDER BY for PK columns
-                List<OrderByExpression> orderByExpressions = Lists.newArrayListWithExpectedSize(pkColumns.size()-1);
-                for (int i = 1; i < pkColumns.size(); i++) {
-                    PColumn pkColumn = pkColumns.get(i);
-                    Expression expression = new ColumnRef(tableRef, pkColumn.getPosition()).newColumnExpression();
-                    orderByExpressions.add(new OrderByExpression(expression, false, pkColumn.getColumnModifier() == null));
-                }
-                // Add step for client side order by
-                scanner = new OrderedResultIterator(scanner, orderByExpressions, limit);
+                ResultIterators iterators = new SaltingSerialIterators(context, tableRef, limit);
+                scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
+            } else {
+                scanner = new TableResultIterator(context, tableRef);
             }
+            scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
             splits = null;
         }
 
