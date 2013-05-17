@@ -202,7 +202,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         KeyValue tableTypeKv = tableKeyValues[TABLE_TYPE_INDEX];
         PTableType tableType = PTableType.fromSerializedValue(tableTypeKv.getBuffer()[tableTypeKv.getValueOffset()]);
         KeyValue tableSeqNumKv = tableKeyValues[TABLE_SEQ_NUM_INDEX];
-        long tableSeqNum = PDataType.LONG.getCodec().decodeLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), null);
+        long tableSeqNum = PDataType.RAW_LONG.getCodec().decodeLong(tableSeqNumKv.getBuffer(), tableSeqNumKv.getValueOffset(), null);
         KeyValue columnCountKv = tableKeyValues[COLUMN_COUNT_INDEX];
         int columnCount = PDataType.INTEGER.getCodec().decodeInt(columnCountKv.getBuffer(), columnCountKv.getValueOffset(), null);
         KeyValue pkNameKv = tableKeyValues[PK_NAME_INDEX];
@@ -450,7 +450,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (kvs != null) {
             for (KeyValue kv : kvs) { // list is not ordered, so search. TODO: we could potentially assume the position
                 if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES, 0, PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES.length) == 0) {
-                    return PDataType.LONG.getCodec().decodeLong(kv.getBuffer(), kv.getValueOffset(), null);
+                    return PDataType.RAW_LONG.getCodec().decodeLong(kv.getBuffer(), kv.getValueOffset(), null);
                 }
             }
         }

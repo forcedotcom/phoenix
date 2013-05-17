@@ -181,7 +181,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("col2"), rs.getString("COLUMN_NAME"));
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
-        assertEquals(PDataType.LONG.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(PDataType.RAW_LONG.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(3, rs.getInt("ORDINAL_POSITION"));
         assertEquals(19, rs.getInt("COLUMN_SIZE"));
         assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
@@ -255,7 +255,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertEquals(SchemaUtil.normalizeIdentifier("b"), rs.getString("TABLE_CAT"));
         assertEquals(SchemaUtil.normalizeIdentifier("col2"), rs.getString("COLUMN_NAME"));
         assertEquals(DatabaseMetaData.attributeNullable, rs.getShort("NULLABLE"));
-        assertEquals(PDataType.LONG.getSqlType(), rs.getInt("DATA_TYPE"));
+        assertEquals(PDataType.RAW_LONG.getSqlType(), rs.getInt("DATA_TYPE"));
         assertEquals(3, rs.getInt("ORDINAL_POSITION"));
         assertEquals(19, rs.getInt("COLUMN_SIZE"));
         assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
@@ -641,7 +641,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             HTableInterface htable = conn2.getQueryServices().getTable(SchemaUtil.getTableName(MDTEST_NAME));
             Put put = new Put(Bytes.toBytes("0"));
             put.add(cfB, Bytes.toBytes("COL1"), ts+6, PDataType.INTEGER.toBytes(1));
-            put.add(cfC, Bytes.toBytes("COL2"), ts+6, PDataType.LONG.toBytes(2));
+            put.add(cfC, Bytes.toBytes("COL2"), ts+6, PDataType.RAW_LONG.toBytes(2));
             htable.put(put);
             conn2.close();
             

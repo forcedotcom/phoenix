@@ -287,6 +287,7 @@ public enum PDataType {
             }
             switch (actualType) {
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_LONG:
                 return object;
             case UNSIGNED_INT:
@@ -308,6 +309,7 @@ public enum PDataType {
             }
             switch (actualType) {
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_LONG:
             case INTEGER:
             case UNSIGNED_INT:
@@ -322,7 +324,8 @@ public enum PDataType {
             // In general, don't allow conversion of LONG to INTEGER. There are times when
             // we check isComparableTo for a more relaxed check and then throw a runtime
             // exception if we overflow
-            return this == targetType || targetType == UNSIGNED_LONG || targetType == DECIMAL
+            return this == targetType || targetType == RAW_LONG
+                    || targetType == UNSIGNED_LONG || targetType == DECIMAL
                     || targetType == VARBINARY || targetType == BINARY;
         }
 
@@ -419,6 +422,7 @@ public enum PDataType {
             case UNSIGNED_INT:
                 return object;
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_LONG:
                 long v = (Long)object;
                 if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
@@ -440,6 +444,7 @@ public enum PDataType {
             }
             switch (actualType) {
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_LONG:
             case INTEGER:
             case UNSIGNED_INT:
@@ -466,7 +471,8 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == LONG || targetType == DECIMAL
+            return this == targetType || targetType == LONG
+                    || targetType == RAW_LONG || targetType == DECIMAL
                     || targetType == VARBINARY || targetType == BINARY;
         }
 
@@ -591,6 +597,7 @@ public enum PDataType {
             case DECIMAL:
                 return toBigDecimal(b, o, l);
             case LONG:
+            case RAW_LONG:
             case INTEGER:
             case UNSIGNED_LONG:
             case UNSIGNED_INT:
@@ -610,6 +617,7 @@ public enum PDataType {
             case UNSIGNED_INT:
                 return BigDecimal.valueOf((Integer)object);
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_LONG:
                 return BigDecimal.valueOf((Long)object);
             case DECIMAL:
@@ -649,6 +657,7 @@ public enum PDataType {
                             return false;
                         }
                     case LONG:
+                    case RAW_LONG:
                         bd = (BigDecimal) value;
                         try {
                             bd.longValueExact();
@@ -1048,6 +1057,7 @@ public enum PDataType {
             case UNSIGNED_LONG:
                 return object;
             case LONG:
+            case RAW_LONG:
                 long l = (Long)object;
                 if (l < 0) {
                     throw new IllegalDataException();
@@ -1079,6 +1089,7 @@ public enum PDataType {
             switch (actualType) {
             case INTEGER:
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_LONG:
             case UNSIGNED_INT:
                 return actualType.getCodec().decodeLong(b, o, null);
@@ -1089,7 +1100,8 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == LONG || targetType == DECIMAL
+            return this == targetType || targetType == LONG
+                    || targetType == RAW_LONG || targetType == DECIMAL
                     || targetType == VARBINARY || targetType == BINARY;
         }
 
@@ -1147,6 +1159,138 @@ public enum PDataType {
             }
         }
     },
+
+    RAW_LONG("RAW_LONG", 110 /* no constant available in Types */, Long.class, new RawLongCodec()) {
+
+        @Override
+        public byte[] toBytes(Object object) {
+            byte[] b = new byte[Bytes.SIZEOF_LONG];
+            toBytes(object, b, 0);
+            return b;
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] b, int o) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            return this.getCodec().encodeLong(((Number)object).longValue(), b, o);
+        }
+
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            if (object == null) {
+                return null;
+            }
+            switch (actualType) {
+            case RAW_LONG:
+            case UNSIGNED_LONG:
+            case LONG:
+                return object;
+            case UNSIGNED_INT:
+            case INTEGER:
+                int i = (Integer) object;
+                return (long) i;
+            case DECIMAL:
+                BigDecimal d = (BigDecimal)object;
+                return d.longValueExact();
+            default:
+                return super.toObject(object, actualType);
+            }
+        }
+
+        @Override
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+            if (l == 0) {
+                return null;
+            }
+            switch (actualType) {
+            case INTEGER:
+            case LONG:
+            case RAW_LONG:
+            case UNSIGNED_LONG:
+            case UNSIGNED_INT:
+                return actualType.getCodec().decodeLong(b, o, null);
+            default:
+                return super.toObject(b,o,l,actualType);
+            }
+        }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            // In general, don't allow conversion of LONG to INTEGER. There are times when
+            // we check isComparableTo for a more relaxed check and then throw a runtime
+            // exception if we overflow
+            return this == targetType || targetType == LONG || targetType == UNSIGNED_LONG
+                    || targetType == DECIMAL || targetType == VARBINARY || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+            if (value != null) {
+                long l;
+                switch (targetType) {
+                    case UNSIGNED_LONG:
+                        l = (Long) value;
+                        return l >= 0;
+                    case UNSIGNED_INT:
+                        l = (Long) value;
+                        return (l >= 0 && l <= Integer.MAX_VALUE);
+                    case INTEGER:
+                        l = (Long) value;
+                        return (l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE);
+                    default:
+                        break;
+                }
+            }
+            return super.isCoercibleTo(targetType, value);
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return true;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return Bytes.SIZEOF_LONG;
+        }
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            if (rhsType == DECIMAL) {
+                return -((BigDecimal)rhs).compareTo(BigDecimal.valueOf(((Number)lhs).longValue()));
+            }
+            return Longs.compare(((Number)lhs).longValue(), ((Number)rhs).longValue());
+        }
+
+        // We need to override this case negative RAW_LONG type could not be able to compare with bytes directly.
+        @Override
+        public int compareTo(byte[] b1, int offset1, int length1, ColumnModifier mod1, byte[] b2, int offset2, int length2, ColumnModifier mod2) {
+            Object lhs = this.toObject(b1, offset1, length1, this, mod1);
+            Object rhs = this.toObject(b2, offset2, length2, this, mod2);
+            return Longs.compare(((Number)lhs).longValue(), ((Number)rhs).longValue());
+        }
+
+        @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return DECIMAL.isComparableTo(targetType);
+        }
+
+        @Override
+        public Object toObject(String value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException e) {
+                throw new IllegalDataException(e);
+            }
+        }
+    },
+    
+    
     /**
      * Unsigned integer type that restricts values to be from 0 to {@link java.lang.Integer#MAX_VALUE} inclusive. May be used to map to existing HTable values created through {@link org.apache.hadoop.hbase.util.Bytes#toBytes(int)}
      * as long as all values are non negative (the leading sign bit of negative numbers would cause them to sort ahead of positive numbers when
@@ -1184,6 +1328,7 @@ public enum PDataType {
                 }
                 return i;
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_LONG:
                 long v = (Long)object;
                 if (v < 0 || v > Integer.MAX_VALUE) {
@@ -1206,6 +1351,7 @@ public enum PDataType {
             switch (actualType) {
             case UNSIGNED_LONG:
             case LONG:
+            case RAW_LONG:
             case UNSIGNED_INT:
             case INTEGER:
                 return actualType.getCodec().decodeInt(b, o, null);
@@ -1216,9 +1362,10 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == INTEGER || targetType == UNSIGNED_LONG
-                    || targetType == LONG || targetType == DECIMAL || targetType == VARBINARY
-                    || targetType == BINARY;
+            return this == targetType || targetType == INTEGER
+                    || targetType == UNSIGNED_LONG || targetType == LONG
+                    || targetType == RAW_LONG || targetType == DECIMAL
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -1717,6 +1864,37 @@ public enum PDataType {
             b[o + 5] = (byte) (v >> 16);
             b[o + 6] = (byte) (v >> 8);
             b[o + 7] = (byte) v;
+            return Bytes.SIZEOF_LONG;
+        }
+    }
+
+    public static class RawLongCodec extends LongCodec {
+
+        private RawLongCodec() {
+        }
+
+        @Override
+        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
+            long v = 0;
+            if (columnModifier == null) {
+                for(int i = o; i < o + Bytes.SIZEOF_LONG; i++) {
+                  v <<= 8;
+                  v ^= b[i] & 0xFF;
+                }
+            } else { // ColumnModifier.SORT_DESC
+                // FIXME : Actually, since RAW_LONG could only be used in Non PK column
+                // we should never reach here. Add an assert?
+                for(int i = o; i < o + Bytes.SIZEOF_LONG; i++) {
+                    v <<= 8;
+                    v ^= (b[i] & 0xFF) ^ 0xFF;
+                  }
+            }
+            return v;
+        }
+
+        @Override
+        public int encodeLong(long v, byte[] b, int o) {
+            Bytes.putLong(b, o, v);
             return Bytes.SIZEOF_LONG;
         }
     }

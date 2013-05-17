@@ -62,8 +62,36 @@ public class PDataTypeTest {
         byte[] ba = PDataType.LONG.toBytes(na);
         byte[] bb = PDataType.LONG.toBytes(nb);
         assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        assertEquals(1, PDataType.LONG.compareTo(1L, -1L, PDataType.LONG));
     }
 
+    @Test
+    public void testRawLong() {
+        Long la = 4L;
+        byte[] b = PDataType.RAW_LONG.toBytes(la);
+        Long lb = (Long)PDataType.RAW_LONG.toObject(b);
+        assertEquals(la,lb);
+
+        Long na = 1L;
+        Long nb = -1L;
+        byte[] ba = PDataType.RAW_LONG.toBytes(na);
+        byte[] bb = PDataType.RAW_LONG.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+
+        assertEquals(PDataType.RAW_LONG.compareTo(1L, -1L, PDataType.LONG),1);
+    
+        byte[] bRAW_LONG_M = PDataType.RAW_LONG.toBytes(-1L);
+        byte[] bRAW_LONG_P = PDataType.RAW_LONG.toBytes(1L);
+        byte[] bLONG_M = PDataType.LONG.toBytes(-1L);
+        byte[] bLONG_P = PDataType.LONG.toBytes(1L);
+        assertEquals(0, PDataType.RAW_LONG.compareTo(bRAW_LONG_P, 0, 8, null, bLONG_P, 0, 8, null, PDataType.LONG));
+        assertEquals(1, PDataType.RAW_LONG.compareTo(bRAW_LONG_P, 0, 8, null, bLONG_M, 0, 8, null, PDataType.LONG));
+        assertEquals(-1, PDataType.RAW_LONG.compareTo(bRAW_LONG_M, 0, 8, null, bLONG_P, 0, 8, null, PDataType.LONG));
+        assertEquals(0, PDataType.RAW_LONG.compareTo(bRAW_LONG_M, 0, 8, null, bLONG_M, 0, 8, null, PDataType.LONG));
+
+    }
+    
     @Test
     public void testInt() {
         Integer na = 4;
@@ -293,6 +321,10 @@ public class PDataTypeTest {
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.LONG, 10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.LONG, 0));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.LONG, -10));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.RAW_LONG));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.RAW_LONG, 10));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.RAW_LONG, 0));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.RAW_LONG, -10));
         assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_INT));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_INT, 10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_INT, 0));
@@ -325,6 +357,38 @@ public class PDataTypeTest {
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, 0L));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, -10L));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, Long.MIN_VALUE));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.RAW_LONG));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.RAW_LONG, 10L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.RAW_LONG, 0L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.RAW_LONG, -10L));
+
+        // Testing coercing raw long to other values.
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, Long.MAX_VALUE));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, Integer.MAX_VALUE + 10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, (long)Integer.MAX_VALUE));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, Integer.MAX_VALUE - 10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, 10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, 0L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, -10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, Integer.MIN_VALUE + 10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, (long)Integer.MIN_VALUE));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, Integer.MIN_VALUE - 10L));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.INTEGER, Long.MIN_VALUE));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_INT, 10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_INT, 0L));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_INT, -10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_LONG));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, Long.MAX_VALUE));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, 10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, 0L));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, -10L));
+        assertFalse(PDataType.RAW_LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, Long.MIN_VALUE));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.LONG, 10L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.LONG, 0L));
+        assertTrue(PDataType.RAW_LONG.isCoercibleTo(PDataType.LONG, -10L));
 
         // Testing coercing unsigned_int to other values.
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.INTEGER));
@@ -333,6 +397,9 @@ public class PDataTypeTest {
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.LONG));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.LONG, 10));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.LONG, 0));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.RAW_LONG));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.RAW_LONG, 10));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.RAW_LONG, 0));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG, 10));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG, 0));
@@ -342,6 +409,7 @@ public class PDataTypeTest {
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER, 10L));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER, 0L));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.RAW_LONG));
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_INT));
         
         // Testing coercing Date types

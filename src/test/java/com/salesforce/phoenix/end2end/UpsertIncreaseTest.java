@@ -46,15 +46,15 @@ public class UpsertIncreaseTest extends BaseHBaseManagedTimeTest {
         conn.setAutoCommit(true);
         
         String ddl = "CREATE TABLE test_table " +
-                "  (row varchar not null, col_int integer, col_long bigint, col_ul UNSIGNED_LONG" +
+                "  (row varchar not null, col_int integer, col_long bigint, col_long2 bigint" +
                 "  CONSTRAINT pk PRIMARY KEY (row))\n";
         createTestTable(getUrl(), ddl);
 
         // increase on existing row.
-        String query = "UPSERT INTO test_table(row, col_int, col_long, col_ul) VALUES('row1', 1, 1, 1)";
+        String query = "UPSERT INTO test_table(row, col_int, col_long, col_long2) VALUES('row1', 1, 1, 1)";
         PreparedStatement statement = conn.prepareStatement(query);
         statement.executeUpdate();
-        query = "UPSERT INTO test_table(row, col_long, col_ul) INCREASE VALUES('row1', 100, 1000)";
+        query = "UPSERT INTO test_table(row, col_long, col_long2) INCREASE VALUES('row1', 100, 1000)";
         statement = conn.prepareStatement(query);
         statement.executeUpdate();
         
@@ -68,7 +68,7 @@ public class UpsertIncreaseTest extends BaseHBaseManagedTimeTest {
         assertEquals(1001, rs.getLong(4));
 
         // increase on non existing row.
-        query = "UPSERT INTO test_table(row, col_long, col_ul) INCREASE VALUES('row2', 100, 1000)";
+        query = "UPSERT INTO test_table(row, col_long, col_long2) INCREASE VALUES('row2', 100, 1000)";
         statement = conn.prepareStatement(query);
         statement.executeUpdate();
         
@@ -80,26 +80,23 @@ public class UpsertIncreaseTest extends BaseHBaseManagedTimeTest {
         
         // FIXME: Why this is zero?, should be NULL?
         assertEquals(0, rs.getInt(2));
-        // FIXME: At Present, this would lead to error
-        // due to the initial long value 100 set by HBASE Increase is not Phoenix's encoded 100.
-        //assertEquals(100, rs.getLong(3));
+
+        assertEquals(100, rs.getLong(3));
         assertEquals(1000, rs.getLong(4));
 
         
         // double increase with auto commit off to check mutation did merge.
         conn.setAutoCommit(false);
-        query = "UPSERT INTO test_table(row, col_int, col_long, col_ul) VALUES('row3', 1, 1, 1)";
+        query = "UPSERT INTO test_table(row, col_int, col_long, col_long2) VALUES('row3', 1, 1, 1)";
         statement = conn.prepareStatement(query);
         statement.executeUpdate();
         conn.commit();
 
-        query = "UPSERT INTO test_table(row, col_long, col_ul) INCREASE VALUES('row3', 100, 1000)";
+        query = "UPSERT INTO test_table(row, col_long, col_long2) INCREASE VALUES('row3', 100, -1000)";
         statement = conn.prepareStatement(query);
         statement.executeUpdate();
         
-        // FIXME : this one won't work, -500 for col_ul will not pass data type check.
-        //query = "UPSERT INTO test_table(row, col_long, col_ul) INCREASE VALUES('row3', 100, -500)";
-        query = "UPSERT INTO test_table(row, col_long, col_ul) INCREASE VALUES('row3', -50, 500)";
+        query = "UPSERT INTO test_table(row, col_long, col_long2) INCREASE VALUES('row3', -50, 500)";
         statement = conn.prepareStatement(query);
         statement.executeUpdate();
         conn.commit();
@@ -111,7 +108,7 @@ public class UpsertIncreaseTest extends BaseHBaseManagedTimeTest {
         assertEquals("row3", rs.getString(1));
         assertEquals(1, rs.getInt(2));
         assertEquals(51, rs.getLong(3));
-        assertEquals(1501, rs.getLong(4));
+        assertEquals(-499, rs.getLong(4));
 
         conn.close();
     }
