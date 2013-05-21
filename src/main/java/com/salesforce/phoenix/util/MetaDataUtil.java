@@ -54,8 +54,8 @@ public class MetaDataUtil {
 
     // Encode a version string in the format of "major.minor.patch" into an integer.
     public static int encodeVersion(String version) {
-        String[] versionParts = version.split("\\.");
-        return encodeVersion(versionParts[0], versionParts[1], versionParts[2]);
+        String[] versionParts = version.split("[-\\.]");
+        return encodeVersion(versionParts[0], versionParts.length > 1 ? versionParts[1] : null, versionParts.length > 2 ? versionParts[2] : null);
     }
 
     // Encode the major as 2nd byte in the int, minor as the first byte and patch as the last byte.
