@@ -40,16 +40,19 @@ import java.util.ServiceLoader;
 public class HTableFactoryProvider {
 
     private static final HTableFactory DEFAULT = new HTableFactory.HTableFactoryImpl();
+    private static HTableFactory resolvedFactory;
 
-    public static HTableFactory getHTableFactory() {
+    public static synchronized HTableFactory getHTableFactory() {
+        if (resolvedFactory != null) return resolvedFactory;
+        resolvedFactory = resolveFactory();
+        return resolvedFactory;
+    }
+
+    private static HTableFactory resolveFactory() {
         ServiceLoader<HTableFactory> loader = ServiceLoader.load(HTableFactory.class);
         for (HTableFactory factory : loader) {
             return factory;
         }
-        return getDefaultHTableFactory();
-    }
-
-    private static HTableFactory getDefaultHTableFactory() {
         return DEFAULT;
     }
 
