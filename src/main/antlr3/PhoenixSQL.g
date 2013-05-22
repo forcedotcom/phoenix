@@ -71,6 +71,7 @@ tokens
     UPSERT='upsert';
     INTO='into';
     VALUES='values';
+    INCREASE='increase';
     DELETE='delete';
     CREATE='create';
     DROP='drop';
@@ -437,8 +438,8 @@ select_node returns [SelectStatement ret]
 upsert_node returns [UpsertStatement ret]
     :   UPSERT INTO t=from_table_name
         (LPAREN c=column_refs RPAREN)?
-        ((VALUES LPAREN v=expression_terms RPAREN) | s=select_node)
-        {ret = factory.upsert(t, c, v, s, getBindCount()); }
+        (((i=INCREASE)? VALUES LPAREN v=expression_terms RPAREN) | s=select_node)
+        {ret = factory.upsert(t, c, i!=null, v, s, getBindCount()); }
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).

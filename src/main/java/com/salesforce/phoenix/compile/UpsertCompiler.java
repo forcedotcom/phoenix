@@ -32,6 +32,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -42,6 +43,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.execute.MutationValue;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
@@ -63,8 +65,8 @@ public class UpsertCompiler {
         this.statement = statement;
     }
     
-    private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
-        Map<PColumn,byte[]> columnValues = Maps.newHashMapWithExpectedSize(columnIndexes.length);
+    private static void setValues(byte[][] values, boolean isIncrease, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,MutationValue>> mutation) {
+        Map<PColumn,MutationValue> columnValues = Maps.newHashMapWithExpectedSize(columnIndexes.length);
         byte[][] pkValues = new byte[table.getPKColumns().size()][];
         // If the table uses salting, the first byte is the salting byte, set to an empty arrary
         // here and we will fill in the byte later in PRowImpl.
@@ -77,7 +79,11 @@ public class UpsertCompiler {
             if (SchemaUtil.isPKColumn(column)) {
                 pkValues[pkSlotIndex[i]] = value;
             } else {
-                columnValues.put(column, value);
+                if (isIncrease) {
+                    columnValues.put(column, new MutationValue(null, column.getDataType().getCodec().decodeLong(value, 0, null)));
+                } else {
+                    columnValues.put(column, new MutationValue(value));
+                }
             }
         }
         ImmutableBytesPtr ptr = new ImmutableBytesPtr();
@@ -180,6 +186,7 @@ public class UpsertCompiler {
         
         final int[] columnIndexes = columnIndexesToBe;
         final int[] pkSlotIndexes = pkSlotIndexesToBe;
+        final boolean isIncrease = upsert.isIncrease();
         
         // TODO: break this up into multiple functions
         ////////////////////////////////////////////////////////////////////
@@ -350,7 +357,7 @@ public class UpsertCompiler {
                     Scanner scanner = queryPlan.getScanner();
                     int estSize = scanner.getEstimatedSize();
                     int rowCount = 0;
-                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(estSize);
+                    Map<ImmutableBytesPtr,Map<PColumn,MutationValue>> mutation = Maps.newHashMapWithExpectedSize(estSize);
                     ResultSet rs = new PhoenixResultSet(scanner, statement);
                     PTable table = tableRef.getTable();
                     PColumn column;
@@ -368,7 +375,7 @@ public class UpsertCompiler {
                             values[i] = column.getDataType().coerceBytes(rs.getBytes(i+1), null, column.getDataType(),
                                     null, null, column.getMaxLength(), column.getScale());
                         }
-                        setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
+                        setValues(values, isIncrease, pkSlotIndexes, columnIndexes, table, mutation);
                         rowCount++;
                         // Commit a batch if auto commit is true and we're at our batch size
                         if (isAutoCommit && rowCount % batchSize == 0) {
@@ -441,8 +448,8 @@ public class UpsertCompiler {
     
                 @Override
                 public MutationState execute() {
-                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
-                    setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
+                    Map<ImmutableBytesPtr,Map<PColumn,MutationValue>> mutation = Maps.newHashMapWithExpectedSize(1);
+                    setValues(values, isIncrease, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
                     return new MutationState(tableRef, mutation, 0, maxSize, connection);
                 }
     
