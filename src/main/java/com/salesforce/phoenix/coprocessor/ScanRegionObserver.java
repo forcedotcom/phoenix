@@ -143,7 +143,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
     private RegionScanner getTopNScanner(final ObserverContext<RegionCoprocessorEnvironment> c, final RegionScanner s, final OrderedResultIterator iterator, ImmutableBytesWritable tenantId) throws Throwable {
         final Tuple firstTuple;
         TenantCache tenantCache = GlobalCache.getTenantCache(c.getEnvironment().getConfiguration(), tenantId);
-        int estSize = iterator.getEstimatedByteSize();
+        long estSize = iterator.getEstimatedByteSize();
         final MemoryChunk chunk = tenantCache.getMemoryManager().allocate(estSize);
         final HRegion region = c.getEnvironment().getRegion();
         region.startRegionOperation();
@@ -152,7 +152,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
             // the topN rows, so we no longer need to start/stop a region operation.
             firstTuple = iterator.next();
             // Now that the topN are cached, we can resize based on the real size
-            int actualSize = iterator.getByteSize();
+            long actualSize = iterator.getByteSize();
             chunk.resize(actualSize);
         } catch (Throwable t) {
             ServerUtil.throwIOException(region.getRegionNameAsString(), t);

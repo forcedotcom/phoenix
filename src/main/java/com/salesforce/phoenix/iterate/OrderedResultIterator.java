@@ -98,10 +98,10 @@ public class OrderedResultIterator implements ResultIterator {
     private final Integer limit;
     private final ResultIterator delegate;
     private final List<OrderByExpression> orderByExpressions;
-    private final int estimatedByteSize;
+    private final long estimatedByteSize;
     
     private ResultIterator resultIterator;
-    private int byteSize;
+    private long byteSize;
 
     protected ResultIterator getDelegate() {
         return delegate;
@@ -124,24 +124,29 @@ public class OrderedResultIterator implements ResultIterator {
         this.delegate = delegate;
         this.orderByExpressions = orderByExpressions;
         this.limit = limit;
-        this.estimatedByteSize = limit == null ? 0 : limit * (
+        long estimatedEntrySize =
             // ResultEntry
             SizedUtil.OBJECT_SIZE + 
             // ImmutableBytesWritable[]
             SizedUtil.ARRAY_SIZE + orderByExpressions.size() * SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE +
             // Tuple
-            SizedUtil.OBJECT_SIZE + estimatedRowSize);
+            SizedUtil.OBJECT_SIZE + estimatedRowSize;
+
+        // Make sure we don't overflow Long, though this is really unlikely to happen.
+        assert(limit == null || Long.MAX_VALUE / estimatedEntrySize >= limit);
+
+        this.estimatedByteSize = limit == null ? 0 : limit * estimatedEntrySize;
     }
 
     public Integer getLimit() {
         return limit;
     }
 
-    public int getEstimatedByteSize() {
+    public long getEstimatedByteSize() {
         return estimatedByteSize;
     }
 
-    public int getByteSize() {
+    public long getByteSize() {
         return byteSize;
     }
     /**
@@ -215,7 +220,7 @@ public class OrderedResultIterator implements ResultIterator {
             };
         }
         try {
-            int byteSize = 0;
+            long byteSize = 0;
             for (Tuple result = delegate.next(); result != null; result = delegate.next()) {
                 int pos = 0;
                 ImmutableBytesWritable[] sortKeys = new ImmutableBytesWritable[numSortKeys];
