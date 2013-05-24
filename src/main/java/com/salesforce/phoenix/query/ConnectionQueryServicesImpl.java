@@ -77,6 +77,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
+    private Integer minimumServerVersion;
 
     /**
      * keep a cache of HRegionInfo objects
@@ -101,6 +102,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         int statsUpdateFrequencyMs = this.getConfig().getInt(QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB, QueryServicesOptions.DEFAULT_STATS_UPDATE_FREQ_MS);
         int maxStatsAgeMs = this.getConfig().getInt(QueryServices.MAX_STATS_AGE_MS_ATTRIB, QueryServicesOptions.DEFAULT_MAX_STATS_AGE_MS);
         this.statsManager = new StatsManagerImpl(this, statsUpdateFrequencyMs, maxStatsAgeMs);
+        this.minimumServerVersion = this.getConfig().get(QueryServices.MINIMUM_SERVER_VERSION, null) == null ? null :
+            MetaDataUtil.encodeVersion(this.getConfig().get(QueryServices.MINIMUM_SERVER_VERSION));
         /**
          * keep a cache of HRegionInfo objects
          */
@@ -674,8 +677,13 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     private boolean isCompatible(Long serverVersion) {
-        return serverVersion != null &&
-                MetaDataProtocol.PHOENIX_VERSION == MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
+        if (this.minimumServerVersion == null) {
+            return serverVersion != null &&
+                    MetaDataProtocol.PHOENIX_VERSION == MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
+        } else {
+            return serverVersion != null &&
+                    minimumServerVersion <= MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
+        }
     }
 
     private void checkClientServerCompatibility() throws SQLException {
