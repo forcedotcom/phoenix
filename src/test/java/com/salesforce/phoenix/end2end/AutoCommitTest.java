@@ -88,4 +88,135 @@ public class AutoCommitTest extends BaseHBaseManagedTimeTest {
 
         conn.close();
     }
+    
+    @Test
+    public void testTransition_case1() throws Exception {
+
+        // Test UPSERT + DELETE
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(true);
+
+        String ddl = "CREATE TABLE test_table " +
+                "  (row varchar not null, col1 integer" +
+                "  CONSTRAINT pk PRIMARY KEY (row))\n";
+        createTestTable(getUrl(), ddl);
+
+        conn.setAutoCommit(false);
+        String query = "UPSERT INTO test_table(row, col1) VALUES('row1', 1)";
+        PreparedStatement statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+        
+        query = "DELETE FROM test_table WHERE row='row1'";
+        statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+        conn.commit();
+
+        query = "SELECT * FROM test_table";
+        statement = conn.prepareStatement(query);
+        ResultSet rs = statement.executeQuery();
+        assertFalse(rs.next());
+
+        conn.close();
+    }
+
+    @Test
+    public void testTransition_case2() throws Exception {
+
+        // Test UPSERT + UPSERT with where condition
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(true);
+
+        String ddl = "CREATE TABLE source_table " +
+                "  (row varchar not null, col1 integer" +
+                "  CONSTRAINT pk PRIMARY KEY (row))\n";
+        createTestTable(getUrl(), ddl);
+
+        ddl = "CREATE TABLE dest_table " +
+                "  (row varchar not null, col1 integer" +
+                "  CONSTRAINT pk PRIMARY KEY (row))\n";
+        createTestTable(getUrl(), ddl);
+
+        String query = "UPSERT INTO source_table(row, col1) VALUES('row1', 1)";
+        PreparedStatement statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+        conn.commit();
+
+        conn.setAutoCommit(false);
+        query = "UPSERT INTO source_table(row, col1) VALUES('row1', 100)";
+        statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+        
+        query = "UPSERT INTO dest_table(row, col1) SELECT row, col1 FROM source_table WHERE col1 > 0";
+        statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+        conn.commit();
+
+        query = "SELECT * FROM dest_table";
+        statement = conn.prepareStatement(query);
+        ResultSet rs = statement.executeQuery();
+        assertTrue(rs.next());
+        assertEquals("row1", rs.getString(1));
+        assertEquals(100, rs.getInt(2));
+
+        conn.close();
+    }
+    
+    @Test
+    public void testTransition_case3() throws Exception {
+
+        // Test UPSERT + UPSERT with order by
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(true);
+
+        String ddl = "CREATE TABLE source_table " +
+                "  (row varchar not null, col1 integer" +
+                "  CONSTRAINT pk PRIMARY KEY (row))\n";
+        createTestTable(getUrl(), ddl);
+
+        ddl = "CREATE TABLE dest_table " +
+                "  (row varchar not null, col1 integer" +
+                "  CONSTRAINT pk PRIMARY KEY (row))\n";
+        createTestTable(getUrl(), ddl);
+
+        String query = "UPSERT INTO source_table(row, col1) VALUES('row1', 101)";
+        PreparedStatement statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+
+        query = "UPSERT INTO source_table(row, col1) VALUES('row3', 103)";
+        statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+
+        conn.commit();
+
+        conn.setAutoCommit(false);
+        query = "UPSERT INTO source_table(row, col1) VALUES('row2', 102)";
+        statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+        
+        query = "UPSERT INTO dest_table(row, col1) SELECT row, col1 FROM source_table order by col1 limit 2";
+        statement = conn.prepareStatement(query);
+        statement.executeUpdate();
+        conn.commit();
+
+        query = "SELECT * FROM dest_table order by row limit 3";
+        statement = conn.prepareStatement(query);
+        ResultSet rs = statement.executeQuery();
+        assertTrue(rs.next());
+        assertEquals("row1", rs.getString(1));
+        assertEquals(101, rs.getInt(2));
+        assertTrue(rs.next());
+        assertEquals("row2", rs.getString(1));
+        assertEquals(102, rs.getInt(2));
+        assertFalse(rs.next());
+
+        conn.close();
+    }
+    
+    
 }
