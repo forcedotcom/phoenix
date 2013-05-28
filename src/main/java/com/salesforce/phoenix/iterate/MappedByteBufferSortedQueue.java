@@ -24,6 +24,7 @@ import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
+  private int flushSize = 10000; //TODO make this number configurable.
   private Comparator<ResultEntry> comparator;
   private List<MappedByteBufferPriorityQueue> queues = new ArrayList<MappedByteBufferPriorityQueue>();
   private MappedByteBufferPriorityQueue currentQueue = null;
@@ -32,7 +33,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
   
   public MappedByteBufferSortedQueue(Comparator<ResultEntry> comparator) throws IOException {
     this.comparator = comparator;
-    this.currentQueue = new MappedByteBufferPriorityQueue(0, getFileName(), 100, comparator); //TODO decide the 100 as a condifugrable one.
+    this.currentQueue = new MappedByteBufferPriorityQueue(0, getFileName(), flushSize, comparator);
   }
 
   private String getFileName(){
@@ -46,7 +47,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
       if(isFlush) {
         queues.add(currentQueue);
         currentIndex++;
-        currentQueue = new MappedByteBufferPriorityQueue(currentIndex, getFileName(), 100, comparator); //TODO decide the 100 as a condifugrable one.
+        currentQueue = new MappedByteBufferPriorityQueue(currentIndex, getFileName(), flushSize, comparator);
         currentQueue.writeResult(e);
       }
     } catch (IOException e1) {

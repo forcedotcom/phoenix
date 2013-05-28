@@ -30,6 +30,7 @@ package com.salesforce.phoenix.iterate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -55,7 +56,7 @@ import com.salesforce.phoenix.util.SizedUtil;
 public class OrderedResultIterator implements ResultIterator {
 
     /** A container that holds pointers to a {@link Result} and its sort keys. */
-    private static class ResultEntry {
+    static class ResultEntry {
         private final ImmutableBytesWritable[] sortKeys;
         private final Tuple result;
 
@@ -184,24 +185,30 @@ public class OrderedResultIterator implements ResultIterator {
         final Comparator<ResultEntry> comparator = buildComparator(orderByExpressions);
         Collection<ResultEntry> entries;
         if (limit == null) {
-            final List<ResultEntry> listEntries =  Lists.<ResultEntry>newArrayList(); // TODO: size?
-            entries = listEntries;
+          try{
+            final MappedByteBufferSortedQueue queueEntries = new MappedByteBufferSortedQueue(comparator);
+            entries = queueEntries;
+            
             resultIterator = new BaseResultIterator() {
-                private int i = -1;
 
                 @Override
                 public Tuple next() throws SQLException {
-                    if (i == -1) {
-                        Collections.<ResultEntry>sort(listEntries, comparator);
-                    } 
-                    if (++i >= listEntries.size()) {
-                        resultIterator = ResultIterator.EMPTY_ITERATOR;
-                        return null;
-                    }
-                    
-                    return listEntries.get(i).getResult();
+                  ResultEntry entry = queueEntries.poll();
+                  if (entry == null) {
+                      resultIterator = ResultIterator.EMPTY_ITERATOR;
+                      return null;
+                  }
+                  return entry.getResult();
+                }
+                
+                @Override
+                public void close() throws SQLException {
+                  queueEntries.close();
                 }
             };
+          } catch (IOException e) {
+            throw new SQLException("", e);
+          }
         } else {
             final MinMaxPriorityQueue<ResultEntry> queueEntries = MinMaxPriorityQueue.<ResultEntry>orderedBy(comparator).maximumSize(limit).create();
             entries = queueEntries;

@@ -107,7 +107,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
                 orderByExpressions.add(orderByExpression);
             }
             ResultIterator inner = new RegionScannerResultIterator(s);
-            return new OrderedResultIterator(inner, orderByExpressions, limit, estimatedRowSize);
+            return new OrderedResultIterator(inner, orderByExpressions, limit >= 0 ? limit : null, estimatedRowSize);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {

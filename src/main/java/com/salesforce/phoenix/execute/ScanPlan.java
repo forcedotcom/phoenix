@@ -54,8 +54,8 @@ public class ScanPlan extends BasicQueryPlan {
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy) {
         super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy);
-        if (limit != null && !orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
-            ScanRegionObserver.serializeIntoScan(context.getScan(), limit, orderBy.getOrderByExpressions(), projector.getEstimatedByteSize());
+        if (!orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
+            ScanRegionObserver.serializeIntoScan(context.getScan(), limit == null ? -1 : limit, orderBy.getOrderByExpressions(), projector.getEstimatedByteSize());
         }
     }
     
