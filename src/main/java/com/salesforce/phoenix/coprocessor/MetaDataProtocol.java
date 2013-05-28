@@ -63,6 +63,9 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final int PHOENIX_PATCH_NUMBER = 0;
     public static final int PHOENIX_VERSION = 
             MetaDataUtil.encodeVersion(PHOENIX_MAJOR_VERSION, PHOENIX_MINOR_VERSION, PHOENIX_PATCH_NUMBER);
+    // Lowest acceptable Phoenix server jar version. Phoenix would work with this or higher version of server Phoenix.
+    public static final int MINIMUM_PHOENIX_SERVER_VERSION = MetaDataUtil.encodeVersion("1.2.0");
+    
     public static final long MIN_TABLE_TIMESTAMP = 0;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
 
