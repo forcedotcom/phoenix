@@ -48,6 +48,7 @@ import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SQLCloseables;
 import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 
 
 /**
@@ -161,7 +162,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                 }
             }
         } catch (Exception e) {
-            throw new SQLException(e);
+            throw new SQLException(ServerUtil.parseServerException(e));
         }
     }
 

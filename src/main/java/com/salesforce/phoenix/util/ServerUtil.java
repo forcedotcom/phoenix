@@ -57,4 +57,12 @@ public class ServerUtil {
         }
         throw new DoNotRetryIOException(msg + ": " + t.getMessage(), t);
     }
+
+    // Parse the server side exception to unwrap the underlying error messages.
+    public static SQLException parseServerException(Throwable t) {
+        while (t.getCause() != null) {
+            t = t.getCause();
+        }
+        return new SQLException(t);
+    }
 }
