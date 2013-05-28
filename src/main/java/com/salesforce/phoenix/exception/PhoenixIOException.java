@@ -30,7 +30,7 @@ package com.salesforce.phoenix.exception;
 import java.io.IOException;
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 
 
 public class PhoenixIOException extends SQLException {
@@ -38,8 +38,8 @@ public class PhoenixIOException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
 
     public PhoenixIOException(IOException e) {
-        super(ScanUtil.unwrapUnderlyingException(e).getMessage(),
-                code.getSQLState(), code.getErrorCode(), ScanUtil.unwrapUnderlyingException(e));
+        super(ServerUtil.parseServerException(e).getMessage(),
+                code.getSQLState(), code.getErrorCode(), ServerUtil.parseServerException(e));
     }
 
 }

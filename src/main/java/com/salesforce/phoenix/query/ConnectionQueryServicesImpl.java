@@ -760,7 +760,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         } catch (IOException e) {
             throw new PhoenixIOException(e);
         } catch (Throwable t) {
-            throw new SQLException(ScanUtil.unwrapUnderlyingException(t));
+            throw new SQLException(ServerUtil.parseServerException(t));
         }
     }
     
@@ -907,7 +907,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             }
         } catch (Exception e) {
-            throw new SQLException(ScanUtil.unwrapUnderlyingException(e));
+            throw new SQLException(ServerUtil.parseServerException(e));
         }
     }
 }
