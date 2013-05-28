@@ -77,6 +77,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
+    
 
     /**
      * keep a cache of HRegionInfo objects
@@ -675,7 +676,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     private boolean isCompatible(Long serverVersion) {
         return serverVersion != null &&
-                MetaDataProtocol.PHOENIX_VERSION == MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
+                MetaDataProtocol.MINIMUM_PHOENIX_SERVER_VERSION <= MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
     }
 
     private void checkClientServerCompatibility() throws SQLException {
@@ -763,7 +764,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             throw new SQLException(t);
         }
     }
-    
+
     @Override
     public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, boolean isView, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
