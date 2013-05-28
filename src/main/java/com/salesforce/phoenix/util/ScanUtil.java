@@ -373,4 +373,12 @@ public class ScanUtil {
             }
         }
     }
+
+    // Unwrap the IOException retrieved from the server side to retrieve the underlying root throwable.
+    public static Throwable unwrapUnderlyingException(Throwable t) {
+        while (t.getCause() != null) {
+            t = t.getCause();
+        }
+        return t;
+    }
 }

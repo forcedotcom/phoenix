@@ -161,7 +161,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                 }
             }
         } catch (Exception e) {
-            throw new SQLException(e);
+            throw new SQLException(ScanUtil.unwrapUnderlyingException(e));
         }
     }
 
