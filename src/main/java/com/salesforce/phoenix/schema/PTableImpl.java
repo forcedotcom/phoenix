@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.*;
+import com.salesforce.phoenix.execute.MutationValue;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.stat.PTableStats;
@@ -317,6 +318,7 @@ public class PTableImpl implements PTable {
         private Put setValues;
         private Delete unsetValues;
         private Delete deleteRow;
+        private Increment incValues;
         private final long ts;
 
         public PRowImpl(ImmutableBytesWritable key, long ts, Integer bucketNum) {
@@ -328,6 +330,7 @@ public class PTableImpl implements PTable {
             }
             this.setValues = new Put(this.key);
             this.unsetValues = new Delete(this.key);
+            this.incValues = new Increment(this.key);
         }
 
         @Override
@@ -349,6 +352,15 @@ public class PTableImpl implements PTable {
             return mutations;
         }
 
+        @Override
+        public Increment toIncrement() {
+            if (incValues.hasFamilies()) {
+                return incValues;
+            } else {
+                return null;
+            }
+        }
+
         private void removeIfPresent(Mutation m, byte[] family, byte[] qualifier) {
             Map<byte[],List<KeyValue>> familyMap = m.getFamilyMap();
             List<KeyValue> kvs = familyMap.get(family);
@@ -363,36 +375,55 @@ public class PTableImpl implements PTable {
             }
         }
 
-        @Override
-        public void setValue(PColumn column, Object value) {
-            byte[] byteValue = value == null ? ByteUtil.EMPTY_BYTE_ARRAY : column.getDataType().toBytes(value);
-            setValue(column, byteValue);
+        // FIXME : after 0.95, Increment API changes, need a fix here then.
+        private void removeIfPresent(Increment m, byte[] family, byte[] qualifier) {
+            Map<byte[], NavigableMap<byte[], Long>> familyMap = m.getFamilyMap();
+            NavigableMap<byte[], Long> values = familyMap.get(family);
+            if (values != null) {
+                values.remove(qualifier);
+            }
         }
 
         @Override
-        public void setValue(PColumn column, byte[] byteValue) {
+        public void setValue(PColumn column, Object value) {
+            byte[] byteValue = value == null ? ByteUtil.EMPTY_BYTE_ARRAY : column.getDataType().toBytes(value);
+            setValue(column, new MutationValue(byteValue));
+        }
+
+        @Override
+        public void setValue(PColumn column, MutationValue mutationValue) {
             deleteRow = null;
             byte[] family = column.getFamilyName().getBytes();
             byte[] qualifier = column.getName().getBytes();
             PDataType type = column.getDataType();
+            
+            // clear old values.
+            removeIfPresent(unsetValues, family, qualifier);
+            removeIfPresent(setValues, family, qualifier);
+            removeIfPresent(incValues, family, qualifier);
+
             // Check null, since some types have no byte representation for null
-            if (byteValue == null || byteValue.length == 0) {
+            if (mutationValue == null || mutationValue.isEmpty()) {
                 if (!column.isNullable()) { 
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
                 }
-                removeIfPresent(setValues, family, qualifier);
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
                 Integer byteSize = column.getByteSize();
-                if (type.isFixedWidth()) { // TODO: handle multi-byte characters
-                    if (byteValue.length != byteSize) {
-                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
+                if (mutationValue.hasPutValue()) {
+                    byte[] setValue = mutationValue.getPutValue();
+                    if (type.isFixedWidth()) { // TODO: handle multi-byte characters
+                        if (setValue.length != byteSize) {
+                            throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + type.toObject(setValue) + ")");
+                        }
+                    } else if (byteSize != null && setValue.length > byteSize) {
+                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(setValue) + ")");
                     }
-                } else if (byteSize != null && byteValue.length > byteSize) {
-                    throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
+                    setValues.add(family, qualifier, ts, setValue);
                 }
-                removeIfPresent(unsetValues, family, qualifier);
-                setValues.add(family, qualifier, ts, byteValue);
+                if (mutationValue.hasIncValue()) {
+                    incValues.addColumn(family, qualifier, mutationValue.getIncValue());
+                }
             }
         }
 
@@ -400,6 +431,7 @@ public class PTableImpl implements PTable {
         public void delete() {
             setValues = new Put(key);
             unsetValues = new Delete(key);
+            incValues = new Increment(key);
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
             // FIXME: the version of the Delete constructor without the lock args was introduced
             // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version

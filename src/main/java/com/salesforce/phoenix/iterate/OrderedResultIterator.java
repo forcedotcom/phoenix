@@ -36,11 +36,14 @@ import java.util.*;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.WritableComparator;
 
 import com.google.common.base.Function;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.OrderByExpression;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
 
@@ -84,6 +87,20 @@ public class OrderedResultIterator implements ResultIterator {
         @Override
         public ImmutableBytesWritable apply(ResultEntry entry) {
             return entry.getSortKey(index);
+        }
+    }
+
+    /** A function that returns Nth key as LONGWritable for a given {@link ResultEntry}. */
+    private static class NthKeyLongWritable implements Function<ResultEntry, LongWritable> {
+        private final int index;
+
+        NthKeyLongWritable(int index) {
+            this.index = index;
+        }
+        @Override
+        public LongWritable apply(ResultEntry entry) {
+            ImmutableBytesWritable key = entry.getSortKey(index);
+            return new LongWritable(WritableComparator.readLong(key.get(), key.getOffset()));
         }
     }
 
@@ -160,10 +177,20 @@ public class OrderedResultIterator implements ResultIterator {
         Ordering<ResultEntry> ordering = null;
         int pos = 0;
         for (OrderByExpression col : orderByExpressions) {
-            Ordering<ImmutableBytesWritable> o = Ordering.from(new ImmutableBytesWritable.Comparator());
-            if(!col.isAscending()) o = o.reverse();
-            o = col.isNullsLast() ? o.nullsLast() : o.nullsFirst();
-            Ordering<ResultEntry> entryOrdering = o.onResultOf(new NthKey(pos++));
+            Ordering<ResultEntry> entryOrdering = null;
+            if (col.getExpression().getDataType() == PDataType.RAW_LONG) {
+                // LONG type data won't be able to be compared by bytes directly. 
+                Ordering<LongWritable> o = Ordering.from(new LongWritable.Comparator());
+                if(!col.isAscending()) o = o.reverse();
+                o = col.isNullsLast() ? o.nullsLast() : o.nullsFirst();
+                entryOrdering = o.onResultOf(new NthKeyLongWritable(pos++));
+            } else {
+                Ordering<ImmutableBytesWritable> o = Ordering.from(new ImmutableBytesWritable.Comparator());
+                if(!col.isAscending()) o = o.reverse();
+                o = col.isNullsLast() ? o.nullsLast() : o.nullsFirst();
+                entryOrdering = o.onResultOf(new NthKey(pos++));
+            }
+
             ordering = ordering == null ? entryOrdering : ordering.compound(entryOrdering);
         }
         return ordering;

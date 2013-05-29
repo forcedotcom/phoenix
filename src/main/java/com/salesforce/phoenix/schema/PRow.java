@@ -29,7 +29,10 @@ package com.salesforce.phoenix.schema;
 
 import java.util.List;
 
+import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.Mutation;
+
+import com.salesforce.phoenix.execute.MutationValue;
 
 /**
  * 
@@ -51,7 +54,17 @@ public interface PRow {
      * constraint
      */
     public List<Mutation> toRowMutations();
-    
+
+    /**
+     * Get the Increment {@link org.apache.hadoop.hbase.client.Increment} used to
+     * update an HTable after all mutations through calls to
+     * {@link #setValue(PColumn, Object)} or {@link #delete()}.
+     * @return the Increment representing the Increment made to a row
+     * @throws ConstraintViolationException if row data violates schema
+     * constraint
+     */
+    public Increment toIncrement();
+
     /**
      * Set a column value in the row
      * @param col the column for which the value is being set
@@ -68,7 +81,7 @@ public interface PRow {
      * @throws ConstraintViolationException if row data violates schema
      * constraint
      */
-    public void setValue(PColumn col, byte[] value);
+    public void setValue(PColumn col, MutationValue value);
     
     /**
      * Delete the row. Note that a delete take precedence over any

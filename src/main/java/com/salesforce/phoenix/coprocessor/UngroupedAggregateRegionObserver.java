@@ -49,6 +49,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
+import com.salesforce.phoenix.execute.MutationValue;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.aggregator.*;
@@ -181,7 +182,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                     }
                                     bytes = column.getDataType().coerceBytes(bytes, null, column.getDataType(),
                                             null, null, column.getMaxLength(), column.getScale());
-                                    row.setValue(projectedTable.getColumns().get(i), bytes);
+                                    row.setValue(projectedTable.getColumns().get(i), new MutationValue(bytes));
                                 }
                             }
                             for (Mutation mutation : row.toRowMutations()) {

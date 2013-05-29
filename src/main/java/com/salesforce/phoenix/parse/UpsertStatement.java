@@ -32,12 +32,14 @@ import java.util.List;
 
 public class UpsertStatement extends MutationStatement {
     private final List<ParseNode> columns;
+    private final boolean isIncrease;
     private final List<ParseNode> values;
     private final SelectStatement select;
     
-    public UpsertStatement(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+    public UpsertStatement(TableName table, List<ParseNode> columns, boolean isIncrease, List<ParseNode> values, SelectStatement select, int bindCount) {
         super(table, bindCount);
         this.columns = columns == null ? Collections.<ParseNode>emptyList() : columns;
+        this.isIncrease = isIncrease;
         this.values = values;
         this.select = select;
     }
@@ -46,6 +48,9 @@ public class UpsertStatement extends MutationStatement {
         return columns;
     }
 
+    public boolean isIncrease() {
+        return isIncrease;
+    }
     public List<ParseNode> getValues() {
         return values;
     }

@@ -434,8 +434,8 @@ public class ParseNodeFactory {
         return new SelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
     }
     
-    public UpsertStatement upsert(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
-        return new UpsertStatement(table, columns, values, select, bindCount);
+    public UpsertStatement upsert(TableName table, List<ParseNode> columns, boolean isIncrease, List<ParseNode> values, SelectStatement select, int bindCount) {
+        return new UpsertStatement(table, columns, isIncrease, values, select, bindCount);
     }
     
     public DeleteStatement delete(TableName table, HintNode hint, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {

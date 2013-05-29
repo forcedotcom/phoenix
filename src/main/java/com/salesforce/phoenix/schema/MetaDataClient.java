@@ -206,7 +206,8 @@ public class MetaDataClient {
             	columnModifier = pkConstraint.getColumnModifier(columnName);
             }            
             
-            PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
+            PDataType realDataType = isPK ? def.getDataType() : def.getNonPKDataType();
+            PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, realDataType,
                     def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor

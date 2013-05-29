@@ -121,6 +121,15 @@ public class ColumnDef {
         return dataType;
     }
 
+    public PDataType getNonPKDataType() {
+        switch (dataType) {
+        case LONG:
+            return PDataType.RAW_LONG;
+        default:
+            return dataType;
+        }
+    }
+
     public boolean isNull() {
         return isNull;
     }
