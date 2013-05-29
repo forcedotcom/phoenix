@@ -33,11 +33,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
   
   public MappedByteBufferSortedQueue(Comparator<ResultEntry> comparator) throws IOException {
     this.comparator = comparator;
-    this.currentQueue = new MappedByteBufferPriorityQueue(0, getFileName(), flushSize, comparator);
-  }
-
-  private String getFileName(){
-    return "/tmp/" + UUID.randomUUID().toString();
+    this.currentQueue = new MappedByteBufferPriorityQueue(0, flushSize, comparator);
   }
   
   @Override
@@ -47,7 +43,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
       if(isFlush) {
         queues.add(currentQueue);
         currentIndex++;
-        currentQueue = new MappedByteBufferPriorityQueue(currentIndex, getFileName(), flushSize, comparator);
+        currentQueue = new MappedByteBufferPriorityQueue(currentIndex, flushSize, comparator);
         currentQueue.writeResult(e);
       }
     } catch (IOException e1) {
@@ -167,9 +163,9 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
 //    private ImmutableBytesWritable[] sortKeys;
     private int index;
 
-    public MappedByteBufferPriorityQueue(int index, String fileName, int resultMappingSize, Comparator<ResultEntry> comparator) throws IOException {
+    public MappedByteBufferPriorityQueue(int index, int resultMappingSize, Comparator<ResultEntry> comparator) throws IOException {
       this.index = index;
-      this.file = new File(fileName);
+      this.file = File.createTempFile(UUID.randomUUID().toString(), null);
       this.af = new RandomAccessFile(file, "rw");
       this.fc = af.getChannel();
       this.mappingSize = resultMappingSize;
