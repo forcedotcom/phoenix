@@ -121,7 +121,7 @@ public class OrderedResultIterator implements ResultIterator {
     }
 
     public OrderedResultIterator(ResultIterator delegate, List<OrderByExpression> orderByExpressions, 
-    		int thresholdBytes, Integer limit, int estimatedRowSize) {
+            int thresholdBytes, Integer limit, int estimatedRowSize) {
         checkArgument(!orderByExpressions.isEmpty());
         this.delegate = delegate;
         this.orderByExpressions = orderByExpressions;
@@ -188,29 +188,28 @@ public class OrderedResultIterator implements ResultIterator {
         Collection<ResultEntry> entries;
         if (limit == null) {
           try{
-            final MappedByteBufferSortedQueue queueEntries = new MappedByteBufferSortedQueue(comparator, thresholdBytes);
-            entries = queueEntries;
-            
-            resultIterator = new BaseResultIterator() {
+                final MappedByteBufferSortedQueue queueEntries = new MappedByteBufferSortedQueue(comparator, thresholdBytes);
+                entries = queueEntries;
+                resultIterator = new BaseResultIterator() {
 
-                @Override
-                public Tuple next() throws SQLException {
-                  ResultEntry entry = queueEntries.poll();
-                  if (entry == null) {
-                      resultIterator = ResultIterator.EMPTY_ITERATOR;
-                      return null;
-                  }
-                  return entry.getResult();
-                }
-                
-                @Override
-                public void close() throws SQLException {
-                  queueEntries.close();
-                }
-            };
-          } catch (IOException e) {
-            throw new SQLException("", e);
-          }
+                    @Override
+                    public Tuple next() throws SQLException {
+                        ResultEntry entry = queueEntries.poll();
+                        if (entry == null) {
+                            resultIterator = ResultIterator.EMPTY_ITERATOR;
+                            return null;
+                        }
+                        return entry.getResult();
+                    }
+
+                    @Override
+                    public void close() throws SQLException {
+                        queueEntries.close();
+                    }
+                };
+            } catch (IOException e) {
+                throw new SQLException("", e);
+            }
         } else {
             final MinMaxPriorityQueue<ResultEntry> queueEntries = MinMaxPriorityQueue.<ResultEntry>orderedBy(comparator).maximumSize(limit).create();
             entries = queueEntries;

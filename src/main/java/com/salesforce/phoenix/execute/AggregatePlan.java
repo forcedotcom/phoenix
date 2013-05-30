@@ -107,7 +107,7 @@ public class AggregatePlan extends BasicQueryPlan {
             }
         } else {
             int thresholdBytes = services.getConfig().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, 
-            		QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
+                    QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
             resultScanner = new OrderedAggregatingResultIterator(aggResultIterator, orderBy.getOrderByExpressions(), thresholdBytes, limit);
         }
         
