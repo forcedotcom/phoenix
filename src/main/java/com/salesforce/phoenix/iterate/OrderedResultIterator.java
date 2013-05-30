@@ -56,9 +56,9 @@ import com.salesforce.phoenix.util.SizedUtil;
 public class OrderedResultIterator implements ResultIterator {
 
     /** A container that holds pointers to a {@link Result} and its sort keys. */
-    static class ResultEntry {
-        private final ImmutableBytesWritable[] sortKeys;
-        private final Tuple result;
+    protected static class ResultEntry {
+        protected final ImmutableBytesWritable[] sortKeys;
+        protected final Tuple result;
 
         ResultEntry(ImmutableBytesWritable[] sortKeys, Tuple result) {
             this.sortKeys = sortKeys;
@@ -96,6 +96,7 @@ public class OrderedResultIterator implements ResultIterator {
         }
     };
 
+    private final int thresholdBytes;
     private final Integer limit;
     private final ResultIterator delegate;
     private final List<OrderByExpression> orderByExpressions;
@@ -110,20 +111,21 @@ public class OrderedResultIterator implements ResultIterator {
     
     public OrderedResultIterator(ResultIterator delegate,
                                  List<OrderByExpression> orderByExpressions,
-                                 Integer limit) {
-        this(delegate, orderByExpressions, limit, 0);
+                                 int thresholdBytes, Integer limit) {
+        this(delegate, orderByExpressions, thresholdBytes, limit, 0);
     }
 
     public OrderedResultIterator(ResultIterator delegate,
-            List<OrderByExpression> orderByExpressions) throws SQLException {
-        this(delegate, orderByExpressions, null);
+            List<OrderByExpression> orderByExpressions, int thresholdBytes) throws SQLException {
+        this(delegate, orderByExpressions, thresholdBytes, null);
     }
 
-    public OrderedResultIterator(ResultIterator delegate, List<OrderByExpression> orderByExpressions, Integer limit,
-            int estimatedRowSize) {
+    public OrderedResultIterator(ResultIterator delegate, List<OrderByExpression> orderByExpressions, 
+    		int thresholdBytes, Integer limit, int estimatedRowSize) {
         checkArgument(!orderByExpressions.isEmpty());
         this.delegate = delegate;
         this.orderByExpressions = orderByExpressions;
+        this.thresholdBytes = thresholdBytes;
         this.limit = limit;
         long estimatedEntrySize =
             // ResultEntry
@@ -186,7 +188,7 @@ public class OrderedResultIterator implements ResultIterator {
         Collection<ResultEntry> entries;
         if (limit == null) {
           try{
-            final MappedByteBufferSortedQueue queueEntries = new MappedByteBufferSortedQueue(comparator);
+            final MappedByteBufferSortedQueue queueEntries = new MappedByteBufferSortedQueue(comparator, thresholdBytes);
             entries = queueEntries;
             
             resultIterator = new BaseResultIterator() {
