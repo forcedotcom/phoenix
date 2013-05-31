@@ -218,7 +218,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public MutationPlan compilePlan(List<Object> binds) throws SQLException {
             UpsertCompiler compiler = new UpsertCompiler(PhoenixStatement.this);
-            return compiler.compile(this, binds);
+	    return compiler.compile(this, binds);
         }
     }
     
@@ -725,6 +725,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public boolean execute(String sql) throws SQLException {
         throwIfUnboundParameters();
+         System.out.println(" jbdc phoenixprepdsttmnt 728 execute "+sql);
         return parseStatement(sql).execute();
     }
 

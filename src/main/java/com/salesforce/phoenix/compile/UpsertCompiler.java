@@ -89,7 +89,7 @@ public class UpsertCompiler {
         final PhoenixConnection connection = statement.getConnection();
         ConnectionQueryServices services = connection.getQueryServices();
         final int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
-        final ColumnResolver resolver = FromCompiler.getResolver(upsert, connection);
+        final ColumnResolver resolver = FromCompiler.getResolver(upsert, connection,upsert.getDynColumns());
         final TableRef tableRef = resolver.getTables().get(0);
         PTable table = tableRef.getTable();
         if (table.getType() == PTableType.VIEW) {
@@ -100,10 +100,12 @@ public class UpsertCompiler {
         // Setup array of column indexes parallel to values that are going to be set
         List<ParseNode> columnNodes = upsert.getColumns();
         List<PColumn> allColumns = table.getColumns();
+
         int[] columnIndexesToBe;
         int[] pkSlotIndexesToBe;
         PColumn[] targetColumns;
-        if (columnNodes.isEmpty()) {
+	//Alow full row upsert if no columns or only dynamic one are specified and values count match
+        if (columnNodes.isEmpty() || (upsert.onlyDynamic() && upsert.getValues().size()==table.getColumns().size())) {
             columnIndexesToBe = new int[allColumns.size()];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = new PColumn[columnIndexesToBe.length];

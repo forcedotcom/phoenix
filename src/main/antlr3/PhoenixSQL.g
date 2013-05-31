@@ -643,8 +643,10 @@ expression_terms returns [List<ParseNode> ret]
 
 column_refs returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-    :  v = column_ref {$ret.add(v);}  (COMMA v = column_ref {$ret.add(v);} )*
+     :  (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);})  (COMMA (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);}) )*
 ;
+catch[SQLException e]{throw  new RecognitionException();}
+
 column_ref returns [ParseNode ret]
     :   field=identifier {$ret = factory.column(field); }
     |   tableName=column_table_name DOT field=identifier {$ret = factory.column(tableName, field); }

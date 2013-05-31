@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
+import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 
 
@@ -157,4 +158,10 @@ public interface PTable extends Writable {
      * @return number of buckets used by this table for salting, or null if salting is not used.
      */
     Integer getBucketNum();
+   
+     /**
+     * Check if a columns is known and sends it back
+     * @return PColumn of found column or null
+     */
+    PColumn hasColumn(String name);
 }

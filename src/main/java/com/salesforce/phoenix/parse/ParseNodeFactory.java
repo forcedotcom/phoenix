@@ -225,6 +225,10 @@ public class ParseNodeFactory {
         return new ColumnParseNode(tableName,name);
     }
     
+    public DynamicColumnParseNode dynColumn(ColumnDef node) {
+        return new DynamicColumnParseNode(node);
+    }
+    
     public ColumnDefName columnDefName(String columnName) {
         return new ColumnDefName(columnName);
     }

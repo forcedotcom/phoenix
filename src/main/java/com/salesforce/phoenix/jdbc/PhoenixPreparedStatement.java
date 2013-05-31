@@ -111,7 +111,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
     @Override
     public boolean execute() throws SQLException {
         throwIfUnboundParameters();
-        return statement.execute();
+	return statement.execute();
     }
 
     @Override
@@ -134,7 +134,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
     @Override
     public ParameterMetaData getParameterMetaData() throws SQLException {
         List<Object> nullParameters = Arrays.asList(new Object[statement.getBindCount()]);
-        StatementPlan plan = statement.compilePlan(nullParameters);
+	StatementPlan plan = statement.compilePlan(nullParameters);
         return plan.getParameterMetaData();
     }
 
