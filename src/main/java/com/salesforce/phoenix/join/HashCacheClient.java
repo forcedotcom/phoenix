@@ -44,7 +44,6 @@ import org.apache.hadoop.io.WritableUtils;
 import org.xerial.snappy.Snappy;
 
 import com.google.common.collect.ImmutableSet;
-import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -257,7 +256,7 @@ public class HashCacheClient {
         try {
             locations = MetaScanner.allTableRegions(services.getConfig(), iterateOverTableName, false);
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         }
         Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
         for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
@@ -336,7 +335,7 @@ public class HashCacheClient {
                 dataOut.close();
             }
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         }
     }
 }

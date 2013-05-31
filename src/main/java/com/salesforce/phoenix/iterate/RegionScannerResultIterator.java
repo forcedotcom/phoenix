@@ -36,9 +36,9 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 
-import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ServerUtil;
 
 
 public class RegionScannerResultIterator extends BaseResultIterator {
@@ -67,7 +67,7 @@ public class RegionScannerResultIterator extends BaseResultIterator {
             tuple.setKeyValues(results);
             return tuple;
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         }
     }
 }

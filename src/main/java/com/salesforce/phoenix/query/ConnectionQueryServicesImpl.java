@@ -161,9 +161,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 connection.close();
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new PhoenixIOException(e);
+                    sqlE = ServerUtil.parseServerException(e);
                 } else {
-                    sqlE.setNextException(new PhoenixIOException(e));
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
                 }
                 throw sqlE;
             } finally {
@@ -437,7 +437,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             }
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         }
         return descriptor;
     }
@@ -479,7 +479,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 sqlE = new SQLExceptionInfo.Builder(SQLExceptionCode.TABLE_UNDEFINED).setRootCause(e).build().buildException();
             }
         } catch (IOException e) {
-            sqlE = new PhoenixIOException(e);
+            sqlE = ServerUtil.parseServerException(e);
         } finally {
             try {
                 if (admin != null) {
@@ -487,9 +487,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new PhoenixIOException(e);
+                    sqlE = ServerUtil.parseServerException(e);
                 } else {
-                    sqlE.setNextException(new PhoenixIOException(e));
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
                 }
             } finally {
                 if (sqlE != null) {
@@ -596,7 +596,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
 
         } catch (IOException e) {
-            sqlE = new PhoenixIOException(e);
+            sqlE = ServerUtil.parseServerException(e);
         } finally {
             try {
                 if (admin != null) {
@@ -604,9 +604,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new PhoenixIOException(e);
+                    sqlE = ServerUtil.parseServerException(e);
                 } else {
-                    sqlE.setNextException(new PhoenixIOException(e));
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
                 }
             } finally {
                 if (sqlE != null) {
@@ -759,7 +759,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 return result;
             }
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         } catch (Throwable t) {
             throw new SQLException(t);
         }
@@ -889,7 +889,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     }
                   });
             } catch (IOException e) {
-                throw new PhoenixIOException(e);
+                throw ServerUtil.parseServerException(e);
             } catch (Throwable e) {
                 sqlE = new SQLException(e);
             } finally {
@@ -897,9 +897,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     htable.close();
                 } catch (IOException e) {
                     if (sqlE == null) {
-                        sqlE = new PhoenixIOException(e);
+                        sqlE = ServerUtil.parseServerException(e);
                     } else {
-                        sqlE.setNextException(new PhoenixIOException(e));
+                        sqlE.setNextException(ServerUtil.parseServerException(e));
                     }
                 } finally {
                     if (sqlE != null) {
@@ -908,7 +908,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             }
         } catch (Exception e) {
-            throw new SQLException(e);
+            throw new SQLException(ServerUtil.parseServerException(e));
         }
     }
 }
