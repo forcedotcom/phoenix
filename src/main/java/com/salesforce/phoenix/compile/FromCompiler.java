@@ -242,85 +242,89 @@ public class FromCompiler {
         }
         
         protected abstract TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException;
-        
+
         @Override
         public void visit(NamedTableNode namedTableNode) throws SQLException {
             String tableName = namedTableNode.getName().getTableName();
             String schemaName = namedTableNode.getName().getSchemaName();
-            
+
             String alias = namedTableNode.getAlias();
             List<ColumnDef> dynamicColumnDefs = namedTableNode.getDynamicColumns();
-           
+
             TableRef tableRef = createTableRef(alias, schemaName, tableName, dynamicColumnDefs);
             PSchema theSchema = tableRef.getSchema();
             PTable theTable = tableRef.getTable();
-            
+
             if (alias != null) {
-                tableMap.put(new Key(null,alias), tableRef);
+                tableMap.put(new Key(null, alias), tableRef);
             }
-            
+
             tableMap.put(new Key(null, theTable.getName().getString()), tableRef);
-            tableMap.put(new Key(theSchema.getName(),theTable.getName().getString()), tableRef);
+            tableMap.put(new Key(theSchema.getName(), theTable.getName().getString()), tableRef);
             tables.add(tableRef);
         }
-   
-       protected PTable addDynamicColumns(List<ColumnDef> dynColumns,PTable theTable)throws AmbiguousColumnException,ColumnFamilyNotFoundException{
-      		List<ColumnDef> acceptedColumns = new ArrayList<ColumnDef>();
-      		if(dynColumns!=null && !dynColumns.isEmpty()) {
-        	 List<PColumn> allcolumns = new ArrayList<PColumn>();
-                 allcolumns.addAll(theTable.getColumns());
-        	int position = allcolumns.size();
-        	PColumn column = null;
-        	for(ColumnDef cdef:dynColumns){
-          		column = theTable.hasColumn(cdef.getColumnDefName().getColumnName().getName());
-          		if(column==null){
-            			acceptedColumns.add(cdef);
-          		}else if(!column.getDataType().equals(cdef.getDataType())){
-            			throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
-          		}else{
-           		     if(cdef.getColumnDefName().getFamilyName() != null){
-              			theTable.getColumnFamily(cdef.getColumnDefName().getFamilyName().getName());
-            		     }else{
-             	 		 theTable.getColumnFamily(QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.toString());
-            		    }
-          		}
-        	}
-        	for(ColumnDef addDef:acceptedColumns){
-          		PName familyName = null;
-          		if (addDef.getColumnDefName().getFamilyName() != null) {
-              		familyName = new PNameImpl(addDef.getColumnDefName().getFamilyName().getName());
-          		}else{
-              			familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
-          		}
-          		PName Name = new PNameImpl(addDef.getColumnDefName().getColumnName().getName());
-          		allcolumns.add(new PColumnImpl(Name,familyName,addDef.getDataType(), addDef.getMaxLength(), addDef.getScale(),addDef.isNull(), position, addDef.getColumnModifier()));
-          		position++;
-        	}
-        	theTable = new PTableImpl(theTable.getName(), theTable.getType(),theTable.getTimeStamp(), theTable.getSequenceNumber(),theTable.getPKName(), theTable.getBucketNum(), allcolumns);
-        	}
+
+        protected PTable addDynamicColumns(List<ColumnDef> dynColumns, PTable theTable)
+                throws AmbiguousColumnException, ColumnFamilyNotFoundException {
+            List<ColumnDef> acceptedColumns = new ArrayList<ColumnDef>();
+            if (dynColumns != null && !dynColumns.isEmpty()) {
+                List<PColumn> allcolumns = new ArrayList<PColumn>();
+                allcolumns.addAll(theTable.getColumns());
+                int position = allcolumns.size();
+                PColumn column = null;
+                for (ColumnDef cdef : dynColumns) {
+                    column = theTable.hasColumn(cdef.getColumnDefName().getColumnName().getName());
+                    if (column == null) {
+                        acceptedColumns.add(cdef);
+                    } else if (!column.getDataType().equals(cdef.getDataType())) {
+                        throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
+                    } else {
+                        if (cdef.getColumnDefName().getFamilyName() != null) {
+                            theTable.getColumnFamily(cdef.getColumnDefName().getFamilyName().getName());
+                        } else {
+                            theTable.getColumnFamily(QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.toString());
+                        }
+                    }
+                }
+                for (ColumnDef addDef : acceptedColumns) {
+                    PName familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
+                    PName Name = new PNameImpl(addDef.getColumnDefName().getColumnName().getName());
+                    if (addDef.getColumnDefName().getFamilyName() != null) {
+                        familyName = new PNameImpl(addDef.getColumnDefName().getFamilyName().getName());
+                    }
+                    allcolumns.add(new PColumnImpl(Name, familyName, addDef.getDataType(), addDef.getMaxLength(),
+                            addDef.getScale(), addDef.isNull(), position, addDef.getColumnModifier()));
+                    position++;
+                }
+                theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),
+                        theTable.getSequenceNumber(), theTable.getPKName(), theTable.getBucketNum(), allcolumns);
+            }
             return theTable;
-      	}	      
- 
+        }
+
         @Override
         public void visit(DerivedTableNode subselectNode) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
-    
+
         private static class ColumnFamilyRef {
             private final TableRef tableRef;
             private final PColumnFamily family;
+
             ColumnFamilyRef(TableRef tableRef, PColumnFamily family) {
                 this.tableRef = tableRef;
                 this.family = family;
             }
+
             public TableRef getTableRef() {
                 return tableRef;
             }
+
             public PColumnFamily getFamily() {
                 return family;
             }
         }
-        
+
         private TableRef resolveTable(String schemaName, String tableName) throws SQLException {
             Key key = new Key(schemaName, tableName);
             List<TableRef> tableRefs = tableMap.get(key);
