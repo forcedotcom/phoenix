@@ -88,11 +88,10 @@ public class FromCompiler {
      * clause. Currently only a single table name is supported.
      * @throws TableNotFoundException if table name not found in schema
      */
-    public static ColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection) throws SQLException {
+    public static ColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection)
+            throws SQLException {
         List<TableNode> fromNodes = statement.getFrom();
-        if (fromNodes.size() > 1) {
-            throw new SQLFeatureNotSupportedException("Joins not supported");
-        }
+        if (fromNodes.size() > 1) { throw new SQLFeatureNotSupportedException("Joins not supported"); }
         FromClauseVisitor visitor = new SelectFromClauseVisitor(connection);
         for (TableNode node : fromNodes) {
             node.accept(visitor);
@@ -100,18 +99,20 @@ public class FromCompiler {
         return visitor;
     }
 
-   public static ColumnResolver getResolver(MutationStatement statement, PhoenixConnection connection,List<ColumnDef> dyn_columns) throws SQLException {
-      TableName intoNodeName = statement.getTable();
-      NamedTableNode intoNode =  FACTORY.namedTable(null, intoNodeName,dyn_columns);
-      FromClauseVisitor visitor = new DMLFromClauseVisitor(connection);
-      intoNode.accept(visitor);
-      return visitor;
-  }
-    
-    public static ColumnResolver getResolver(MutationStatement statement, PhoenixConnection connection) throws SQLException {
-        return getResolver(statement,connection,null);
+    public static ColumnResolver getResolver(MutationStatement statement, PhoenixConnection connection,
+            List<ColumnDef> dyn_columns) throws SQLException {
+        TableName intoNodeName = statement.getTable();
+        NamedTableNode intoNode = FACTORY.namedTable(null, intoNodeName, dyn_columns);
+        FromClauseVisitor visitor = new DMLFromClauseVisitor(connection);
+        intoNode.accept(visitor);
+        return visitor;
     }
-    
+
+    public static ColumnResolver getResolver(MutationStatement statement, PhoenixConnection connection)
+            throws SQLException {
+        return getResolver(statement, connection, null);
+    }
+
     private static class SelectFromClauseVisitor extends FromClauseVisitor {
         private final MetaDataClient client;
 
@@ -132,7 +133,7 @@ public class FromCompiler {
             PTable theTable = theSchema.getTable(tableName);
             
             //If dynamic columns have been specified add them to the table declaration
-            if(dynamicColumnDefs!=null && !dynamicColumnDefs.isEmpty()) {
+            if(!dynamicColumnDefs.isEmpty()) {
 	        theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
             }
             TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
@@ -166,16 +167,17 @@ public class FromCompiler {
         public DMLFromClauseVisitor(PhoenixConnection connection) {
             super(connection);
         }
-        
+
         private MetaDataClient getMetaDataClient() {
             if (client == null) {
                 client = new MetaDataClient(connection);
             }
             return client;
         }
-        
+
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName,
+                List<ColumnDef> dynamicColumnDefs) throws SQLException {
             SQLException sqlE = null;
             long timeStamp = QueryConstants.UNSET_TIMESTAMP;
             while (true) {
@@ -186,10 +188,10 @@ public class FromCompiler {
                     }
                     PSchema theSchema = connection.getPMetaData().getSchema(schemaName);
                     PTable theTable = theSchema.getTable(tableName);
-                    //If dynamic columns have been specified add them to the table declaration
-		    if(dynamicColumnDefs!=null && !dynamicColumnDefs.isEmpty()) {	
-                    	theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
-		    }
+                    // If dynamic columns have been specified add them to the table declaration
+                    if(dynamicColumnDefs.isEmpty()) {
+                        theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
+                    }
                     TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
                     return tableRef;
                 } catch (SchemaNotFoundException e) {
@@ -205,7 +207,7 @@ public class FromCompiler {
             }
             throw sqlE;
         }
-        
+
     }
 
     private static abstract class FromClauseVisitor implements TableNodeVisitor, ColumnResolver {
