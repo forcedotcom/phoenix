@@ -27,7 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
 import com.google.common.collect.ImmutableList;
 
@@ -42,7 +43,7 @@ public class UpsertStatement extends MutationStatement {
         this.columns = columns == null ? Collections.<ParseNode>emptyList() : columns;
         this.values = values;
         this.select = select;
-        List<ColumnDef> dynamicColumns = new ArrayList<ColumnDef>();
+        List<ColumnDef> dynamicColumns = Collections.<ColumnDef>emptyList();
         for(ParseNode pn:this.columns){
           if(pn instanceof DynamicColumnParseNode){
             dynamicColumns.add(((DynamicColumnParseNode)pn).getColumnDef());
