@@ -181,7 +181,7 @@ public class FromCompiler {
                     PSchema theSchema = connection.getPMetaData().getSchema(schemaName);
                     PTable theTable = theSchema.getTable(tableName);
                     // If dynamic columns have been specified add them to the table declaration
-                    if (dynamicColumnDefs.isEmpty()) {
+                    if (!dynamicColumnDefs.isEmpty()) {
                         theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
                     }
                     TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
@@ -261,7 +261,8 @@ public class FromCompiler {
 
         protected PTable addDynamicColumns(List<ColumnDef> dynColumns, PTable theTable)
                 throws AmbiguousColumnException, ColumnFamilyNotFoundException {
-            List<ColumnDef> acceptedColumns = new ArrayList<ColumnDef>();
+            List<ColumnDef> acceptedColumns = new ArrayList<ColumnDef>(); 
+            System.out.println("i#### addDynamicColumns  "+dynColumns.size());
             if (!dynColumns.isEmpty()) {
                 List<PColumn> allcolumns = new ArrayList<PColumn>();
                 allcolumns.addAll(theTable.getColumns());
@@ -272,8 +273,10 @@ public class FromCompiler {
                         column = theTable.getColumn(cdef.getColumnDefName().getColumnName().getName());
                     } catch (ColumnNotFoundException e) {
                         //Only if th column is previously unknown will we add it to the table
-                        acceptedColumns.add(cdef);
+                        e.printStackTrace();
+			acceptedColumns.add(cdef);
                     }
+		    System.out.println("check for column "+column.getName());
                     if (!column.getDataType().equals(cdef.getDataType())) {
                         throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
                     }
