@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import java.io.IOException;
 import java.sql.SQLException;
 
 
@@ -35,9 +34,8 @@ public class PhoenixIOException extends SQLException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
 
-    public PhoenixIOException(IOException e) {
-        super(new SQLExceptionInfo.Builder(code).setRootCause(e).build().toString(),
-                code.getSQLState(), code.getErrorCode(), e);
+    public PhoenixIOException(Throwable e) {
+        super(e.getMessage(), code.getSQLState(), code.getErrorCode(), e);
     }
 
 }

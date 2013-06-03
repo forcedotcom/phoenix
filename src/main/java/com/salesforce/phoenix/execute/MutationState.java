@@ -38,11 +38,11 @@ import org.apache.hadoop.hbase.client.Mutation;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.ServerUtil;
 
 /**
  * 
@@ -239,9 +239,9 @@ public class MutationState implements SQLCloseable {
                     hTable.close();
                 } catch (IOException e) {
                     if (sqlE != null) {
-                        sqlE.setNextException(new PhoenixIOException(e));
+                        sqlE.setNextException(ServerUtil.parseServerException(e));
                     } else {
-                        sqlE = new PhoenixIOException(e);
+                        sqlE = ServerUtil.parseServerException(e);
                     }
                 } finally {
                     if (sqlE != null) {
