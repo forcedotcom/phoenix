@@ -271,15 +271,14 @@ public class FromCompiler {
                 for (ColumnDef cdef : dynColumns) {
                     try {
                         column = theTable.getColumn(cdef.getColumnDefName().getColumnName().getName());
+                        if (!column.getDataType().equals(cdef.getDataType())) {
+                            throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
+                        }
                     } catch (ColumnNotFoundException e) {
                         //Only if th column is previously unknown will we add it to the table
                         e.printStackTrace();
 			acceptedColumns.add(cdef);
-                    }
-		    System.out.println("check for column "+column.getName());
-                    if (!column.getDataType().equals(cdef.getDataType())) {
-                        throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
-                    }
+                   }  
                 }
                 for (ColumnDef addDef : acceptedColumns) {
                     PName familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
