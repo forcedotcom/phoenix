@@ -107,6 +107,11 @@ public class ServerUtil {
     }
 
     private static SQLException parseRemoteException(Throwable t) {
+    	String message = t.getLocalizedMessage();
+    	if (message == null) {
+    		return new PhoenixIOException(t);
+		}
+    	
         // If the message matches the standard pattern, recover the SQLException and throw it.
         Matcher matcher = PATTERN.matcher(t.getLocalizedMessage());
         if (matcher.find()) {
