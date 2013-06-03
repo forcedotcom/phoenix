@@ -262,7 +262,6 @@ public class FromCompiler {
         protected PTable addDynamicColumns(List<ColumnDef> dynColumns, PTable theTable)
                 throws AmbiguousColumnException, ColumnFamilyNotFoundException {
             List<ColumnDef> acceptedColumns = new ArrayList<ColumnDef>(); 
-            System.out.println("i#### addDynamicColumns  "+dynColumns.size());
             if (!dynColumns.isEmpty()) {
                 List<PColumn> allcolumns = new ArrayList<PColumn>();
                 allcolumns.addAll(theTable.getColumns());
@@ -275,8 +274,7 @@ public class FromCompiler {
                             throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
                         }
                     } catch (ColumnNotFoundException e) {
-                        //Only if th column is previously unknown will we add it to the table
-                        e.printStackTrace();
+                        //Only if the column is previously unknown will we add it to the table
 			acceptedColumns.add(cdef);
                    }  
                 }
