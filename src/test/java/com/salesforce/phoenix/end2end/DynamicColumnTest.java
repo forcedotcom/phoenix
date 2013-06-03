@@ -30,8 +30,10 @@ import org.junit.Test;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.schema.ConstraintViolationException;
+import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.exception.*;
+import org.apache.hadoop.hbase.regionserver.*;
 
 /**
  * Basic tests for Phoenix dynamic upserting
@@ -187,7 +189,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
     /**
      * Test a select of an undefined ColumnFamily dynamic columns
      */
-    @Test(expected = ConstraintViolationException.class)
+    @Test(expected = ColumnFamilyNotFoundException.class)
     public void testFakeCFDynamicUpsert() throws Exception {
         String upsertquery = "Select * FROM HBASE_DYNAMIC_COLUMNS(fakecf.DynCol VARCHAR)";
         String url = PHOENIX_JDBC_URL + ";";
