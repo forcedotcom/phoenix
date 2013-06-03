@@ -270,6 +270,8 @@ public class FromCompiler {
                 for (ColumnDef cdef : dynColumns) {
                     try {
                         column = theTable.getColumn(cdef.getColumnDefName().getColumnName().getName());
+                        String FamilyName = cdef.getColumnDefName().getFamilyName()!=null?cdef.getColumnDefName().getFamilyName().getName():QueryConstants.DEFAULT_COLUMN_FAMILY;
+                        theTable.getColumnFamily(FamilyName);
                         if (!column.getDataType().equals(cdef.getDataType())) {
                             throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
                         }
