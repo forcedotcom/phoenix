@@ -25,49 +25,34 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
+
 package com.salesforce.phoenix.parse;
 
-import java.util.*;
+/**
+ * 
+ * Node representing a dynamic defintion to a column in a SQL expression
+ *
+ * @author nmaillard
+ * @since 1.3
+ */
 
-import com.google.common.collect.ImmutableList;
+public class DynamicColumnParseNode extends ColumnParseNode {
+  protected final String fullName;
+  private final ColumnDef columnDef;
+  
+  DynamicColumnParseNode(ColumnDef node) {
+    super(node.getColumnDefName().getColumnName().getName());
+    columnDef = node;
+    fullName = getName();
+  }
+  
+  @Override
+public String getFullName() {
+    return fullName;
+  }
+  
+  public ColumnDef getColumnDef(){
+    return columnDef;
+  }
 
-public class UpsertStatement extends MutationStatement {
-    private final List<ParseNode> columns;
-    private final List<ParseNode> values;
-    private final SelectStatement select;
-    private final List<ColumnDef> dynColumns;
-
-    public UpsertStatement(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
-        super(table, bindCount);
-        this.columns = columns == null ? Collections.<ParseNode>emptyList() : columns;
-        this.values = values;
-        this.select = select;
-        List<ColumnDef> dynamicColumns = new ArrayList<ColumnDef>();
-        for(ParseNode pn:this.columns){
-          if(pn instanceof DynamicColumnParseNode){
-            dynamicColumns.add(((DynamicColumnParseNode)pn).getColumnDef());
-          }
-        }
-        this.dynColumns = ImmutableList.copyOf(dynamicColumns);
-    }
-
-    public List<ParseNode> getColumns() {
-        return columns;
-    }
-
-    public List<ParseNode> getValues() {
-        return values;
-    }
-
-    public SelectStatement getSelect() {
-        return select;
-    }
-
-    public List<ColumnDef> getDynColumns() {
-      return dynColumns;
-    }
-
-    public boolean onlyDynamic() {
-      return dynColumns.size()==columns.size();
-    }
 }
