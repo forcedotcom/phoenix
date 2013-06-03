@@ -104,13 +104,13 @@ public class UpsertCompiler {
         int[] columnIndexesToBe;
         int[] pkSlotIndexesToBe;
         PColumn[] targetColumns;
-	//Alow full row upsert if no columns or only dynamic one are specified and values count match
-        if (columnNodes.isEmpty() || (upsert.onlyDynamic() && upsert.getValues().size()==table.getColumns().size())) {
+        // Allow full row upsert if no columns or only dynamic one are specified and values count match
+        if (columnNodes.isEmpty() || (upsert.onlyDynamic() && upsert.getValues().size() == table.getColumns().size())) {
             columnIndexesToBe = new int[allColumns.size()];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = new PColumn[columnIndexesToBe.length];
             int j = table.getBucketNum() == null ? 0 : 1; // Skip over the salting byte.
-            for (int i = 0; i < allColumns.size() ; i++) {
+            for (int i = 0; i < allColumns.size(); i++) {
                 columnIndexesToBe[i] = i;
                 targetColumns[i] = allColumns.get(i);
                 if (SchemaUtil.isPKColumn(allColumns.get(i))) {
