@@ -1,29 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2013, Salesforce.com, Inc.
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- *     Redistributions of source code must retain the above copyright notice,
- *     this list of conditions and the following disclaimer.
- *     Redistributions in binary form must reproduce the above copyright notice,
- *     this list of conditions and the following disclaimer in the documentation
- *     and/or other materials provided with the distribution.
- *     Neither the name of Salesforce.com nor the names of its contributors may 
- *     be used to endorse or promote products derived from this software without 
- *     specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2013, Salesforce.com, Inc. All rights reserved. Redistribution and use in source and binary forms, with
+ * or without modification, are permitted provided that the following conditions are met: Redistributions of source code
+ * must retain the above copyright notice, this list of conditions and the following disclaimer. Redistributions in
+ * binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution. Neither the name of Salesforce.com nor the names
+ * of its contributors may be used to endorse or promote products derived from this software without specific prior
+ * written permission. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
@@ -40,11 +28,9 @@ import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 
-
 /**
- * 
  * Validates FROM clause and builds a ColumnResolver for resolving column references
- *
+ * 
  * @author jtaylor
  * @since 0.1
  */
@@ -61,32 +47,36 @@ public class FromCompiler {
         public ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
             throw new UnsupportedOperationException();
         }
-        
+
     };
 
-    public static ColumnResolver getResolver(final CreateTableStatement statement, final PhoenixConnection connection) throws SQLException {
+    public static ColumnResolver getResolver(final CreateTableStatement statement, final PhoenixConnection connection)
+            throws SQLException {
         return EMPTY_TABLE_RESOLVER;
     }
 
-
     // TODO: commonize with one for upsert
-    public static ColumnResolver getResolver(DropColumnStatement statement, PhoenixConnection connection) throws SQLException {
+    public static ColumnResolver getResolver(DropColumnStatement statement, PhoenixConnection connection)
+            throws SQLException {
         TableName tableName = statement.getTableName();
-        NamedTableNode tableNode =  FACTORY.namedTable(null, tableName,null);
+        NamedTableNode tableNode = FACTORY.namedTable(null, tableName, null);
         FromClauseVisitor visitor = new DDLFromClauseVisitor(connection);
         tableNode.accept(visitor);
         return visitor;
     }
 
     /**
-     * Iterate through the nodes in the FROM clause to build a column resolver used to
-     * lookup a column given the name and alias.
-     * @param statement the select statement
+     * Iterate through the nodes in the FROM clause to build a column resolver used to lookup a column given the name
+     * and alias.
+     * 
+     * @param statement
+     *            the select statement
      * @return the column resolver
-     * @throws SQLException 
-     * @throws SQLFeatureNotSupportedException if unsupported constructs appear in the FROM
-     * clause. Currently only a single table name is supported.
-     * @throws TableNotFoundException if table name not found in schema
+     * @throws SQLException
+     * @throws SQLFeatureNotSupportedException
+     *             if unsupported constructs appear in the FROM clause. Currently only a single table name is supported.
+     * @throws TableNotFoundException
+     *             if table name not found in schema
      */
     public static ColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection)
             throws SQLException {
@@ -120,9 +110,10 @@ public class FromCompiler {
             super(connection);
             client = new MetaDataClient(connection);
         }
-        
+
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName,
+                List<ColumnDef> dynamicColumnDefs) throws SQLException {
             long timeStamp = Math.abs(client.updateCache(schemaName, tableName));
             PSchema theSchema = null;
             try {
@@ -131,24 +122,25 @@ public class FromCompiler {
                 throw new TableNotFoundException(schemaName, tableName);
             }
             PTable theTable = theSchema.getTable(tableName);
-            
-            //If dynamic columns have been specified add them to the table declaration
-            if(!dynamicColumnDefs.isEmpty()) {
-	        theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
+
+            // If dynamic columns have been specified add them to the table declaration
+            if (!dynamicColumnDefs.isEmpty()) {
+                theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
             }
             TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
             return tableRef;
         }
-        
+
     }
-    
+
     private static class DDLFromClauseVisitor extends FromClauseVisitor {
         public DDLFromClauseVisitor(PhoenixConnection connection) {
             super(connection);
         }
-        
+
         @Override
-        protected TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException {
+        protected TableRef createTableRef(String alias, String schemaName, String tableName,
+                List<ColumnDef> dynamicColumnDefs) throws SQLException {
             PSchema theSchema = null;
             try {
                 theSchema = connection.getPMetaData().getSchema(schemaName);
@@ -160,7 +152,7 @@ public class FromCompiler {
             return tableRef;
         }
     }
-    
+
     private static class DMLFromClauseVisitor extends FromClauseVisitor {
         private MetaDataClient client;
 
@@ -189,7 +181,7 @@ public class FromCompiler {
                     PSchema theSchema = connection.getPMetaData().getSchema(schemaName);
                     PTable theTable = theSchema.getTable(tableName);
                     // If dynamic columns have been specified add them to the table declaration
-                    if(dynamicColumnDefs.isEmpty()) {
+                    if (dynamicColumnDefs.isEmpty()) {
                         theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
                     }
                     TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
@@ -211,39 +203,40 @@ public class FromCompiler {
     }
 
     private static abstract class FromClauseVisitor implements TableNodeVisitor, ColumnResolver {
-        private final ListMultimap<Key,TableRef> tableMap;
+        private final ListMultimap<Key, TableRef> tableMap;
         private final List<TableRef> tables;
         protected final PhoenixConnection connection;
-        
+
         private FromClauseVisitor(PhoenixConnection connection) {
             this.connection = connection;
-            tableMap = ArrayListMultimap.<Key,TableRef>create();
+            tableMap = ArrayListMultimap.<Key, TableRef> create();
             tables = Lists.newArrayList();
         }
-        
+
         @Override
         public List<TableRef> getTables() {
             return tables;
         }
-        
+
         @Override
         public void visit(BindTableNode boundTableNode) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
-    
+
         @Override
         public void visit(JoinTableNode joinNode) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
-    
+
         @SuppressWarnings("serial")
-		private static final class Key extends Pair<String,String> {
+        private static final class Key extends Pair<String, String> {
             private Key(String schemaName, String tableName) {
-                super(schemaName,tableName);
+                super(schemaName, tableName);
             }
         }
-        
-        protected abstract TableRef createTableRef(String alias, String schemaName, String tableName, List<ColumnDef> dynamicColumnDefs) throws SQLException;
+
+        protected abstract TableRef createTableRef(String alias, String schemaName, String tableName,
+                List<ColumnDef> dynamicColumnDefs) throws SQLException;
 
         @Override
         public void visit(NamedTableNode namedTableNode) throws SQLException {
@@ -269,23 +262,20 @@ public class FromCompiler {
         protected PTable addDynamicColumns(List<ColumnDef> dynColumns, PTable theTable)
                 throws AmbiguousColumnException, ColumnFamilyNotFoundException {
             List<ColumnDef> acceptedColumns = new ArrayList<ColumnDef>();
-            if (dynColumns != null && !dynColumns.isEmpty()) {
+            if (!dynColumns.isEmpty()) {
                 List<PColumn> allcolumns = new ArrayList<PColumn>();
                 allcolumns.addAll(theTable.getColumns());
                 int position = allcolumns.size();
                 PColumn column = null;
                 for (ColumnDef cdef : dynColumns) {
-                    column = theTable.hasColumn(cdef.getColumnDefName().getColumnName().getName());
-                    if (column == null) {
+                    try {
+                        column = theTable.getColumn(cdef.getColumnDefName().getColumnName().getName());
+                    } catch (ColumnNotFoundException e) {
+                        //Only if th column is previously unknown will we add it to the table
                         acceptedColumns.add(cdef);
-                    } else if (!column.getDataType().equals(cdef.getDataType())) {
+                    }
+                    if (!column.getDataType().equals(cdef.getDataType())) {
                         throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
-                    } else {
-                        if (cdef.getColumnDefName().getFamilyName() != null) {
-                            theTable.getColumnFamily(cdef.getColumnDefName().getFamilyName().getName());
-                        } else {
-                            theTable.getColumnFamily(QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.toString());
-                        }
                     }
                 }
                 for (ColumnDef addDef : acceptedColumns) {
@@ -338,7 +328,7 @@ public class FromCompiler {
                 return tableRefs.get(0);
             }
         }
-        
+
         private ColumnFamilyRef resolveColumnFamily(String cfName, String tableName) throws SQLException {
             if (tableName == null) {
                 ColumnFamilyRef theColumnFamilyRef = null;
@@ -347,16 +337,11 @@ public class FromCompiler {
                     TableRef tableRef = iterator.next();
                     try {
                         PColumnFamily columnFamily = tableRef.getTable().getColumnFamily(cfName);
-                        if (theColumnFamilyRef != null) {
-                            throw new TableNotFoundException(cfName);
-                        }
+                        if (theColumnFamilyRef != null) { throw new TableNotFoundException(cfName); }
                         theColumnFamilyRef = new ColumnFamilyRef(tableRef, columnFamily);
-                    } catch (ColumnFamilyNotFoundException e) {
-                    }
+                    } catch (ColumnFamilyNotFoundException e) {}
                 }
-                if (theColumnFamilyRef != null) {
-                    return theColumnFamilyRef;
-                }
+                if (theColumnFamilyRef != null) { return theColumnFamilyRef; }
                 throw new TableNotFoundException(cfName);
             } else {
                 TableRef tableRef = resolveTable(null, tableName);
@@ -364,7 +349,7 @@ public class FromCompiler {
                 return new ColumnFamilyRef(tableRef, columnFamily);
             }
         }
-        
+
         @Override
         public ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
             TableName tableName = node.getTableName();
@@ -375,19 +360,15 @@ public class FromCompiler {
                 while (iterator.hasNext()) {
                     TableRef tableRef = iterator.next();
                     try {
-                        PColumn column = tableRef.getTable().getColumn(node.getName()); 
-                        if (theTableRef != null) {
-                            throw new AmbiguousColumnException(node.getName());
-                        }
+                        PColumn column = tableRef.getTable().getColumn(node.getName());
+                        if (theTableRef != null) { throw new AmbiguousColumnException(node.getName()); }
                         theTableRef = tableRef;
                         theColumnPosition = column.getPosition();
                     } catch (ColumnNotFoundException e) {
-                        
+
                     }
                 }
-                if (theTableRef != null) {
-                    return new ColumnRef(theTableRef, theColumnPosition);
-                }
+                if (theTableRef != null) { return new ColumnRef(theTableRef, theColumnPosition); }
                 throw new ColumnNotFoundException(node.getName());
             } else {
                 try {
@@ -402,7 +383,6 @@ public class FromCompiler {
                 }
             }
         }
-        
+
     }
 }
-

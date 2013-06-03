@@ -38,7 +38,7 @@ package com.salesforce.phoenix.parse;
 
 public class DynamicColumnParseNode extends ColumnParseNode {
   protected final String fullName;
-  private ColumnDef columnDef;
+  private final ColumnDef columnDef;
   
   DynamicColumnParseNode(ColumnDef node) {
     super(node.getColumnDefName().getColumnName().getName());
@@ -46,7 +46,8 @@ public class DynamicColumnParseNode extends ColumnParseNode {
     fullName = getName();
   }
   
-  public String getFullName() {
+  @Override
+public String getFullName() {
     return fullName;
   }
   
