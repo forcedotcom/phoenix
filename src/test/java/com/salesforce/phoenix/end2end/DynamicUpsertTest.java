@@ -26,7 +26,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
+import com.salesforce.phoenix.schema.ConstraintViolationException;
 
 /**
  * Basic tests for Phoenix dynamic upserting
@@ -203,7 +203,7 @@ public class DynamicUpsertTest extends BaseClientMangedTimeTest {
     /**
      * Test an upsert of an undefined ColumnFamily dynamic columns
      */
-    @Test(expected = ColumnFamilyNotFoundException.class)
+    @Test(expected = ConstraintViolationException.class)
     public void testFakeCFDynamicUpsert() throws Exception {
         String upsertquery = "UPSERT INTO " + TABLE + " (fakecf.DynCol VARCHAR) VALUES('dynCol')";
         String url = PHOENIX_JDBC_URL + ";";
