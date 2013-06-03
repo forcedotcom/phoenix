@@ -536,15 +536,4 @@ public class PTableImpl implements PTable {
     public Integer getBucketNum() {
         return bucketNum;
     }
-
-  @Override
-  public PColumn hasColumn(String name) {
-    List<PColumn> columns = columnsByName.get(name);
-    int size = columns.size();
-    if (size == 0) {
-      return null;
-    }else{
-      return columns.get(0);
-    }
-  }
 }

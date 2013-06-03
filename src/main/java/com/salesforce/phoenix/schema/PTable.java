@@ -159,9 +159,4 @@ public interface PTable extends Writable {
      */
     Integer getBucketNum();
    
-     /**
-     * Check if a columns is known and sends it back
-     * @return PColumn of found column or null
-     */
-    PColumn hasColumn(String name);
 }
