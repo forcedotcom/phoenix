@@ -181,7 +181,7 @@ public class FromCompiler {
                     PSchema theSchema = connection.getPMetaData().getSchema(schemaName);
                     PTable theTable = theSchema.getTable(tableName);
                     // If dynamic columns have been specified add them to the table declaration
-                    if (dynamicColumnDefs.isEmpty()) {
+                    if (!dynamicColumnDefs.isEmpty()) {
                         theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
                     }
                     TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
