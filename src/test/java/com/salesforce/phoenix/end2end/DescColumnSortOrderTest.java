@@ -32,16 +32,20 @@ import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Calendar;
-import java.sql.Date;
 import java.util.GregorianCalendar;
+import java.util.List;
 import java.util.Properties;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.junit.Assert;
 import org.junit.Test;
+
+import com.google.common.collect.Lists;
 
 /**
  * @author stoens
@@ -237,6 +241,17 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     }
     
     @Test
+    public void queryDescDateWithExplicitOrderBy() throws Exception {
+        String ddl = "CREATE TABLE " + TABLE + " (c1 CHAR(1) NOT NULL, c2 CHAR(1) NOT NULL, d1 DATE NOT NULL, c3 CHAR(1) NOT NULL " + 
+            "constraint pk primary key (c1, c2, d1 DESC, c3))";
+        Object[] row1 = {"1", "2", date(10, 11, 2001), "3"};
+        Object[] row2 = {"1", "2", date(10, 11, 2003), "3"};
+        Object[][] insertedRows = new Object[][]{row1, row2};
+        runQueryTest(ddl, upsert("c1", "c2", "d1", "c3"), select("c1, c2, d1", "c3"), insertedRows, new Object[][]{row2, row1},
+            null, null, new OrderBy("d1", OrderBy.Direction.DESC));
+    }    
+    
+    @Test
     public void additionOnDescCompositePK() throws Exception {
         String ddl = "CREATE TABLE " + TABLE + " (n1 INTEGER NOT NULL, n2 DECIMAL(10, 2) NOT NULL, n3 BIGINT NOT NULL, d1 DATE NOT NULL " + 
             "constraint pk primary key (n1 DESC, n2 DESC, n3 DESC, d1 DESC))";
@@ -283,15 +298,15 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     }
     
     private void runQueryTest(String ddl, String[] columnNames, Object[][] rows, Object[][] expectedRows, WhereCondition condition) throws Exception {
-        runQueryTest(ddl, columnNames, columnNames, rows, expectedRows, condition, null);
+        runQueryTest(ddl, columnNames, columnNames, rows, expectedRows, condition, null, null);
     }
     
     private void runQueryTest(String ddl, String[] columnNames, String[] projections, Object[][] rows, Object[][] expectedRows) throws Exception {
-        runQueryTest(ddl, columnNames, projections, rows, expectedRows, null, null);
+        runQueryTest(ddl, columnNames, projections, rows, expectedRows, null, null, null);
     }
     
     private void runQueryTest(String ddl, String[] columnNames, String[] projections, Object[][] rows, Object[][] expectedRows, HavingCondition havingCondition) throws Exception {
-        runQueryTest(ddl, columnNames, projections, rows, expectedRows, null, havingCondition);
+        runQueryTest(ddl, columnNames, projections, rows, expectedRows, null, havingCondition, null);
     }
     
 
@@ -301,7 +316,9 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         String[] projections, 
         Object[][] rows, Object[][] expectedRows, 
         WhereCondition whereCondition, 
-        HavingCondition havingCondition) throws Exception 
+        HavingCondition havingCondition,
+        OrderBy orderBy) 
+        throws Exception 
     {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -328,16 +345,19 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
             
             String selectClause = "SELECT " + appendColumns(projections) + " FROM " + TABLE;
             
-            if (whereCondition != null) {
-                String query = whereCondition.appendWhere(selectClause);
-                HavingCondition.appendHaving(havingCondition, query);
+            for (WhereCondition whereConditionClause : new WhereCondition[]{whereCondition, WhereCondition.reverse(whereCondition)}) {
+                String query = WhereCondition.appendWhere(whereConditionClause, selectClause);
+                query = HavingCondition.appendHaving(havingCondition, query);
+                query = OrderBy.appendOrderBy(orderBy, query);
                 runQuery(conn, query, expectedRows);
-                query = whereCondition.reverse().appendWhere(selectClause);
-                HavingCondition.appendHaving(havingCondition, query);
-                runQuery(conn, query, expectedRows);
-            } else {
-                String query = HavingCondition.appendHaving(havingCondition, selectClause);
-                runQuery(conn, query, expectedRows);
+            }
+            
+            if (orderBy != null) {
+                orderBy = OrderBy.reverse(orderBy);
+                String query = WhereCondition.appendWhere(whereCondition, selectClause);
+                query = HavingCondition.appendHaving(havingCondition, query);
+                query = OrderBy.appendOrderBy(orderBy, query);
+                runQuery(conn, query, reverse(expectedRows));
             }
             
         } finally {
@@ -386,19 +406,26 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         Assert.assertEquals("Unexpected number of rows for query " + query, expectedValues.length, rowCounter);
     }
     
+    private static Object[][] reverse(Object[][] rows) {
+        Object[][] reversedArray = new Object[rows.length][];
+        System.arraycopy(rows, 0, reversedArray, 0, rows.length);
+        ArrayUtils.reverse(reversedArray);
+        return reversedArray;
+    }
+    
     private static Date date(int month, int day, int year) {
         Calendar cal = new GregorianCalendar();
         cal.set(Calendar.MONTH, month-1);
         cal.set(Calendar.DAY_OF_MONTH, day);
         cal.set(Calendar.YEAR, year);
         cal.set(Calendar.HOUR_OF_DAY, 10);
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
+        cal.set(Calendar.MINUTE, 2);
+        cal.set(Calendar.SECOND, 5);
+        cal.set(Calendar.MILLISECOND, 101);
         Date d = new Date(cal.getTimeInMillis()); 
         return d;
     }
-    
+        
     private static String[] upsert(String...args) {
         return args;
     }
@@ -426,16 +453,24 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
             this.rhs = rhs;
         }
         
-        WhereCondition reverse() {
-            if (operator.equalsIgnoreCase("IN") || operator.equalsIgnoreCase("LIKE")) {
-                return this;
+        static WhereCondition reverse(WhereCondition whereCondition) {
+            
+            if (whereCondition == null) {
+                return null; 
+            }
+            
+            if (whereCondition.operator.equalsIgnoreCase("IN") || whereCondition.operator.equalsIgnoreCase("LIKE")) {
+                return whereCondition;
             } else {
-                return new WhereCondition(rhs, getReversedOperator(), lhs);
+                return new WhereCondition(whereCondition.rhs, whereCondition.getReversedOperator(), whereCondition.lhs);
             }
         }
         
-         String appendWhere(String query) {
-            return query + " WHERE " + lhs + " " + operator + " " + rhs;
+         static String appendWhere(WhereCondition whereCondition, String query) {
+             if (whereCondition == null) {
+                 return query;
+             }
+            return query + " WHERE " + whereCondition.lhs + " " + whereCondition.operator + " " + whereCondition.rhs;
         }
         
         private String getReversedOperator() {
@@ -462,7 +497,67 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
             if (havingCondition == null) {
                 return query;
             }
-            return query + " GROUP BY " + havingCondition.groupby + " HAVING " + havingCondition.having;
+            return query + " GROUP BY " + havingCondition.groupby + " HAVING " + havingCondition.having + " ";
         }
+    }
+    
+    private static class OrderBy {
+        
+        enum Direction {
+            
+            ASC, DESC;
+            
+            Direction reverse() {
+                if (this == ASC) {
+                    return DESC;
+                }
+                return ASC;
+            }
+        }
+        
+        private List<String> columnNames = Lists.newArrayList();
+        private List<Direction> directions = Lists.newArrayList();
+        
+        OrderBy() {            
+        }
+        
+        OrderBy(String columnName, Direction orderBy) {
+            add(columnName, orderBy);
+        }
+        
+        void add(String columnName, Direction direction) {
+            columnNames.add(columnName);
+            directions.add(direction);
+        }
+        
+        static OrderBy reverse(OrderBy orderBy) {
+            
+            if (orderBy == null) {
+                return null;
+            }
+            
+            List<Direction> reversedDirections = Lists.newArrayList();
+            for (Direction dir : orderBy.directions) {
+                reversedDirections.add(dir.reverse());
+            }
+            OrderBy reversedOrderBy = new OrderBy();
+            reversedOrderBy.columnNames = orderBy.columnNames;
+            reversedOrderBy.directions = reversedDirections;
+            return reversedOrderBy;
+        }
+        
+        static String appendOrderBy(OrderBy orderBy, String query) {
+            if (orderBy == null || orderBy.columnNames.isEmpty()) {
+                return query;
+            }
+            query += " ORDER BY ";
+            for (int i = 0; i < orderBy.columnNames.size(); i++) {
+                query += orderBy.columnNames.get(i) + " " + orderBy.directions.get(i).toString() + " ";
+            }
+            
+            query += " LIMIT 1000 ";
+            
+            return query;
+        }        
     }
 }
