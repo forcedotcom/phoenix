@@ -65,6 +65,7 @@
     <hbase.version>0.94.7</hbase.version>
     <commons-cli.version>1.2</commons-cli.version>
     <hadoop.version>1.0.4</hadoop.version>
+    <pig.version>0.11.0</pig.version>
     <junit.version>4.11</junit.version>
     <jackson.version>1.8.8</jackson.version>
     <antlr.version>3.5</antlr.version>
@@ -364,7 +365,7 @@
     <dependency>
       <groupId>org.apache.pig</groupId>
       <artifactId>pig</artifactId>
-      <version>0.11.0</version>
+      <version>${pig.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hbase</groupId>
