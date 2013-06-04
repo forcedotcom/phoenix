@@ -90,7 +90,7 @@
         <include>commons-lang:commons-lang</include>
         <include>commons-logging:commons-logging</include>
         <include>com.google.guava:guava</include>
-        <include>org.apache.hadoop:hadoop-core</include>
+        <include>org.apache.hadoop:hadoop*</include>
 
         <include>com.google.protobuf:protobuf-java</include>
         <include>org.slf4j:slf4j-api</include>
