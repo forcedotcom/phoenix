@@ -60,6 +60,7 @@
     <!-- General Properties -->
     <antlr-input.dir>src/main/antlr3</antlr-input.dir>
     <antlr-output.dir>target/generated-sources/antlr3</antlr-output.dir>
+    <test.output.tofile>true</test.output.tofile>
 
     <!-- Dependency versions -->
     <hbase.version>0.94.7</hbase.version>
@@ -297,6 +298,7 @@
           <version>2.13</version>
           <configuration>
               <argLine>-Xmx1500m</argLine>
+              <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
           </configuration>
       </plugin>
     <plugin>
