@@ -29,15 +29,24 @@ package com.salesforce.phoenix.compile;
 
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import com.google.common.collect.*;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.parse.HintNode.Hint;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.OrderByNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.schema.ColumnModifier;
 
 /**
  * Validates ORDER BY clause and builds up a list of referenced columns.
@@ -108,7 +117,11 @@ public class OrderByCompiler {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNSUPPORTED_ORDER_BY_QUERY).build().buildException();
                     }
                 }
-                OrderByExpression col = new OrderByExpression(expression, node.isNullsLast(), node.isAscending());
+                boolean isAscending = node.isAscending();
+                if (expression.getColumnModifier() == ColumnModifier.SORT_DESC) {
+                    isAscending = !isAscending;
+                }
+                OrderByExpression col = new OrderByExpression(expression, node.isNullsLast(), isAscending);
                 visitor.addOrderByExpression(col);
             }
             visitor.reset();
