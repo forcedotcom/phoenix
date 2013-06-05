@@ -680,6 +680,7 @@ expression_literal_bind returns [ParseNode ret]
 literal returns [LiteralParseNode ret]
     :   s=STRING_LITERAL { ret = factory.literal(s.getText()); }
     |   n=int_literal { ret = n; }
+    |   l=long_literal { ret = l; }
     |   d=DECIMAL {
             try {
                 ret = factory.literal(new BigDecimal(d.getText()));
@@ -703,6 +704,18 @@ int_literal returns [LiteralParseNode ret]
                 }
             } catch (NumberFormatException e) { // Shouldn't happen since we just parsed a number
                 throwRecognitionException(n);
+            }
+        }
+    ;
+
+long_literal returns [LiteralParseNode ret]
+    :   l=LONG {
+            try {
+                String lt = l.getText();
+                Long v = Long.valueOf(lt.substring(0, lt.length() - 1));
+                ret = factory.literal(v);
+            } catch (NumberFormatException e) { // Shouldn't happen since we just parsed a number
+                throwRecognitionException(l);
             }
         }
     ;
