@@ -303,7 +303,7 @@ public class HashCacheClient {
                     if (baOut.size() > maxSize) {
                         throw new MaxHashCacheSizeExceededException("Size of hash cache (" + baOut.size() + " bytes) exceeds the maximum allowed size (" + maxSize + " bytes)");
                     }
-                    estimatedSize *= 3/2;
+                    estimatedSize *= 1.5d;
                     chunk.resize(estimatedSize);
                 }
                 nRows++;
