@@ -93,7 +93,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
    <repository>
       <id>phoenix-github</id>
       <name>Phoenix Github Maven</name>
-      <url>http://github.com/forcedotcom/Phoenix/tree/maven-artifacts/</url>
+      <url>https://raw.github.com/forcedotcom/phoenix/maven-artifacts/releases</url>
       <snapshots>
         <enabled>true</enabled>
       </snapshots>
