@@ -33,8 +33,10 @@ import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HConstants;
 
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 /**
@@ -76,12 +78,17 @@ public class QueryServicesOptions {
     }
     
     public ReadOnlyProps getProps() {
-        ConfigurationUtil.adjust(config);
+        // Ensure that HBase RPC time out value is at least as large as our thread time out for query. 
+        int threadTimeOutMS = config.getInt(THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
+        int hbaseRPCTimeOut = config.getInt(HConstants.HBASE_RPC_TIMEOUT_KEY, HConstants.DEFAULT_HBASE_RPC_TIMEOUT);
+        if (threadTimeOutMS > hbaseRPCTimeOut) {
+            config.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, threadTimeOutMS);
+        }
         return new ReadOnlyProps(config.iterator());
     }
     
     public QueryServicesOptions setAll(ReadOnlyProps props) {
-        for (Entry<String,String> entry : props.getMap().entrySet()) {
+        for (Entry<String,String> entry : props) {
             config.set(entry.getKey(), entry.getValue());
         }
         return this;

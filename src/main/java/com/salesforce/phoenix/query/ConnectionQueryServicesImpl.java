@@ -49,15 +49,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.*;
-import com.google.common.collect.*;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.execute.MutationState;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.jdbc.*;
+import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
 import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.TableNotFoundException;
@@ -93,11 +94,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      * @param overrideProps overrides for configuration values (used during testing)
      * @throws SQLException
      */
-    public ConnectionQueryServicesImpl(QueryServices services, ReadOnlyProps overrideProps) throws SQLException {
+    public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
         super(services);
-        this.config = ConfigurationUtil.newConfiguration(new ReadOnlyProps(Iterators.concat(
-                services.getProps().getMap().entrySet().iterator(), 
-                overrideProps.getMap().entrySet().iterator())));
+        this.config = HBaseConfiguration.create();
+        for (Entry<String,String> entry : services.getProps()) {
+            config.set(entry.getKey(), entry.getValue());
+        }
+        for (Entry<String,String> entry : connectionInfo.asProps()) {
+            config.set(entry.getKey(), entry.getValue());
+        }
         this.props = new ReadOnlyProps(config.iterator());
         try {
             this.connection = HConnectionManager.createConnection(config);

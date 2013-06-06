@@ -44,10 +44,6 @@ import com.salesforce.phoenix.schema.TableRef;
 
 
 public interface ConnectionQueryServices extends QueryServices, MetaDataMutated {
-    public static final String ZOOKEEPER_QUARUM_ATTRIB = "hbase.zookeeper.quorum";
-    public static final String ZOOKEEPER_PORT_ATTRIB = "hbase.zookeeper.property.clientPort";
-    public static final String ZOOKEEPER_ROOT_NODE_ATTRIB = "zookeeper.znode.parent";
-
     /**
      * Get (and create if necessary) a child QueryService for a given tenantId.
      * The QueryService will be cached for the lifetime of the parent QueryService

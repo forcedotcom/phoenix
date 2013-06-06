@@ -33,9 +33,9 @@ import java.util.Properties;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 
+import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
 import com.salesforce.phoenix.query.ConnectionQueryServicesImpl;
 import com.salesforce.phoenix.query.QueryServices;
-import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 /**
@@ -47,19 +47,19 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
  * @since 0.1
  */
 public class ConnectionQueryServicesTestImpl extends ConnectionQueryServicesImpl {
-    private static HBaseTestingUtility util;
+    private HBaseTestingUtility util;
 
-    public ConnectionQueryServicesTestImpl(QueryServices services, ReadOnlyProps overrideProps) throws SQLException {
-        super(services, overrideProps);
+    public ConnectionQueryServicesTestImpl(QueryServices services, ConnectionInfo info) throws SQLException {
+        super(services, info);
     }
 
-    private static Configuration setupServer(Configuration config) throws Exception {
+    private Configuration setupServer(Configuration config) throws Exception {
         util = new HBaseTestingUtility(config);
         util.startMiniCluster();
         return util.getConfiguration();
     }
     
-    private static void teardownServer() throws Exception {
+    private void teardownServer() throws Exception {
         util.shutdownMiniCluster();
     }
     

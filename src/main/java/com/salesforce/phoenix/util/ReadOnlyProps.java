@@ -16,7 +16,7 @@ import com.google.common.collect.Iterators;
  * @author jtaylor
  * @since 1.2.2
  */
-public class ReadOnlyProps {
+public class ReadOnlyProps implements Iterable<Entry<String, String>> {
     public static final ReadOnlyProps EMPTY_PROPS = new ReadOnlyProps(Iterators.<Entry<String, String>>emptyIterator());
     private final Map<String, String> props;
     
@@ -219,7 +219,8 @@ public class ReadOnlyProps {
       }
     }
     
-    public Map<String,String> getMap() {
-        return props;
+    @Override
+    public Iterator<Entry<String, String>> iterator() {
+        return props.entrySet().iterator();
     }
 }

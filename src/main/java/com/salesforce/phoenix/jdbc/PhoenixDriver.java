@@ -29,14 +29,11 @@ package com.salesforce.phoenix.jdbc;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import com.google.common.collect.Maps;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SQLCloseables;
 
 
@@ -85,19 +82,7 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
             if (normalizedConnInfo.isConnectionless()) {
                 connectionQueryServices = new ConnectionlessQueryServicesImpl(getQueryServices());
             } else {
-                Map<String,String> connectionProps = Maps.newHashMapWithExpectedSize(3);
-                if (connInfo.getZookeeperQuorum() != null) {
-                    connectionProps.put(ConnectionQueryServices.ZOOKEEPER_QUARUM_ATTRIB, connInfo.getZookeeperQuorum());
-                }
-                if (connInfo.getPort() != null) {
-                    connectionProps.put(ConnectionQueryServices.ZOOKEEPER_PORT_ATTRIB, connInfo.getPort().toString());
-                }
-                if (connInfo.getRootNode() != null) {
-                    connectionProps.put(ConnectionQueryServices.ZOOKEEPER_ROOT_NODE_ATTRIB, connInfo.getRootNode());
-                }
-                // Combine connection properties with any other override properties
-                ReadOnlyProps overrideProps = new ReadOnlyProps(connectionProps.entrySet().iterator());
-                connectionQueryServices = new ConnectionQueryServicesImpl(getQueryServices(), overrideProps);
+                connectionQueryServices = new ConnectionQueryServicesImpl(getQueryServices(), normalizedConnInfo);
             }
             connectionQueryServices.init(url, info);
             ConnectionQueryServices prevValue = connectionQueryServicesMap.putIfAbsent(normalizedConnInfo, connectionQueryServices);

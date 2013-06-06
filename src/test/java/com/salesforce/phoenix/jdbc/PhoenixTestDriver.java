@@ -32,7 +32,6 @@ import java.util.Properties;
 
 import com.salesforce.phoenix.end2end.ConnectionQueryServicesTestImpl;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 
@@ -46,19 +45,13 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
  */
 public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
     private ConnectionQueryServices queryServices;
-    private final ReadOnlyProps overrideProps;
     
     public PhoenixTestDriver() {
         this(new QueryServicesTestImpl());
     }
 
     public PhoenixTestDriver(QueryServices services) {
-        this(services, ReadOnlyProps.EMPTY_PROPS);
-    }
-
-    public PhoenixTestDriver(QueryServices services, ReadOnlyProps overrideProps) {
         super(services);
-        this.overrideProps = overrideProps;
     }
 
     @Override
@@ -77,7 +70,7 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
         if (connInfo.isConnectionless()) {
             queryServices =  new ConnectionlessQueryServicesImpl(services);
         } else {
-            queryServices =  new ConnectionQueryServicesTestImpl(services, overrideProps);
+            queryServices =  new ConnectionQueryServicesTestImpl(services, connInfo);
         }
         queryServices.init(url, info);
         return queryServices;
@@ -85,6 +78,10 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
     
     @Override
     public void close() throws SQLException {
-        queryServices.close();
+        try {
+            queryServices.close();
+        } finally {
+            queryServices = null;
+        }
     }
 }

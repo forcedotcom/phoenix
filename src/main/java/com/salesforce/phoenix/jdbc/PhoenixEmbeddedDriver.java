@@ -28,10 +28,10 @@
 package com.salesforce.phoenix.jdbc;
 
 import java.sql.*;
-import java.util.Properties;
-import java.util.StringTokenizer;
+import java.util.*;
 import java.util.logging.Logger;
 
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
@@ -167,7 +167,7 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
      * @author jtaylor
      * @since 0.1.1
      */
-    protected static class ConnectionInfo {
+    public static class ConnectionInfo {
         protected static ConnectionInfo create(String url) throws SQLException {
             StringTokenizer tokenizer = new StringTokenizer(url == null ? "" : url.substring(PhoenixRuntime.JDBC_PROTOCOL.length()),DELIMITERS, true);
             int i = 0;
@@ -216,7 +216,7 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
             // Normalize connInfo so that a url explicitly specifying versus implicitly inheriting
             // the default values will both share the same ConnectionQueryServices.
             if (zookeeperQuorum == null) {
-                zookeeperQuorum = props.get(ConnectionQueryServices.ZOOKEEPER_QUARUM_ATTRIB);
+                zookeeperQuorum = props.get(QueryServices.ZOOKEEPER_QUARUM_ATTRIB);
                 if (zookeeperQuorum == null) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
                     .setMessage(this.toString()).build().buildException();
@@ -225,7 +225,7 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
 
             if (port == null) {
                 if (!isConnectionless) {
-                    String portStr = props.get(ConnectionQueryServices.ZOOKEEPER_PORT_ATTRIB);
+                    String portStr = props.get(QueryServices.ZOOKEEPER_PORT_ATTRIB);
                     if (portStr != null) {
                         try {
                             port = Integer.parseInt(portStr);
@@ -241,7 +241,7 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
             }
             if (rootNode == null) {
                 if (!isConnectionless) {
-                    rootNode = props.get(ConnectionQueryServices.ZOOKEEPER_ROOT_NODE_ATTRIB);
+                    rootNode = props.get(QueryServices.ZOOKEEPER_ROOT_NODE_ATTRIB);
                 }
             } else if (isConnectionless) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
@@ -263,6 +263,20 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
             this.isConnectionless = PhoenixRuntime.CONNECTIONLESS.equals(zookeeperQuorum);
         }
 
+        public ReadOnlyProps asProps() {
+            Map<String,String> connectionProps = Maps.newHashMapWithExpectedSize(3);
+            if (getZookeeperQuorum() != null) {
+                connectionProps.put(QueryServices.ZOOKEEPER_QUARUM_ATTRIB, getZookeeperQuorum());
+            }
+            if (getPort() != null) {
+                connectionProps.put(QueryServices.ZOOKEEPER_PORT_ATTRIB, getPort().toString());
+            }
+            if (getRootNode() != null) {
+                connectionProps.put(QueryServices.ZOOKEEPER_ROOT_NODE_ATTRIB, getRootNode());
+            }
+            return connectionProps.isEmpty() ? ReadOnlyProps.EMPTY_PROPS : new ReadOnlyProps(connectionProps.entrySet().iterator());
+        }
+        
         public boolean isConnectionless() {
             return isConnectionless;
         }
