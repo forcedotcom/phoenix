@@ -44,6 +44,7 @@ import org.junit.Test;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.*;
@@ -1553,7 +1554,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
         HBaseAdmin admin = null;
         try {
             initTableValues(tenantId, getSplits(tenantId), ts);
-            admin = new HBaseAdmin(driver.getQueryServices().getConfig());
+            admin = conn.unwrap(PhoenixConnection.class).getQueryServices().getAdmin();
             admin.flush(SchemaUtil.getTableName(Bytes.toBytes(PRODUCT_METRICS_NAME)));
             String query = "SELECT SUM(TRANSACTIONS) FROM " + PRODUCT_METRICS_NAME + " WHERE FEATURE=?";
             PreparedStatement statement = conn.prepareStatement(query);

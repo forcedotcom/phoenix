@@ -51,7 +51,7 @@ public class PhoenixEmbeddedDriverTest {
         assertEquals(urls.length,infos.length);
         for (int i = 0; i < urls.length; i++) {
             try {
-                ConnectionInfo info = PhoenixEmbeddedDriver.getConnectionInfo(urls[i]);
+                ConnectionInfo info = ConnectionInfo.create(urls[i]);
                 assertEquals(infos[i], info);
             } catch (AssertionError e) {
                 throw new AssertionError("For \"" + urls[i] + "\": " + e.getMessage());
@@ -77,7 +77,7 @@ public class PhoenixEmbeddedDriverTest {
         };
         for (int i = 0; i < urls.length; i++) {
             try {
-                PhoenixEmbeddedDriver.getConnectionInfo(urls[i]);
+                ConnectionInfo.create(urls[i]);
                 throw new AssertionError("Expected exception for \"" + urls[i] + "\"");
             } catch (SQLException e) {
                 try {

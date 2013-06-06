@@ -29,6 +29,8 @@ package com.salesforce.phoenix.query;
 
 
 
+
+
 /**
  * 
  * Real implementation of QueryServices for use in runtime and perf testing
@@ -36,10 +38,9 @@ package com.salesforce.phoenix.query;
  * @author jtaylor
  * @since 0.1
  */
-public class QueryServicesImpl extends BaseQueryServicesImpl {
-
-    public QueryServicesImpl(QueryServicesOptions options) {
-        super(options);
+public final class QueryServicesImpl extends BaseQueryServicesImpl {
+    
+    public QueryServicesImpl() {
+        super(QueryServicesOptions.withDefaults());
     }
-
 }

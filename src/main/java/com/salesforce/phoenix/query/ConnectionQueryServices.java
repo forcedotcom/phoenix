@@ -32,8 +32,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -45,6 +44,10 @@ import com.salesforce.phoenix.schema.TableRef;
 
 
 public interface ConnectionQueryServices extends QueryServices, MetaDataMutated {
+    public static final String ZOOKEEPER_QUARUM_ATTRIB = "hbase.zookeeper.quorum";
+    public static final String ZOOKEEPER_PORT_ATTRIB = "hbase.zookeeper.property.clientPort";
+    public static final String ZOOKEEPER_ROOT_NODE_ATTRIB = "zookeeper.znode.parent";
+
     /**
      * Get (and create if necessary) a child QueryService for a given tenantId.
      * The QueryService will be cached for the lifetime of the parent QueryService
@@ -78,4 +81,5 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     public void init(String url, Properties props) throws SQLException;
 
     public int getLowestClusterHBaseVersion();
+    public HBaseAdmin getAdmin() throws SQLException;
 }

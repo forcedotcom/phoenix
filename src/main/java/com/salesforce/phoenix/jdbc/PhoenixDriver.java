@@ -27,21 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
-import static com.salesforce.phoenix.query.QueryServicesOptions.withDefaults;
-
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SQLCloseables;
 
 
@@ -60,9 +55,6 @@ import com.salesforce.phoenix.util.SQLCloseables;
  * @since 0.1
  */
 public final class PhoenixDriver extends PhoenixEmbeddedDriver {
-    private static final String ZOOKEEPER_QUARUM_ATTRIB = "hbase.zookeeper.quorum";
-    private static final String ZOOKEEPER_PORT_ATTRIB = "hbase.zookeeper.property.clientPort";
-    private static final String ZOOKEEPER_ROOT_NODE_ATTRIB = "zookeeper.znode.parent";
     public static final PhoenixDriver INSTANCE;
     static {
         try {
@@ -75,7 +67,7 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
 
     public PhoenixDriver() { // for Squirrel
         // Use production services implementation
-        super(new QueryServicesImpl(withDefaults(HBaseConfiguration.create())));
+        super(new QueryServicesImpl());
     }
 
     @Override
@@ -86,67 +78,26 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
 
     @Override
     protected ConnectionQueryServices getConnectionQueryServices(String url, Properties info) throws SQLException {
-        ConnectionInfo connInfo = getConnectionInfo(url);
-        String zookeeperQuorum = connInfo.getZookeeperQuorum();
-        Integer port = connInfo.getPort();
-        String rootNode = connInfo.getRootNode();
-        boolean isConnectionless = false;
-        // Normalize connInfo so that a url explicitly specifying versus implicitly inheriting
-        // the default values will both share the same ConnectionQueryServices.
-        Configuration globalConfig = getQueryServices().getConfig();
-        if (zookeeperQuorum == null) {
-            zookeeperQuorum = globalConfig.get(ZOOKEEPER_QUARUM_ATTRIB);
-            if (zookeeperQuorum == null) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
-                .setMessage(url).build().buildException();
-            }
-        }
-        isConnectionless = PhoenixRuntime.CONNECTIONLESS.equals(zookeeperQuorum);
-
-        if (port == null) {
-            if (!isConnectionless) {
-                String portStr = globalConfig.get(ZOOKEEPER_PORT_ATTRIB);
-                if (portStr != null) {
-                    try {
-                        port = Integer.parseInt(portStr);
-                    } catch (NumberFormatException e) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
-                        .setMessage(url).build().buildException();
-                    }
-                }
-            }
-        } else if (isConnectionless) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
-            .setMessage("Port may not be specified when using the connectionless url \"" + url + "\"").build().buildException();
-        }
-        if (rootNode == null) {
-            if (!isConnectionless) {
-                rootNode = globalConfig.get(ZOOKEEPER_ROOT_NODE_ATTRIB);
-            }
-        } else if (isConnectionless) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
-            .setMessage("Root node may not be specified when using the connectionless url \"" + url + "\"").build().buildException();
-        }
-        ConnectionInfo normalizedConnInfo = new ConnectionInfo(zookeeperQuorum, port, rootNode);
+        ConnectionInfo connInfo = ConnectionInfo.create(url);
+        ConnectionInfo normalizedConnInfo = connInfo.normalize(getQueryServices().getProps());
         ConnectionQueryServices connectionQueryServices = connectionQueryServicesMap.get(normalizedConnInfo);
         if (connectionQueryServices == null) {
-            if (isConnectionless) {
+            if (normalizedConnInfo.isConnectionless()) {
                 connectionQueryServices = new ConnectionlessQueryServicesImpl(getQueryServices());
             } else {
-                Configuration childConfig = HBaseConfiguration.create(globalConfig);
+                Map<String,String> connectionProps = Maps.newHashMapWithExpectedSize(3);
                 if (connInfo.getZookeeperQuorum() != null) {
-                    childConfig.set(ZOOKEEPER_QUARUM_ATTRIB, connInfo.getZookeeperQuorum());
-                } else if (childConfig.get(ZOOKEEPER_QUARUM_ATTRIB) == null) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
-                    .setMessage(url).build().buildException();
+                    connectionProps.put(ConnectionQueryServices.ZOOKEEPER_QUARUM_ATTRIB, connInfo.getZookeeperQuorum());
                 }
                 if (connInfo.getPort() != null) {
-                	childConfig.setInt(ZOOKEEPER_PORT_ATTRIB, connInfo.getPort());
+                    connectionProps.put(ConnectionQueryServices.ZOOKEEPER_PORT_ATTRIB, connInfo.getPort().toString());
                 }
                 if (connInfo.getRootNode() != null) {
-                    childConfig.set(ZOOKEEPER_ROOT_NODE_ATTRIB, connInfo.getRootNode());
+                    connectionProps.put(ConnectionQueryServices.ZOOKEEPER_ROOT_NODE_ATTRIB, connInfo.getRootNode());
                 }
-                connectionQueryServices = new ConnectionQueryServicesImpl(getQueryServices(), childConfig);
+                // Combine connection properties with any other override properties
+                ReadOnlyProps overrideProps = new ReadOnlyProps(connectionProps.entrySet().iterator());
+                connectionQueryServices = new ConnectionQueryServicesImpl(getQueryServices(), overrideProps);
             }
             connectionQueryServices.init(url, info);
             ConnectionQueryServices prevValue = connectionQueryServicesMap.putIfAbsent(normalizedConnInfo, connectionQueryServices);

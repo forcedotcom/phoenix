@@ -29,10 +29,12 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.QueryServices.*;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HConstants;
+import java.util.Map.Entry;
 
-import com.salesforce.phoenix.util.DateUtil;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+
+import com.salesforce.phoenix.util.*;
 
 
 /**
@@ -42,7 +44,6 @@ import com.salesforce.phoenix.util.DateUtil;
  * @since 0.1
  */
 public class QueryServicesOptions {
-    
 	public static final int DEFAULT_KEEP_ALIVE_MS = 1000;
 	public static final int DEFAULT_THREAD_POOL_SIZE = 20;
 	public static final int DEFAULT_QUEUE_SIZE = 250;
@@ -61,12 +62,6 @@ public class QueryServicesOptions {
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
     public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = false; // Merge sort on client to ensure salted tables are row key ordered
     
-    /**
-     * Use {@link #DEFAULT_MUTATE_BATCH_SIZE} instead
-     * @deprecated
-     */
-    @Deprecated
-    public final static int DEFAULT_UPSERT_BATCH_SIZE = 10000;
     public final static int DEFAULT_MUTATE_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT and DELETE
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
 	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 60000; // How long to cache region boundary info for parallelization calculation
@@ -79,9 +74,21 @@ public class QueryServicesOptions {
     private QueryServicesOptions(Configuration config) {
         this.config = config;
     }
+    
+    public ReadOnlyProps getProps() {
+        ConfigurationUtil.adjust(config);
+        return new ReadOnlyProps(config.iterator());
+    }
+    
+    public QueryServicesOptions setAll(ReadOnlyProps props) {
+        for (Entry<String,String> entry : props.getMap().entrySet()) {
+            config.set(entry.getKey(), entry.getValue());
+        }
+        return this;
+    }
 
-    @SuppressWarnings("deprecation")
-    public static QueryServicesOptions withDefaults(Configuration config) {
+    public static QueryServicesOptions withDefaults() {
+        Configuration config = HBaseConfiguration.create();
         QueryServicesOptions options = new QueryServicesOptions(config)
             .setIfUnset(KEEP_ALIVE_MS_ATTRIB, DEFAULT_KEEP_ALIVE_MS)
             .setIfUnset(THREAD_POOL_SIZE_ATTRIB, DEFAULT_THREAD_POOL_SIZE)
@@ -99,8 +106,6 @@ public class QueryServicesOptions {
             .setIfUnset(STATS_UPDATE_FREQ_MS_ATTRIB, DEFAULT_STATS_UPDATE_FREQ_MS)
             .setIfUnset(CALL_QUEUE_ROUND_ROBIN_ATTRIB, DEFAULT_CALL_QUEUE_ROUND_ROBIN)
             .setIfUnset(MAX_MUTATION_SIZE_ATTRIB, DEFAULT_MAX_MUTATION_SIZE)
-            // TODO: remove usage of UPSERT_BATCH_SIZE_ATTRIB in next release
-            .setIfUnset(MUTATE_BATCH_SIZE_ATTRIB, config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE))
             .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
             .setIfUnset(MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, DEFAULT_MAX_INTRA_REGION_PARALLELIZATION)
             .setIfUnset(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)
@@ -113,13 +118,6 @@ public class QueryServicesOptions {
             config.setInt(SCAN_CACHE_SIZE_ATTRIB, DEFAULT_SCAN_CACHE_SIZE);
         } else if (scanCaching <= 0) { // Provides the user with a way of setting it to 1
             config.setInt(SCAN_CACHE_SIZE_ATTRIB, 1);
-        }
-
-        // Ensure that HBase RPC time out value is at least as large as our thread time out for query. 
-        int threadTimeOutMS = config.getInt(THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
-        int hbaseRPCTimeOut = config.getInt(HConstants.HBASE_RPC_TIMEOUT_KEY, HConstants.DEFAULT_HBASE_RPC_TIMEOUT);
-        if (threadTimeOutMS > hbaseRPCTimeOut) {
-            config.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, threadTimeOutMS);
         }
         return options;
     }
@@ -213,14 +211,6 @@ public class QueryServicesOptions {
         return set(MAX_MUTATION_SIZE_ATTRIB, maxMutateSize);
     }
     
-    /**
-     * Use {@link #setMutateBatchSize(int)} instead
-     * @deprecated
-     */
-    public QueryServicesOptions setUpsertBatchSize(int upsertBatchSize) {
-        return set(UPSERT_BATCH_SIZE_ATTRIB, upsertBatchSize);
-    }
-    
     public QueryServicesOptions setMutateBatchSize(int mutateBatchSize) {
         return set(MUTATE_BATCH_SIZE_ATTRIB, mutateBatchSize);
     }
@@ -281,14 +271,6 @@ public class QueryServicesOptions {
         return config.getInt(MAX_MUTATION_SIZE_ATTRIB, DEFAULT_MAX_MUTATION_SIZE);
     }
 
-    /**
-     * Use {@link #getMutateBatchSize()} instead
-     * @deprecated
-     */
-    public int getUpsertBatchSize() {
-        return config.getInt(UPSERT_BATCH_SIZE_ATTRIB, DEFAULT_UPSERT_BATCH_SIZE);
-    }
-    
     public int getMutateBatchSize() {
         return config.getInt(MUTATE_BATCH_SIZE_ATTRIB, DEFAULT_MUTATE_BATCH_SIZE);
     }
@@ -300,4 +282,25 @@ public class QueryServicesOptions {
     public int getRegionBoundaryCacheTTLMs() {
         return config.getInt(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS);
     }
+
+    public QueryServicesOptions setMaxHashCacheTTLMs(int ttl) {
+        return set(MAX_HASH_CACHE_TIME_TO_LIVE_MS, ttl);
+    }
+    
+    public QueryServicesOptions setMasterInfoPort(int port) {
+        return set(MASTER_INFO_PORT_ATTRIB, port);
+    }
+    
+    public QueryServicesOptions setRegionServerInfoPort(int port) {
+        return set(REGIONSERVER_INFO_PORT_ATTRIB, port);
+    }
+    
+    public QueryServicesOptions setRegionServerLeasePeriodMs(int period) {
+        return set(REGIONSERVER_LEASE_PERIOD_ATTRIB, period);
+    }
+    
+    public QueryServicesOptions setRpcTimeoutMs(int timeout) {
+        return set(RPC_TIMEOUT_ATTRIB, timeout);
+    }
+    
 }

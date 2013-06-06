@@ -85,7 +85,7 @@ public class ScanPlan extends BasicQueryPlan {
             splits = iterators.getSplits();
             if (orderBy.getOrderByExpressions().isEmpty()) {
                 if (isSalted && 
-                        services.getConfig().getBoolean(
+                        services.getProps().getBoolean(
                                 QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                                 QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
                     scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
@@ -107,7 +107,7 @@ public class ScanPlan extends BasicQueryPlan {
             // use a ResultIterators implementation that runs one serial scan per bucket and
             // then does a merge sort against those.  Otherwise, we can use a regular table scan.
             if (isSalted && 
-                    services.getConfig().getBoolean(
+                    services.getProps().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
                 ResultIterators iterators = new SaltingSerialIterators(context, tableRef, limit);

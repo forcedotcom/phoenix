@@ -32,8 +32,6 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
-import com.salesforce.phoenix.exception.*;
-import org.apache.hadoop.hbase.regionserver.*;
 
 /**
  * Basic tests for Phoenix dynamic upserting
@@ -50,7 +48,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
 
     @BeforeClass
     public static void doBeforeTestSetup() throws Exception {
-        HBaseAdmin admin = new HBaseAdmin(driver.getQueryServices().getConfig());
+        HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
         try {
             try {
                 admin.disableTable(HBASE_DYNAMIC_COLUMNS_BYTES);
@@ -180,7 +178,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(url, props);
         try {
             PreparedStatement statement = conn.prepareStatement(upsertquery);
-            ResultSet rs = statement.executeQuery();
+            statement.executeQuery();
         } finally {
             conn.close();
         }
@@ -197,7 +195,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(url, props);
         try {
             PreparedStatement statement = conn.prepareStatement(upsertquery);
-            ResultSet rs = statement.executeQuery();
+            statement.executeQuery();
         } finally {
             conn.close();
         }

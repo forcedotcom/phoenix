@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.Scan;
@@ -46,9 +45,7 @@ import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
-import com.salesforce.phoenix.util.SQLCloseables;
-import com.salesforce.phoenix.util.ScanUtil;
-import com.salesforce.phoenix.util.ServerUtil;
+import com.salesforce.phoenix.util.*;
 
 
 /**
@@ -101,7 +98,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
     public List<PeekingResultIterator> getIterators() throws SQLException {
         boolean success = false;
         final ConnectionQueryServices services = context.getConnection().getQueryServices();
-        Configuration config = services.getConfig();
+        ReadOnlyProps props = services.getProps();
         try {
             int numSplits = splits.size();
             List<PeekingResultIterator> iterators = new ArrayList<PeekingResultIterator>(numSplits);
@@ -109,7 +106,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
             try {
                 ExecutorService executor = services.getExecutor();
                 final MemoryManager mm = services.getMemoryManager();
-                final int spoolThresholdBytes = config.getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, DEFAULT_SPOOL_THRESHOLD_BYTES);
+                final int spoolThresholdBytes = props.getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, DEFAULT_SPOOL_THRESHOLD_BYTES);
                 for (KeyRange split : splits) {
                     final Scan splitScan = new Scan(this.context.getScan());
                     // Intersect with existing start/stop key
@@ -138,7 +135,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                     }
                 }
 
-                int timeoutMs = config.getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
+                int timeoutMs = props.getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
                 // Sort futures by row key so that we have a predicatble order we're getting rows back for scans.
                 // We're going to wait here until they're finished anyway and this makes testing much easier.
                 Collections.sort(futures, new Comparator<Pair<byte[],Future<PeekingResultIterator>>>() {

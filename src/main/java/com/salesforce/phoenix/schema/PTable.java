@@ -33,7 +33,6 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
-import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 
 

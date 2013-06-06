@@ -33,7 +33,9 @@ import java.util.Properties;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServicesImpl;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 /**
@@ -47,18 +49,10 @@ import com.salesforce.phoenix.query.*;
 public class ConnectionQueryServicesTestImpl extends ConnectionQueryServicesImpl {
     private static HBaseTestingUtility util;
 
-    public ConnectionQueryServicesTestImpl(Configuration config) throws SQLException {
-        this(new QueryServicesTestImpl(config));
+    public ConnectionQueryServicesTestImpl(QueryServices services, ReadOnlyProps overrideProps) throws SQLException {
+        super(services, overrideProps);
     }
 
-    public ConnectionQueryServicesTestImpl(QueryServices services) throws SQLException {
-        super(services, services.getConfig());
-    }
-
-    public ConnectionQueryServicesTestImpl(QueryServices services, Configuration config) throws SQLException {
-        super(services, config);
-    }
-    
     private static Configuration setupServer(Configuration config) throws Exception {
         util = new HBaseTestingUtility(config);
         util.startMiniCluster();
@@ -72,7 +66,7 @@ public class ConnectionQueryServicesTestImpl extends ConnectionQueryServicesImpl
     @Override
     public void init(String url, Properties props) throws SQLException {
         try {
-            setupServer(this.getConfig());
+            setupServer(config);
             super.init(url, props);
             /**
              * Clear the server-side meta data cache on initialization. Otherwise, if we
