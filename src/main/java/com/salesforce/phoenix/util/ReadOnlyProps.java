@@ -5,8 +5,7 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.*;
 
 /**
  * 
@@ -21,11 +20,12 @@ public class ReadOnlyProps implements Iterable<Entry<String, String>> {
     private final Map<String, String> props;
     
     public ReadOnlyProps(Iterator<Entry<String, String>> iterator) {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        Map<String, String> map = Maps.newHashMap();
         while (iterator.hasNext()) {
-            builder.put(iterator.next());
+            Entry<String,String> entry = iterator.next();
+            map.put(entry.getKey(), entry.getValue());
         }
-        this.props = builder.build();
+        this.props = ImmutableMap.copyOf(map);
     }
 
     private static Pattern varPat = Pattern.compile("\\$\\{[^\\}\\$\u0020]+\\}");
