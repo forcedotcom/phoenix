@@ -46,8 +46,8 @@ public class OrderedAggregatingResultIterator extends OrderedResultIterator impl
 
     public OrderedAggregatingResultIterator(AggregatingResultIterator delegate,
                                 List<OrderByExpression> orderByExpressions,
-                                Integer limit) throws SQLException {
-        super (delegate, orderByExpressions, limit);
+                                int thresholdBytes, Integer limit) throws SQLException {
+        super (delegate, orderByExpressions, thresholdBytes, limit);
     }
 
     @Override

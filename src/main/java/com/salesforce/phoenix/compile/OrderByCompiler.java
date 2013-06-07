@@ -112,9 +112,6 @@ public class OrderByCompiler {
                             .setMessage(nonAggregateExpression.toString()).build().buildException();
                         }
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
-                    } else if (limit == null && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) {
-                        // Throw if no limit unless hint indicates that all data is in single region
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNSUPPORTED_ORDER_BY_QUERY).build().buildException();
                     }
                 }
                 boolean isAscending = node.isAscending();
