@@ -169,8 +169,8 @@ public class RoundFunction extends ScalarFunction {
     }
     
     @Override
-    public boolean preservesOrder() {
-        return true;
+    public OrderPreserving preservesOrder() {
+        return OrderPreserving.YES;
     }
 
     @Override

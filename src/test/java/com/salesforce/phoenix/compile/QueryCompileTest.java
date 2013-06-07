@@ -349,7 +349,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         String[] queries = new String[] {
             "SELECT count(1) FROM atable GROUP BY organization_id,entity_id",
             "SELECT count(1) FROM atable GROUP BY organization_id,substr(entity_id,1,3),entity_id",
-            "SELECT count(1) FROM atable GROUP BY substr(organization_id,1),entity_id",
             "SELECT count(1) FROM atable GROUP BY entity_id,organization_id",
             "SELECT count(1) FROM atable GROUP BY substr(entity_id,1,3),organization_id",
             "SELECT count(1) FROM ptsdb GROUP BY host,inst,round(date,'HOUR')",
@@ -618,6 +617,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             "SELECT count(1) FROM atable GROUP BY substr(organization_id,2,3)",
             "SELECT count(1) FROM atable GROUP BY substr(entity_id,1,3)",
             "SELECT count(1) FROM atable GROUP BY to_date(organization_id)",
+            "SELECT count(1) FROM atable GROUP BY regexp_substr(organization_id, '.*foo.*'),entity_id",
+            "SELECT count(1) FROM atable GROUP BY substr(organization_id,1),entity_id",
         };
         List<Object> binds = Collections.emptyList();
         for (String query : queries) {
