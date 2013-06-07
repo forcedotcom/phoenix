@@ -1,3 +1,30 @@
+/*******************************************************************************
+ * Copyright (c) 2013, Salesforce.com, Inc.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     Redistributions of source code must retain the above copyright notice,
+ *     this list of conditions and the following disclaimer.
+ *     Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
+ *     Neither the name of Salesforce.com nor the names of its contributors may 
+ *     be used to endorse or promote products derived from this software without 
+ *     specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
 import java.io.File;
@@ -37,6 +64,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
         this.thresholdBytes = thresholdBytes;
         this.currentQueue = new MappedByteBufferPriorityQueue(0,
                 thresholdBytes, comparator);
+        this.queues.add(currentQueue);
     }
 
     @Override
@@ -44,14 +72,13 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
         try {
             boolean isFlush = this.currentQueue.writeResult(e);
             if (isFlush) {
-                queues.add(currentQueue);
                 currentIndex++;
                 currentQueue = new MappedByteBufferPriorityQueue(currentIndex,
                         thresholdBytes, comparator);
-                currentQueue.writeResult(e);
+                queues.add(currentQueue);
             }
-        } catch (IOException e1) {
-            return false;
+        } catch (IOException ioe) {
+            throw new RuntimeException(ioe);
         }
 
         return true;
@@ -64,9 +91,12 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
                     comparator).maximumSize(queues.size()).create();
             for (MappedByteBufferPriorityQueue queue : queues) {
                 try {
-                    mergedQueue.add(queue.getNextResult());
+                    IndexedResultEntry next = queue.getNextResult();
+                    if (next != null) {
+                        mergedQueue.add(next);
+                    }
                 } catch (IOException e) {
-                    return null;
+                    throw new RuntimeException(e);
                 }
             }
         }
@@ -77,7 +107,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
                 try {
                     next = queues.get(re.getIndex()).getNextResult();
                 } catch (IOException e) {
-                    return null;
+                    throw new RuntimeException(e);
                 }
                 if (next != null) {
                     mergedQueue.add(next);
@@ -95,9 +125,12 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
                     comparator).maximumSize(queues.size()).create();
             for (MappedByteBufferPriorityQueue queue : queues) {
                 try {
-                    mergedQueue.add(queue.getNextResult());
+                    IndexedResultEntry next = queue.getNextResult();
+                    if (next != null) {
+                        mergedQueue.add(next);
+                    }
                 } catch (IOException e) {
-                    return null;
+                    throw new RuntimeException(e);
                 }
             }
         }
@@ -112,8 +145,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
 
     @Override
     public Iterator<ResultEntry> iterator() {
-        // TODO Auto-generated method stub
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -154,33 +186,30 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
     }
 
     private static class MappedByteBufferPriorityQueue {
-        int mappingSize;
-        long allReadSize = 0;
-        long allWriteSize = 0;
-        long writeIndex = 0, readIndex = 0;
-        private MappedByteBuffer writeBuffer, readBuffer;
+        private static final long DEFAULT_MAPPING_SIZE = 1024;
+        
+        private int thresholdBytes;
+        private long totalResultSize = 0;
+        private int maxResultSize = 0;
+        private long mappingSize = 0;
+        private long writeIndex = 0;
+        private long readIndex = 0;
+        private MappedByteBuffer writeBuffer;
+        private MappedByteBuffer readBuffer;
         private FileChannel fc;
         private RandomAccessFile af;
         private File file;
-        private boolean stop = false;
+        private boolean isClosed = false;
         MinMaxPriorityQueue<ResultEntry> results = null;
         private boolean flushBuffer = false;
-        // private ImmutableBytesWritable[] sortKeys;
         private int index;
 
-        public MappedByteBufferPriorityQueue(int index, int resultMappingSize,
+        public MappedByteBufferPriorityQueue(int index, int thresholdBytes,
                 Comparator<ResultEntry> comparator) throws IOException {
             this.index = index;
-            this.file = File.createTempFile(UUID.randomUUID().toString(), null);
-            this.af = new RandomAccessFile(file, "rw");
-            this.fc = af.getChannel();
-            this.mappingSize = resultMappingSize;
+            this.thresholdBytes = thresholdBytes;
             results = MinMaxPriorityQueue.<ResultEntry> orderedBy(comparator)
                     .create();
-            writeBuffer = fc.map(MapMode.READ_WRITE, this.writeIndex,
-                    this.mappingSize);
-            readBuffer = fc.map(MapMode.READ_ONLY, this.readIndex,
-                    this.mappingSize);
         }
 
         private List<KeyValue> toKeyValues(ResultEntry entry) {
@@ -208,7 +237,9 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
             int size = Bytes.SIZEOF_INT;
             if (sortKeys != null) {
                 for (ImmutableBytesWritable sortKey : sortKeys) {
-                    size += sortKey.getLength();
+                    if (sortKey != null) {
+                        size += sortKey.getLength();
+                    }
                     size += Bytes.SIZEOF_INT;
                 }
             }
@@ -216,127 +247,131 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
         }
 
         public boolean writeResult(ResultEntry entry) throws IOException {
+            if (flushBuffer)
+                throw new IOException("Results already flushed");
+            
             int sortKeySize = sizeof(entry.sortKeys);
             int resultSize = sizeof(toKeyValues(entry)) + sortKeySize;
-            if (resultSize >= mappingSize) {
-                throw new IOException("Result is too large, buffer size is["
-                        + mappingSize + "], and result size is[" + resultSize
-                        + "].");
-            }
-            if (allWriteSize + resultSize >= writeIndex + mappingSize) {
-                writeBuffer.force();
-                writeIndex = allWriteSize;
-                writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex,
-                        mappingSize);
-                for (int i = 0; i < results.size(); i++) {
+            results.add(entry);
+            maxResultSize = Math.max(maxResultSize, resultSize);
+            totalResultSize += resultSize;
+            if (totalResultSize >= thresholdBytes) {
+                this.file = File.createTempFile(UUID.randomUUID().toString(), null);
+                this.af = new RandomAccessFile(file, "rw");
+                this.fc = af.getChannel();
+                mappingSize = Math.min(Math.max(maxResultSize, DEFAULT_MAPPING_SIZE), totalResultSize);
+                writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex, mappingSize);
+                
+                for (int i = 0; i < results.size(); i++) {                
                     int totalLen = 0;
                     ResultEntry re = results.pollFirst();
                     List<KeyValue> keyValues = toKeyValues(re);
                     for (KeyValue kv : keyValues) {
-                        totalLen = kv.getLength() + Bytes.SIZEOF_INT;
+                        totalLen += (kv.getLength() + Bytes.SIZEOF_INT);
                     }
                     writeBuffer.putInt(totalLen);
-                    allWriteSize += Bytes.SIZEOF_INT;
                     for (KeyValue kv : keyValues) {
                         writeBuffer.putInt(kv.getLength());
-                        allWriteSize += Bytes.SIZEOF_INT;
                         writeBuffer.put(kv.getBuffer(), kv.getOffset(), kv
                                 .getLength());
-                        allWriteSize += kv.getLength();
                     }
                     ImmutableBytesWritable[] sortKeys = re.sortKeys;
-                    writeBuffer.putInt(sortKeySize);
-                    allWriteSize += Bytes.SIZEOF_INT;
+                    writeBuffer.putInt(sortKeys.length);
                     for (ImmutableBytesWritable sortKey : sortKeys) {
-                        writeBuffer.putInt(sortKey.getLength());
-                        allWriteSize += Bytes.SIZEOF_INT;
-                        writeBuffer.put(sortKey.get(), sortKey.getOffset(),
-                                sortKey.getLength());
-                        allWriteSize += sortKey.getLength();
+                        if (sortKey != null) {
+                            writeBuffer.putInt(sortKey.getLength());
+                            writeBuffer.put(sortKey.get(), sortKey.getOffset(),
+                                    sortKey.getLength());
+                        } else {
+                            writeBuffer.putInt(0);
+                        }
+                    }
+                    // buffer close to exhausted, re-map.
+                    if (mappingSize - writeBuffer.position() < maxResultSize) {
+                        writeIndex += writeBuffer.position();
+                        writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex, mappingSize);
                     }
                 }
+                writeBuffer.putInt(-1); // end
+                results.clear();
                 flushBuffer = true;
-            } else {
-                results.add(entry);
             }
             return flushBuffer;
         }
 
         public IndexedResultEntry getNextResult() throws IOException {
-            if (allReadSize != 0 && allReadSize == allWriteSize && stop) {
+            if (isClosed)
+                return null;
+            
+            if (!flushBuffer) {
+                ResultEntry re = results.poll();
+                if (re == null) {
+                    reachedEnd();
+                    return null;
+                }
+                return new IndexedResultEntry(index, re);
+            }
+            
+            if (readBuffer == null) {
+                readBuffer = this.fc.map(MapMode.READ_ONLY, readIndex, mappingSize);
+            }
+            
+            int length = readBuffer.getInt();
+            if (length < 0) {
+                reachedEnd();
                 return null;
             }
-            if (flushBuffer) {
-                if (readBuffer == null
-                        || allReadSize + Bytes.SIZEOF_INT >= readIndex
-                                + mappingSize) {
-                    readIndex = allReadSize;
-                    readBuffer = this.fc.map(MapMode.READ_WRITE, readIndex,
-                            mappingSize);
-                }
-                int length = readBuffer.getInt();
-                allReadSize += Bytes.SIZEOF_INT;
-                long nextResultIndex = allReadSize + length;
-                if (nextResultIndex >= readIndex + mappingSize) {
-                    readIndex = allReadSize;
-                    readBuffer = this.fc.map(MapMode.READ_WRITE, readIndex,
-                            mappingSize);
-                }
-                byte[] rb = new byte[length];
-                readBuffer.get(rb);
-                this.allReadSize += length;
-                Result result = new Result(new ImmutableBytesWritable(rb));
-                ResultTuple rt = new ResultTuple(result);
-                int sortKeySize = readBuffer.getInt();
-                allReadSize += Bytes.SIZEOF_INT;
-                ImmutableBytesWritable[] sortKeys = new ImmutableBytesWritable[sortKeySize];
-                for (int i = 0; i < sortKeySize; i++) {
-                    int contentLength = readBuffer.getInt();
-                    allReadSize += Bytes.SIZEOF_INT;
+            
+            byte[] rb = new byte[length];
+            readBuffer.get(rb);
+            Result result = new Result(new ImmutableBytesWritable(rb));
+            ResultTuple rt = new ResultTuple(result);
+            int sortKeySize = readBuffer.getInt();
+            ImmutableBytesWritable[] sortKeys = new ImmutableBytesWritable[sortKeySize];
+            for (int i = 0; i < sortKeySize; i++) {
+                int contentLength = readBuffer.getInt();
+                if (contentLength > 0) {
                     byte[] sortKeyContent = new byte[contentLength];
-                    allReadSize += contentLength;
                     readBuffer.get(sortKeyContent);
                     sortKeys[i] = new ImmutableBytesWritable(sortKeyContent);
+                } else {
+                    sortKeys[i] = null;
                 }
-                ResultEntry re = new ResultEntry(sortKeys, rt);
-                return new IndexedResultEntry(index, re);
-            } else {
-                ResultEntry re = results.poll();
-                return new IndexedResultEntry(index, re);
             }
+            // buffer close to exhausted, re-map.
+            if (mappingSize - readBuffer.position() < maxResultSize) {
+                readIndex += readBuffer.position();
+                readBuffer = fc.map(MapMode.READ_ONLY, readIndex, mappingSize);
+            }
+            
+            return new IndexedResultEntry(index, new ResultEntry(sortKeys, rt));
         }
 
-        public void stop() {
-            this.stop = true;
-        }
-
-        public void close() {
-            this.stop();
+        private void reachedEnd() {
+            this.isClosed = true;
             if (this.fc != null) {
                 try {
                     this.fc.close();
-                } catch (IOException e) {
-                    // logger.debug("Failed to close FileChannel:" + this.fc);
+                } catch (IOException ignored) {
                 }
+                this.fc = null;
             }
             if (this.af != null) {
                 try {
                     this.af.close();
-                } catch (IOException e) {
-
+                } catch (IOException ignored) {
                 }
+                this.af = null;
             }
             if (this.file != null) {
-                if (file.isFile()) {
-                    boolean result = file.delete();
-                    if (!result) {
-                        // logger.warn("Failed to delete buffer file[" + file +
-                        // "]");
-                    } else {
-                        // logger.debug("Has deleted buffer file[" + file +
-                        // "]");
-                    }
-                }
+                file.delete();
+                file = null;
+            }
+        }
+
+        public void close() {
+            if (!isClosed) {
+                this.reachedEnd();
             }
         }
     }
