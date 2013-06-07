@@ -33,27 +33,11 @@ import static org.junit.Assert.*;
 import java.sql.*;
 import java.util.Properties;
 
-import org.apache.hadoop.conf.Configuration;
-import org.junit.Test;
-
-import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class OrderByTest extends BaseClientMangedTimeTest {
+public abstract class OrderByTest extends BaseClientMangedTimeTest {
 
-    @Test
-    public void testMultiOrderByExprNoSpool() throws Exception {
-        testMultiOrderByExpr(1024 * 1024);
-    }
-    
-    @Test
-    public void testMultiOrderByExprWithSpool() throws Exception {
-        testMultiOrderByExpr(100);
-    }
-
-    private void testMultiOrderByExpr(int thresholdBytes) throws Exception {
-        Configuration config = driver.getQueryServices().getConfig();
-        config.setInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, thresholdBytes);
+    protected void testMultiOrderByExpr() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
@@ -90,19 +74,7 @@ public class OrderByTest extends BaseClientMangedTimeTest {
     }
     
 
-    @Test
-    public void testDescMultiOrderByExprNoSpool() throws Exception {
-        testDescMultiOrderByExpr(1024 * 1024);
-    }
-
-    @Test
-    public void testDescMultiOrderByExprWithSpool() throws Exception {
-        testDescMultiOrderByExpr(100);
-    }
-
-    private void testDescMultiOrderByExpr(int thresholdBytes) throws Exception {
-        Configuration config = driver.getQueryServices().getConfig();
-        config.setInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, thresholdBytes);
+    protected void testDescMultiOrderByExpr() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
