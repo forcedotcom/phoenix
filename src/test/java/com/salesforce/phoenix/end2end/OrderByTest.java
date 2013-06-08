@@ -33,11 +33,14 @@ import static org.junit.Assert.*;
 import java.sql.*;
 import java.util.Properties;
 
+import org.junit.Test;
+
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 public abstract class OrderByTest extends BaseClientMangedTimeTest {
 
-    protected void testMultiOrderByExpr() throws Exception {
+    @Test
+    public void testMultiOrderByExpr() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
@@ -74,7 +77,8 @@ public abstract class OrderByTest extends BaseClientMangedTimeTest {
     }
     
 
-    protected void testDescMultiOrderByExpr() throws Exception {
+    @Test
+    public void testDescMultiOrderByExpr() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);

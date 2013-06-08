@@ -30,7 +30,6 @@ package com.salesforce.phoenix.end2end;
 import java.util.Map;
 
 import org.junit.BeforeClass;
-import org.junit.Test;
 
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.query.QueryServices;
@@ -47,15 +46,5 @@ public class InMemoryOrderByTest extends OrderByTest {
         props.put(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, Integer.toString(1024*1024));
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
-    }
-
-    @Test
-    public void testMultiOrderByExprNoSpool() throws Exception {
-        testMultiOrderByExpr();
-    }
-    
-    @Test
-    public void testDescMultiOrderByExprNoSpool() throws Exception {
-        testDescMultiOrderByExpr();
     }
 }

@@ -30,7 +30,6 @@ package com.salesforce.phoenix.end2end;
 import java.util.Map;
 
 import org.junit.BeforeClass;
-import org.junit.Test;
 
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.query.QueryServices;
@@ -46,14 +45,4 @@ public class SpooledOrderByTest extends OrderByTest {
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
 
-
-    @Test
-    public void testMultiOrderByExprSpooled() throws Exception {
-        testMultiOrderByExpr();
-    }
-    
-    @Test
-    public void testDescMultiOrderByExprSpooled() throws Exception {
-        testDescMultiOrderByExpr();
-    }
 }
