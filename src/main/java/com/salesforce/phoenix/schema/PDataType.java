@@ -147,7 +147,7 @@ public enum PDataType {
         }
 
         @Override
-        protected boolean isBytesComparableWith(PDataType otherType) {
+        public boolean isBytesComparableWith(PDataType otherType) {
             return this == otherType || this == CHAR;
         }
 
@@ -259,7 +259,7 @@ public enum PDataType {
         }
 
         @Override
-        protected boolean isBytesComparableWith(PDataType otherType) {
+        public boolean isBytesComparableWith(PDataType otherType) {
             return this == otherType || this == VARCHAR;
         }
     },
@@ -928,7 +928,7 @@ public enum PDataType {
         }
 
         @Override
-        protected boolean isBytesComparableWith(PDataType otherType) {
+        public boolean isBytesComparableWith(PDataType otherType) {
             return this == otherType || this == DATE;
         }
     },
@@ -1013,7 +1013,7 @@ public enum PDataType {
         }
 
         @Override
-        protected boolean isBytesComparableWith(PDataType otherType) {
+        public boolean isBytesComparableWith(PDataType otherType) {
             return this == otherType || this == TIME;
         }
     },
@@ -1550,7 +1550,7 @@ public enum PDataType {
         return codec;
     }
 
-    protected boolean isBytesComparableWith(PDataType otherType) {
+    public boolean isBytesComparableWith(PDataType otherType) {
         return this == otherType;
     }
 
