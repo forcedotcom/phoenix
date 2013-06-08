@@ -505,25 +505,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testOrderByOnUnlimitedSelect() throws Exception {
-        try {
-            // Order by in select with no limit or group by
-            String query = "select a_string from ATABLE order by b_string";
-            Properties props = new Properties(TestUtil.TEST_PROPERTIES);
-            Connection conn = DriverManager.getConnection(getUrl(), props);
-            try {
-                PreparedStatement statement = conn.prepareStatement(query);
-                statement.executeQuery();
-                fail();
-            } finally {
-                conn.close();
-            }
-        } catch (SQLException e) { // TODO: use error codes
-            assertTrue(e.getMessage().contains("ORDER BY only allowed for limited or aggregate queries"));
-        }
-    }
-
-    @Test
     public void testOrderByAggSelectNonAgg() throws Exception {
         try {
             // Order by in select with no limit or group by
