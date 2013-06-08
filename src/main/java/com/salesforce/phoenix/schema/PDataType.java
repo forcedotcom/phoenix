@@ -322,7 +322,7 @@ public enum PDataType {
             // In general, don't allow conversion of LONG to INTEGER. There are times when
             // we check isComparableTo for a more relaxed check and then throw a runtime
             // exception if we overflow
-            return this == targetType || targetType == UNSIGNED_LONG || targetType == DECIMAL
+            return this == targetType || targetType == DECIMAL
                     || targetType == VARBINARY || targetType == BINARY;
         }
 
