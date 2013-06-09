@@ -197,7 +197,7 @@ public class UpsertCompiler {
              * and populate the MutationState (upto a limit).
             */
             final boolean isAutoCommit = connection.getAutoCommit();
-            runOnServer |= isAutoCommit;
+            runOnServer &= isAutoCommit;
             
             ////////////////////////////////////////////////////////////////////
             // UPSERT SELECT run server-side (maybe)
