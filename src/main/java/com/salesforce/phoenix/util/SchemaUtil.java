@@ -325,14 +325,6 @@ public class SchemaUtil {
     }
 
     public static void initMetaData(ConnectionQueryServices services, String url, Properties props) throws SQLException {
-//        HBaseAdmin admin = null;
-//        try {
-//            admin = new HBaseAdmin(services.getConfig());
-//            admin.disableTable("SYSTEM.TABLE");
-//            admin.deleteTable("SYSTEM.TABLE");
-//        } catch (IOException e) {
-//            throw new SQLException(e);
-//        }
         // Use new connection with minimum SCN value
         props = new Properties(props);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_TABLE_TIMESTAMP+1));
