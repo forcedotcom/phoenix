@@ -51,6 +51,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
@@ -571,7 +572,7 @@ public class SchemaUtil {
          * Next walk through each table and upgrade any table with a nullable variable length column (VARCHAR or DECIMAL)
          * at the end.
          */
-        String query = "select " +
+        String query = "select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/ " +
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
                 DATA_TYPE + "," +
@@ -616,7 +617,7 @@ public class SchemaUtil {
             props.setProperty(UPGRADE_TO_2_0, entry.getValue().toString());
             Connection newConn = DriverManager.getConnection(conn.getURL(), props);
             try {
-                rs = newConn.createStatement().executeQuery("select count(*) from " + entry.getKey());
+                rs = newConn.createStatement().executeQuery("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/ count(*) from " + entry.getKey());
                 rs.next();
             } finally {
                 newConn.close();
