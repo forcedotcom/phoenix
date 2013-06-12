@@ -73,7 +73,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         Scan scan = new Scan();
         scan.setTimeRange(MIN_TABLE_TIMESTAMP, clientTimeStamp);
         scan.setStartRow(key);
-        scan.setStopRow(ByteUtil.nextKey(key));
+        byte[] endKey = new byte[key.length+1];
+        System.arraycopy(key, 0, endKey, 0, key.length);
+        ByteUtil.nextKey(endKey, endKey.length);
+        scan.setStopRow(endKey);
         RegionScanner scanner = region.getScanner(scan);
         Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
         try {
@@ -665,5 +668,4 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         // The next 3 bytes of the value is used to encode the Phoenix version as major.minor.patch.
         return MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
     }
-
 }

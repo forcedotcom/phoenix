@@ -550,6 +550,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 if (isMetaTable) {
                     newDesc.remove(HTableDescriptor.SPLIT_POLICY);
                 }
+                newDesc.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
                 if (splits == null) {
                     admin.createTable(newDesc);
                 } else {
@@ -570,6 +571,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
                 return true;
             } else {
+                // TODO: what about local autobuild test environments?
                 if (existingDesc.equals(newDesc)) {
                     // Table is already created. Note that the presplits are ignored in this case
                     if (isMetaTable) {

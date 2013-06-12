@@ -822,7 +822,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
@@ -830,7 +830,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         binds = Collections.emptyList();
         scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
@@ -919,7 +919,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abd"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() == null); // Extracted.
     }
@@ -930,7 +930,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
     }

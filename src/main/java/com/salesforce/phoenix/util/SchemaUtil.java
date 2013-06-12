@@ -27,23 +27,30 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.io.IOException;
+import java.sql.*;
 import java.util.*;
 
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.KeyValue.Type;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
+import org.apache.hadoop.hbase.regionserver.*;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
@@ -58,6 +65,7 @@ import com.salesforce.phoenix.schema.*;
  * @since 0.1
  */
 public class SchemaUtil {
+    private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
@@ -195,11 +203,13 @@ public class SchemaUtil {
      * @param tableName
      */
     public static byte[] getTableKey(byte[] schemaName, byte[] tableName) {
-        return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY);
+        return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+//        return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY);
     }
 
     public static byte[] getTableKey(String schemaName, String tableName) {
-        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY);
+        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName));
+//        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY);
     }
 
     public static String getTableDisplayName(String schemaName, String tableName) {
@@ -433,5 +443,216 @@ public class SchemaUtil {
             }
         }
         return length;
+    }
+    
+    public static final String UPGRADE_TO_2_0 = "UpgradeTo20";
+    public static final Integer SYSTEM_TABLE_NULLABLE_VAR_LENGTH_COLUMNS = 3;
+
+    public static boolean isUpgradeTo2Necessary(ConnectionQueryServices connServices) throws SQLException {
+        HTableInterface htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+        try {
+            return (htable.getTableDescriptor().getValue(SchemaUtil.UPGRADE_TO_2_0) == null);
+        } catch (IOException e) {
+            throw new SQLException(e);
+        }
+    }
+    
+    public static void upgradeTo2IfNecessary(HRegion region, int nColumns) throws IOException {
+        Scan scan = new Scan();
+        scan.setRaw(true);
+        scan.setMaxVersions(MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS);
+        RegionScanner scanner = region.getScanner(scan);
+        int batchSizeBytes = 100 * 1024; // 100K chunks
+        int sizeBytes = 0;
+        List<Pair<Mutation,Integer>> mutations =  Lists.newArrayListWithExpectedSize(10000);
+        MultiVersionConsistencyControl.setThreadReadPoint(scanner.getMvccReadPoint());
+        region.startRegionOperation();
+        try {
+            List<KeyValue> result;
+            do {
+                result = Lists.newArrayList();
+                scanner.nextRaw(result, null);
+                for (KeyValue keyValue : result) {
+                    KeyValue newKeyValue = SchemaUtil.upgradeTo2IfNecessary(nColumns, keyValue);
+                    if (newKeyValue != null) {
+                        sizeBytes += newKeyValue.getLength();
+                        if (Type.codeToType(newKeyValue.getType()) == Type.Put) {
+                            // Delete old value
+                            byte[] buf = keyValue.getBuffer();
+                            Delete delete = new Delete(keyValue.getRow());
+                            KeyValue deleteKeyValue = new KeyValue(buf, keyValue.getRowOffset(), keyValue.getRowLength(),
+                                    buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
+                                    buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
+                                    keyValue.getTimestamp(), Type.Delete,
+                                    ByteUtil.EMPTY_BYTE_ARRAY,0,0);
+                            delete.addDeleteMarker(deleteKeyValue);
+                            mutations.add(new Pair<Mutation,Integer>(delete,null));
+                            sizeBytes += deleteKeyValue.getLength();
+                            // Put new value
+                            Put put = new Put(newKeyValue.getRow());
+                            put.add(newKeyValue);
+                            mutations.add(new Pair<Mutation,Integer>(put,null));
+                        } else if (Type.codeToType(newKeyValue.getType()) == Type.Delete){
+                            // Copy delete marker using new key so that it continues
+                            // to delete the key value preceding it that will be updated
+                            // as well.
+                            Delete delete = new Delete(newKeyValue.getRow());
+                            delete.addDeleteMarker(newKeyValue);
+                            mutations.add(new Pair<Mutation,Integer>(delete,null));
+                        }
+                        if (sizeBytes >= batchSizeBytes) {
+                            commitBatch(region, mutations);
+                            mutations.clear();
+                            sizeBytes = 0;
+                        }
+                        
+                    }
+                }
+            } while (!result.isEmpty());
+            commitBatch(region, mutations);
+        } finally {
+            region.closeRegionOperation();
+        }
+    }
+    
+    private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations) throws IOException {
+        if (mutations.isEmpty()) {
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
+        // TODO: should we use the one that is all or none?
+        region.batchMutate(mutations.toArray(mutationArray));
+    }
+    
+    private static KeyValue upgradeTo2IfNecessary(int maxSeparators, KeyValue keyValue) {
+        int originalLength = keyValue.getRowLength();
+        int length = originalLength;
+        int offset = keyValue.getRowOffset();
+        byte[] buf = keyValue.getBuffer();
+        while (originalLength - length < maxSeparators && buf[offset+length-1] == QueryConstants.SEPARATOR_BYTE) {
+            length--;
+        }
+        if (originalLength == length) {
+            return null;
+        }
+        return new KeyValue(buf, offset, length,
+                buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
+                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
+                keyValue.getTimestamp(), Type.codeToType(keyValue.getType()),
+                buf, keyValue.getValueOffset(), keyValue.getValueLength());
+    }
+
+    public static int upgradeColumnCount(String url, Properties info) throws SQLException {
+        String upgradeStr = JDBCUtil.findProperty(url, info, UPGRADE_TO_2_0);
+        return (upgradeStr == null ? 0 : Integer.parseInt(upgradeStr));
+    }
+
+    public static void checkIfUpgradeNecessary(ConnectionQueryServices connectionQueryServices, String url,
+            Properties info) throws SQLException {
+        boolean isUpgrade = upgradeColumnCount(url, info) > 0;
+        boolean isUpgradeNecessary = isUpgradeTo2Necessary(connectionQueryServices);
+        if (!isUpgrade && isUpgradeNecessary) {
+            throw new SQLException("Please run the upgrade script in bin/updateTo2.sh to ensure your data is converted correctly to the 2.0 format");
+        }
+        if (isUpgrade && !isUpgradeNecessary) {
+            info.remove(SchemaUtil.UPGRADE_TO_2_0); // Remove this property and ignore, since upgrade has already been done
+        }
+    }
+
+    public static String getEscapedTableName(String schemaName, String tableName) {
+        if (schemaName == null || schemaName.length() == 0) {
+            return "\"" + tableName + "\"";
+        }
+        return "\"" + schemaName + "\"." + "\"" + tableName + "\"";
+    }
+
+    public static void upgradeTo2(PhoenixConnection conn) throws SQLException {
+        /*
+         * Our upgrade hack sets a property on the scan that gets activated by an ungrouped aggregate query. 
+         * Our UngroupedAggregateRegionObserver coprocessors will perform the required upgrade.
+         * Upgrade the SYSTEM.TABLE first
+         */
+        ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE);
+        rs.next();
+        /*
+         * Next walk through each table and upgrade any table with a nullable variable length column (VARCHAR or DECIMAL)
+         * at the end.
+         */
+        String query = "select " +
+                TABLE_SCHEM_NAME + "," +
+                TABLE_NAME_NAME + " ," +
+                DATA_TYPE + "," +
+                NULLABLE +
+                " from " + TYPE_SCHEMA_AND_TABLE + 
+                " where " + TABLE_CAT_NAME + " is null " +
+                " and " + COLUMN_NAME + " is not null " +
+                " and " + TABLE_TYPE_NAME  + " = '" + PTableType.USER.getSerializedValue() + "'" +
+                " order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION + " DESC";
+        rs = conn.createStatement().executeQuery(query);
+        String currentTableName = null;
+        int nColumns = 0;
+        boolean skipToNext = false;
+        Map<String,Integer> tablesToUpgrade = Maps.newHashMap();
+        while (rs.next()) {
+            String tableName = getEscapedTableName(rs.getString(1), rs.getString(2));
+            if (currentTableName == null) {
+                currentTableName = tableName;
+            } else if (!currentTableName.equals(tableName)) {
+                if (nColumns > 0) {
+                    tablesToUpgrade.put(currentTableName, nColumns);
+                    nColumns = 0;
+                }
+                currentTableName = tableName;
+                skipToNext = false;
+            } else if (skipToNext) {
+                continue;
+            }
+            PDataType dataType = PDataType.fromSqlType(rs.getInt(3));
+            if (dataType.isFixedWidth() || rs.getInt(4) != DatabaseMetaData.attributeNullable) {
+                skipToNext = true;
+            } else {
+                nColumns++;
+            }
+        }
+        
+        for (Map.Entry<String, Integer> entry : tablesToUpgrade.entrySet()) {
+            String msg = "Upgrading " + entry.getKey() + " for " + entry.getValue() + " columns";
+            logger.info(msg);
+            System.out.println(msg);
+            Properties props = new Properties(conn.getClientInfo());
+            props.setProperty(UPGRADE_TO_2_0, entry.getValue().toString());
+            Connection newConn = DriverManager.getConnection(conn.getURL(), props);
+            try {
+                rs = newConn.createStatement().executeQuery("select count(*) from " + entry.getKey());
+                rs.next();
+            } finally {
+                newConn.close();
+            }
+        }
+        
+        ConnectionQueryServices connServices = conn.getQueryServices();
+        HTableInterface htable = null;
+        HBaseAdmin admin = connServices.getAdmin();
+        try {
+            htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            HTableDescriptor htd = new HTableDescriptor(htable.getTableDescriptor());
+            htd.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
+            admin.disableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            admin.modifyTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME, htd);
+            admin.enableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+        } catch (IOException e) {
+            throw new SQLException(e);
+        } finally {
+            try {
+                try {
+                    admin.close();
+                } finally {
+                    htable.close();
+                }
+            } catch (IOException e) {
+                throw new SQLException(e);
+            }
+        }
     }
 }

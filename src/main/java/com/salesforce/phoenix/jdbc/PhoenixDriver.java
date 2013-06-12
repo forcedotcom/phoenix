@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.util.SQLCloseables;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -85,6 +86,9 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
                 connectionQueryServices = new ConnectionQueryServicesImpl(getQueryServices(), normalizedConnInfo);
             }
             connectionQueryServices.init(url, info);
+            if (!normalizedConnInfo.isConnectionless()) {
+                SchemaUtil.checkIfUpgradeNecessary(connectionQueryServices, url, info);
+            }
             ConnectionQueryServices prevValue = connectionQueryServicesMap.putIfAbsent(normalizedConnInfo, connectionQueryServices);
             if (prevValue != null) {
                 connectionQueryServices = prevValue;

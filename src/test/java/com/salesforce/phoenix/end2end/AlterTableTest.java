@@ -27,12 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.*;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -63,4 +61,72 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         }
     }
 
+
+    @Test
+    public void testAddVarCharColToPK() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        
+        try {
+            String ddl = "CREATE TABLE test_table " +
+                    "  (a_string varchar not null, col1 integer" +
+                    "  CONSTRAINT pk PRIMARY KEY (a_string))\n";
+            conn.createStatement().execute(ddl);
+            
+            String dml = "UPSERT INTO test_table VALUES(?)";
+            PreparedStatement stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "b");
+            stmt.execute();
+            stmt.setString(1, "a");
+            stmt.execute();
+            conn.commit();
+            
+            String query = "SELECT * FROM test_table";
+            ResultSet rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("a",rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals("b",rs.getString(1));
+            assertFalse(rs.next());
+            
+            ddl = "ALTER TABLE test_table ADD b_string VARCHAR NULL PRIMARY KEY";
+            conn.createStatement().execute(ddl);
+            
+            query = "SELECT * FROM test_table WHERE a_string = 'a' AND b_string IS NULL";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("a",rs.getString(1));
+            assertFalse(rs.next());
+            
+            dml = "UPSERT INTO test_table VALUES(?)";
+            stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "c");
+            stmt.execute();
+            conn.commit();
+           
+            query = "SELECT * FROM test_table WHERE a_string = 'c' AND b_string IS NULL";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("c",rs.getString(1));
+            assertFalse(rs.next());
+            
+            dml = "UPSERT INTO test_table(a_string,col1) VALUES(?,?)";
+            stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "a");
+            stmt.setInt(2, 5);
+            stmt.execute();
+            conn.commit();
+           
+            query = "SELECT a_string,col1 FROM test_table WHERE a_string = 'a' AND b_string IS NULL";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("a",rs.getString(1));
+            assertEquals(5,rs.getInt(2));
+            assertFalse(rs.next());
+            
+        } finally {
+            conn.close();
+        }
+    }
 }

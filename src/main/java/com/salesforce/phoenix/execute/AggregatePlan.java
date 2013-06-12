@@ -31,6 +31,8 @@ package com.salesforce.phoenix.execute;
 import java.sql.SQLException;
 import java.util.List;
 
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
@@ -40,6 +42,7 @@ import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 
@@ -78,6 +81,11 @@ public class AggregatePlan extends BasicQueryPlan {
 
     @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
+        // Hack to set state on scan to make upgrade happen
+        int upgradeColumnCount = SchemaUtil.upgradeColumnCount(context.getConnection().getURL(),context.getConnection().getClientInfo());
+        if (upgradeColumnCount > 0) {
+            context.getScan().setAttribute(SchemaUtil.UPGRADE_TO_2_0, Bytes.toBytes(upgradeColumnCount));
+        }
         if (groupBy.isEmpty()) {
             UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
         }
