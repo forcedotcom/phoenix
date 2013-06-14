@@ -96,4 +96,27 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         assertEquals(3,rs.getInt(1));
         assertFalse(rs.next());
     }
+    
+    @Test
+    public void testUpsertVarCharWithMaxLength() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("create table phoenix_uuid_mac (mac_md5 VARCHAR not null primary key,raw_mac VARCHAR)");
+        conn.close();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("upsert into phoenix_uuid_mac values ('00000000591','a')");
+        conn.createStatement().execute("upsert into phoenix_uuid_mac values ('000000005919','b')");
+        conn.commit();
+        conn.close();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+10));
+        conn = DriverManager.getConnection(getUrl(), props);
+        ResultSet rs = conn.createStatement().executeQuery("select max(mac_md5) from phoenix_uuid_mac");
+        assertTrue(rs.next());
+        assertEquals("000000005919", rs.getString(1));
+    }
 }

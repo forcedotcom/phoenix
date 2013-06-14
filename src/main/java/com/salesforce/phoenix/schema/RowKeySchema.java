@@ -124,7 +124,6 @@ public class RowKeySchema extends ValueSchema {
     @Override
     protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset) {
         int length = ptr.getLength();
-        b = ensureSize(b, offset, offset + length + 1);
         System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, length);
         offset += length + 1;
         b[offset-1] = QueryConstants.SEPARATOR_BYTE;
