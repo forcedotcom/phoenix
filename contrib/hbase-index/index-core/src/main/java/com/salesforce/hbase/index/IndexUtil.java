@@ -34,7 +34,6 @@ public final class IndexUtil {
     desc.addCoprocessor(Indexer.class.getName(), null, Coprocessor.PRIORITY_USER, properties);
   }
 
-
   /**
    * Validate that the version and configuration parameters are supported
    * @param hBaseVersion current version of HBase on which <tt>this</tt> coprocessor is installed

@@ -17,6 +17,7 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -63,7 +64,9 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
 
   private Map<ImmutableBytesWritable, String> columnTargetMap;
 
-  public void setup(Configuration conf) {
+  @Override
+  public void setup(RegionCoprocessorEnvironment env) {
+    Configuration conf = env.getConfiguration();
     String[] families = conf.get(INDEX_TO_TABLE_COUNT_KEY).split(SEPARATOR);
 
     // build up our mapping of column - > index table
