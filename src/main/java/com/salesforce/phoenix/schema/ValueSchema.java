@@ -357,7 +357,7 @@ public abstract class ValueSchema implements Writable {
     
     protected static byte[] ensureSize(byte[] b, int offset, int size) {
         if (size > b.length) {
-            byte[] bBigger = new byte[Math.min(b.length * 2, size)];
+            byte[] bBigger = new byte[Math.max(b.length * 2, size)];
             System.arraycopy(b, 0, bBigger, 0, offset);
             return bBigger;
         }
@@ -382,8 +382,10 @@ public abstract class ValueSchema implements Writable {
     }
     
     abstract protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxLength);
+    @Deprecated
     abstract protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset);
-    
+    abstract protected int writeVarLengthField(ImmutableBytesWritable ptr, Object[]  bWrapper, int offset);
+
     /**
      * @return byte representation of the ValueSchema
      */
@@ -396,6 +398,7 @@ public abstract class ValueSchema implements Writable {
         List<Field> fields = getFields();
         // We can get away with checking if only nulls are left in the outer loop,
         // since repeating fields will not span the non-null/null boundary.
+        Object[] bWrapper = new Object[1];
         for (int i = 0; i < fields.size(); i++) {
             Field field = fields.get(i);
             PDataType type = field.getType();
@@ -405,7 +408,10 @@ public abstract class ValueSchema implements Writable {
                         valueSet.set(index - minNullableIndex);
                     }
                     if (!type.isFixedWidth()) {
-                        offset = writeVarLengthField(ptr, b, offset);
+                        bWrapper[0] = b;
+                        offset = writeVarLengthField(ptr,bWrapper,offset);
+                        b = (byte[]) bWrapper[0];
+                        bWrapper[0] = null;
                     } else {
                         int nBytes = ptr.getLength();
                         b = ensureSize(b, offset, offset + nBytes);

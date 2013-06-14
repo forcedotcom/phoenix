@@ -10,3 +10,7 @@
 
 #maven stuffs
 target/
+
+#idea
+.idea/
+*.iml
