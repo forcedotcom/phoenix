@@ -142,5 +142,19 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         ResultSet rs = conn.createStatement().executeQuery("select max(mac_md5) from phoenix_uuid_mac");
         assertTrue(rs.next());
         assertEquals("000000005919", rs.getString(1));
+        conn.close();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+15));
+        conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("upsert into phoenix_uuid_mac values ('000000005919adfasfasfsafdasdfasfdasdfdasfdsafaxxf1','b')");
+        conn.commit();
+        conn.close();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+20));
+        conn = DriverManager.getConnection(getUrl(), props);
+        rs = conn.createStatement().executeQuery("select max(mac_md5) from phoenix_uuid_mac");
+        assertTrue(rs.next());
+        assertEquals("000000005919adfasfasfsafdasdfasfdasdfdasfdsafaxxf1", rs.getString(1));
+        conn.close();
     }
 }
