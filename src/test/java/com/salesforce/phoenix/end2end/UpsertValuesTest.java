@@ -68,6 +68,7 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         assertTrue(rs.getDate(1).after(now) && rs.getDate(1).before(then));
         assertFalse(rs.next());
     }
+    
     @Test
     public void testUpsertValuesWithExpression() throws Exception {
         long ts = nextTimestamp();
@@ -97,6 +98,29 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         assertFalse(rs.next());
     }
     
+    @Test
+    public void testUpsertValuesWithDate() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("create table UpsertDateTest (k VARCHAR not null primary key,date DATE)");
+        conn.close();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("upsert into UpsertDateTest values ('a',to_date('2013-06-08 00:00:00'))");
+        conn.commit();
+        conn.close();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+10));
+        conn = DriverManager.getConnection(getUrl(), props);
+        ResultSet rs = conn.createStatement().executeQuery("select k,to_char(date) from UpsertDateTest");
+        assertTrue(rs.next());
+        assertEquals("a", rs.getString(1));
+        assertEquals("2013-06-08 00:00:00", rs.getString(2));
+    }
+
     @Test
     public void testUpsertVarCharWithMaxLength() throws Exception {
         long ts = nextTimestamp();
