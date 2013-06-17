@@ -575,11 +575,15 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 context.getBindManager().addParamMetaData((BindParseNode)childNode, firstChild);
             }
         }
+        boolean isNot = node.isNegate();
         // TODO: if inChildren.isEmpty() then Oracle throws a type mismatch exception. This means
         // that none of the list elements match in type and there's no null element. We'd return
         // false in this case. Should we throw?
         if (node.isConstant()) {
-            InListExpression expression = new InListExpression(inChildren);
+            Expression expression = new InListExpression(inChildren);
+            if (isNot) {
+                expression = new NotExpression(expression);
+            }
             Object value = null;
             PDataType type = expression.getDataType();
             ImmutableBytesWritable ptr = context.getTempPtr();
@@ -588,10 +592,13 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             }
             return LiteralExpression.newConstant(value, type);
         }
+        Expression expression;
         if (inChildren.size() == 2) {
-            return new ComparisonExpression(CompareOp.EQUAL, inChildren);
+            expression = new ComparisonExpression(CompareOp.EQUAL, inChildren);
+        } else {
+            expression = new InListExpression(inChildren);
         }
-        return new InListExpression(inChildren);
+        return isNot ? new NotExpression(expression) : expression;
     }
 
     private static final PDatum DECIMAL_DATUM = new PDatum() {

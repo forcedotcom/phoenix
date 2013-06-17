@@ -158,6 +158,37 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
 
     @Test
+    public void testNotInList() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT entity_id FROM aTable WHERE organization_id=? and entity_id NOT IN (?,?,?,?,?,?)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW2);
+            statement.setString(3, ROW4);
+            statement.setString(4, ROW1);
+            statement.setString(5, ROW5);
+            statement.setString(6, ROW7);
+            statement.setString(7, ROW8);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(ROW3, rs.getString(1));
+            assertTrue (rs.next());
+            assertEquals(ROW6, rs.getString(1));
+            assertTrue (rs.next());
+            assertEquals(ROW9, rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
     public void testGroupByPlusOne() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
