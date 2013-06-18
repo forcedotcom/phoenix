@@ -57,7 +57,8 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
-            String upsert = "UPSERT INTO " + INDEX_DATA_TABLE + " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String upsert = "UPSERT INTO " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE 
+                    + " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = conn.prepareStatement(upsert);
             stmt.setString(1, "varchar1");
             stmt.setString(2, "char1");
@@ -123,6 +124,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         conn.setAutoCommit(false);
         try {
             ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+            populateTestTable();
             String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
                     + " (varchar_col1 ASC, varchar_col2 ASC, int_pk DESC)"
                     + " INCLUDE (int_col1, int_col2)";
@@ -141,6 +143,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             for (int i=0; i<columnCount; i++) { // One row per column.
                 assertTrue(rs.next());
             }
+            assertFalse(rs.next());
             // Verify that there is a row inserted into the data table for the index table.
             rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX");
             assertTrue(rs.next());
@@ -211,6 +214,8 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
                     + " INCLUDE (int_col1, int_col2)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
+            
+            
             
         } finally {
             conn.close();

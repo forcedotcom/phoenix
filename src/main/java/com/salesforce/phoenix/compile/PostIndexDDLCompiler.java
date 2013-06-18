@@ -94,7 +94,6 @@ public class PostIndexDDLCompiler {
                     .append(columns).append(") SELECT ").append(columns).append(" FROM ")
                     .append(stmt.getTableName().toString());
                 PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
-                System.out.println(updateStmtStr);
                 updateStmt.execute();
                 MetaDataClient.updateIndexState(connection, stmt.getTableName().getSchemaName(), 
                         stmt.getTableName().getTableName(), stmt.getIndexName().getName(), PIndexState.ACTIVE);
