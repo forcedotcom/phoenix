@@ -123,6 +123,29 @@ public class MetaDataClient {
         SALT_BUCKETS + "," +
         PK_NAME + 
         ") VALUES (?, ?, ?, ?, ?, ?, ?)";
+    private static final String CREATE_INDEX =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        TABLE_TYPE_NAME + "," +
+        TABLE_SEQ_NUM + "," +
+        INDEX_STATE + "," +
+        COLUMN_COUNT + "," +
+        SALT_BUCKETS + "," +
+        PK_NAME +
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String UPDATE_INDEX_STATE =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        INDEX_STATE +
+        ") VALUES (?, ?, ?)";
+    private static final String INSERT_INDEX =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        INDEX_NAME +
+        ") VALUES (?, ?, ?)";
     private static final String MUTATE_TABLE =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -132,6 +155,19 @@ public class MetaDataClient {
         COLUMN_COUNT +
         ") VALUES (?, ?, ?, ?, ?)";
     private static final String INSERT_COLUMN =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        COLUMN_NAME + "," +
+        TABLE_CAT_NAME + "," +
+        DATA_TYPE + "," +
+        NULLABLE + "," +
+        COLUMN_SIZE + "," +
+        DECIMAL_DIGITS + "," +
+        ORDINAL_POSITION + "," + 
+        COLUMN_MODIFIER +
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String INSERT_INDEX_COLUMN =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
         TABLE_NAME_NAME + "," +
@@ -175,9 +211,32 @@ public class MetaDataClient {
         colUpsert.execute();
     }
 
+    private void addIndexColumnMutation(String schemaName, String indexName, PColumn column,
+            PreparedStatement colUpsert) throws SQLException {
+        colUpsert.setString(1, schemaName);
+        colUpsert.setString(2, indexName);
+        colUpsert.setString(3, column.getName().getString());
+        colUpsert.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
+        colUpsert.setInt(5, column.getDataType().getSqlType());
+        colUpsert.setInt(6, column.isNullable() ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
+        if (column.getMaxLength() == null) {
+            colUpsert.setNull(7, Types.INTEGER);
+        } else {
+            colUpsert.setInt(7, column.getMaxLength());
+        }
+        if (column.getScale() == null) {
+            colUpsert.setNull(8, Types.INTEGER);
+        } else {
+            colUpsert.setInt(8, column.getScale());
+        }
+        colUpsert.setInt(9, column.getPosition()+1);
+        colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
+        colUpsert.execute();
+    }
+
     public PColumn newColumn(int position, ColumnDef def, PrimaryKeyConstraint pkConstraint) throws SQLException {
         try {
-        	Set<String> pkColumnNames = pkConstraint == null ? Collections.<String>emptySet() : pkConstraint.getColumnNames();
+            Set<String> pkColumnNames = pkConstraint == null ? Collections.<String>emptySet() : pkConstraint.getColumnNames();
             String columnName = def.getColumnDefName().getColumnName().getName();
             PName familyName = null;
             if (def.isPK() && !pkColumnNames.isEmpty() ) {
@@ -201,8 +260,8 @@ public class MetaDataClient {
             
             ColumnModifier columnModifier = def.getColumnModifier();
             if (pkConstraint != null && pkConstraint.getColumnModifier(columnName) != null) {
-            	columnModifier = pkConstraint.getColumnModifier(columnName);
-            }            
+                columnModifier = pkConstraint.getColumnModifier(columnName);
+            }
             
             PColumn column = new PColumnImpl(new PNameImpl(columnName), familyName, def.getDataType(),
                     def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier);
@@ -323,7 +382,8 @@ public class MetaDataClient {
             
             // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
             if (tableType == PTableType.SYSTEM) {
-                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, QueryConstants.SYSTEM_TABLE_PK_NAME, null, columns);
+                PTable table = PTableImpl.makePTable(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP,
+                        0, QueryConstants.SYSTEM_TABLE_PK_NAME, null, columns, null);
                 connection.addTable(schemaName, table);
             }
             
@@ -376,7 +436,7 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
-                PTable table = new PTableImpl(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, saltBucketNum, columns);
+                PTable table = PTableImpl.makePTable(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, saltBucketNum, columns, null);
                 connection.addTable(schemaName, table);
                 if (tableType == PTableType.USER) {
                     connection.setAutoCommit(true);
@@ -397,39 +457,238 @@ public class MetaDataClient {
         }
     }
 
-    public MutationState dropTable(DropTableStatement statement) throws SQLException {
+    // Since we cannot have nullable 
+    private static PDataType getKeyType(PColumn col) throws SQLException {
+        if (!col.isNullable() || !col.getDataType().isFixedWidth()) {
+            return col.getDataType();
+        }
+        // for INT, BIGINT
+        if (col.getDataType().isCoercibleTo(PDataType.DECIMAL)) {
+            return PDataType.DECIMAL;
+        }
+        // for CHAR
+        if (col.getDataType().isCoercibleTo(PDataType.VARCHAR)) {
+            return PDataType.VARCHAR;
+        }
+        // Should not happen;
+        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(col.getName().getString())
+            .setMessage("Type="+col.getDataType()).build().buildException();
+    }
+
+    // Make a new column for used as the primary column for the index table.
+    private static PColumn newIndexColumn(int position, PColumn origColumn, ColumnParseNode ref, boolean isPK) throws SQLException {
+        String columnName = ref == null ? origColumn.getName().getString() : ref.getFullName();
+        PName familyName = isPK ? null : origColumn.getFamilyName();
+        ColumnModifier modifier = ref instanceof IndexColumnParseNode ? ((IndexColumnParseNode) ref).getModifier() : null;
+        return new PColumnImpl(new PNameImpl(columnName), familyName, getKeyType(origColumn), origColumn.getMaxLength(),
+                origColumn.getScale(), origColumn.isNullable(), position, modifier);
+    }
+
+    public MutationState createIndex(CreateIndexStatement statement) throws SQLException {
+        PTableType tableType = statement.getTableType();
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
+            connection.setAutoCommit(false);
+            if (statement.getIndexName() == null) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_MISSING_NAME).build().buildException();
+            }
+            
             TableName tableNameNode = statement.getTableName();
+            String indexName = statement.getIndexName().getName();
             String schemaName = tableNameNode.getSchemaName();
             String tableName = tableNameNode.getTableName();
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
+            PTable dataTable = getLatestTable(schemaName, tableName);
+            
+            List<ParseNode> indexPKColumnRefs = statement.getColumns();
+            List<ParseNode> indexIncludeColumnRefs = statement.getIncludeColumns();
+            if (indexPKColumnRefs.isEmpty()) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_MISSING_PK_COLUMNS).build().buildException();
+            }
+            
+            List<PColumn> dataTablePKColumns = new ArrayList<PColumn>(dataTable.getPKColumns());
+            List<PColumn> columns = Lists.newArrayListWithExpectedSize(indexPKColumnRefs.size() 
+                    + indexIncludeColumnRefs.size() + dataTablePKColumns.size());
+            List<PColumn> pkColumns = new LinkedList<PColumn>();
+            int columnOrdinal = 0;
+            for (ParseNode col: indexPKColumnRefs) {
+                IndexColumnParseNode colRef = (IndexColumnParseNode) col;
+                // Will throw exceptions if the column does not exist or is ambiguous.
+                PColumn origCol = dataTable.getColumn(colRef.getFullName());
+                PColumn indexCol = newIndexColumn(columnOrdinal++, origCol, colRef, true);
+                pkColumns.add(indexCol);
+                columns.add(indexCol);
+                // Remove the column if it's on the list of data table pk column.
+                dataTablePKColumns.remove(origCol);
+            }
+            // Add the rest of the data table pk columns to the set.
+            for (PColumn dataTablePKColumn: dataTablePKColumns) {
+                PColumn indexTablePKColumn = newIndexColumn(columnOrdinal++, dataTablePKColumn, null, true);
+                pkColumns.add(indexTablePKColumn);
+                columns.add(indexTablePKColumn);
+            }
+            
+            // Include columns are appended as non-pk columns.
+            Map<String, PName> familyNames = Maps.newLinkedHashMap();
+            for (ParseNode col: indexIncludeColumnRefs) {
+                ColumnParseNode colRef = (ColumnParseNode) col;
+                PColumn origCol = dataTable.getColumn(colRef.getFullName());
+                PColumn indexCol = newIndexColumn(columnOrdinal++, origCol, colRef, false);
+                familyNames.put(origCol.getFamilyName().getString(), origCol.getFamilyName());
+                columns.add(indexCol);
+            }
+            
+            // TODO:: Re-factor this section into a method and share with CreateTable().
+            List<Pair<byte[],Map<String, Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
+            Map<String,Object> commonFamilyProps = Collections.emptyMap();
+            Map<String,Object> tableProps = Collections.emptyMap();
+            if (!statement.getProps().isEmpty()) {
+                for (String familyName : statement.getProps().keySet()) {
+                    if (!familyName.equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
+                        if (familyNames.get(familyName) == null) {
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PROPERTIES_FOR_FAMILY)
+                                .setFamilyName(familyName).build().buildException();
+                        }
+                    }
+                }
+                commonFamilyProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
+                tableProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
+                
+                Collection<Pair<String,Object>> props = statement.getProps().get(QueryConstants.ALL_FAMILY_PROPERTIES_KEY);
+                HColumnDescriptor defaultDescriptor = new HColumnDescriptor(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES);
+                for (Pair<String,Object> prop : props) {
+                    if (defaultDescriptor.getValue(prop.getFirst()) != null) {
+                        commonFamilyProps.put(prop.getFirst(), prop.getSecond());
+                    } else {
+                        tableProps.put(prop.getFirst(), prop.getSecond());
+                    }
+                }
+            }
+            
+            for (PName familyName : familyNames.values()) {
+                Collection<Pair<String,Object>> props = statement.getProps().get(familyName.getString());
+                if (props.isEmpty()) {
+                    familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),commonFamilyProps));
+                } else {
+                    Map<String,Object> combinedFamilyProps = Maps.newHashMapWithExpectedSize(props.size() + commonFamilyProps.size());
+                    combinedFamilyProps.putAll(commonFamilyProps);
+                    for (Pair<String,Object> prop : props) {
+                        combinedFamilyProps.put(prop.getFirst(), prop.getSecond());
+                    }
+                    familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),combinedFamilyProps));
+                }
+            }
+            
+            PreparedStatement colUpsert = connection.prepareStatement(INSERT_INDEX_COLUMN);
+            for (PColumn column : columns) {
+                addIndexColumnMutation(schemaName, indexName, column, colUpsert);
+            }
+            
+            Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
+            if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
+            }
+            if (saltBucketNum != null) {
+                ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
+            }
+            pkColumns = new ArrayList<PColumn>(pkColumns);
+            
+            PreparedStatement tableUpsert = connection.prepareStatement(CREATE_INDEX);
+            tableUpsert.setString(1, schemaName);
+            tableUpsert.setString(2, indexName);
+            tableUpsert.setString(3, tableType.getSerializedValue());
+            tableUpsert.setInt(4, 0);
+            tableUpsert.setString(5, PIndexState.CREATED.getSerializedValue());
+            tableUpsert.setInt(6, columnOrdinal);
+            if (saltBucketNum != null) {
+                tableUpsert.setInt(7, saltBucketNum);
+            } else {
+                tableUpsert.setNull(7, Types.INTEGER);
+            }
+            tableUpsert.setString(8, null);
+            tableUpsert.execute();
+            
+            final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
+            connection.rollback();
+            
+            byte[][] splits = SchemaUtil.processSplits(new byte[0][], pkColumns, saltBucketNum, connection.getQueryServices().getProps().getBoolean(
+                    QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE));
+            MetaDataMutationResult result = connection.getQueryServices().createIndex(tableMetaData, tableProps, familyPropList, splits);
+            MutationCode code = result.getMutationCode();
+            switch(code) {
+            case TABLE_ALREADY_EXISTS:
+            case NEWER_TABLE_FOUND: // Will this happen?
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_ALREADY_EXIST).setTableName(indexName)
+                   .build().buildException();
+            case UNALLOWED_TABLE_MUTATION: // Will this happen? Do we allow indexing schema update?
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_INDEX).setTableName(indexName)
+                    .build().buildException();
+            default:
+                PTable index = PTableImpl.makePIndex(new PNameImpl(indexName), PIndexState.CREATED, result.getMutationTime(), 0, null, 
+                        saltBucketNum, columns);
+                dataTable.addIndex(index); // Add to data table since the index is new
+                connection.addTable(schemaName, index);
+                connection.setAutoCommit(true);
+                MutationPlan plan = new PostIndexDDLCompiler(connection).compile(statement, index);
+                return connection.getQueryServices().updateData(plan);
+            }
+        } finally {
+            connection.setAutoCommit(wasAutoCommit);
+        }
+    }
+
+    public MutationState dropIndex(DropIndexStatement statement) throws SQLException {
+        String schemaName = statement.getTableName().getSchemaName();
+        String tableName = statement.getTableName().getTableName();
+        String indexName = statement.getIndexName().getName();
+        return doDropTable(schemaName, tableName, indexName, false, false, true);
+    }
+
+    public MutationState dropTable(DropTableStatement statement) throws SQLException {
+        String schemaName = statement.getTableName().getSchemaName();
+        String tableName = statement.getTableName().getTableName();
+        return doDropTable(schemaName, tableName, null, statement.ifExists(), statement.isView(), false);
+    }
+
+    private MutationState doDropTable(String schemaName, String tableName, String indexName, boolean ifExists, boolean isView, boolean isIndex) throws SQLException {
+        // We store the index as schemaName.IndexName, but we still need the table name to remove the index entry on the data table.
+        String actualTableName = isIndex ? indexName : tableName;
+        connection.rollback();
+        boolean wasAutoCommit = connection.getAutoCommit();
+        try {
+            byte[] key = SchemaUtil.getTableKey(schemaName, actualTableName);
             Long scn = connection.getSCN();
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
             // FIXME: the version of the Delete constructor without the lock args was introduced
             // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
             // of the client.
             List<Mutation> tableMetaData = Collections.<Mutation>singletonList(new Delete(key, scn == null ? HConstants.LATEST_TIMESTAMP : scn, null));
-            MetaDataMutationResult result = connection.getQueryServices().dropTable(tableMetaData, statement.isView());
+            MetaDataMutationResult result = isIndex ?
+                    connection.getQueryServices().dropIndex(tableMetaData, tableName) :
+                    connection.getQueryServices().dropTable(tableMetaData, isView);
             MutationCode code = result.getMutationCode();
             switch(code) {
             case TABLE_NOT_FOUND:
-                if (!statement.ifExists()) {
-                    throw new TableNotFoundException(schemaName, tableName);
+                if (!ifExists) {
+                    throw new TableNotFoundException(schemaName, actualTableName);
                 }
                 break;
             case NEWER_TABLE_FOUND:
-                throw new NewerTableAlreadyExistsException(schemaName, tableName);
+                throw new NewerTableAlreadyExistsException(schemaName, actualTableName);
             case UNALLOWED_TABLE_MUTATION:
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
-                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                    .setSchemaName(schemaName).setTableName(actualTableName).build().buildException();
             default:
                 try {
-                    connection.removeTable(schemaName, tableName);
+                    connection.removeTable(schemaName, actualTableName);
                 } catch (TableNotFoundException e) { // Ignore - just means wasn't cached
                 }
-                if (!statement.isView()) {
+                if (isIndex) { // also need to invalidate the data table when dropping an index.
+                    try {
+                        connection.removeTable(schemaName, tableName);
+                    } catch (TableNotFoundException e) {}
+                }
+                if (!isView) {
                     connection.setAutoCommit(true);
                     // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                     long ts = (scn == null ? result.getMutationTime() : scn);
@@ -447,6 +706,24 @@ public class MetaDataClient {
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }
+    }
+
+    public static void insertIndexToTable(PhoenixConnection connection, String schemaName, String tableName,
+            String indexName) throws SQLException {
+        PreparedStatement indexUpsert = connection.prepareStatement(INSERT_INDEX);
+        indexUpsert.setString(1, schemaName);
+        indexUpsert.setString(2, tableName);
+        indexUpsert.setString(3, indexName);
+        indexUpsert.execute();
+    }
+
+    public static void updateIndexState(PhoenixConnection connection, String schemaName, String tableName,
+            String indexName, PIndexState state) throws SQLException {
+        PreparedStatement updateIdxState = connection.prepareStatement(UPDATE_INDEX_STATE);
+        updateIdxState.setString(1, schemaName);
+        updateIdxState.setString(2, indexName);
+        updateIdxState.setString(3, state.getSerializedValue());
+        updateIdxState.execute();
     }
 
     private PTable getLatestTable(String schemaName, String tableName) throws SQLException {

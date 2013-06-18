@@ -25,35 +25,63 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.parse;
 
-import org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy;
+import java.util.List;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import org.apache.hadoop.hbase.util.Pair;
 
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.salesforce.phoenix.schema.PTableType;
 
-public class MetaDataSplitPolicy extends ConstantSizeRegionSplitPolicy {
+public class CreateIndexStatement implements SQLStatement {
 
-    @Override
-    protected byte[] getSplitPoint() {
-        byte[] splitPoint = super.getSplitPoint();
-        int offset = SchemaUtil.getVarCharLength(splitPoint, 0, splitPoint.length);
-        // Split only on Phoenix schema name, so this is ok b/c we won't be splitting
-        // in the middle of a Phoenix table.
-        if (offset == splitPoint.length) {
-            return splitPoint;
-        }
-//        offset = SchemaUtil.getVarCharLength(splitPoint, offset+1, splitPoint.length-offset-1);
-//        // Split only on Phoenix schema and table name, so this is ok b/c we won't be splitting
-//        // in the middle of a Phoenix table.
-//        if (offset == splitPoint.length) {
-//            return splitPoint;
-//        }
-        // Otherwise, an attempt is being made to split in the middle of a table.
-        // Just return a split point at the schema boundary instead
-        byte[] newSplitPoint = new byte[offset + 1];
-        System.arraycopy(splitPoint, 0, newSplitPoint, 0, offset+1);
-        return newSplitPoint;
+    private final NamedNode indexName;
+    private final TableName tableName;
+    private final List<ParseNode> columns;
+    private final List<ParseNode> includeColumns;
+    private final ListMultimap<String,Pair<String,Object>> props;
+    private final int bindCount;
+    private final PTableType tableType = PTableType.INDEX;
+
+    public CreateIndexStatement(NamedNode indexName, TableName tableName, List<ParseNode> columns, 
+            List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, 
+            int bindCount) {
+        this.indexName = indexName;
+        this.tableName = tableName;
+        this.columns = columns;
+        this.includeColumns = includeColumns;
+        this.props = props == null ? ImmutableListMultimap.<String,Pair<String,Object>>of() : props;
+        this.bindCount = bindCount;
     }
 
+    @Override
+    public int getBindCount() {
+        return bindCount;
+    }
+
+    public NamedNode getIndexName() {
+        return indexName;
+    }
+
+    public TableName getTableName() {
+        return tableName;
+    }
+
+    public List<ParseNode> getColumns() {
+        return this.columns;
+    }
+
+    public List<ParseNode> getIncludeColumns() {
+        return this.includeColumns;
+    }
+
+    public ListMultimap<String,Pair<String,Object>> getProps() {
+        return props;
+    }
+
+    public PTableType getTableType() {
+        return tableType;
+    }
 }

@@ -93,7 +93,7 @@ public class PostDDLCompiler  {
                     return new MutationState(0, connection);
                 }
                 /*
-                 * Handles 
+                 * Handles:
                  * 1) deletion of all rows for a DROP TABLE
                  * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
                  * 3) updating the necessary rows to have an empty KV

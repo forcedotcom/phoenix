@@ -63,6 +63,7 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce.phoenix.jdbc.Jdbc7Shim.DatabaseMetaData {
+    public static final int INDEX_NAME_INDEX = 4;
     public static final int FAMILY_NAME_INDEX = 3;
     public static final int COLUMN_NAME_INDEX = 2;
     public static final int TABLE_NAME_INDEX = 1;
@@ -96,6 +97,11 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] COLUMN_COUNT_BYTES = Bytes.toBytes(COLUMN_COUNT);
     public static final String SALT_BUCKETS = "SALT_BUCKETS";
     public static final byte[] SALT_BUCKETS_BYTES = Bytes.toBytes(SALT_BUCKETS);
+    
+    public static final String INDEX_NAME = "INDEX_NAME";
+    public static final byte[] INDEX_NAME_BYTES = Bytes.toBytes(INDEX_NAME);
+    public static final String INDEX_STATE = "INDEX_STATE";
+    public static final byte[] INDEX_STATE_BYTES = Bytes.toBytes(INDEX_STATE);
     
     public static final String COLUMN_NAME = "COLUMN_NAME";
     public static final String DATA_TYPE = "DATA_TYPE";

@@ -88,6 +88,8 @@ tokens
     SHOW='show';
     TABLES='tables';
     ALL='all';
+    INDEX='index';
+    INCLUDE='include';
 }
 
 
@@ -326,13 +328,14 @@ oneStatement returns [SQLStatement ret] throws SQLException
     |    u=upsert_node {$ret=u;}
     |    d=delete_node {$ret=d;}
     |    ct=create_table_node {$ret=ct;}
+    |    ci=create_index_node {$ret=ci;}
     |    dt=drop_table_node {$ret=dt;}
+    |    di=drop_index_node {$ret=di;}
     |    at=alter_table_node {$ret=at;}
     |    e=explain_node {$ret=e;}
     |    st=show_tables_node {$ret=st;}
         )
     ;
-
 
 show_tables_node returns [SQLStatement ret]
     :   SHOW TABLES {$ret=factory.showTables();}
@@ -351,13 +354,32 @@ create_table_node returns [CreateTableStatement ret] throws SQLException
         {ret = factory.createTable(t, p, cdefs, pk, v, ro!=null, ex!=null, getBindCount()); }
     ;
 
+// Parse a create index statement.
+create_index_node returns [CreateIndexStatement ret] throws SQLException
+    :   CREATE INDEX i=index_name ON t=from_table_name
+        (LPAREN crefs=index_column_refs RPAREN)
+        (INCLUDE (LPAREN icrefs=column_refs RPAREN))?
+        (p=fam_properties)?
+        {ret = factory.createIndex(i, t, p, crefs, icrefs, getBindCount()); }
+    ;
+
+// Column references with optional column modifiers
+index_column_refs returns [List<ParseNode> ret]
+@init{ret = new ArrayList<ParseNode>(); }
+    :   (v = index_column_ref {$ret.add(v);}) (COMMA (v=index_column_ref {$ret.add(v);}) )*
+    ;
+
+index_column_ref returns [ParseNode ret]
+    :   field = identifier (order=ASC|order=DESC)? {$ret = factory.indexColumn(field, order == null ? null : ColumnModifier.fromDDLValue(order.getText())); }
+    ;
+
 pk_constraint returns [PrimaryKeyConstraint ret]
-	:	CONSTRAINT	n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
-	;
-	
+    :   CONSTRAINT	n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
+    ;
+
 identifiers returns [List<Pair<String, ColumnModifier>> ret]
 @init{ret = new ArrayList<Pair<String, ColumnModifier>>(); }
-    :  c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));} )*
+    :   c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));} )*
 ;
 
 fam_properties returns [ListMultimap<String,Pair<String,Object>> ret]
@@ -384,6 +406,12 @@ column_def_name returns [ColumnDefName ret]
 drop_table_node returns [DropTableStatement ret]
     :   DROP (ro=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
         {ret = factory.dropTable(t, ex!=null, ro!=null); }
+    ;
+
+// Parse a drop index statement
+drop_index_node returns [DropIndexStatement ret]
+    : DROP INDEX i=index_name ON t=from_table_name
+      {ret = factory.dropIndex(i, t); }
     ;
 
 // Parse an alter table statement.
@@ -652,12 +680,16 @@ column_ref returns [ParseNode ret]
     |   tableName=column_table_name DOT field=identifier {$ret = factory.column(tableName, field); }
     ;
 
+index_name returns [NamedNode ret]
+    :   name=identifier {$ret = factory.indexName(name); }
+    ;
+
 // TODO: figure out how not repeat this three times
 table_name returns [TableName ret]
     :   t=identifier {$ret = factory.table(null, t); }
     |   s=identifier DOT t=identifier {$ret = factory.table(s, t); }
     ;
-    
+
 // TODO: figure out how not repeat this three times
 from_table_name returns [TableName ret]
     :   t=identifier {$ret = factory.table(null, t); }
