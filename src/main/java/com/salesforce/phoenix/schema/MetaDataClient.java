@@ -520,6 +520,21 @@ public class MetaDataClient {
                 columns.add(indexCol);
                 // Remove the column if it's on the list of data table pk column.
                 dataTablePKColumns.remove(origCol);
+                // Remove the column from the include list if it's also specified there.
+                ColumnParseNode node = (ColumnParseNode) col;
+                System.out.println(node.getFullName());
+                int idx = -1;
+                for (int i=0; i<indexIncludeColumnRefs.size(); i++) {
+                    System.out.println(((ColumnParseNode) indexIncludeColumnRefs.get(i)).getFullName());
+                    if (((ColumnParseNode) indexIncludeColumnRefs.get(i)).getFullName().equals(node.getFullName())) {
+                        idx = i;
+                        break;
+                    }
+                }
+                if (idx >= 0) {
+                    indexIncludeColumnRefs.remove(idx);
+                }
+                
             }
             // Add the rest of the data table pk columns to the set.
             for (PColumn dataTablePKColumn: dataTablePKColumns) {
