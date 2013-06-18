@@ -28,7 +28,8 @@
 ############################################################################
 
 # Phoenix client jar. To generate new jars: $ mvn package -DskipTests
-phoenix_jar_path="../target"
+current_dir=$(cd $(dirname $0);pwd)
+phoenix_jar_path="$current_dir/../target"
 phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
 
 # HBase configuration folder path (where hbase-site.xml reside) for HBase/Phoenix client side property override
