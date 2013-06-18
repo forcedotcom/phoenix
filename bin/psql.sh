@@ -33,6 +33,6 @@ phoenix_jar_path="$current_dir/../target"
 phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
 
 # HBase configuration folder path (where hbase-site.xml reside) for HBase/Phoenix client side property override
-hbase_config_path="."
+hbase_config_path="$current_dir"
 
 java -cp "$hbase_config_path:$phoenix_client_jar" -Dlog4j.configuration=file:$current_dir/log4j.properties com.salesforce.phoenix.util.PhoenixRuntime "$@"
