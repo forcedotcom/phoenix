@@ -50,7 +50,7 @@ testjar="$phoenix_jar_path/phoenix-*-tests.jar"
 # HBase configuration folder path (where hbase-site.xml reside) for HBase/Phoenix client side property override
 hbase_config_path="."
 
-execute="java -cp "$hbase_config_path:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties com.salesforce.phoenix.util.PhoenixRuntime -t $table $zookeeper "
+execute="java -cp "$hbase_config_path:$phoenix_client_jar" -Dlog4j.configuration=file:$current_dir/log4j.properties com.salesforce.phoenix.util.PhoenixRuntime -t $table $zookeeper "
 function usage {
 	echo "Performance script arguments not specified. Usage: performance.sh <zookeeper> <row count>"
 	echo "Example: performance.sh localhost 100000"
