@@ -67,7 +67,89 @@ public class PostDDLCompiler  {
     public PostDDLCompiler(PhoenixConnection connection) {
         this.connection = connection;
     }
-    
+
+    public MutationPlan compile(final List<TableRef> tableRefs, final long timeStamp) throws SQLException {
+        return new MutationPlan() {
+
+            @Override
+            public PhoenixConnection getConnection() {
+                return connection;
+            }
+
+            @Override
+            public ParameterMetaData getParameterMetaData() {
+                return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
+            }
+
+            @Override
+            public ExplainPlan getExplainPlan() throws SQLException {
+                return ExplainPlan.EMPTY_PLAN;
+            }
+
+            @Override
+            public MutationState execute() throws SQLException {
+                SQLException sqlE = null;
+                /*
+                 * Handles:
+                 * 1) deletion of all rows for a DROP TABLE and delete all rows for its associated index table.
+                 */
+                List<AliasedNode> select = Collections.<AliasedNode>singletonList(
+                        NODE_FACTORY.aliasedNode(null, 
+                                NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
+                Scan scan = new Scan();
+                scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
+                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
+                ColumnResolver resolver = new ColumnResolver() {
+                    @Override
+                    public List<TableRef> getTables() {
+                        return tableRefs;
+                    }
+                    @Override
+                    public ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
+                        throw new UnsupportedOperationException();
+                    }
+                };
+                StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
+                ScanUtil.setTimeRange(scan, timeStamp);
+                RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+                long totalMutationCount = 0;
+                for (TableRef tableRef: tableRefs) {
+                    QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
+                    Scanner scanner = plan.getScanner();
+                    ResultIterator iterator = scanner.iterator();
+                    try {
+                        Tuple row = iterator.next();
+                        ImmutableBytesWritable ptr = context.getTempPtr();
+                        totalMutationCount += (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
+                    } catch (SQLException e) {
+                        sqlE = e;
+                    } finally {
+                        try {
+                            iterator.close();
+                        } catch (SQLException e) {
+                            if (sqlE == null) {
+                                sqlE = e;
+                            } else {
+                                sqlE.setNextException(e);
+                            }
+                        } finally {
+                            if (sqlE != null) {
+                                throw sqlE;
+                            }
+                        }
+                    }
+                }
+                final long count = totalMutationCount;
+                return new MutationState(1, connection) {
+                    @Override
+                    public long getUpdateCount() {
+                        return count;
+                    }
+                };
+            }
+        };
+    }
+
     public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList, final long timeStamp) throws SQLException {
         return new MutationPlan() {
 

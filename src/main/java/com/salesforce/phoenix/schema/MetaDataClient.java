@@ -681,12 +681,17 @@ public class MetaDataClient {
             default:
                 try {
                     connection.removeTable(schemaName, actualTableName);
-                } catch (TableNotFoundException e) { // Ignore - just means wasn't cached
-                }
+                } catch (TableNotFoundException e) { } // Ignore - just means wasn't cached
                 if (isIndex) { // also need to invalidate the data table when dropping an index.
                     try {
                         connection.removeTable(schemaName, tableName);
-                    } catch (TableNotFoundException e) {}
+                    } catch (TableNotFoundException e) { }
+                }
+                PTable table = result.getTable();
+                for (PTable index: table.getIndexes()) {
+                    try {
+                        connection.removeTable(schemaName, index.getName().getString());
+                    } catch (TableNotFoundException e) { }
                 }
                 if (!isView) {
                     connection.setAutoCommit(true);
@@ -694,10 +699,14 @@ public class MetaDataClient {
                     long ts = (scn == null ? result.getMutationTime() : scn);
                     // Create empty table and schema - they're only used to get the name from
                     // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
-                    PTable table = result.getTable();
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
+                    List<TableRef> tableRefs = new ArrayList<TableRef>();
                     TableRef tableRef = new TableRef(null, table, schema, ts);
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, null, Collections.<PColumn>emptyList(), ts);
+                    tableRefs.add(tableRef);
+                    for (PTable index: table.getIndexes()) {
+                        tableRefs.add(new TableRef(null, index, schema, ts));
+                    }
+                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, ts);
                     return connection.getQueryServices().updateData(plan);
                 }
                 break;

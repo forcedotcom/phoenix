@@ -862,8 +862,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[][] rowKeyMetadata = new byte[2][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] tableKey = SchemaUtil.getTableKey(
-                rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], 
-                rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+                rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override

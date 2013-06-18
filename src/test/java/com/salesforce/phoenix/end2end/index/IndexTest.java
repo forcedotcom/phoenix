@@ -31,8 +31,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE 
             + "\" WHERE "
             + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=?";
-    private static final String SELECT_DATA_INDEX_ROW = "SELECT "
-            + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + INDEX_NAME
+    private static final String SELECT_DATA_INDEX_ROW = "SELECT " + INDEX_NAME
             + " FROM "
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE
             + "\" WHERE "
@@ -45,8 +44,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         return stmt.executeQuery();
     }
 
-    private static ResultSet readDataTableIndexRow(Connection conn, String schemaName, String tableName,
-            String indexName) throws SQLException {
+    private static ResultSet readDataTableIndexRow(Connection conn, String schemaName, String tableName, String indexName) throws SQLException {
         PreparedStatement stmt = conn.prepareStatement(SELECT_DATA_INDEX_ROW);
         stmt.setString(1, schemaName);
         stmt.setString(2, tableName);
@@ -146,6 +144,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             // Verify that there is a row inserted into the data table for the index table.
             rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX");
             assertTrue(rs.next());
+            assertEquals("IDX", rs.getString(1));
             assertFalse(rs.next());
             
             ddl = "DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
@@ -160,6 +159,41 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             // Verify that there is a row inserted into the data table for the index table.
             rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX");
             assertFalse(rs.next());
+            
+            // Create another two indexes, and drops the table, verifies the indexes are dropped as well.
+            ddl = "CREATE INDEX IDX1 ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                    + " (varchar_col1 ASC, varchar_col2 ASC, int_pk DESC)"
+                    + " INCLUDE (int_col1, int_col2)";
+            stmt = conn.prepareStatement(ddl);
+            stmt.execute();
+            
+            ddl = "CREATE INDEX IDX2 ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                    + " (varchar_col1 ASC, varchar_col2 ASC, int_pk DESC)"
+                    + " INCLUDE (int_col1, int_col2)";
+            stmt = conn.prepareStatement(ddl);
+            stmt.execute();
+            
+            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1");
+            assertTrue(rs.next());
+            assertEquals("IDX1", rs.getString(1));
+            assertFalse(rs.next());
+            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2");
+            assertTrue(rs.next());
+            assertEquals("IDX2", rs.getString(1));
+            assertFalse(rs.next());
+            
+            ddl = "DROP TABLE " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+            stmt = conn.prepareStatement(ddl);
+            stmt.execute();
+            
+            rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX1");
+            assertFalse(rs.next());
+            rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX2");
+            assertFalse(rs.next());
+            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1");
+            assertFalse(rs.next());
+            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2");
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }
@@ -171,7 +205,9 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         try {
-            ensureTableCreated(getUrl(), TestUtil.INDEX_DATA_TABLE);
+            ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+            
+            
         } finally {
             conn.close();
         }

@@ -415,7 +415,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         MetaDataMutationResult result = doDropAllRowsForTable(key, isView, m.getTimeStamp(), indexList);
         // Iterator through the indexes and drop them one by one;
         for (ImmutableBytesPtr indexName : indexList) {
-            byte[] indexTableKey = SchemaUtil.getTableName(schemaName, indexName.get());
+            byte[] indexTableKey = SchemaUtil.getTableKey(schemaName, indexName.get());
             doDropAllRowsForTable(indexTableKey, false, m.getTimeStamp(), null);
         }
         return result;
@@ -512,9 +512,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 List<Mutation> rowsToDelete = Lists.newArrayListWithExpectedSize(10);
+                byte[][] rowKeyMetaData = new byte[5][];
+                byte[] rowKey;
                 do {
-                    byte[][] rowKeyMetaData = new byte[5][];
-                    byte[] rowKey = results.get(0).getRow();
+                    rowKey = results.get(0).getRow();
                     if (parseIndex) {
                         getVarChars(rowKey, rowKeyMetaData);
                         if (rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX] != null) {
