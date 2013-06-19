@@ -27,61 +27,37 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.salesforce.phoenix.schema.PTableType;
 
-public class CreateIndexStatement implements SQLStatement {
+
+public class CreateIndexStatement extends CreateTableStatement implements SQLStatement {
 
     private final NamedNode indexName;
-    private final TableName tableName;
-    private final List<ParseNode> columns;
     private final List<ParseNode> includeColumns;
-    private final ListMultimap<String,Pair<String,Object>> props;
-    private final int bindCount;
-    private final PTableType tableType = PTableType.INDEX;
 
-    public CreateIndexStatement(NamedNode indexName, TableName tableName, List<ParseNode> columns, 
-            List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, 
-            int bindCount) {
+    public CreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns,
+            ListMultimap<String,Pair<String,Object>> props, int bindCount) {
+        super(tableName, props, Collections.<ColumnDef>emptyList(), pkConstraint, null, false, false, bindCount);
         this.indexName = indexName;
-        this.tableName = tableName;
-        this.columns = columns;
         this.includeColumns = includeColumns;
-        this.props = props == null ? ImmutableListMultimap.<String,Pair<String,Object>>of() : props;
-        this.bindCount = bindCount;
-    }
-
-    @Override
-    public int getBindCount() {
-        return bindCount;
     }
 
     public NamedNode getIndexName() {
         return indexName;
     }
 
-    public TableName getTableName() {
-        return tableName;
-    }
-
-    public List<ParseNode> getColumns() {
-        return this.columns;
-    }
-
     public List<ParseNode> getIncludeColumns() {
         return this.includeColumns;
     }
 
-    public ListMultimap<String,Pair<String,Object>> getProps() {
-        return props;
-    }
-
+    @Override
     public PTableType getTableType() {
-        return tableType;
+        return PTableType.INDEX;
     }
 }

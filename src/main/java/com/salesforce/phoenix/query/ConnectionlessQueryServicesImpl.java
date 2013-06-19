@@ -164,13 +164,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult createIndex(List<Mutation> tableMetaData, Map<String, Object> tableProps,
-            List<Pair<byte[], Map<String, Object>>> families, byte[][] splits) throws SQLException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata, String tableName) throws SQLException {
-        throw new UnsupportedOperationException();
+        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
     }
 }

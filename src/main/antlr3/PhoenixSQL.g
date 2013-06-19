@@ -357,10 +357,10 @@ create_table_node returns [CreateTableStatement ret] throws SQLException
 // Parse a create index statement.
 create_index_node returns [CreateIndexStatement ret] throws SQLException
     :   CREATE INDEX i=index_name ON t=from_table_name
-        (LPAREN crefs=index_column_refs RPAREN)
+        (LPAREN pk=index_pk_constraint RPAREN)
         (INCLUDE (LPAREN icrefs=column_refs RPAREN))?
         (p=fam_properties)?
-        {ret = factory.createIndex(i, t, p, crefs, icrefs, getBindCount()); }
+        {ret = factory.createIndex(i, t, pk, icrefs, p, getBindCount()); }
     ;
 
 // Column references with optional column modifiers
@@ -374,7 +374,11 @@ index_column_ref returns [ParseNode ret]
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
-    :   CONSTRAINT	n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
+    :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
+    ;
+
+index_pk_constraint returns [PrimaryKeyConstraint ret]
+    :   cols = identifiers {$ret = factory.primaryKey(null, cols); }
     ;
 
 identifiers returns [List<Pair<String, ColumnModifier>> ret]

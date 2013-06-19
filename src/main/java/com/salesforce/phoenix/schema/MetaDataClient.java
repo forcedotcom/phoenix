@@ -608,6 +608,7 @@ public class MetaDataClient {
             }
             pkColumns = new ArrayList<PColumn>(pkColumns);
             
+            // Create index table metadata.
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_INDEX);
             tableUpsert.setString(1, schemaName);
             tableUpsert.setString(2, indexName);
@@ -623,12 +624,19 @@ public class MetaDataClient {
             tableUpsert.setString(8, null);
             tableUpsert.execute();
             
+            // Insert index link into data table.
+            PreparedStatement indexUpsert = connection.prepareStatement(INSERT_INDEX);
+            indexUpsert.setString(1, schemaName);
+            indexUpsert.setString(2, tableName);
+            indexUpsert.setString(3, indexName);
+            indexUpsert.execute();
+            
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
             
             byte[][] splits = SchemaUtil.processSplits(new byte[0][], pkColumns, saltBucketNum, connection.getQueryServices().getProps().getBoolean(
                     QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE));
-            MetaDataMutationResult result = connection.getQueryServices().createIndex(tableMetaData, tableProps, familyPropList, splits);
+            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, false, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
             switch(code) {
             case TABLE_ALREADY_EXISTS:
@@ -730,15 +738,6 @@ public class MetaDataClient {
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }
-    }
-
-    public static void insertIndexToTable(PhoenixConnection connection, String schemaName, String tableName,
-            String indexName) throws SQLException {
-        PreparedStatement indexUpsert = connection.prepareStatement(INSERT_INDEX);
-        indexUpsert.setString(1, schemaName);
-        indexUpsert.setString(2, tableName);
-        indexUpsert.setString(3, indexName);
-        indexUpsert.execute();
     }
 
     public static void updateIndexState(PhoenixConnection connection, String schemaName, String tableName,

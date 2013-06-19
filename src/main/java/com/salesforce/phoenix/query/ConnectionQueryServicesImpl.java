@@ -808,29 +808,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult createIndex(final List<Mutation> tableMetaData, Map<String,Object> tableProps,
-            final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
-        Mutation m = tableMetaData.get(0);
-        byte[] key = m.getRow();
-        SchemaUtil.getVarChars(key, rowKeyMetadata);
-        byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
-        byte[] indexBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableName = SchemaUtil.getTableName(schemaBytes, indexBytes);
-        ensureTableCreated(tableName, false, tableProps, families, splits);
-
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, indexBytes);
-        MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
-            new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
-                @Override
-                public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
-                  return instance.createIndex(tableMetaData);
-                }
-            });
-        return result;
-    }
-
-    @Override
     public MetaDataMutationResult getTable(final byte[] schemaBytes, final byte[] tableBytes,
             final long tableTimestamp, final long clientTimestamp) throws SQLException {
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);

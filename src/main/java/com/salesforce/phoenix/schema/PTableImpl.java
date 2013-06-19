@@ -108,15 +108,15 @@ public class PTableImpl implements PTable {
         return new PTableImpl(name, type, timeStamp, sequenceNumber, pkName, bucketNum, columns, indexes);
     }
 
+    public static PTableImpl makePIndex(PName name, PIndexState state, long timeStamp, long sequenceNumber, String pkName,
+            Integer bucketNum, List<PColumn> columns) {
+        return new PTableImpl(name, state, timeStamp, sequenceNumber, pkName, bucketNum, columns);
+    }
+
     private PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName,
             Integer bucketNum, List<PColumn> columns, List<PTable> indexes) {
         init(name, type, null, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
                 indexes == null ? new ArrayList<PTable>() : indexes);
-    }
-
-    public static PTableImpl makePIndex(PName name, PIndexState state, long timeStamp, long sequenceNumber, String pkName,
-            Integer bucketNum, List<PColumn> columns) {
-        return new PTableImpl(name, state, timeStamp, sequenceNumber, pkName, bucketNum, columns);
     }
 
     private PTableImpl(PName name, PIndexState state, long timeStamp, long sequenceNumber, String pkName,

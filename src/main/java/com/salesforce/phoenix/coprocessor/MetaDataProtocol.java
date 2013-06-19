@@ -151,15 +151,6 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException;
 
     /**
-     * Create a new Phoenix index
-     * @param tableMetadata
-     * @param tableName name of the data table this index is on.
-     * @return MetaDataMutationResult
-     * @throws IOException
-     */
-    MetaDataMutationResult createIndex(List<Mutation> tableMetadata) throws IOException;
-
-    /**
      * Drop an existing Phoenix table
      * @param tableMetadata
      * @param isView TODO

@@ -298,10 +298,9 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
 
-        public ExecutableCreateIndexStatement(NamedNode indexName,
-                TableName tableName, List<ParseNode> columns, List<ParseNode> includeColumns,
-                ListMultimap<String, Pair<String, Object>> props, int bindCount) {
-            super(indexName, tableName, columns, includeColumns, props, bindCount);
+        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint,
+                List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
+            super(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
         }
 
         @Override
@@ -703,8 +702,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ParseNode> columns, List<ParseNode> includeColumns, int bindCount) {
-            return new ExecutableCreateIndexStatement(indexName, tableName, columns, includeColumns, props, bindCount);
+        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
+            return new ExecutableCreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
         }
         
         @Override

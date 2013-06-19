@@ -261,8 +261,8 @@ public class ParseNodeFactory {
         return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
     }
     
-    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ParseNode> columns, List<ParseNode> includeColumns, int bindCount) {
-        return new CreateIndexStatement(indexName, tableName, columns, includeColumns, props, bindCount);
+    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
+        return new CreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
     }
     
     public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {

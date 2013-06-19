@@ -97,8 +97,6 @@ public class PostIndexDDLCompiler {
                 updateStmt.execute();
                 MetaDataClient.updateIndexState(connection, stmt.getTableName().getSchemaName(), 
                         stmt.getTableName().getTableName(), stmt.getIndexName().getName(), PIndexState.ACTIVE);
-                MetaDataClient.insertIndexToTable(connection, stmt.getTableName().getSchemaName(), 
-                        stmt.getTableName().getTableName(), stmt.getIndexName().getName());
                 
                 // Did not change anything on the original table.
                 return new MutationState(0, connection);

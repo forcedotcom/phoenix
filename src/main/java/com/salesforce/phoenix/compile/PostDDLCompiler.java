@@ -91,7 +91,7 @@ public class PostDDLCompiler  {
                 SQLException sqlE = null;
                 /*
                  * Handles:
-                 * 1) deletion of all rows for a DROP TABLE and delete all rows for its associated index table.
+                 * 1) deletion of all rows for a DROP TABLE and all rows for its associated index tables.
                  */
                 List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                         NODE_FACTORY.aliasedNode(null, 

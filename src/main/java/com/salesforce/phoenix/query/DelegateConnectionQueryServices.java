@@ -148,12 +148,6 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult createIndex(List<Mutation> tableMetaData, Map<String, Object> tableProps,
-            List<Pair<byte[], Map<String, Object>>> families, byte[][] splits) throws SQLException {
-        return getDelegate().createIndex(tableMetaData, tableProps, families, splits);
-    }
-
-    @Override
     public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata, String tableName) throws SQLException {
         return getDelegate().dropIndex(tableMetadata, tableName);
     }

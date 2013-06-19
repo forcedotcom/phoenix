@@ -155,12 +155,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    private void addIndexToTable(PName schemaName, PName indexName, long tableTimeStamp, long clientTimeStamp, List<PTable> indexes) {
-        try {
-            MetaDataMutationResult result = getTable(schemaName.getBytes(), indexName.getBytes(), tableTimeStamp, clientTimeStamp);
-            if (result.getTable() != null) indexes.add(result.getTable());
-        } catch (IOException e) {
-            // Should we fail the whole getTable if an error occured during the 
+    
+
+    private void addIndexToTable(PName schemaName, PName indexName, long tableTimeStamp, long clientTimeStamp, List<PTable> indexes) throws IOException {
+        MetaDataMutationResult result = getTable(schemaName.getBytes(), indexName.getBytes(), tableTimeStamp, clientTimeStamp);
+        if (result.getTable() != null && 
+                (result.getTable().getIndexState() == PIndexState.CREATED
+                || result.getTable().getIndexState() == PIndexState.ACTIVE)) {
+            indexes.add(result.getTable());
         }
     }
 
@@ -328,20 +330,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return table.getName() == null;
     }
 
-    /**
-     * Inserts the metadata for a Phoenix table.
-     */
     @Override
     public MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException {
-        return doCreateTable(tableMetadata);
-    }
-
-    @Override
-    public MetaDataMutationResult createIndex(List<Mutation> tableMetadata) throws IOException {
-        return doCreateTable(tableMetadata);
-    }
-
-    private MetaDataMutationResult doCreateTable(List<Mutation> tableMetadata) throws IOException {
         Mutation m = tableMetadata.get(0);
         byte[][] rowKeyMetaData = new byte[2][];
         getVarChars(m.getRow(), rowKeyMetaData);

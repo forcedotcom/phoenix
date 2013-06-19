@@ -109,7 +109,6 @@ public interface QueryConstants {
             SALT_BUCKETS + " INTEGER," +
             // Index metadata
             INDEX_NAME + " VARCHAR NULL," +
-            INDEX_STATE + " CHAR(1)," +
             // Column metadata (will be null for table row)
             COLUMN_SIZE + " INTEGER," +
             BUFFER_LENGTH + " INTEGER," +
@@ -127,7 +126,8 @@ public interface QueryConstants {
             SCOPE_TABLE + " VARCHAR," +
             SOURCE_DATA_TYPE + " INTEGER," + // supposed to be SHORT
             IS_AUTOINCREMENT + " VARCHAR," +
-            COLUMN_MODIFIER + " INTEGER\n" +
+            COLUMN_MODIFIER + " INTEGER," +
+            INDEX_STATE + " CHAR(1)\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
             + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "," + INDEX_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
