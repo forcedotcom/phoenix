@@ -60,7 +60,7 @@ import com.salesforce.phoenix.util.ScanUtil;
  * @author jtaylor
  * @since 0.1
  */
-public class PostDDLCompiler  {
+public class PostDDLCompiler implements PostOpCompiler {
     private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
     private final PhoenixConnection connection;
     
@@ -247,5 +247,12 @@ public class PostDDLCompiler  {
                 return null; // Impossible
             }
         };
+    }
+
+    @Override
+    public MutationPlan compile(List<TableRef> tableRefs, byte[] emptyCF,
+            List<PColumn> deleteList) {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

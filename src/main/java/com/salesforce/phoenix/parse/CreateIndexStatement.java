@@ -38,22 +38,29 @@ import com.salesforce.phoenix.schema.PTableType;
 
 public class CreateIndexStatement extends CreateTableStatement implements SQLStatement {
 
-    private final NamedNode indexName;
+    private final String dataTableName;
+    private final TableName tableName;
     private final List<ParseNode> includeColumns;
 
     public CreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns,
             ListMultimap<String,Pair<String,Object>> props, int bindCount) {
         super(tableName, props, Collections.<ColumnDef>emptyList(), pkConstraint, null, false, false, bindCount);
-        this.indexName = indexName;
         this.includeColumns = includeColumns;
-    }
-
-    public NamedNode getIndexName() {
-        return indexName;
+        this.dataTableName = tableName.getTableName();
+        this.tableName = new TableName(tableName.getSchemaName(), indexName.getName());
     }
 
     public List<ParseNode> getIncludeColumns() {
-        return this.includeColumns;
+        return includeColumns;
+    }
+
+    @Override
+    public TableName getTableName() {
+        return tableName;
+    }
+
+    public String getDataTableName() {
+        return dataTableName;
     }
 
     @Override

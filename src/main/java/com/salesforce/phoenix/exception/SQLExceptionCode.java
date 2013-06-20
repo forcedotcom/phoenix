@@ -78,7 +78,6 @@ public enum SQLExceptionCode {
      */
     AMBIGUOUS_TABLE(501, "42000", "Table name exists in more than one table schema and is used without being qualified."),
     READ_ONLY_TABLE(505, "42000", "Table is read only."),
-    INDEX_MISSING_NAME(512, "42601", "Cannot specify an index without a name."),
     INDEX_MISSING_PK_COLUMNS(513, "42602", "Index table missing PK Columns."),
     AMBIGUOUS_COLUMN(502, "42702", "Column reference ambiguous or duplicate names."),
     COLUMN_NOT_FOUND(504, "42703", "Undefined column."),

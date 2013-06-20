@@ -30,6 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.List;
 
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -40,13 +41,14 @@ import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 /**
  * Class that compiles plan to generate initial data values after a DDL command for
  * index table.
  */
-public class PostIndexDDLCompiler {
+public class PostIndexDDLCompiler implements PostOpCompiler {
     private final PhoenixConnection connection;
 
     public PostIndexDDLCompiler(PhoenixConnection connection) {
@@ -107,6 +109,13 @@ public class PostIndexDDLCompiler {
     private static String getFullIndexName(CreateIndexStatement stmt) {
         return stmt.getTableName().getSchemaName() == null ? stmt.getIndexName().getName()
                 : stmt.getTableName().getSchemaName() + QueryConstants.NAME_SEPARATOR + stmt.getIndexName().getName();
+    }
+
+    @Override
+    public MutationPlan compile(List<TableRef> tableRefs, byte[] emptyCF,
+            List<PColumn> deleteList) {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

@@ -167,19 +167,6 @@ public class MetaDataClient {
         ORDINAL_POSITION + "," + 
         COLUMN_MODIFIER +
         ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String INSERT_INDEX_COLUMN =
-        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
-        TABLE_SCHEM_NAME + "," +
-        TABLE_NAME_NAME + "," +
-        COLUMN_NAME + "," +
-        TABLE_CAT_NAME + "," +
-        DATA_TYPE + "," +
-        NULLABLE + "," +
-        COLUMN_SIZE + "," +
-        DECIMAL_DIGITS + "," +
-        ORDINAL_POSITION + "," + 
-        COLUMN_MODIFIER +
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
         TABLE_SCHEM_NAME + "," +
@@ -211,30 +198,7 @@ public class MetaDataClient {
         colUpsert.execute();
     }
 
-    private void addIndexColumnMutation(String schemaName, String indexName, PColumn column,
-            PreparedStatement colUpsert) throws SQLException {
-        colUpsert.setString(1, schemaName);
-        colUpsert.setString(2, indexName);
-        colUpsert.setString(3, column.getName().getString());
-        colUpsert.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
-        colUpsert.setInt(5, column.getDataType().getSqlType());
-        colUpsert.setInt(6, column.isNullable() ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls);
-        if (column.getMaxLength() == null) {
-            colUpsert.setNull(7, Types.INTEGER);
-        } else {
-            colUpsert.setInt(7, column.getMaxLength());
-        }
-        if (column.getScale() == null) {
-            colUpsert.setNull(8, Types.INTEGER);
-        } else {
-            colUpsert.setInt(8, column.getScale());
-        }
-        colUpsert.setInt(9, column.getPosition()+1);
-        colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
-        colUpsert.execute();
-    }
-
-    public PColumn newColumn(int position, ColumnDef def, PrimaryKeyConstraint pkConstraint) throws SQLException {
+    private PColumn newColumn(int position, ColumnDef def, PrimaryKeyConstraint pkConstraint) throws SQLException {
         try {
             Set<String> pkColumnNames = pkConstraint == null ? Collections.<String>emptySet() : pkConstraint.getColumnNames();
             String columnName = def.getColumnDefName().getColumnName().getName();
@@ -271,70 +235,166 @@ public class MetaDataClient {
         }
     }
 
+    // Since we cannot have nullable 
+    private PDataType getKeyType(PColumn col) throws SQLException {
+        if (!col.isNullable() || !col.getDataType().isFixedWidth()) {
+            return col.getDataType();
+        }
+        // for INT, BIGINT
+        if (col.getDataType().isCoercibleTo(PDataType.DECIMAL)) {
+            return PDataType.DECIMAL;
+        }
+        // for CHAR
+        if (col.getDataType().isCoercibleTo(PDataType.VARCHAR)) {
+            return PDataType.VARCHAR;
+        }
+        // Should not happen;
+        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(col.getName().getString())
+            .setMessage("Type="+col.getDataType()).build().buildException();
+    }
+
+    // Make a new column for used as the primary column for the index table.
+    private PColumn newIndexColumn(int position, PColumn origColumn, ColumnModifier modifier, boolean isPK) throws SQLException {
+        String columnName = origColumn.getName().getString();
+        PName familyName = isPK ? null : origColumn.getFamilyName();
+        return new PColumnImpl(new PNameImpl(columnName), familyName, getKeyType(origColumn), origColumn.getMaxLength(),
+                origColumn.getScale(), origColumn.isNullable(), position, modifier);
+    }
+
     public MutationState createTable(CreateTableStatement statement, byte[][] splits) throws SQLException {
         PTableType tableType = statement.getTableType();
+        String schemaName = statement.getTableName().getSchemaName();
+        String tableName = statement.getTableName().getTableName();
+        
         boolean isView = tableType == PTableType.VIEW;
         if (isView && !statement.getProps().isEmpty()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_TABLE_CONFIG).build().buildException();
         }
+        
+        PrimaryKeyConstraint pkConstraint = statement.getPrimaryKeyConstraint();
+        String pkName = null;
+        Set<String> pkColumnsNames = Collections.<String>emptySet();
+        Iterator<String> pkColumnsIterator = Iterators.emptyIterator();
+        if (pkConstraint != null) {
+            pkColumnsNames = pkConstraint.getColumnNames();
+            pkColumnsIterator = pkColumnsNames.iterator();
+            pkName = pkConstraint.getName();
+        }
+        
+        List<ColumnDef> colDefs = statement.getColumnDefs();
+        List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
+        LinkedList<PColumn> pkColumns = new LinkedList<PColumn>();
+        int columnOrdinal = 0;
+        Map<String, PName> familyNames = Maps.newLinkedHashMap();
+        boolean isPK = false;
+        for (ColumnDef colDef : colDefs) {
+            if (colDef.isPK()) {
+                if (isPK) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_ALREADY_EXISTS)
+                    .setColumnName(colDef.getColumnDefName().getColumnName().getName()).build().buildException();
+                }
+                isPK = true;
+            }
+            PColumn column = newColumn(columnOrdinal++, colDef, pkConstraint);
+            if (SchemaUtil.isPKColumn(column)) {
+                // TODO: remove this constraint?
+                if (!pkColumnsNames.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
+                    .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
+                }
+                pkColumns.add(column);
+            }
+            columns.add(column);
+            if (colDef.getDataType() == PDataType.VARBINARY 
+                    && SchemaUtil.isPKColumn(column)
+                    && pkColumnsNames.size() > 1 
+                    && column.getPosition() < pkColumnsNames.size() - 1) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.VARBINARY_IN_ROW_KEY).setSchemaName(schemaName)
+                .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
+            }
+            if (column.getFamilyName() != null) {
+                familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
+            }
+        }
+        if (!isPK && pkColumnsNames.isEmpty()) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
+            .setSchemaName(schemaName).setTableName(tableName).build().buildException();
+        }
+        
+        return doCreateTable(statement, pkName, pkColumns, columns, familyNames, new PostDDLCompiler(connection));
+    }
+
+    public MutationState createIndex(CreateIndexStatement statement) throws SQLException {
+        TableName tableNameNode = statement.getTableName();
+        String schemaName = tableNameNode.getSchemaName();
+        String dataTableName = statement.getDataTableName();
+        PTable dataTable = getLatestTable(schemaName, dataTableName);
+        
+        PrimaryKeyConstraint pks = statement.getPrimaryKeyConstraint();
+        Set<String> pkColumnNames = pks.getColumnNames();
+        if (pkColumnNames.isEmpty()) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_MISSING_PK_COLUMNS).build().buildException();
+        }
+        List<ParseNode> indexIncludeColumnRefs = statement.getIncludeColumns();
+        
+        List<PColumn> dataTablePKColumns = new ArrayList<PColumn>(dataTable.getPKColumns());
+        List<PColumn> columns = Lists.newArrayListWithExpectedSize(pkColumnNames.size()
+                + indexIncludeColumnRefs.size() + dataTablePKColumns.size());
+        LinkedList<PColumn> pkColumns = new LinkedList<PColumn>();
+        
+        int columnOrdinal = 0;
+        // Though the pkColumnNames is a set, it's backed by the LinkedHashMap, and therefore the items are returned in
+        // the order it is inserted.
+        for (String pkColumnName: pkColumnNames) {
+            // Will throw exceptions if the column does not exist or is ambiguous.
+            PColumn origCol = dataTable.getColumn(pkColumnName);
+            PColumn indexCol = newIndexColumn(columnOrdinal++, origCol, pks.getColumnModifier(pkColumnName), true);
+            pkColumns.add(indexCol);
+            columns.add(indexCol);
+            // Remove the column if it's on the list of data table pk column.
+            dataTablePKColumns.remove(origCol);
+            // Remove the column from the include list if it's also specified there.
+            int idx = -1;
+            for (int i=0; i<indexIncludeColumnRefs.size(); i++) {
+                if (((ColumnParseNode) indexIncludeColumnRefs.get(i)).getFullName().equals(pkColumnName)) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx >= 0) {
+                indexIncludeColumnRefs.remove(idx);
+            }
+        }
+        // Add the rest of the data table pk columns to the set.
+        for (PColumn dataTablePKColumn: dataTablePKColumns) {
+            PColumn indexTablePKColumn = newIndexColumn(columnOrdinal++, dataTablePKColumn, null, true);
+            pkColumns.add(indexTablePKColumn);
+            columns.add(indexTablePKColumn);
+        }
+        
+        // Include columns are appended as non-pk columns.
+        Map<String, PName> familyNames = Maps.newLinkedHashMap();
+        for (ParseNode col: indexIncludeColumnRefs) {
+            PColumn origCol = dataTable.getColumn(((ColumnParseNode) col).getFullName());
+            PColumn indexCol = newIndexColumn(columnOrdinal++, origCol, null, false);
+            familyNames.put(origCol.getFamilyName().getString(), origCol.getFamilyName());
+            columns.add(indexCol);
+        }
+        
+        return doCreateTable(statement, null, (LinkedList<PColumn>) pkColumns, columns, familyNames, new PostIndexDDLCompiler(connection));
+    }
+
+    private MutationState doCreateTable(CreateTableStatement statement, String pkName, LinkedList<PColumn> pkColumns, List<PColumn> columns,
+            Map<String, PName> familyNames, PostOpCompiler compiler) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
-            TableName tableNameNode = statement.getTableName();
-            String schemaName = tableNameNode.getSchemaName();
-            String tableName = tableNameNode.getTableName();
             
-            PrimaryKeyConstraint pkConstraint = statement.getPrimaryKeyConstraint();
-            String pkName = null;
-            Set<String> pkColumnsNames = Collections.<String>emptySet();
-            Iterator<String> pkColumnsIterator = Iterators.emptyIterator();
-            if (pkConstraint != null) {
-                pkColumnsNames = pkConstraint.getColumnNames();
-                pkColumnsIterator = pkColumnsNames.iterator();
-                pkName = pkConstraint.getName();
-            }
-            
-            List<ColumnDef> colDefs = statement.getColumnDefs();
-            List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
-            List<PColumn> pkColumns = new LinkedList<PColumn>();
-            PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
-            int columnOrdinal = 0;
-            Map<String, PName> familyNames = Maps.newLinkedHashMap();
-            boolean isPK = false;
-            for (ColumnDef colDef : colDefs) {
-                if (colDef.isPK()) {
-                    if (isPK) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_ALREADY_EXISTS)
-                            .setColumnName(colDef.getColumnDefName().getColumnName().getName()).build().buildException();
-                    }
-                    isPK = true;
-                }
-                PColumn column = newColumn(columnOrdinal++, colDef, pkConstraint);
-                if (SchemaUtil.isPKColumn(column)) {
-                    // TODO: remove this constraint?
-                    if (!pkColumnsNames.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next())) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
-                            .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
-                    }
-                    pkColumns.add(column);
-                }
-                columns.add(column);
-                if (colDef.getDataType() == PDataType.VARBINARY 
-                        && SchemaUtil.isPKColumn(column)
-                        && pkColumnsNames.size() > 1 
-                        && column.getPosition() < pkColumnsNames.size() - 1) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VARBINARY_IN_ROW_KEY).setSchemaName(schemaName)
-                        .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
-                }
-                if (column.getFamilyName() != null) {
-                    familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
-                }
-            }
-            if (!isPK && pkColumnsNames.isEmpty()) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
-                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
-            }
+            PTableType tableType = statement.getTableType();
+            boolean isIndex = tableType == PTableType.INDEX;
+            String schemaName = statement.getTableName().getSchemaName();
+            String tableName = statement.getTableName().getTableName();
             
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
             Map<String,Object> commonFamilyProps = Collections.emptyMap();
@@ -387,6 +447,7 @@ public class MetaDataClient {
                 connection.addTable(schemaName, table);
             }
             
+            PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
             for (PColumn column : columns) {
                 addColumnMutation(schemaName, tableName, column, colUpsert);
             }
@@ -398,30 +459,55 @@ public class MetaDataClient {
             if (saltBucketNum != null) {
                 ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
             }
-            // Switch the LinkedList to ArrayList for faster position lookup.
-            pkColumns = new ArrayList<PColumn>(pkColumns);
+            List<PColumn> pkColumnList = new ArrayList<PColumn>(pkColumns);
             
-            PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
-            tableUpsert.setString(1, schemaName);
-            tableUpsert.setString(2, tableName);
-            tableUpsert.setString(3, tableType.getSerializedValue());
-            tableUpsert.setInt(4, 0);
-            tableUpsert.setInt(5, columnOrdinal);
-            if (saltBucketNum != null) {
-                tableUpsert.setInt(6, saltBucketNum);
+            if (isIndex) {
+                // Create index table metadata.
+                PreparedStatement tableUpsert = connection.prepareStatement(CREATE_INDEX);
+                tableUpsert.setString(1, schemaName);
+                tableUpsert.setString(2, tableName);
+                tableUpsert.setString(3, tableType.getSerializedValue());
+                tableUpsert.setInt(4, 0);
+                tableUpsert.setString(5, PIndexState.CREATED.getSerializedValue());
+                tableUpsert.setInt(6, columns.size());
+                if (saltBucketNum != null) {
+                    tableUpsert.setInt(7, saltBucketNum);
+                } else {
+                    tableUpsert.setNull(7, Types.INTEGER);
+                }
+                tableUpsert.setString(8, null);
+                tableUpsert.execute();
+                
+                // Insert index link into data table.
+                PreparedStatement indexUpsert = connection.prepareStatement(INSERT_INDEX);
+                indexUpsert.setString(1, schemaName);
+                indexUpsert.setString(2, ((CreateIndexStatement) statement).getDataTableName());
+                indexUpsert.setString(3, tableName);
+                indexUpsert.execute();
             } else {
-                tableUpsert.setNull(6, Types.INTEGER);
+                PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
+                tableUpsert.setString(1, schemaName);
+                tableUpsert.setString(2, tableName);
+                tableUpsert.setString(3, tableType.getSerializedValue());
+                tableUpsert.setInt(4, 0);
+                tableUpsert.setInt(5, columns.size());
+                if (saltBucketNum != null) {
+                    tableUpsert.setInt(6, saltBucketNum);
+                } else {
+                    tableUpsert.setNull(6, Types.INTEGER);
+                }
+                tableUpsert.setString(7, pkName);
+                tableUpsert.execute(pkName);
             }
-            tableUpsert.setString(7, pkName);
-            tableUpsert.execute();
             
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
             
-            splits = SchemaUtil.processSplits(splits, pkColumns, saltBucketNum, connection.getQueryServices().getProps().getBoolean(
+            byte[][] splits = SchemaUtil.processSplits(new byte[0][], pkColumns, saltBucketNum, connection.getQueryServices().getProps().getBoolean(
                     QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE));
-            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, isView, tableProps, familyPropList, splits);
+            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, false, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
+            
             switch(code) {
             case TABLE_ALREADY_EXISTS:
                 connection.addTable(schemaName, result.getTable());
@@ -446,218 +532,23 @@ public class MetaDataClient {
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
                     TableRef tableRef = new TableRef(null, table, schema, ts);
                     byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, emptyCF, null, ts);
+                    MutationPlan plan = compiler.compile(tableRef, emptyCF, null, ts);
                     return connection.getQueryServices().updateData(plan);
                 }
                 break;
             }
             return new MutationState(0,connection);
+
+            
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
 
-    // Since we cannot have nullable 
-    private static PDataType getKeyType(PColumn col) throws SQLException {
-        if (!col.isNullable() || !col.getDataType().isFixedWidth()) {
-            return col.getDataType();
-        }
-        // for INT, BIGINT
-        if (col.getDataType().isCoercibleTo(PDataType.DECIMAL)) {
-            return PDataType.DECIMAL;
-        }
-        // for CHAR
-        if (col.getDataType().isCoercibleTo(PDataType.VARCHAR)) {
-            return PDataType.VARCHAR;
-        }
-        // Should not happen;
-        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(col.getName().getString())
-            .setMessage("Type="+col.getDataType()).build().buildException();
-    }
-
-    // Make a new column for used as the primary column for the index table.
-    private static PColumn newIndexColumn(int position, PColumn origColumn, ColumnParseNode ref, boolean isPK) throws SQLException {
-        String columnName = ref == null ? origColumn.getName().getString() : ref.getFullName();
-        PName familyName = isPK ? null : origColumn.getFamilyName();
-        ColumnModifier modifier = ref instanceof IndexColumnParseNode ? ((IndexColumnParseNode) ref).getModifier() : null;
-        return new PColumnImpl(new PNameImpl(columnName), familyName, getKeyType(origColumn), origColumn.getMaxLength(),
-                origColumn.getScale(), origColumn.isNullable(), position, modifier);
-    }
-
-    public MutationState createIndex(CreateIndexStatement statement) throws SQLException {
-        PTableType tableType = statement.getTableType();
-        connection.rollback();
-        boolean wasAutoCommit = connection.getAutoCommit();
-        try {
-            connection.setAutoCommit(false);
-            if (statement.getIndexName() == null) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_MISSING_NAME).build().buildException();
-            }
-            
-            TableName tableNameNode = statement.getTableName();
-            String indexName = statement.getIndexName().getName();
-            String schemaName = tableNameNode.getSchemaName();
-            String tableName = tableNameNode.getTableName();
-            PTable dataTable = getLatestTable(schemaName, tableName);
-            
-            List<ParseNode> indexPKColumnRefs = statement.getColumns();
-            List<ParseNode> indexIncludeColumnRefs = statement.getIncludeColumns();
-            if (indexPKColumnRefs.isEmpty()) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_MISSING_PK_COLUMNS).build().buildException();
-            }
-            
-            List<PColumn> dataTablePKColumns = new ArrayList<PColumn>(dataTable.getPKColumns());
-            List<PColumn> columns = Lists.newArrayListWithExpectedSize(indexPKColumnRefs.size() 
-                    + indexIncludeColumnRefs.size() + dataTablePKColumns.size());
-            List<PColumn> pkColumns = new LinkedList<PColumn>();
-            int columnOrdinal = 0;
-            for (ParseNode col: indexPKColumnRefs) {
-                IndexColumnParseNode colRef = (IndexColumnParseNode) col;
-                // Will throw exceptions if the column does not exist or is ambiguous.
-                PColumn origCol = dataTable.getColumn(colRef.getFullName());
-                PColumn indexCol = newIndexColumn(columnOrdinal++, origCol, colRef, true);
-                pkColumns.add(indexCol);
-                columns.add(indexCol);
-                // Remove the column if it's on the list of data table pk column.
-                dataTablePKColumns.remove(origCol);
-                // Remove the column from the include list if it's also specified there.
-                ColumnParseNode node = (ColumnParseNode) col;
-                System.out.println(node.getFullName());
-                int idx = -1;
-                for (int i=0; i<indexIncludeColumnRefs.size(); i++) {
-                    System.out.println(((ColumnParseNode) indexIncludeColumnRefs.get(i)).getFullName());
-                    if (((ColumnParseNode) indexIncludeColumnRefs.get(i)).getFullName().equals(node.getFullName())) {
-                        idx = i;
-                        break;
-                    }
-                }
-                if (idx >= 0) {
-                    indexIncludeColumnRefs.remove(idx);
-                }
-                
-            }
-            // Add the rest of the data table pk columns to the set.
-            for (PColumn dataTablePKColumn: dataTablePKColumns) {
-                PColumn indexTablePKColumn = newIndexColumn(columnOrdinal++, dataTablePKColumn, null, true);
-                pkColumns.add(indexTablePKColumn);
-                columns.add(indexTablePKColumn);
-            }
-            
-            // Include columns are appended as non-pk columns.
-            Map<String, PName> familyNames = Maps.newLinkedHashMap();
-            for (ParseNode col: indexIncludeColumnRefs) {
-                ColumnParseNode colRef = (ColumnParseNode) col;
-                PColumn origCol = dataTable.getColumn(colRef.getFullName());
-                PColumn indexCol = newIndexColumn(columnOrdinal++, origCol, colRef, false);
-                familyNames.put(origCol.getFamilyName().getString(), origCol.getFamilyName());
-                columns.add(indexCol);
-            }
-            
-            // TODO:: Re-factor this section into a method and share with CreateTable().
-            List<Pair<byte[],Map<String, Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
-            Map<String,Object> commonFamilyProps = Collections.emptyMap();
-            Map<String,Object> tableProps = Collections.emptyMap();
-            if (!statement.getProps().isEmpty()) {
-                for (String familyName : statement.getProps().keySet()) {
-                    if (!familyName.equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
-                        if (familyNames.get(familyName) == null) {
-                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PROPERTIES_FOR_FAMILY)
-                                .setFamilyName(familyName).build().buildException();
-                        }
-                    }
-                }
-                commonFamilyProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
-                tableProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
-                
-                Collection<Pair<String,Object>> props = statement.getProps().get(QueryConstants.ALL_FAMILY_PROPERTIES_KEY);
-                HColumnDescriptor defaultDescriptor = new HColumnDescriptor(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES);
-                for (Pair<String,Object> prop : props) {
-                    if (defaultDescriptor.getValue(prop.getFirst()) != null) {
-                        commonFamilyProps.put(prop.getFirst(), prop.getSecond());
-                    } else {
-                        tableProps.put(prop.getFirst(), prop.getSecond());
-                    }
-                }
-            }
-            
-            for (PName familyName : familyNames.values()) {
-                Collection<Pair<String,Object>> props = statement.getProps().get(familyName.getString());
-                if (props.isEmpty()) {
-                    familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),commonFamilyProps));
-                } else {
-                    Map<String,Object> combinedFamilyProps = Maps.newHashMapWithExpectedSize(props.size() + commonFamilyProps.size());
-                    combinedFamilyProps.putAll(commonFamilyProps);
-                    for (Pair<String,Object> prop : props) {
-                        combinedFamilyProps.put(prop.getFirst(), prop.getSecond());
-                    }
-                    familyPropList.add(new Pair<byte[],Map<String,Object>>(familyName.getBytes(),combinedFamilyProps));
-                }
-            }
-            
-            PreparedStatement colUpsert = connection.prepareStatement(INSERT_INDEX_COLUMN);
-            for (PColumn column : columns) {
-                addIndexColumnMutation(schemaName, indexName, column, colUpsert);
-            }
-            
-            Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
-            }
-            if (saltBucketNum != null) {
-                ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
-            }
-            pkColumns = new ArrayList<PColumn>(pkColumns);
-            
-            // Create index table metadata.
-            PreparedStatement tableUpsert = connection.prepareStatement(CREATE_INDEX);
-            tableUpsert.setString(1, schemaName);
-            tableUpsert.setString(2, indexName);
-            tableUpsert.setString(3, tableType.getSerializedValue());
-            tableUpsert.setInt(4, 0);
-            tableUpsert.setString(5, PIndexState.CREATED.getSerializedValue());
-            tableUpsert.setInt(6, columnOrdinal);
-            if (saltBucketNum != null) {
-                tableUpsert.setInt(7, saltBucketNum);
-            } else {
-                tableUpsert.setNull(7, Types.INTEGER);
-            }
-            tableUpsert.setString(8, null);
-            tableUpsert.execute();
-            
-            // Insert index link into data table.
-            PreparedStatement indexUpsert = connection.prepareStatement(INSERT_INDEX);
-            indexUpsert.setString(1, schemaName);
-            indexUpsert.setString(2, tableName);
-            indexUpsert.setString(3, indexName);
-            indexUpsert.execute();
-            
-            final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
-            connection.rollback();
-            
-            byte[][] splits = SchemaUtil.processSplits(new byte[0][], pkColumns, saltBucketNum, connection.getQueryServices().getProps().getBoolean(
-                    QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE));
-            MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, false, tableProps, familyPropList, splits);
-            MutationCode code = result.getMutationCode();
-            switch(code) {
-            case TABLE_ALREADY_EXISTS:
-            case NEWER_TABLE_FOUND: // Will this happen?
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_ALREADY_EXIST).setTableName(indexName)
-                   .build().buildException();
-            case UNALLOWED_TABLE_MUTATION: // Will this happen? Do we allow indexing schema update?
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_INDEX).setTableName(indexName)
-                    .build().buildException();
-            default:
-                PTable index = PTableImpl.makePIndex(new PNameImpl(indexName), PIndexState.CREATED, result.getMutationTime(), 0, null, 
-                        saltBucketNum, columns);
-                dataTable.addIndex(index); // Add to data table since the index is new
-                connection.addTable(schemaName, index);
-                connection.setAutoCommit(true);
-                MutationPlan plan = new PostIndexDDLCompiler(connection).compile(statement, index);
-                return connection.getQueryServices().updateData(plan);
-            }
-        } finally {
-            connection.setAutoCommit(wasAutoCommit);
-        }
+    public MutationState dropTable(DropTableStatement statement) throws SQLException {
+        String schemaName = statement.getTableName().getSchemaName();
+        String tableName = statement.getTableName().getTableName();
+        return doDropTable(schemaName, tableName, null, statement.ifExists(), statement.isView(), false);
     }
 
     public MutationState dropIndex(DropIndexStatement statement) throws SQLException {
@@ -665,12 +556,6 @@ public class MetaDataClient {
         String tableName = statement.getTableName().getTableName();
         String indexName = statement.getIndexName().getName();
         return doDropTable(schemaName, tableName, indexName, false, false, true);
-    }
-
-    public MutationState dropTable(DropTableStatement statement) throws SQLException {
-        String schemaName = statement.getTableName().getSchemaName();
-        String tableName = statement.getTableName().getTableName();
-        return doDropTable(schemaName, tableName, null, statement.ifExists(), statement.isView(), false);
     }
 
     private MutationState doDropTable(String schemaName, String tableName, String indexName, boolean ifExists, boolean isView, boolean isIndex) throws SQLException {
