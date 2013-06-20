@@ -120,6 +120,11 @@ public class RowKeySchema extends ValueSchema {
         }
         return len;
     }
+
+    @Override
+    protected int getVarLengthBytes(int length) {
+        return length + 1; // Size in bytes plus one for the separator byte
+    }
     
     @Override
     protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset) {
