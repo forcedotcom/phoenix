@@ -296,7 +296,13 @@ public class ParseNodeFactory {
 
 
     public FunctionParseNode functionDistinct(String name, List<ParseNode> args) {
-        throw new UnsupportedOperationException("DISTINCT not supported");
+        if ("COUNT".equals(SchemaUtil.normalizeIdentifier(name))) {
+            BuiltInFunctionInfo info = getInfo(
+                    SchemaUtil.normalizeIdentifier(DistinctCountAggregateFunction.NAME), args);
+            return new AggregateFunctionParseNode(name, args, info);
+        } else {
+            throw new UnsupportedOperationException("DISTINCT not supported with " + name);
+        }
     }
 
     public FunctionParseNode function(String name, List<ParseNode> args) {
