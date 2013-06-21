@@ -155,8 +155,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    
-
     private void addIndexToTable(PName schemaName, PName indexName, long tableTimeStamp, long clientTimeStamp, List<PTable> indexes) throws IOException {
         MetaDataMutationResult result = getTable(schemaName.getBytes(), indexName.getBytes(), tableTimeStamp, clientTimeStamp);
         if (result.getTable() != null && 
@@ -401,6 +399,28 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
         byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
+        
+        try {
+            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+            HRegion region = env.getRegion();
+            MetaDataMutationResult result = checkTableKeyInRegion(key, region);
+            if (result != null) {
+                return result; 
+            }
+            final Integer lid = region.getLock(null, key, true);
+            if (lid == null) {
+                throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(key));
+            }
+            try {
+                List<ImmutableBytesPtr> indexList = new ArrayList<ImmutableBytesPtr>();
+            } finally {
+                region.releaseRowLock(lid);
+            }
+        } catch (Throwable t) {
+            ServerUtil.throwIOException(Bytes.toStringBinary(key), t);
+            return null; // impossible
+        }
+        
         List<ImmutableBytesPtr> indexList = new ArrayList<ImmutableBytesPtr>();
         MetaDataMutationResult result = doDropAllRowsForTable(key, isView, m.getTimeStamp(), indexList);
         // Iterator through the indexes and drop them one by one;
@@ -450,30 +470,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    /**
-     * Perform a drop on all the rows with the particular key value. It is being shared by dropTable and dropIndex. When we
-     * are dropping the table, we also need a list of bytes for the indexes to drop. This is indicated by a non-null indexList
-     * parameter.
-     * 
-     * @param key key for the rows that we want to drop.
-     * @param isView
-     * @param clientTimeStamp
-     * @param indexList a list that, when not null, we should parse the keys and store the index name found in the list.
-     * @return result for this metadata mutation.
-     */
-    private MetaDataMutationResult doDropAllRowsForTable(byte[] key, boolean isView, long clientTimeStamp, List<ImmutableBytesPtr> indexList) throws IOException {
+    private List<Mutation> compileDropAllRowsForTable(byte[] key, boolean isView, long clientTimeStamp, List<ImmutableBytesPtr> indexList) throws IOException {
         boolean parseIndex = indexList != null;
-        try {
-            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            HRegion region = env.getRegion();
-            MetaDataMutationResult result = checkTableKeyInRegion(key, region);
-            if (result != null) {
-                return result; 
-            }
-            final Integer lid = region.getLock(null, key, true);
-            if (lid == null) {
-                throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(key));
-            }
             try {
                 ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
                 Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
@@ -527,13 +525,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 // Return the table to the client so that the correct scan will be done to delete the data
                 // We could just send a stub table with the minimum info, but I think this won't be a big deal.
                 return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, table);
-            } finally {
-                region.releaseRowLock(lid);
             }
-        } catch (Throwable t) {
-            ServerUtil.throwIOException(Bytes.toStringBinary(key), t);
-            return null; // impossible
-        }
     }
 
     private static long getClientTimeStamp(List<Mutation> tableMetadata) {

@@ -80,7 +80,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
-    
 
     /**
      * keep a cache of HRegionInfo objects

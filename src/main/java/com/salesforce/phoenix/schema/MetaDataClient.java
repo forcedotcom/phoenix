@@ -650,7 +650,6 @@ public class MetaDataClient {
         return table;
     }
 
-
     private MutationCode processMutationResult(String schemaName, String tableName, MetaDataMutationResult result) throws SQLException {
         final MutationCode mutationCode = result.getMutationCode();
         switch (mutationCode) {
