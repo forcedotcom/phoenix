@@ -29,13 +29,17 @@ package com.salesforce.phoenix.expression.function;
 
 import java.util.List;
 
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctCountServerAggregator;
 import com.salesforce.phoenix.expression.aggregator.DistinctCountClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -47,18 +51,25 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 1.2.1
  */
 @BuiltInFunction(name=DistinctCountAggregateFunction.NAME, args= {@Argument()} )
-public class DistinctCountAggregateFunction extends SingleAggregateFunction {
-    public static final String NAME = "count_distinct";
+public class DistinctCountAggregateFunction extends DelegateConstantToCountAggregateFunction {
+    public static final String NAME = "DISTINCT_COUNT";
     public static final String NORMALIZED_NAME = SchemaUtil.normalizeIdentifier(NAME);
-
+    public final static byte[] ZERO = Bytes.toBytes(0);
+    public final static byte[] ONE = Bytes.toBytes(1);
+    
     public DistinctCountAggregateFunction() {
     }
-    
+
     public DistinctCountAggregateFunction(List<Expression> childExpressions) {
-        super(childExpressions);
-        assert childExpressions.size()==1;
+        this(childExpressions, null);
     }
 
+    public DistinctCountAggregateFunction(List<Expression> childExpressions,
+            CountAggregateFunction delegate) {
+        super(childExpressions, delegate);
+        assert childExpressions.size() == 1;
+    }
+    
     @Override
     public int hashCode() {
         return isConstantExpression() ? 0 : super.hashCode();
@@ -93,7 +104,18 @@ public class DistinctCountAggregateFunction extends SingleAggregateFunction {
     
     @Override 
     public Aggregator newServerAggregator() {
-        return new DistinctCountServerAggregator(getChildren());
+        return new DistinctValueWithCountServerAggregator(getChildren());
+    }
+    
+    @Override
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        // TODO: optimize query plan of this to run scan serially for a limit of one row
+        if (!super.evaluate(tuple, ptr)) {
+            ptr.set(ZERO); // If evaluate returns false, then no rows were found, so result is 0
+        } else if (isConstantExpression()) {
+            ptr.set(ONE); // Otherwise, we found one or more rows, so a distinct on a constant is 1
+        }
+        return true; // Always evaluates to a LONG value
     }
     
     @Override

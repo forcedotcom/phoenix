@@ -27,9 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
-import java.util.TreeMap;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -38,22 +39,23 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.SizedUtil;
 
 /**
- * 
- * Server side Aggregator for DISTINCT COUNT aggregations
+ * Server side Aggregator which will aggregate data and find distinct values with number of occurrences for each.
  * 
  * @author anoopsjohn
  * @since 1.2.1
  */
-public class DistinctCountServerAggregator extends BaseAggregator {
+public class DistinctValueWithCountServerAggregator extends BaseAggregator {
+    public static final int DEFAULT_ESTIMATED_DISTINCT_VALUES = 10000;
+    
     private byte[] buffer = null;
     private Expression expression = null;
+    private Map<ImmutableBytesPtr, Integer> valueVsCount = new HashMap<ImmutableBytesPtr, Integer>();
 
-    private TreeMap<byte[], Integer> countMap = new TreeMap<byte[], Integer>(Bytes.BYTES_COMPARATOR);
-
-    public DistinctCountServerAggregator(List<Expression> expressions) {
+    public DistinctValueWithCountServerAggregator(List<Expression> expressions) {
         super(null);
         this.expression = expressions.get(0);
     }
@@ -62,12 +64,13 @@ public class DistinctCountServerAggregator extends BaseAggregator {
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
         ImmutableBytesWritable colValue = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
         if (expression.evaluate(tuple, colValue)) {
-            byte[] key = colValue.copyBytes();
-            Integer count = this.countMap.get(key);
+            ImmutableBytesPtr key = new ImmutableBytesPtr(colValue.get(), colValue.getOffset(),
+                    colValue.getLength());
+            Integer count = this.valueVsCount.get(key);
             if (count == null) {
-                this.countMap.put(key, 1);
+                this.valueVsCount.put(key, 1);
             } else {
-                this.countMap.put(key, count++);
+                this.valueVsCount.put(key, count++);
             }
         }
     }
@@ -80,34 +83,33 @@ public class DistinctCountServerAggregator extends BaseAggregator {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         // This serializes the Map. The format is as follows
-        // Map size(Int ie. 4 bytes) + 
-        // ( key length [Int ie. 4 bytes] + key bytes + value [Int ie. 4 bytes] )*
+        // Map size(VInt ie. 1 to 5 bytes) +
+        // ( key length [VInt ie. 1 to 5 bytes] + key bytes + value [VInt ie. 1 to 5 bytes] )*
         buffer = new byte[countMapSerializationSize()];
-        byte[] rowsInMap = Bytes.toBytes(this.countMap.size());
         int offset = 0;
-        System.arraycopy(rowsInMap, 0, buffer, offset, rowsInMap.length);
-        offset += rowsInMap.length;
-        for (Entry<byte[], Integer> entry : this.countMap.entrySet()) {
-            byte[] key = entry.getKey();
-            byte[] keyLen = Bytes.toBytes(key.length);
-            System.arraycopy(keyLen, 0, buffer, offset, keyLen.length);
-            offset += keyLen.length;
-            System.arraycopy(key, 0, buffer, offset, key.length);
-            offset += key.length;
-            byte[] value = Bytes.toBytes(entry.getValue().intValue());
-            System.arraycopy(value, 0, buffer, offset, value.length);
-            offset += value.length;
+        offset += ByteUtil.vintToBytes(buffer, offset, this.valueVsCount.size());
+        for (Entry<ImmutableBytesPtr, Integer> entry : this.valueVsCount.entrySet()) {
+            ImmutableBytesPtr key = entry.getKey();
+            offset += ByteUtil.vintToBytes(buffer, offset, key.getLength());
+            System.arraycopy(key.get(), key.getOffset(), buffer, offset, key.getLength());
+            offset += key.getLength();
+            offset += ByteUtil.vintToBytes(buffer, offset, entry.getValue().intValue());
         }
-        ptr.set(buffer);
+        ptr.set(buffer, 0, offset);
         return true;
     }
 
     // The #bytes required to serialize the count map.
+    // Here let us assume to use 4 bytes for each of the int items. Normally it will consume lesser
+    // bytes as we will use vints.
+    // TODO Do we need to consider 5 as the number of bytes for each of the int field? Else there is
+    // a chance of ArrayIndexOutOfBoundsException when all the int fields are having very large
+    // values. Will that ever occur?
     private int countMapSerializationSize() {
         int size = Bytes.SIZEOF_INT;// Write the number of entries in the Map
-        for (byte[] key : this.countMap.keySet()) {
+        for (ImmutableBytesPtr key : this.valueVsCount.keySet()) {
             // Add up the key and key's lengths (Int) and the value
-            size += key.length + Bytes.SIZEOF_INT + Bytes.SIZEOF_INT;
+            size += key.getLength() + Bytes.SIZEOF_INT + Bytes.SIZEOF_INT;
         }
         return size;
     }
@@ -115,14 +117,21 @@ public class DistinctCountServerAggregator extends BaseAggregator {
     // The heap size which will be taken by the count map.
     private int countMapHeapSize() {
         int size = 0;
-        for (byte[] key : this.countMap.keySet()) {
-            size += SizedUtil.MAP_ENTRY_SIZE + // entry
-                    Bytes.SIZEOF_INT + // key size
-                    key.length + SizedUtil.ARRAY_SIZE; // value size
+        if (this.valueVsCount.size() > 0) {
+            for (ImmutableBytesPtr key : this.valueVsCount.keySet()) {
+                size += SizedUtil.MAP_ENTRY_SIZE + // entry
+                        Bytes.SIZEOF_INT + // key size
+                        key.getLength() + SizedUtil.ARRAY_SIZE; // value size
+            }
+        } else {
+            // Initially when the getSize() is called, we dont have any entries in the map so as to
+            // tell the exact heap need. Let us approximate the #entries
+            SizedUtil.sizeOfMap(DEFAULT_ESTIMATED_DISTINCT_VALUES,
+                    SizedUtil.IMMUTABLE_BYTES_PTR_SIZE, Bytes.SIZEOF_INT);
         }
         return size;
     }
-    
+
     @Override
     public final PDataType getDataType() {
         return PDataType.VARBINARY;
@@ -130,14 +139,14 @@ public class DistinctCountServerAggregator extends BaseAggregator {
 
     @Override
     public void reset() {
-        countMap = new TreeMap<byte[], Integer>(Bytes.BYTES_COMPARATOR);
+        valueVsCount = new HashMap<ImmutableBytesPtr, Integer>();
         buffer = null;
         super.reset();
     }
 
     @Override
     public String toString() {
-        return "DISTINCT COUNT";
+        return "DISTINCT VALUE vs COUNT";
     }
 
     @Override

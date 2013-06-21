@@ -25,36 +25,30 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.aggregator;
+package com.salesforce.phoenix.parse;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
+import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.function.DistinctCountAggregateFunction;
+import com.salesforce.phoenix.expression.function.FunctionExpression;
 
 /**
- * Client side Aggregator for DISTINCT COUNT aggregations
  * 
  * @author anoopsjohn
  * @since 1.2.1
  */
-public class DistinctCountClientAggregator extends DistinctValueWithCountClientAggregator {
+public class DistinctCountParseNode extends DelegateConstantToCountParseNode {
     
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (buffer == null) {
-            initBuffer();
-        }
-        long value = this.valueVsCount.size();
-        byte[] valueBytes = Bytes.toBytes(value);
-        System.arraycopy(valueBytes, 0, buffer, 0, valueBytes.length);
-        ptr.set(buffer);
-        return true;
+    public DistinctCountParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
+        super(name, children, info);
     }
 
     @Override
-    protected int getBufferLength() {
-        return PDataType.LONG.getByteSize();
+    public FunctionExpression create(List<Expression> children, StatementContext context)
+            throws SQLException {
+        return new DistinctCountAggregateFunction(children, getDelegateFunction(children, context));
     }
 }
