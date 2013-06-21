@@ -70,7 +70,8 @@ public class PostDDLCompiler implements PostOpCompiler {
     }
 
     @Override
-    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList) throws SQLException {
+    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList,
+            final long timestamp) throws SQLException {
         
         return new MutationPlan() {
             
@@ -111,7 +112,7 @@ public class PostDDLCompiler implements PostOpCompiler {
                 if (tableRef.getTable().getType() == PTableType.INDEX) {
                     PTable table = tableRef.getTable();
                     for (PTable index: table.getIndexes()) {
-                        tableRefs.add(new TableRef(null, index, tableRef.getSchema(), tableRef.getTimeStamp()));
+                        tableRefs.add(new TableRef(null, index, tableRef.getSchema(), timestamp));
                     }
                 }
                 ColumnResolver resolver = new ColumnResolver() {
@@ -125,7 +126,7 @@ public class PostDDLCompiler implements PostOpCompiler {
                     }
                 };
                 StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
-                ScanUtil.setTimeRange(scan, tableRef.getTimeStamp());
+                ScanUtil.setTimeRange(scan, timestamp);
                 if (emptyCF != null) {
                     scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
                 }

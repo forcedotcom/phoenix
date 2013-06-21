@@ -35,13 +35,12 @@ import java.util.List;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
-import com.salesforce.phoenix.parse.CreateIndexStatement;
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -56,7 +55,8 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
     }
 
     @Override
-    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList) throws SQLException {
+    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList,
+            final long timestamp) throws SQLException {
         return new MutationPlan() {
 
             @Override
@@ -87,29 +87,26 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
                 //   In the long term, we should change this to an asynchronous process to populate the index
                 //   that would allow the user to easily monitor the process of index creation.
                 StringBuilder columns = new StringBuilder();
-                for (PColumn col: tableRef.getTable().getColumns()) {
+                PTable index = tableRef.getTable();
+                for (PColumn col: index.getColumns()) {
                     columns.append(col.getName()).append(",");
                 }
                 columns.deleteCharAt(columns.length()-1);
+                String schemaName = tableRef.getSchema().getName();
+                String tableName = index.getName().getString();
                 
                 StringBuilder updateStmtStr = new StringBuilder();
-                updateStmtStr.append("UPSERT INTO ").append(getFullIndexName(tableRef)).append("(")
+                updateStmtStr.append("UPSERT INTO ").append(SchemaUtil.getTableDisplayName(schemaName, tableName)).append("(")
                     .append(columns).append(") SELECT ").append(columns).append(" FROM ")
-                    .append(stmt.getTableName().toString());
+                    .append(index.getName());
                 PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
                 updateStmt.execute();
-                MetaDataClient.updateIndexState(connection, stmt.getTableName().getSchemaName(), 
-                        stmt.getTableName().getTableName(), stmt.getIndexName().getName(), PIndexState.ACTIVE);
+                MetaDataClient.updateIndexState(connection, schemaName, tableName, PIndexState.ACTIVE);
                 
                 // Did not change anything on the original table.
                 return new MutationState(0, connection);
             }
         };
-    }
-
-    private static String getFullIndexName(TableRef tableRef) {
-        return stmt.getTableName().getSchemaName() == null ? stmt.getIndexName().getName()
-                : stmt.getTableName().getSchemaName() + QueryConstants.NAME_SEPARATOR + stmt.getIndexName().getName();
     }
 
 }

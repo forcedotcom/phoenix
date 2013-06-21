@@ -36,5 +36,5 @@ import com.salesforce.phoenix.schema.TableRef;
 
 public interface PostOpCompiler {
 
-    public MutationPlan compile(TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList) throws SQLException;
+    public MutationPlan compile(TableRef tableRef, byte[] emptyCF, List<PColumn> deleteList, long timestamp) throws SQLException;
 }

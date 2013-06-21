@@ -524,7 +524,7 @@ public class MetaDataClient {
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 PTable table = isIndex ? 
-                        PTableImpl.makePIndex(new PNameImpl(tableName), PIndexState.CREATED, result.getMutationTime(), 0, null, saltBucketNum, columns) :
+                        PTableImpl.makePIndex(new PNameImpl(tableName), PIndexState.CREATED, result.getMutationTime(), 0, null, saltBucketNum, columns, ((CreateIndexStatement) statement).getDataTableName()) :
                         PTableImpl.makePTable(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, saltBucketNum, columns, null);
                 connection.addTable(schemaName, table);
                 Long scn = connection.getSCN();
@@ -535,7 +535,7 @@ public class MetaDataClient {
                 MutationPlan plan;
                 // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                 byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
-                plan = compiler.compile(tableRef, emptyCF, null);
+                plan = compiler.compile(tableRef, emptyCF, null, tableRef.getTimeStamp());
                 return connection.getQueryServices().updateData(plan);
             }
             return new MutationState(0,connection);
@@ -608,7 +608,7 @@ public class MetaDataClient {
                     // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
                     TableRef tableRef = new TableRef(null, table, schema, ts);
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, null, Collections.<PColumn>emptyList());
+                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, null, Collections.<PColumn>emptyList(), tableRef.getTimeStamp());
                     return connection.getQueryServices().updateData(plan);
                 }
                 break;
@@ -619,7 +619,7 @@ public class MetaDataClient {
         }
     }
 
-    public static void updateIndexState(PhoenixConnection connection, String schemaName, String tableName,
+    public static void updateIndexState(PhoenixConnection connection, String schemaName,
             String indexName, PIndexState state) throws SQLException {
         PreparedStatement updateIdxState = connection.prepareStatement(UPDATE_INDEX_STATE);
         updateIdxState.setString(1, schemaName);
