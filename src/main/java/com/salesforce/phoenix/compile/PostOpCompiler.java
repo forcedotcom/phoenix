@@ -25,35 +25,16 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.compile;
 
-import org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy;
+import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.TableRef;
 
 
-public class MetaDataSplitPolicy extends ConstantSizeRegionSplitPolicy {
+public interface PostOpCompiler {
 
-    @Override
-    protected byte[] getSplitPoint() {
-        byte[] splitPoint = super.getSplitPoint();
-        int offset = SchemaUtil.getVarCharLength(splitPoint, 0, splitPoint.length);
-        // Split only on Phoenix schema name, so this is ok b/c we won't be splitting
-        // in the middle of a Phoenix table.
-        if (offset == splitPoint.length) {
-            return splitPoint;
-        }
-//        offset = SchemaUtil.getVarCharLength(splitPoint, offset+1, splitPoint.length-offset-1);
-//        // Split only on Phoenix schema and table name, so this is ok b/c we won't be splitting
-//        // in the middle of a Phoenix table.
-//        if (offset == splitPoint.length) {
-//            return splitPoint;
-//        }
-        // Otherwise, an attempt is being made to split in the middle of a table.
-        // Just return a split point at the schema boundary instead
-        byte[] newSplitPoint = new byte[offset + 1];
-        System.arraycopy(splitPoint, 0, newSplitPoint, 0, offset+1);
-        return newSplitPoint;
-    }
-
+    public MutationPlan compile(TableRef tableRef, byte[] emptyCF, List<PColumn> deleteList, long timestamp) throws SQLException;
 }
