@@ -55,7 +55,8 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
         this.connection = connection;
     }
 
-    public MutationPlan compile(final CreateIndexStatement stmt, final PTable indexTable) {
+    @Override
+    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList) throws SQLException {
         return new MutationPlan() {
 
             @Override
@@ -86,13 +87,13 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
                 //   In the long term, we should change this to an asynchronous process to populate the index
                 //   that would allow the user to easily monitor the process of index creation.
                 StringBuilder columns = new StringBuilder();
-                for (PColumn col: indexTable.getColumns()) {
+                for (PColumn col: tableRef.getTable().getColumns()) {
                     columns.append(col.getName()).append(",");
                 }
                 columns.deleteCharAt(columns.length()-1);
                 
                 StringBuilder updateStmtStr = new StringBuilder();
-                updateStmtStr.append("UPSERT INTO ").append(getFullIndexName(stmt)).append("(")
+                updateStmtStr.append("UPSERT INTO ").append(getFullIndexName(tableRef)).append("(")
                     .append(columns).append(") SELECT ").append(columns).append(" FROM ")
                     .append(stmt.getTableName().toString());
                 PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
@@ -106,16 +107,9 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
         };
     }
 
-    private static String getFullIndexName(CreateIndexStatement stmt) {
+    private static String getFullIndexName(TableRef tableRef) {
         return stmt.getTableName().getSchemaName() == null ? stmt.getIndexName().getName()
                 : stmt.getTableName().getSchemaName() + QueryConstants.NAME_SEPARATOR + stmt.getIndexName().getName();
-    }
-
-    @Override
-    public MutationPlan compile(List<TableRef> tableRefs, byte[] emptyCF,
-            List<PColumn> deleteList) {
-        // TODO Auto-generated method stub
-        return null;
     }
 
 }

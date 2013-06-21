@@ -29,6 +29,7 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -63,42 +64,56 @@ import com.salesforce.phoenix.util.ScanUtil;
 public class PostDDLCompiler implements PostOpCompiler {
     private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
     private final PhoenixConnection connection;
-    
+
     public PostDDLCompiler(PhoenixConnection connection) {
         this.connection = connection;
     }
 
-    public MutationPlan compile(final List<TableRef> tableRefs, final long timeStamp) throws SQLException {
+    @Override
+    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList) throws SQLException {
+        
         return new MutationPlan() {
-
+            
             @Override
             public PhoenixConnection getConnection() {
                 return connection;
             }
-
+            
             @Override
             public ParameterMetaData getParameterMetaData() {
                 return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
             }
-
+            
             @Override
             public ExplainPlan getExplainPlan() throws SQLException {
                 return ExplainPlan.EMPTY_PLAN;
             }
-
+            
             @Override
             public MutationState execute() throws SQLException {
                 SQLException sqlE = null;
+                if (deleteList == null && emptyCF == null) {
+                    return new MutationState(0, connection);
+                }
                 /*
                  * Handles:
-                 * 1) deletion of all rows for a DROP TABLE and all rows for its associated index tables.
+                 * 1) deletion of all rows for a DROP TABLE and subsequently deletion of all rows for a DROP INDEX;
+                 * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
+                 * 3) updating the necessary rows to have an empty KV
                  */
                 List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                         NODE_FACTORY.aliasedNode(null, 
                                 NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
                 Scan scan = new Scan();
                 scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
-                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
+                final List<TableRef> tableRefs = new ArrayList<TableRef>();
+                tableRefs.add(tableRef);
+                if (tableRef.getTable().getType() == PTableType.INDEX) {
+                    PTable table = tableRef.getTable();
+                    for (PTable index: table.getIndexes()) {
+                        tableRefs.add(new TableRef(null, index, tableRef.getSchema(), tableRef.getTimeStamp()));
+                    }
+                }
                 ColumnResolver resolver = new ColumnResolver() {
                     @Override
                     public List<TableRef> getTables() {
@@ -110,7 +125,22 @@ public class PostDDLCompiler implements PostOpCompiler {
                     }
                 };
                 StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
-                ScanUtil.setTimeRange(scan, timeStamp);
+                ScanUtil.setTimeRange(scan, tableRef.getTimeStamp());
+                if (emptyCF != null) {
+                    scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
+                }
+                if (deleteList != null) {
+                    if (deleteList.isEmpty()) {
+                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
+                    } else {
+                        PColumn column = deleteList.get(0);
+                        if (emptyCF == null) {
+                            scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
+                        }
+                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
+                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
+                    }
+                }
                 RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
                 long totalMutationCount = 0;
                 for (TableRef tableRef: tableRefs) {
@@ -148,111 +178,5 @@ public class PostDDLCompiler implements PostOpCompiler {
                 };
             }
         };
-    }
-
-    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList, final long timeStamp) throws SQLException {
-        return new MutationPlan() {
-
-            @Override
-            public PhoenixConnection getConnection() {
-                return connection;
-            }
-
-            @Override
-            public ParameterMetaData getParameterMetaData() {
-                return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
-            }
-
-            @Override
-            public ExplainPlan getExplainPlan() throws SQLException {
-                return ExplainPlan.EMPTY_PLAN;
-            }
-
-            @Override
-            public MutationState execute() throws SQLException {
-                SQLException sqlE = null;
-                if (deleteList == null && emptyCF == null) {
-                    return new MutationState(0, connection);
-                }
-                /*
-                 * Handles:
-                 * 1) deletion of all rows for a DROP TABLE
-                 * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
-                 * 3) updating the necessary rows to have an empty KV
-                 */
-                List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                        NODE_FACTORY.aliasedNode(null, 
-                                NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-                Scan scan = new Scan();
-                scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
-                final List<TableRef> tableRefs = Collections.singletonList(tableRef);
-                ColumnResolver resolver = new ColumnResolver() {
-                    @Override
-                    public List<TableRef> getTables() {
-                        return tableRefs;
-                    }
-                    @Override
-                    public ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
-                        throw new UnsupportedOperationException();
-                    }
-                };
-                StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
-                ScanUtil.setTimeRange(scan, timeStamp);
-                if (emptyCF != null) {
-                    scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
-                }
-                if (deleteList != null) {
-                    if (deleteList.isEmpty()) {
-                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
-                    } else {
-                        PColumn column = deleteList.get(0);
-                        if (emptyCF == null) {
-                            scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
-                        }
-                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
-                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
-                    }
-                }
-                RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-                QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
-                Scanner scanner = plan.getScanner();
-                ResultIterator iterator = scanner.iterator();
-                try {
-                    Tuple row = iterator.next();
-                    ImmutableBytesWritable ptr = context.getTempPtr();
-                    final long mutationCount = (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
-                    return new MutationState(1, connection) {
-                        @Override
-                        public long getUpdateCount() {
-                            return mutationCount;
-                        }
-                    };
-                } catch (SQLException e) {
-                    sqlE = e;
-                } finally {
-                    try {
-                        iterator.close();
-                    } catch (SQLException e) {
-                        if (sqlE == null) {
-                            sqlE = e;
-                        } else {
-                            sqlE.setNextException(e);
-                        }
-                    } finally {
-                        if (sqlE != null) {
-                            throw sqlE;
-                        }
-                    }
-                }
-                return null; // Impossible
-            }
-        };
-    }
-
-    @Override
-    public MutationPlan compile(List<TableRef> tableRefs, byte[] emptyCF,
-            List<PColumn> deleteList) {
-        // TODO Auto-generated method stub
-        return null;
     }
 }

@@ -612,4 +612,10 @@ public class PTableImpl implements PTable {
         }
         return state;
     }
+
+    @Override
+    public String getDataTableName() {
+        
+        
+    }
 }

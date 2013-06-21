@@ -178,7 +178,13 @@ public interface PTable extends Writable {
 
     /**
      * For a table of index type, return the state of the table.
-     * @return
+     * @return the state of the index.
      */
     PIndexState getIndexState();
+
+    /**
+     * For a table of index type, return the name of the data table.
+     * @return the name of the data table that this index is on.
+     */
+    String getDataTableName();
 }

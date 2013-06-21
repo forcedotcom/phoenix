@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import com.salesforce.phoenix.schema.PColumn;
@@ -35,5 +36,5 @@ import com.salesforce.phoenix.schema.TableRef;
 
 public interface PostOpCompiler {
 
-    public MutationPlan compile(final List<TableRef> tableRefs, final byte[] emptyCF, final List<PColumn> deleteList);
+    public MutationPlan compile(TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList) throws SQLException;
 }

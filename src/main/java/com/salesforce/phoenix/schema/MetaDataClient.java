@@ -459,7 +459,6 @@ public class MetaDataClient {
             if (saltBucketNum != null) {
                 ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
             }
-            List<PColumn> pkColumnList = new ArrayList<PColumn>(pkColumns);
             
             if (isIndex) {
                 // Create index table metadata.
@@ -503,7 +502,9 @@ public class MetaDataClient {
             final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
             connection.rollback();
             
-            byte[][] splits = SchemaUtil.processSplits(new byte[0][], pkColumns, saltBucketNum, connection.getQueryServices().getProps().getBoolean(
+            // For faster lookup access than a linkedlist.
+            List<PColumn> pkColumnList = new ArrayList<PColumn>(pkColumns);
+            byte[][] splits = SchemaUtil.processSplits(new byte[0][], pkColumnList, saltBucketNum, connection.getQueryServices().getProps().getBoolean(
                     QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE));
             MetaDataMutationResult result = connection.getQueryServices().createTable(tableMetaData, false, tableProps, familyPropList, splits);
             MutationCode code = result.getMutationCode();
@@ -522,24 +523,22 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
-                PTable table = PTableImpl.makePTable(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, saltBucketNum, columns, null);
+                PTable table = isIndex ? 
+                        PTableImpl.makePIndex(new PNameImpl(tableName), PIndexState.CREATED, result.getMutationTime(), 0, null, saltBucketNum, columns) :
+                        PTableImpl.makePTable(new PNameImpl(tableName), tableType, result.getMutationTime(), 0, pkName, saltBucketNum, columns, null);
                 connection.addTable(schemaName, table);
-                if (tableType == PTableType.USER) {
-                    connection.setAutoCommit(true);
-                    // Delete everything in the column. You'll still be able to do queries at earlier timestamps
-                    Long scn = connection.getSCN();
-                    long ts = (scn == null ? result.getMutationTime() : scn);
-                    PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
-                    TableRef tableRef = new TableRef(null, table, schema, ts);
-                    byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
-                    MutationPlan plan = compiler.compile(tableRef, emptyCF, null, ts);
-                    return connection.getQueryServices().updateData(plan);
-                }
-                break;
+                Long scn = connection.getSCN();
+                long ts = (scn == null ? result.getMutationTime() : scn);
+                PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
+                connection.setAutoCommit(true);
+                TableRef tableRef = new TableRef(null, table, schema, ts);
+                MutationPlan plan;
+                // Delete everything in the column. You'll still be able to do queries at earlier timestamps
+                byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
+                plan = compiler.compile(tableRef, emptyCF, null);
+                return connection.getQueryServices().updateData(plan);
             }
             return new MutationState(0,connection);
-
-            
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }
@@ -608,13 +607,8 @@ public class MetaDataClient {
                     // Create empty table and schema - they're only used to get the name from
                     // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
-                    List<TableRef> tableRefs = new ArrayList<TableRef>();
                     TableRef tableRef = new TableRef(null, table, schema, ts);
-                    tableRefs.add(tableRef);
-                    for (PTable index: table.getIndexes()) {
-                        tableRefs.add(new TableRef(null, index, schema, ts));
-                    }
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, ts);
+                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, null, Collections.<PColumn>emptyList());
                     return connection.getQueryServices().updateData(plan);
                 }
                 break;
@@ -655,6 +649,7 @@ public class MetaDataClient {
         }
         return table;
     }
+
 
     private MutationCode processMutationResult(String schemaName, String tableName, MetaDataMutationResult result) throws SQLException {
         final MutationCode mutationCode = result.getMutationCode();
