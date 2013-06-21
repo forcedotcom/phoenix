@@ -141,6 +141,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * @throws IOException
      */
     MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimestamp) throws IOException;
+
     /**
      * Create a new Phoenix table
      * @param tableMetadata
@@ -148,6 +149,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * @throws IOException
      */
     MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException;
+
     /**
      * Drop an existing Phoenix table
      * @param tableMetadata
@@ -156,7 +158,15 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * @throws IOException
      */
     MetaDataMutationResult dropTable(List<Mutation> tableMetadata, boolean isView) throws IOException;
-    
+
+    /**
+     * Drop an existing Phoenix index
+     * @param tableMetadata
+     * @return MetaDataMutationResult
+     * @throws IOException
+     */
+    MetaDataMutationResult dropIndex(List<Mutation> tableMetadata, String tableName) throws IOException;
+
     /**
      * Add a column to an existing Phoenix table
      * @param tableMetadata

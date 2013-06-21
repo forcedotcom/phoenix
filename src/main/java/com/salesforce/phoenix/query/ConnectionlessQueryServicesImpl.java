@@ -162,4 +162,9 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     public HBaseAdmin getAdmin() throws SQLException {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata, String tableName) throws SQLException {
+        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
+    }
 }

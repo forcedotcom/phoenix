@@ -27,30 +27,30 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-public enum PTableType {
-    SYSTEM("s"), 
-    USER("u"),
-    VIEW("v"),
-    INDEX("i"); 
+
+public enum PIndexState {
+    CREATED("c"),
+    ACTIVE("a"),
+    INACTIVE("i"),
+    DROPPED("d");
 
     private final String serializedValue;
-    
-    private PTableType(String serializedValue) {
-        this.serializedValue = serializedValue;
+
+    private PIndexState(String value) {
+        this.serializedValue = value;
     }
-    
+
     public String getSerializedValue() {
         return serializedValue;
     }
-    
-    private static final PTableType[] FROM_VALUE;
+
+    private static final PIndexState[] FROM_VALUE;
     private static final int FROM_VALUE_OFFSET;
-    
     static {
         int minChar = Integer.MAX_VALUE;
         int maxChar = Integer.MIN_VALUE;
-        for (PTableType type : PTableType.values()) {
-            char c = type.getSerializedValue().charAt(0);
+        for (PIndexState state: PIndexState.values()) {
+            char c = state.getSerializedValue().charAt(0);
             if (c < minChar) {
                 minChar = c;
             }
@@ -59,27 +59,27 @@ public enum PTableType {
             }
         }
         FROM_VALUE_OFFSET = minChar;
-        FROM_VALUE = new PTableType[maxChar - minChar + 1];
-        for (PTableType type : PTableType.values()) {
-            FROM_VALUE[type.getSerializedValue().charAt(0) - minChar] = type;
+        FROM_VALUE = new PIndexState[maxChar - minChar + 1];
+        for (PIndexState state: PIndexState.values()) {
+            FROM_VALUE[state.getSerializedValue().charAt(0) - minChar] = state;
         }
     }
-    
-    public static PTableType fromSerializedValue(String serializedValue) {
+
+    public static PIndexState fromSerializedValue(String serializedValue) {
         if (serializedValue.length() == 1) {
             int i = serializedValue.charAt(0) - FROM_VALUE_OFFSET;
             if (i >= 0 && i < FROM_VALUE.length && FROM_VALUE[i] != null) {
                 return FROM_VALUE[i];
             }
         }
-        throw new IllegalArgumentException("Unable to PTableType enum for serialized value of '" + serializedValue + "'");
+        throw new IllegalArgumentException("Unable to PIndexState enum for serialized value of '" + serializedValue + "'");
     }
-    
-    public static PTableType fromSerializedValue(byte serializedByte) {
+
+    public static PIndexState fromSerializedValue(byte serializedByte) {
         int i = serializedByte - FROM_VALUE_OFFSET;
         if (i >= 0 && i < FROM_VALUE.length && FROM_VALUE[i] != null) {
             return FROM_VALUE[i];
         }
-        throw new IllegalArgumentException("Unable to PTableType enum for serialized value of '" + (char)serializedByte + "'");
+        throw new IllegalArgumentException("Unable to PIndexState enum for serialized value of '" + (char)serializedByte + "'");
     }
 }

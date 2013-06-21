@@ -49,6 +49,7 @@ import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.*;
 
@@ -68,45 +69,21 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements MetaDataProtocol {
-    
-    private PTable buildTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
-        Scan scan = new Scan();
-        scan.setTimeRange(MIN_TABLE_TIMESTAMP, clientTimeStamp);
-        scan.setStartRow(key);
-        byte[] endKey = new byte[key.length+1];
-        System.arraycopy(key, 0, endKey, 0, key.length);
-        ByteUtil.nextKey(endKey, endKey.length);
-        scan.setStopRow(endKey);
-        RegionScanner scanner = region.getScanner(scan);
-        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
-        try {
-            PTable oldTable = metaDataCache.get(cacheKey);
-            long tableTimeStamp = oldTable == null ? MIN_TABLE_TIMESTAMP-1 : oldTable.getTimeStamp();
-            PTable newTable = getTable(scanner, clientTimeStamp, tableTimeStamp);
-            if (newTable == null) {
-                return null;
-            }
-            if (oldTable == null || tableTimeStamp < newTable.getTimeStamp()) {
-                metaDataCache.put(cacheKey, newTable);
-            }
-            return newTable;
-        } finally {
-            scanner.close();
-        }
-    }
-    
+
     // KeyValues for Table
     private static final KeyValue TABLE_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES);
     private static final KeyValue TABLE_SEQ_NUM_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TABLE_SEQ_NUM_BYTES);
     private static final KeyValue COLUMN_COUNT_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES);
     private static final KeyValue SALT_BUCKETS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, SALT_BUCKETS_BYTES);
     private static final KeyValue PK_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, PK_NAME_BYTES);
+    private static final KeyValue INDEX_STATE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
             COLUMN_COUNT_KV,
             SALT_BUCKETS_KV,
-            PK_NAME_KV
+            PK_NAME_KV,
+            INDEX_STATE_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -116,6 +93,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int COLUMN_COUNT_INDEX = TABLE_KV_COLUMNS.indexOf(COLUMN_COUNT_KV);
     private static final int SALT_BUCKETS_INDEX = TABLE_KV_COLUMNS.indexOf(SALT_BUCKETS_KV);
     private static final int PK_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(PK_NAME_KV);
+    private static final int INDEX_STATE_INDEX = TABLE_KV_COLUMNS.indexOf(INDEX_STATE_KV);
     
     // KeyValues for Column
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
@@ -152,7 +130,77 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         System.arraycopy(keyBuffer, keyOffset, pnameBuf, 0, length);
         return new PNameImpl(pnameBuf);
     }
-    
+
+    private PTable buildTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
+        Scan scan = new Scan();
+        scan.setTimeRange(MIN_TABLE_TIMESTAMP, clientTimeStamp);
+        scan.setStartRow(key);
+        scan.setStopRow(ByteUtil.nextKey(key));
+        RegionScanner scanner = region.getScanner(scan);
+        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+        try {
+            PTable oldTable = metaDataCache.get(cacheKey);
+            long tableTimeStamp = oldTable == null ? MIN_TABLE_TIMESTAMP-1 : oldTable.getTimeStamp();
+            PTable newTable;
+            newTable = getTable(scanner, clientTimeStamp, tableTimeStamp);
+            if (newTable == null) {
+                return null;
+            }
+            if (oldTable == null || tableTimeStamp < newTable.getTimeStamp()) {
+                metaDataCache.put(cacheKey, newTable);
+            }
+            return newTable;
+        } finally {
+            scanner.close();
+        }
+    }
+
+    private void addIndexToTable(PName schemaName, PName indexName, long tableTimeStamp, long clientTimeStamp, List<PTable> indexes) throws IOException {
+        MetaDataMutationResult result = getTable(schemaName.getBytes(), indexName.getBytes(), tableTimeStamp, clientTimeStamp);
+        if (result.getTable() != null && 
+                (result.getTable().getIndexState() == PIndexState.CREATED
+                || result.getTable().getIndexState() == PIndexState.ACTIVE)) {
+            indexes.add(result.getTable());
+        }
+    }
+
+    private void addColumnToTable(List<KeyValue> results, PName colName, PName famName, KeyValue[] colKeyValues, List<PColumn> columns) {
+        int i = 0;
+        int j = 0;
+        while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
+            KeyValue kv = results.get(i);
+            KeyValue searchKv = COLUMN_KV_COLUMNS.get(j);
+            int cmp = Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), 
+                    searchKv.getBuffer(), searchKv.getQualifierOffset(), searchKv.getQualifierLength());
+            if (cmp == 0) {
+                colKeyValues[j++] = kv;
+                i++;
+            } else {
+                colKeyValues[j++] = null;
+            }
+        }
+        // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
+        if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
+                || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
+            throw new IllegalStateException("Didn't find all required key values in column metadata row");
+        }
+        KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
+        Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), null);
+        KeyValue decimalDigitKv = colKeyValues[DECIMAL_DIGITS_INDEX];
+        Integer scale = decimalDigitKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(decimalDigitKv.getBuffer(), decimalDigitKv.getValueOffset(), null);
+        KeyValue ordinalPositionKv = colKeyValues[ORDINAL_POSITION_INDEX];
+        int position = PDataType.INTEGER.getCodec().decodeInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset(), null);
+        KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];
+        boolean isNullable = PDataType.INTEGER.getCodec().decodeInt(nullableKv.getBuffer(), nullableKv.getValueOffset(), null) != ResultSetMetaData.columnNoNulls;
+        KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
+        PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), null));
+        if (maxLength == null && dataType == PDataType.BINARY) dataType = PDataType.VARBINARY; // For backward compatibility.
+        KeyValue columnModifierKv = colKeyValues[COLUMN_MODIFIER_INDEX];
+        ColumnModifier sortOrder = columnModifierKv == null ? null : ColumnModifier.fromSystemValue(PDataType.INTEGER.getCodec().decodeInt(columnModifierKv.getBuffer(), columnModifierKv.getValueOffset(), null));
+        PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1, sortOrder);
+        columns.add(column);
+    }
+
     private PTable getTable(RegionScanner scanner, long clientTimeStamp, long tableTimeStamp) throws IOException {
         List<KeyValue> results = Lists.newArrayList();
         scanner.next(results);
@@ -167,8 +215,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] keyBuffer = keyValue.getBuffer();
         int keyLength = keyValue.getRowLength();
         int keyOffset = keyValue.getRowOffset();
-        int offset = getVarCharLength(keyBuffer, keyOffset, keyLength) + 1; // skip schema name
+        PName schemaName = newPName(keyBuffer, keyOffset, keyLength);
+        int offset = getVarCharLength(keyBuffer, keyOffset, keyLength) + 1;
         PName tableName = newPName(keyBuffer, keyOffset + offset, keyLength-offset);
+        
         offset += tableName.getBytes().length + 1;
         // This will prevent the client from continually looking for the current
         // table when we know that there will never be one since we disallow updates
@@ -212,8 +262,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         String pkName = pkNameKv != null ? (String)PDataType.VARCHAR.toObject(pkNameKv.getBuffer(), pkNameKv.getValueOffset(), pkNameKv.getValueLength()) : null;
         KeyValue saltBucketNumKv = tableKeyValues[SALT_BUCKETS_INDEX];
         Integer saltBucketNum = saltBucketNumKv != null ? (Integer)PDataType.INTEGER.getCodec().decodeInt(saltBucketNumKv.getBuffer(), saltBucketNumKv.getValueOffset(), null) : null;
+        // If INDEX_STATE is set, then we are reading an index table;
+        KeyValue indexStateKv = tableKeyValues[INDEX_STATE_INDEX];
+        PIndexState indexState = indexStateKv == null ? null : PIndexState.fromSerializedValue(indexStateKv.getBuffer()[indexStateKv.getValueOffset()]);
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
+        List<PTable> indexes = new ArrayList<PTable>();
         while (true) {
             results.clear();
             scanner.next(results);
@@ -225,45 +279,21 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             PName colName = newPName(colKv.getBuffer(), colKv.getRowOffset() + offset, colKeyLength-offset);
             int colKeyOffset = offset + colName.getBytes().length + 1;
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
-            i = 0;
-            j = 0;
-            while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
-                KeyValue kv = results.get(i);
-                KeyValue searchKv = COLUMN_KV_COLUMNS.get(j);
-                int cmp = Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), 
-                        searchKv.getBuffer(), searchKv.getQualifierOffset(), searchKv.getQualifierLength());
-                if (cmp == 0) {
-                    colKeyValues[j++] = kv;
-                    i++;
-                } else {
-                    colKeyValues[j++] = null;
-                }
+            int indexNameOffset = colKeyOffset + famName.getBytes().length + 1;
+            PName indexName = newPName(colKv.getBuffer(), colKv.getRowOffset() + indexNameOffset, colKeyLength-indexNameOffset);
+            if (colName != null && famName != null) { // a column row
+                addColumnToTable(results, colName, famName, colKeyValues, columns);
+            } else { // an index row
+                addIndexToTable(schemaName, indexName, tableTimeStamp, clientTimeStamp, indexes);
             }
-            // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
-            if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
-                    || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
-                throw new IllegalStateException("Didn't find all required key values in column metadata row");
-            }
-            KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
-            Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), null);
-            KeyValue decimalDigitKv = colKeyValues[DECIMAL_DIGITS_INDEX];
-            Integer scale = decimalDigitKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(decimalDigitKv.getBuffer(), decimalDigitKv.getValueOffset(), null);
-            KeyValue ordinalPositionKv = colKeyValues[ORDINAL_POSITION_INDEX];
-            int position = PDataType.INTEGER.getCodec().decodeInt(ordinalPositionKv.getBuffer(), ordinalPositionKv.getValueOffset(), null);
-            KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];
-            boolean isNullable = PDataType.INTEGER.getCodec().decodeInt(nullableKv.getBuffer(), nullableKv.getValueOffset(), null) != ResultSetMetaData.columnNoNulls;
-            KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
-            PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), null));
-            if (maxLength == null && dataType == PDataType.BINARY) dataType = PDataType.VARBINARY; // For backward compatibility.
-            KeyValue columnModifierKv = colKeyValues[COLUMN_MODIFIER_INDEX];
-            ColumnModifier sortOrder = columnModifierKv == null ? null : ColumnModifier.fromSystemValue(PDataType.INTEGER.getCodec().decodeInt(columnModifierKv.getBuffer(), columnModifierKv.getValueOffset(), null));
-            PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1, sortOrder);
-            columns.add(column);
         }
-        
-        return new PTableImpl(tableName, tableType, timeStamp, tableSeqNum, pkName, saltBucketNum, columns);
+        if (indexState != null) {
+            return PTableImpl.makePIndex(tableName, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns);
+        } else {
+            return PTableImpl.makePTable(tableName, tableType, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, indexes);
+        }
     }
-    
+
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
         if (clientTimeStamp == HConstants.LATEST_TIMESTAMP) {
             return null;
@@ -289,17 +319,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         return null;
     }
-    
+
     private static PTable newDeletedTableMarker(long timestamp) {
         return new PTableImpl(timestamp);
     }
+
     private static boolean isTableDeleted(PTable table) {
         return table.getName() == null;
     }
-    
-    /**
-     * Inserts the metadata for a Phoenix table.
-     */
+
     @Override
     public MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException {
         Mutation m = tableMetadata.get(0);
@@ -317,7 +345,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
             Integer lid = region.getLock(null, key, true);
             if (lid == null) {
-                throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX]) + "." + Bytes.toStringBinary(rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]));
+                throw new IOException("Failed to acquire lock on " + 
+                        Bytes.toStringBinary(rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX]) + "." + 
+                        Bytes.toStringBinary(rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]));
             }
             try {
                 ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
@@ -363,14 +393,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         getVarChars(m.getRow(), rowKeyMetaData);
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        // Disallow deletion of a system table
+        // TODO: better to check KV, but this is our only system table for now
+        if (Bytes.compareTo(TYPE_SCHEMA_BYTES, schemaName) == 0 && Bytes.compareTo(TYPE_TABLE_BYTES, tableName) == 0) {
+            return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+        }
+        byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
+        
         try {
-            // Disallow deletion of a system table
-            // TODO: better to check KV, but this is our only system table for now
-            if (Bytes.compareTo(TYPE_SCHEMA_BYTES, schemaName) == 0 && Bytes.compareTo(TYPE_TABLE_BYTES, tableName) == 0) {
-                return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
-            }
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {
@@ -378,13 +409,73 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
             final Integer lid = region.getLock(null, key, true);
             if (lid == null) {
-                throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX]) + "." + Bytes.toStringBinary(rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]));
+                throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(key));
             }
+            try {
+                List<ImmutableBytesPtr> indexList = new ArrayList<ImmutableBytesPtr>();
+            } finally {
+                region.releaseRowLock(lid);
+            }
+        } catch (Throwable t) {
+            ServerUtil.throwIOException(Bytes.toStringBinary(key), t);
+            return null; // impossible
+        }
+        
+        List<ImmutableBytesPtr> indexList = new ArrayList<ImmutableBytesPtr>();
+        MetaDataMutationResult result = doDropAllRowsForTable(key, isView, m.getTimeStamp(), indexList);
+        // Iterator through the indexes and drop them one by one;
+        for (ImmutableBytesPtr indexName : indexList) {
+            byte[] indexTableKey = SchemaUtil.getTableKey(schemaName, indexName.get());
+            doDropAllRowsForTable(indexTableKey, false, m.getTimeStamp(), null);
+        }
+        return result;
+    }
+
+    @Override
+    public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata, String tableName) throws IOException {
+        Mutation m = tableMetadata.get(0);
+        byte[][] rowKeyMetaData = new byte[2][];
+        getVarChars(m.getRow(), rowKeyMetaData);
+        byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
+        byte[] indexName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        byte[] tableNameBytes = PDataType.VARCHAR.toBytes(tableName);
+        // Delete the data table row for the index.
+        byte[] key = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableNameBytes, QueryConstants.SEPARATOR_BYTE_ARRAY,
+                QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, indexName);
+        doDropRow(key, m.getTimeStamp());
+        // Delete the index table metadata.
+        key = SchemaUtil.getTableKey(schemaName, indexName);
+        return doDropAllRowsForTable(key, false, m.getTimeStamp(), null);
+    }
+
+    private void doDropRow(byte[] key, long clientTimeStamp) throws IOException {
+        try {
+            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+            HRegion region = env.getRegion();
+            final Integer lid = region.getLock(null, key, true);
+            if (lid == null) {
+                throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(key));
+            }
+            try {
+                List<Mutation> rowsToDelete = Lists.newArrayListWithExpectedSize(1);
+                @SuppressWarnings("deprecation")
+                Delete delete = new Delete(key, clientTimeStamp, null);
+                rowsToDelete.add(delete);
+                region.mutateRowsWithLocks(rowsToDelete, Collections.<byte[]>emptySet());
+            } finally {
+                region.releaseRowLock(lid);
+            }
+        } catch (Throwable t) {
+            ServerUtil.throwIOException(Bytes.toStringBinary(key), t);
+        }
+    }
+
+    private List<Mutation> compileDropAllRowsForTable(byte[] key, boolean isView, long clientTimeStamp, List<ImmutableBytesPtr> indexList) throws IOException {
+        boolean parseIndex = indexList != null;
             try {
                 ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
                 Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
                 PTable table = metaDataCache.get(cacheKey);
-                long clientTimeStamp = m.getTimeStamp();
                 if ((table != null || (table = buildTable(key, cacheKey, region, HConstants.LATEST_TIMESTAMP)) != null) && table.getTimeStamp() >= clientTimeStamp) {
                     return new MetaDataMutationResult(MutationCode.NEWER_TABLE_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
@@ -409,12 +500,21 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 List<Mutation> rowsToDelete = Lists.newArrayListWithExpectedSize(10);
+                byte[][] rowKeyMetaData = new byte[5][];
+                byte[] rowKey;
                 do {
+                    rowKey = results.get(0).getRow();
+                    if (parseIndex) {
+                        getVarChars(rowKey, rowKeyMetaData);
+                        if (rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX] != null) {
+                            indexList.add(new ImmutableBytesPtr(rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX]));
+                        }
+                    }
                     @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
                     // FIXME: the version of the Delete constructor without the lock args was introduced
                     // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
                     // of the client.
-                    Delete delete = new Delete(results.get(0).getRow(), clientTimeStamp, null);
+                    Delete delete = new Delete(rowKey, clientTimeStamp, null);
                     rowsToDelete.add(delete);
                     results.clear();
                     scanner.next(results);
@@ -425,13 +525,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 // Return the table to the client so that the correct scan will be done to delete the data
                 // We could just send a stub table with the minimum info, but I think this won't be a big deal.
                 return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, table);
-            } finally {
-                region.releaseRowLock(lid);
             }
-        } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
-            return null; // impossible
-        }
     }
 
     private static long getClientTimeStamp(List<Mutation> tableMetadata) {
@@ -603,11 +697,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         return new MetaDataMutationResult(MutationCode.TABLE_NOT_IN_REGION, EnvironmentEdgeManager.currentTimeMillis(), null);
     }
-    
+
     @Override
     public MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
+        return doGetTable(schemaName, tableName, tableTimeStamp, clientTimeStamp);
+    }
+
+    private MetaDataMutationResult doGetTable(byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
         try {
-            // get the coprocessor environment
+            // get the co-processor environment
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
             byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
             // TODO: check that key is within region.getStartKey() and region.getEndKey()

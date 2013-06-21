@@ -266,7 +266,7 @@ public class UpsertCompiler {
                         projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
                     }
                     // Build table from projectedColumns
-                    PTable projectedTable = new PTableImpl(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
+                    PTable projectedTable = PTableImpl.makePTable(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, null);
                     
                     // Remove projection of empty column, since it can lead to problems when building another projection
                     // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to

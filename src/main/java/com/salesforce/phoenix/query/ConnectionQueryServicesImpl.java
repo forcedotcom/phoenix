@@ -80,7 +80,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
-    
 
     /**
      * keep a cache of HRegionInfo objects
@@ -785,7 +784,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, boolean isView, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
+    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, boolean isView, Map<String,Object> tableProps,
+            final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
         Mutation m = tableMetaData.get(0);
         byte[] key = m.getRow();
@@ -807,7 +807,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult getTable(final byte[] schemaBytes, final byte[] tableBytes, final long tableTimestamp, final long clientTimestamp) throws SQLException {
+    public MetaDataMutationResult getTable(final byte[] schemaBytes, final byte[] tableBytes,
+            final long tableTimestamp, final long clientTimestamp) throws SQLException {
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
@@ -828,6 +829,21 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     @Override
                     public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
                       return instance.dropTable(tableMetaData, isView);
+                    }
+                });
+    }
+
+    @Override
+    public MetaDataMutationResult dropIndex(final List<Mutation> tableMetaData, final String tableName) throws SQLException {
+        byte[][] rowKeyMetadata = new byte[2][];
+        SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
+        byte[] tableKey = SchemaUtil.getTableKey(
+                rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+        return metaDataCoprocessorExec(tableKey,
+                new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
+                    @Override
+                    public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
+                      return instance.dropIndex(tableMetaData, tableName);
                     }
                 });
     }
