@@ -49,7 +49,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 @BuiltInFunction(name=CountAggregateFunction.NAME, args= {@Argument()} )
 public class CountAggregateFunction extends SingleAggregateFunction {
-    public static final String NAME = "count";
+    public static final String NAME = "COUNT";
     public static final List<Expression> STAR = Arrays.<Expression>asList(LiteralExpression.newConstant(1));
     public static final String NORMALIZED_NAME = SchemaUtil.normalizeIdentifier(NAME);
     
@@ -58,6 +58,15 @@ public class CountAggregateFunction extends SingleAggregateFunction {
     
     public CountAggregateFunction(List<Expression> childExpressions) {
         super(childExpressions);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        CountAggregateFunction other = (CountAggregateFunction)obj;
+        return (isConstantExpression() && other.isConstantExpression()) || children.equals(other.getChildren());
     }
 
     @Override
@@ -73,15 +82,6 @@ public class CountAggregateFunction extends SingleAggregateFunction {
         return false;
     }
     
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        CountAggregateFunction other = (CountAggregateFunction)obj;
-        return (isConstantExpression() && other.isConstantExpression()) || children.equals(other.getChildren());
-    }
-
     @Override
     public PDataType getDataType() {
         return PDataType.LONG;
