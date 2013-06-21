@@ -79,6 +79,8 @@ public class PTableImpl implements PTable {
     private RowKeySchema rowKeySchema;
     // Indexes associated with this table.
     private List<PTable> indexes;
+    // Data table name that the index is created on.
+    private String dataTableName;
     
     public PTableImpl() {
     }
@@ -615,7 +617,9 @@ public class PTableImpl implements PTable {
 
     @Override
     public String getDataTableName() {
-        
+        if (type != PTableType.INDEX) {
+            throw new ConstraintViolationException("Should not get table name on a non-index table: " + name);
+        }
         
     }
 }
