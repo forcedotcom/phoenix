@@ -28,17 +28,16 @@
 package com.salesforce.phoenix.jdbc;
 
 import java.sql.*;
-import java.util.Properties;
-import java.util.StringTokenizer;
+import java.util.*;
 import java.util.logging.Logger;
 
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
-import com.salesforce.phoenix.util.PhoenixRuntime;
-import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.*;
 
 
 
@@ -77,47 +76,6 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
         return services;
     }
      
-    protected static ConnectionInfo getConnectionInfo(String url) throws SQLException {
-        StringTokenizer tokenizer = new StringTokenizer(url == null ? "" : url.substring(PhoenixRuntime.JDBC_PROTOCOL.length()),DELIMITERS, true);
-        int i = 0;
-        boolean isMalformedUrl = false;
-        String[] tokens = new String[3];
-        String token = null;
-        while (tokenizer.hasMoreTokens() && !(token=tokenizer.nextToken()).equals(TERMINATOR) && tokenizer.hasMoreTokens() && i < tokens.length) {
-            token = tokenizer.nextToken();
-            // This would mean we have an empty string for a token which is illegal
-            if (DELIMITERS.contains(token)) {
-                isMalformedUrl = true;
-                break;
-            }
-            tokens[i++] = token;
-        }
-        Integer port = null;
-        if (!isMalformedUrl) {
-            if (tokenizer.hasMoreTokens() && !TERMINATOR.equals(token)) {
-                isMalformedUrl = true;
-            } else if (i > 1) {
-                try {
-                    port = Integer.parseInt(tokens[1]);
-                    isMalformedUrl = port < 0;
-                } catch (NumberFormatException e) {
-                    // If we have 3 tokens, then the second one must be a port.
-                    // If we only have 2 tokens, the second one might be the root node:
-                    // Assume that is the case if we get a NumberFormatException
-                    if (! (isMalformedUrl = i == 3) ) {
-                        tokens[2] = tokens[1];
-                    }
-                    
-                }
-            }
-        }
-        if (isMalformedUrl) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
-            .setMessage(url).build().buildException();
-        }
-        return new ConnectionInfo(tokens[0],port,tokens[2]);
-    }
-    
     @Override
     public boolean acceptsURL(String url) throws SQLException {
         if (url.startsWith(PhoenixRuntime.JDBC_PROTOCOL)) {
@@ -209,17 +167,120 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
      * @author jtaylor
      * @since 0.1.1
      */
-    protected static class ConnectionInfo {
+    public static class ConnectionInfo {
+        protected static ConnectionInfo create(String url) throws SQLException {
+            StringTokenizer tokenizer = new StringTokenizer(url == null ? "" : url.substring(PhoenixRuntime.JDBC_PROTOCOL.length()),DELIMITERS, true);
+            int i = 0;
+            boolean isMalformedUrl = false;
+            String[] tokens = new String[3];
+            String token = null;
+            while (tokenizer.hasMoreTokens() && !(token=tokenizer.nextToken()).equals(TERMINATOR) && tokenizer.hasMoreTokens() && i < tokens.length) {
+                token = tokenizer.nextToken();
+                // This would mean we have an empty string for a token which is illegal
+                if (DELIMITERS.contains(token)) {
+                    isMalformedUrl = true;
+                    break;
+                }
+                tokens[i++] = token;
+            }
+            Integer port = null;
+            if (!isMalformedUrl) {
+                if (tokenizer.hasMoreTokens() && !TERMINATOR.equals(token)) {
+                    isMalformedUrl = true;
+                } else if (i > 1) {
+                    try {
+                        port = Integer.parseInt(tokens[1]);
+                        isMalformedUrl = port < 0;
+                    } catch (NumberFormatException e) {
+                        // If we have 3 tokens, then the second one must be a port.
+                        // If we only have 2 tokens, the second one might be the root node:
+                        // Assume that is the case if we get a NumberFormatException
+                        if (! (isMalformedUrl = i == 3) ) {
+                            tokens[2] = tokens[1];
+                        }
+                        
+                    }
+                }
+            }
+            if (isMalformedUrl) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+                .setMessage(url).build().buildException();
+            }
+            return new ConnectionInfo(tokens[0],port,tokens[2]);
+        }
+        
+        public ConnectionInfo normalize(ReadOnlyProps props) throws SQLException {
+            String zookeeperQuorum = this.getZookeeperQuorum();
+            Integer port = this.getPort();
+            String rootNode = this.getRootNode();
+            // Normalize connInfo so that a url explicitly specifying versus implicitly inheriting
+            // the default values will both share the same ConnectionQueryServices.
+            if (zookeeperQuorum == null) {
+                zookeeperQuorum = props.get(QueryServices.ZOOKEEPER_QUARUM_ATTRIB);
+                if (zookeeperQuorum == null) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+                    .setMessage(this.toString()).build().buildException();
+                }
+            }
+
+            if (port == null) {
+                if (!isConnectionless) {
+                    String portStr = props.get(QueryServices.ZOOKEEPER_PORT_ATTRIB);
+                    if (portStr != null) {
+                        try {
+                            port = Integer.parseInt(portStr);
+                        } catch (NumberFormatException e) {
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+                            .setMessage(this.toString()).build().buildException();
+                        }
+                    }
+                }
+            } else if (isConnectionless) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+                .setMessage("Port may not be specified when using the connectionless url \"" + this.toString() + "\"").build().buildException();
+            }
+            if (rootNode == null) {
+                if (!isConnectionless) {
+                    rootNode = props.get(QueryServices.ZOOKEEPER_ROOT_NODE_ATTRIB);
+                }
+            } else if (isConnectionless) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MALFORMED_CONNECTION_URL)
+                .setMessage("Root node may not be specified when using the connectionless url \"" + this.toString() + "\"").build().buildException();
+            }
+            return new ConnectionInfo(zookeeperQuorum, port, rootNode);
+        }
+        
         private final Integer port;
         private final String rootNode;
         private final String zookeeperQuorum;
+        private final boolean isConnectionless;
         
-        protected ConnectionInfo(String zookeeperQuorum, Integer port, String rootNode) {
+        // used for testing
+        ConnectionInfo(String zookeeperQuorum, Integer port, String rootNode) {
             this.zookeeperQuorum = zookeeperQuorum;
             this.port = port;
             this.rootNode = rootNode;
+            this.isConnectionless = PhoenixRuntime.CONNECTIONLESS.equals(zookeeperQuorum);
         }
 
+        public ReadOnlyProps asProps() {
+            Map<String,String> connectionProps = Maps.newHashMapWithExpectedSize(3);
+            if (getZookeeperQuorum() != null) {
+                connectionProps.put(QueryServices.ZOOKEEPER_QUARUM_ATTRIB, getZookeeperQuorum());
+            }
+            if (getPort() != null) {
+                connectionProps.put(QueryServices.ZOOKEEPER_PORT_ATTRIB, getPort().toString());
+            }
+            if (getRootNode() != null) {
+                connectionProps.put(QueryServices.ZOOKEEPER_ROOT_NODE_ATTRIB, getRootNode());
+            }
+            return connectionProps.isEmpty() ? ReadOnlyProps.EMPTY_PROPS : new ReadOnlyProps(connectionProps.entrySet().iterator());
+        }
+        
+        public boolean isConnectionless() {
+            return isConnectionless;
+        }
+        
         public String getZookeeperQuorum() {
             return zookeeperQuorum;
         }

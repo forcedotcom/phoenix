@@ -349,7 +349,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         String[] queries = new String[] {
             "SELECT count(1) FROM atable GROUP BY organization_id,entity_id",
             "SELECT count(1) FROM atable GROUP BY organization_id,substr(entity_id,1,3),entity_id",
-            "SELECT count(1) FROM atable GROUP BY substr(organization_id,1),entity_id",
             "SELECT count(1) FROM atable GROUP BY entity_id,organization_id",
             "SELECT count(1) FROM atable GROUP BY substr(entity_id,1,3),organization_id",
             "SELECT count(1) FROM ptsdb GROUP BY host,inst,round(date,'HOUR')",
@@ -506,25 +505,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testOrderByOnUnlimitedSelect() throws Exception {
-        try {
-            // Order by in select with no limit or group by
-            String query = "select a_string from ATABLE order by b_string";
-            Properties props = new Properties(TestUtil.TEST_PROPERTIES);
-            Connection conn = DriverManager.getConnection(getUrl(), props);
-            try {
-                PreparedStatement statement = conn.prepareStatement(query);
-                statement.executeQuery();
-                fail();
-            } finally {
-                conn.close();
-            }
-        } catch (SQLException e) { // TODO: use error codes
-            assertTrue(e.getMessage().contains("ORDER BY only allowed for limited or aggregate queries"));
-        }
-    }
-
-    @Test
     public void testOrderByAggSelectNonAgg() throws Exception {
         try {
             // Order by in select with no limit or group by
@@ -618,6 +598,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             "SELECT count(1) FROM atable GROUP BY substr(organization_id,2,3)",
             "SELECT count(1) FROM atable GROUP BY substr(entity_id,1,3)",
             "SELECT count(1) FROM atable GROUP BY to_date(organization_id)",
+            "SELECT count(1) FROM atable GROUP BY regexp_substr(organization_id, '.*foo.*'),entity_id",
+            "SELECT count(1) FROM atable GROUP BY substr(organization_id,1),entity_id",
         };
         List<Object> binds = Collections.emptyList();
         for (String query : queries) {
@@ -840,7 +822,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
@@ -848,7 +830,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         binds = Collections.emptyList();
         scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
@@ -937,7 +919,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abd"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() == null); // Extracted.
     }
@@ -948,7 +930,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
         compileQuery(query, binds, scan);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
     }

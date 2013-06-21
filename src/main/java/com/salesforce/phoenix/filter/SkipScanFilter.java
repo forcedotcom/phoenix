@@ -40,7 +40,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.google.common.hash.*;
-import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.ValueSchema.Field;
@@ -331,30 +331,21 @@ public class SkipScanFilter extends FilterBase {
                     // Reinitialize iterator to be positioned at previous slot position
                     schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
                 } else {
-                    // Copy the leading part of the actual current key into startKey which we'll use
-                    // as our buffer through the rest of the loop.
-                    startKeyLength = ptr.getOffset() - offset;
-                    startKey = copyKey(startKey, startKeyLength + this.maxKeyLength, ptr.get(), offset, startKeyLength);
-                    int nextKeyLength = startKeyLength;
-                    appendToStartKey(i+1, startKeyLength);
+                    int currentLength = setStartKey(ptr, offset, i+1);
                     // From here on, we use startKey as our buffer with offset reset to 0
                     // We've copied the part of the current key above that we need into startKey
-                    offset = 0;
-                    length = startKeyLength;
-                    ptr.set(startKey, offset, startKeyLength);
+                    ptr.set(startKey, offset = 0, length = startKeyLength);
                     // Reinitialize iterator to be positioned at previous slot position
                     // TODO: a schema.previous would potentially be more efficient
                     schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
                     // Do nextKey after setting the accessor b/c otherwise the null byte may have
                     // been incremented causing us not to find it
-                    ByteUtil.nextKey(startKey, nextKeyLength);
+                    ByteUtil.nextKey(startKey, currentLength);
                 }
             } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(ptr) > 0) {
                 // Our current key is less than the lower range of the current position in the current slot.
                 // Seek to the lower range, since it's bigger than the current key
-                int currentLength = ptr.getOffset() - offset;
-                setStartKey(currentLength + this.maxKeyLength, ptr.get(), offset, currentLength);
-                appendToStartKey(i, currentLength);
+                setStartKey(ptr, offset, i);
                 return ReturnCode.SEEK_NEXT_USING_HINT;
             } else { // We're in range, check the next slot
                 if (!slots.get(i).get(position[i]).isSingleKey() && i < earliestRangeIndex) {
@@ -373,9 +364,7 @@ public class SkipScanFilter extends FilterBase {
                 // case, we seek to the next full key after this one.
                 // TODO: test for this
                 if (schema.next(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
-                    int currentLength = ptr.getOffset() - offset;
-                    setStartKey(currentLength + this.maxKeyLength, ptr.get(), offset, currentLength);
-                    appendToStartKey(i, currentLength);
+                    setStartKey(ptr, offset, i);
                     return ReturnCode.SEEK_NEXT_USING_HINT;
                 }
             }
@@ -387,8 +376,7 @@ public class SkipScanFilter extends FilterBase {
         // Else, we're in range for all slots and can include this row plus all rows 
         // up to the upper range of our last slot. We do this for ranges and single keys
         // since we potentially have multiple key values for the same row key.
-        setEndKey(ptr.getOffset() - offset + this.maxKeyLength, ptr.get(), offset, ptr.getOffset() - offset);
-        appendToEndKey(nSlots-1, ptr.getOffset() - offset);
+        setEndKey(ptr, offset, slots.size()-1);
         return ReturnCode.INCLUDE;
     }
 
@@ -399,47 +387,40 @@ public class SkipScanFilter extends FilterBase {
         return i;
     }
 
+    private void setStartKey() {
+        startKeyLength = setKey(Bound.LOWER, startKey, 0, 0);
+    }
+
+    private int setStartKey(ImmutableBytesWritable ptr, int offset, int i) {
+        int length = ptr.getOffset() - offset;
+        startKey = copyKey(startKey, length + this.maxKeyLength, ptr.get(), offset, length);
+        startKeyLength = length;
+        // Add separator byte if we're at the end of the buffer, since trailing separator bytes are stripped
+        if (ptr.getOffset() + ptr.getLength() == offset + length && i-1 > 0 && !schema.getField(i-1).getType().isFixedWidth()) {
+            startKey[startKeyLength++] = QueryConstants.SEPARATOR_BYTE;
+        }
+        startKeyLength += setKey(Bound.LOWER, startKey, startKeyLength, i);
+        return length;
+    }
+    
+    private int setEndKey(ImmutableBytesWritable ptr, int offset, int i) {
+        int length = ptr.getOffset() - offset;
+        endKey = copyKey(endKey, length + this.maxKeyLength, ptr.get(), offset, length);
+        endKeyLength = length;
+        endKeyLength += setKey(Bound.UPPER, endKey, length, i);
+        return length;
+    }
+    
+    private int setKey(Bound bound, byte[] key, int keyOffset, int slotStartIndex) {
+        return ScanUtil.setKey(schema, slots, position, bound, key, keyOffset, slotStartIndex, position.length);
+    }
+
     private static byte[] copyKey(byte[] targetKey, int targetLength, byte[] sourceKey, int offset, int length) {
         if (targetLength > targetKey.length) {
             targetKey = new byte[targetLength];
         }
         System.arraycopy(sourceKey, offset, targetKey, 0, length);
         return targetKey;
-    }
-
-    private void setStartKey(int maxLength, byte[] sourceKey, int offset, int length) {
-        startKey = copyKey(startKey, maxLength, sourceKey, offset, length);
-        startKeyLength = length;
-    }
-
-    private void setEndKey(int maxLength, byte[] sourceKey, int offset, int length) {
-        endKey = copyKey(endKey, maxLength, sourceKey, offset, length);
-        endKeyLength = length;
-    }
-
-    private int setKey(Bound bound, byte[] key, int keyOffset, int slotStartIndex) {
-        return setKey(bound, key, keyOffset, slotStartIndex, position.length);
-    }
-
-    private int setKey(Bound bound, byte[] key, int keyOffset, int slotStartIndex, int slotEndIndex) {
-        return setKey(bound, position, key, keyOffset, slotStartIndex, slotEndIndex);
-    }
-
-    private int setKey(Bound bound, int[] position, byte[] key, int keyOffset, 
-            int slotStartIndex, int slotEndIndex) {
-        return ScanUtil.setKey(schema, slots, position, bound, key, keyOffset, slotStartIndex, slotEndIndex);
-    }
-
-    private void setStartKey() {
-        startKeyLength = setKey(Bound.LOWER, startKey, 0, 0);
-    }
-
-    private void appendToStartKey(int slotIndex, int byteOffset) {
-        startKeyLength += setKey(Bound.LOWER, startKey, byteOffset, slotIndex);
-    }
-
-    private void appendToEndKey(int slotIndex, int byteOffset) {
-        endKeyLength += setKey(Bound.UPPER, endKey, byteOffset, slotIndex);
     }
 
     private int getTerminatorCount(RowKeySchema schema) {

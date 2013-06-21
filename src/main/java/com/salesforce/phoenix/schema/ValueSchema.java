@@ -355,10 +355,10 @@ public abstract class ValueSchema implements Writable {
         return fields.get(fieldIndexByPosition[position]);
     }
     
-    protected static byte[] ensureSize(byte[] b, int offset, int size) {
+    private static byte[] ensureSize(byte[] b, int offset, int size) {
         if (size > b.length) {
-            byte[] bBigger = new byte[Math.min(b.length * 2, size)];
-            System.arraycopy(b, 0, bBigger, 0, offset);
+            byte[] bBigger = new byte[Math.max(b.length * 2, size)];
+            System.arraycopy(b, 0, bBigger, 0, b.length);
             return bBigger;
         }
         return b;
@@ -383,6 +383,7 @@ public abstract class ValueSchema implements Writable {
     
     abstract protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxLength);
     abstract protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset);
+    abstract protected int getVarLengthBytes(int length);
     
     /**
      * @return byte representation of the ValueSchema
@@ -405,6 +406,7 @@ public abstract class ValueSchema implements Writable {
                         valueSet.set(index - minNullableIndex);
                     }
                     if (!type.isFixedWidth()) {
+                        b = ensureSize(b, offset, offset + getVarLengthBytes(ptr.getLength()));
                         offset = writeVarLengthField(ptr, b, offset);
                     } else {
                         int nBytes = ptr.getLength();

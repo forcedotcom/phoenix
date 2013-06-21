@@ -88,7 +88,7 @@ public class UpsertCompiler {
     public MutationPlan compile(UpsertStatement upsert, List<Object> binds) throws SQLException {
         final PhoenixConnection connection = statement.getConnection();
         ConnectionQueryServices services = connection.getQueryServices();
-        final int maxSize = services.getConfig().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
+        final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         final ColumnResolver resolver = FromCompiler.getResolver(upsert, connection,upsert.getDynColumns());
         final TableRef tableRef = resolver.getTables().get(0);
         PTable table = tableRef.getTable();
@@ -197,7 +197,7 @@ public class UpsertCompiler {
              * and populate the MutationState (upto a limit).
             */
             final boolean isAutoCommit = connection.getAutoCommit();
-            runOnServer |= isAutoCommit;
+            runOnServer &= isAutoCommit;
             
             ////////////////////////////////////////////////////////////////////
             // UPSERT SELECT run server-side (maybe)

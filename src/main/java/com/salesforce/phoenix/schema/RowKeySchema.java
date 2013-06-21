@@ -90,7 +90,7 @@ public class RowKeySchema extends ValueSchema {
             value="NP_BOOLEAN_RETURN_NULL", 
             justification="Designed to return null.")
     public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
-        if (ptr.getOffset() + ptr.getLength() >= maxOffset) {
+        if (ptr.getOffset() + ptr.getLength() > maxOffset) {
             return null;
         }
         // If positioned at SEPARATOR_BYTE, skip it.
@@ -120,11 +120,15 @@ public class RowKeySchema extends ValueSchema {
         }
         return len;
     }
+
+    @Override
+    protected int getVarLengthBytes(int length) {
+        return length + 1; // Size in bytes plus one for the separator byte
+    }
     
     @Override
     protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset) {
         int length = ptr.getLength();
-        b = ensureSize(b, offset, offset + length + 1);
         System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, length);
         offset += length + 1;
         b[offset-1] = QueryConstants.SEPARATOR_BYTE;

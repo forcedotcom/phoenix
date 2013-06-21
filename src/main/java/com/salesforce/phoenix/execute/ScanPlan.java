@@ -54,8 +54,10 @@ public class ScanPlan extends BasicQueryPlan {
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy) {
         super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy);
-        if (limit != null && !orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
-            ScanRegionObserver.serializeIntoScan(context.getScan(), limit, orderBy.getOrderByExpressions(), projector.getEstimatedByteSize());
+        if (!orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
+            int thresholdBytes = context.getConnection().getQueryServices().getProps().getInt(
+                    QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
+            ScanRegionObserver.serializeIntoScan(context.getScan(), thresholdBytes, limit == null ? -1 : limit, orderBy.getOrderByExpressions(), projector.getEstimatedByteSize());
         }
     }
     
@@ -85,7 +87,7 @@ public class ScanPlan extends BasicQueryPlan {
             splits = iterators.getSplits();
             if (orderBy.getOrderByExpressions().isEmpty()) {
                 if (isSalted && 
-                        services.getConfig().getBoolean(
+                        services.getProps().getBoolean(
                                 QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                                 QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
                     scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
@@ -96,8 +98,10 @@ public class ScanPlan extends BasicQueryPlan {
                 // If we expect to have a small amount of data in a single region
                 // do the sort on the client side
                 if (context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) {
+                    int thresholdBytes = services.getProps().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, 
+                            QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
                     scanner = new ConcatResultIterator(iterators);
-                    scanner = new OrderedResultIterator(scanner, orderBy.getOrderByExpressions(), limit);
+                    scanner = new OrderedResultIterator(scanner, orderBy.getOrderByExpressions(), thresholdBytes, limit);
                 } else {
                     scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
                 }
@@ -107,7 +111,7 @@ public class ScanPlan extends BasicQueryPlan {
             // use a ResultIterators implementation that runs one serial scan per bucket and
             // then does a merge sort against those.  Otherwise, we can use a regular table scan.
             if (isSalted && 
-                    services.getConfig().getBoolean(
+                    services.getProps().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
                 ResultIterators iterators = new SaltingSerialIterators(context, tableRef, limit);

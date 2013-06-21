@@ -40,6 +40,7 @@ import com.salesforce.phoenix.expression.Expression;
  * @since 0.1
  */
 public abstract class FunctionExpression extends BaseCompoundExpression {
+    public enum OrderPreserving {NO, YES_IF_LAST, YES};
     public FunctionExpression() {
     }
     
@@ -50,14 +51,17 @@ public abstract class FunctionExpression extends BaseCompoundExpression {
     /**
      * Determines whether or not the result of the function invocation
      * will be ordered in the same way as the input to the function.
-     * Returning true enables an optimization to occur when a
+     * Returning YES enables an optimization to occur when a
      * GROUP BY contains function invocations using the leading PK
      * column(s).
-     * @return true if the function invocation will preserve order for
-     * the inputs versus the outputs and false otherwise
+     * @return YES if the function invocation will always preserve order for
+     * the inputs versus the outputs and false otherwise, YES_IF_LAST if the
+     * function preserves order, but any further column reference would not
+     * continue to preserve order, and NO if the function does not preserve
+     * order.
      */
-    public boolean preservesOrder() {
-        return false;
+    public OrderPreserving preservesOrder() {
+        return OrderPreserving.NO;
     }
 
     abstract public String getName();

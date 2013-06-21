@@ -29,21 +29,13 @@ package com.salesforce.phoenix.compile;
 
 
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.OrderByExpression;
-import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.parse.OrderByNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -112,9 +104,6 @@ public class OrderByCompiler {
                             .setMessage(nonAggregateExpression.toString()).build().buildException();
                         }
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
-                    } else if (limit == null && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) {
-                        // Throw if no limit unless hint indicates that all data is in single region
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNSUPPORTED_ORDER_BY_QUERY).build().buildException();
                     }
                 }
                 boolean isAscending = node.isAscending();

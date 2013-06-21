@@ -312,7 +312,16 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
     }
 
     @Test
+    public void testUpsertSelectForAggAutoCommit() throws Exception {
+        testUpsertSelectForAgg(true);
+    }
+    
+    @Test
     public void testUpsertSelectForAgg() throws Exception {
+        testUpsertSelectForAgg(false);
+    }
+    
+    private void testUpsertSelectForAgg(boolean autoCommit) throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts-1);
@@ -320,13 +329,15 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1)); // Execute at timestamp 1
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn.setAutoCommit(false);
+        conn.setAutoCommit(autoCommit);
         String upsert = "UPSERT INTO " + PTSDB_NAME + "(date, val, host) " +
             "SELECT current_date(), sum(a_integer), a_string FROM ATABLE GROUP BY a_string";
         PreparedStatement upsertStmt = conn.prepareStatement(upsert);
         int rowsInserted = upsertStmt.executeUpdate();
         assertEquals(3, rowsInserted);
-        conn.commit();
+        if (!autoCommit) {
+            conn.commit();
+        }
         conn.close();
         
         String query = "SELECT inst,host,date,val FROM " + PTSDB_NAME;
@@ -363,7 +374,9 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         upsertStmt = conn.prepareStatement(upsert);
         rowsInserted = upsertStmt.executeUpdate();
         assertEquals(1, rowsInserted);
-        conn.commit();
+        if (!autoCommit) {
+            conn.commit();
+        }
         conn.close();
         
         query = "SELECT inst,host,date,val FROM " + PTSDB_NAME + " WHERE inst='x'";

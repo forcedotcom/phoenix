@@ -66,7 +66,7 @@ public class KeyRange implements Writable {
      * is what we use for upper/lower bound), we create this range using the private constructor rather than going
      * through the static creation method (where this would not be possible).
      */
-    public static final KeyRange IS_NOT_NULL_RANGE = new KeyRange(ByteUtil.EMPTY_BYTE_ARRAY, false, UNBOUND, false);
+    public static final KeyRange IS_NOT_NULL_RANGE = new KeyRange(ByteUtil.nextKey(QueryConstants.SEPARATOR_BYTE_ARRAY), true, UNBOUND, false);
     
     /**
      * KeyRange for an empty key range

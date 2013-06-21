@@ -30,7 +30,6 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.util.*;
 
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.http.annotation.Immutable;
 
 import com.google.common.collect.ImmutableList;
@@ -41,6 +40,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
+import com.salesforce.phoenix.expression.function.FunctionExpression.OrderPreserving;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -126,6 +126,33 @@ public class GroupByCompiler {
         }
     }
 
+    private static class GroupByEntry {
+        private final Expression expression;
+        private final ColumnRef column;
+        private final OrderPreserving orderPreserving;
+        
+        private GroupByEntry(Expression expression, ColumnRef column, OrderPreserving orderPreserving) {
+            this.expression = expression;
+            this.column = column;
+            this.orderPreserving = orderPreserving;
+        }
+
+        public Expression getExpression() {
+            return expression;
+        }
+
+        public int getPkPosition() {
+            return column.getPKSlotPosition();
+        }
+
+        public int getColumnPosition() {
+            return column.getColumnPosition();
+        }
+
+        public OrderPreserving getOrderPreserving() {
+            return orderPreserving;
+        }
+    }
     /**
      * Get list of columns in the GROUP BY clause.
      * @param context query context kept between compilation of different query clauses
@@ -176,8 +203,9 @@ public class GroupByCompiler {
 
         context.setAggregate(true);
        // Accumulate expressions in GROUP BY
-        List<Pair<Expression,Integer>> groupByPairs = Lists.newArrayListWithCapacity(groupByNodes.size());
+        List<GroupByEntry> groupByEntries = Lists.newArrayListWithCapacity(groupByNodes.size());
         GroupByClauseVisitor groupByVisitor = new GroupByClauseVisitor(context, aliasParseNodeMap);
+        boolean isRowKeyOrderedGrouping = true;
         for (ParseNode node : groupByNodes) {
             Expression expression = node.accept(groupByVisitor);
             if (groupByVisitor.isAggregate()) {
@@ -185,39 +213,42 @@ public class GroupByCompiler {
                     .setMessage(expression.toString()).build().buildException();
             }
             if (! (expression instanceof LiteralExpression) ) { // Filter out top level literals
-                groupByPairs.add(new Pair<Expression,Integer>(expression,groupByVisitor.columnPosition));
+                isRowKeyOrderedGrouping = (groupByVisitor.orderPreserving != OrderPreserving.NO);
+                groupByEntries.add(new GroupByEntry(expression, groupByVisitor.columnRef, groupByVisitor.orderPreserving));
             }
             groupByVisitor.reset();
         }
         
-        if (groupByVisitor.isRowKeyOrderedGrouping) {
+        if (isRowKeyOrderedGrouping) {
             // Sort by position
-            Collections.sort(groupByPairs, new Comparator<Pair<Expression,Integer>>() {
+            Collections.sort(groupByEntries, new Comparator<GroupByEntry>() {
                 @Override
-                public int compare(Pair<Expression, Integer> o1, Pair<Expression, Integer> o2) {
-                    return o1.getSecond()-o2.getSecond();
+                public int compare(GroupByEntry o1, GroupByEntry o2) {
+                    return o1.getPkPosition()-o2.getPkPosition();
                 }
             });
             // Determine if there are any gaps in the PK columns (in which case we don't need
             // to sort in the coprocessor because the keys will already naturally be in sorted
             // order.
             int prevPos = -1;
-            for (int i = 0; i < groupByPairs.size() && groupByVisitor.isRowKeyOrderedGrouping; i++) {
-                int pos = groupByPairs.get(i).getSecond();
-                groupByVisitor.isRowKeyOrderedGrouping &= (pos == prevPos || (pos - 1 == prevPos));
+            OrderPreserving prevOrderPreserving = OrderPreserving.YES;
+            for (int i = 0; i < groupByEntries.size() && isRowKeyOrderedGrouping; i++) {
+                int pos = groupByEntries.get(i).getPkPosition();
+                isRowKeyOrderedGrouping &= pos == prevPos || ((pos - 1 == prevPos) && (prevOrderPreserving == OrderPreserving.YES));
                 prevPos = pos;
+                prevOrderPreserving = groupByEntries.get(i).getOrderPreserving();
             }
         }
-        List<Expression> expressions = Lists.newArrayListWithCapacity(groupByPairs.size());
+        List<Expression> expressions = Lists.newArrayListWithCapacity(groupByEntries.size());
         List<Expression> keyExpressions = expressions;
         String groupExprAttribName;
         // This is true if the GROUP BY is composed of only PK columns. We further check here that
         // there are no "gaps" in the PK columns positions used (i.e. we start with the first PK
         // column and use each subsequent one in PK order).
-        if (groupByVisitor.isRowKeyOrderedGrouping) {
+        if (isRowKeyOrderedGrouping) {
             groupExprAttribName = GroupedAggregateRegionObserver.KEY_ORDERED_GROUP_BY_EXPRESSIONS;
-            for (Pair<Expression,Integer> groupByPair : groupByPairs) {
-                expressions.add(groupByPair.getFirst());
+            for (GroupByEntry groupByEntry : groupByEntries) {
+                expressions.add(groupByEntry.getExpression());
             }
         } else {
             /*
@@ -239,11 +270,11 @@ public class GroupByCompiler {
              * Within each bucket, order based on the column position in the schema. Putting the fixed width values
              * in the beginning optimizes access to subsequent values.
              */
-            Collections.sort(groupByPairs, new Comparator<Pair<Expression,Integer>>() {
+            Collections.sort(groupByEntries, new Comparator<GroupByEntry>() {
                 @Override
-                public int compare(Pair<Expression, Integer> o1, Pair<Expression, Integer> o2) {
-                    Expression e1 = o1.getFirst();
-                    Expression e2 = o2.getFirst();
+                public int compare(GroupByEntry o1, GroupByEntry o2) {
+                    Expression e1 = o1.getExpression();
+                    Expression e2 = o2.getExpression();
                     boolean isFixed1 = e1.getDataType().isFixedWidth();
                     boolean isFixed2 = e2.getDataType().isFixedWidth();
                     boolean isFixedNullable1 = e1.isNullable() &&isFixed1;
@@ -252,7 +283,7 @@ public class GroupByCompiler {
                         if (isFixed1 == isFixed2) {
                             // Not strictly necessary, but forces the order to match the schema
                             // column order (with PK columns before value columns).
-                            return o1.getSecond() - o2.getSecond();
+                            return o1.getColumnPosition() - o2.getColumnPosition();
                         } else if (isFixed1) {
                             return -1;
                         } else {
@@ -265,8 +296,8 @@ public class GroupByCompiler {
                     }
                 }
             });
-            for (Pair<Expression,Integer> groupByPair : groupByPairs) {
-                expressions.add(groupByPair.getFirst());
+            for (GroupByEntry groupByEntry : groupByEntries) {
+                expressions.add(groupByEntry.getExpression());
             }
             for (int i = expressions.size()-2; i >= 0; i--) {
                 Expression expression = expressions.get(i);
@@ -330,23 +361,27 @@ public class GroupByCompiler {
      * TODO: should isRowKeyOrderedGrouping be set to false more often?
      */
     private static class GroupByClauseVisitor  extends AliasingExpressionCompiler {
-        private boolean isRowKeyOrderedGrouping = true;
-        private Integer columnPosition = null;
+        private OrderPreserving orderPreserving = OrderPreserving.YES;
+        private ColumnRef columnRef;
         
         private GroupByClauseVisitor(StatementContext context, Map<String, ParseNode> aliasParseNodeMap) {
             super(context, aliasParseNodeMap);
-            isRowKeyOrderedGrouping = (context.getResolver().getTables().get(0).getTable().getBucketNum() == null);
+            if (context.getResolver().getTables().get(0).getTable().getBucketNum() != null) {
+                orderPreserving = OrderPreserving.NO;
+            }
         }
         
         @Override
         protected Expression addFunction(FunctionExpression func) {
-            isRowKeyOrderedGrouping &= func.preservesOrder();
+            // Keep the minimum value between this function and the current value,
+            // so that we never increase OrderPreserving from NO or YES_IF_LAST.
+            orderPreserving = OrderPreserving.values()[Math.min(orderPreserving.ordinal(), func.preservesOrder().ordinal())];
             return super.addFunction(func);
         }
     
         @Override
         public boolean visitEnter(CaseParseNode node) throws SQLException {
-            isRowKeyOrderedGrouping = false;
+            orderPreserving = OrderPreserving.NO;
             return super.visitEnter(node);
         }
         
@@ -354,7 +389,7 @@ public class GroupByCompiler {
         public boolean visitEnter(DivideParseNode node) throws SQLException {
             // A divide expression may not preserve row order.
             // For example: GROUP BY 1/x
-            isRowKeyOrderedGrouping = false;
+            orderPreserving = OrderPreserving.NO;
             return super.visitEnter(node);
         }
 
@@ -362,7 +397,7 @@ public class GroupByCompiler {
         public boolean visitEnter(SubtractParseNode node) throws SQLException {
             // A subtract expression may not preserve row order.
             // For example: GROUP BY 10 - x
-            isRowKeyOrderedGrouping = false;
+            orderPreserving = OrderPreserving.NO;
             return super.visitEnter(node);
         }
 
@@ -370,14 +405,15 @@ public class GroupByCompiler {
         public boolean visitEnter(MultiplyParseNode node) throws SQLException {
             // A multiply expression may not preserve row order.
             // For example: GROUP BY -1 * x
-            isRowKeyOrderedGrouping = false;
+            orderPreserving = OrderPreserving.NO;
             return super.visitEnter(node);
         }
 
         @Override
         public void reset() {
             super.reset();
-            columnPosition = null;
+            columnRef = null;
+            orderPreserving = OrderPreserving.YES;
         }
         
         @Override
@@ -385,14 +421,17 @@ public class GroupByCompiler {
             ColumnRef ref = super.resolveColumn(node);
             // If we encounter any non PK column, then we can't aggregate on-the-fly
             // because the distinct groups have no correlation to the KV column value
-            isRowKeyOrderedGrouping = isRowKeyOrderedGrouping && SchemaUtil.isPKColumn(ref.getColumn());
-            if (columnPosition == null) {
-                columnPosition = ref.getColumnPosition();
-            } else if (columnPosition != ref.getColumnPosition()) {
+            if (!SchemaUtil.isPKColumn(ref.getColumn())) {
+                orderPreserving = OrderPreserving.NO;
+            }
+            
+            if (columnRef == null) {
+                columnRef = ref;
+            } else if (!columnRef.equals(ref)) {
                 // If we encounter more than one column reference in an expression,
                 // we can't assume the result of the expression will be key ordered.
                 // For example GROUP BY a * b
-                isRowKeyOrderedGrouping = false;
+                orderPreserving = OrderPreserving.NO;
             }
             return ref;
         }

@@ -32,8 +32,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -141,5 +140,10 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     @Override
     public int getLowestClusterHBaseVersion() {
         return getDelegate().getLowestClusterHBaseVersion();
+    }
+
+    @Override
+    public HBaseAdmin getAdmin() throws SQLException {
+        return getDelegate().getAdmin();
     }
 }

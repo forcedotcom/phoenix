@@ -89,12 +89,14 @@ public class KeyValueSchema extends ValueSchema {
     }
     
     @Override
+    protected int getVarLengthBytes(int length) {
+        return length + WritableUtils.getVIntSize(length);
+    }
+    
+    @Override
     protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset) {
         int length = ptr.getLength();
-        int vintLen = WritableUtils.getVIntSize(length);
-        b = ensureSize(b, offset, offset + vintLen);
         offset += ByteUtil.vintToBytes(b, offset, length);
-        b = ensureSize(b, offset, offset + length);
         System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, length);                        
         offset += length;
         return offset;

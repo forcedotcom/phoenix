@@ -39,7 +39,8 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.exception.*;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
@@ -788,7 +789,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     @Override
     public int getFetchSize() throws SQLException {
-        return connection.getQueryServices().getConfig().getInt(QueryServices.SCAN_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_SCAN_CACHE_SIZE);
+        return connection.getQueryServices().getProps().getInt(QueryServices.SCAN_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_SCAN_CACHE_SIZE);
     }
 
     @Override
@@ -818,7 +819,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     @Override
     public int getQueryTimeout() throws SQLException {
-        return connection.getQueryServices().getConfig().getInt(QueryServices.KEEP_ALIVE_MS_ATTRIB, 0) / 1000;
+        return connection.getQueryServices().getProps().getInt(QueryServices.KEEP_ALIVE_MS_ATTRIB, 0) / 1000;
     }
 
     // For testing

@@ -56,6 +56,33 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
         }
     }
 
+    protected static void initGroupByRowKeyColumns(long ts) throws Exception {
+        ensureTableCreated(getUrl(),PTSDB_NAME, null, ts-2);
+
+        // Insert all rows at ts
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        PreparedStatement stmt = conn.prepareStatement(
+                "upsert into " +
+                "PTSDB(" +
+                "    INST, " +
+                "    HOST," +
+                "    DATE)" +
+                "VALUES (?, ?, CURRENT_DATE())");
+        stmt.setString(1, "ab");
+        stmt.setString(2, "a");
+        stmt.execute();
+        stmt.setString(1, "ac");
+        stmt.setString(2, "b");
+        stmt.execute();
+        stmt.setString(1, "ad");
+        stmt.setString(2, "a");
+        stmt.execute();
+        conn.commit();
+        conn.close();
+    }
+
     protected static void initTableValues(byte[][] splits, long ts) throws Exception {
         ensureTableCreated(getUrl(),PTSDB_NAME, splits, ts-2);
 
@@ -200,6 +227,29 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
             assertEquals("abc-def-ghi", rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testGroupByRowKeyColumns() throws Exception {
+        long ts = nextTimestamp();
+        String query = "SELECT SUBSTR(INST,1,1),HOST FROM PTSDB GROUP BY SUBSTR(INST,1,1),HOST";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            initGroupByRowKeyColumns(ts);
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertEquals("a", rs.getString(2));
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertEquals("b", rs.getString(2));
             assertFalse(rs.next());
         } finally {
             conn.close();

@@ -67,10 +67,11 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
     public static final String NON_AGGREGATE_QUERY = "NonAggregateQuery";
     private static final String TOPN = "TopN";
 
-    public static void serializeIntoScan(Scan scan, int limit, List<OrderByExpression> orderByExpressions, int estimatedRowSize) {
+    public static void serializeIntoScan(Scan scan, int thresholdBytes, int limit, List<OrderByExpression> orderByExpressions, int estimatedRowSize) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream(); // TODO: size?
         try {
             DataOutputStream output = new DataOutputStream(stream);
+            WritableUtils.writeVInt(output, thresholdBytes);
             WritableUtils.writeVInt(output, limit);
             WritableUtils.writeVInt(output, estimatedRowSize);
             WritableUtils.writeVInt(output, orderByExpressions.size());
@@ -97,6 +98,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         ByteArrayInputStream stream = new ByteArrayInputStream(topN); // TODO: size?
         try {
             DataInputStream input = new DataInputStream(stream);
+            int thresholdBytes = WritableUtils.readVInt(input);
             int limit = WritableUtils.readVInt(input);
             int estimatedRowSize = WritableUtils.readVInt(input);
             int size = WritableUtils.readVInt(input);
@@ -107,7 +109,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
                 orderByExpressions.add(orderByExpression);
             }
             ResultIterator inner = new RegionScannerResultIterator(s);
-            return new OrderedResultIterator(inner, orderByExpressions, limit, estimatedRowSize);
+            return new OrderedResultIterator(inner, orderByExpressions, thresholdBytes, limit >= 0 ? limit : null, estimatedRowSize);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {

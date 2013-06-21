@@ -29,8 +29,7 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.QueryServicesOptions.withDefaults;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 /**
@@ -39,7 +38,7 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
  * @author jtaylor
  * @since 0.1
  */
-public class QueryServicesTestImpl extends BaseQueryServicesImpl {
+public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
 
     private static final int DEFAULT_THREAD_POOL_SIZE = 8;
     private static final int DEFAULT_QUEUE_SIZE = 0;
@@ -54,12 +53,17 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 4;
     private static final int DEFAULT_MAX_QUERY_CONCURRENCY = 8;
     
+    private static final int DEFAULT_MASTER_INFO_PORT = -1;
+    private static final int DEFAULT_REGIONSERVER_INFO_PORT = -1;
+    private static final int DEFAULT_REGIONSERVER_LEASE_PERIOD_MS = 9000000;
+    private static final int DEFAULT_RPC_TIMEOUT_MS = 9000000;
+    
     public QueryServicesTestImpl() {
-        this(HBaseConfiguration.create());
+        this(ReadOnlyProps.EMPTY_PROPS);
     }
     
-    public QueryServicesTestImpl(Configuration config) {
-        this(withDefaults(config)
+    public QueryServicesTestImpl(ReadOnlyProps overrideProps) {
+        super(withDefaults()
                 .setThreadPoolSize(DEFAULT_THREAD_POOL_SIZE)
                 .setQueueSize(DEFAULT_QUEUE_SIZE)
                 .setMaxMemoryPerc(DEFAULT_MAX_MEMORY_PERC)
@@ -71,16 +75,12 @@ public class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setTargetQueryConcurrency(DEFAULT_TARGET_QUERY_CONCURRENCY)
                 .setMaxQueryConcurrency(DEFAULT_MAX_QUERY_CONCURRENCY)
                 .setRowKeyOrderSaltedTable(true)
+                .setMaxHashCacheTTLMs(DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS)
+                .setMasterInfoPort(DEFAULT_MASTER_INFO_PORT)
+                .setRegionServerInfoPort(DEFAULT_REGIONSERVER_INFO_PORT)
+                .setRegionServerLeasePeriodMs(DEFAULT_REGIONSERVER_LEASE_PERIOD_MS)
+                .setRpcTimeoutMs(DEFAULT_RPC_TIMEOUT_MS)
+                .setAll(overrideProps)
         );
-    }    
-   
-    public QueryServicesTestImpl(QueryServicesOptions options) {
-        super(options);
-        getConfig().setIfUnset(QueryServices.MAX_HASH_CACHE_TIME_TO_LIVE_MS, Integer.toString(DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS));
-        getConfig().setInt("hbase.master.info.port", -1); // To allow tests to run while local hbase is running too
-        getConfig().setInt("hbase.regionserver.info.port", -1);
-        getConfig().set("hbase.regionserver.lease.period" , "9000000"); // Increase so that we don't get timeouts while debugging
-        getConfig().set("hbase.rpc.timeout" , "9000000");
-
     }    
 }

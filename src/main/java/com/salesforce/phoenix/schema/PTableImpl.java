@@ -32,7 +32,6 @@ import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
 
 import java.io.*;
 import java.util.*;
-import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
@@ -42,7 +41,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.*;
-import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.stat.PTableStats;
@@ -192,6 +190,10 @@ public class PTableImpl implements PTable {
 
     @Override
     public int newKey(ImmutableBytesWritable key, byte[][] values) {
+        int nValues = values.length;
+        while (nValues > 0 && (values[nValues-1] == null || values[nValues-1].length == 0)) {
+            nValues--;
+        }
         int i = 0;
         TrustedByteArrayOutputStream os = new TrustedByteArrayOutputStream(SchemaUtil.estimateKeyLength(this));
         try {
@@ -203,10 +205,14 @@ public class PTableImpl implements PTable {
             }
             List<PColumn> columns = getPKColumns();
             int nColumns = columns.size();
-            PColumn lastPKColumn = columns.get(nColumns - 1);
-            while (i < values.length && i < nColumns) {
+            PDataType type = null;
+            while (i < nValues && i < nColumns) {
+                // Separate variable length column values in key with zero byte
+                if (type != null && !type.isFixedWidth()) {
+                    os.write(SEPARATOR_BYTE);
+                }
                 PColumn column = columns.get(i);
-                PDataType type = column.getDataType();
+                type = column.getDataType();
                 // This will throw if the value is null and the type doesn't allow null
                 byte[] byteValue = values[i++];
                 if (byteValue == null) {
@@ -230,21 +236,13 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
                 }
                 os.write(byteValue, 0, byteValue.length);
-                // Separate variable length column values in key with zero byte
-                if (!type.isFixedWidth() && column != lastPKColumn) {
-                    os.write(SEPARATOR_BYTE);
-                }
             }
             // If some non null pk values aren't set, then throw
             if (i < nColumns) {
                 PColumn column = columns.get(i);
-                PDataType type = column.getDataType();
+                type = column.getDataType();
                 if (type.isFixedWidth() || !column.isNullable()) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
-                }
-                // Separate variable length column values in key with zero byte
-                if (column != lastPKColumn) {
-                    os.write(SEPARATOR_BYTE);
                 }
             }
             byte[] buf = os.getBuffer();

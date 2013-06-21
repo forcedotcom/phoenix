@@ -86,6 +86,10 @@ public class CoerceExpression extends BaseSingleExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (getChild().evaluate(tuple, ptr)) {
+            // TODO: add PDataType.toBytes(ptr, type)
+            if (getDataType().isBytesComparableWith(getChild().getDataType())) {
+                return true;
+            }
             // TODO: use Native to prevent creating object
             // TODO: if type matches don't go to object and back again
             Object o = getDataType().toObject(ptr, getChild().getDataType());

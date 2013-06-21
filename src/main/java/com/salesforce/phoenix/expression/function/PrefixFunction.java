@@ -22,7 +22,7 @@ abstract public class PrefixFunction extends ScalarFunction {
 
     @Override
     public int getKeyFormationTraversalIndex() {
-        return preservesOrder() ? 0 : NO_TRAVERSAL;
+        return preservesOrder() == OrderPreserving.NO ? NO_TRAVERSAL : 0;
     }
     
     protected boolean extractNode() {

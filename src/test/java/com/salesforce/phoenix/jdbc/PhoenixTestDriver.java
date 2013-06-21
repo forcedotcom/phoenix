@@ -27,16 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
-import static com.salesforce.phoenix.query.QueryServicesOptions.withDefaults;
-
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.HBaseConfiguration;
-
 import com.salesforce.phoenix.end2end.ConnectionQueryServicesTestImpl;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 
@@ -52,7 +47,7 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
     private ConnectionQueryServices queryServices;
     
     public PhoenixTestDriver() {
-        this(new QueryServicesTestImpl(withDefaults(HBaseConfiguration.create())));
+        this(new QueryServicesTestImpl());
     }
 
     public PhoenixTestDriver(QueryServices services) {
@@ -71,11 +66,11 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
             return queryServices;
         }
         QueryServices services = getQueryServices();
-        ConnectionInfo connInfo = getConnectionInfo(url);
-        if (PhoenixRuntime.CONNECTIONLESS.equals(connInfo.getZookeeperQuorum())) {
+        ConnectionInfo connInfo = ConnectionInfo.create(url);
+        if (connInfo.isConnectionless()) {
             queryServices =  new ConnectionlessQueryServicesImpl(services);
         } else {
-            queryServices =  new ConnectionQueryServicesTestImpl(services, services.getConfig());
+            queryServices =  new ConnectionQueryServicesTestImpl(services, connInfo);
         }
         queryServices.init(url, info);
         return queryServices;
@@ -83,6 +78,10 @@ public class PhoenixTestDriver extends PhoenixEmbeddedDriver {
     
     @Override
     public void close() throws SQLException {
-        queryServices.close();
+        try {
+            queryServices.close();
+        } finally {
+            queryServices = null;
+        }
     }
 }

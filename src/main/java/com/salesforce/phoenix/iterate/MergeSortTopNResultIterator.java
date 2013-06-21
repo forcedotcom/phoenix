@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.sql.SQLException;
 import java.util.List;
 
@@ -57,8 +55,7 @@ public class MergeSortTopNResultIterator extends MergeSortResultIterator {
     
     public MergeSortTopNResultIterator(ResultIterators iterators, Integer limit, List<OrderByExpression> orderByColumns) {
         super(iterators);
-        checkNotNull(limit);
-        this.limit = limit;
+        this.limit = limit == null ? -1 : limit;
         this.orderByColumns = orderByColumns;
     }
 
@@ -87,7 +84,7 @@ public class MergeSortTopNResultIterator extends MergeSortResultIterator {
 
     @Override
     public Tuple peek() throws SQLException {
-        if (count >= limit) {
+        if (limit >= 0 && count >= limit) {
             return null;
         }
         return super.peek();
@@ -95,7 +92,7 @@ public class MergeSortTopNResultIterator extends MergeSortResultIterator {
 
     @Override
     public Tuple next() throws SQLException {
-        if (count++ >= limit) {
+        if (limit >= 0 && count++ >= limit) {
             return null;
         }
         return super.next();

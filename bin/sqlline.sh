@@ -28,7 +28,8 @@
 ############################################################################
 
 # Phoenix client jar. To generate new jars: $ mvn package -DskipTests
-phoenix_jar_path="../target"
+current_dir=$(cd $(dirname $0);pwd)
+phoenix_jar_path="$current_dir/../target"
 phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
 
 if [ -z "$1" ] 
@@ -40,4 +41,4 @@ if [ "$2" ]
   then sqlfile="--run=$2";
 fi
 
-java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:log4j.properties sqlline.SqlLine -d com.salesforce.phoenix.jdbc.PhoenixDriver -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true --isolation=TRANSACTION_READ_COMMITTED $sqlfile
+java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:$current_dir/log4j.properties sqlline.SqlLine -d com.salesforce.phoenix.jdbc.PhoenixDriver -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true --isolation=TRANSACTION_READ_COMMITTED $sqlfile
