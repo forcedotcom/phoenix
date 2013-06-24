@@ -381,7 +381,7 @@ public class MetaDataClient {
             columns.add(indexCol);
         }
         
-        return doCreateTable(statement, null, (LinkedList<PColumn>) pkColumns, columns, familyNames, new PostIndexDDLCompiler(connection));
+        return doCreateTable(statement, null, pkColumns, columns, familyNames, new PostIndexDDLCompiler(connection));
     }
 
     private MutationState doCreateTable(CreateTableStatement statement, String pkName, LinkedList<PColumn> pkColumns, List<PColumn> columns,
@@ -457,7 +457,7 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
             }
             if (saltBucketNum != null) {
-                ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
+                pkColumns.addFirst(SaltingUtil.SALTING_COLUMN);
             }
             
             if (isIndex) {
