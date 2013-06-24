@@ -271,13 +271,22 @@ public class SchemaUtil {
     }
 
     public static int getVarCharLength(byte[] buf, int keyOffset, int maxLength) {
-        int length=0;
-        while (length < maxLength && buf[keyOffset+length] != QueryConstants.SEPARATOR_BYTE) {
-            length++;
+        return getVarCharLength(buf, keyOffset, maxLength, 1);
+    }
+
+    public static int getVarCharLength(byte[] buf, int keyOffset, int maxLength, int skipCount) {
+        int length = 0;
+        for (int i=0; i<skipCount; i++) {
+            while (length < maxLength && buf[keyOffset+length] != QueryConstants.SEPARATOR_BYTE) {
+                length++;
+            }
+            if (i != skipCount-1) { // skip over the separator if it's not the last one.
+                length++;
+            }
         }
         return length;
     }
-    
+
     public static int getVarChars(byte[] rowKey, byte[][] rowKeyMetadata) {
         return getVarChars(rowKey, 0, rowKey.length, 0, rowKeyMetadata);
     }

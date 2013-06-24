@@ -157,5 +157,34 @@ public interface PTable extends Writable {
      * @return number of buckets used by this table for salting, or null if salting is not used.
      */
     Integer getBucketNum();
-   
+
+    /**
+     * Add the argument index to the list of index for this table.
+     * @param index index table to be added.
+     */
+    void addIndex(PTable index);
+
+    /**
+     * Return the list of indexes defined on this table.
+     * @return the list of indexes.
+     */
+    List<PTable> getIndexes();
+
+    /**
+     * For a table of index type, set the state for the table.
+     * @return the state for this table.
+     */
+    void setIndexState(PIndexState state);
+
+    /**
+     * For a table of index type, return the state of the table.
+     * @return the state of the index.
+     */
+    PIndexState getIndexState();
+
+    /**
+     * For a table of index type, return the name of the data table.
+     * @return the name of the data table that this index is on.
+     */
+    String getDataTableName();
 }

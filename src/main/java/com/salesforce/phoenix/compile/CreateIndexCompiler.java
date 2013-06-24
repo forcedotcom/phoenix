@@ -25,35 +25,54 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.compile;
 
-import org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy;
+import java.sql.ParameterMetaData;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import org.apache.hadoop.hbase.client.Scan;
 
+import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.CreateIndexStatement;
+import com.salesforce.phoenix.schema.MetaDataClient;
 
-public class MetaDataSplitPolicy extends ConstantSizeRegionSplitPolicy {
+public class CreateIndexCompiler {
+    private final PhoenixConnection connection;
 
-    @Override
-    protected byte[] getSplitPoint() {
-        byte[] splitPoint = super.getSplitPoint();
-        int offset = SchemaUtil.getVarCharLength(splitPoint, 0, splitPoint.length);
-        // Split only on Phoenix schema name, so this is ok b/c we won't be splitting
-        // in the middle of a Phoenix table.
-        if (offset == splitPoint.length) {
-            return splitPoint;
-        }
-//        offset = SchemaUtil.getVarCharLength(splitPoint, offset+1, splitPoint.length-offset-1);
-//        // Split only on Phoenix schema and table name, so this is ok b/c we won't be splitting
-//        // in the middle of a Phoenix table.
-//        if (offset == splitPoint.length) {
-//            return splitPoint;
-//        }
-        // Otherwise, an attempt is being made to split in the middle of a table.
-        // Just return a split point at the schema boundary instead
-        byte[] newSplitPoint = new byte[offset + 1];
-        System.arraycopy(splitPoint, 0, newSplitPoint, 0, offset+1);
-        return newSplitPoint;
+    public CreateIndexCompiler(PhoenixConnection connection) {
+        this.connection = connection;
     }
 
+    public MutationPlan compile(final CreateIndexStatement statement, List<Object> binds) throws SQLException {
+        final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+        Scan scan = new Scan();
+        final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan);
+        final MetaDataClient client = new MetaDataClient(connection);
+        
+        return new MutationPlan() {
+
+            @Override
+            public ParameterMetaData getParameterMetaData() {
+                return context.getBindManager().getParameterMetaData();
+            }
+
+            @Override
+            public PhoenixConnection getConnection() {
+                return connection;
+            }
+
+            @Override
+            public MutationState execute() throws SQLException {
+                return client.createIndex(statement);
+            }
+
+            @Override
+            public ExplainPlan getExplainPlan() throws SQLException {
+                return new ExplainPlan(Collections.singletonList("CREATE INDEX"));
+            }
+        };
+    }
 }

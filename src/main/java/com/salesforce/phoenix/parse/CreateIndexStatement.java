@@ -25,35 +25,46 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.parse;
 
-import org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy;
+import java.util.Collections;
+import java.util.List;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import org.apache.hadoop.hbase.util.Pair;
+
+import com.google.common.collect.ListMultimap;
+import com.salesforce.phoenix.schema.PTableType;
 
 
-public class MetaDataSplitPolicy extends ConstantSizeRegionSplitPolicy {
+public class CreateIndexStatement extends CreateTableStatement implements SQLStatement {
 
-    @Override
-    protected byte[] getSplitPoint() {
-        byte[] splitPoint = super.getSplitPoint();
-        int offset = SchemaUtil.getVarCharLength(splitPoint, 0, splitPoint.length);
-        // Split only on Phoenix schema name, so this is ok b/c we won't be splitting
-        // in the middle of a Phoenix table.
-        if (offset == splitPoint.length) {
-            return splitPoint;
-        }
-//        offset = SchemaUtil.getVarCharLength(splitPoint, offset+1, splitPoint.length-offset-1);
-//        // Split only on Phoenix schema and table name, so this is ok b/c we won't be splitting
-//        // in the middle of a Phoenix table.
-//        if (offset == splitPoint.length) {
-//            return splitPoint;
-//        }
-        // Otherwise, an attempt is being made to split in the middle of a table.
-        // Just return a split point at the schema boundary instead
-        byte[] newSplitPoint = new byte[offset + 1];
-        System.arraycopy(splitPoint, 0, newSplitPoint, 0, offset+1);
-        return newSplitPoint;
+    private final String dataTableName;
+    private final TableName tableName;
+    private final List<ParseNode> includeColumns;
+
+    public CreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns,
+            ListMultimap<String,Pair<String,Object>> props, int bindCount) {
+        super(tableName, props, Collections.<ColumnDef>emptyList(), pkConstraint, null, false, false, bindCount);
+        this.includeColumns = includeColumns;
+        this.dataTableName = tableName.getTableName();
+        this.tableName = new TableName(tableName.getSchemaName(), indexName.getName());
     }
 
+    public List<ParseNode> getIncludeColumns() {
+        return includeColumns;
+    }
+
+    @Override
+    public TableName getTableName() {
+        return tableName;
+    }
+
+    public String getDataTableName() {
+        return dataTableName;
+    }
+
+    @Override
+    public PTableType getTableType() {
+        return PTableType.INDEX;
+    }
 }
