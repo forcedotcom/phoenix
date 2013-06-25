@@ -93,7 +93,7 @@ public class PMetaDataImpl implements PMetaData {
         columns.addAll(table.getColumns());
         columns.addAll(newColumns);
         Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
-        PTable newTable = new PTableImpl(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns);
+        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns, null);
         tables.put(tableName, newTable);
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schema.getName(), schema);
@@ -142,7 +142,7 @@ public class PMetaDataImpl implements PMetaData {
         }
         
         Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
-        PTable newTable = new PTableImpl(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns);
+        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns, null);
         tables.put(tableName, newTable);
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schema.getName(), schema);

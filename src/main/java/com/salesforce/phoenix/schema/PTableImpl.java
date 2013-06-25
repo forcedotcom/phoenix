@@ -62,6 +62,7 @@ public class PTableImpl implements PTable {
     
     private PName name;
     private PTableType type;
+    private PIndexState state;
     private long sequenceNumber;
     private long timeStamp;
     // Have MultiMap for String->PColumn (may need family qualifier)
@@ -74,34 +75,63 @@ public class PTableImpl implements PTable {
     private String pkName;
     private Integer bucketNum;
     // Statistics associated with this table.
-    PTableStats stats;
-    RowKeySchema rowKeySchema;
+    private PTableStats stats;
+    private RowKeySchema rowKeySchema;
+    // Indexes associated with this table.
+    private List<PTable> indexes;
+    // Data table name that the index is created on.
+    private String dataTableName;
     
     public PTableImpl() {
     }
 
     public PTableImpl(long timeStamp) { // For delete marker
-        this.type = PTableType.USER;
+        this(timeStamp, false);
+    }
+
+    public PTableImpl(long timeStamp, boolean isIndex) { // For index delete marker
+        if (isIndex) {
+            this.type = PTableType.INDEX;
+            this.state = PIndexState.INACTIVE;
+        } else {
+            this.type = PTableType.USER;
+        }
         this.timeStamp = timeStamp;
         this.pkColumns = this.allColumns = Collections.emptyList();
         this.families = Collections.emptyList();
         this.familyByBytes = Collections.emptyMap();
         this.familyByString = Collections.emptyMap();
         this.rowKeySchema = RowKeySchema.EMPTY_SCHEMA;
+        this.indexes = Collections.emptyList();
     }
 
-    public PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, Integer bucketNum, List<PColumn> columns) {
-        init(name, type, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl());
+    public static PTableImpl makePTable(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName,
+            Integer bucketNum, List<PColumn> columns, List<PTable> indexes) {
+        return new PTableImpl(name, type, timeStamp, sequenceNumber, pkName, bucketNum, columns, indexes);
     }
 
-    @Override
-    public String toString() {
-        return name.getString();
+    public static PTableImpl makePIndex(PName name, PIndexState state, long timeStamp, long sequenceNumber, String pkName,
+            Integer bucketNum, List<PColumn> columns, String dataTableName) {
+        return new PTableImpl(name, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, dataTableName);
     }
 
-    private void init(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName, Integer bucketNum, List<PColumn> columns, PTableStats stats) {
+    private PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName,
+            Integer bucketNum, List<PColumn> columns, List<PTable> indexes) {
+        init(name, type, null, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
+                indexes == null ? new ArrayList<PTable>() : indexes, null);
+    }
+
+    private PTableImpl(PName name, PIndexState state, long timeStamp, long sequenceNumber, String pkName,
+            Integer bucketNum, List<PColumn> columns, String dataTableName) {
+        init(name, PTableType.INDEX, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
+                Collections.<PTable>emptyList(), dataTableName);
+    }
+
+    private void init(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, String pkName,
+            Integer bucketNum, List<PColumn> columns, PTableStats stats, List<PTable> indexes, String dataTableName) {
         this.name = name;
         this.type = type;
+        this.state = state;
         this.timeStamp = timeStamp;
         this.sequenceNumber = sequenceNumber;
         this.pkName = pkName;
@@ -166,6 +196,13 @@ public class PTableImpl implements PTable {
         this.familyByBytes = familyByBytes.build();
         this.familyByString = familyByString.build();
         this.stats = stats;
+        this.indexes = indexes;
+        this.dataTableName = dataTableName;
+    }
+
+    @Override
+    public String toString() {
+        return name.getString();
     }
 
     @Override
@@ -453,6 +490,10 @@ public class PTableImpl implements PTable {
         byte[] tableNameBytes = Bytes.readByteArray(input);
         PName tableName = new PNameImpl(tableNameBytes);
         PTableType tableType = PTableType.values()[WritableUtils.readVInt(input)];
+        PIndexState indexState = null;
+        if (tableType == PTableType.INDEX) {
+            indexState = PIndexState.values()[WritableUtils.readVInt(input)];
+        }
         long sequenceNumber = WritableUtils.readVLong(input);
         long timeStamp = input.readLong();
         byte[] pkNameBytes = Bytes.readByteArray(input);
@@ -465,6 +506,13 @@ public class PTableImpl implements PTable {
             column.readFields(input);
             columns.add(column);
         }
+        int nIndexes = WritableUtils.readVInt(input);
+        List<PTable> indexes = Lists.newArrayListWithExpectedSize(nIndexes);
+        for (int i = 0; i < nIndexes; i++) {
+            PTable index = new PTableImpl();
+            index.readFields(input);
+            indexes.add(index);
+        }
         Map<String, byte[][]> guidePosts = new HashMap<String, byte[][]>();
         int size = WritableUtils.readVInt(input);
         for (int i=0; i<size; i++) {
@@ -476,15 +524,20 @@ public class PTableImpl implements PTable {
             }
             guidePosts.put(key, value);
         }
+        byte[] dataTableNameBytes = Bytes.readByteArray(input);
+        String dataTableName = dataTableNameBytes.length == 0 ? null : Bytes.toString(dataTableNameBytes);
         PTableStats stats = new PTableStatsImpl(guidePosts);
-        init(tableName, tableType, timeStamp, sequenceNumber, pkName,
-                bucketNum.equals(NO_SALTING) ? null : bucketNum, columns, stats);
+        init(tableName, tableType, indexState, timeStamp, sequenceNumber, pkName,
+                bucketNum.equals(NO_SALTING) ? null : bucketNum, columns, stats, indexes, dataTableName);
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
         Bytes.writeByteArray(output, name.getBytes());
         WritableUtils.writeVInt(output, type.ordinal());
+        if (type == PTableType.INDEX) {
+            WritableUtils.writeVInt(output, state.ordinal());
+        }
         WritableUtils.writeVLong(output, sequenceNumber);
         output.writeLong(timeStamp);
         Bytes.writeByteArray(output, pkName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(pkName));
@@ -498,7 +551,12 @@ public class PTableImpl implements PTable {
             PColumn column = allColumns.get(i);
             column.write(output);
         }
+        WritableUtils.writeVInt(output, indexes.size());
+        for (PTable index: indexes) {
+            index.write(output);
+        }
         stats.write(output);
+        Bytes.writeByteArray(output, dataTableName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(dataTableName));
     }
 
     @Override
@@ -533,5 +591,39 @@ public class PTableImpl implements PTable {
     @Override
     public Integer getBucketNum() {
         return bucketNum;
+    }
+
+    @Override
+    public void addIndex(PTable index) {
+        indexes.add(index);
+    }
+
+    @Override
+    public List<PTable> getIndexes() {
+        return indexes;
+    }
+
+    @Override
+    public void setIndexState(PIndexState state) {
+        if (type != PTableType.INDEX) {
+            throw new ConstraintViolationException("Should not set index state on a non-index table: " + name);
+        }
+        this.state = state;
+    }
+
+    @Override
+    public PIndexState getIndexState() {
+        if (type != PTableType.INDEX) {
+            throw new ConstraintViolationException("Can not get index state on a non-index table: " + name);
+        }
+        return state;
+    }
+
+    @Override
+    public String getDataTableName() {
+        if (type != PTableType.INDEX) {
+            throw new ConstraintViolationException("Should not get table name on a non-index table: " + name);
+        }
+        return dataTableName;
     }
 }

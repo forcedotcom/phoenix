@@ -108,18 +108,12 @@ public class QueryParserTest {
 
     @Test
     public void testCountDistinctQuery() throws Exception {
-        try {
-            SQLParser parser = new SQLParser(new StringReader(
-                "select count(distinct foo) from core.custom_entity_data t\n" + 
-                "where (t.created_date > to_date('01/01/2001'))\n" + 
-                "and (t.organization_id = '000000000000000')\n" + 
-                "and (t.key_prefix = '001')\n" +
-                "limit 4500"
-                ));
-            parser.parseStatement();
-            fail();
-        } catch (SQLFeatureNotSupportedException e) {
-        }
+        SQLParser parser = new SQLParser(new StringReader(
+                "select count(distinct foo) from core.custom_entity_data t\n"
+                        + "where (t.created_date > to_date('01/01/2001'))\n"
+                        + "and (t.organization_id = '000000000000000')\n"
+                        + "and (t.key_prefix = '001')\n" + "limit 4500"));
+        parser.parseStatement();
     }
 
     @Test

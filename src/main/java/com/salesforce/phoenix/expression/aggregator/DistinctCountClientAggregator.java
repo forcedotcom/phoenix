@@ -25,35 +25,36 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.expression.aggregator;
 
-import org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
-
-public class MetaDataSplitPolicy extends ConstantSizeRegionSplitPolicy {
-
+/**
+ * Client side Aggregator for DISTINCT COUNT aggregations
+ * 
+ * @author anoopsjohn
+ * @since 1.2.1
+ */
+public class DistinctCountClientAggregator extends DistinctValueWithCountClientAggregator {
+    
     @Override
-    protected byte[] getSplitPoint() {
-        byte[] splitPoint = super.getSplitPoint();
-        int offset = SchemaUtil.getVarCharLength(splitPoint, 0, splitPoint.length);
-        // Split only on Phoenix schema name, so this is ok b/c we won't be splitting
-        // in the middle of a Phoenix table.
-        if (offset == splitPoint.length) {
-            return splitPoint;
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        if (buffer == null) {
+            initBuffer();
         }
-//        offset = SchemaUtil.getVarCharLength(splitPoint, offset+1, splitPoint.length-offset-1);
-//        // Split only on Phoenix schema and table name, so this is ok b/c we won't be splitting
-//        // in the middle of a Phoenix table.
-//        if (offset == splitPoint.length) {
-//            return splitPoint;
-//        }
-        // Otherwise, an attempt is being made to split in the middle of a table.
-        // Just return a split point at the schema boundary instead
-        byte[] newSplitPoint = new byte[offset + 1];
-        System.arraycopy(splitPoint, 0, newSplitPoint, 0, offset+1);
-        return newSplitPoint;
+        long value = this.valueVsCount.size();
+        byte[] valueBytes = Bytes.toBytes(value);
+        System.arraycopy(valueBytes, 0, buffer, 0, valueBytes.length);
+        ptr.set(buffer);
+        return true;
     }
 
+    @Override
+    protected int getBufferLength() {
+        return PDataType.LONG.getByteSize();
+    }
 }

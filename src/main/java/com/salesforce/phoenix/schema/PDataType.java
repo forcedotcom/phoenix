@@ -304,6 +304,16 @@ public enum PDataType {
             case DECIMAL:
                 BigDecimal d = (BigDecimal)object;
                 return d.longValueExact();
+            case VARBINARY:
+                byte[] o = (byte[]) object;
+                if (o.length == Bytes.SIZEOF_LONG) {
+                    return Bytes.toLong(o);
+                } else if (o.length == Bytes.SIZEOF_INT) {
+                    int iv = Bytes.toInt(o);
+                    return (long) iv;
+                } else {
+                    throw new IllegalDataException("Bytes passed doesn't represent an integer.");
+                }
             default:
                 return super.toObject(object, actualType);
             }
