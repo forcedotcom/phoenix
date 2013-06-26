@@ -1598,7 +1598,7 @@ public enum PDataType {
             }
         }
     },
-    UNSIGNED_SMALLINT("UNSIGNED_SMALLINT", 12, Short.class, new UnsignedShortCodec()) {
+    UNSIGNED_SMALLINT("UNSIGNED_SMALLINT", 13, Short.class, new UnsignedShortCodec()) {
 
       @Override
       public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
