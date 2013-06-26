@@ -250,7 +250,8 @@ public class OrderedResultIterator implements ResultIterator {
                         SizedUtil.OBJECT_SIZE + keyValue.getLength();
                 }
             }
-            this.byteSize = byteSize;
+            this.byteSize = entries instanceof MappedByteBufferSortedQueue ? 
+                    ((MappedByteBufferSortedQueue) entries).getByteSize() : byteSize;
         } finally {
             delegate.close();
         }
