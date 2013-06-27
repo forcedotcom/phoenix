@@ -90,6 +90,8 @@ tokens
     ALL='all';
     INDEX='index';
     INCLUDE='include';
+    PERCENTILE_CONT='percentile_cont';
+    WITHIN='within';
 }
 
 
@@ -657,12 +659,13 @@ expression_negate returns [ParseNode ret]
 
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
 expression_term returns [ParseNode ret]
-@init{ParseNode n;}
+@init{ParseNode n;boolean isAscending=true;}
     :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
     |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
     |   field=identifier LPAREN l=expression_list RPAREN { $ret = factory.function(field, l);} 
     |   field=identifier LPAREN t=ASTERISK RPAREN { if (!isCountFunction(field)) { throwRecognitionException(t); } $ret = factory.function(field, LiteralParseNode.STAR);} 
     |   field=identifier LPAREN t=DISTINCT l=expression_list RPAREN { $ret = factory.functionDistinct(field, l);}
+    |   PERCENTILE_CONT LPAREN e1=expression RPAREN WITHIN GROUP LPAREN ORDER BY e2=expression (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN { $ret = factory.percentileCont(e1,e2,isAscending);}
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }
