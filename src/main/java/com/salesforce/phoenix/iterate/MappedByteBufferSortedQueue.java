@@ -145,9 +145,13 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
     public int size() {
         int size = 0;
         for (MappedByteBufferPriorityQueue queue : queues) {
-            size += queue.results.size();
+            size += queue.size();
         }
         return size;
+    }
+    
+    public long getByteSize() {
+        return currentQueue.getInMemByteSize();
     }
 
     public void close() {
@@ -189,6 +193,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
         MinMaxPriorityQueue<ResultEntry> results = null;
         private boolean flushBuffer = false;
         private int index;
+        private int flushedCount;
 
         public MappedByteBufferPriorityQueue(int index, int thresholdBytes,
                 Comparator<ResultEntry> comparator) throws IOException {
@@ -196,6 +201,18 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
             this.thresholdBytes = thresholdBytes;
             results = MinMaxPriorityQueue.<ResultEntry> orderedBy(comparator)
                     .create();
+        }
+        
+        public int size() {
+            if (flushBuffer)
+                return flushedCount;
+            return results.size();
+        }
+        
+        public long getInMemByteSize() {
+            if (flushBuffer)
+                return 0;
+            return totalResultSize;
         }
 
         private List<KeyValue> toKeyValues(ResultEntry entry) {
@@ -279,6 +296,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
                     }
                 }
                 writeBuffer.putInt(-1); // end
+                flushedCount = results.size();
                 results.clear();
                 flushBuffer = true;
             }

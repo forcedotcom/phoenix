@@ -186,9 +186,11 @@ public class OrderedResultIterator implements ResultIterator {
         List<Expression> expressions = Lists.newArrayList(Collections2.transform(orderByExpressions, TO_EXPRESSION));
         final Comparator<ResultEntry> comparator = buildComparator(orderByExpressions);
         Collection<ResultEntry> entries;
+        MappedByteBufferSortedQueue bufferedQueue = null;
         if (limit == null) {
           try{
                 final MappedByteBufferSortedQueue queueEntries = new MappedByteBufferSortedQueue(comparator, thresholdBytes);
+                bufferedQueue = queueEntries;
                 entries = queueEntries;
                 resultIterator = new BaseResultIterator() {
 
@@ -239,18 +241,22 @@ public class OrderedResultIterator implements ResultIterator {
                     sortKeys[pos++] = evaluated && sortKey.getLength() > 0 ? sortKey : null;
                 }
                 entries.add(new ResultEntry(sortKeys, result));
-                for (int i = 0; i < result.size(); i++) {
-                    KeyValue keyValue = result.getValue(i);
-                    byteSize += 
-                        // ResultEntry
-                        SizedUtil.OBJECT_SIZE + 
-                        // ImmutableBytesWritable[]
-                        SizedUtil.ARRAY_SIZE + numSortKeys * SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE +
-                        // Tuple
-                        SizedUtil.OBJECT_SIZE + keyValue.getLength();
+                // if this is not a buffered queue, we have to accumulate all bytes added to the queue;
+                // otherwise, we use the byte size calculated by the buffered queue.
+                if (bufferedQueue == null) {
+                    for (int i = 0; i < result.size(); i++) {
+                        KeyValue keyValue = result.getValue(i);
+                        byteSize += 
+                            // ResultEntry
+                            SizedUtil.OBJECT_SIZE + 
+                            // ImmutableBytesWritable[]
+                            SizedUtil.ARRAY_SIZE + numSortKeys * SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE +
+                            // Tuple
+                            SizedUtil.OBJECT_SIZE + keyValue.getLength();
+                    }
                 }
             }
-            this.byteSize = byteSize;
+            this.byteSize = bufferedQueue != null ? bufferedQueue.getByteSize() : byteSize;
         } finally {
             delegate.close();
         }
