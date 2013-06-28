@@ -47,14 +47,11 @@ public class FromCompiler {
         public ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
             throw new UnsupportedOperationException();
         }
+
     };
 
     public static ColumnResolver getResolver(final CreateTableStatement statement, final PhoenixConnection connection)
             throws SQLException {
-        return EMPTY_TABLE_RESOLVER;
-    }
-
-    public static ColumnResolver getResolver(final CreateIndexStatement statement, final PhoenixConnection connection) throws SQLException {
         return EMPTY_TABLE_RESOLVER;
     }
 
@@ -278,7 +275,7 @@ public class FromCompiler {
                         }
                     } catch (ColumnNotFoundException e) {
                         //Only if the column is previously unknown will we add it to the table
-                        String FamilyName = cdef.getColumnDefName().getFamilyName()!=null?cdef.getColumnDefName().getFamilyName().getName():QueryConstants.DEFAULT_COLUMN_FAMILY;
+			String FamilyName = cdef.getColumnDefName().getFamilyName()!=null?cdef.getColumnDefName().getFamilyName().getName():QueryConstants.DEFAULT_COLUMN_FAMILY;
                         theTable.getColumnFamily(FamilyName);
                         acceptedColumns.add(cdef);
                    }  
@@ -293,8 +290,8 @@ public class FromCompiler {
                             addDef.getScale(), addDef.isNull(), position, addDef.getColumnModifier()));
                     position++;
                 }
-                theTable = PTableImpl.makePTable(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),
-                        theTable.getSequenceNumber(), theTable.getPKName(), theTable.getBucketNum(), allcolumns, null);
+                theTable = new PTableImpl(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),
+                        theTable.getSequenceNumber(), theTable.getPKName(), theTable.getBucketNum(), allcolumns);
             }
             return theTable;
         }
