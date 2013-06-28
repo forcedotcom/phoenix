@@ -146,9 +146,4 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public HBaseAdmin getAdmin() throws SQLException {
         return getDelegate().getAdmin();
     }
-
-    @Override
-    public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata) throws SQLException {
-        return getDelegate().dropIndex(tableMetadata);
-    }
 }

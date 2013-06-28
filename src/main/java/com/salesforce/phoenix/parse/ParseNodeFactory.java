@@ -229,10 +229,6 @@ public class ParseNodeFactory {
         return new DynamicColumnParseNode(node);
     }
     
-    public IndexColumnParseNode indexColumn(String name, ColumnModifier modifier) {
-        return new IndexColumnParseNode(name, modifier);
-    }
-    
     public ColumnDefName columnDefName(String columnName) {
         return new ColumnDefName(columnName);
     }
@@ -261,10 +257,6 @@ public class ParseNodeFactory {
         return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
     }
     
-    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-        return new CreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
-    }
-    
     public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
         return new AddColumnStatement(tableName, columnDef, ifNotExists, props);
     }
@@ -277,16 +269,8 @@ public class ParseNodeFactory {
         return new DropTableStatement(tableName, ifExists, isView);
     }
     
-    public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName) {
-        return new DropIndexStatement(indexName, tableName);
-    }
-    
     public TableName table(String schemaName, String tableName) {
         return new TableName(schemaName,tableName);
-    }
-
-    public NamedNode indexName(String name) {
-        return new NamedNode(name);
     }
 
     public NamedTableNode namedTable(String alias, TableName name ,List<ColumnDef> dyn_columns) {

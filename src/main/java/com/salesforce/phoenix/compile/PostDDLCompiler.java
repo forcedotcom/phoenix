@@ -29,7 +29,6 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -61,35 +60,32 @@ import com.salesforce.phoenix.util.ScanUtil;
  * @author jtaylor
  * @since 0.1
  */
-public class PostDDLCompiler implements PostOpCompiler {
+public class PostDDLCompiler  {
     private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
     private final PhoenixConnection connection;
-
+    
     public PostDDLCompiler(PhoenixConnection connection) {
         this.connection = connection;
     }
-
-    @Override
-    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList,
-            final long timestamp) throws SQLException {
-        
+    
+    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList, final long timeStamp) throws SQLException {
         return new MutationPlan() {
-            
+
             @Override
             public PhoenixConnection getConnection() {
                 return connection;
             }
-            
+
             @Override
             public ParameterMetaData getParameterMetaData() {
                 return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
             }
-            
+
             @Override
             public ExplainPlan getExplainPlan() throws SQLException {
                 return ExplainPlan.EMPTY_PLAN;
             }
-            
+
             @Override
             public MutationState execute() throws SQLException {
                 SQLException sqlE = null;
@@ -97,8 +93,8 @@ public class PostDDLCompiler implements PostOpCompiler {
                     return new MutationState(0, connection);
                 }
                 /*
-                 * Handles:
-                 * 1) deletion of all rows for a DROP TABLE and subsequently deletion of all rows for a DROP INDEX;
+                 * Handles 
+                 * 1) deletion of all rows for a DROP TABLE
                  * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
                  * 3) updating the necessary rows to have an empty KV
                  */
@@ -107,14 +103,7 @@ public class PostDDLCompiler implements PostOpCompiler {
                                 NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
                 Scan scan = new Scan();
                 scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
-                final List<TableRef> tableRefs = new ArrayList<TableRef>();
-                tableRefs.add(tableRef);
-                if (tableRef.getTable().getType() == PTableType.INDEX) {
-                    PTable table = tableRef.getTable();
-                    for (PTable index: table.getIndexes()) {
-                        tableRefs.add(new TableRef(null, index, tableRef.getSchema(), timestamp));
-                    }
-                }
+                final List<TableRef> tableRefs = Collections.singletonList(tableRef);
                 ColumnResolver resolver = new ColumnResolver() {
                     @Override
                     public List<TableRef> getTables() {
@@ -126,7 +115,7 @@ public class PostDDLCompiler implements PostOpCompiler {
                     }
                 };
                 StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
-                ScanUtil.setTimeRange(scan, timestamp);
+                ScanUtil.setTimeRange(scan, timeStamp);
                 if (emptyCF != null) {
                     scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
                 }
@@ -143,40 +132,37 @@ public class PostDDLCompiler implements PostOpCompiler {
                     }
                 }
                 RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
-                long totalMutationCount = 0;
-                for (TableRef tableRef: tableRefs) {
-                    QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
-                    Scanner scanner = plan.getScanner();
-                    ResultIterator iterator = scanner.iterator();
+                QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
+                Scanner scanner = plan.getScanner();
+                ResultIterator iterator = scanner.iterator();
+                try {
+                    Tuple row = iterator.next();
+                    ImmutableBytesWritable ptr = context.getTempPtr();
+                    final long mutationCount = (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
+                    return new MutationState(1, connection) {
+                        @Override
+                        public long getUpdateCount() {
+                            return mutationCount;
+                        }
+                    };
+                } catch (SQLException e) {
+                    sqlE = e;
+                } finally {
                     try {
-                        Tuple row = iterator.next();
-                        ImmutableBytesWritable ptr = context.getTempPtr();
-                        totalMutationCount += (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
+                        iterator.close();
                     } catch (SQLException e) {
-                        sqlE = e;
+                        if (sqlE == null) {
+                            sqlE = e;
+                        } else {
+                            sqlE.setNextException(e);
+                        }
                     } finally {
-                        try {
-                            iterator.close();
-                        } catch (SQLException e) {
-                            if (sqlE == null) {
-                                sqlE = e;
-                            } else {
-                                sqlE.setNextException(e);
-                            }
-                        } finally {
-                            if (sqlE != null) {
-                                throw sqlE;
-                            }
+                        if (sqlE != null) {
+                            throw sqlE;
                         }
                     }
                 }
-                final long count = totalMutationCount;
-                return new MutationState(1, connection) {
-                    @Override
-                    public long getUpdateCount() {
-                        return count;
-                    }
-                };
+                return null; // Impossible
             }
         };
     }
