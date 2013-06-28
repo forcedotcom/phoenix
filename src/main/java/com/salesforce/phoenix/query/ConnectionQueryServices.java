@@ -70,7 +70,6 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     public MetaDataMutationResult getTable(byte[] schemaBytes, byte[] tableBytes, long tableTimestamp, long clientTimetamp) throws SQLException;
     public MetaDataMutationResult createTable(List<Mutation> tableMetaData, boolean isView, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException;
     public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, boolean isView) throws SQLException;
-    public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata) throws SQLException;
     public MetaDataMutationResult addColumn(List<Mutation> tableMetaData, boolean isView, Pair<byte[],Map<String,Object>> family) throws SQLException;
     public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, byte[] emptyCF) throws SQLException;
     public MutationState updateData(MutationPlan plan) throws SQLException;

@@ -219,7 +219,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public MutationPlan compilePlan(List<Object> binds) throws SQLException {
             UpsertCompiler compiler = new UpsertCompiler(PhoenixStatement.this);
-            return compiler.compile(this, binds);
+	    return compiler.compile(this, binds);
         }
     }
     
@@ -295,49 +295,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             return compiler.compile(this, binds);
         }
     }
-
-    private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
-
-        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint,
-                List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-            super(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
-        }
-
-        @Override
-        public PhoenixResultSet executeQuery() throws SQLException {
-            throw new ExecuteQueryNotApplicableException("CREATE INDEX", this.toString());
-        }
-
-        @Override
-        public boolean execute() throws SQLException {
-            executeUpdate();
-            return false;
-        }
-
-        @Override
-        public int executeUpdate() throws SQLException {
-            MutationPlan plan = compilePlan(getParameters());
-            MutationState state = plan.execute();
-            lastQueryPlan = null;
-            lastResultSet = null;
-            lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
-            lastUpdateOperation = UpdateOperation.UPSERTED;
-            return lastUpdateCount;
-        }
-
-        @Override
-        public ResultSetMetaData getResultSetMetaData() throws SQLException {
-            return null;
-        }
-
-        @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
-            CreateIndexCompiler compiler = new CreateIndexCompiler(connection);
-            return compiler.compile(this, binds);
-        }
-
-    }
-
+    
+    
     private class ExecutableDropTableStatement extends DropTableStatement implements ExecutableStatement {
 
         ExecutableDropTableStatement(TableName tableName, boolean ifExists, boolean isView) {
@@ -383,56 +342,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
                 @Override
                 public ExplainPlan getExplainPlan() throws SQLException {
                     return new ExplainPlan(Collections.singletonList("DROP TABLE"));
-                }
-            };
-        }
-    }
-
-    private class ExecutableDropIndexStatement extends DropIndexStatement implements ExecutableStatement {
-
-        public ExecutableDropIndexStatement(NamedNode indexName, TableName tableName) {
-            super(indexName, tableName);
-        }
-
-        @Override
-        public PhoenixResultSet executeQuery() throws SQLException {
-            throw new ExecuteQueryNotApplicableException("DROP INDEX", this.toString());
-        }
-
-        @Override
-        public boolean execute() throws SQLException {
-            executeUpdate();
-            return false;
-        }
-
-        @Override
-        public int executeUpdate() throws SQLException {
-            MetaDataClient client = new MetaDataClient(connection);
-            MutationState state = client.dropIndex(this);
-            lastQueryPlan = null;
-            lastResultSet = null;
-            lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
-            lastUpdateOperation = UpdateOperation.DELETED;
-            return lastUpdateCount;
-        }
-
-        @Override
-        public ResultSetMetaData getResultSetMetaData() throws SQLException {
-            return null;
-        }
-
-        @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
-            return new StatementPlan() {
-                
-                @Override
-                public ParameterMetaData getParameterMetaData() {
-                    return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
-                }
-                
-                @Override
-                public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("DROP INDEX"));
                 }
             };
         }
@@ -702,11 +611,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-            return new ExecutableCreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
-        }
-        
-        @Override
         public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
             return new ExecutableAddColumnStatement(tableName, columnDef, ifNotExists, props);
         }
@@ -719,11 +623,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public DropTableStatement dropTable(TableName tableName, boolean ifExists, boolean isView) {
             return new ExecutableDropTableStatement(tableName, ifExists, isView);
-        }
-        
-        @Override
-        public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName) {
-            return new ExecutableDropIndexStatement(indexName, tableName);
         }
         
         @Override
