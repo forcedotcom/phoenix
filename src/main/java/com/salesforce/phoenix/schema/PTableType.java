@@ -30,8 +30,7 @@ package com.salesforce.phoenix.schema;
 public enum PTableType {
     SYSTEM("s"), 
     USER("u"),
-    VIEW("v"),
-    INDEX("i"); 
+    VIEW("v"); 
 
     private final String serializedValue;
     

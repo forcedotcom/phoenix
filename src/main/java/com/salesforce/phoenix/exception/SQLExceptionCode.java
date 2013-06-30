@@ -65,7 +65,6 @@ public enum SQLExceptionCode {
      * Constraint Violation (errorcode 03, sqlstate 23)
      */
     CONCURRENT_TABLE_MUTATION(301, "23000", "Concurrent modification to table."),
-    CANNOT_INDEX_COLUMN_ON_TYPE(201, "23100", "The column cannot be index due to its type."),
     
     /**
      * Invalid Cursor State (errorcode 04, sqlstate 24)
@@ -77,11 +76,10 @@ public enum SQLExceptionCode {
      * Syntax Error or Access Rule Violation (errorcode 05, sqlstate 42)
      */
     AMBIGUOUS_TABLE(501, "42000", "Table name exists in more than one table schema and is used without being qualified."),
-    READ_ONLY_TABLE(505, "42000", "Table is read only."),
-    INDEX_MISSING_PK_COLUMNS(513, "42602", "Index table missing PK Columns."),
     AMBIGUOUS_COLUMN(502, "42702", "Column reference ambiguous or duplicate names."),
-    COLUMN_NOT_FOUND(504, "42703", "Undefined column."),
     COLUMN_EXIST_IN_DEF(503, "42711", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
+    COLUMN_NOT_FOUND(504, "42703", "Undefined column."),
+    READ_ONLY_TABLE(505, "42000", "Table is read only."),
     CANNOT_DROP_PK(506, "42817", "Primary key column may not be dropped."),
     CANNOT_CONVERT_TYPE(507, "42846", "Cannot convert type."),
     UNSUPPORTED_ORDER_BY_QUERY(508, "42878", "ORDER BY only allowed for limited or aggregate queries"),
@@ -114,9 +112,6 @@ public enum SQLExceptionCode {
     UNEXPECTED_MUTATION_CODE(1011, "42M02", "Unexpected mutation code."),
     TABLE_UNDEFINED(1012, "42M03", "Table undefined."),
     TABLE_ALREADY_EXIST(1013, "42M04", "Table already exists."),
-    // Index related errors
-    INDEX_ALREADY_EXIST(1023, "42N01", "Index already exists."),
-    CANNOT_MUTATE_INDEX(1024, "42N02", "Cannot mutate existing index."),
     // Syntax error
     TYPE_NOT_SUPPORTED_FOR_OPERATOR(1014, "42Y01", "The operator does not support the operand type."),
     SCHEMA_NOT_FOUND(1015, "42Y07", "Schema not found."),
