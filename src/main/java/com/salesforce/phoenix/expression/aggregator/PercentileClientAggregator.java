@@ -28,16 +28,12 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.NavigableMap;
-import java.util.TreeMap;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.expression.ColumnExpression;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
@@ -110,6 +106,7 @@ public class PercentileClientAggregator extends DistinctValueWithCountClientAggr
         return true;
     }
 
+    @Override
     protected int getBufferLength() {
         return PDataType.DECIMAL.getByteSize();
     }

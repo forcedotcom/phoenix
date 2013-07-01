@@ -28,31 +28,18 @@
 package com.salesforce.phoenix.pig;
 
 import java.io.IOException;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Properties;
+import java.sql.*;
+import java.util.*;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.OutputFormat;
-import org.apache.hadoop.mapreduce.RecordWriter;
+import org.apache.hadoop.mapreduce.*;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
-import org.apache.pig.ResourceSchema;
+import org.apache.pig.*;
 import org.apache.pig.ResourceSchema.ResourceFieldSchema;
-import org.apache.pig.StoreFuncInterface;
 import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.util.ObjectSerializer;
@@ -250,19 +237,22 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 
     @Override
     public void cleanupOnSuccess(String location, Job job) throws IOException {
-        // Commit the remaining executes after the last commit in putNext()
-        if (rowCount % batchSize != 0) {
-            try {
-                conn.commit();
-                LOG.info("Rows upserted: " + rowCount);
-            } catch (SQLException e) {
-                LOG.error("Error during upserting to HBase table " + tableName, e);
-            }
-        }
         try {
-            deregisterDriver();
-        } catch (SQLException e) {
-            LOG.error("Error while deregistering driver ", e);
+            // Commit the remaining executes after the last commit in putNext()
+            if (rowCount % batchSize != 0) {
+                try {
+                    conn.commit();
+                    LOG.info("Rows upserted: " + rowCount);
+                } catch (SQLException e) {
+                    LOG.error("Error during upserting to HBase table " + tableName, e);
+                }
+            }
+        } finally {
+            try {
+                deregisterDriver();
+            } catch (SQLException e) {
+                LOG.error("Error while deregistering driver ", e);
+            }
         }
     }
 
