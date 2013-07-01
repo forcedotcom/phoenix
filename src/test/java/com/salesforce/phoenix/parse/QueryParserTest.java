@@ -27,16 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.StringReader;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
-import java.util.Set;
 
+import org.apache.hadoop.hbase.util.Pair;
 import org.junit.Test;
 
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -434,10 +432,10 @@ public class QueryParserTest {
     		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150) constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
     		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
     		PrimaryKeyConstraint pkConstraint = stmt.getPrimaryKeyConstraint();
-    		Set<String> columnNames = pkConstraint.getColumnNames();
-    		assertEquals(2, columnNames.size());
-    		for (String columnName : columnNames) {
-    			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumnModifier(columnName));
+    		List<Pair<ColumnDefName,ColumnModifier>> columns = pkConstraint.getColumnNames();
+    		assertEquals(2, columns.size());
+    		for (Pair<ColumnDefName,ColumnModifier> columnName : columns) {
+    			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumnModifier(columnName.getFirst()));
     		}    		
     	}
     }

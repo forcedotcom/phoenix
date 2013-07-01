@@ -253,7 +253,7 @@ public class ParseNodeFactory {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK, columnModifier);
     }
 
-    public PrimaryKeyConstraint primaryKey(String name, List<Pair<String, ColumnModifier>> columnNameAndModifier) {
+    public PrimaryKeyConstraint primaryKey(String name, List<Pair<ColumnDefName, ColumnModifier>> columnNameAndModifier) {
         return new PrimaryKeyConstraint(name, columnNameAndModifier);
     }
     
@@ -261,8 +261,8 @@ public class ParseNodeFactory {
         return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
     }
     
-    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-        return new CreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
+    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnParseNode> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+        return new CreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
     public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {

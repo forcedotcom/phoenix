@@ -356,34 +356,38 @@ create_table_node returns [CreateTableStatement ret] throws SQLException
 
 // Parse a create index statement.
 create_index_node returns [CreateIndexStatement ret] throws SQLException
-    :   CREATE INDEX i=index_name ON t=from_table_name
+    :   CREATE INDEX i=index_name (IF NOT ex=EXISTS)? ON t=from_table_name
         (LPAREN pk=index_pk_constraint RPAREN)
         (INCLUDE (LPAREN icrefs=column_refs RPAREN))?
         (p=fam_properties)?
-        {ret = factory.createIndex(i, t, pk, icrefs, p, getBindCount()); }
-    ;
-
-// Column references with optional column modifiers
-index_column_refs returns [List<ParseNode> ret]
-@init{ret = new ArrayList<ParseNode>(); }
-    :   (v = index_column_ref {$ret.add(v);}) (COMMA (v=index_column_ref {$ret.add(v);}) )*
-    ;
-
-index_column_ref returns [ParseNode ret]
-    :   field = identifier (order=ASC|order=DESC)? {$ret = factory.indexColumn(field, order == null ? null : ColumnModifier.fromDDLValue(order.getText())); }
+        (SPLIT ON v=values)?
+        {ret = factory.createIndex(i, t, pk, v, icrefs, p, ex!=null, getBindCount()); }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
-    :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
+    :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=col_name_with_mod_list RPAREN { $ret = factory.primaryKey(n,cols); }
     ;
+
+col_name_with_mod_list returns [List<Pair<ColumnDefName, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<ColumnParseNode, ColumnModifier>>(); }
+    :   p=col_name_with_mod {$ret.add(p);}  (COMMA p = col_name_with_mod {$ret.add(p);} )*
+;
+
+col_name_with_mod returns [Pair<ColumnDefName, ColumnModifier> ret]
+    :   f=identifier (order=ASC|order=DESC)? {$ret = Pair.newPair(factory.columnDefName(f), order == null ? null : ColumnModifier.fromDDLValue(order.getText()));}
+;
 
 index_pk_constraint returns [PrimaryKeyConstraint ret]
-    :   cols = identifiers {$ret = factory.primaryKey(null, cols); }
+    :   cols = col_def_name_with_mod_list {$ret = factory.primaryKey(null, cols); }
     ;
 
-identifiers returns [List<Pair<String, ColumnModifier>> ret]
-@init{ret = new ArrayList<Pair<String, ColumnModifier>>(); }
-    :   c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));} )*
+col_def_name_with_mod_list returns [List<Pair<ColumnDefName, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<ColumnDefName, ColumnModifier>>(); }
+    :   p=col_def_name_with_mod {$ret.add(p);}  (COMMA p = col_def_name_with_mod {$ret.add(p);} )*
+;
+
+col_def_name_with_mod returns [Pair<ColumnDefName, ColumnModifier> ret]
+    :   c=column_def_name (order=ASC|order=DESC)? {$ret = Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText()));}
 ;
 
 fam_properties returns [ListMultimap<String,Pair<String,Object>> ret]
@@ -468,7 +472,7 @@ select_node returns [SelectStatement ret]
 // Parse a full upsert expression structure.
 upsert_node returns [UpsertStatement ret]
     :   UPSERT INTO t=from_table_name
-        (LPAREN c=column_refs RPAREN)?
+        (LPAREN c=dyn_column_refs RPAREN)?
         ((VALUES LPAREN v=expression_terms RPAREN) | s=select_node)
         {ret = factory.upsert(t, c, v, s, getBindCount()); }
     ;
@@ -673,11 +677,22 @@ expression_terms returns [List<ParseNode> ret]
     :  v = expression {$ret.add(v);}  (COMMA v = expression {$ret.add(v);} )*
 ;
 
-column_refs returns [List<ParseNode> ret]
+dyn_column_refs returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-     :  (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);})  (COMMA (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);}) )*
+    :  v = column_ref {$ret.add(v);}  (COMMA v = column_ref {$ret.add(v);} )*
 ;
 catch[SQLException e]{throw  new RecognitionException();}
+
+dyn_column_ref returns [ParseNode ret]
+    :   d = column_def {$ret = d;}
+    |   v = column_ref {$ret = v;}
+    ;
+catch[SQLException e]{throw  new RecognitionException();}
+
+column_refs returns [List<ParseNode> ret]
+@init{ret = new ArrayList<ParseNode>(); }
+    :  v = column_ref {$ret.add(v);}  (COMMA v = column_ref {$ret.add(v);} )*
+;
 
 column_ref returns [ParseNode ret]
     :   field=identifier {$ret = factory.column(field); }

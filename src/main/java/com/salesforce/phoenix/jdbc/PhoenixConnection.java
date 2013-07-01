@@ -549,14 +549,14 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+    public PMetaData addTable(String schemaName, PTable table, PTable parentTable) throws SQLException {
         // TODO: since a connection is only used by one thread at a time,
         // we could modify this metadata in place since it's not shared.
         if (scn == null || scn > table.getTimeStamp()) {
-            metaData = metaData.addTable(schemaName, table);
+            metaData = metaData.addTable(schemaName, table, null);
         }
         //Cascade through to connectionQueryServices too
-        getQueryServices().addTable(schemaName, table);
+        getQueryServices().addTable(schemaName, table, null);
         return metaData;
     }
 

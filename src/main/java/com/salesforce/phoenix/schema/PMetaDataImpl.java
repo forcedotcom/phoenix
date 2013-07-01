@@ -68,7 +68,7 @@ public class PMetaDataImpl implements PMetaData {
 
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+    public PMetaData addTable(String schemaName, PTable table, PTable parentTable) throws SQLException {
         Map<String,PTable> tables;
         Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
         schemaName = schemaName == null ? QueryConstants.NULL_SCHEMA_NAME : schemaName;

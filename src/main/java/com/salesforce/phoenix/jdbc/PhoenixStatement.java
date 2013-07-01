@@ -298,9 +298,9 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
 
-        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint,
-                List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-            super(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
+        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnParseNode> includeColumns, List<ParseNode> splits,
+                ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+            super(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
 
         @Override
@@ -702,8 +702,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-            return new ExecutableCreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
+        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnParseNode> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+            return new ExecutableCreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
         
         @Override

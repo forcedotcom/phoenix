@@ -31,51 +31,17 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.ListMultimap;
+import com.google.common.collect.ImmutableList;
+import com.salesforce.phoenix.schema.ColumnModifier;
 
-
-public class CreateIndexStatement extends MutationStatement {
-    private final TableName indexTableName;
-    private final PrimaryKeyConstraint indexConstraint;
-    private final List<ParseNode> includeColumns;
-    private final List<ParseNode> splitNodes;
-    private final ListMultimap<String,Pair<String,Object>> props;
-    private final boolean ifNotExists;
-
-    public CreateIndexStatement(NamedNode indexTableName, TableName dataTableName, 
-            PrimaryKeyConstraint indexConstraint, List<ParseNode> includeColumns, List<ParseNode> splits,
-            ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
-        super(dataTableName, bindCount);
-        this.indexTableName = new TableName(dataTableName.getSchemaName(),indexTableName.getName());
-        this.indexConstraint = indexConstraint;
-        this.includeColumns = includeColumns;
-        this.splitNodes = splits;
-        this.props = props;
-        this.ifNotExists = ifNotExists;
+public class IndexKeyConstraint {
+    private final List<Pair<ColumnParseNode, ColumnModifier>> columnNameToModifier;
+    
+    IndexKeyConstraint(List<Pair<ColumnParseNode, ColumnModifier>> columnNameAndModifier) {
+        this.columnNameToModifier = ImmutableList.copyOf(columnNameAndModifier);
     }
 
-    public PrimaryKeyConstraint getIndexConstraint() {
-        return indexConstraint;
+    public List<Pair<ColumnParseNode, ColumnModifier>> getColumns() {
+        return columnNameToModifier;
     }
-
-    public List<ParseNode> getIncludeColumns() {
-        return includeColumns;
-    }
-
-    public TableName getIndexTableName() {
-        return indexTableName;
-    }
-
-    public List<ParseNode> getSplitNodes() {
-        return splitNodes;
-    }
-
-    public ListMultimap<String,Pair<String,Object>> getProps() {
-        return props;
-    }
-
-    public boolean ifNotExists() {
-        return ifNotExists;
-    }
-
 }

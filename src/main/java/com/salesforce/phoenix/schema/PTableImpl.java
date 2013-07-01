@@ -105,9 +105,15 @@ public class PTableImpl implements PTable {
         this.indexes = Collections.emptyList();
     }
 
+    public static PTableImpl makePTable(PTable table, List<PTable> indexes) {
+        return new PTableImpl(
+                table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), 
+                table.getPKName(), table.getBucketNum(), table.getColumns(), indexes);
+    }
+
     public static PTableImpl makePTable(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName,
-            Integer bucketNum, List<PColumn> columns, List<PTable> indexes) {
-        return new PTableImpl(name, type, timeStamp, sequenceNumber, pkName, bucketNum, columns, indexes);
+            Integer bucketNum, List<PColumn> columns) {
+        return new PTableImpl(name, type, timeStamp, sequenceNumber, pkName, bucketNum, columns, Collections.<PTable>emptyList());
     }
 
     public static PTableImpl makePIndex(PName name, PIndexState state, long timeStamp, long sequenceNumber, String pkName,
@@ -117,8 +123,7 @@ public class PTableImpl implements PTable {
 
     private PTableImpl(PName name, PTableType type, long timeStamp, long sequenceNumber, String pkName,
             Integer bucketNum, List<PColumn> columns, List<PTable> indexes) {
-        init(name, type, null, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
-                indexes == null ? new ArrayList<PTable>() : indexes, null);
+        init(name, type, null, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(), indexes, null);
     }
 
     private PTableImpl(PName name, PIndexState state, long timeStamp, long sequenceNumber, String pkName,

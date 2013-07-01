@@ -31,7 +31,7 @@ package com.salesforce.phoenix.parse;
 public class ColumnDefName {
     private final NamedNode familyName;
     private final NamedNode columnName;
-
+    
     ColumnDefName(String familyName, String columnName) {
         this.familyName = familyName == null ? null : new NamedNode(familyName);
         this.columnName = new NamedNode(columnName);
@@ -49,4 +49,25 @@ public class ColumnDefName {
         return columnName;
     }
 
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + columnName.hashCode();
+        result = prime * result + ((familyName == null) ? 0 : familyName.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        ColumnDefName other = (ColumnDefName)obj;
+        if (!columnName.equals(other.columnName)) return false;
+        if (familyName == null) {
+            if (other.familyName != null) return false;
+        } else if (!familyName.equals(other.familyName)) return false;
+        return true;
+    }
 }
