@@ -248,14 +248,23 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		}
 	}
 
-	@Override
-	public void cleanupOnSuccess(String location, Job job) throws IOException {
-		try {
-			deregisterDriver();
-		} catch (SQLException e) {
-			LOG.error("Error while deregistering driver ", e);
-		}
-	}
+    @Override
+    public void cleanupOnSuccess(String location, Job job) throws IOException {
+        // Commit the remaining executes after the last commit in putNext()
+        if (rowCount % batchSize != 0) {
+            try {
+                conn.commit();
+                LOG.info("Rows upserted: " + rowCount);
+            } catch (SQLException e) {
+                LOG.error("Error during upserting to HBase table " + tableName, e);
+            }
+        }
+        try {
+            deregisterDriver();
+        } catch (SQLException e) {
+            LOG.error("Error while deregistering driver ", e);
+        }
+    }
 
 	public void registerDriver() throws ClassNotFoundException, SQLException {
 		Class.forName(PhoenixDriver.class.getName());
