@@ -45,6 +45,8 @@ import org.xerial.snappy.Snappy;
 
 import com.google.common.collect.ImmutableSet;
 import com.salesforce.phoenix.exception.PhoenixIOException;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -67,7 +69,6 @@ public class HashCacheClient {
     
     private static final Log LOG = LogFactory.getLog(HashCacheClient.class);
     private static final String JOIN_KEY_PREFIX = "joinKey";
-    private static int JOIN_KEY_ID = 0;
     private final byte[] iterateOverTableName;
     private final byte[] tenantId;
     private final ConnectionQueryServices services;
@@ -143,7 +144,7 @@ public class HashCacheClient {
      * @throws MaxHashCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
-    public HashCache addHashCache(Scanner scanner, byte[] tableName, byte[][] cfs) throws SQLException {
+    public HashCache addHashCache(Scanner scanner, List<Expression> onExpressions, byte[] tableName, byte[][] cfs) throws SQLException {
         final byte[] joinId = nextJoinId();
         
         /**
@@ -159,7 +160,7 @@ public class HashCacheClient {
         closeables.add(chunk);
         try {
             iterator = scanner.iterator();        
-            hashCache = serialize(iterator, tableName, cfs, chunk);
+            hashCache = serialize(iterator, onExpressions, tableName, cfs, chunk);
         } finally {
             if (iterator != null) {
                 iterator.close();
@@ -283,11 +284,11 @@ public class HashCacheClient {
      * TODO: Use HBase counter instead here once this is real
      */
     private static synchronized byte[] nextJoinId() {
-        return Bytes.toBytes(JOIN_KEY_PREFIX + ++JOIN_KEY_ID);
+        return Bytes.toBytes(JOIN_KEY_PREFIX + UUID.randomUUID().toString());
     }
  
     // package private for testing
-    ImmutableBytesWritable serialize(ResultIterator scanner, byte[] tableName, byte[][] cfs, MemoryChunk chunk) throws SQLException {
+    ImmutableBytesWritable serialize(ResultIterator scanner, List<Expression> onExpressions, byte[] tableName, byte[][] cfs, MemoryChunk chunk) throws SQLException {
         try {
             long maxSize = services.getConfig().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE);
             long estimatedSize = Math.min(chunk.getSize(), maxSize);
@@ -296,8 +297,16 @@ public class HashCacheClient {
             }
             TrustedByteArrayOutputStream baOut = new TrustedByteArrayOutputStream((int)estimatedSize);
             DataOutputStream out = new DataOutputStream(baOut);
+            // Write onExpressions first, for hash key evaluation along with deserialization
+            out.writeInt(onExpressions.size());
+            for (Expression expression : onExpressions) {
+                WritableUtils.writeVInt(out, ExpressionType.valueOf(expression).ordinal());
+                expression.write(out);                
+            }
+            int exprSize = baOut.size() + Bytes.SIZEOF_INT;
+            out.writeInt(exprSize);
             int nRows = 0;
-            out.writeInt(nRows); // In the end will be replaced with total number of rows
+            out.writeInt(nRows); // In the end will be replaced with total number of rows            
             for (Tuple result = scanner.next(); result != null; result = scanner.next()) {
                 TupleUtil.write(result, out);
                 if (baOut.size() > estimatedSize) {
@@ -323,7 +332,7 @@ public class HashCacheClient {
                 dataOut.flush();
                 byte[] cache = baOut.getBuffer();
                 // Replace number of rows written above with the correct value.
-                System.arraycopy(sizeOut.getBuffer(), 0, cache, 0, sizeOut.size());
+                System.arraycopy(sizeOut.getBuffer(), 0, cache, exprSize, sizeOut.size());
                 // Reallocate to actual size plus compressed buffer size (which is allocated below)
                 int maxCompressedSize = Snappy.maxCompressedLength(baOut.size());
                 chunk.resize(baOut.size() + maxCompressedSize);
