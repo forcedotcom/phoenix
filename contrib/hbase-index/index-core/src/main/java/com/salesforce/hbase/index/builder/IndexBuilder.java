@@ -1,14 +1,13 @@
 package com.salesforce.hbase.index.builder;
 
+import java.io.IOException;
 import java.util.Map;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
-import com.salesforce.hbase.index.IndexUtil;
 import com.salesforce.hbase.index.Indexer;
 
 /**
@@ -23,10 +22,10 @@ public interface IndexBuilder {
   /**
    * This is always called exactly once on install of {@link Indexer}, before any calls
    * {@link #getIndexUpdate} on
-   * @param conf {@link Configuration} containing any properties specified in
-   *          {@link IndexUtil#enableIndexing(HTableDescriptor, Class, Map)}
+   * @param env in which the builder is running
+   * @throws IOException on failure to setup the builder
    */
-  public void setup(Configuration conf);
+  public void setup(RegionCoprocessorEnvironment env) throws IOException;
 
   /**
    * Your opportunity to update any/all index tables based on the delete of the primary table row.
@@ -34,8 +33,9 @@ public interface IndexBuilder {
    * tables.
    * @param put {@link Put} to the primary table that may be indexed
    * @return a Map of the mutations to make -> target index table name
+   * @throws IOException on failure
    */
-  public Map<Mutation, String> getIndexUpdate(Put put);
+  public Map<Mutation, String> getIndexUpdate(Put put) throws IOException;
 
   /**
    * The counter-part to {@link #getIndexUpdate(Put)} - your opportunity to update any/all index
@@ -43,8 +43,9 @@ public interface IndexBuilder {
    * that timestamps match between the primary and index tables.
    * @param delete {@link Delete} to the primary table that may be indexed
    * @return a {@link Map} of the mutations to make -> target index table name
+   * @throws IOException on failure
    */
-  public Map<Mutation, String> getIndexUpdate(Delete delete);
+  public Map<Mutation, String> getIndexUpdate(Delete delete) throws IOException;
 
   /** Helper method signature to ensure people don't attempt to extend this class directly */
   public void extendBaseIndexBuilderInstead();

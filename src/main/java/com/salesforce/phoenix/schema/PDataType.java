@@ -38,6 +38,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Booleans;
+import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.*;
@@ -345,7 +346,8 @@ public enum PDataType {
             // we check isComparableTo for a more relaxed check and then throw a runtime
             // exception if we overflow
             return this == targetType || targetType == DECIMAL
-                    || targetType == VARBINARY || targetType == BINARY;
+                    || targetType == VARBINARY || targetType == BINARY
+                    || targetType == FLOAT || targetType == DOUBLE;
         }
 
         @Override
@@ -410,6 +412,8 @@ public enum PDataType {
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             if (rhsType == DECIMAL) {
                 return -((BigDecimal)rhs).compareTo(BigDecimal.valueOf(((Number)lhs).longValue()));
+            } else if (rhsType == DOUBLE || rhsType == FLOAT) {
+                return Doubles.compare(((Number)lhs).doubleValue(), ((Number)rhs).doubleValue());
             }
             return Longs.compare(((Number)lhs).longValue(), ((Number)rhs).longValue());
         }
@@ -506,8 +510,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == LONG || targetType == DECIMAL
-                    || targetType == VARBINARY || targetType == BINARY;
+            return this == targetType || LONG.isCoercibleTo(targetType);
         }
 
         @Override
@@ -788,6 +791,335 @@ public enum PDataType {
           return this == targetType || SMALLINT.isCoercibleTo(targetType);
       }
       
+    },
+    FLOAT("FLOAT", Types.FLOAT, Float.class, new FloatCodec()) {
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            return DOUBLE.compareTo(lhs, rhs, rhsType);
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return true;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return Bytes.SIZEOF_INT;
+        }
+        
+        @Override
+        public Integer getScale(Object o) {
+            if (o == null) {
+                return null;
+            }
+            Float v = (Float) o;
+            BigDecimal bd = BigDecimal.valueOf(v);
+            return bd.scale();
+        }
+        
+        @Override
+        public Integer getMaxLength(Object o) {
+            if (o == null) {
+                return null;
+            }
+            Float v = (Float) o;
+            BigDecimal bd = BigDecimal.valueOf(v);
+            return bd.precision();
+        }
+
+        @Override
+        public byte[] toBytes(Object object) {
+            byte[] b = new byte[Bytes.SIZEOF_INT];
+            toBytes(object, b, 0);
+            return b;
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] bytes, int offset) {
+            if (object == null) {
+                int i = 0;
+                Bytes.putInt(bytes, offset, i);
+                return Bytes.SIZEOF_INT;
+            } else {
+                return this.getCodec().encodeFloat(((Number) object).floatValue(),
+                        bytes, offset);    
+            }
+        }
+
+        @Override
+        public Object toObject(String value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            try {
+                return Float.parseFloat(value);
+            } catch (NumberFormatException e) {
+                throw new IllegalDataException(e);
+            }
+        }
+        
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            switch (actualType) {
+            case FLOAT:
+                return object;
+            case DOUBLE:
+                double d = (Double)object;
+                if (d == Double.NaN
+                        || d == Double.POSITIVE_INFINITY
+                        || d == Double.NEGATIVE_INFINITY
+                        || (d >= -Float.MAX_VALUE && d <= Float.MAX_VALUE)) {
+                    return (float) d;
+                } else {
+                    throw new IllegalDataException(actualType + " value " + d + " cannot be cast to Float without changing its value");
+                }
+            case LONG:
+            case UNSIGNED_LONG:
+                float f = (Long)object;
+                return f;
+            case UNSIGNED_INT:
+            case INTEGER:
+                f = (Integer)object;
+                return f;
+            case TINYINT:
+            case UNSIGNED_TINYINT:
+                f = (Byte)object;
+                return f;
+            case SMALLINT:
+            case UNSIGNED_SMALLINT:
+                f = (Short)object;
+                return f;
+            case DECIMAL:
+                BigDecimal dl = (BigDecimal)object;
+                return dl.floatValue();
+            default:
+                return super.toObject(object, actualType);
+            }
+        }
+        
+        @Override
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+            if (l <= 0) {
+                return null;
+            }
+            switch (actualType) {
+            case FLOAT:
+            case DOUBLE:
+            case UNSIGNED_LONG:
+            case LONG:
+            case UNSIGNED_INT:
+            case INTEGER:
+            case UNSIGNED_SMALLINT:
+            case SMALLINT:
+            case UNSIGNED_TINYINT:
+            case TINYINT:
+                return actualType.getCodec().decodeFloat(b, o, null);
+            default:
+                return super.toObject(b,o,l,actualType);
+            }
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+            if (value != null) {
+                float f = (Float)value;
+                switch (targetType) {
+                case UNSIGNED_LONG:
+                    return (f >= 0 && f <= Long.MAX_VALUE);
+                case LONG:
+                    return (f >= Long.MIN_VALUE && f <= Long.MAX_VALUE);
+                case UNSIGNED_INT:
+                    return (f >= 0 && f <= Integer.MAX_VALUE);
+                case INTEGER:
+                    return (f >= Integer.MIN_VALUE && f <= Integer.MAX_VALUE);
+                case UNSIGNED_SMALLINT:
+                    return (f >= 0 && f <= Short.MAX_VALUE);
+                case SMALLINT:
+                    return (f >=Short.MIN_VALUE && f<=Short.MAX_VALUE);
+                case TINYINT:
+                    return (f >=Byte.MIN_VALUE && f<Byte.MAX_VALUE);
+                case UNSIGNED_TINYINT:
+                    return (f >=0 && f<Byte.MAX_VALUE);
+                default:
+                    break;
+                }
+            }
+            return super.isCoercibleTo(targetType, value);
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || DOUBLE.isCoercibleTo(targetType);
+        }
+        
+    },
+    DOUBLE("DOUBLE", Types.DOUBLE, Double.class, new DoubleCodec()) {
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            if (rhsType == DECIMAL) {
+                return -((BigDecimal)rhs).compareTo(BigDecimal.valueOf(((Number)lhs).doubleValue()));
+            }
+            return Doubles.compare(((Number)lhs).doubleValue(), ((Number)rhs).doubleValue());
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return true;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return Bytes.SIZEOF_LONG;
+        }
+        
+        @Override
+        public Integer getScale(Object o) {
+            if (o == null) {
+                return null;
+            }
+            Double v = (Double) o;
+            BigDecimal bd = BigDecimal.valueOf(v);
+            return bd.scale();
+        }
+        
+        @Override
+        public Integer getMaxLength(Object o) {
+            if (o == null) {
+                return null;
+            }
+            Double v = (Double) o;
+            BigDecimal db = BigDecimal.valueOf(v);
+            return db.precision();
+        }
+
+        @Override
+        public byte[] toBytes(Object object) {
+            byte[] b = new byte[Bytes.SIZEOF_LONG];
+            toBytes(object, b, 0);
+            return b;
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] bytes, int offset) {
+            if (object == null) {
+                int i = 0;
+                Bytes.putLong(bytes, offset, i);
+                return Bytes.SIZEOF_LONG;
+            } else {
+                return this.getCodec().encodeDouble(((Number) object).doubleValue(),
+                        bytes, offset);    
+            }
+        }
+
+        @Override
+        public Object toObject(String value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            try {
+                return Double.parseDouble(value);
+            } catch (NumberFormatException e) {
+                throw new IllegalDataException(e);
+            }
+        }
+        
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            double de;
+            switch (actualType) {
+            case DOUBLE:
+                return object; 
+            case FLOAT:
+                de = (Float)object;
+                return de;
+            case LONG:
+            case UNSIGNED_LONG:
+                de = (Long)object;
+                return de;
+            case UNSIGNED_INT:
+            case INTEGER:
+                de = (Integer)object;
+                return de;
+            case TINYINT:
+            case UNSIGNED_TINYINT:
+                de = (Byte)object;
+                return de;
+            case SMALLINT:
+            case UNSIGNED_SMALLINT:
+                de = (Short)object;
+                return de;
+            case DECIMAL:
+                BigDecimal d = (BigDecimal)object;
+                return d.doubleValue();
+            default:
+                return super.toObject(object, actualType);
+            }
+        }
+        
+        @Override
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+            if (l <= 0) {
+                return null;
+            }
+            switch (actualType) {
+            case DOUBLE:
+            case FLOAT:
+            case UNSIGNED_LONG:
+            case LONG:
+            case UNSIGNED_INT:
+            case INTEGER:
+            case UNSIGNED_SMALLINT:
+            case SMALLINT:
+            case UNSIGNED_TINYINT:
+            case TINYINT:
+                return actualType.getCodec().decodeDouble(b, o, null);
+            default:
+                return super.toObject(b,o,l,actualType);
+            }
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+            if (value != null) {
+                double d = (Double)value;
+                switch (targetType) {
+                case FLOAT:
+                    return d == Double.NaN
+                            || d == Double.POSITIVE_INFINITY
+                            || d == Double.NEGATIVE_INFINITY
+                            || (d >= -Float.MAX_VALUE && d <= Float.MAX_VALUE);
+                case UNSIGNED_LONG:
+                    return (d >= 0 && d <= Long.MAX_VALUE);
+                case LONG:
+                    return (d >= Long.MIN_VALUE && d <= Long.MAX_VALUE);
+                case UNSIGNED_INT:
+                    return (d >= 0 && d <= Integer.MAX_VALUE);
+                case INTEGER:
+                    return (d >= Integer.MIN_VALUE && d <= Integer.MAX_VALUE);
+                case UNSIGNED_SMALLINT:
+                    return (d >= 0 && d <= Short.MAX_VALUE);
+                case SMALLINT:
+                    return (d >=Short.MIN_VALUE && d<=Short.MAX_VALUE);
+                case TINYINT:
+                    return (d >=Byte.MIN_VALUE && d<Byte.MAX_VALUE);
+                case UNSIGNED_TINYINT:
+                    return (d >=0 && d<Byte.MAX_VALUE);
+                default:
+                    break;
+                }
+            }
+            return super.isCoercibleTo(targetType, value);
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == DECIMAL
+                    || targetType == VARBINARY || targetType == BINARY;
+        }
+        
     },
     DECIMAL("DECIMAL", Types.DECIMAL, BigDecimal.class, null) {
         @Override
@@ -1411,7 +1743,8 @@ public enum PDataType {
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == LONG || targetType == DECIMAL
-                    || targetType == VARBINARY || targetType == BINARY;
+                    || targetType == VARBINARY || targetType == BINARY 
+                    || targetType == FLOAT || targetType == DOUBLE;
         }
 
         @Override
@@ -1453,6 +1786,8 @@ public enum PDataType {
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
             if (rhsType == DECIMAL) {
                 return -((BigDecimal)rhs).compareTo(BigDecimal.valueOf(((Number)lhs).longValue()));
+            } else if (rhsType == DOUBLE || rhsType == FLOAT) {
+                return Doubles.compare(((Number)lhs).doubleValue(), ((Number)rhs).doubleValue());
             }
             return Longs.compare(((Number)lhs).longValue(), ((Number)rhs).longValue());
         }
@@ -1534,9 +1869,7 @@ public enum PDataType {
 
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == INTEGER || targetType == UNSIGNED_LONG
-                    || targetType == LONG || targetType == DECIMAL || targetType == VARBINARY
-                    || targetType == BINARY;
+            return this == targetType || targetType == INTEGER || UNSIGNED_LONG.isCoercibleTo(targetType);
         }
         
         @Override
@@ -2187,7 +2520,8 @@ public enum PDataType {
             return Bytes.compareTo(lhsConverted, 0, lhsConverted.length, rhs, rhsOffset, rhsLength);
         }
         // convert to native and compare
-        return Longs.compare(this.getCodec().decodeLong(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColumnModifier));
+//        return Longs.compare(this.getCodec().decodeLong(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColumnModifier));
+        return Doubles.compare(this.getCodec().decodeDouble(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeDouble(rhs, rhsOffset, rhsColumnModifier));
     }
 
     public static interface PDataCodec {
@@ -2199,6 +2533,10 @@ public enum PDataType {
         public byte decodeByte(byte[] b, int o, ColumnModifier columnModifier);
         public short decodeShort(ImmutableBytesWritable ptr, ColumnModifier columnModifier);
         public short decodeShort(byte[] b, int o, ColumnModifier columnModifier);
+        public float decodeFloat(ImmutableBytesWritable ptr, ColumnModifier columnModifier);
+        public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier);
+        public double decodeDouble(ImmutableBytesWritable ptr, ColumnModifier columnModifier);
+        public double decodeDouble(byte[] b, int o, ColumnModifier columnModifier);
 
         public int encodeLong(long v, ImmutableBytesWritable ptr);
         public int encodeLong(long v, byte[] b, int o);
@@ -2208,6 +2546,10 @@ public enum PDataType {
         public int encodeByte(byte v, byte[] b, int o);
         public int encodeShort(short v, ImmutableBytesWritable ptr);
         public int encodeShort(short v, byte[] b, int o);
+        public int encodeFloat(float v, ImmutableBytesWritable ptr);
+        public int encodeFloat(float v, byte[] b, int o);
+        public int encodeDouble(double v, ImmutableBytesWritable ptr);
+        public int encodeDouble(double v, byte[] b, int o);
     }
 
     public static abstract class BaseCodec implements PDataCodec {
@@ -2232,6 +2574,26 @@ public enum PDataType {
         }
         
         @Override
+        public float decodeFloat(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
+            return decodeFloat(ptr.get(), ptr.getOffset(), columnModifier);
+        }
+        
+        @Override
+        public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
+            throw new UnsupportedOperationException();
+        }
+        
+        @Override
+        public double decodeDouble(ImmutableBytesWritable ptr, ColumnModifier columnModifier) {
+            return decodeDouble(ptr.get(), ptr.getOffset(), columnModifier);
+        }
+        
+        @Override
+        public double decodeDouble(byte[] b, int o, ColumnModifier columnModifier) {
+            throw new UnsupportedOperationException();
+        }
+        
+        @Override
         public int encodeInt(int v, ImmutableBytesWritable ptr) {
             return encodeInt(v, ptr.get(), ptr.getOffset());
         }
@@ -2249,6 +2611,16 @@ public enum PDataType {
         @Override
         public int encodeShort(short v, ImmutableBytesWritable ptr) {
             return encodeShort(v, ptr.get(), ptr.getOffset());
+        }
+        
+        @Override
+        public int encodeFloat(float v, ImmutableBytesWritable ptr) {
+            return encodeFloat(v, ptr.get(), ptr.getOffset());
+        }
+        
+        @Override
+        public int encodeDouble(double v, ImmutableBytesWritable ptr) {
+            return encodeDouble(v, ptr.get(), ptr.getOffset());
         }
 
         @Override
@@ -2270,12 +2642,32 @@ public enum PDataType {
         public int encodeShort(short v, byte[] b, int o) {
             throw new UnsupportedOperationException();
         }
+        
+        @Override
+        public int encodeFloat(float v, byte[] b, int o) {
+            throw new UnsupportedOperationException();
+        }
+        
+        @Override
+        public int encodeDouble(double v, byte[] b, int o) {
+            throw new UnsupportedOperationException();
+        }
     }
 
 
     public static class LongCodec extends BaseCodec {
 
         private LongCodec() {
+        }
+        
+        @Override
+        public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
+            return decodeLong(b, o, columnModifier);
+        }
+        
+        @Override
+        public double decodeDouble(byte[] b, int o, ColumnModifier columnModifier) {
+            return decodeLong(b, o, columnModifier);
         }
 
         @Override
@@ -2308,6 +2700,22 @@ public enum PDataType {
                 throw new IllegalDataException("Value " + v + " cannot be cast to Integer without changing its value");
             }
             return (int)v;
+        }
+        
+        @Override
+        public int encodeFloat(float v, byte[] b, int o) {
+            if (v < Long.MIN_VALUE || v > Long.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Long without changing its value");
+            }
+            return encodeLong((long)v, b, o);
+        }
+        
+        @Override
+        public int encodeDouble(double v, byte[] b, int o) {
+            if (v < Long.MIN_VALUE || v > Long.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Long without changing its value");
+            }
+            return encodeLong((long)v, b, o);
         }
 
         @Override
@@ -2361,6 +2769,17 @@ public enum PDataType {
         public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
             return decodeInt(b, o, columnModifier);
         }
+        
+        @Override
+        public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
+            return decodeInt(b, o, columnModifier);
+        }
+        
+        @Override
+        public double decodeDouble(byte[] b, int o,
+                ColumnModifier columnModifier) {
+            return decodeInt(b, o, columnModifier);
+        }
 
         @Override
         public int decodeInt(byte[] bytes, int o, ColumnModifier columnModifier) {            
@@ -2386,6 +2805,22 @@ public enum PDataType {
             b[o + 2] = (byte) (v >> 8);
             b[o + 3] = (byte) v;
             return Bytes.SIZEOF_INT;
+        }
+        
+        @Override
+        public int encodeFloat(float v, byte[] b, int o) {
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Integer without changing its value");
+            }
+            return encodeInt((int)v, b, o);
+        }
+        
+        @Override
+        public int encodeDouble(double v, byte[] b, int o) {
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Integer without changing its value");
+            }
+            return encodeInt((int)v, b, o);
         }
 
         @Override
@@ -2493,6 +2928,33 @@ public enum PDataType {
       public int encodeByte(byte v, byte[] b, int o) {
         return encodeShort(v,b,o);
       }
+      
+      @Override
+      public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
+          return decodeShort(b, o, columnModifier);
+      }
+      
+      @Override
+      public double decodeDouble(byte[] b, int o,
+              ColumnModifier columnModifier) {
+          return decodeShort(b, o, columnModifier);
+      }
+      
+      @Override
+      public int encodeDouble(double v, byte[] b, int o) {
+          if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
+              throw new IllegalDataException("Value " + v + " cannot be encoded as an Short without changing its value");
+          }
+          return encodeShort((short)v,b,o);
+      }
+    
+      @Override
+      public int encodeFloat(float v, byte[] b, int o) {
+          if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
+              throw new IllegalDataException("Value " + v + " cannot be encoded as an Short without changing its value");
+          }
+          return encodeShort((short)v,b,o);
+      }
     }
     
     public static class ByteCodec extends BaseCodec {
@@ -2555,6 +3017,32 @@ public enum PDataType {
         b[o] = (byte) (v ^ 0x80); // Flip sign bit so that Short is binary comparable
         return Bytes.SIZEOF_BYTE;
       }
+        @Override
+        public double decodeDouble(byte[] b, int o,
+                ColumnModifier columnModifier) {
+            return decodeByte(b, o, columnModifier);
+        }
+
+        @Override
+        public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
+            return decodeByte(b, o, columnModifier);
+        }
+      
+        @Override
+        public int encodeFloat(float v, byte[] b, int o) {
+            if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Byte without changing its value");
+            }
+            return encodeByte((byte)v,b,o);
+        }
+        
+        @Override
+        public int encodeDouble(double v, byte[] b, int o) {
+            if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Byte without changing its value");
+            }
+            return encodeByte((byte)v,b,o);
+        }
     }
     
     public static class UnsignedByteCodec extends ByteCodec {
@@ -2567,7 +3055,7 @@ public enum PDataType {
         if (columnModifier != null) {
           b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_BYTE);
         }
-        byte v = b[0];
+        byte v = b[o];
         if (v < 0) {
           throw new IllegalDataException();
         }
@@ -2670,6 +3158,205 @@ public enum PDataType {
             Bytes.putInt(b, o, v);
             return Bytes.SIZEOF_INT;
         }
+    }
+    
+    public static class FloatCodec extends BaseCodec {
+
+        private FloatCodec(){
+        }
+        
+        @Override
+        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
+            float v = decodeFloat(b, o, columnModifier);
+            if (v < Long.MIN_VALUE || v > Long.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Long without changing its value");
+            }
+            return (long)v;
+        }
+
+        @Override
+        public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
+            float v = decodeFloat(b, o, columnModifier);
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Integer without changing its value");
+            }
+            return (int) v;
+        }
+
+        @Override
+        public byte decodeByte(byte[] b, int o, ColumnModifier columnModifier) {
+            float v = decodeFloat(b, o, columnModifier);
+            if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Byte without changing its value");
+            }
+            return (byte) v;
+        }
+
+        @Override
+        public short decodeShort(byte[] b, int o, ColumnModifier columnModifier) {
+            float v = decodeFloat(b, o, columnModifier);
+            if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Short without changing its value");
+            }
+            return (short) v;
+        }
+
+        @Override
+        public double decodeDouble(byte[] b, int o,
+                ColumnModifier columnModifier) {
+            return decodeFloat(b, o, columnModifier);
+        }
+        
+        @Override
+        public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
+            if (columnModifier != null) {// ColumnModifier.SORT_DESC
+                b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_INT);
+            }
+            int i = Bytes.toInt(b, o);
+            i--;
+            i ^= (~i >> Integer.SIZE - 1) | Integer.MIN_VALUE;
+            return Float.intBitsToFloat(i);
+        }
+        
+        @Override
+        public int encodeShort(short v, byte[] b, int o) {
+            return encodeFloat(v, b, o);
+        }
+
+        @Override
+        public int encodeLong(long v, byte[] b, int o) {
+            return encodeFloat(v, b, o);
+        }
+        
+        @Override
+        public int encodeInt(int v, byte[] b, int o) {
+            return encodeFloat(v, b, o);
+        }
+        
+        @Override
+        public int encodeByte(byte v, byte[] b, int o) {
+            return encodeFloat(v, b, o);
+        }
+        
+        @Override
+        public int encodeDouble(double v, byte[] b, int o) {
+            if (v == Double.NaN || v == Double.POSITIVE_INFINITY
+                    || v == Double.NEGATIVE_INFINITY
+                    || (v >= -Float.MAX_VALUE && v <= Float.MAX_VALUE)) {
+                return encodeFloat((float)v, b, o);
+            } else {
+                throw new IllegalDataException("Value " + v + " cannot be encoded as an Float without changing its value");
+            }
+            
+        }
+        
+        @Override
+        public int encodeFloat(float v, byte[] b, int o) {
+            int i = Float.floatToIntBits(v);
+            i = (i ^ ((i >> Integer.SIZE - 1) | Integer.MIN_VALUE)) + 1;
+            Bytes.putInt(b, o, i);
+            return Bytes.SIZEOF_INT;
+        }
+    }
+    
+    public static class DoubleCodec extends BaseCodec {
+
+        private DoubleCodec(){
+        }
+        
+        @Override
+        public long decodeLong(byte[] b, int o, ColumnModifier columnModifier) {
+            double v = decodeDouble(b, o, columnModifier);
+            if (v < Long.MIN_VALUE || v > Long.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Long without changing its value");
+            }
+            return (long) v;
+        }
+
+        @Override
+        public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
+            double v = decodeDouble(b, o, columnModifier);
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Integer without changing its value");
+            }
+            return (int) v;
+        }
+
+        @Override
+        public byte decodeByte(byte[] b, int o, ColumnModifier columnModifier) {
+            double v = decodeDouble(b, o, columnModifier);
+            if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Byte without changing its value");
+            }
+            return (byte) v;
+        }
+
+        @Override
+        public short decodeShort(byte[] b, int o, ColumnModifier columnModifier) {
+            double v = decodeDouble(b, o, columnModifier);
+            if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Short without changing its value");
+            }
+            return (short) v;
+        }
+        
+        @Override
+        public double decodeDouble(byte[] b, int o, ColumnModifier columnModifier) {
+            if (columnModifier != null) {// ColumnModifier.SORT_DESC
+                b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_LONG);
+            } 
+            long l = Bytes.toLong(b, o);
+            l--;
+            l ^= (~l >> Long.SIZE - 1) | Long.MIN_VALUE;
+            return Double.longBitsToDouble(l);
+        }
+        
+        @Override
+        public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
+            double v = decodeDouble(b, o, columnModifier);
+            if (v == Double.NaN || v == Double.NEGATIVE_INFINITY
+                    || v == Double.POSITIVE_INFINITY
+                    || (v >= -Float.MAX_VALUE && v <= Float.MAX_VALUE)) {
+                return (float) v;
+            } else {
+                throw new IllegalDataException("Value " + v + " cannot be cast to Float without changing its value");
+            }
+            
+        }
+        
+        @Override
+        public int encodeShort(short v, byte[] b, int o) {
+            return encodeDouble(v, b, o);
+        }
+
+        @Override
+        public int encodeLong(long v, byte[] b, int o) {
+            return encodeDouble(v, b, o);
+        }
+        
+        @Override
+        public int encodeInt(int v, byte[] b, int o) {
+            return encodeDouble(v, b, o);
+        }
+        
+        @Override
+        public int encodeByte(byte v, byte[] b, int o) {
+            return encodeDouble(v, b, o);
+        }
+        
+        @Override
+        public int encodeDouble(double v, byte[] b, int o) {
+            long l = Double.doubleToLongBits(v);
+            l = (l ^ ((l >> Long.SIZE - 1) | Long.MIN_VALUE)) + 1;
+            Bytes.putLong(b, o, l);
+            return Bytes.SIZEOF_LONG;
+        }
+        
+        @Override
+        public int encodeFloat(float v, byte[] b, int o) {
+            return encodeDouble(v, b, o);
+        }
+        
     }
 
     public static class DateCodec extends UnsignedLongCodec {
