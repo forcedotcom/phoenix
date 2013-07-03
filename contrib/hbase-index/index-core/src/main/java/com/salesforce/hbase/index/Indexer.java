@@ -1,9 +1,7 @@
 package com.salesforce.hbase.index;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -88,7 +86,7 @@ public class Indexer extends BaseRegionObserver {
       throw new IOException("Couldn't instantiate index builder:" + builderClass
           + ", disabling indexing on table " + env.getRegion().getTableDesc().getNameAsString());
     }
-    this.builder.setup(conf);
+    this.builder.setup(env);
 
     // get a reference to the WAL
     log = env.getRegionServerServices().getWAL();
@@ -187,26 +185,32 @@ public class Indexer extends BaseRegionObserver {
       return;
     }
 
+    Map<Mutation, HTableInterfaceReference> indexUpdates = extractIndexUpdate(edit);
+
+    // early exit - we have nothing to write, so we don't need to do anything else. NOTE: we don't
+    // release the WAL Rolling lock (INDEX_UPDATE_LOCK) since we never take it in doPre if there are
+    // no index updates.
+    if (indexUpdates.size() == 0) {
+      return;
+    }
+
     // the WAL edit is kept in memory and we already specified the factory when we created the
     // references originally - therefore, we just pass in a null factory here and use the ones
     // already specified on each reference
-    writeToIndexFromWALEntry(edit, null);
+    writer.writeAndKillYourselfOnFailure(indexUpdates, null);
 
     // release the lock on the index, we wrote everything properly
     INDEX_UPDATE_LOCK.unlock();
   }
 
   /**
-   * Write the index update parts of the {@link WALEdit} to the index tables.
-   * @param edit edit to examine for index updates. No attempt to write will be made if no index
-   *          updates are contained in the edit's {@link KeyValue}s.
-   * @param factory factory to use when accessing the {@link HTableInterface}s from the
-   *          {@link HTableInterfaceReference}s. If <tt>null</tt>, its expected that the the
-   *          {@link HTableInterfaceReference} already has a reference to a valid factory.
+   * Extract the index updates from the WAL Edit
+   * @param edit to search for index updates
+   * @return the mutations to apply to the index tables
    */
-  private void writeToIndexFromWALEntry(WALEdit edit, HTableFactory factory) {
-    // get the edits out that we need to write
-    Map<Mutation, HTableInterfaceReference> indexUpdates = new HashMap<Mutation, HTableInterfaceReference>();
+  private Map<Mutation, HTableInterfaceReference> extractIndexUpdate(WALEdit edit) {
+    Map<Mutation, HTableInterfaceReference> indexUpdates =
+        new HashMap<Mutation, HTableInterfaceReference>();
     for (KeyValue kv : edit.getKeyValues()) {
       if (kv instanceof IndexedKeyValue) {
         IndexedKeyValue ikv = (IndexedKeyValue) kv;
@@ -214,17 +218,13 @@ public class Indexer extends BaseRegionObserver {
       }
     }
 
-    // no changes to the index, so we are done
-    if (indexUpdates.size() == 0) {
-      return;
-    }
-
-    writer.writeAndKillYourselfOnFailure(indexUpdates, factory);
+    return indexUpdates;
   }
 
   @Override
   public void preWALRestore(ObserverContext<RegionCoprocessorEnvironment> env, HRegionInfo info,
       HLogKey logKey, WALEdit logEdit) throws IOException {
-    writeToIndexFromWALEntry(logEdit, factory);
+    Map<Mutation, HTableInterfaceReference> indexUpdates = extractIndexUpdate(logEdit);
+    writer.writeAndKillYourselfOnFailure(indexUpdates, factory);
   }
 }

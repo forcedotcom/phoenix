@@ -13,7 +13,6 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.Coprocessor;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HColumnDescriptor;
@@ -23,12 +22,10 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.coprocessor.RegionObserver;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionServerAccounting;
 import org.apache.hadoop.hbase.regionserver.RegionServerServices;
@@ -40,9 +37,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.builder.ColumnFamilyIndexer;
-import com.salesforce.hbase.index.table.HTableFactory;
+import com.salesforce.hbase.index.builder.covered.CoveredColumnIndexer;
 
 /**
  * most of the underlying work (creating/splitting the WAL, etc) is from
@@ -167,7 +163,7 @@ public class TestWALReplayWithIndexWrites {
     wal.close();
 
     // then create the index table so we are successful on WAL replay
-    ColumnFamilyIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
+    CoveredColumnIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
 
     // run the WAL split and setup the region
     runWALSplit(this.conf);
