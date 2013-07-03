@@ -89,6 +89,7 @@ public class PhoenixRuntime {
      */
     public final static String CONNECTIONLESS = "none";
     
+    private static final String UPGRADE_OPTION = "-u";
     private static final String TABLE_OPTION = "-t";
     private static final String HEADER_OPTION = "-h";
     private static final String STRICT_OPTION = "-s";
@@ -130,6 +131,7 @@ public class PhoenixRuntime {
             String tableName = null;
             List<String> columns = null;
             boolean isStrict = false;
+            boolean isUpgrade = false;
 
             int i = 0;
             for (; i < args.length; i++) {
@@ -154,6 +156,8 @@ public class PhoenixRuntime {
                     }
                 } else if (STRICT_OPTION.equals(args[i])) {
                     isStrict = true;
+                } else if (UPGRADE_OPTION.equals(args[i])) {
+                    isUpgrade = true;
                 } else {
                     break;
                 }
@@ -163,9 +167,17 @@ public class PhoenixRuntime {
             }
             
             Properties props = new Properties();
+            if (isUpgrade) {
+                props.setProperty(SchemaUtil.UPGRADE_TO_2_0, Integer.toString(SchemaUtil.SYSTEM_TABLE_NULLABLE_VAR_LENGTH_COLUMNS));
+            }
             Class.forName(PhoenixDriver.class.getName());
             String connectionUrl = JDBC_PROTOCOL + JDBC_PROTOCOL_SEPARATOR + args[i++];
-            PhoenixConnection conn = DriverManager.getConnection(connectionUrl).unwrap(PhoenixConnection.class);
+            PhoenixConnection conn = DriverManager.getConnection(connectionUrl, props).unwrap(PhoenixConnection.class);
+            
+            if (SchemaUtil.upgradeColumnCount(connectionUrl, props) > 0) {
+                SchemaUtil.upgradeTo2(conn);
+                return;
+            }
             
             for (; i < args.length; i++) {
                 String fileName = args[i];

@@ -43,6 +43,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
@@ -62,6 +63,21 @@ public class PDataTypeTest {
         byte[] ba = PDataType.LONG.toBytes(na);
         byte[] bb = PDataType.LONG.toBytes(nb);
         assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        Integer value = 100;
+        Object obj = PDataType.LONG.toObject(value, PDataType.INTEGER);
+        assertTrue(obj instanceof Long);
+        assertEquals(100, ((Long)obj).longValue());
+        
+        Long longValue = 100l;
+        Object longObj = PDataType.LONG.toObject(longValue, PDataType.LONG);
+        assertTrue(longObj instanceof Long);
+        assertEquals(100, ((Long)longObj).longValue());
+        
+        assertEquals(0, PDataType.LONG.compareTo(Long.MAX_VALUE, Float.valueOf(Long.MAX_VALUE), PDataType.FLOAT));
+        assertEquals(0, PDataType.LONG.compareTo(Long.MAX_VALUE, Double.valueOf(Long.MAX_VALUE), PDataType.DOUBLE));
+        assertEquals(-1, PDataType.LONG.compareTo(99, Float.valueOf(100), PDataType.FLOAT));
+        assertEquals(1, PDataType.LONG.compareTo(101, Float.valueOf(100), PDataType.FLOAT));
     }
 
     @Test
@@ -88,6 +104,320 @@ public class PDataTypeTest {
         ba = PDataType.INTEGER.toBytes(na);
         bb = PDataType.INTEGER.toBytes(nb);
         assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        Long value = 100l;
+        Object obj = PDataType.INTEGER.toObject(value, PDataType.LONG);
+        assertTrue(obj instanceof Integer);
+        assertEquals(100, ((Integer)obj).intValue());
+        
+        Short shortValue = 100;
+        Object shortObj = PDataType.INTEGER.toObject(shortValue, PDataType.SMALLINT);
+        assertTrue(shortObj instanceof Integer);
+        assertEquals(100, ((Integer)shortObj).intValue());
+    }
+    
+    @Test
+    public void testSmallInt() {
+        Short na = 4;
+        byte[] b = PDataType.SMALLINT.toBytes(na);
+        Short nb = (Short)PDataType.SMALLINT.toObject(b);
+        assertEquals(na,nb);
+        
+        na = 4;
+        b = PDataType.SMALLINT.toBytes(na, ColumnModifier.SORT_DESC);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        ptr.set(b);
+        nb = (Short)PDataType.SMALLINT.getCodec().decodeShort(ptr, ColumnModifier.SORT_DESC);
+        assertEquals(na,nb);
+
+        na = 1;
+        nb = -1;
+        byte[] ba = PDataType.SMALLINT.toBytes(na);
+        byte[] bb = PDataType.SMALLINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+
+        na = -1;
+        nb = -3;
+        ba = PDataType.SMALLINT.toBytes(na);
+        bb = PDataType.SMALLINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+
+        na = -3;
+        nb = -10000;
+        ba = PDataType.SMALLINT.toBytes(na);
+        bb = PDataType.SMALLINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        Integer value = 100;
+        Object obj = PDataType.SMALLINT.toObject(value, PDataType.INTEGER);
+        assertTrue(obj instanceof Short);
+        assertEquals(100, ((Short)obj).shortValue());
+    }
+    
+    @Test
+    public void testTinyInt() {
+        Byte na = 4;
+        byte[] b = PDataType.TINYINT.toBytes(na);
+        Byte nb = (Byte)PDataType.TINYINT.toObject(b);
+        assertEquals(na,nb);
+
+        na = 1;
+        nb = -1;
+        byte[] ba = PDataType.TINYINT.toBytes(na);
+        byte[] bb = PDataType.TINYINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+
+        na = -1;
+        nb = -3;
+        ba = PDataType.TINYINT.toBytes(na);
+        bb = PDataType.TINYINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+
+        na = -3;
+        nb = -100;
+        ba = PDataType.TINYINT.toBytes(na);
+        bb = PDataType.TINYINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        Integer value = 100;
+        Object obj = PDataType.TINYINT.toObject(value, PDataType.INTEGER);
+        assertTrue(obj instanceof Byte);
+        assertEquals(100, ((Byte)obj).byteValue());
+    }
+    
+    @Test
+    public void testUnsignedSmallInt() {
+        Short na = 4;
+        byte[] b = PDataType.UNSIGNED_SMALLINT.toBytes(na);
+        Short nb = (Short)PDataType.UNSIGNED_SMALLINT.toObject(b);
+        assertEquals(na,nb);
+
+        na = 10;
+        nb = 8;
+        byte[] ba = PDataType.UNSIGNED_SMALLINT.toBytes(na);
+        byte[] bb = PDataType.UNSIGNED_SMALLINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        Integer value = 100;
+        Object obj = PDataType.UNSIGNED_SMALLINT.toObject(value, PDataType.INTEGER);
+        assertTrue(obj instanceof Short);
+        assertEquals(100, ((Short)obj).shortValue());
+    }
+    
+    @Test
+    public void testUnsignedTinyInt() {
+        Byte na = 4;
+        byte[] b = PDataType.UNSIGNED_TINYINT.toBytes(na);
+        Byte nb = (Byte)PDataType.UNSIGNED_TINYINT.toObject(b);
+        assertEquals(na,nb);
+
+        na = 10;
+        nb = 8;
+        byte[] ba = PDataType.UNSIGNED_TINYINT.toBytes(na);
+        byte[] bb = PDataType.UNSIGNED_TINYINT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        Integer value = 100;
+        Object obj = PDataType.UNSIGNED_TINYINT.toObject(value, PDataType.INTEGER);
+        assertTrue(obj instanceof Byte);
+        assertEquals(100, ((Byte)obj).byteValue());
+    }
+    
+    @Test
+    public void testFloat() {
+        Float na = 0.005f;
+        byte[] b = PDataType.FLOAT.toBytes(na);
+        Float nb = (Float)PDataType.FLOAT.toObject(b);
+        assertEquals(na,nb);
+        
+        na = 10.0f;
+        b = PDataType.FLOAT.toBytes(na, ColumnModifier.SORT_DESC);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        ptr.set(b);
+        nb = (Float)PDataType.FLOAT.getCodec().decodeFloat(ptr, ColumnModifier.SORT_DESC);
+        assertEquals(na,nb);
+        
+        na = 1.0f;
+        nb = -1.0f;
+        byte[] ba = PDataType.FLOAT.toBytes(na);
+        byte[] bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+
+        na = -1f;
+        nb = -3f;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        na = null;
+        nb = Float.NEGATIVE_INFINITY;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Float.NEGATIVE_INFINITY;
+        nb = -Float.MAX_VALUE;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = -Float.MAX_VALUE;
+        nb = -Float.MIN_VALUE;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = -Float.MIN_VALUE;
+        nb = -0.0f;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = -0.0f;
+        nb = 0.0f;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = 0.0f;
+        nb = Float.MIN_VALUE;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Float.MIN_VALUE;
+        nb = Float.MAX_VALUE;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Float.MAX_VALUE;
+        nb = Float.POSITIVE_INFINITY;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Float.POSITIVE_INFINITY;
+        nb = Float.NaN;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        Integer value = 100;
+        Object obj = PDataType.FLOAT.toObject(value, PDataType.INTEGER);
+        assertTrue(obj instanceof Float);
+        
+        Double dvalue = Double.NEGATIVE_INFINITY;
+        obj = PDataType.FLOAT.toObject(dvalue, PDataType.DOUBLE);
+        assertTrue(obj instanceof Float);
+        assertEquals(Float.NEGATIVE_INFINITY, obj);
+        
+        na = 1.0f;
+        nb = -1.0f;
+        ba = PDataType.FLOAT.toBytes(na);
+        bb = PDataType.FLOAT.toBytes(nb);
+        float nna = PDataType.FLOAT.getCodec().decodeFloat(ba, 0, ColumnModifier.SORT_DESC);
+        float nnb = PDataType.FLOAT.getCodec().decodeFloat(bb, 0, ColumnModifier.SORT_DESC);
+        assertTrue(Float.compare(nna, nnb) < 0);
+    }
+    
+    @Test
+    public void testDouble() {
+        Double na = 0.005;
+        byte[] b = PDataType.DOUBLE.toBytes(na);
+        Double nb = (Double)PDataType.DOUBLE.toObject(b);
+        assertEquals(na,nb);
+        
+        na = 10.0;
+        b = PDataType.DOUBLE.toBytes(na, ColumnModifier.SORT_DESC);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        ptr.set(b);
+        nb = (Double)PDataType.DOUBLE.getCodec().decodeDouble(ptr, ColumnModifier.SORT_DESC);
+        assertEquals(na,nb);
+
+        na = 1.0;
+        nb = -1.0;
+        byte[] ba = PDataType.DOUBLE.toBytes(na);
+        byte[] bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+
+        na = -1.0;
+        nb = -3.0;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) > 0);
+        
+        na = null;
+        nb = Double.NEGATIVE_INFINITY;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Double.NEGATIVE_INFINITY;
+        nb = -Double.MAX_VALUE;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = -Double.MAX_VALUE;
+        nb = -Double.MIN_VALUE;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = -Double.MIN_VALUE;
+        nb = -0.0;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = -0.0;
+        nb = 0.0;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = 0.0;
+        nb = Double.MIN_VALUE;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Double.MIN_VALUE;
+        nb = Double.MAX_VALUE;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Double.MAX_VALUE;
+        nb = Double.POSITIVE_INFINITY;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        na = Double.POSITIVE_INFINITY;
+        nb = Double.NaN;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        assertTrue(Bytes.compareTo(ba, bb) < 0);
+        
+        Integer value = 100;
+        Object obj = PDataType.DOUBLE.toObject(value, PDataType.INTEGER);
+        assertTrue(obj instanceof Double);
+        
+        na = 1.0;
+        nb = -1.0;
+        ba = PDataType.DOUBLE.toBytes(na);
+        bb = PDataType.DOUBLE.toBytes(nb);
+        double nna = PDataType.DOUBLE.getCodec().decodeDouble(ba, 0, ColumnModifier.SORT_DESC);
+        double nnb = PDataType.DOUBLE.getCodec().decodeDouble(bb, 0, ColumnModifier.SORT_DESC);
+        assertTrue(Double.compare(nna, nnb) < 0);
+        
+        assertEquals(1, PDataType.DOUBLE.compareTo(Double.valueOf(101), Long.valueOf(100), PDataType.LONG));
+        assertEquals(0, PDataType.DOUBLE.compareTo(Double.valueOf(Long.MAX_VALUE), Long.MAX_VALUE, PDataType.LONG));
+        assertEquals(-1, PDataType.DOUBLE.compareTo(Double.valueOf(1), Long.valueOf(100), PDataType.LONG));
+        
+        assertEquals(0, PDataType.DOUBLE.compareTo(Double.valueOf(101), BigDecimal.valueOf(101.0), PDataType.DECIMAL));
     }
 
     @Test
@@ -289,6 +619,83 @@ public class PDataTypeTest {
     @Test
     public void testValueCoersion() throws Exception {
         // Testing coercing integer to other values.
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.FLOAT));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.FLOAT, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.FLOAT, 0.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.FLOAT, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.FLOAT, Double.valueOf(Float.MAX_VALUE) + Double.valueOf(Float.MAX_VALUE)));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.LONG, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.LONG, 0.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.LONG, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.LONG, Double.valueOf(Long.MAX_VALUE) + Double.valueOf(Long.MAX_VALUE)));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_INT, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_INT, 0.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_INT, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_LONG));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_LONG, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_LONG, 0.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_LONG, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.SMALLINT, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.SMALLINT, 0.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.SMALLINT, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.SMALLINT, -100000.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.TINYINT, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.TINYINT, 0.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.TINYINT, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.TINYINT, -1000.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 0.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -100000.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 10.0));
+        assertTrue(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 0.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -10.0));
+        assertFalse(PDataType.DOUBLE.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -1000.0));
+        
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.DOUBLE));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.LONG, 10.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.LONG, 0.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.LONG, -10.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.LONG, Float.valueOf(Long.MAX_VALUE) + Float.valueOf(Long.MAX_VALUE)));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_INT, 10.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_INT, 0.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_INT, -10.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_LONG));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_LONG, 10.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_LONG, 0.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_LONG, -10.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.SMALLINT, 10.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.SMALLINT, 0.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.SMALLINT, -10.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.SMALLINT, -100000.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.TINYINT, 10.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.TINYINT, 0.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.TINYINT, -10.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.TINYINT, -1000.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 10.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 0.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -10.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -100000.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 10.0f));
+        assertTrue(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 0.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -10.0f));
+        assertFalse(PDataType.FLOAT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -1000.0f));
+        
+        // Testing coercing integer to other values.
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.FLOAT));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.LONG));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.LONG, 10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.LONG, 0));
@@ -301,8 +708,30 @@ public class PDataTypeTest {
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_LONG, 10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_LONG, 0));
         assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_LONG, -10));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.SMALLINT, 10));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.SMALLINT, 0));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.SMALLINT, -10));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.SMALLINT, -100000));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.TINYINT, 10));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.TINYINT, 0));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.TINYINT, -10));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.TINYINT, -1000));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 10));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 0));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -10));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -100000));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 10));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 0));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -10));
+        assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -1000));
 
         // Testing coercing long to other values.
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.FLOAT));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.INTEGER));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.INTEGER, Long.MAX_VALUE));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.INTEGER, Integer.MAX_VALUE + 10L));
@@ -319,14 +748,101 @@ public class PDataTypeTest {
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_INT, 10L));
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_INT, 0L));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_INT, -10L));
-        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG));
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, Long.MAX_VALUE));
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, 10L));
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, 0L));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, -10L));
         assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_LONG, Long.MIN_VALUE));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.SMALLINT, 10L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.SMALLINT, 0L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.SMALLINT, -10L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.SMALLINT, -100000L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.TINYINT, 10L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.TINYINT, 0L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.TINYINT, -10L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.TINYINT, -1000L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 10L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 0L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -10L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, -100000L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 10L));
+        assertTrue(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 0L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -10L));
+        assertFalse(PDataType.LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT, -1000L));
+        
+        // Testing coercing smallint to other values.
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.FLOAT));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.LONG, (short)10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.LONG, (short)0));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.LONG, (short)-10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.INTEGER));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.INTEGER, (short)10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.INTEGER, (short)0));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.INTEGER, (short)-10));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_INT, (short)10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_INT, (short)0));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_INT, (short)-10));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_LONG));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (short)10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (short)0));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (short)-10));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.TINYINT, (short)10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.TINYINT, (short)0));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.TINYINT, (short)-10));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.TINYINT, (short)1000));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (short)10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (short)0));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (short)-10));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (short)10));
+        assertTrue(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (short)0));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (short)-10));
+        assertFalse(PDataType.SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (short)1000));
+        
+        // Testing coercing tinyint to other values.
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.FLOAT));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.LONG, (byte)10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.LONG, (byte)0));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.LONG, (byte)-10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.INTEGER));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.INTEGER, (byte)10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.INTEGER, (byte)0));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.INTEGER, (byte)-10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.SMALLINT, (byte)100));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.SMALLINT, (byte)0));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.SMALLINT, (byte)-10));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_INT, (byte)10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_INT, (byte)0));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_INT, (byte)-10));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_LONG));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (byte)10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (byte)0));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (byte)-10));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (byte)10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (byte)0));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (byte)-10));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (byte)10));
+        assertTrue(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (byte)0));
+        assertFalse(PDataType.TINYINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (byte)-10));
 
         // Testing coercing unsigned_int to other values.
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.FLOAT));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.INTEGER));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.INTEGER, 10));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.INTEGER, 0));
@@ -336,13 +852,95 @@ public class PDataTypeTest {
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG, 10));
         assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_LONG, 0));
+        assertFalse(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.SMALLINT, 10));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.SMALLINT, 0));
+        assertFalse(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.TINYINT, 10));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.TINYINT, 0));
+        assertFalse(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 10));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 0));
+        assertFalse(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 100000));
+        assertFalse(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 10));
+        assertTrue(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 0));
+        assertFalse(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 1000));
 
         // Testing coercing unsigned_long to other values.
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.FLOAT));
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER, 10L));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.INTEGER, 0L));
         assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.LONG));
         assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.SMALLINT, 10L));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.SMALLINT, 0L));
+        assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.TINYINT, 10L));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.TINYINT, 0L));
+        assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 10L));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 0L));
+        assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, 100000L));
+        assertFalse(PDataType.UNSIGNED_INT.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 10L));
+        assertTrue(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 0L));
+        assertFalse(PDataType.UNSIGNED_LONG.isCoercibleTo(PDataType.UNSIGNED_TINYINT, 1000L));
+        
+        // Testing coercing unsigned_smallint to other values.
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.FLOAT));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.INTEGER));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.INTEGER, (short)10));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.INTEGER, (short)0));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.LONG, (short)10));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.LONG, (short)0));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_LONG));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (short)10));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (short)0));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_INT, (short)10));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_INT, (short)0));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.SMALLINT, (short)10));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.SMALLINT, (short)0));
+        assertFalse(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.TINYINT, (short)10));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.TINYINT, (short)0));
+        assertFalse(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.TINYINT, (short)1000));
+        assertFalse(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (short)10));
+        assertTrue(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (short)0));
+        assertFalse(PDataType.UNSIGNED_SMALLINT.isCoercibleTo(PDataType.UNSIGNED_TINYINT, (short)1000));
+        
+        // Testing coercing unsigned_tinyint to other values.
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.DOUBLE));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.FLOAT));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.INTEGER));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.INTEGER, (byte)10));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.INTEGER, (byte)0));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.LONG));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.LONG, (byte)10));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.LONG, (byte)0));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_LONG));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (byte)10));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_LONG, (byte)0));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_INT));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_INT, (byte)10));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_INT, (byte)0));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.SMALLINT));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.SMALLINT, (byte)10));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.SMALLINT, (byte)0));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.TINYINT));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.TINYINT, (byte)10));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.TINYINT, (byte)0));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (byte)10));
+        assertTrue(PDataType.UNSIGNED_TINYINT.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, (byte)0));
         
         // Testing coercing Date types
         assertTrue(PDataType.DATE.isCoercibleTo(PDataType.TIMESTAMP));

@@ -157,4 +157,5 @@ public interface PTable extends Writable {
      * @return number of buckets used by this table for salting, or null if salting is not used.
      */
     Integer getBucketNum();
+   
 }

@@ -30,17 +30,14 @@ package com.salesforce.phoenix.end2end;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 
-import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.MetaScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -48,6 +45,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.filter.SkipScanFilter;
@@ -58,6 +56,7 @@ import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 /**
@@ -89,21 +88,25 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         this.expectedSplits = expectedSplits;
     }
 
-    @Before
-    public void beforeTest() {
-        Configuration config = driver.getQueryServices().getConfig();
-        config.setInt(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.MAX_VALUE);
-    }
-    
     @Test
     public void testGetSplitsWithSkipScanFilter() throws Exception {
+        byte[][] splits = new byte[][] {Ka1A, Ka1B, Ka1E, Ka1G, Ka1I, Ka2A};
         long ts = nextTimestamp();
-        TableRef table = initTableValues(ts, 3, 5);
-        NavigableMap<HRegionInfo, ServerName> regions = getRegions(table);
-        List<KeyRange> splits = getSplits(table, scan, regions, scanRanges);
-        assertEquals("Unexpected number of splits: " + splits.size(), expectedSplits.size(), splits.size());
+        createTestTable(getUrl(),DDL,splits, ts-2);
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
+        PSchema schema = pconn.getPMetaData().getSchemas().get("");
+        TableRef table = new TableRef(null,schema.getTable(TABLE_NAME),schema, ts);
+        NavigableMap<HRegionInfo, ServerName> regions = pconn.getQueryServices().getAllTableRegions(table);
+        
+        conn.close();
+        initTableValues();
+        List<KeyRange> ranges = getSplits(table, scan, regions, scanRanges);
+        assertEquals("Unexpected number of splits: " + ranges.size(), expectedSplits.size(), ranges.size());
         for (int i=0; i<expectedSplits.size(); i++) {
-            assertEquals(expectedSplits.get(i), splits.get(i));
+            assertEquals(expectedSplits.get(i), ranges.get(i));
         }
     }
 
@@ -297,13 +300,8 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
                 }
     };
 
-    private static TableRef initTableValues(long ts, int targetQueryConcurrency, int maxQueryConcurrency) throws Exception {
-        byte[][] splits = new byte[][] {Ka1A, Ka1B, Ka1E, Ka1G, Ka1I, Ka2A};
-        Configuration config = driver.getQueryServices().getConfig();
-        config.setInt(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, maxQueryConcurrency);
-        config.setInt(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, targetQueryConcurrency);
-        createTestTable(getUrl(),DDL,splits, ts-2);
-        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
+    private void initTableValues() throws SQLException {
+        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + nextTimestamp();
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         PreparedStatement stmt = conn.prepareStatement(
@@ -316,13 +314,18 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         stmt.execute();
         conn.commit();
         conn.close();
-        PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        PSchema schema = pconn.getPMetaData().getSchemas().get("");
-        return new TableRef(null,schema.getTable(TABLE_NAME),schema, ts);
-    }
-
-    private static NavigableMap<HRegionInfo, ServerName> getRegions(TableRef table) throws IOException {
-        return MetaScanner.allTableRegions(driver.getQueryServices().getConfig(), table.getTableName(), false);
+     }
+    
+    @BeforeClass
+    public static void doSetup() throws Exception {
+        int targetQueryConcurrency = 3;
+        int maxQueryConcurrency = 5;
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(3);
+        props.put(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, Integer.toString(maxQueryConcurrency));
+        props.put(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, Integer.toString(targetQueryConcurrency));
+        props.put(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.toString(Integer.MAX_VALUE));
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
 
     private static List<KeyRange> getSplits(TableRef table, final Scan scan, final NavigableMap<HRegionInfo, ServerName> regions,

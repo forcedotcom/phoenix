@@ -190,16 +190,18 @@ public class SubstrFunction extends PrefixFunction {
     }
 
     @Override
-    public boolean preservesOrder() {
+    public OrderPreserving preservesOrder() {
         if (isOffsetConstant) {
             LiteralExpression literal = (LiteralExpression) getOffsetExpression();
             Number offsetNumber = (Number) literal.getValue();
             if (offsetNumber != null) { 
                 int offset = offsetNumber.intValue();
-                return (offset == 0 || offset == 1) && (!hasLengthExpression || isLengthConstant);
+                if ((offset == 0 || offset == 1) && (!hasLengthExpression || isLengthConstant)) {
+                    return OrderPreserving.YES_IF_LAST;
+                }
             }
         }
-        return false;
+        return OrderPreserving.NO;
     }
 
     @Override

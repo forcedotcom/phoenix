@@ -104,8 +104,8 @@ public class RTrimFunction extends ScalarFunction {
     }
 
     @Override
-    public boolean preservesOrder() {
-        return true;
+    public OrderPreserving preservesOrder() {
+        return OrderPreserving.YES_IF_LAST;
     }
 
     @Override

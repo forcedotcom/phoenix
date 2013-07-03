@@ -36,13 +36,13 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 import com.salesforce.phoenix.util.TupleUtil;
 
 
@@ -103,7 +103,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
             }
             success = true;
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         } finally {
             try {
                 scanner.close();
@@ -271,7 +271,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 init();
                 return next;
             } catch (IOException e) {
-                throw new PhoenixIOException(e);
+                throw ServerUtil.parseServerException(e);
             }
         }
     
@@ -283,7 +283,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 advance();
                 return current;
             } catch (IOException e) {
-                throw new PhoenixIOException(e);
+                throw ServerUtil.parseServerException(e);
             }
         }
         
@@ -294,7 +294,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                     reachedEnd();
                 }
             } catch (IOException e) {
-                throw new PhoenixIOException(e);
+                throw ServerUtil.parseServerException(e);
             }
         }
 

@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableMap;
 import com.salesforce.phoenix.jdbc.PhoenixTestDriver;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 public abstract class BaseTest {
     private static final Map<String,String> tableDDLMap;
@@ -270,10 +271,18 @@ public abstract class BaseTest {
         }
     }
 
-    protected static void startServer(String url) throws Exception {
-        PhoenixTestDriver driver = initDriver(new QueryServicesTestImpl());
+    protected static void startServer(String url, ReadOnlyProps props) throws Exception {
+//        Pass config through initDriver for testing purposes
+//        Don't create Config or surface getConfig or getProps in QueryServices
+//        Create Config in ConnectionQueryServices, but don't surface it
+//        Add getAdmin in ConnectionQueryServices
+        PhoenixTestDriver driver = initDriver(new QueryServicesTestImpl(props));
         assertTrue(DriverManager.getDriver(url) == driver);
         driver.connect(url, TEST_PROPERTIES);
+    }
+    
+    protected static void startServer(String url) throws Exception {
+        startServer(url, ReadOnlyProps.EMPTY_PROPS);
     }
 
     protected static void stopServer() throws Exception {

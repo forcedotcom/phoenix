@@ -33,7 +33,9 @@ import java.util.Properties;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
+import com.salesforce.phoenix.query.ConnectionQueryServicesImpl;
+import com.salesforce.phoenix.query.QueryServices;
 
 
 /**
@@ -45,34 +47,26 @@ import com.salesforce.phoenix.query.*;
  * @since 0.1
  */
 public class ConnectionQueryServicesTestImpl extends ConnectionQueryServicesImpl {
-    private static HBaseTestingUtility util;
+    private HBaseTestingUtility util;
 
-    public ConnectionQueryServicesTestImpl(Configuration config) throws SQLException {
-        this(new QueryServicesTestImpl(config));
+    public ConnectionQueryServicesTestImpl(QueryServices services, ConnectionInfo info) throws SQLException {
+        super(services, info);
     }
 
-    public ConnectionQueryServicesTestImpl(QueryServices services) throws SQLException {
-        super(services, services.getConfig());
-    }
-
-    public ConnectionQueryServicesTestImpl(QueryServices services, Configuration config) throws SQLException {
-        super(services, config);
-    }
-    
-    private static Configuration setupServer(Configuration config) throws Exception {
+    private Configuration setupServer(Configuration config) throws Exception {
         util = new HBaseTestingUtility(config);
         util.startMiniCluster();
         return util.getConfiguration();
     }
     
-    private static void teardownServer() throws Exception {
+    private void teardownServer() throws Exception {
         util.shutdownMiniCluster();
     }
     
     @Override
     public void init(String url, Properties props) throws SQLException {
         try {
-            setupServer(this.getConfig());
+            setupServer(config);
             super.init(url, props);
             /**
              * Clear the server-side meta data cache on initialization. Otherwise, if we

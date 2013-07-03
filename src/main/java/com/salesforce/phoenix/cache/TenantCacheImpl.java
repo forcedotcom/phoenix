@@ -49,7 +49,6 @@ import org.apache.hadoop.io.WritableUtils;
 import org.apache.http.annotation.Immutable;
 import org.xerial.snappy.Snappy;
 
-import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.memory.MemoryManager;
@@ -59,6 +58,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.ServerUtil;
 import com.salesforce.phoenix.util.SizedUtil;
 import com.salesforce.phoenix.util.TupleUtil;
 
@@ -127,7 +127,7 @@ public class TenantCacheImpl implements TenantCache {
             hashCaches.put(joinId, wrapper);
             return wrapper.getHashCache();
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         }
     }
     

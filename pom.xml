@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.salesforce</groupId>
   <artifactId>phoenix</artifactId>
-  <version>1.3-SNAPSHOT</version>
+  <version>2.0-SNAPSHOT</version>
   <name>Phoenix</name>
   <description>A SQL layer over HBase</description>
 
@@ -60,11 +60,13 @@
     <!-- General Properties -->
     <antlr-input.dir>src/main/antlr3</antlr-input.dir>
     <antlr-output.dir>target/generated-sources/antlr3</antlr-output.dir>
+    <test.output.tofile>true</test.output.tofile>
 
     <!-- Dependency versions -->
     <hbase.version>0.94.7</hbase.version>
     <commons-cli.version>1.2</commons-cli.version>
     <hadoop.version>1.0.4</hadoop.version>
+    <pig.version>0.11.0</pig.version>
     <junit.version>4.11</junit.version>
     <jackson.version>1.8.8</jackson.version>
     <antlr.version>3.5</antlr.version>
@@ -77,11 +79,12 @@
     <commons-io.version>2.1</commons-io.version>
     <commons-lang.version>2.5</commons-lang.version>
     <commons-logging.version>1.1.1</commons-logging.version>
-    <sqlline.version>1.0.9</sqlline.version>
+    <sqlline.version>1.1.2</sqlline.version>
 
     <!-- Plugin versions -->
     <maven-eclipse-plugin.version>2.8</maven-eclipse-plugin.version>
     <maven-build-helper-plugin.version>1.7</maven-build-helper-plugin.version>
+    <maven-dependency-plugin.version>2.1</maven-dependency-plugin.version>
 
     <!-- Set default encoding so multi-byte tests work correctly on the Mac -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -297,6 +300,7 @@
           <version>2.13</version>
           <configuration>
               <argLine>-Xmx1500m</argLine>
+              <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
           </configuration>
       </plugin>
     <plugin>
@@ -334,37 +338,9 @@
       <version>${opencsv.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-core</artifactId>
-      <version>${hadoop.version}</version>
-      <optional>true</optional>
-      <exclusions>
-        <exclusion>
-          <groupId>hsqldb</groupId>
-          <artifactId>hsqldb</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>net.sf.kosmosfs</groupId>
-          <artifactId>kfs</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.jdt</groupId>
-          <artifactId>core</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>net.java.dev.jets3t</groupId>
-          <artifactId>jets3t</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>oro</groupId>
-          <artifactId>oro</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
       <groupId>org.apache.pig</groupId>
       <artifactId>pig</artifactId>
-      <version>0.11.0</version>
+      <version>${pig.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hbase</groupId>
@@ -374,7 +350,7 @@
     <dependency>
       <groupId>jline</groupId>
       <artifactId>jline</artifactId>
-      <version>0.9.9</version>
+      <version>2.11</version>
     </dependency>
     <dependency>
       <groupId>sqlline</groupId>
@@ -415,13 +391,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-test</artifactId>
-      <version>${hadoop.version}</version>
-      <optional>true</optional>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>${junit.version}</version>
@@ -436,5 +405,122 @@
     </dependency>
 
   </dependencies>
+
+  <profiles>
+
+    <!--
+      Profile for building against Hadoop 1. Active by default.
+      Not used if another Hadoop profile is specified with
+        mvn -Dhadoop.profile=foo
+    -->
+    <profile>
+      <id>hadoop-1</id>
+      <activation>
+        <property>
+          <name>!hadoop.profile</name>
+	</property>
+      </activation>
+      <dependencies>
+	<dependency>
+	  <groupId>org.apache.hadoop</groupId>
+	  <artifactId>hadoop-core</artifactId>
+	  <version>${hadoop.version}</version>
+	  <optional>true</optional>
+	  <exclusions>
+	    <exclusion>
+	      <groupId>hsqldb</groupId>
+	      <artifactId>hsqldb</artifactId>
+	    </exclusion>
+	    <exclusion>
+	      <groupId>net.sf.kosmosfs</groupId>
+	      <artifactId>kfs</artifactId>
+	    </exclusion>
+	    <exclusion>
+	      <groupId>org.eclipse.jdt</groupId>
+	      <artifactId>core</artifactId>
+	    </exclusion>
+	    <exclusion>
+	      <groupId>net.java.dev.jets3t</groupId>
+	      <artifactId>jets3t</artifactId>
+	    </exclusion>
+	    <exclusion>
+	      <groupId>oro</groupId>
+	      <artifactId>oro</artifactId>
+	    </exclusion>
+	  </exclusions>
+	</dependency>
+	<dependency>
+	  <groupId>org.apache.hadoop</groupId>
+	  <artifactId>hadoop-test</artifactId>
+	  <version>${hadoop.version}</version>
+	  <optional>true</optional>
+	  <scope>test</scope>
+	</dependency>
+      </dependencies>
+    </profile>
+
+    <!--
+      Profile for building against Hadoop 2. Activate using:
+        mvn -Dhadoop.profile=2
+    -->
+    <profile>
+      <id>hadoop-2</id>
+      <activation>
+        <property>
+          <name>hadoop.profile</name>
+          <value>2</value>
+        </property>
+      </activation>
+      <properties>
+        <hadoop.version>2.0.4-alpha</hadoop.version>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-common</artifactId>
+          <version>${hadoop.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-annotations</artifactId>
+          <version>${hadoop.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-mapreduce-client-core</artifactId>
+          <version>${hadoop.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-minicluster</artifactId>
+          <version>${hadoop.version}</version>
+	  <optional>true</optional>
+	  <scope>test</scope>
+        </dependency>
+      </dependencies>
+      <build>
+	<plugins>
+          <plugin>
+            <artifactId>maven-dependency-plugin</artifactId>
+	    <version>${maven-dependency-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>create-mrapp-generated-classpath</id>
+                <phase>generate-test-resources</phase>
+                <goals>
+                  <goal>build-classpath</goal>
+                </goals>
+                <configuration>
+                  <outputFile>${project.build.directory}/classes/mrapp-generated-classpath</outputFile>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+	</plugins>
+      </build>
+
+    </profile>
+    
+  </profiles>
 
 </project>

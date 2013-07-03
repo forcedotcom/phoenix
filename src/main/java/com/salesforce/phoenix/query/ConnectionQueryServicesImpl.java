@@ -57,8 +57,8 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResul
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.exception.*;
 import com.salesforce.phoenix.execute.MutationState;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.jdbc.*;
+import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
 import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.TableNotFoundException;
@@ -68,7 +68,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
     private static final int INITIAL_CHILD_SERVICES_CAPACITY = 100;
     private static final int DEFAULT_OUT_OF_ORDER_MUTATIONS_WAIT_TIME_MS = 1000;
-    private final Configuration config;
+    protected final Configuration config;
+    // Copy of config.getProps(), but read-only to prevent synchronization that we
+    // don't need.
+    private final ReadOnlyProps props;
     private final HConnection connection;
     private final StatsManager statsManager;
     private final ConcurrentHashMap<ImmutableBytesWritable,ConnectionQueryServices> childServices;
@@ -77,15 +80,30 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
+    
 
     /**
      * keep a cache of HRegionInfo objects
      */
     private final LoadingCache<TableRef, NavigableMap<HRegionInfo, ServerName>> tableRegionCache;
     
-    public ConnectionQueryServicesImpl(QueryServices services, final Configuration config) throws SQLException {
+    /**
+     * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
+     * cluster.
+     * @param services base services from where we derive our default configuration
+     * @param overrideProps overrides for configuration values (used during testing)
+     * @throws SQLException
+     */
+    public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
         super(services);
-        this.config = config;
+        this.config = HBaseConfiguration.create();
+        for (Entry<String,String> entry : services.getProps()) {
+            config.set(entry.getKey(), entry.getValue());
+        }
+        for (Entry<String,String> entry : connectionInfo.asProps()) {
+            config.set(entry.getKey(), entry.getValue());
+        }
+        this.props = new ReadOnlyProps(config.iterator());
         try {
             this.connection = HConnectionManager.createConnection(config);
         } catch (ZooKeeperConnectionException e) {
@@ -98,14 +116,14 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         // TODO: should we track connection wide memory usage or just org-wide usage?
         // If connection-wide, create a MemoryManager here, otherwise just use the one from the delegate
         this.childServices = new ConcurrentHashMap<ImmutableBytesWritable,ConnectionQueryServices>(INITIAL_CHILD_SERVICES_CAPACITY);
-        int statsUpdateFrequencyMs = this.getConfig().getInt(QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB, QueryServicesOptions.DEFAULT_STATS_UPDATE_FREQ_MS);
-        int maxStatsAgeMs = this.getConfig().getInt(QueryServices.MAX_STATS_AGE_MS_ATTRIB, QueryServicesOptions.DEFAULT_MAX_STATS_AGE_MS);
+        int statsUpdateFrequencyMs = this.getProps().getInt(QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB, QueryServicesOptions.DEFAULT_STATS_UPDATE_FREQ_MS);
+        int maxStatsAgeMs = this.getProps().getInt(QueryServices.MAX_STATS_AGE_MS_ATTRIB, QueryServicesOptions.DEFAULT_MAX_STATS_AGE_MS);
         this.statsManager = new StatsManagerImpl(this, statsUpdateFrequencyMs, maxStatsAgeMs);
         /**
          * keep a cache of HRegionInfo objects
          */
         tableRegionCache = CacheBuilder.newBuilder().
-            expireAfterAccess(this.getConfig().getLong(QueryServices.REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB,QueryServicesOptions.DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS), TimeUnit.MILLISECONDS)
+            expireAfterAccess(this.getProps().getLong(QueryServices.REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB,QueryServicesOptions.DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS), TimeUnit.MILLISECONDS)
             .removalListener(new RemovalListener<TableRef, NavigableMap<HRegionInfo, ServerName>>(){
                 @Override
                 public void onRemoval(RemovalNotification<TableRef, NavigableMap<HRegionInfo, ServerName>> notification) {
@@ -136,8 +154,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
     
     @Override
-    public Configuration getConfig() {
-        return config;
+    public ReadOnlyProps getProps() {
+        return props;
     }
 
     /**
@@ -160,9 +178,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 connection.close();
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new PhoenixIOException(e);
+                    sqlE = ServerUtil.parseServerException(e);
                 } else {
-                    sqlE.setNextException(new PhoenixIOException(e));
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
                 }
                 throw sqlE;
             } finally {
@@ -436,7 +454,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             }
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         }
         return descriptor;
     }
@@ -445,7 +463,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         HBaseAdmin admin = null;
         SQLException sqlE = null;
         try {
-            admin = new HBaseAdmin(this.getConfig());
+            admin = new HBaseAdmin(config);
             try {
                 HTableDescriptor existingDesc = admin.getTableDescriptor(tableName);
                 HColumnDescriptor oldDescriptor = existingDesc.getFamily(family.getFirst());
@@ -478,7 +496,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 sqlE = new SQLExceptionInfo.Builder(SQLExceptionCode.TABLE_UNDEFINED).setRootCause(e).build().buildException();
             }
         } catch (IOException e) {
-            sqlE = new PhoenixIOException(e);
+            sqlE = ServerUtil.parseServerException(e);
         } finally {
             try {
                 if (admin != null) {
@@ -486,9 +504,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new PhoenixIOException(e);
+                    sqlE = ServerUtil.parseServerException(e);
                 } else {
-                    sqlE.setNextException(new PhoenixIOException(e));
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
                 }
             } finally {
                 if (sqlE != null) {
@@ -513,7 +531,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         boolean isMetaTable = SchemaUtil.isMetaTable(tableName);
         boolean tableExist = true;
         try {
-            admin = new HBaseAdmin(this.getConfig());
+            admin = new HBaseAdmin(config);
             try {
                 existingDesc = admin.getTableDescriptor(tableName);
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
@@ -532,6 +550,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 if (isMetaTable) {
                     newDesc.remove(HTableDescriptor.SPLIT_POLICY);
                 }
+                newDesc.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
                 if (splits == null) {
                     admin.createTable(newDesc);
                 } else {
@@ -552,6 +571,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
                 return true;
             } else {
+                // TODO: what about local autobuild test environments?
                 if (existingDesc.equals(newDesc)) {
                     // Table is already created. Note that the presplits are ignored in this case
                     if (isMetaTable) {
@@ -595,7 +615,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
 
         } catch (IOException e) {
-            sqlE = new PhoenixIOException(e);
+            sqlE = ServerUtil.parseServerException(e);
         } finally {
             try {
                 if (admin != null) {
@@ -603,9 +623,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             } catch (IOException e) {
                 if (sqlE == null) {
-                    sqlE = new PhoenixIOException(e);
+                    sqlE = ServerUtil.parseServerException(e);
                 } else {
-                    sqlE.setNextException(new PhoenixIOException(e));
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
                 }
             } finally {
                 if (sqlE != null) {
@@ -675,7 +695,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     private boolean isCompatible(Long serverVersion) {
         return serverVersion != null &&
-                MetaDataProtocol.PHOENIX_VERSION == MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
+                MetaDataProtocol.MINIMUM_PHOENIX_SERVER_VERSION <= MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
     }
 
     private void checkClientServerCompatibility() throws SQLException {
@@ -683,7 +703,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         boolean isIncompatible = false;
         int minHBaseVersion = Integer.MAX_VALUE;
         try {
-            NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(getConfig(), TYPE_TABLE_NAME, false);
+            NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(config, TYPE_TABLE_NAME, false);
             TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
             List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionMap.size());
             for (Map.Entry<HRegionInfo, ServerName> entry : regionInfoMap.entrySet()) {
@@ -758,12 +778,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 return result;
             }
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         } catch (Throwable t) {
             throw new SQLException(t);
         }
     }
-    
+
     @Override
     public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, boolean isView, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
@@ -888,7 +908,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     }
                   });
             } catch (IOException e) {
-                throw new PhoenixIOException(e);
+                throw ServerUtil.parseServerException(e);
             } catch (Throwable e) {
                 sqlE = new SQLException(e);
             } finally {
@@ -896,9 +916,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     htable.close();
                 } catch (IOException e) {
                     if (sqlE == null) {
-                        sqlE = new PhoenixIOException(e);
+                        sqlE = ServerUtil.parseServerException(e);
                     } else {
-                        sqlE.setNextException(new PhoenixIOException(e));
+                        sqlE.setNextException(ServerUtil.parseServerException(e));
                     }
                 } finally {
                     if (sqlE != null) {
@@ -907,7 +927,16 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             }
         } catch (Exception e) {
-            throw new SQLException(e);
+            throw new SQLException(ServerUtil.parseServerException(e));
+        }
+    }
+
+    @Override
+    public HBaseAdmin getAdmin() throws SQLException {
+        try {
+            return new HBaseAdmin(config);
+        } catch (IOException e) {
+            throw new PhoenixIOException(e);
         }
     }
 }

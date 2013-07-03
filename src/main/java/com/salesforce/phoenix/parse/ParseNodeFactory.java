@@ -225,6 +225,10 @@ public class ParseNodeFactory {
         return new ColumnParseNode(tableName,name);
     }
     
+    public DynamicColumnParseNode dynColumn(ColumnDef node) {
+        return new DynamicColumnParseNode(node);
+    }
+    
     public ColumnDefName columnDefName(String columnName) {
         return new ColumnDefName(columnName);
     }
@@ -292,7 +296,13 @@ public class ParseNodeFactory {
 
 
     public FunctionParseNode functionDistinct(String name, List<ParseNode> args) {
-        throw new UnsupportedOperationException("DISTINCT not supported");
+        if (CountAggregateFunction.NAME.equals(SchemaUtil.normalizeIdentifier(name))) {
+            BuiltInFunctionInfo info = getInfo(
+                    SchemaUtil.normalizeIdentifier(DistinctCountAggregateFunction.NAME), args);
+            return new DistinctCountParseNode(name, args, info);
+        } else {
+            throw new UnsupportedOperationException("DISTINCT not supported with " + name);
+        }
     }
 
     public FunctionParseNode function(String name, List<ParseNode> args) {
@@ -311,6 +321,37 @@ public class ParseNodeFactory {
         }
     }
 
+    public FunctionParseNode percentileCont(ParseNode percentileNode, ParseNode columnNode,
+            boolean isAscending) {
+        // percentile node should be a LiteralParseNode and it should be of type INTEGER/DECIMAL
+        if (percentileNode instanceof LiteralParseNode) {
+            LiteralParseNode node = (LiteralParseNode) percentileNode;
+            if (!(Number.class.isAssignableFrom(node.getType().getJavaClass()))) {
+                throw new RuntimeException("Wrong value for percentile expression "
+                        + node.getValue() + ". Specify a numeric value ( e.g. PERCENTILE(0.9) )");
+            }
+            float percentileValue = ((Number) node.getValue()).floatValue();
+            if (percentileValue > 1 || percentileValue < 0) {
+                throw new RuntimeException("Wrong value for percentile expression "
+                        + node.getValue() +". Specify a value between 0 and 1 inclusive.");
+            }
+        } else {
+            throw new RuntimeException("Wrong usage of percentile expression " + percentileNode
+                    + ". Specify a numeric literal value ( e.g. PERCENTILE(0.9) )");
+        }
+        // column node to be a single ColumnParseNode
+        // The column to be of numeric type which is checked by the Function Argument's allowedTypes.
+        if (!(columnNode instanceof ColumnParseNode)) {
+            throw new RuntimeException(
+                    "Wrong usage of PERCENTILE_CONT. Specify a column on which percentile to be calculated.");
+        }
+        List<ParseNode> children = new ArrayList<ParseNode>(3);
+        children.add(columnNode);
+        children.add(new LiteralParseNode(Boolean.valueOf(isAscending)));
+        children.add(percentileNode);
+        BuiltInFunctionInfo info = getInfo(PercentileContAggregateFunction.NAME, children);
+        return new AggregateFunctionParseNode(PercentileContAggregateFunction.NAME, children, info);
+    }
 
     public GreaterThanParseNode gt(ParseNode lhs, ParseNode rhs) {
         return new GreaterThanParseNode(lhs, rhs);

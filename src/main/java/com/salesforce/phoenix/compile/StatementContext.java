@@ -82,10 +82,10 @@ public class StatementContext {
         this.binds = new BindManager(binds, bindCount);
         this.aggregates = new AggregationManager();
         this.expressions = new ExpressionManager();
-        this.dateFormat = connection.getQueryServices().getConfig().get(QueryServices.DATE_FORMAT_ATTRIB, DateUtil.DEFAULT_DATE_FORMAT);
+        this.dateFormat = connection.getQueryServices().getProps().get(QueryServices.DATE_FORMAT_ATTRIB, DateUtil.DEFAULT_DATE_FORMAT);
         this.dateFormatter = DateUtil.getDateFormatter(dateFormat);
         this.dateParser = DateUtil.getDateParser(dateFormat);
-        this.numberFormat = connection.getQueryServices().getConfig().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
+        this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
         this.hintNode = hintNode;
     }

@@ -62,7 +62,7 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
     
     @BeforeClass
     public static void doBeforeTestSetup() throws Exception {
-        HBaseAdmin admin = new HBaseAdmin(driver.getQueryServices().getConfig());
+        HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
         try {
             try {
                 admin.disableTable(HBASE_NATIVE_BYTES);

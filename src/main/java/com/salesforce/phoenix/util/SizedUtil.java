@@ -50,6 +50,7 @@ public class SizedUtil {
     
     public static final int MAP_ENTRY_SIZE = OBJECT_SIZE + 3 * POINTER_SIZE + INT_SIZE;
     public static final int IMMUTABLE_BYTES_WRITABLE_SIZE = OBJECT_SIZE + INT_SIZE * 2 + ARRAY_SIZE;
+    public static final int IMMUTABLE_BYTES_PTR_SIZE = IMMUTABLE_BYTES_WRITABLE_SIZE + INT_SIZE;// Extra is an int field which caches hashcode.
     public static final int KEY_VALUE_SIZE = 2 * INT_SIZE + LONG_SIZE + 2 * ARRAY_SIZE;
     public static final int RESULT_SIZE = OBJECT_SIZE +  3 * POINTER_SIZE + IMMUTABLE_BYTES_WRITABLE_SIZE;
     public static final int INT_OBJECT_SIZE = INT_SIZE + OBJECT_SIZE;

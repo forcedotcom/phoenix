@@ -30,9 +30,8 @@ package com.salesforce.phoenix.query;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 
-import org.apache.hadoop.conf.Configuration;
-
 import com.salesforce.phoenix.memory.MemoryManager;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 
@@ -56,11 +55,6 @@ public class DelegateQueryServices implements QueryServices {
     }
     
     @Override
-    public Configuration getConfig() {
-        return parent.getConfig();
-    }
-
-    @Override
     public ExecutorService getExecutor() {
         return parent.getExecutor();
     }
@@ -73,5 +67,10 @@ public class DelegateQueryServices implements QueryServices {
     @Override
     public void close() throws SQLException {
         parent.close();
+    }
+
+    @Override
+    public ReadOnlyProps getProps() {
+        return parent.getProps();
     }
 }

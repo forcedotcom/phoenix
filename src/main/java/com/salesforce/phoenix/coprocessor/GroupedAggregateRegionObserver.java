@@ -176,7 +176,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         int estDistVals = DEFAULT_ESTIMATED_DISTINCT_VALUES;
         byte[] estDistValsBytes = scan.getAttribute(ESTIMATED_DISTINCT_VALUES);
         if (estDistValsBytes != null) {
-            estDistVals = Math.min(MIN_DISTINCT_VALUES, Bytes.toInt(estDistValsBytes) * 3 / 2);  // Allocate 1.5x estimation
+            estDistVals = Math.min(MIN_DISTINCT_VALUES, (int)(Bytes.toInt(estDistValsBytes) * 1.5f));  // Allocate 1.5x estimation
         }
         
         TenantCache tenantCache = GlobalCache.getTenantCache(c.getEnvironment().getConfiguration(), ScanUtil.getTenantId(scan));
@@ -217,7 +217,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                         }
                             
                         if (aggregateMap.size() > estDistVals) { // increase allocation
-                            estDistVals *= 3/2;
+                            estDistVals *= 1.5f;
                             estSize = sizeOfUnorderedGroupByMap(estDistVals, estValueSize);
                             chunk.resize(estSize);
                         }

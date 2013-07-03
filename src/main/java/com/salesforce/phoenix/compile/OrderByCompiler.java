@@ -36,8 +36,9 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
-import com.salesforce.phoenix.parse.HintNode.Hint;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.OrderByNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.schema.ColumnModifier;
 
 /**
  * Validates ORDER BY clause and builds up a list of referenced columns.
@@ -105,7 +106,11 @@ public class OrderByCompiler {
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
                     }
                 }
-                OrderByExpression col = new OrderByExpression(expression, node.isNullsLast(), node.isAscending());
+                boolean isAscending = node.isAscending();
+                if (expression.getColumnModifier() == ColumnModifier.SORT_DESC) {
+                    isAscending = !isAscending;
+                }
+                OrderByExpression col = new OrderByExpression(expression, node.isNullsLast(), isAscending);
                 visitor.addOrderByExpression(col);
             }
             visitor.reset();

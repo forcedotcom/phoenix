@@ -477,7 +477,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         byte[] cfC = Bytes.toBytes("c");
         byte[][] familyNames = new byte[][] {cfB, cfC};
         byte[] htableName = SchemaUtil.getTableName(tableName);
-        HBaseAdmin admin = new HBaseAdmin(pconn.getQueryServices().getConfig());
+        HBaseAdmin admin = pconn.getQueryServices().getAdmin();
         try {
             admin.disableTable(htableName);
             admin.deleteTable(htableName);
@@ -556,7 +556,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         byte[] cfC = Bytes.toBytes("c");
         byte[][] familyNames = new byte[][] {cfB, cfC};
         byte[] htableName = SchemaUtil.getTableName(tableName);
-        HBaseAdmin admin = new HBaseAdmin(pconn.getQueryServices().getConfig());
+        HBaseAdmin admin = pconn.getQueryServices().getAdmin();
         try {
             admin.disableTable(htableName);
             admin.deleteTable(htableName);

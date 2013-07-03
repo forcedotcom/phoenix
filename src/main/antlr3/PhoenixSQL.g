@@ -88,6 +88,8 @@ tokens
     SHOW='show';
     TABLES='tables';
     ALL='all';
+    PERCENTILE_CONT='percentile_cont';
+    WITHIN='within';
 }
 
 
@@ -625,12 +627,13 @@ expression_negate returns [ParseNode ret]
 
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
 expression_term returns [ParseNode ret]
-@init{ParseNode n;}
+@init{ParseNode n;boolean isAscending=true;}
     :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
     |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
     |   field=identifier LPAREN l=expression_list RPAREN { $ret = factory.function(field, l);} 
     |   field=identifier LPAREN t=ASTERISK RPAREN { if (!isCountFunction(field)) { throwRecognitionException(t); } $ret = factory.function(field, LiteralParseNode.STAR);} 
     |   field=identifier LPAREN t=DISTINCT l=expression_list RPAREN { $ret = factory.functionDistinct(field, l);}
+    |   PERCENTILE_CONT LPAREN e1=expression RPAREN WITHIN GROUP LPAREN ORDER BY e2=expression (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN { $ret = factory.percentileCont(e1,e2,isAscending);}
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }
@@ -643,8 +646,10 @@ expression_terms returns [List<ParseNode> ret]
 
 column_refs returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-    :  v = column_ref {$ret.add(v);}  (COMMA v = column_ref {$ret.add(v);} )*
+     :  (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);})  (COMMA (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);}) )*
 ;
+catch[SQLException e]{throw  new RecognitionException();}
+
 column_ref returns [ParseNode ret]
     :   field=identifier {$ret = factory.column(field); }
     |   tableName=column_table_name DOT field=identifier {$ret = factory.column(tableName, field); }
@@ -678,6 +683,7 @@ expression_literal_bind returns [ParseNode ret]
 literal returns [LiteralParseNode ret]
     :   s=STRING_LITERAL { ret = factory.literal(s.getText()); }
     |   n=int_literal { ret = n; }
+    |   l=long_literal { ret = l; }
     |   d=DECIMAL {
             try {
                 ret = factory.literal(new BigDecimal(d.getText()));
@@ -701,6 +707,18 @@ int_literal returns [LiteralParseNode ret]
                 }
             } catch (NumberFormatException e) { // Shouldn't happen since we just parsed a number
                 throwRecognitionException(n);
+            }
+        }
+    ;
+
+long_literal returns [LiteralParseNode ret]
+    :   l=LONG {
+            try {
+                String lt = l.getText();
+                Long v = Long.valueOf(lt.substring(0, lt.length() - 1));
+                ret = factory.literal(v);
+            } catch (NumberFormatException e) { // Shouldn't happen since we just parsed a number
+                throwRecognitionException(l);
             }
         }
     ;

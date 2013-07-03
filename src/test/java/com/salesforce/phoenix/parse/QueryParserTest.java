@@ -39,6 +39,7 @@ import java.util.Set;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.PhoenixParserException;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 
@@ -108,18 +109,12 @@ public class QueryParserTest {
 
     @Test
     public void testCountDistinctQuery() throws Exception {
-        try {
-            SQLParser parser = new SQLParser(new StringReader(
-                "select count(distinct foo) from core.custom_entity_data t\n" + 
-                "where (t.created_date > to_date('01/01/2001'))\n" + 
-                "and (t.organization_id = '000000000000000')\n" + 
-                "and (t.key_prefix = '001')\n" +
-                "limit 4500"
-                ));
-            parser.parseStatement();
-            fail();
-        } catch (SQLFeatureNotSupportedException e) {
-        }
+        SQLParser parser = new SQLParser(new StringReader(
+                "select count(distinct foo) from core.custom_entity_data t\n"
+                        + "where (t.created_date > to_date('01/01/2001'))\n"
+                        + "and (t.organization_id = '000000000000000')\n"
+                        + "and (t.key_prefix = '001')\n" + "limit 4500"));
+        parser.parseStatement();
     }
 
     @Test
@@ -510,5 +505,77 @@ public class QueryParserTest {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 210 (22003): Missing length for BINARY. columnName=COL"));
         }
     }
-    
+
+    @Test
+    public void testPercentileQuery1() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY salary DESC) from core.custom_index_value ind"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testPercentileQuery2() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testPercentileWrongQuery1() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select PERCENTILE_CONT('*') WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (PhoenixParserException e) {
+            assertEquals(
+                    "ERROR 601 (42P00): Syntax error. Wrong value for percentile expression *. Specify a numeric value ( e.g. PERCENTILE(0.9) )",
+                    e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPercentileWrongQuery2() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select PERCENTILE_CONT(mark) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (PhoenixParserException e) {
+            assertEquals(
+                    "ERROR 601 (42P00): Syntax error. Wrong usage of percentile expression MARK. Specify a numeric literal value ( e.g. PERCENTILE(0.9) )",
+                    e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPercentileWrongQuery3() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select PERCENTILE_CONT(1.1) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (PhoenixParserException e) {
+            assertEquals(
+                    "ERROR 601 (42P00): Syntax error. Wrong value for percentile expression 1.1. Specify a value between 0 and 1 inclusive.",
+                    e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPercentileWrongQuery4() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select PERCENTILE_CONT(-1) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (PhoenixParserException e) {
+        }
+    }
 }

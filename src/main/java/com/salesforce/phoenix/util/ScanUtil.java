@@ -255,7 +255,7 @@ public class ScanUtil {
              * 2) setting the lower bound when the type is fixed length
              *    for the same reason. However, if the type is variable width
              *    continue building the key because null values will be filtered
-             *    since our separator byte will be appended and increment.
+             *    since our separator byte will be appended and incremented.
              */
             if (  range.isUnbound(bound) &&
                 ( bound == Bound.UPPER || isFixedWidth) ){
@@ -288,7 +288,7 @@ public class ScanUtil {
             anyInclusiveUpperRangeKey |= !range.isSingleKey() && inclusiveUpper;
             // If we are setting the lower bound with an exclusive range key, we need to bump the
             // slot up for each key part. For an upper bound, we bump up an inclusive key, but
-            // only after then last key part.
+            // only after the last key part.
             if (!range.isSingleKey() && exclusiveLower) {
                 if (!ByteUtil.nextKey(key, offset)) {
                     // Special case for not being able to increment.
@@ -308,6 +308,16 @@ public class ScanUtil {
                 // key has overflowed, this means that we should not
                 // have an end key specified.
                 return -byteOffset;
+            }
+        }
+        // Remove trailing separator bytes, since the columns may have been added
+        // after the table has data, in which case there won't be a separator
+        // byte.
+        if (bound == Bound.LOWER) {
+            while (schemaStartIndex > 0 && offset > byteOffset && 
+                    !schema.getField(--schemaStartIndex).getType().isFixedWidth() && 
+                    key[offset-1] == QueryConstants.SEPARATOR_BYTE) {
+                offset--;
             }
         }
         return offset - byteOffset;

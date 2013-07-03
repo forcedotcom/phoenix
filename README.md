@@ -70,7 +70,7 @@ In addition, you can use the bin/psql.sh to execute to load CSV data or execute 
 If you'd rather use a client GUI to interact with Phoenix, download and install [SQuirrel](http://squirrel-sql.sourceforge.net/). Since Phoenix is a JDBC driver, integration with tools such as this are seamless. Here are the setup steps necessary:
 
 1. Remove prior phoenix-[version]-client.jar from the lib directory of SQuirrel
-2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel
+2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel (Note that on a Mac, this is the *internal* lib directory).
 3. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
 4. In Add Driver dialog box, set Name to Phoenix
 5. Press List Drivers button and com.salesforce.phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
@@ -93,7 +93,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
    <repository>
       <id>phoenix-github</id>
       <name>Phoenix Github Maven</name>
-      <url>http://github.com/forcedotcom/Phoenix/tree/maven-artifacts/</url>
+      <url>https://raw.github.com/forcedotcom/phoenix/maven-artifacts/releases</url>
       <snapshots>
         <enabled>true</enabled>
       </snapshots>
@@ -109,7 +109,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     <dependency>
         <groupId>com.salesforce</groupId>
         <artifactId>phoenix</artifactId>
-        <version>1.2.0</version>
+        <version>1.2.1</version>
     </dependency>
     ...
   </dependencies>

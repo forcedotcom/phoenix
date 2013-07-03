@@ -27,18 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
-import java.util.AbstractQueue;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
@@ -170,18 +163,11 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
     }
 
     private static class IndexedResultEntry extends ResultEntry {
-        private ResultEntry resultEntry;
         private int index;
 
         public IndexedResultEntry(int index, ResultEntry resultEntry) {
             super(resultEntry.sortKeys, resultEntry.result);
             this.index = index;
-            this.resultEntry = resultEntry;
-        }
-
-        @SuppressWarnings("unused")
-        public ResultEntry getResultEntry() {
-            return this.resultEntry;
         }
 
         public int getIndex() {

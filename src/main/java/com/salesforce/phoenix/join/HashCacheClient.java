@@ -34,7 +34,6 @@ import java.util.concurrent.*;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.*;
@@ -44,7 +43,6 @@ import org.apache.hadoop.io.WritableUtils;
 import org.xerial.snappy.Snappy;
 
 import com.google.common.collect.ImmutableSet;
-import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.iterate.ResultIterator;
@@ -52,13 +50,14 @@ import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.*;
 
 /**
  * 
  * Client for adding cache of one side of a join to region servers
- *
+ *306
  * @author jtaylor
  * @since 0.1
  */
@@ -69,7 +68,7 @@ public class HashCacheClient {
     
     private static final Log LOG = LogFactory.getLog(HashCacheClient.class);
     private static final String JOIN_KEY_PREFIX = "joinKey";
-    private final byte[] iterateOverTableName;
+    private final TableRef iterateOverTableName;
     private final byte[] tenantId;
     private final ConnectionQueryServices services;
 
@@ -80,7 +79,7 @@ public class HashCacheClient {
      * @param iterateOverTableName table name
      * @param tenantId the tenantId or null if not applicable
      */
-    public HashCacheClient(ConnectionQueryServices services, byte[] iterateOverTableName, byte[] tenantId) {
+    public HashCacheClient(ConnectionQueryServices services, TableRef iterateOverTableName, byte[] tenantId) {
         this.services = services;
         this.iterateOverTableName = iterateOverTableName;
         this.tenantId = tenantId;
@@ -154,7 +153,6 @@ public class HashCacheClient {
         SQLException firstException = null;
         ResultIterator iterator = null;
         ImmutableBytesWritable hashCache = null;
-        Configuration config = services.getConfig();
         List<Closeable> closeables = new ArrayList<Closeable>();
         MemoryChunk chunk = services.getMemoryManager().allocate(scanner.getEstimatedSize());
         closeables.add(chunk);
@@ -177,7 +175,7 @@ public class HashCacheClient {
         ExecutorService executor = services.getExecutor();
         List<Future<Boolean>> futures = Collections.emptyList();
         try {
-            NavigableMap<HRegionInfo, ServerName> locations = MetaScanner.allTableRegions(services.getConfig(), iterateOverTableName, false);
+            NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(iterateOverTableName);
             int nRegions = locations.size();
             // Size these based on worst case
             futures = new ArrayList<Future<Boolean>>(nRegions);
@@ -187,7 +185,7 @@ public class HashCacheClient {
                 if (!servers.contains(entry.getValue())) {  // Call RPC once per server
                     servers.add(entry.getValue());
                     final byte[] key = entry.getKey().getStartKey();
-                    final HTableInterface iterateOverTable = services.getTable(iterateOverTableName);
+                    final HTableInterface iterateOverTable = services.getTable(iterateOverTableName.getTableName());
                     closeables.add(iterateOverTable);
                     futures.add(executor.submit(new JobCallable<Boolean>() {
                         
@@ -212,7 +210,7 @@ public class HashCacheClient {
             
             hashCacheSpec = new HashCache(joinId,servers,theHashCache.getSize());
             // Execute in parallel
-            int timeoutMs = config.getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
+            int timeoutMs = services.getProps().getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
             for (Future<Boolean> future : futures) {
                 future.get(timeoutMs, TimeUnit.MILLISECONDS);
             }
@@ -253,13 +251,8 @@ public class HashCacheClient {
      */
     private void removeHashCache(byte[] joinId, Set<ServerName> servers) throws SQLException {
         Throwable lastThrowable = null;
-        HTableInterface iterateOverTable = services.getTable(iterateOverTableName);
-        NavigableMap<HRegionInfo, ServerName> locations;
-        try {
-            locations = MetaScanner.allTableRegions(services.getConfig(), iterateOverTableName, false);
-        } catch (IOException e) {
-            throw new PhoenixIOException(e);
-        }
+        HTableInterface iterateOverTable = services.getTable(iterateOverTableName.getTableName());
+        NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(iterateOverTableName);
         Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
         for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
             if (remainingOnServers.contains(entry.getValue())) {  // Call once per server
@@ -289,7 +282,7 @@ public class HashCacheClient {
     // package private for testing
     ImmutableBytesWritable serialize(ResultIterator scanner, List<Expression> onExpressions, byte[] tableName, byte[][] cfs, MemoryChunk chunk) throws SQLException {
         try {
-            long maxSize = services.getConfig().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE);
+            long maxSize = services.getProps().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE);
             long estimatedSize = Math.min(chunk.getSize(), maxSize);
             if (estimatedSize > Integer.MAX_VALUE) {
                 throw new IllegalStateException("Estimated size(" + estimatedSize + ") must not be greater than Integer.MAX_VALUE(" + Integer.MAX_VALUE + ")");
@@ -312,7 +305,7 @@ public class HashCacheClient {
                     if (baOut.size() > maxSize) {
                         throw new MaxHashCacheSizeExceededException("Size of hash cache (" + baOut.size() + " bytes) exceeds the maximum allowed size (" + maxSize + " bytes)");
                     }
-                    estimatedSize *= 3/2;
+                    estimatedSize *= 1.5d;
                     chunk.resize(estimatedSize);
                 }
                 nRows++;
@@ -344,7 +337,7 @@ public class HashCacheClient {
                 dataOut.close();
             }
         } catch (IOException e) {
-            throw new PhoenixIOException(e);
+            throw ServerUtil.parseServerException(e);
         }
     }
 }

@@ -30,7 +30,6 @@ package com.salesforce.phoenix.util;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.query.QueryServices;
@@ -78,20 +77,9 @@ public class JDBCUtil {
         return (scnStr == null ? null : Long.parseLong(scnStr));
     }
 
-    /**
-     * 
-     * Use {@link #getMutateBatchSize(String, Properties, Configuration)} instead
-     * @deprecated
-     */
-    public static int getUpsertBatchSize(String url, Properties info, Configuration config) throws SQLException {
-        return getMutateBatchSize(url, info, config);
-    }
-    
-    @SuppressWarnings("deprecation")
-    public static int getMutateBatchSize(String url, Properties info, Configuration config) throws SQLException {
+    public static int getMutateBatchSize(String url, Properties info, ReadOnlyProps props) throws SQLException {
         String batchSizeStr = findProperty(url, info, PhoenixRuntime.UPSERT_BATCH_SIZE_ATTRIB);
-        // TODO: remove usage of UPSERT_BATCH_SIZE_ATTRIB in next release
-        return (batchSizeStr == null ? config.getInt(QueryServices.MUTATE_BATCH_SIZE_ATTRIB, config.getInt(QueryServices.UPSERT_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MUTATE_BATCH_SIZE)) : Integer.parseInt(batchSizeStr));
+        return (batchSizeStr == null ? props.getInt(QueryServices.MUTATE_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MUTATE_BATCH_SIZE) : Integer.parseInt(batchSizeStr));
     }
 
     public static byte[] getTenantId(String url, Properties info) throws SQLException {

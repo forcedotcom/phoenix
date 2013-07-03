@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.sql.SQLException;
 import java.util.List;
 

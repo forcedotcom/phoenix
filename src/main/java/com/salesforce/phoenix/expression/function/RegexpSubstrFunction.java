@@ -141,21 +141,23 @@ public class RegexpSubstrFunction extends PrefixFunction {
     }
 
     @Override
-    public boolean preservesOrder() {
+    public OrderPreserving preservesOrder() {
         if (isOffsetConstant) {
             LiteralExpression literal = (LiteralExpression) getOffsetExpression();
             Number offsetNumber = (Number) literal.getValue();
             if (offsetNumber != null) { 
                 int offset = offsetNumber.intValue();
-                return (offset == 0 || offset == 1);
+                if (offset == 0 || offset == 1) {
+                    return OrderPreserving.YES_IF_LAST;
+                }
             }
         }
-        return false;
+        return OrderPreserving.NO;
     }
 
     @Override
     public int getKeyFormationTraversalIndex() {
-        return preservesOrder() ? 0 : -1;
+        return preservesOrder() == OrderPreserving.NO ? NO_TRAVERSAL : 0;
     }
 
     private Expression getOffsetExpression() {

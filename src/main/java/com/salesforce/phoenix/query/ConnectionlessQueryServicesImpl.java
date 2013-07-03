@@ -32,8 +32,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -85,7 +84,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -157,5 +156,10 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     @Override
     public int getLowestClusterHBaseVersion() {
         return 0;
+    }
+
+    @Override
+    public HBaseAdmin getAdmin() throws SQLException {
+        throw new UnsupportedOperationException();
     }
 }
