@@ -477,6 +477,7 @@ upsert_node returns [UpsertStatement ret]
         {ret = factory.upsert(t, c, v, s, getBindCount()); }
     ;
 
+upsert_columns returns [Pair<List<ColumnDef>,List<
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
 upsert_select_node returns [SelectStatement ret]
     :   s=select_node {$ret = s;}
