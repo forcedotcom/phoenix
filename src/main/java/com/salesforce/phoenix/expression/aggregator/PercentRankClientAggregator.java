@@ -47,6 +47,7 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
 public class PercentRankClientAggregator extends DistinctValueWithCountClientAggregator {
 
     private List<Expression> exps = null;
+    private BigDecimal cachedResult = null;
 
     public PercentRankClientAggregator(List<Expression> exps) {
         this.exps = exps;
@@ -54,35 +55,38 @@ public class PercentRankClientAggregator extends DistinctValueWithCountClientAgg
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        ColumnExpression columnExp = (ColumnExpression)exps.get(0);
-        // Second exp will be a LiteralExpression of Boolean type indicating whether the ordering to
-        // be ASC/DESC
-        LiteralExpression isAscendingExpression = (LiteralExpression)exps.get(1);
-        boolean isAscending = (Boolean)isAscendingExpression.getValue();
+        if (cachedResult == null) {
+            ColumnExpression columnExp = (ColumnExpression)exps.get(0);
+            // Second exp will be a LiteralExpression of Boolean type indicating whether the ordering to
+            // be ASC/DESC
+            LiteralExpression isAscendingExpression = (LiteralExpression)exps.get(1);
+            boolean isAscending = (Boolean)isAscendingExpression.getValue();
 
-        // Third expression will be LiteralExpression
-        LiteralExpression valueExp = (LiteralExpression)exps.get(2);
-        // To sort the valueVsCount
-        NavigableMap<ImmutableBytesPtr, Integer> sortedMap = new TreeMap<ImmutableBytesPtr, Integer>(valueVsCount);
-        if (!isAscending) {
-            sortedMap = sortedMap.descendingMap();
+            // Third expression will be LiteralExpression
+            LiteralExpression valueExp = (LiteralExpression)exps.get(2);
+            // To sort the valueVsCount
+            NavigableMap<ImmutableBytesPtr, Integer> sortedMap = new TreeMap<ImmutableBytesPtr, Integer>(valueVsCount);
+            if (!isAscending) {
+                sortedMap = sortedMap.descendingMap();
+            }
+
+            long distinctCountsSum = 0;
+            for (Entry<ImmutableBytesPtr, Integer> entry : sortedMap.entrySet()) {
+                Object value = valueExp.getValue();
+                Object colValue = columnExp.getDataType().toObject(entry.getKey());
+                int compareResult = columnExp.getDataType().compareTo(colValue, value, valueExp.getDataType());
+                boolean done = isAscending ? compareResult > 0 : compareResult <= 0;
+                if (done) break;
+                distinctCountsSum += entry.getValue();
+            }
+
+            float result = (float)distinctCountsSum / totalCount;
+            this.cachedResult = new BigDecimal(result);
         }
-
-        long distinctCountsSum = 0;
-        for (Entry<ImmutableBytesPtr, Integer> entry : sortedMap.entrySet()) {
-            Object value = valueExp.getValue();
-            Object colValue = columnExp.getDataType().toObject(entry.getKey());
-            int compareResult = columnExp.getDataType().compareTo(colValue, value, valueExp.getDataType());
-            boolean done = isAscending ? compareResult > 0 : compareResult <= 0;
-            if (done) break;
-            distinctCountsSum += entry.getValue();
-        }
-
-        float result = (float)distinctCountsSum / totalCount;
         if (buffer == null) {
             initBuffer();
         }
-        buffer = PDataType.DECIMAL.toBytes(new BigDecimal(result));
+        buffer = PDataType.DECIMAL.toBytes(this.cachedResult);
         ptr.set(buffer);
         return true;
     }
@@ -90,5 +94,11 @@ public class PercentRankClientAggregator extends DistinctValueWithCountClientAgg
     @Override
     protected int getBufferLength() {
         return PDataType.DECIMAL.getByteSize();
+    }
+    
+    @Override
+    public void reset() {
+        super.reset();
+        this.cachedResult = null;
     }
 }

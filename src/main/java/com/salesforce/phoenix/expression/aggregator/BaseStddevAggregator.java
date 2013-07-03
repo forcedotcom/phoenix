@@ -46,6 +46,7 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
 public abstract class BaseStddevAggregator extends DistinctValueWithCountClientAggregator {
 
     protected Expression stdDevColExp;
+    private BigDecimal cachedResult = null;
 
     public BaseStddevAggregator(List<Expression> exps) {
         this.stdDevColExp = exps.get(0);
@@ -58,12 +59,15 @@ public abstract class BaseStddevAggregator extends DistinctValueWithCountClientA
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        double ssd = sumSquaredDeviation();
-        double result = Math.sqrt(ssd / getDataPointsCount());
+        if (cachedResult == null) {
+            double ssd = sumSquaredDeviation();
+            double result = Math.sqrt(ssd / getDataPointsCount());
+            cachedResult = new BigDecimal(result);
+        }
         if (buffer == null) {
             initBuffer();
         }
-        buffer = PDataType.DECIMAL.toBytes(new BigDecimal(result));
+        buffer = PDataType.DECIMAL.toBytes(cachedResult);
         ptr.set(buffer);
         return true;
     }
@@ -90,5 +94,11 @@ public abstract class BaseStddevAggregator extends DistinctValueWithCountClientA
             sum += colValue * entry.getValue();
         }
         return sum / totalCount;
+    }
+    
+    @Override
+    public void reset() {
+        super.reset();
+        this.cachedResult = null;
     }
 }
