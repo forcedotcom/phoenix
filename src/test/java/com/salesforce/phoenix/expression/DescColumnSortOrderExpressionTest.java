@@ -146,6 +146,36 @@ public class DescColumnSortOrderExpressionTest {
     }
     
     @Test
+    public void add() throws Exception {
+        List<Expression> args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new DecimalAddExpression(args), BigDecimal.valueOf(12));
+        
+        args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new LongAddExpression(args), 12l);
+        
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.FLOAT), getLiteral(2));
+        evaluateAndAssertResult(new DoubleAddExpression(args), 12.0);
+        
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.DOUBLE), getLiteral(2));
+        evaluateAndAssertResult(new DoubleAddExpression(args), 12.0);
+    }
+
+    @Test
+    public void subtract() throws Exception {
+        List<Expression> args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new DecimalSubtractExpression(args), BigDecimal.valueOf(8));
+        
+        args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
+        evaluateAndAssertResult(new LongSubtractExpression(args), 8l);
+        
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.FLOAT), getLiteral(2));
+        evaluateAndAssertResult(new DoubleSubtractExpression(args), 8.0);
+        
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.DOUBLE), getLiteral(2));
+        evaluateAndAssertResult(new DoubleSubtractExpression(args), 8.0);
+    }
+    
+    @Test
     public void divide() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
         evaluateAndAssertResult(new DecimalDivideExpression(args), BigDecimal.valueOf(5));
@@ -153,6 +183,11 @@ public class DescColumnSortOrderExpressionTest {
         args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
         evaluateAndAssertResult(new LongDivideExpression(args), 5l);
         
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.FLOAT), getLiteral(2));
+        evaluateAndAssertResult(new DoubleDivideExpression(args), 5.0);
+        
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.DOUBLE), getLiteral(2));
+        evaluateAndAssertResult(new DoubleDivideExpression(args), 5.0);
     }
     
     @Test
@@ -161,7 +196,13 @@ public class DescColumnSortOrderExpressionTest {
         evaluateAndAssertResult(new DecimalMultiplyExpression(args), new BigDecimal(BigInteger.valueOf(2), -1));
         
         args = Lists.newArrayList(getInvertedLiteral(10, PDataType.INTEGER), getLiteral(2));
-        evaluateAndAssertResult(new LongMultiplyExpression(args), 20l);        
+        evaluateAndAssertResult(new LongMultiplyExpression(args), 20l);
+        
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.FLOAT), getLiteral(2));
+        evaluateAndAssertResult(new DoubleMultiplyExpression(args), 20.0);
+        
+        args = Lists.newArrayList(getInvertedLiteral(10.0, PDataType.DOUBLE), getLiteral(2));
+        evaluateAndAssertResult(new DoubleMultiplyExpression(args), 20.0);
     }
         
     @Test
