@@ -27,12 +27,21 @@
  ******************************************************************************/
 package com.salesforce.phoenix.cache;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
-import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -45,10 +54,13 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SizedUtil;
+import com.salesforce.phoenix.util.TupleUtil;
 
 /**
  * 
@@ -199,7 +211,7 @@ public class TenantCacheImpl implements TenantCache {
                         offset += WritableUtils.decodeVIntSize(hashCacheByteArray[offset]);
                         ImmutableBytesWritable value = new ImmutableBytesWritable(hashCacheByteArray,offset,resultSize);
                         Tuple result = new ResultTuple(new Result(value));
-                        ImmutableBytesPtr key = getHashKey(result, onExpressions);
+                        ImmutableBytesPtr key = new ImmutableBytesPtr(TupleUtil.getConcatenatedValue(result, onExpressions));
                         hashCacheMap.put(key, result);
                         offset += resultSize;
                     }
@@ -219,45 +231,6 @@ public class TenantCacheImpl implements TenantCache {
                     this.hashCache = Collections.unmodifiableMap(hashCacheMap);
                 } catch (IOException e) { // Not possible with ByteArrayInputStream
                     throw new RuntimeException(e);
-                }
-            }
-            
-            private ImmutableBytesPtr getHashKey(Tuple result, List<Expression> expressions) throws IOException {
-                ImmutableBytesPtr value = new ImmutableBytesPtr(ByteUtil.EMPTY_BYTE_ARRAY);
-                Expression expression = expressions.get(0);
-                boolean evaluated = expression.evaluate(result, value);
-                
-                if (expressions.size() == 1) {
-                    if (!evaluated) {
-                        value.set(ByteUtil.EMPTY_BYTE_ARRAY);
-                    }
-                    return value;
-                } else {
-                    TrustedByteArrayOutputStream output = new TrustedByteArrayOutputStream(value.getLength() * expressions.size());
-                    try {
-                        if (evaluated) {
-                            output.write(value.get(), value.getOffset(), value.getLength());
-                        }
-                        for (int i = 1; i < expressions.size(); i++) {
-                            if (!expression.getDataType().isFixedWidth()) {
-                                output.write(QueryConstants.SEPARATOR_BYTE);
-                            }
-                            expression = expressions.get(i);
-                            // TODO: should we track trailing null values and omit the separator bytes?
-                            if (expression.evaluate(result, value)) {
-                                output.write(value.get(), value.getOffset(), value.getLength());
-                            } else if (i < expressions.size()-1 && expression.getDataType().isFixedWidth()) {
-                                // This should never happen, because any non terminating nullable fixed width type (i.e. INT or LONG) is
-                                // converted to a variable length type (i.e. DECIMAL) to allow an empty byte array to represent null.
-                                throw new DoNotRetryIOException("Non terminating null value found for fixed width ON expression (" + expression + ") in row: " + result);
-                            }
-                        }
-                        byte[] outputBytes = output.getBuffer();
-                        value.set(outputBytes, 0, output.size());
-                        return value;
-                    } finally {
-                        output.close();
-                    }
                 }
             }
     

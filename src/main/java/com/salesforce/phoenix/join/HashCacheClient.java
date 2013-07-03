@@ -281,7 +281,6 @@ public class HashCacheClient {
 
     /**
      * Create a join ID to keep the cached information across other joins independent.
-     * TODO: Use HBase counter instead here once this is real
      */
     private static synchronized byte[] nextJoinId() {
         return Bytes.toBytes(JOIN_KEY_PREFIX + UUID.randomUUID().toString());
