@@ -1,12 +1,15 @@
 package com.salesforce.hbase.index.builder;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.Indexer;
 
@@ -18,6 +21,9 @@ import com.salesforce.hbase.index.Indexer;
  * and will attempt to replay the index edits through the WAL replay mechanism.
  */
 public interface IndexBuilder {
+
+  /** Helper method signature to ensure people don't attempt to extend this class directly */
+  public void extendBaseIndexBuilderInstead();
 
   /**
    * This is always called exactly once on install of {@link Indexer}, before any calls
@@ -35,7 +41,7 @@ public interface IndexBuilder {
    * @return a Map of the mutations to make -> target index table name
    * @throws IOException on failure
    */
-  public Map<Mutation, String> getIndexUpdate(Put put) throws IOException;
+  public Collection<Pair<Mutation, String>> getIndexUpdate(Put put) throws IOException;
 
   /**
    * The counter-part to {@link #getIndexUpdate(Put)} - your opportunity to update any/all index
@@ -45,8 +51,17 @@ public interface IndexBuilder {
    * @return a {@link Map} of the mutations to make -> target index table name
    * @throws IOException on failure
    */
-  public Map<Mutation, String> getIndexUpdate(Delete delete) throws IOException;
+  public Collection<Pair<Mutation, String>> getIndexUpdate(Delete delete) throws IOException;
 
-  /** Helper method signature to ensure people don't attempt to extend this class directly */
-  public void extendBaseIndexBuilderInstead();
+  /**
+   * Build an index update to cleanup the index when we remove {@link KeyValue}s via the normal
+   * flush or compaction mechanisms.
+   * @param filtered {@link KeyValue}s that previously existed, but won't be included in further
+   *          output from HBase.
+   * @return a {@link Map} of the mutations to make -> target index table name
+   * @throws IOException on failure
+   */
+  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
+      Collection<KeyValue> filtered)
+      throws IOException;
 }

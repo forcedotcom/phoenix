@@ -11,23 +11,21 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.regionserver.wal.HLog;
 import org.apache.hadoop.hbase.util.Bytes;
 
-import com.salesforce.hbase.index.table.HTableInterfaceReference;
-
 public class IndexedKeyValue extends KeyValue {
 
-  HTableInterfaceReference indexTable;
+  String indexTableName;
   Mutation mutation;
   
   public IndexedKeyValue() {
   }
 
-  public IndexedKeyValue(HTableInterfaceReference target, Mutation mutation) {
-    this.indexTable = target;
+  public IndexedKeyValue(String target, Mutation mutation) {
+    this.indexTableName = target;
     this.mutation = mutation;
   }
 
-  public HTableInterfaceReference getIndexTable() {
-    return indexTable;
+  public String getIndexTable() {
+    return indexTableName;
   }
 
   public Mutation getMutation() {
@@ -45,7 +43,7 @@ public class IndexedKeyValue extends KeyValue {
 
   @Override
   public String toString() {
-    return "IndexWrite - table: " + indexTable.getTableName() + ", mutation:" + mutation;
+    return "IndexWrite - table: " + indexTableName + ", mutation:" + mutation;
   }
 
   /**
@@ -56,7 +54,7 @@ public class IndexedKeyValue extends KeyValue {
   public boolean equals(Object o) {
     if (o instanceof IndexedKeyValue) {
       IndexedKeyValue other = (IndexedKeyValue) o;
-      if (other.indexTable.getTableName().equals(this.indexTable.getTableName())) {
+      if (other.indexTableName.equals(this.indexTableName)) {
         try {
           byte[] current = getBytes(this.mutation);
           byte[] otherMutation = getBytes(other.mutation);
@@ -85,7 +83,7 @@ public class IndexedKeyValue extends KeyValue {
 
   @Override
   public int hashCode() {
-    return this.indexTable.getTableName().hashCode() + this.mutation.hashCode();
+    return this.indexTableName.hashCode() + this.mutation.hashCode();
   }
 
   @Override
@@ -101,7 +99,7 @@ public class IndexedKeyValue extends KeyValue {
    * @throws IOException if there is a problem writing the underlying data
    */
   void writeData(DataOutput out) throws IOException {
-    out.writeUTF(indexTable.getTableName());
+    out.writeUTF(this.indexTableName);
     out.writeUTF(this.mutation.getClass().getName());
     this.mutation.write(out);
   }
@@ -113,7 +111,7 @@ public class IndexedKeyValue extends KeyValue {
   @SuppressWarnings("javadoc")
   @Override
   public void readFields(DataInput in) throws IOException {
-    this.indexTable = new HTableInterfaceReference(in.readUTF());
+    this.indexTableName = in.readUTF();
     Class<? extends Mutation> clazz;
     try {
       clazz = Class.forName(in.readUTF()).asSubclass(Mutation.class);

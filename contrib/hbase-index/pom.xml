@@ -73,7 +73,7 @@
 
   <properties>
     <!-- Default HBase version -->
-    <hbase.version>0.94.4</hbase.version>
+    <hbase.version>0.94.9</hbase.version>
     <hadoop.version>1.0.4</hadoop.version>
     <jackson.version>1.8.8</jackson.version>
     <guava.version>12.0.1</guava.version>

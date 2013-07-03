@@ -1,9 +1,9 @@
 package com.salesforce.hbase.index;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 
@@ -14,20 +14,23 @@ import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.regionserver.InternalScanner;
+import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
+import org.apache.hadoop.hbase.regionserver.ScanType;
+import org.apache.hadoop.hbase.regionserver.Store;
 import org.apache.hadoop.hbase.regionserver.wal.HLog;
 import org.apache.hadoop.hbase.regionserver.wal.HLogKey;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.builder.IndexBuilder;
 import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
-import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
 
 /**
@@ -48,10 +51,10 @@ public class Indexer extends BaseRegionObserver {
 
   /** WAL on this server */
   private HLog log;
-  private IndexWriter writer;
-  private HTableFactory factory;
+  protected IndexWriter writer;
+  protected HTableFactory factory;
 
-  private IndexBuilder builder;
+  protected IndexBuilder builder;
 
   // Setup out locking on the index edits/WAL so we can be sure that we don't lose a roll a WAL edit
   // before an edit is applied to the index tables
@@ -59,18 +62,26 @@ public class Indexer extends BaseRegionObserver {
       true);
   public static final ReadLock INDEX_UPDATE_LOCK = INDEX_READ_WRITE_LOCK.readLock();
 
+  /**
+   * Configuration key for if the indexer should check the version of HBase is running. Generally,
+   * you only want to ignore this for testing or for custom versions of HBase.
+   */
+  public static final String CHECK_VERSION_CONF_KEY = "com.saleforce.hbase.index.checkversion";
+
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
     this.factory = new CoprocessorHTableFactory(e);
 
     final RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) e;
 
-    // make sure the right version <-> combinations are allowed.
-    String errormsg = IndexUtil.validateVersion(env.getHBaseVersion(), env.getConfiguration());
-    if (errormsg != null) {
-      IOException ioe = new IOException(errormsg);
-      env.getRegionServerServices().abort(errormsg, ioe);
-      throw ioe;
+    if (env.getConfiguration().getBoolean(CHECK_VERSION_CONF_KEY, true)) {
+      // make sure the right version <-> combinations are allowed.
+      String errormsg = IndexUtil.validateVersion(env.getHBaseVersion(), env.getConfiguration());
+      if (errormsg != null) {
+        IOException ioe = new IOException(errormsg);
+        env.getRegionServerServices().abort(errormsg, ioe);
+        throw ioe;
+      }
     }
 
     // setup the index entry builder so we can build edits for the index tables
@@ -95,14 +106,14 @@ public class Indexer extends BaseRegionObserver {
 
     // and setup the actual index writer
     this.writer = new IndexWriter("Region: " + env.getRegion().getRegionNameAsString(),
-        env.getRegionServerServices());
+            env.getRegionServerServices(), factory);
   }
 
   @Override
   public void prePut(final ObserverContext<RegionCoprocessorEnvironment> c, final Put put,
       final WALEdit edit, final boolean writeToWAL) throws IOException {
     // get the mapping for index column -> target index table
-    Map<Mutation, String> indexUpdates = this.builder.getIndexUpdate(put);
+    Collection<Pair<Mutation, String>> indexUpdates = this.builder.getIndexUpdate(put);
 
     doPre(indexUpdates, edit, writeToWAL);
   }
@@ -111,37 +122,18 @@ public class Indexer extends BaseRegionObserver {
   public void preDelete(ObserverContext<RegionCoprocessorEnvironment> e, Delete delete,
       WALEdit edit, boolean writeToWAL) throws IOException {
     // get the mapping for index column -> target index table
-    Map<Mutation, String> indexUpdates = this.builder.getIndexUpdate(delete);
+    Collection<Pair<Mutation, String>> indexUpdates = this.builder.getIndexUpdate(delete);
 
     doPre(indexUpdates, edit, writeToWAL);
   }
 
-  private void doPre(Map<Mutation, String> indexUpdates,
+  private void doPre(Collection<Pair<Mutation, String>> updates,
       final WALEdit edit, final boolean writeToWAL) throws IOException {
     // no index updates, so we are done
-    if (indexUpdates == null || indexUpdates.size() == 0) {
+    if (updates == null || updates.size() == 0) {
       return;
     }
 
-    // move the string table name to a full reference. Right now, this is pretty inefficient as each
-    // time through the index request we create a new connection to the HTable, only attempting to
-    // be a little smart by just reusing the references if two updates go to the same table in the
-    // same update.
-    Map<Mutation, HTableInterfaceReference> updates = new HashMap<Mutation, HTableInterfaceReference>(
-        indexUpdates.size());
-    Map<String, HTableInterfaceReference> tables = new HashMap<String, HTableInterfaceReference>(updates.size());
-    for (Entry<Mutation, String> entry : indexUpdates.entrySet()) {
-      String tableName = entry.getValue();
-      HTableInterfaceReference table  = tables.get(tableName);
-      if( table== null){
-        // make sure we use the CP factory to reach the remote table - this is all kept in memory,
-        // so we can be sure its uses our factory when getting the table
-        table = new HTableInterfaceReference(entry.getValue(), factory);
-      tables.put(tableName, table);
-      }
-      updates.put(entry.getKey(), table);
-    }
-    
     // if writing to wal is disabled, we never see the WALEdit updates down the way, so do the index
     // update right away
     if (!writeToWAL) {
@@ -149,14 +141,14 @@ public class Indexer extends BaseRegionObserver {
         this.writer.write(updates);
         return;
       } catch (CannotReachIndexException e) {
-        LOG.error("Failed to update index with entries:" + indexUpdates, e);
+        LOG.error("Failed to update index with entries:" + updates, e);
         throw new IOException(e);
       }
     }
 
     // we have all the WAL durability, so we just update the WAL entry and move on
-    for (Entry<Mutation, HTableInterfaceReference> entry : updates.entrySet()) {
-      edit.add(new IndexedKeyValue(entry.getValue(), entry.getKey()));
+    for (Pair<Mutation, String> entry : updates) {
+      edit.add(new IndexedKeyValue(entry.getSecond(), entry.getFirst()));
     }
 
     // lock the log, so we are sure that index write gets atomically committed
@@ -185,7 +177,7 @@ public class Indexer extends BaseRegionObserver {
       return;
     }
 
-    Map<Mutation, HTableInterfaceReference> indexUpdates = extractIndexUpdate(edit);
+    Collection<Pair<Mutation, String>> indexUpdates = extractIndexUpdate(edit);
 
     // early exit - we have nothing to write, so we don't need to do anything else. NOTE: we don't
     // release the WAL Rolling lock (INDEX_UPDATE_LOCK) since we never take it in doPre if there are
@@ -197,7 +189,7 @@ public class Indexer extends BaseRegionObserver {
     // the WAL edit is kept in memory and we already specified the factory when we created the
     // references originally - therefore, we just pass in a null factory here and use the ones
     // already specified on each reference
-    writer.writeAndKillYourselfOnFailure(indexUpdates, null);
+    writer.writeAndKillYourselfOnFailure(indexUpdates);
 
     // release the lock on the index, we wrote everything properly
     INDEX_UPDATE_LOCK.unlock();
@@ -208,13 +200,13 @@ public class Indexer extends BaseRegionObserver {
    * @param edit to search for index updates
    * @return the mutations to apply to the index tables
    */
-  private Map<Mutation, HTableInterfaceReference> extractIndexUpdate(WALEdit edit) {
-    Map<Mutation, HTableInterfaceReference> indexUpdates =
-        new HashMap<Mutation, HTableInterfaceReference>();
+  private Collection<Pair<Mutation, String>> extractIndexUpdate(WALEdit edit) {
+    Collection<Pair<Mutation, String>> indexUpdates = new ArrayList<Pair<Mutation, String>>();
     for (KeyValue kv : edit.getKeyValues()) {
       if (kv instanceof IndexedKeyValue) {
         IndexedKeyValue ikv = (IndexedKeyValue) kv;
-        indexUpdates.put(ikv.getMutation(), ikv.getIndexTable());
+        indexUpdates.add(new Pair<Mutation, String>(ikv.getMutation(), ikv
+            .getIndexTable()));
       }
     }
 
@@ -224,7 +216,22 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void preWALRestore(ObserverContext<RegionCoprocessorEnvironment> env, HRegionInfo info,
       HLogKey logKey, WALEdit logEdit) throws IOException {
-    Map<Mutation, HTableInterfaceReference> indexUpdates = extractIndexUpdate(logEdit);
-    writer.writeAndKillYourselfOnFailure(indexUpdates, factory);
+    Collection<Pair<Mutation, String>> indexUpdates = extractIndexUpdate(logEdit);
+    writer.writeAndKillYourselfOnFailure(indexUpdates);
   }
+
+  /**
+   * Create a custom {@link InternalScanner} for a compaction that tracks the versions of rows that
+   * are removed so we can clean then up from the the index table(s).
+   */
+  @Override
+  public InternalScanner preCompactScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c,
+      Store store, List<? extends KeyValueScanner> scanners, ScanType scanType, long earliestPutTs,
+      InternalScanner s) throws IOException {
+    // if (true) {
+    // throw new RuntimeException("not yet implemented");
+    // }
+    return super.preCompactScannerOpen(c, store, scanners, scanType, earliestPutTs, s);
+  }
+
 }

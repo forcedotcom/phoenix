@@ -20,7 +20,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
 
 /**
@@ -90,8 +89,7 @@ public class TestReadWriteKeyValuesWithCodec {
     edits.add(withPutsAndDeletes);
     
     WALEdit justIndexUpdates = new WALEdit();
-    HTableInterfaceReference target = new HTableInterfaceReference("targetTable");
-    IndexedKeyValue ikv = new IndexedKeyValue(target, p);
+    IndexedKeyValue ikv = new IndexedKeyValue("targetTable", p);
     justIndexUpdates.add(ikv);
     edits.add(justIndexUpdates);
 

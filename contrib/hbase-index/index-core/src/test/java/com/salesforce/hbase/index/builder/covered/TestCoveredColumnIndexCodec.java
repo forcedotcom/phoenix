@@ -87,7 +87,7 @@ public class TestCoveredColumnIndexCodec {
     CoveredColumnIndexCodec codec = new CoveredColumnIndexCodec(r, group);
 
     // simple case - no deletes
-    byte[] indexValue = codec.getIndexRowKey().getFirst();
+    byte[] indexValue = getLatestIndexKey(codec);
     byte[] expected = CoveredColumnIndexCodec.composeRowKey(PK, v1.length, Arrays.asList(v1));
     assertArrayEquals("Didn't get expected index value", expected, indexValue);
 
@@ -95,7 +95,7 @@ public class TestCoveredColumnIndexCodec {
     Delete d = new Delete(PK);
     d.deleteFamily(FAMILY);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, 0, Lists.newArrayList(new byte[0]));
     assertArrayEquals("Deleting family didn't specify null value as expected", expected, indexValue);
 
@@ -106,7 +106,7 @@ public class TestCoveredColumnIndexCodec {
     d = new Delete(PK);
     d.deleteColumns(FAMILY, QUAL);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, 0, Lists.newArrayList(new byte[0]));
     assertArrayEquals("Deleting family didn't specify null value as expected", expected, indexValue);
 
@@ -117,7 +117,7 @@ public class TestCoveredColumnIndexCodec {
     d = new Delete(PK);
     d.deleteColumn(FAMILY, QUAL);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, 0, Lists.newArrayList(new byte[0]));
     assertArrayEquals("Deleting family didn't specify null value as expected", expected, indexValue);
   }
@@ -148,7 +148,7 @@ public class TestCoveredColumnIndexCodec {
     CoveredColumnIndexCodec codec = new CoveredColumnIndexCodec(r, group);
 
     // simple case - no deletes, all columns
-    byte[] indexValue = codec.getIndexRowKey().getFirst();
+    byte[] indexValue = getLatestIndexKey(codec);
     byte[] expected = CoveredColumnIndexCodec.composeRowKey(PK, v1.length, Arrays.asList(v1));
     assertArrayEquals("Didn't get expected index value", expected, indexValue);
 
@@ -156,7 +156,7 @@ public class TestCoveredColumnIndexCodec {
     Delete d = new Delete(PK);
     d.deleteFamily(FAMILY);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, 0, Lists.newArrayList(new byte[0]));
     assertArrayEquals("Deleting family didn't specify null value as expected", expected, indexValue);
 
@@ -167,7 +167,7 @@ public class TestCoveredColumnIndexCodec {
     d = new Delete(PK);
     d.deleteColumns(FAMILY, QUAL);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, 0, Lists.newArrayList(new byte[0]));
     assertArrayEquals("Deleting family didn't specify null value as expected", expected, indexValue);
 
@@ -178,7 +178,7 @@ public class TestCoveredColumnIndexCodec {
     d = new Delete(PK);
     d.deleteColumn(FAMILY, QUAL);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, 0, Lists.newArrayList(new byte[0]));
     assertArrayEquals("Deleting family didn't specify null value as expected", expected, indexValue);
   }
@@ -206,7 +206,7 @@ public class TestCoveredColumnIndexCodec {
     CoveredColumnIndexCodec codec = new CoveredColumnIndexCodec(r, group);
 
     // simple case - no deletes, all columns
-    byte[] indexValue = codec.getIndexRowKey().getFirst();
+    byte[] indexValue = getLatestIndexKey(codec);
     byte[] expected = CoveredColumnIndexCodec.composeRowKey(PK, v1.length + v3.length,
       Arrays.asList(v1, v3));
     assertArrayEquals("Didn't get expected index value", expected, indexValue);
@@ -215,7 +215,7 @@ public class TestCoveredColumnIndexCodec {
     Delete d = new Delete(PK);
     d.deleteFamily(FAMILY);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, 0, Lists.newArrayList(new byte[0]));
     assertArrayEquals("Deleting family didn't specify null value as expected", expected, indexValue);
 
@@ -226,7 +226,7 @@ public class TestCoveredColumnIndexCodec {
     d = new Delete(PK);
     d.deleteColumns(FAMILY, QUAL);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, v3.length,
       Lists.newArrayList(new byte[0], v3));
     assertArrayEquals("Deleting columns didn't specify null value as expected", expected,
@@ -239,7 +239,7 @@ public class TestCoveredColumnIndexCodec {
     d = new Delete(PK);
     d.deleteColumn(FAMILY, QUAL);
     codec.addUpdateForTesting(d);
-    indexValue = codec.getIndexRowKey().getFirst();
+    indexValue = getLatestIndexKey(codec);
     expected = CoveredColumnIndexCodec.composeRowKey(PK, v3.length,
       Lists.newArrayList(new byte[0], v3));
     assertArrayEquals("Deleting col:qual didn't specify null value as expected", expected,
@@ -265,5 +265,9 @@ public class TestCoveredColumnIndexCodec {
       Arrays.asList(new byte[] { 1, 2 }, new byte[0]));
     assertFalse("Found a null key, when it wasn't!",
       CoveredColumnIndexCodec.checkRowKeyForAllNulls(result));
+  }
+
+  private byte[] getLatestIndexKey(CoveredColumnIndexCodec codec) {
+    return codec.getIndexRowKey(Long.MAX_VALUE).rowKey;
   }
 }

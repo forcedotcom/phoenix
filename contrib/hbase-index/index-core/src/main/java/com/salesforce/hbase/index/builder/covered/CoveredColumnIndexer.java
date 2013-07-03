@@ -1,9 +1,9 @@
 package com.salesforce.hbase.index.builder.covered;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -23,9 +23,12 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Ordering;
 import com.google.common.collect.TreeMultimap;
@@ -132,10 +135,10 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
   }
 
   @Override
-  public Map<Mutation, String> getIndexUpdate(Put p) throws IOException {
+  public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) throws IOException {
     // if not columns to index, we are done
     if (groups == null || groups.size() == 0) {
-      return Collections.emptyMap();
+      return Collections.emptyList();
     }
 
     ensureLocalTable();
@@ -143,25 +146,28 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
     // get the current state of the row in our table. We will always need to do this to cleanup the
     // index, so we might as well do this up front
     final byte[] sourceRow = p.getRow();
-    Result r = localTable.get(new Get(sourceRow));
+    Result r = getCurrentRow(sourceRow);
     if (LOG.isDebugEnabled()) {
       LOG.debug("Updating index for row: " + Bytes.toString(sourceRow));
     }
 
+    // build the index updates for each group
+    List<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
+
     // we need to check each key-value in the update to see if it matches the others. Generally,
     // this will be the case, but you can add kvs to a mutation that don't all have the timestamp,
     // so we need to manage everything in batches based on timestamp.
-    TreeMultimap<Long, KeyValue> timestampMap = createTimestampBatchesFromFamilyMap(p);
-
-    // build the index updates for each group
-    Map<Mutation, String> updateMap = new HashMap<Mutation, String>();
-    Collection<ColumnGroup> matches = findMatchingGroups(p);
+    TreeMultimap<Long, KeyValue> batches = createTimestampBatchesFromFamilyMap(p);
 
     // we can use a single codec for everything, as long as we apply the updates in timestamp order
     CoveredColumnIndexCodec codec = new CoveredColumnIndexCodec(sourceRow, r);
 
     // go through each batch of keyvalues and build separate index entries for each
-    for (Entry<Long, Collection<KeyValue>> batch : timestampMap.asMap().entrySet()) {
+    Set<ColumnGroup> matches = new HashSet<ColumnGroup>();
+    for (Entry<Long, Collection<KeyValue>> batch : batches.asMap().entrySet()) {
+      // check to see if this batch is affecting any of the groups
+      matches.clear();
+      getAllMatchingGroups(matches, batch.getValue());
       /*
        * We have to split the work between the cleanup and the update for each group because when we
        * update the current state of the row for the current batch (appending the mutations for the
@@ -171,25 +177,28 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
       addMutationsForBatch(updateMap, batch, matches, codec);
     }
 
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Found index updates for Put: " + updateMap);
+    }
     return updateMap;
   }
 
   @Override
-  public Map<Mutation, String> getIndexUpdate(Delete d) throws IOException {
+  public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) throws IOException {
     // if not columns to index, we are done
     if (groups == null || groups.size() == 0) {
-      return Collections.emptyMap();
+      return Collections.emptyList();
     }
 
     ensureLocalTable();
 
-    // stores all the return values
-    Map<Mutation, String> updateMap = new HashMap<Mutation, String>();
-
     // get the current state of the row in our table. We will always need to do this to cleanup the
     // index, so we might as well do this up front
     final byte[] sourceRow = d.getRow();
-    Result r = localTable.get(new Get(sourceRow));
+    Result r = getCurrentRow(sourceRow);
+
+    // stores all the return values
+    List<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
 
     // We have to figure out which kind of delete it is, since we need to do different things if its
     // a general (row) delete, versus a delete of just a single column or family
@@ -209,25 +218,28 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
       // insert a delete for each group since the delete will cover all columns
       for (ColumnGroup group : groups) {
         CoveredColumnIndexCodec codec = new CoveredColumnIndexCodec(sourceRow, r, group);
-        byte[] row = codec.getIndexRowKey(now).getFirst();
+        byte[] row = codec.getIndexRowKey(now).rowKey;
         Delete indexUpdate = new Delete(row);
         indexUpdate.setTimestamp(now);
-        updateMap.put(indexUpdate, group.getTable());
+        updateMap.add(new Pair<Mutation, String>(indexUpdate, group.getTable()));
       }
 
       return updateMap;
     }
 
-    // Option 2: Its actually a bunch single updaets, which can have different timestamps.
+    // Option 2: Its actually a bunch single updates, which can have different timestamps.
     // Therefore, we need to do something similar to the put case and batch by timestamp
     TreeMultimap<Long, KeyValue> batches = createTimestampBatchesFromFamilyMap(d);
 
-    // check the map to see if we are affecting any of the groups
-    Collection<ColumnGroup> matches = findMatchingGroups(d);
-
     // build up the index entries for each group
     CoveredColumnIndexCodec codec = new CoveredColumnIndexCodec(sourceRow, r);
+    Set<ColumnGroup> matches = new HashSet<ColumnGroup>();
     for (Entry<Long, Collection<KeyValue>> batch : batches.asMap().entrySet()) {
+      // check to see if this batch is affecting any of the groups
+      matches.clear();
+      getAllMatchingGroups(matches, batch.getValue());
+
+      // then find the mutations that match for this batch
       addMutationsForBatch(updateMap, batch, matches, codec);
     }
     return updateMap;
@@ -267,60 +279,76 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
    * @return the {@link ColumnGroup}s that should be updated with this {@link Mutation}.
    */
   private Collection<ColumnGroup> findMatchingGroups(Mutation m) {
-    // just using pointer hashes here - we don't need to calculate actual equality, just that we
-    // don't get dupes
     Set<ColumnGroup> matches = new HashSet<ColumnGroup>();
-    for (Entry<byte[], List<KeyValue>> entry : m.getFamilyMap().entrySet()) {
-      // early exit if we already know we need to match all the groups
-      if (matches.size() == this.groups.size()) {
-        return matches;
-      }
-
-      // get the keys for this family that we are indexing
-      List<KeyValue> kvs = entry.getValue();
-      if (kvs == null || kvs.isEmpty()) {
-        // should never be the case, but just to be careful
+    for (Entry<byte[], List<KeyValue>> family : m.getFamilyMap().entrySet()) {
+      // no kvs being added, means we can ignore this family
+      if (family.getValue() == null || family.getValue().size() == 0) {
         continue;
       }
 
-      // figure out the groups we need to index
-      String family = Bytes.toString(entry.getKey());
-      for (ColumnGroup column : groups) {
-        if (column.matches(family)) {
-          matches.add(column);
-        }
-      }
+      getAllMatchingGroups(matches, family.getValue());
+
     }
     return matches;
+  }
+
+  /**
+   * @param matches
+   * @param value
+   */
+  private void getAllMatchingGroups(Set<ColumnGroup> matches, Iterable<KeyValue> values) {
+    for (KeyValue kv : values) {
+      // find any groups that we need to index
+      findMatchingGroups(matches, kv);
+      // done if we are matching all groups
+      if (matches.size() == this.groups.size()) {
+        return;
+      }
+    }
+
+  }
+
+  /**
+   * Add any matching {@link ColumnGroup} that index the passed family to the set of matches.
+   * @param matches to add new {@link ColumnGroup}s
+   * @param kvs
+   */
+  private void findMatchingGroups(Set<ColumnGroup> matches, KeyValue kv) {
+    for (ColumnGroup column : groups) {
+      if (column.matches(kv.getFamily(), kv.getQualifier())) matches.add(column);
+    }
   }
 
   /**
    * @param updateMap
    * @param batch
    */
-  private void addMutationsForBatch(Map<Mutation, String> updateMap,
+  private void addMutationsForBatch(Collection<Pair<Mutation, String>> updateMap,
       Entry<Long, Collection<KeyValue>> batch, Collection<ColumnGroup> matches,
       CoveredColumnIndexCodec codec) {
     /*
-     * Generally, the current Put will be the most recent thing to be added. In that case, all we
-     * need to is issue a delete for the previous index row (the state of the row, without the put
-     * applied) at the Put's current timestamp. This gets rid of anything currently in the index for
-     * the current state of the row (at the timestamp). If things arrive out of order (we are using
-     * custom timestamps) we should always still only see the most recent update in the index, even
-     * if we are making a put back in time (out of order). Therefore, we need to issue a delete for
-     * the index update but at the next most recent timestam; using batches helps, but we still need
-     * to do this iteratively since we need to cleanup the current state first as it could be
-     * overwritten by a key-value at the same timestamp
+     * Generally, the current update will be the most recent thing to be added. In that case, all we
+     * need to is issue a delete for the previous index row (the state of the row, without the
+     * update applied) at the current timestamp. This gets rid of anything currently in the index
+     * for the current state of the row (at the timestamp).
+     *
+     * If things arrive out of order (we are using custom timestamps) we should still see the index
+     * in the correct order (assuming we scan after the out-of-order update in finished). Therefore,
+     * we when we aren't the most recent update to the index, we need to delete the state at the
+     * current timestamp (similar to above), but also issue a delete for the added for at the next
+     * newest timestamp of any of the columns in the update; we need to cleanup the insert so it
+     * looks like it was also deleted at that newer timestamp. see the most recent update in the
+     * index, even if we are making a put back in time (out of order).
      */
 
-    long ts = batch.getKey();
     // start by getting the cleanup for the current state of the
+    long ts = batch.getKey();
     for (ColumnGroup group : matches) {
       codec.setGroup(group);
       Delete cleanup = getIndexCleanupForCurrentRow(codec, ts);
-      String table = group.getTable();
       if (cleanup != null) {
-        updateMap.put(cleanup, table);
+        String table = group.getTable();
+        updateMap.add(new Pair<Mutation, String>(cleanup, table));
       }
 
     }
@@ -331,10 +359,12 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
     // get the updates to the current index
     for (ColumnGroup group : matches) {
       codec.setGroup(group);
-      String table = group.getTable();
-      Put indexInsert = codec.getPutToIndex(ts);
-      if (indexInsert != null) {
-        updateMap.put(indexInsert, table);
+      Collection<Mutation> indexInsert = codec.getIndexUpdate(ts);
+      if (!indexInsert.isEmpty()) {
+        String table = group.getTable();
+        for (Mutation m : indexInsert) {
+          updateMap.add(new Pair<Mutation, String>(m, table));
+        }
       }
     }
   }
@@ -346,7 +376,7 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
    * @return the delete to apply or <tt>null</tt>, if no {@link Delete} is necessary
    */
   private Delete getIndexCleanupForCurrentRow(CoveredColumnIndexCodec codec, long timestamp) {
-    byte[] currentRowkey = codec.getIndexRowKey(timestamp).getFirst();
+    byte[] currentRowkey = codec.getIndexRowKey(timestamp).rowKey;
     // no previous state for the current group, so don't create a delete
     if (CoveredColumnIndexCodec.checkRowKeyForAllNulls(currentRowkey)) {
       return null;
@@ -365,5 +395,86 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
    */
   public void setTableForTesting(HTableInterface table) {
     this.localTable = table;
+  }
+
+  @Override
+  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(Collection<KeyValue> filtered)
+      throws IOException {
+    ensureLocalTable();
+
+    // stores all the return values
+    List<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>(filtered.size());
+    // batch the updates by row to make life easier and ordered
+    TreeMultimap<byte[], KeyValue> batches = batchByRow(filtered);
+
+    for (Entry<byte[], Collection<KeyValue>> batch : batches.asMap().entrySet()) {
+      // get the current state of the row in our table
+      final byte[] sourceRow = batch.getKey();
+      // have to do a raw scan so we see everything, which includes things that haven't been
+      // filtered out yet, but aren't generally client visible. We don't need to do this in the
+      // other update cases because they are only concerned wi
+      Result r = getCurrentRow(sourceRow);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Updating index for row: " + Bytes.toString(sourceRow));
+      }
+
+      // build up the index entries for each kv
+      CoveredColumnIndexCodec codec = new CoveredColumnIndexCodec(sourceRow, r);
+      // find all the matching groups that we need to update
+      Set<ColumnGroup> matches = new HashSet<ColumnGroup>();
+      for (KeyValue kv : batch.getValue()) {
+        findMatchingGroups(matches, kv);
+        // didn't find a match, so go to the next kv
+        if (matches.size() == 0) {
+          continue;
+        }
+
+        // for each matching group, we need to get the delete that index entry
+        for (ColumnGroup group : matches) {
+          // the kv here will definitely have a valid timestamp, since it came from the memstore, so
+          // we don't need to do any of the timestamp adjustment we do above.
+          codec.setGroup(group);
+          Delete cleanup = getIndexCleanupForCurrentRow(codec, kv.getTimestamp());
+          if (cleanup != null) {
+            updateMap.add(new Pair<Mutation, String>(cleanup, group.getTable()));
+          }
+        }
+
+        matches.clear();
+      }
+    }
+    return updateMap;
+  }
+
+  /**
+   * @param sourceRow row key to extract
+   * @return the full state of the given row. Includes all current versions (even if they are not
+   *         usually visible to the client (unless they are also doing a raw scan)).
+   */
+  private Result getCurrentRow(byte[] sourceRow) throws IOException {
+    Scan s = new Scan(sourceRow, sourceRow);
+    s.setRaw(true);
+    s.setMaxVersions();
+    ResultScanner results = localTable.getScanner(s);
+    Result r = results.next();
+    assert results.next() == null : "Got more than one result when scanning"
+        + " a single row in the primary table!";
+    results.close();
+    return r;
+  }
+
+  /**
+   * @param filtered
+   * @return
+   */
+  private TreeMultimap<byte[], KeyValue> batchByRow(Collection<KeyValue> filtered) {
+    TreeMultimap<byte[], KeyValue> batches =
+        TreeMultimap.create(Bytes.BYTES_COMPARATOR, KeyValue.COMPARATOR);
+
+    for (KeyValue kv : filtered) {
+      batches.put(kv.getRow(), kv);
+    }
+
+    return batches;
   }
 }

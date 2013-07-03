@@ -2,6 +2,7 @@ package com.salesforce.hbase.index.builder;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,11 +21,14 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.IndexUtil;
 
 /**
  * Simple indexer that just indexes rows based on their column families
+ * <p>
+ * Doesn't do any index cleanup; this is just a basic example case.
  */
 public class ColumnFamilyIndexer extends BaseIndexBuilder {
 
@@ -79,13 +83,13 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
   }
 
   @Override
-  public Map<Mutation, String> getIndexUpdate(Put p) {
+  public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) {
     // if not columns to index, we are done and don't do anything special
     if (columnTargetMap == null || columnTargetMap.size() == 0) {
       return null;
     }
 
-    Map<Mutation, String> updateMap = new HashMap<Mutation, String>();
+    Collection<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
     Set<byte[]> keys = p.getFamilyMap().keySet();
     for (Entry<byte[], List<KeyValue>> entry : p.getFamilyMap().entrySet()) {
       String ref = columnTargetMap
@@ -125,19 +129,19 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
       }
 
       // add the mapping
-      updateMap.put(put, ref);
+      updateMap.add(new Pair<Mutation, String>(put, ref));
     }
     return updateMap;
   }
 
   @Override
-  public Map<Mutation, String> getIndexUpdate(Delete d) {
+  public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) {
     // if no columns to index, we are done and don't do anything special
     if (columnTargetMap == null || columnTargetMap.size() == 0) {
       return null;
     }
 
-    Map<Mutation, String> updateMap = new HashMap<Mutation, String>();
+    Collection<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
     for (Entry<byte[], List<KeyValue>> entry : d.getFamilyMap().entrySet()) {
       String ref = columnTargetMap
           .get(new ImmutableBytesWritable(entry.getKey()));
@@ -154,7 +158,7 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
       // column family from the original update
       Delete delete = new Delete(kvs.get(0).getFamily());
       // add the mapping
-      updateMap.put(delete, ref);
+      updateMap.add(new Pair<Mutation, String>(delete, ref));
     }
     return updateMap;
   }
@@ -171,5 +175,15 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
     index.addFamily(new HColumnDescriptor(INDEX_ROW_COLUMN_FAMILY));
 
     admin.createTable(index);
+  }
+
+  /**
+   * Doesn't do any index cleanup. This is just a basic example case.
+   */
+  @Override
+  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
+      Collection<KeyValue> filtered)
+      throws IOException {
+    return null;
   }
 }
