@@ -30,29 +30,27 @@ package com.salesforce.phoenix.expression.function;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
-import com.salesforce.phoenix.expression.aggregator.PercentileClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
- * Built-in function for PERCENTILE_CONT(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
+ * PERCENT_RANK(<expression>[,<expression>]) WITHIN GROUP (ORDER BY <expression>[,<expression>] ASC/DESC) aggregate function
  *
  * @author anoopsjohn
  * @since 1.2.1
  */
-@BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes={PDataType.DECIMAL}), @Argument(), @Argument(allowedTypes={PDataType.DECIMAL}, minValue="0", maxValue="1") })
-public class PercentileContAggregateFunction extends SingleAggregateFunction {
-    public static final String NAME = "PERCENTILE_CONT";
+@BuiltInFunction(name = PercentRankAggregateFunction.NAME, args = { @Argument(), @Argument(), @Argument() })
+public class PercentRankAggregateFunction extends SingleAggregateFunction {
+    public static final String NAME = "PERCENT_RANK";
 
-    public PercentileContAggregateFunction() {
-        
+    public PercentRankAggregateFunction() {
+
     }
-    
-    public PercentileContAggregateFunction(List<Expression> childern) {
+
+    public PercentRankAggregateFunction(List<Expression> childern) {
         super(childern);
     }
 
@@ -63,14 +61,14 @@ public class PercentileContAggregateFunction extends SingleAggregateFunction {
 
     @Override
     public Aggregator newClientAggregator() {
-        return new PercentileClientAggregator(children);
+        return new PercentRankClientAggregator(children);
     }
 
     @Override
     public String getName() {
         return NAME;
     }
-    
+
     @Override
     public PDataType getDataType() {
         return PDataType.DECIMAL;

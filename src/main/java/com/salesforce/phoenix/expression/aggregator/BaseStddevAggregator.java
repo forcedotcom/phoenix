@@ -28,76 +28,38 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
- * Client side Aggregator for PERCENTILE_CONT aggregations
  * 
  * @author anoopsjohn
  * @since 1.2.1
  */
-public class PercentileClientAggregator extends DistinctValueWithCountClientAggregator {
+public abstract class BaseStddevAggregator extends DistinctValueWithCountClientAggregator {
 
-    private List<Expression> exps = null;
+    protected Expression stdDevColExp;
 
-    public PercentileClientAggregator(List<Expression> exps) {
-        this.exps = exps;
+    public BaseStddevAggregator(List<Expression> exps) {
+        this.stdDevColExp = exps.get(0);
+    }
+
+    @Override
+    protected int getBufferLength() {
+        return PDataType.DECIMAL.getByteSize();
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        ColumnExpression columnExp = (ColumnExpression)exps.get(0);
-        // Second exp will be a LiteralExpression of Boolean type indicating whether the ordering to
-        // be ASC/DESC
-        LiteralExpression isAscendingExpression = (LiteralExpression)exps.get(1);
-        boolean isAscending = (Boolean)isAscendingExpression.getValue();
-
-        // Third expression will be LiteralExpression
-        LiteralExpression percentileExp = (LiteralExpression)exps.get(2);
-        float p = ((Number)percentileExp.getValue()).floatValue();
-
-        // To sort the valueVsCount
-        NavigableMap<ImmutableBytesPtr, Integer> sortedMap = new TreeMap<ImmutableBytesPtr, Integer>(valueVsCount);
-        if (!isAscending) {
-            sortedMap = sortedMap.descendingMap();
-        }
-
-        float i = (p * this.totalCount) + 0.5F;
-        long k = (long)i;
-        float f = i - k;
-        ImmutableBytesPtr pi1 = null;
-        ImmutableBytesPtr pi2 = null;
-        long distinctCountsSum = 0;
-        for (Entry<ImmutableBytesPtr, Integer> entry : sortedMap.entrySet()) {
-            if (pi1 != null) {
-                pi2 = entry.getKey();
-                break;
-            }
-            distinctCountsSum += entry.getValue();
-            if (distinctCountsSum == k) {
-                pi1 = entry.getKey();
-            } else if (distinctCountsSum > k) {
-                pi1 = pi2 = entry.getKey();
-                break;
-            }
-        }
-
-        float result = 0F;
-        Number n1 = (Number)columnExp.getDataType().toObject(pi1);
-        if (pi2 == null || pi1 == pi2) {
-            result = n1.floatValue();
-        } else {
-            Number n2 = (Number)columnExp.getDataType().toObject(pi2);
-            result = (n1.floatValue() * (1.0F - f)) + (n2.floatValue() * f);
-        }
+        double ssd = sumSquaredDeviation();
+        double result = Math.sqrt(ssd / getDataPointsCount());
         if (buffer == null) {
             initBuffer();
         }
@@ -105,9 +67,28 @@ public class PercentileClientAggregator extends DistinctValueWithCountClientAggr
         ptr.set(buffer);
         return true;
     }
+    
+    protected abstract long getDataPointsCount();
+    
+    private double sumSquaredDeviation() {
+        double m = mean();
+        double result = 0.0;
+        for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
+            double colValue = ((Number) this.stdDevColExp.getDataType().toObject(entry.getKey()))
+                    .doubleValue();
+            double delta = colValue - m;
+            result += (delta * delta) * entry.getValue();
+        }
+        return result;
+    }
 
-    @Override
-    protected int getBufferLength() {
-        return PDataType.DECIMAL.getByteSize();
+    private double mean() {
+        double sum = 0.0;
+        for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
+            double colValue = ((Number) this.stdDevColExp.getDataType().toObject(entry.getKey()))
+                    .doubleValue();
+            sum += colValue * entry.getValue();
+        }
+        return sum / totalCount;
     }
 }

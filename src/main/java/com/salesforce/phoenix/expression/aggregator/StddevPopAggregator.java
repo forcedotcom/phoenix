@@ -25,54 +25,26 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.expression.aggregator;
 
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
-import com.salesforce.phoenix.expression.aggregator.PercentileClientAggregator;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.schema.PDataType;
 
 /**
+ * Client side Aggregator for STDDEV_POP aggregations
  * 
- * Built-in function for PERCENTILE_CONT(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
- *
  * @author anoopsjohn
  * @since 1.2.1
  */
-@BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes={PDataType.DECIMAL}), @Argument(), @Argument(allowedTypes={PDataType.DECIMAL}, minValue="0", maxValue="1") })
-public class PercentileContAggregateFunction extends SingleAggregateFunction {
-    public static final String NAME = "PERCENTILE_CONT";
+public class StddevPopAggregator extends BaseStddevAggregator {
 
-    public PercentileContAggregateFunction() {
-        
-    }
-    
-    public PercentileContAggregateFunction(List<Expression> childern) {
-        super(childern);
+    public StddevPopAggregator(List<Expression> exps) {
+        super(exps);
     }
 
     @Override
-    public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator(children);
-    }
-
-    @Override
-    public Aggregator newClientAggregator() {
-        return new PercentileClientAggregator(children);
-    }
-
-    @Override
-    public String getName() {
-        return NAME;
-    }
-    
-    @Override
-    public PDataType getDataType() {
-        return PDataType.DECIMAL;
+    protected long getDataPointsCount() {
+        return totalCount;
     }
 }

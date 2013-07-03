@@ -39,16 +39,16 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
- * Client side Aggregator for PERCENTILE_CONT aggregations
+ * Client side Aggregator for PERCENT_RANK aggregations
  * 
  * @author anoopsjohn
  * @since 1.2.1
  */
-public class PercentileClientAggregator extends DistinctValueWithCountClientAggregator {
+public class PercentRankClientAggregator extends DistinctValueWithCountClientAggregator {
 
     private List<Expression> exps = null;
 
-    public PercentileClientAggregator(List<Expression> exps) {
+    public PercentRankClientAggregator(List<Expression> exps) {
         this.exps = exps;
     }
 
@@ -61,43 +61,24 @@ public class PercentileClientAggregator extends DistinctValueWithCountClientAggr
         boolean isAscending = (Boolean)isAscendingExpression.getValue();
 
         // Third expression will be LiteralExpression
-        LiteralExpression percentileExp = (LiteralExpression)exps.get(2);
-        float p = ((Number)percentileExp.getValue()).floatValue();
-
+        LiteralExpression valueExp = (LiteralExpression)exps.get(2);
         // To sort the valueVsCount
         NavigableMap<ImmutableBytesPtr, Integer> sortedMap = new TreeMap<ImmutableBytesPtr, Integer>(valueVsCount);
         if (!isAscending) {
             sortedMap = sortedMap.descendingMap();
         }
 
-        float i = (p * this.totalCount) + 0.5F;
-        long k = (long)i;
-        float f = i - k;
-        ImmutableBytesPtr pi1 = null;
-        ImmutableBytesPtr pi2 = null;
         long distinctCountsSum = 0;
         for (Entry<ImmutableBytesPtr, Integer> entry : sortedMap.entrySet()) {
-            if (pi1 != null) {
-                pi2 = entry.getKey();
-                break;
-            }
+            Object value = valueExp.getValue();
+            Object colValue = columnExp.getDataType().toObject(entry.getKey());
+            int compareResult = columnExp.getDataType().compareTo(colValue, value, valueExp.getDataType());
+            boolean done = isAscending ? compareResult > 0 : compareResult <= 0;
+            if (done) break;
             distinctCountsSum += entry.getValue();
-            if (distinctCountsSum == k) {
-                pi1 = entry.getKey();
-            } else if (distinctCountsSum > k) {
-                pi1 = pi2 = entry.getKey();
-                break;
-            }
         }
 
-        float result = 0F;
-        Number n1 = (Number)columnExp.getDataType().toObject(pi1);
-        if (pi2 == null || pi1 == pi2) {
-            result = n1.floatValue();
-        } else {
-            Number n2 = (Number)columnExp.getDataType().toObject(pi2);
-            result = (n1.floatValue() * (1.0F - f)) + (n2.floatValue() * f);
-        }
+        float result = (float)distinctCountsSum / totalCount;
         if (buffer == null) {
             initBuffer();
         }
