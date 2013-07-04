@@ -87,7 +87,10 @@ public enum ExpressionType {
     LowerFunction(LowerFunction.class),
     TrimFunction(TrimFunction.class),
     DistinctCountAggregateFunction(DistinctCountAggregateFunction.class),
-    PercentileContAggregateFunction(PercentileContAggregateFunction.class);
+    PercentileContAggregateFunction(PercentileContAggregateFunction.class),
+    PercentRankAggregateFunction(PercentRankAggregateFunction.class),
+    StddevPopFunction(StddevPopFunction.class),
+    StddevSampFunction(StddevSampFunction.class);
 
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

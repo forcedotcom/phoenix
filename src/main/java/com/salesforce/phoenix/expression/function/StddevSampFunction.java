@@ -30,29 +30,29 @@ package com.salesforce.phoenix.expression.function;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
+import com.salesforce.phoenix.expression.aggregator.StddevSampAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
- * Built-in function for PERCENTILE_CONT(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
- *
+ * Built-in function for STDDEV_SAMP(<expression>) aggregate function
+ * 
  * @author anoopsjohn
  * @since 1.2.1
  */
-@BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes = { PDataType.DECIMAL }),
-        @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true),
-        @Argument(allowedTypes = { PDataType.DECIMAL }, isConstant = true, minValue = "0", maxValue = "1") })
-public class PercentileContAggregateFunction extends SingleAggregateFunction {
-    public static final String NAME = "PERCENTILE_CONT";
+@BuiltInFunction(name = StddevSampFunction.NAME, args = { @Argument(allowedTypes={PDataType.DECIMAL})})
+public class StddevSampFunction extends SingleAggregateFunction {
+    public static final String NAME = "STDDEV_SAMP";
 
-    public PercentileContAggregateFunction() {
-        
+    public StddevSampFunction() {
+
     }
-    
-    public PercentileContAggregateFunction(List<Expression> childern) {
+
+    public StddevSampFunction(List<Expression> childern) {
         super(childern);
     }
 
@@ -63,14 +63,14 @@ public class PercentileContAggregateFunction extends SingleAggregateFunction {
 
     @Override
     public Aggregator newClientAggregator() {
-        return new PercentileClientAggregator(children);
+        return new StddevSampAggregator(children);
     }
-
+    
     @Override
     public String getName() {
         return NAME;
     }
-    
+
     @Override
     public PDataType getDataType() {
         return PDataType.DECIMAL;
