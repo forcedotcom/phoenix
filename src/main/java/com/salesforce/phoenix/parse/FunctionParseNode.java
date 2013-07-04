@@ -165,7 +165,8 @@ public class FunctionParseNode extends CompoundParseNode {
             // which has already been validated, 2) attempting to get the
             // parameter metadata, or 3) have an unbound parameter which
             // will be detected futher downstream.
-            if (children.get(i).getDataType() == null /* null used explicitly in query */ || i >= nodeChildren.size() /* argument left off */) {
+            Expression child = children.get(i);
+            if (child.getDataType() == null /* null used explicitly in query */ || i >= nodeChildren.size() /* argument left off */) {
                 // Replace the unbound expression with the default value expression if specified
                 if (args[i].getDefaultValue() != null) {
                     Expression defaultValue = args[i].getDefaultValue();
@@ -177,33 +178,44 @@ public class FunctionParseNode extends CompoundParseNode {
                 } else if (bindNode != null) {
                     // Otherwise if the node is a bind parameter and we have type information
                     // based on the function argument annonation set the parameter meta data.
-                    if (children.get(i).getDataType() == null) {
+                    if (child.getDataType() == null) {
                         if (allowedTypes.length > 0) {
                             context.getBindManager().addParamMetaData(bindNode, LiteralExpression.newConstant(null, allowedTypes[0]));
                         }
                     } else { // Use expression as is, since we already have the data type set
-                        context.getBindManager().addParamMetaData(bindNode, children.get(i));
+                        context.getBindManager().addParamMetaData(bindNode, child);
                     }
                 }
             } else {
                 if (allowedTypes.length > 0) {
                     boolean isCoercible = false;
                     for (PDataType type : allowedTypes) {
-                        if (children.get(i).getDataType().isCoercibleTo(type)) {
+                        if (child.getDataType().isCoercibleTo(type)) {
                             isCoercible = true;
                             break;
                         }
                     }
                     if (!isCoercible) {
                         throw new ArgumentTypeMismatchException(Arrays.toString(args[i].getAllowedTypes()),
-                                children.get(i).getDataType().toString(), info.getName() + " argument " + (i + 1));
+                                child.getDataType().toString(), info.getName() + " argument " + (i + 1));
+                    }
+                    if (child instanceof LiteralExpression) {
+                        LiteralExpression valueExp = (LiteralExpression) child;
+                        LiteralExpression minValue = args[i].getMinValue();
+                        LiteralExpression maxValue = args[i].getMaxValue();
+                        if (minValue != null && minValue.getDataType().compareTo(minValue.getValue(), valueExp.getValue(), valueExp.getDataType()) > 0) {
+                            throw new ValueRangeExcpetion(minValue, maxValue == null ? "" : maxValue, valueExp.getValue(), info.getName() + " argument " + (i + 1));
+                        }
+                        if (maxValue != null && maxValue.getDataType().compareTo(maxValue.getValue(), valueExp.getValue(), valueExp.getDataType()) < 0) {
+                            throw new ValueRangeExcpetion(minValue == null ? "" : minValue, maxValue, valueExp.getValue(), info.getName() + " argument " + (i + 1));
+                        }
                     }
                 }
-                if (args[i].isConstant() && ! (children.get(i) instanceof LiteralExpression) ) {
-                    throw new ArgumentTypeMismatchException("constant", children.get(i).toString(), info.getName() + " argument " + (i + 1));
+                if (args[i].isConstant() && ! (child instanceof LiteralExpression) ) {
+                    throw new ArgumentTypeMismatchException("constant", child.toString(), info.getName() + " argument " + (i + 1));
                 }
                 if (!args[i].getAllowedValues().isEmpty()) {
-                    Object value = ((LiteralExpression)children.get(i)).getValue();
+                    Object value = ((LiteralExpression)child).getValue();
                     if (!args[i].getAllowedValues().contains(value.toString().toUpperCase())) {
                         throw new ArgumentTypeMismatchException(Arrays.toString(args[i].getAllowedValues().toArray(new String[0])),
                                 value.toString(), info.getName() + " argument " + (i + 1));
@@ -258,6 +270,8 @@ public class FunctionParseNode extends CompoundParseNode {
         boolean isConstant() default false;
         String defaultValue() default "";
         String enumeration() default "";
+        String minValue() default "";
+        String maxValue() default "";
     }
     
     /**
@@ -320,6 +334,8 @@ public class FunctionParseNode extends CompoundParseNode {
         private final boolean isConstant;
         private final Set<String> allowedValues; // Enumeration of possible values
         private final LiteralExpression defaultValue;
+        private final LiteralExpression minValue;
+        private final LiteralExpression maxValue;
         
         @SuppressWarnings({ "unchecked", "rawtypes" })
         BuiltInFunctionArgInfo(Argument argument) {
@@ -327,6 +343,8 @@ public class FunctionParseNode extends CompoundParseNode {
             if (argument.enumeration().length() > 0) {
                 this.isConstant = true;
                 this.defaultValue = null;
+                this.minValue = null;
+                this.maxValue = null;
                 this.allowedTypes = ENUMERATION_TYPES;
                 Class<?> clazz = null;
                 String packageName = FunctionExpression.class.getPackage().getName();
@@ -352,31 +370,35 @@ public class FunctionParseNode extends CompoundParseNode {
                 this.allowedValues = Collections.emptySet();
                 this.isConstant = argument.isConstant();
                 this.allowedTypes = argument.allowedTypes();
-                String defaultStringValue = argument.defaultValue();
-                if (defaultStringValue.length() > 0) {
-                    SQLParser parser = new SQLParser(defaultStringValue);
-                    try {
-                        LiteralParseNode node = parser.parseLiteral();
-                        LiteralExpression defaultValue = LiteralExpression.newConstant(node.getValue(), this.allowedTypes[0]);
-                        if (this.getAllowedTypes().length > 0) {
-                            for (PDataType type : this.getAllowedTypes()) {
-                                if (defaultValue.getDataType() == null || defaultValue.getDataType().isCoercibleTo(type, node.getValue())) {
-                                    this.defaultValue = LiteralExpression.newConstant(node.getValue(), type);
-                                    return;
-                                }
-                            }
-                            throw new IllegalStateException("Unable to coerce default value " + argument.defaultValue() + " to any of the allowed types of " + Arrays.toString(this.getAllowedTypes()));
-                        }
-                        this.defaultValue = defaultValue;
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
-                } else {
-                    this.defaultValue = null;
-                }
+                this.defaultValue = getExpFromConstant(argument.defaultValue());
+                this.minValue = getExpFromConstant(argument.minValue());
+                this.maxValue = getExpFromConstant(argument.maxValue());
             }
         }
 
+        private LiteralExpression getExpFromConstant(String strValue) {
+            LiteralExpression exp = null;
+            if (strValue.length() > 0) {
+                SQLParser parser = new SQLParser(strValue);
+                try {
+                    LiteralParseNode node = parser.parseLiteral();
+                    LiteralExpression defaultValue = LiteralExpression.newConstant(node.getValue(), this.allowedTypes[0]);
+                    if (this.getAllowedTypes().length > 0) {
+                        for (PDataType type : this.getAllowedTypes()) {
+                            if (defaultValue.getDataType() == null || defaultValue.getDataType().isCoercibleTo(type, node.getValue())) {
+                                return LiteralExpression.newConstant(node.getValue(), type);
+                            }
+                        }
+                        throw new IllegalStateException("Unable to coerce default value " + strValue + " to any of the allowed types of " + Arrays.toString(this.getAllowedTypes()));
+                    }
+                    exp = defaultValue;
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return exp;
+        }
+        
         public boolean isConstant() {
             return isConstant;
         }
@@ -385,6 +407,14 @@ public class FunctionParseNode extends CompoundParseNode {
             return defaultValue;
         }
 
+        public LiteralExpression getMinValue() {
+            return minValue;
+        }
+        
+        public LiteralExpression getMaxValue() {
+            return maxValue;
+        }
+        
         public PDataType[] getAllowedTypes() {
             return allowedTypes;
         }

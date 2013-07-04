@@ -60,6 +60,7 @@ public enum SQLExceptionCode {
     MISSING_BINARY_LENGTH(210, "22003", "Missing length for BINARY."),
     NONPOSITIVE_BINARY_LENGTH(211, "22003", "BINARY must have a positive length."),
     SERVER_ARITHMATIC_ERROR(212, "22012", "Arithmatic error on server."),
+    VALUE_OUTSIDE_RANGE(213,"22003","Value outside range."),
     
     /**
      * Constraint Violation (errorcode 03, sqlstate 23)

@@ -638,10 +638,11 @@ AVG(X)
 "
 
 "Functions (Aggregate)","COUNT","
-COUNT( { * | { term } } )
+COUNT( [ DISTINCT ] { * | { term } } )
 ","
 The count of all row, or of the non-null values.
 This method returns a long.
+When DISTINCT is used, it counts only distinct values.
 If no rows are selected, the result is 0.
 Aggregates are only allowed in select statements.
 ","
@@ -679,6 +680,47 @@ Aggregates are only allowed in select statements.
 The returned value is of the same data type as the parameter.
 ","
 SUM(X)
+"
+
+"Functions (Aggregate)","PERCENTILE_CONT","
+PERCENTILE_CONT( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } ASC | DESC)
+","
+The nth percentile of values in the column.
+The percentile value can be between 0 and 1 inclusive.
+Aggregates are only allowed in select statements.
+The returned value is of decimal data type.
+","
+PERCENTILE_CONT( 0.9 ) WITHIN GROUP (ORDER BY X ASC)
+"
+
+"Functions (Aggregate)","PERCENTILE_RANK","
+PERCENTILE_RANK( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } ASC | DESC)
+","
+The percentile rank for a hypothetical value, if inserted into the column.
+Aggregates are only allowed in select statements.
+The returned value is of decimal data type.
+","
+PERCENTILE_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)
+"
+
+"Functions (Aggregate)","STDDEV_POP","
+STDDEV_POP( { numericTerm } )
+","
+The population standard deviation of all values.
+Aggregates are only allowed in select statements.
+The returned value is of decimal data type.
+","
+STDDEV_POP( X )
+"
+
+"Functions (Aggregate)","STDDEV_SAMP","
+STDDEV_SAMP( { numericTerm } )
+","
+The sample standard deviation of all values.
+Aggregates are only allowed in select statements.
+The returned value is of decimal data type.
+","
+STDDEV_SAMP( X )
 "
 
 "Functions (Time and Date)","ROUND","

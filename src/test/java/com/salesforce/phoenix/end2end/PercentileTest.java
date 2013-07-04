@@ -32,12 +32,7 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Types;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -131,7 +126,160 @@ public class PercentileTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
-    
+
+    @Test
+    public void testPercentRank() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+        String query = "SELECT PERCENT_RANK(5) WITHIN GROUP (ORDER BY A_INTEGER ASC) FROM aTable";
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at
+                                                                                     // timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal rank = rs.getBigDecimal(1);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.56, rank.doubleValue(), 0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPercentRankWithNegativeNumeric() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+        String query = "SELECT PERCENT_RANK(-2) WITHIN GROUP (ORDER BY A_INTEGER ASC) FROM aTable";
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at
+                                                                                     // timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal rank = rs.getBigDecimal(1);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.0, rank.doubleValue(), 0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPercentRankDesc() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+        String query = "SELECT PERCENT_RANK(8.9) WITHIN GROUP (ORDER BY A_INTEGER DESC) FROM aTable";
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at
+                                                                                     // timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal rank = rs.getBigDecimal(1);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.11, rank.doubleValue(), 0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPercentRankDescOnVARCHARColumn() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+        String query = "SELECT PERCENT_RANK('ba') WITHIN GROUP (ORDER BY A_STRING DESC) FROM aTable";
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at
+                                                                                     // timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal rank = rs.getBigDecimal(1);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.33, rank.doubleValue(), 0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPercentRankDescOnDECIMALColumn() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+        String query = "SELECT PERCENT_RANK(2) WITHIN GROUP (ORDER BY x_decimal ASC) FROM aTable";
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at
+                                                                                     // timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal rank = rs.getBigDecimal(1);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.33, rank.doubleValue(), 0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testMultiplePercentRanksOnSelect() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+        String query = "SELECT PERCENT_RANK(2) WITHIN GROUP (ORDER BY x_decimal ASC), PERCENT_RANK(8.9) WITHIN GROUP (ORDER BY A_INTEGER DESC) FROM aTable";
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at
+                                                                                     // timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal rank = rs.getBigDecimal(1);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.33, rank.doubleValue(), 0.0);
+            rank = rs.getBigDecimal(2);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.11, rank.doubleValue(), 0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
     protected static void initATableValues(String tenantId1, String tenantId2, byte[][] splits,
             Date date, Long ts) throws Exception {
         if (ts == null) {

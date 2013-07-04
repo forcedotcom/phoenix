@@ -25,54 +25,24 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.schema;
 
-import java.util.List;
+import java.sql.SQLException;
 
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 /**
+ * Exception thrown when we try to use use an argument that has the wrong type. 
  * 
- * Built-in function for PERCENTILE_CONT(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
- *
  * @author anoopsjohn
- * @since 1.2.1
+ * @since 1.1.2
  */
-@BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes = { PDataType.DECIMAL }),
-        @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true),
-        @Argument(allowedTypes = { PDataType.DECIMAL }, isConstant = true, minValue = "0", maxValue = "1") })
-public class PercentileContAggregateFunction extends SingleAggregateFunction {
-    public static final String NAME = "PERCENTILE_CONT";
-
-    public PercentileContAggregateFunction() {
-        
-    }
+public class ValueRangeExcpetion extends SQLException{
+    private static final long serialVersionUID = 1L;
+    private static SQLExceptionCode code = SQLExceptionCode.VALUE_OUTSIDE_RANGE;
     
-    public PercentileContAggregateFunction(List<Expression> childern) {
-        super(childern);
-    }
-
-    @Override
-    public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator(children);
-    }
-
-    @Override
-    public Aggregator newClientAggregator() {
-        return new PercentileClientAggregator(children);
-    }
-
-    @Override
-    public String getName() {
-        return NAME;
-    }
-    
-    @Override
-    public PDataType getDataType() {
-        return PDataType.DECIMAL;
+    public ValueRangeExcpetion(Object minValue, Object maxValue, Object actualValue, String location){
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: [" + minValue + " , " + maxValue + "] but was: " + actualValue + " at " + location).build().toString(), code.getSQLState());
     }
 }
