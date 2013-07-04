@@ -5,7 +5,7 @@ Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, po
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
 
 ## Quick Start
-Tired of reading already and just want to get started? Jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less).
+Tired of reading already and just want to get started? Jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping)
 
 ## How It Works ##
 
@@ -13,7 +13,7 @@ The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.c
 
 Tables are created and altered through [DDL statements](http://forcedotcom.github.com/phoenix/#create), and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (see the [wiki](https://github.com/forcedotcom/phoenix/wiki) for more details).
 
-Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, and the [connection url](https://github.com/forcedotcom/Phoenix/wiki#wiki-connStr) is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification plus optionally the port number and/or root node. For example:
+Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, and the [connection url](https://github.com/forcedotcom/phoenix/wiki#wiki-connStr) is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification plus optionally the port number and/or root node. For example:
 
         Class.forName("com.salesforce.phoenix.jdbc.PhoenixDriver");
         Connection conn = DriverManager.getConnection("jdbc:phoenix:localhost");
