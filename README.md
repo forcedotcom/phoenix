@@ -5,7 +5,7 @@ Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, po
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
 
 ## Quick Start
-Tired of reading already and just want to get started? Jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping)
+Tired of reading already and just want to get started? Jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping) and start querying now.
 
 ## How It Works ##
 
