@@ -27,13 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
+import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,5 +111,27 @@ public abstract class DistinctValueWithCountClientAggregator extends BaseAggrega
         buffer = null;
         totalCount = 0L;
         super.reset();
+    }
+    
+    protected Entry<ImmutableBytesPtr, Integer>[] getSortedValueVsCount(final boolean ascending) {
+        // To sort the valueVsCount
+        @SuppressWarnings("unchecked")
+        Entry<ImmutableBytesPtr, Integer>[] entries = new Entry[valueVsCount.size()];
+        valueVsCount.entrySet().toArray(entries);
+        Comparator<Entry<ImmutableBytesPtr, Integer>> comparator = new Comparator<Entry<ImmutableBytesPtr, Integer>>() {
+            @Override
+            public int compare(Entry<ImmutableBytesPtr, Integer> o1, Entry<ImmutableBytesPtr, Integer> o2) {
+                ImmutableBytesPtr k1 = o1.getKey();
+                ImmutableBytesPtr k2 = o2.getKey();
+                if (ascending) {
+                    return WritableComparator.compareBytes(k1.get(), k1.getOffset(), k1.getLength(),
+                        k2.get(), k2.getOffset(), k2.getLength());
+                }
+                return WritableComparator.compareBytes(k2.get(), k2.getOffset(), k2.getLength(), k1.get(),
+                        k1.getOffset(), k1.getLength());
+            }
+        };
+        Arrays.sort(entries, comparator);
+        return entries;
     }
 }

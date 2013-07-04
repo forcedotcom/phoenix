@@ -28,7 +28,7 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -46,7 +46,7 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
  */
 public class PercentRankClientAggregator extends DistinctValueWithCountClientAggregator {
 
-    private List<Expression> exps = null;
+    private final List<Expression> exps;
     private BigDecimal cachedResult = null;
 
     public PercentRankClientAggregator(List<Expression> exps) {
@@ -64,14 +64,9 @@ public class PercentRankClientAggregator extends DistinctValueWithCountClientAgg
 
             // Third expression will be LiteralExpression
             LiteralExpression valueExp = (LiteralExpression)exps.get(2);
-            // To sort the valueVsCount
-            NavigableMap<ImmutableBytesPtr, Integer> sortedMap = new TreeMap<ImmutableBytesPtr, Integer>(valueVsCount);
-            if (!isAscending) {
-                sortedMap = sortedMap.descendingMap();
-            }
-
+            Entry<ImmutableBytesPtr, Integer>[] entries = getSortedValueVsCount(isAscending);
             long distinctCountsSum = 0;
-            for (Entry<ImmutableBytesPtr, Integer> entry : sortedMap.entrySet()) {
+            for (Entry<ImmutableBytesPtr, Integer> entry : entries) {
                 Object value = valueExp.getValue();
                 Object colValue = columnExp.getDataType().toObject(entry.getKey());
                 int compareResult = columnExp.getDataType().compareTo(colValue, value, valueExp.getDataType());

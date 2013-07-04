@@ -28,7 +28,7 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -46,7 +46,7 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
  */
 public class PercentileClientAggregator extends DistinctValueWithCountClientAggregator {
 
-    private List<Expression> exps = null;
+    private final List<Expression> exps;
     private BigDecimal cachedResult = null;
 
     public PercentileClientAggregator(List<Expression> exps) {
@@ -65,20 +65,14 @@ public class PercentileClientAggregator extends DistinctValueWithCountClientAggr
             // Third expression will be LiteralExpression
             LiteralExpression percentileExp = (LiteralExpression)exps.get(2);
             float p = ((Number)percentileExp.getValue()).floatValue();
-
-            // To sort the valueVsCount
-            NavigableMap<ImmutableBytesPtr, Integer> sortedMap = new TreeMap<ImmutableBytesPtr, Integer>(valueVsCount);
-            if (!isAscending) {
-                sortedMap = sortedMap.descendingMap();
-            }
-
+            Entry<ImmutableBytesPtr, Integer>[] entries = getSortedValueVsCount(isAscending);
             float i = (p * this.totalCount) + 0.5F;
             long k = (long)i;
             float f = i - k;
             ImmutableBytesPtr pi1 = null;
             ImmutableBytesPtr pi2 = null;
             long distinctCountsSum = 0;
-            for (Entry<ImmutableBytesPtr, Integer> entry : sortedMap.entrySet()) {
+            for (Entry<ImmutableBytesPtr, Integer> entry : entries) {
                 if (pi1 != null) {
                     pi2 = entry.getKey();
                     break;
@@ -92,13 +86,13 @@ public class PercentileClientAggregator extends DistinctValueWithCountClientAggr
                 }
             }
 
-            float result = 0F;
+            double result = 0.0;
             Number n1 = (Number)columnExp.getDataType().toObject(pi1);
             if (pi2 == null || pi1 == pi2) {
-                result = n1.floatValue();
+                result = n1.doubleValue();
             } else {
                 Number n2 = (Number)columnExp.getDataType().toObject(pi2);
-                result = (n1.floatValue() * (1.0F - f)) + (n2.floatValue() * f);
+                result = (n1.doubleValue() * (1.0F - f)) + (n2.doubleValue() * f);
             }
             this.cachedResult = new BigDecimal(result);
         }

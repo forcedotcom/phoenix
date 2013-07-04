@@ -42,7 +42,8 @@ import com.salesforce.phoenix.schema.PDataType;
  * @author anoopsjohn
  * @since 1.2.1
  */
-@BuiltInFunction(name = PercentRankAggregateFunction.NAME, args = { @Argument(), @Argument(), @Argument() })
+@BuiltInFunction(name = PercentRankAggregateFunction.NAME, args = { @Argument(),
+        @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true), @Argument(isConstant = true) })
 public class PercentRankAggregateFunction extends SingleAggregateFunction {
     public static final String NAME = "PERCENT_RANK";
 

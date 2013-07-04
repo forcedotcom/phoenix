@@ -30,9 +30,7 @@ package com.salesforce.phoenix.expression.function;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
-import com.salesforce.phoenix.expression.aggregator.PercentileClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -44,7 +42,9 @@ import com.salesforce.phoenix.schema.PDataType;
  * @author anoopsjohn
  * @since 1.2.1
  */
-@BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes={PDataType.DECIMAL}), @Argument(), @Argument(allowedTypes={PDataType.DECIMAL}, minValue="0", maxValue="1") })
+@BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes = { PDataType.DECIMAL }),
+        @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true),
+        @Argument(allowedTypes = { PDataType.DECIMAL }, isConstant = true, minValue = "0", maxValue = "1") })
 public class PercentileContAggregateFunction extends SingleAggregateFunction {
     public static final String NAME = "PERCENTILE_CONT";
 
