@@ -27,9 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.StringReader;
 import java.sql.SQLException;
@@ -39,7 +37,6 @@ import java.util.Set;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.exception.PhoenixParserException;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 
@@ -520,62 +517,5 @@ public class QueryParserTest {
                 new StringReader(
                         "select PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
         parser.parseStatement();
-    }
-
-    @Test
-    public void testPercentileWrongQuery1() throws Exception {
-        SQLParser parser = new SQLParser(
-                new StringReader(
-                        "select PERCENTILE_CONT('*') WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
-        try {
-            parser.parseStatement();
-            fail();
-        } catch (PhoenixParserException e) {
-            assertEquals(
-                    "ERROR 601 (42P00): Syntax error. Wrong value for percentile expression *. Specify a numeric value ( e.g. PERCENTILE(0.9) )",
-                    e.getMessage());
-        }
-    }
-
-    @Test
-    public void testPercentileWrongQuery2() throws Exception {
-        SQLParser parser = new SQLParser(
-                new StringReader(
-                        "select PERCENTILE_CONT(mark) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
-        try {
-            parser.parseStatement();
-            fail();
-        } catch (PhoenixParserException e) {
-            assertEquals(
-                    "ERROR 601 (42P00): Syntax error. Wrong usage of percentile expression MARK. Specify a numeric literal value ( e.g. PERCENTILE(0.9) )",
-                    e.getMessage());
-        }
-    }
-
-    @Test
-    public void testPercentileWrongQuery3() throws Exception {
-        SQLParser parser = new SQLParser(
-                new StringReader(
-                        "select PERCENTILE_CONT(1.1) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
-        try {
-            parser.parseStatement();
-            fail();
-        } catch (PhoenixParserException e) {
-            assertEquals(
-                    "ERROR 601 (42P00): Syntax error. Wrong value for percentile expression 1.1. Specify a value between 0 and 1 inclusive.",
-                    e.getMessage());
-        }
-    }
-
-    @Test
-    public void testPercentileWrongQuery4() throws Exception {
-        SQLParser parser = new SQLParser(
-                new StringReader(
-                        "select PERCENTILE_CONT(-1) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
-        try {
-            parser.parseStatement();
-            fail();
-        } catch (PhoenixParserException e) {
-        }
     }
 }

@@ -25,54 +25,78 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.expression.aggregator;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map.Entry;
+
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
  * 
- * Built-in function for PERCENTILE_CONT(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
- *
  * @author anoopsjohn
  * @since 1.2.1
  */
-@BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes = { PDataType.DECIMAL }),
-        @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true),
-        @Argument(allowedTypes = { PDataType.DECIMAL }, isConstant = true, minValue = "0", maxValue = "1") })
-public class PercentileContAggregateFunction extends SingleAggregateFunction {
-    public static final String NAME = "PERCENTILE_CONT";
+public abstract class BaseStddevAggregator extends DistinctValueWithCountClientAggregator {
 
-    public PercentileContAggregateFunction() {
-        
+    protected Expression stdDevColExp;
+    private BigDecimal cachedResult = null;
+
+    public BaseStddevAggregator(List<Expression> exps) {
+        this.stdDevColExp = exps.get(0);
+    }
+
+    @Override
+    protected int getBufferLength() {
+        return PDataType.DECIMAL.getByteSize();
+    }
+
+    @Override
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        if (cachedResult == null) {
+            double ssd = sumSquaredDeviation();
+            double result = Math.sqrt(ssd / getDataPointsCount());
+            cachedResult = new BigDecimal(result);
+        }
+        if (buffer == null) {
+            initBuffer();
+        }
+        buffer = PDataType.DECIMAL.toBytes(cachedResult);
+        ptr.set(buffer);
+        return true;
     }
     
-    public PercentileContAggregateFunction(List<Expression> childern) {
-        super(childern);
+    protected abstract long getDataPointsCount();
+    
+    private double sumSquaredDeviation() {
+        double m = mean();
+        double result = 0.0;
+        for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
+            double colValue = this.stdDevColExp.getDataType().getCodec().decodeDouble(entry.getKey(), null);
+            double delta = colValue - m;
+            result += (delta * delta) * entry.getValue();
+        }
+        return result;
     }
 
-    @Override
-    public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator(children);
-    }
-
-    @Override
-    public Aggregator newClientAggregator() {
-        return new PercentileClientAggregator(children);
-    }
-
-    @Override
-    public String getName() {
-        return NAME;
+    private double mean() {
+        double sum = 0.0;
+        for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
+            double colValue = this.stdDevColExp.getDataType().getCodec().decodeDouble(entry.getKey(), null);
+            sum += colValue * entry.getValue();
+        }
+        return sum / totalCount;
     }
     
     @Override
-    public PDataType getDataType() {
-        return PDataType.DECIMAL;
+    public void reset() {
+        super.reset();
+        this.cachedResult = null;
     }
 }
