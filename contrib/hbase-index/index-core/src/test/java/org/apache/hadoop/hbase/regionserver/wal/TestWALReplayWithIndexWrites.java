@@ -163,7 +163,7 @@ public class TestWALReplayWithIndexWrites {
     wal.close();
 
     // then create the index table so we are successful on WAL replay
-    CoveredColumnIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
+    ColumnFamilyIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
 
     // run the WAL split and setup the region
     runWALSplit(this.conf);
