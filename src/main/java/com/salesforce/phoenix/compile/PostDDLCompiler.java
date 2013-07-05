@@ -121,7 +121,7 @@ public class PostDDLCompiler implements PostOpCompiler {
                         return tableRefs;
                     }
                     @Override
-                    public ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
+                    public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
                         throw new UnsupportedOperationException();
                     }
                 };

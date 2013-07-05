@@ -190,7 +190,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableUpsertStatement extends UpsertStatement implements MutatableStatement {
-        private ExecutableUpsertStatement(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+        private ExecutableUpsertStatement(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
             super(table, columns, values, select, bindCount);
         }
 
@@ -298,7 +298,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
 
-        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnParseNode> includeColumns, List<ParseNode> splits,
+        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
                 ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
             super(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
@@ -440,8 +440,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableAddColumnStatement extends AddColumnStatement implements ExecutableStatement {
 
-        ExecutableAddColumnStatement(TableName tableName, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
-            super(tableName, columnDef, ifNotExists, props);
+        ExecutableAddColumnStatement(NamedTableNode table, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
+            super(table, columnDef, ifNotExists, props);
         }
 
         @Override
@@ -490,8 +490,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropColumnStatement extends DropColumnStatement implements ExecutableStatement {
 
-        ExecutableDropColumnStatement(TableName tableName, ParseNode columnRef, boolean ifExists) {
-            super(tableName, columnRef, ifExists);
+        ExecutableDropColumnStatement(NamedTableNode table, ColumnName columnRef, boolean ifExists) {
+            super(table, columnRef, ifExists);
         }
 
         @Override
@@ -687,7 +687,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public ExecutableUpsertStatement upsert(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+        public ExecutableUpsertStatement upsert(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
             return new ExecutableUpsertStatement(table, columns, values, select, bindCount);
         }
         
@@ -702,18 +702,18 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnParseNode> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
             return new ExecutableCreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
         
         @Override
-        public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
-            return new ExecutableAddColumnStatement(tableName, columnDef, ifNotExists, props);
+        public AddColumnStatement addColumn(NamedTableNode table,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
+            return new ExecutableAddColumnStatement(table, columnDef, ifNotExists, props);
         }
         
         @Override
-        public DropColumnStatement dropColumn(TableName tableName,  ParseNode columnNode, boolean ifExists) {
-            return new ExecutableDropColumnStatement(tableName, columnNode, ifExists);
+        public DropColumnStatement dropColumn(NamedTableNode table,  ColumnName columnNode, boolean ifExists) {
+            return new ExecutableDropColumnStatement(table, columnNode, ifExists);
         }
         
         @Override

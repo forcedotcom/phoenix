@@ -233,12 +233,12 @@ public class ParseNodeFactory {
         return new IndexColumnParseNode(name, modifier);
     }
     
-    public ColumnDefName columnDefName(String columnName) {
-        return new ColumnDefName(columnName);
+    public ColumnName columnName(String columnName) {
+        return new ColumnName(columnName);
     }
 
-    public ColumnDefName columnDefName(String familyName, String columnName) {
-        return new ColumnDefName(familyName, columnName);
+    public ColumnName columnName(String familyName, String columnName) {
+        return new ColumnName(familyName, columnName);
     }
 
     public PropertyName propertyName(String propertyName) {
@@ -249,11 +249,11 @@ public class ParseNodeFactory {
         return new PropertyName(familyName, propertyName);
     }
 
-    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
+    public ColumnDef columnDef(ColumnName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK, columnModifier);
     }
 
-    public PrimaryKeyConstraint primaryKey(String name, List<Pair<ColumnDefName, ColumnModifier>> columnNameAndModifier) {
+    public PrimaryKeyConstraint primaryKey(String name, List<Pair<ColumnName, ColumnModifier>> columnNameAndModifier) {
         return new PrimaryKeyConstraint(name, columnNameAndModifier);
     }
     
@@ -261,16 +261,16 @@ public class ParseNodeFactory {
         return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
     }
     
-    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnParseNode> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
         return new CreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
-    public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
-        return new AddColumnStatement(tableName, columnDef, ifNotExists, props);
+    public AddColumnStatement addColumn(NamedTableNode table,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
+        return new AddColumnStatement(table, columnDef, ifNotExists, props);
     }
     
-    public DropColumnStatement dropColumn(TableName tableName,  ParseNode columnNode, boolean ifExists) {
-        return new DropColumnStatement(tableName, columnNode, ifExists);
+    public DropColumnStatement dropColumn(NamedTableNode table,  ColumnName columnNode, boolean ifExists) {
+        return new DropColumnStatement(table, columnNode, ifExists);
     }
     
     public DropTableStatement dropTable(TableName tableName, boolean ifExists, boolean isView) {
@@ -287,6 +287,10 @@ public class ParseNodeFactory {
 
     public NamedNode indexName(String name) {
         return new NamedNode(name);
+    }
+
+    public NamedTableNode namedTable(String alias, TableName name) {
+        return new NamedTableNode(alias, name);
     }
 
     public NamedTableNode namedTable(String alias, TableName name ,List<ColumnDef> dyn_columns) {
@@ -472,7 +476,7 @@ public class ParseNodeFactory {
         return new SelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
     }
     
-    public UpsertStatement upsert(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+    public UpsertStatement upsert(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
         return new UpsertStatement(table, columns, values, select, bindCount);
     }
     

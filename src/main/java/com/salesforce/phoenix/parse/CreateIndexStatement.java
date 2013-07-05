@@ -37,16 +37,16 @@ import com.google.common.collect.ListMultimap;
 public class CreateIndexStatement extends MutationStatement {
     private final TableName indexTableName;
     private final PrimaryKeyConstraint indexConstraint;
-    private final List<ParseNode> includeColumns;
+    private final List<ColumnName> includeColumns;
     private final List<ParseNode> splitNodes;
     private final ListMultimap<String,Pair<String,Object>> props;
     private final boolean ifNotExists;
 
     public CreateIndexStatement(NamedNode indexTableName, TableName dataTableName, 
-            PrimaryKeyConstraint indexConstraint, List<ParseNode> includeColumns, List<ParseNode> splits,
+            PrimaryKeyConstraint indexConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
             ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
         super(dataTableName, bindCount);
-        this.indexTableName = new TableName(dataTableName.getSchemaName(),indexTableName.getName());
+        this.indexTableName = new TableName(dataTableName.getAlias(),indexTableName.getName());
         this.indexConstraint = indexConstraint;
         this.includeColumns = includeColumns;
         this.splitNodes = splits;
@@ -58,7 +58,7 @@ public class CreateIndexStatement extends MutationStatement {
         return indexConstraint;
     }
 
-    public List<ParseNode> getIncludeColumns() {
+    public List<ColumnName> getIncludeColumns() {
         return includeColumns;
     }
 

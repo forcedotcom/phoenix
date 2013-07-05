@@ -188,7 +188,7 @@ public class HavingCompiler {
 
         @Override
         public Void visit(ColumnParseNode colNode) throws SQLException {
-            ColumnRef ref = context.getResolver().resolveColumn(colNode);
+            ColumnRef ref = context.getResolver().resolveColumn(node.getTableName().getAlias(), node.getTableName().getName(), node.getName());
             boolean isAggregateColumn = groupBy.getExpressions().indexOf(ref.newColumnExpression()) >= 0;
             if (hasOnlyAggregateColumns == null) {
                 hasOnlyAggregateColumns = isAggregateColumn;

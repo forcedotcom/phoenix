@@ -35,8 +35,8 @@ public class AddColumnStatement extends AlterTableStatement {
     private final boolean ifNotExists;
     private final Map<String,Object> props;
     
-    protected AddColumnStatement(TableName tableName, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
-        super(tableName);
+    protected AddColumnStatement(NamedTableNode table, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
+        super(table);
         this.columnDef = columnDef;
         this.props = props == null ? Collections.<String,Object>emptyMap() : props;
         this.ifNotExists = ifNotExists;

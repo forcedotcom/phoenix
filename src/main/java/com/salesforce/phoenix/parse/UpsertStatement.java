@@ -32,20 +32,20 @@ import java.util.*;
 import com.google.common.collect.ImmutableList;
 
 public class UpsertStatement extends MutationStatement {
-    private final List<ColumnDefName> columns;
+    private final List<ColumnName> columns;
     private final List<ParseNode> values;
     private final SelectStatement select;
     private final List<ColumnDef> dynColumns;
 
-    public UpsertStatement(NamedTableNode table, List<ColumnDefName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
-        super(table.getName(), bindCount);
-        this.columns = columns == null ? Collections.<ColumnDefName>emptyList() : columns;
+    public UpsertStatement(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+        super(table, bindCount);
+        this.columns = columns == null ? Collections.<ColumnName>emptyList() : columns;
         this.values = values;
         this.select = select;
         dynColumns = table.getDynamicColumns();
     }
 
-    public List<ColumnDefName> getColumns() {
+    public List<ColumnName> getColumns() {
         return columns;
     }
 
@@ -55,10 +55,6 @@ public class UpsertStatement extends MutationStatement {
 
     public SelectStatement getSelect() {
         return select;
-    }
-
-    public List<ColumnDef> getDynColumns() {
-      return dynColumns;
     }
 
     public boolean onlyDynamic() {

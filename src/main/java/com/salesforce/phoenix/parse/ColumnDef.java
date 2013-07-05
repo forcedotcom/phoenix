@@ -44,7 +44,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class ColumnDef {
-    private final ColumnDefName columnDefName;
+    private final ColumnName columnDefName;
     private final PDataType dataType;
     private final boolean isNull;
     private final Integer maxLength;
@@ -52,10 +52,10 @@ public class ColumnDef {
     private final boolean isPK;
     private final ColumnModifier columnModifier;
  
-    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
+    ColumnDef(ColumnName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
             Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
         this.columnDefName = columnDefName;
-        this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
+        this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
         this.isNull = isNull;
         if (this.dataType == PDataType.CHAR) {
             if (maxLength == null) {
@@ -113,7 +113,7 @@ public class ColumnDef {
         this.columnModifier = columnModifier;
     }
 
-    public ColumnDefName getColumnDefName() {
+    public ColumnName getColumnDefName() {
         return columnDefName;
     }
 

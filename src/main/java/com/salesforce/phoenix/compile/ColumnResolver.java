@@ -30,7 +30,6 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.util.List;
 
-import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.schema.*;
 
 
@@ -52,10 +51,12 @@ public interface ColumnResolver {
     
     /**
      * Resolves column using name and alias.
-     * @param node Column node from parsing of select statement
+     * @param schemaName TODO
+     * @param tableName TODO
+     * @param colName TODO
      * @return the resolved ColumnRef
      * @throws ColumnNotFoundException if the column could not be resolved
      * @throws AmbiguousColumnException if the column name is ambiguous
      */
-    public ColumnRef resolveColumn(ColumnParseNode node) throws SQLException;
+    public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException;
 }

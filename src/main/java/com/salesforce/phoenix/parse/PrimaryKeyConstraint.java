@@ -37,23 +37,23 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 public class PrimaryKeyConstraint extends NamedNode {
-    private final List<Pair<ColumnDefName, ColumnModifier>> columns;
-    private final HashMap<ColumnDefName, ColumnModifier> columnNameToModifier;
+    private final List<Pair<ColumnName, ColumnModifier>> columns;
+    private final HashMap<ColumnName, ColumnModifier> columnNameToModifier;
     
-    PrimaryKeyConstraint(String name, List<Pair<ColumnDefName, ColumnModifier>> columns) {
+    PrimaryKeyConstraint(String name, List<Pair<ColumnName, ColumnModifier>> columns) {
         super(name);
         this.columns = ImmutableList.copyOf(columns);
         this.columnNameToModifier = Maps.newHashMapWithExpectedSize(columns.size());
-        for (Pair<ColumnDefName, ColumnModifier> p : columns) {
+        for (Pair<ColumnName, ColumnModifier> p : columns) {
             this.columnNameToModifier.put(p.getFirst(), p.getSecond());
         }
     }
 
-    public List<Pair<ColumnDefName, ColumnModifier>> getColumnNames() {
+    public List<Pair<ColumnName, ColumnModifier>> getColumnNames() {
         return columns;
     }
     
-    public ColumnModifier getColumnModifier(ColumnDefName columnName) {
+    public ColumnModifier getColumnModifier(ColumnName columnName) {
     	return columnNameToModifier.get(columnName);
     }
 }

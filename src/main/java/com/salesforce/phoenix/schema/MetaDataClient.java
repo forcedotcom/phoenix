@@ -200,7 +200,7 @@ public class MetaDataClient {
 
     private PColumn newColumn(int position, ColumnDef def, PrimaryKeyConstraint pkConstraint) throws SQLException {
         try {
-            ColumnDefName columnDefName = def.getColumnDefName();
+            ColumnName columnDefName = def.getColumnDefName();
             ColumnModifier columnModifier = def.getColumnModifier();
             boolean isPK = def.isPK();
             if (pkConstraint != null) {
@@ -277,8 +277,8 @@ public class MetaDataClient {
         // Make sure we don't lose case sensitive lookup, though
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         
-        TableName tableNameNode = statement.getTableName();
-        String schemaName = tableNameNode.getSchemaName();
+        TableName tableNameNode = statement.getName();
+        String schemaName = tableNameNode.getAlias();
         String dataTableName = statement.getDataTableName();
         // TODO: get resolver here instead
         PTable dataTable = getLatestTable(schemaName, dataTableName);
@@ -348,8 +348,8 @@ public class MetaDataClient {
         try {
             connection.setAutoCommit(false);
             TableName tableNameNode = statement.getTableName();
-            String schemaName = tableNameNode.getSchemaName();
-            String tableName = tableNameNode.getTableName();
+            String schemaName = tableNameNode.getAlias();
+            String tableName = tableNameNode.getName();
             
             PrimaryKeyConstraint pkConstraint = statement.getPrimaryKeyConstraint();
             String pkName = null;
@@ -530,8 +530,8 @@ public class MetaDataClient {
             
             PTableType tableType = statement.getTableType();
             boolean isIndex = tableType == PTableType.INDEX;
-            String schemaName = statement.getTableName().getSchemaName();
-            String tableName = statement.getTableName().getTableName();
+            String schemaName = statement.getTableName().getAlias();
+            String tableName = statement.getTableName().getName();
             
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
             Map<String,Object> commonFamilyProps = Collections.emptyMap();
@@ -682,14 +682,14 @@ public class MetaDataClient {
     }
 
     public MutationState dropTable(DropTableStatement statement) throws SQLException {
-        String schemaName = statement.getTableName().getSchemaName();
-        String tableName = statement.getTableName().getTableName();
+        String schemaName = statement.getTableName().getAlias();
+        String tableName = statement.getTableName().getName();
         return doDropTable(schemaName, tableName, null, statement.ifExists(), statement.isView(), false);
     }
 
     public MutationState dropIndex(DropIndexStatement statement) throws SQLException {
-        String schemaName = statement.getTableName().getSchemaName();
-        String tableName = statement.getTableName().getTableName();
+        String schemaName = statement.getTableName().getAlias();
+        String tableName = statement.getTableName().getName();
         String indexName = statement.getIndexName().getName();
         return doDropTable(schemaName, tableName, indexName, false, false, true);
     }
@@ -765,28 +765,6 @@ public class MetaDataClient {
         updateIdxState.execute();
     }
 
-    private PTable getLatestTable(String schemaName, String tableName) throws SQLException {
-        boolean retried = false;
-        PTable table = null;
-        while (true) {
-            try {
-                table = connection.getPMetaData().getSchema(schemaName).getTable(tableName);
-            } catch (MetaDataEntityNotFoundException e) {
-                if (!retried) {
-                    retried = true;
-                    if (this.updateCache(schemaName, tableName) < 0) {
-                        continue;
-                    }
-                }
-            }
-            break;
-        }
-        if (table == null) {
-            throw new TableNotFoundException(schemaName, tableName);
-        }
-        return table;
-    }
-
     private MutationCode processMutationResult(String schemaName, String tableName, MetaDataMutationResult result) throws SQLException {
         final MutationCode mutationCode = result.getMutationCode();
         switch (mutationCode) {
@@ -824,14 +802,16 @@ public class MetaDataClient {
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
-            TableName tableNameNode = statement.getTableName();
-            String schemaName = tableNameNode.getSchemaName();
-            String tableName = tableNameNode.getTableName();
-            
-            PTable table = getLatestTable(schemaName, tableName);
-            PSchema schema = connection.getPMetaData().getSchema(schemaName);
+            TableName tableNameNode = statement.getTable().getName();
+            String schemaName = tableNameNode.getAlias();
+            String tableName = tableNameNode.getName();
+
             boolean retried = false;
             while (true) {
+                ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+                PTable table = resolver.getTables().get(0).getTable();
+                PSchema schema = resolver.getTables().get(0).getSchema();
+                
                 int ordinalPosition = table.getColumns().size();
                 
                 List<PColumn> currentPKs = table.getPKColumns();
@@ -893,8 +873,7 @@ public class MetaDataClient {
                         connection.setAutoCommit(true);
                         // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                         long ts = (scn == null ? result.getMutationTime() : scn);
-                        TableRef tableRef = new TableRef(null, table, schema, ts);
-                        MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, emptyCF, null, ts);
+                        MutationPlan plan = new PostDDLCompiler(connection).compile(new TableRef(null, table, schema, ts), emptyCF, null, ts);
                         return connection.getQueryServices().updateData(plan);
                     }
                     return new MutationState(0,connection);
@@ -902,7 +881,6 @@ public class MetaDataClient {
                     if (retried) {
                         throw e;
                     }
-                    table = connection.getPMetaData().getSchema(schemaName).getTable(tableName);
                     retried = true;
                 }
             }
@@ -916,16 +894,16 @@ public class MetaDataClient {
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
             connection.setAutoCommit(false);
-            TableName tableNameNode = statement.getTableName();
-            String schemaName = tableNameNode.getSchemaName();
-            String tableName = tableNameNode.getTableName();
-            PTable table = getLatestTable(schemaName, tableName); // TODO: Do in resolver?
+            TableName tableNameNode = statement.getTable().getName();
+            String schemaName = tableNameNode.getAlias();
+            String tableName = tableNameNode.getName();
             boolean retried = false;
             while (true) {
                 final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+                PTable table = resolver.getTables().get(0).getTable();
                 ColumnRef columnRef = null;
                 try {
-                    columnRef = resolver.resolveColumn((ColumnParseNode)statement.getColumnRef());
+                    columnRef = resolver.resolveColumn(null, statement.getColumnRef().getFamilyName().getName(), statement.getColumnRef().getColumnName().getName());
                 } catch (ColumnNotFoundException e) {
                     if (statement.ifExists()) {
                         return new MutationState(0,connection);

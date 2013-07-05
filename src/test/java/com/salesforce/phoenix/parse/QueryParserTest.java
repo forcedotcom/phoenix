@@ -432,9 +432,9 @@ public class QueryParserTest {
     		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150) constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
     		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
     		PrimaryKeyConstraint pkConstraint = stmt.getPrimaryKeyConstraint();
-    		List<Pair<ColumnDefName,ColumnModifier>> columns = pkConstraint.getColumnNames();
+    		List<Pair<ColumnName,ColumnModifier>> columns = pkConstraint.getColumnNames();
     		assertEquals(2, columns.size());
-    		for (Pair<ColumnDefName,ColumnModifier> columnName : columns) {
+    		for (Pair<ColumnName,ColumnModifier> columnName : columns) {
     			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumnModifier(columnName.getFirst()));
     		}    		
     	}
