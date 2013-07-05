@@ -33,9 +33,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctCountClientAggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
+import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -104,7 +102,7 @@ public class DistinctCountAggregateFunction extends DelegateConstantToCountAggre
     
     @Override 
     public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator(getChildren());
+        return new DistinctValueWithCountServerAggregator();
     }
     
     @Override
