@@ -30,9 +30,7 @@ package com.salesforce.phoenix.expression.function;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
-import com.salesforce.phoenix.expression.aggregator.StddevSampAggregator;
+import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -58,7 +56,7 @@ public class StddevSampFunction extends SingleAggregateFunction {
 
     @Override
     public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator(children);
+        return new DistinctValueWithCountServerAggregator();
     }
 
     @Override

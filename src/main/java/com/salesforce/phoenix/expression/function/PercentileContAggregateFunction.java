@@ -58,7 +58,7 @@ public class PercentileContAggregateFunction extends SingleAggregateFunction {
 
     @Override
     public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator(children);
+        return new DistinctValueWithCountServerAggregator();
     }
 
     @Override

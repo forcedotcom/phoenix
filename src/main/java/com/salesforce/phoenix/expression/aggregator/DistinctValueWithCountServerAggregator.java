@@ -27,20 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
-import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.util.SizedUtil;
+import com.salesforce.phoenix.util.*;
 
 /**
  * Server side Aggregator which will aggregate data and find distinct values with number of occurrences for each.
@@ -52,26 +47,20 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator {
     public static final int DEFAULT_ESTIMATED_DISTINCT_VALUES = 10000;
     
     private byte[] buffer = null;
-    private Expression expression = null;
     private Map<ImmutableBytesPtr, Integer> valueVsCount = new HashMap<ImmutableBytesPtr, Integer>();
 
-    public DistinctValueWithCountServerAggregator(List<Expression> expressions) {
+    public DistinctValueWithCountServerAggregator() {
         super(null);
-        this.expression = expressions.get(0);
     }
 
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
-        ImmutableBytesWritable colValue = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
-        if (expression.evaluate(tuple, colValue)) {
-            ImmutableBytesPtr key = new ImmutableBytesPtr(colValue.get(), colValue.getOffset(),
-                    colValue.getLength());
-            Integer count = this.valueVsCount.get(key);
-            if (count == null) {
-                this.valueVsCount.put(key, 1);
-            } else {
-                this.valueVsCount.put(key, count++);
-            }
+        ImmutableBytesPtr key = new ImmutableBytesPtr(ptr.get(), ptr.getOffset(), ptr.getLength());
+        Integer count = this.valueVsCount.get(key);
+        if (count == null) {
+            this.valueVsCount.put(key, 1);
+        } else {
+            this.valueVsCount.put(key, count++);
         }
     }
 
