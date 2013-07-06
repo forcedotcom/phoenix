@@ -80,13 +80,13 @@ public class FromCompiler {
         return visitor;
     }
 
-    public static ColumnResolver getResolver(MutationStatement statement, PhoenixConnection connection,
+    public static ColumnResolver getResolver(SingleTableSQLStatement statement, PhoenixConnection connection,
             List<ColumnDef> dyn_columns) throws SQLException {
         SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, statement.getTable());
         return visitor;
     }
 
-    public static ColumnResolver getResolver(MutationStatement statement, PhoenixConnection connection)
+    public static ColumnResolver getResolver(SingleTableSQLStatement statement, PhoenixConnection connection)
             throws SQLException {
         return getResolver(statement, connection, Collections.<ColumnDef>emptyList());
     }
@@ -97,8 +97,8 @@ public class FromCompiler {
         public SingleTableColumnResolver(PhoenixConnection connection, NamedTableNode table) throws SQLException {
             super(connection);
             TableName tableNameNode = table.getName();
-            String schemaName = tableNameNode.getAlias();
-            String tableName = tableNameNode.getName();
+            String schemaName = tableNameNode.getSchemaName();
+            String tableName = tableNameNode.getTableName();
             SQLException sqlE = null;
             long timeStamp = QueryConstants.UNSET_TIMESTAMP;
             TableRef tableRef;
@@ -167,23 +167,23 @@ public class FromCompiler {
                 PColumn column = null;
                 for (ColumnDef cdef : dynColumns) {
                     try {
-                        column = theTable.getColumn(cdef.getColumnDefName().getColumnName().getName());
+                        column = theTable.getColumn(cdef.getColumnDefName().getColumnName());
                         // TODO: remove? I think this is only needed because we compile twice
                         if (!column.getDataType().equals(cdef.getDataType())) {
-                            throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName().getName());
+                            throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName());
                         }
                     } catch (ColumnNotFoundException e) {
                         //Only if the column is previously unknown will we add it to the table
-                        String FamilyName = cdef.getColumnDefName().getFamilyName()!=null?cdef.getColumnDefName().getFamilyName().getName():QueryConstants.DEFAULT_COLUMN_FAMILY;
-                        theTable.getColumnFamily(FamilyName);
+                        String familyName = cdef.getColumnDefName().getFamilyName()!=null ? cdef.getColumnDefName().getFamilyName() : QueryConstants.DEFAULT_COLUMN_FAMILY;
+                        theTable.getColumnFamily(familyName);
                         acceptedColumns.add(cdef);
                    }  
                 }
                 for (ColumnDef addDef : acceptedColumns) {
                     PName familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
-                    PName Name = new PNameImpl(addDef.getColumnDefName().getColumnName().getName());
+                    PName Name = new PNameImpl(addDef.getColumnDefName().getColumnName());
                     if (addDef.getColumnDefName().getFamilyName() != null) {
-                        familyName = new PNameImpl(addDef.getColumnDefName().getFamilyName().getName());
+                        familyName = new PNameImpl(addDef.getColumnDefName().getFamilyName());
                     }
                     allcolumns.add(new PColumnImpl(Name, familyName, addDef.getDataType(), addDef.getMaxLength(),
                             addDef.getScale(), addDef.isNull(), position, addDef.getColumnModifier()));
@@ -250,8 +250,8 @@ public class FromCompiler {
 
         @Override
         public void visit(NamedTableNode namedTableNode) throws SQLException {
-            String tableName = namedTableNode.getName().getName();
-            String schemaName = namedTableNode.getName().getAlias();
+            String tableName = namedTableNode.getName().getTableName();
+            String schemaName = namedTableNode.getName().getSchemaName();
 
             String alias = namedTableNode.getAlias();
             List<ColumnDef> dynamicColumnDefs = namedTableNode.getDynamicColumns();

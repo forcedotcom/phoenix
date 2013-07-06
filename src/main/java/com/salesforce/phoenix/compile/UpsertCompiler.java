@@ -98,7 +98,7 @@ public class UpsertCompiler {
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(connection, resolver, binds, upsert.getBindCount(), scan);
         // Setup array of column indexes parallel to values that are going to be set
-        List<ParseNode> columnNodes = upsert.getColumns();
+        List<ColumnName> columnNodes = upsert.getColumns();
         List<PColumn> allColumns = table.getColumns();
 
         int[] columnIndexesToBe;
@@ -123,16 +123,14 @@ public class UpsertCompiler {
             targetColumns = new PColumn[columnIndexesToBe.length];
             Arrays.fill(columnIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             Arrays.fill(pkSlotIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
-            ColumnUpsertCompiler expressionBuilder = new ColumnUpsertCompiler(context, columnIndexesToBe, pkSlotIndexesToBe);
             BitSet pkColumnsSet = new BitSet(table.getPKColumns().size());
             for (int i =0; i < columnNodes.size(); i++) {
-                ParseNode colNode = columnNodes.get(i);
-                expressionBuilder.setNodeIndex(i);
-                colNode.accept(expressionBuilder);
-                PColumn col = allColumns.get(columnIndexesToBe[i]);
-                targetColumns[i] = col;
-                if (SchemaUtil.isPKColumn(col)) {
-                    pkColumnsSet.set(pkSlotIndexesToBe[i]);
+                ColumnName colName = columnNodes.get(i);
+                ColumnRef ref = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName());
+                columnIndexesToBe[i] = ref.getColumnPosition();
+                targetColumns[i] = ref.getColumn();
+                if (SchemaUtil.isPKColumn(ref.getColumn())) {
+                    pkColumnsSet.set(pkSlotIndexesToBe[i] = ref.getPKSlotPosition());
                 }
             }
             int i = table.getBucketNum() == null ? 0 : 1;
@@ -266,7 +264,7 @@ public class UpsertCompiler {
                         projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
                     }
                     // Build table from projectedColumns
-                    PTable projectedTable = PTableImpl.makePTable(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, null);
+                    PTable projectedTable = PTableImpl.makePTable(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                     
                     // Remove projection of empty column, since it can lead to problems when building another projection
                     // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
@@ -454,32 +452,6 @@ public class UpsertCompiler {
             }
             
         };
-    }
-    
-    private static final class ColumnUpsertCompiler extends ExpressionCompiler {
-        private final int[] columnIndex;
-        private final int[] pkSlotIndex;
-        private int nodeIndex;
-        
-        private ColumnUpsertCompiler(StatementContext context, int[] columnIndex, int[] pkSlotIndex) {
-            super(context);
-            this.columnIndex = columnIndex;
-            this.pkSlotIndex = pkSlotIndex;
-        }
-
-        public void setNodeIndex(int nodeIndex) {
-            this.nodeIndex = nodeIndex;
-        }
-        
-        @Override
-        protected ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
-            ColumnRef ref = super.resolveColumn(node);
-            this.columnIndex[this.nodeIndex] = ref.getColumnPosition();
-            if (SchemaUtil.isPKColumn(ref.getColumn())) {
-                pkSlotIndex[this.nodeIndex] = ref.getPKSlotPosition();
-            }
-            return ref;
-        }
     }
     
     private static final class UpsertValuesCompiler extends ExpressionCompiler {

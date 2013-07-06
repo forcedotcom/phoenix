@@ -135,6 +135,7 @@ import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.util.SchemaUtil;
 }
 
@@ -359,35 +360,35 @@ create_table_node returns [CreateTableStatement ret] throws SQLException
 create_index_node returns [CreateIndexStatement ret] throws SQLException
     :   CREATE INDEX i=index_name (IF NOT ex=EXISTS)? ON t=from_table_name
         (LPAREN pk=index_pk_constraint RPAREN)
-        (INCLUDE (LPAREN icrefs=column_def_names RPAREN))?
+        (INCLUDE (LPAREN icrefs=column_names RPAREN))?
         (p=fam_properties)?
         (SPLIT ON v=values)?
-        {ret = factory.createIndex(i, t, pk, v, icrefs, p, ex!=null, getBindCount()); }
+        {ret = factory.createIndex(i, factory.namedTable(null,t), pk, icrefs, v, p, ex!=null, getBindCount()); }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
     :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=col_name_with_mod_list RPAREN { $ret = factory.primaryKey(n,cols); }
     ;
 
-col_name_with_mod_list returns [List<Pair<ColumnDefName, ColumnModifier>> ret]
-@init{ret = new ArrayList<Pair<ColumnParseNode, ColumnModifier>>(); }
+col_name_with_mod_list returns [List<Pair<ColumnName, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<ColumnName, ColumnModifier>>(); }
     :   p=col_name_with_mod {$ret.add(p);}  (COMMA p = col_name_with_mod {$ret.add(p);} )*
 ;
 
-col_name_with_mod returns [Pair<ColumnDefName, ColumnModifier> ret]
-    :   f=identifier (order=ASC|order=DESC)? {$ret = Pair.newPair(factory.columnDefName(f), order == null ? null : ColumnModifier.fromDDLValue(order.getText()));}
+col_name_with_mod returns [Pair<ColumnName, ColumnModifier> ret]
+    :   f=identifier (order=ASC|order=DESC)? {$ret = Pair.newPair(factory.columnName(f), order == null ? null : ColumnModifier.fromDDLValue(order.getText()));}
 ;
 
 index_pk_constraint returns [PrimaryKeyConstraint ret]
     :   cols = col_def_name_with_mod_list {$ret = factory.primaryKey(null, cols); }
     ;
 
-col_def_name_with_mod_list returns [List<Pair<ColumnDefName, ColumnModifier>> ret]
-@init{ret = new ArrayList<Pair<ColumnDefName, ColumnModifier>>(); }
+col_def_name_with_mod_list returns [List<Pair<ColumnName, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<ColumnName, ColumnModifier>>(); }
     :   p=col_def_name_with_mod {$ret.add(p);}  (COMMA p = col_def_name_with_mod {$ret.add(p);} )*
 ;
 
-col_def_name_with_mod returns [Pair<ColumnDefName, ColumnModifier> ret]
+col_def_name_with_mod returns [Pair<ColumnName, ColumnModifier> ret]
     :   c=column_name (order=ASC|order=DESC)? {$ret = Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText()));}
 ;
 
@@ -405,27 +406,27 @@ prop_value returns [Object ret]
     :   l=literal { $ret = l.getValue(); }
     ;
     
-column_name returns [ColumnDefName ret]
-    :   field=identifier {$ret = factory.columnDefName(field); }
-    |   family=identifier DOT field=identifier {$ret = factory.columnDefName(family, field); }
+column_name returns [ColumnName ret]
+    :   field=identifier {$ret = factory.columnName(field); }
+    |   family=identifier DOT field=identifier {$ret = factory.columnName(family, field); }
     ;
 
-column_def_names returns [List<ColumnDefName> ret] throws SQLException
-@init{ret = new ArrayList<ColumnDefName>(); }
+column_names returns [List<ColumnName> ret]
+@init{ret = new ArrayList<ColumnName>(); }
     :  v = column_name {$ret.add(v);}  (COMMA v = column_name {$ret.add(v);} )*
 ;
 
 	
 // Parse a drop table statement.
 drop_table_node returns [DropTableStatement ret]
-    :   DROP (ro=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
-        {ret = factory.dropTable(t, ex!=null, ro!=null); }
+    :   DROP (v=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
+        {ret = factory.dropTable(t, v==null ? PTableType.USER : PTableType.VIEW, ex!=null); }
     ;
 
 // Parse a drop index statement
 drop_index_node returns [DropIndexStatement ret]
-    : DROP INDEX i=index_name ON t=from_table_name
-      {ret = factory.dropIndex(i, t); }
+    : DROP INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name
+      {ret = factory.dropIndex(i, t, ex!=null); }
     ;
 
 // Parse an alter table statement.
@@ -444,12 +445,12 @@ properties returns [Map<String,Object> ret]
     :  k=prop_name EQ v=prop_value {$ret.put(k,v);}  (COMMA k=prop_name EQ v=prop_value {$ret.put(k,v);} )*
     ;
 
-column_defs returns [List<ColumnDef> ret] throws SQLException
+column_defs returns [List<ColumnDef> ret]
 @init{ret = new ArrayList<ColumnDef>(); }
     :  v = column_def {$ret.add(v);}  (COMMA v = column_def {$ret.add(v);} )*
 ;
 
-column_def returns [ColumnDef ret] throws SQLException
+column_def returns [ColumnDef ret]
     :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
         {$ret = factory.columnDef(c, dt, n==null,
             l == null ? null : Integer.parseInt( l.getText() ),
@@ -457,13 +458,14 @@ column_def returns [ColumnDef ret] throws SQLException
             pk != null, 
             order == null ? null : ColumnModifier.fromDDLValue(order.getText()) ); }
     ;
+catch[SQLException e]{throw  new RecognitionException();}
 
-dyn_column_defs returns [List<ColumnDef> ret] throws SQLException
+dyn_column_defs returns [List<ColumnDef> ret]
 @init{ret = new ArrayList<ColumnDef>(); }
     :  v = dyn_column_def {$ret.add(v);}  (COMMA v = dyn_column_def {$ret.add(v);} )*
 ;
 
-dyn_column_def returns [ColumnDef ret] throws SQLException
+dyn_column_def returns [ColumnDef ret]
     :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)?
         {$ret = factory.columnDef(c, dt, true,
             l == null ? null : Integer.parseInt( l.getText() ),
@@ -471,8 +473,9 @@ dyn_column_def returns [ColumnDef ret] throws SQLException
             false, 
             null); }
     ;
+catch[SQLException e]{throw  new RecognitionException();}
 
-dyn_column_name_or_def returns [ColumnDef ret] throws SQLException
+dyn_column_name_or_def returns [ColumnDef ret]
     :   c=column_name (dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? )?
         {$ret = factory.columnDef(c, dt, true,
             l == null ? null : Integer.parseInt( l.getText() ),
@@ -480,6 +483,7 @@ dyn_column_name_or_def returns [ColumnDef ret] throws SQLException
             false, 
             null); }
     ;
+catch[SQLException e]{throw  new RecognitionException();}
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
 select_expression returns [ParseNode ret]
@@ -506,10 +510,10 @@ upsert_node returns [UpsertStatement ret]
         {ret = factory.upsert(factory.namedTable(null,t,p.getFirst()), p.getSecond(), v, s, getBindCount()); }
     ;
 
-upsert_column_refs returns [Pair<List<ColumnDef>,List<ColumnDefName>> ret]
-@init{ret = new Pair<List<ColumnDef>,List<ColumnDefName>>(new ArrayList<ColumnDef>(), new ArrayList<ColumnDefName>()); }
-    :  d=dyn_column_name_or_def { if (d.getDataType()!=null) { $ret.getFirst().add(cd); } $ret.getSecond().add(cd.getColumnDefName()); } 
-       (COMMA d=dyn_column_name_or_def { if (d.getDataType()!=null) { $ret.getFirst().add(cd); } $ret.getSecond().add(cd.getColumnDefName()); } )*
+upsert_column_refs returns [Pair<List<ColumnDef>,List<ColumnName>> ret]
+@init{ret = new Pair<List<ColumnDef>,List<ColumnName>>(new ArrayList<ColumnDef>(), new ArrayList<ColumnName>()); }
+    :  d=dyn_column_name_or_def { if (d.getDataType()!=null) { $ret.getFirst().add(d); } $ret.getSecond().add(d.getColumnDefName()); } 
+       (COMMA d=dyn_column_name_or_def { if (d.getDataType()!=null) { $ret.getFirst().add(d); } $ret.getSecond().add(d.getColumnDefName()); } )*
 ;
 	
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
@@ -523,7 +527,7 @@ delete_node returns [DeleteStatement ret]
         (WHERE v=condition)?
         (ORDER BY order=order_by)?
         (LIMIT l=limit)?
-        {ret = factory.delete(t, hint, v, order, l, getBindCount()); }
+        {ret = factory.delete(factory.namedTable(null,t), hint, v, order, l, getBindCount()); }
     ;
 
 limit returns [LimitNode ret]
@@ -593,7 +597,6 @@ table_ref returns [TableNode ret]
     |   t=from_table_name ((AS)? alias=identifier)? (LPAREN cdefs=dyn_column_defs RPAREN)? { $ret = factory.namedTable(alias,t,cdefs); }
     |   LPAREN s=select_node RPAREN ((AS)? alias=identifier)? { $ret = factory.subselect(alias, s); }
     ;
-catch[SQLException e]{throw  new RecognitionException();}
 
 join_specs returns [List<TableNode> ret]
     :   t=named_table {$ret.add(t);} (s=join_spec { $ret.add(s); })+

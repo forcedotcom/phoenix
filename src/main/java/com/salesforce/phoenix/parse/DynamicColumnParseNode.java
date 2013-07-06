@@ -41,7 +41,7 @@ public class DynamicColumnParseNode extends ColumnParseNode {
     private final ColumnDef columnDef;
   
     DynamicColumnParseNode(ColumnDef node) {
-        super(node.getColumnDefName().getColumnName().getName());
+        super(node.getColumnDefName().getColumnName());
         columnDef = node;
         fullName = getName();
     }

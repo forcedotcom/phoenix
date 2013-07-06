@@ -30,13 +30,13 @@ package com.salesforce.phoenix.parse;
 import java.util.Collections;
 import java.util.List;
 
-public class DeleteStatement extends MutationStatement {
+public class DeleteStatement extends SingleTableSQLStatement {
     private final ParseNode whereNode;
     private final List<OrderByNode> orderBy;
     private final LimitNode limit;
     private final HintNode hint;
     
-    public DeleteStatement(TableName table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+    public DeleteStatement(NamedTableNode table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
         super(table, bindCount);
         this.whereNode = whereNode;
         this.orderBy = orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy;

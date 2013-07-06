@@ -27,10 +27,32 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.List;
+
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
 
 
 public class MetaDataUtil {
+    private static final String UPDATE_INDEX_STATE =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            INDEX_STATE +
+            ") VALUES (?, ?, ?)";
 
     // Given the encoded integer representing the phoenix version in the encoded version value.
     // The second byte in int would be the major version, 3rd byte minor version, and 4th byte 
@@ -71,5 +93,81 @@ public class MetaDataUtil {
         version |= patch;
         return version;
     }
+
+    public static void getSchemaAndTableName(List<Mutation> tableMetadata, byte[][] rowKeyMetaData) {
+        Mutation m = getTableHeaderRow(tableMetadata);
+        getVarChars(m.getRow(), 2, rowKeyMetaData);
+    }
+    
+    public static byte[] getParentTableName(List<Mutation> tableMetadata) {
+        if (tableMetadata.size() == 1) {
+            return null;
+        }
+        byte[][] rowKeyMetaData = new byte[2][];
+        getSchemaAndTableName(tableMetadata, rowKeyMetaData);
+        byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        Mutation m = getParentTableHeaderRow(tableMetadata);
+        getVarChars(m.getRow(), 2, rowKeyMetaData);
+        if (Bytes.compareTo(tableName, rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]) == 0) {
+            return null;
+        }
+        return rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+    }
+    
+    public static long getSequenceNumber(Mutation tableMutation) {
+        List<KeyValue> kvs = tableMutation.getFamilyMap().get(PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES);
+        if (kvs != null) {
+            for (KeyValue kv : kvs) { // list is not ordered, so search. TODO: we could potentially assume the position
+                if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES, 0, PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES.length) == 0) {
+                    return PDataType.LONG.getCodec().decodeLong(kv.getBuffer(), kv.getValueOffset(), null);
+                }
+            }
+        }
+        throw new IllegalStateException();
+    }
+    
+    public static long getSequenceNumber(List<Mutation> tableMetaData) {
+        return getSequenceNumber(getTableHeaderRow(tableMetaData));
+    }
+    
+    public static long getParentSequenceNumber(List<Mutation> tableMetaData) {
+        return getSequenceNumber(getParentTableHeaderRow(tableMetaData));
+    }
+    
+    public static Mutation getTableHeaderRow(List<Mutation> tableMetaData) {
+        return tableMetaData.get(0);
+    }
+
+    public static Mutation getParentTableHeaderRow(List<Mutation> tableMetaData) {
+        return tableMetaData.get(tableMetaData.size()-1);
+    }
+
+    public static long getClientTimeStamp(List<Mutation> tableMetadata) {
+        Mutation m = tableMetadata.get(0);
+        Collection<List<KeyValue>> kvs = m.getFamilyMap().values();
+        // Empty if Mutation is a Delete
+        // TODO: confirm that Delete timestamp is reset like Put
+        return kvs.isEmpty() ? m.getTimeStamp() : kvs.iterator().next().get(0).getTimestamp();
+    }    
+
+    public static List<Mutation> getIndexStateMutations(PhoenixConnection connection, String schemaName,
+            String indexName, PIndexState state) throws SQLException {
+        boolean wasAutoCommit = connection.getAutoCommit();
+        try {
+            connection.setAutoCommit(false);
+            connection.rollback();
+            PreparedStatement updateIdxState = connection.prepareStatement(UPDATE_INDEX_STATE);
+            updateIdxState.setString(1, schemaName);
+            updateIdxState.setString(2, indexName);
+            updateIdxState.setString(3, state.getSerializedValue());
+            updateIdxState.execute();
+            List<Mutation> mutations = connection.getMutationState().toMutations();
+            connection.rollback();
+            return mutations;
+        } finally {
+            if (wasAutoCommit) connection.setAutoCommit(wasAutoCommit);
+        }
+    }
+
 
 }

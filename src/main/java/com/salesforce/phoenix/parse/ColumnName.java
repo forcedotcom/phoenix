@@ -27,10 +27,55 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public abstract class AlterTableStatement extends SingleTableSQLStatement {
 
-    AlterTableStatement(NamedTableNode table) {
-        super(table, 0);
+public class ColumnName {
+    private final NamedNode familyNode;
+    private final NamedNode columnNode;
+    
+    ColumnName(String familyName, String columnName) {
+        this.familyNode = familyName == null ? null : new NamedNode(familyName);
+        this.columnNode = new NamedNode(columnName);
     }
 
+    ColumnName(String columnName) {
+        this(null, columnName);
+    }
+
+    public String getFamilyName() {
+        return familyNode == null ? null : familyNode.getName();
+    }
+
+    public String getColumnName() {
+        return columnNode.getName();
+    }
+
+    public NamedNode getFamilyNode() {
+        return familyNode;
+    }
+
+    public NamedNode getColumnNode() {
+        return columnNode;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + columnNode.hashCode();
+        result = prime * result + ((familyNode == null) ? 0 : familyNode.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        ColumnName other = (ColumnName)obj;
+        if (!columnNode.equals(other.columnNode)) return false;
+        if (familyNode == null) {
+            if (other.familyNode != null) return false;
+        } else if (!familyNode.equals(other.familyNode)) return false;
+        return true;
+    }
 }

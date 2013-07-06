@@ -224,7 +224,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableDeleteStatement extends DeleteStatement implements MutatableStatement {
-        private ExecutableDeleteStatement(TableName table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+        private ExecutableDeleteStatement(NamedTableNode table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
             super(table, hint, whereNode, orderBy, limit, bindCount);
         }
 
@@ -298,9 +298,9 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
 
-        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
+        public ExecutableCreateIndexStatement(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
                 ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
-            super(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
+            super(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
 
         @Override
@@ -340,8 +340,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropTableStatement extends DropTableStatement implements ExecutableStatement {
 
-        ExecutableDropTableStatement(TableName tableName, boolean ifExists, boolean isView) {
-            super(tableName, ifExists, isView);
+        ExecutableDropTableStatement(TableName tableName, PTableType tableType, boolean ifExists) {
+            super(tableName, tableType, ifExists);
         }
 
         @Override
@@ -390,8 +390,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropIndexStatement extends DropIndexStatement implements ExecutableStatement {
 
-        public ExecutableDropIndexStatement(NamedNode indexName, TableName tableName) {
-            super(indexName, tableName);
+        public ExecutableDropIndexStatement(NamedNode indexName, TableName tableName, boolean ifExists) {
+            super(indexName, tableName, ifExists);
         }
 
         @Override
@@ -692,7 +692,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public ExecutableDeleteStatement delete(TableName table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+        public ExecutableDeleteStatement delete(NamedTableNode table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
             return new ExecutableDeleteStatement(table, hint, whereNode, orderBy, limit, bindCount);
         }
         
@@ -702,8 +702,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
-            return new ExecutableCreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
+        public CreateIndexStatement createIndex(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+            return new ExecutableCreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
         
         @Override
@@ -717,13 +717,13 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public DropTableStatement dropTable(TableName tableName, boolean ifExists, boolean isView) {
-            return new ExecutableDropTableStatement(tableName, ifExists, isView);
+        public DropTableStatement dropTable(TableName tableName, PTableType tableType, boolean ifExists) {
+            return new ExecutableDropTableStatement(tableName, tableType, ifExists);
         }
         
         @Override
-        public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName) {
-            return new ExecutableDropIndexStatement(indexName, tableName);
+        public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName, boolean ifExists) {
+            return new ExecutableDropIndexStatement(indexName, tableName, ifExists);
         }
         
         @Override

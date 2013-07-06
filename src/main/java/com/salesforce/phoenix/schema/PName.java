@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import com.salesforce.phoenix.util.ByteUtil;
+
 /**
  * 
  * Interface to encapsulate both the client-side name
@@ -36,6 +38,19 @@ package com.salesforce.phoenix.schema;
  * @since 0.1
  */
 public interface PName {
+    public static final PName NULL = new PName() {
+
+        @Override
+        public String getString() {
+            return "";
+        }
+
+        @Override
+        public byte[] getBytes() {
+            return ByteUtil.EMPTY_BYTE_ARRAY;
+        }
+        
+    };
     /**
      * Get the client-side, normalized name as referenced
      * in a SQL statement.

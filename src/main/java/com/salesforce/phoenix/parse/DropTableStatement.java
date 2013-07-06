@@ -27,15 +27,17 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import com.salesforce.phoenix.schema.PTableType;
+
 public class DropTableStatement implements SQLStatement {
     private final TableName tableName;
     private final boolean ifExists;
-    private final boolean isView;
+    private final PTableType tableType;
 
-    protected DropTableStatement(TableName tableName, boolean ifExists, boolean isView) {
+    protected DropTableStatement(TableName tableName, PTableType tableType, boolean ifExists) {
         this.tableName = tableName;
+        this.tableType = tableType;
         this.ifExists = ifExists;
-        this.isView = isView;
     }
     
     @Override
@@ -47,11 +49,11 @@ public class DropTableStatement implements SQLStatement {
         return tableName;
     }
 
-    public boolean ifExists() {
-        return ifExists;
+    public PTableType getTableType() {
+        return tableType;
     }
 
-    public boolean isView() {
-        return isView;
+    public boolean ifExists() {
+        return ifExists;
     }
 }

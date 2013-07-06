@@ -31,24 +31,24 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class TableName {
-    private final String name;
-    private final String alias;
+    private final String tableName;
+    private final String schemaName;
     
-    public TableName(String alias, String name) {
-        this.name = SchemaUtil.normalizeIdentifier(name);
-        this.alias = alias == null ? null : SchemaUtil.normalizeIdentifier(alias);
+    public TableName(String schemaName, String tableName) {
+        this.tableName = SchemaUtil.normalizeIdentifier(tableName);
+        this.schemaName = schemaName == null ? null : SchemaUtil.normalizeIdentifier(schemaName);
     }
 
-    public String getName() {
-        return name;
+    public String getTableName() {
+        return tableName;
     }
 
-    public String getAlias() {
-        return alias;
+    public String getSchemaName() {
+        return schemaName;
     }
     
     @Override
     public String toString() {
-        return (alias == null ? "" : alias + QueryConstants.NAME_SEPARATOR)  + name;
+        return (schemaName == null ? "" : schemaName + QueryConstants.NAME_SEPARATOR)  + tableName;
     }
 }

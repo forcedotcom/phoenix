@@ -56,4 +56,8 @@ public class PrimaryKeyConstraint extends NamedNode {
     public ColumnModifier getColumnModifier(ColumnName columnName) {
     	return columnNameToModifier.get(columnName);
     }
+    
+    public boolean contains(ColumnName columnName) {
+        return columnNameToModifier.containsKey(columnName);
+    }
 }

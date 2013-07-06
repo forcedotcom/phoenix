@@ -261,8 +261,8 @@ public class ParseNodeFactory {
         return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
     }
     
-    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
-        return new CreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
+    public CreateIndexStatement createIndex(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+        return new CreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
     public AddColumnStatement addColumn(NamedTableNode table,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
@@ -273,12 +273,12 @@ public class ParseNodeFactory {
         return new DropColumnStatement(table, columnNode, ifExists);
     }
     
-    public DropTableStatement dropTable(TableName tableName, boolean ifExists, boolean isView) {
-        return new DropTableStatement(tableName, ifExists, isView);
+    public DropTableStatement dropTable(TableName tableName, PTableType tableType, boolean ifExists) {
+        return new DropTableStatement(tableName, tableType, ifExists);
     }
     
-    public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName) {
-        return new DropIndexStatement(indexName, tableName);
+    public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName, boolean ifExists) {
+        return new DropIndexStatement(indexName, tableName, ifExists);
     }
     
     public TableName table(String schemaName, String tableName) {
@@ -480,7 +480,7 @@ public class ParseNodeFactory {
         return new UpsertStatement(table, columns, values, select, bindCount);
     }
     
-    public DeleteStatement delete(TableName table, HintNode hint, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+    public DeleteStatement delete(NamedTableNode table, HintNode hint, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
         return new DeleteStatement(table, hint, node, orderBy, limit, bindCount);
     }
 

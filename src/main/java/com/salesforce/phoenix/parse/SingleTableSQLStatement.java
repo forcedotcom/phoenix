@@ -27,11 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public abstract class MutationStatement implements SQLStatement {
+public abstract class SingleTableSQLStatement implements SQLStatement {
     private final NamedTableNode table;
     private final int bindCount;
 
-    public MutationStatement(NamedTableNode table, int bindCount) {
+    public SingleTableSQLStatement(NamedTableNode table, int bindCount) {
         this.table = table;
         this.bindCount = bindCount;
     }

@@ -78,7 +78,8 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         TABLE_NOT_IN_REGION,
         NEWER_TABLE_FOUND,
         UNALLOWED_TABLE_MUTATION,
-        NO_PK_COLUMNS
+        NO_PK_COLUMNS,
+        PARENT_TABLE_NOT_FOUND 
     };
     
     public static class MetaDataMutationResult implements Writable {
@@ -157,15 +158,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * @return MetaDataMutationResult
      * @throws IOException
      */
-    MetaDataMutationResult dropTable(List<Mutation> tableMetadata, boolean isView) throws IOException;
-
-    /**
-     * Drop an existing Phoenix index
-     * @param tableMetadata
-     * @return MetaDataMutationResult
-     * @throws IOException
-     */
-    MetaDataMutationResult dropIndex(List<Mutation> tableMetadata) throws IOException;
+    MetaDataMutationResult dropTable(List<Mutation> tableMetadata, String tableType) throws IOException;
 
     /**
      * Add a column to an existing Phoenix table
@@ -183,6 +176,8 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      */
     MetaDataMutationResult dropColumn(List<Mutation> tableMetadata) throws IOException;
     
+    MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws IOException;
+
     /**
      * Clears the server-side cache of table meta data. Used between test runs to
      * ensure no side effects.

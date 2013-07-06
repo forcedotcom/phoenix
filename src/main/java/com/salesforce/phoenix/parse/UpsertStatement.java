@@ -27,11 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-
-public class UpsertStatement extends MutationStatement {
+public class UpsertStatement extends SingleTableSQLStatement { 
     private final List<ColumnName> columns;
     private final List<ParseNode> values;
     private final SelectStatement select;

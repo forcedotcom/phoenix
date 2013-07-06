@@ -50,8 +50,8 @@ public class QueryServicesOptions {
 	public static final int DEFAULT_THREAD_POOL_SIZE = 20;
 	public static final int DEFAULT_QUEUE_SIZE = 250;
 	public static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
-	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 50; // 50m
-	public static final int DEFAULT_MAX_MEMORY_PERC = 20; // 20% of heap
+	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 20; // 50m
+	public static final int DEFAULT_MAX_MEMORY_PERC = 50; // 50% of heap
 	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
 	public static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
 	public static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb

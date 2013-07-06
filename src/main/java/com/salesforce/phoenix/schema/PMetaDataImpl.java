@@ -30,7 +30,6 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 import java.util.*;
 
-
 import com.google.common.collect.*;
 import com.salesforce.phoenix.query.QueryConstants;
 
@@ -93,7 +92,7 @@ public class PMetaDataImpl implements PMetaData {
         columns.addAll(table.getColumns());
         columns.addAll(newColumns);
         Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
-        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns, null);
+        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns);
         tables.put(tableName, newTable);
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schema.getName(), schema);
@@ -142,7 +141,7 @@ public class PMetaDataImpl implements PMetaData {
         }
         
         Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
-        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns, null);
+        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns);
         tables.put(tableName, newTable);
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schema.getName(), schema);

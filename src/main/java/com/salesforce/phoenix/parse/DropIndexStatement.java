@@ -30,10 +30,12 @@ package com.salesforce.phoenix.parse;
 public class DropIndexStatement implements SQLStatement {
     private final TableName tableName;
     private final NamedNode indexName;
+    private final boolean ifExists;
 
-    public DropIndexStatement(NamedNode indexName, TableName tableName) {
+    public DropIndexStatement(NamedNode indexName, TableName tableName, boolean ifExists) {
         this.indexName = indexName;
         this.tableName = tableName;
+        this.ifExists = ifExists;
     }
 
     public TableName getTableName() {
@@ -47,6 +49,10 @@ public class DropIndexStatement implements SQLStatement {
     @Override
     public int getBindCount() {
         return 0;
+    }
+
+    public boolean ifExists() {
+        return ifExists;
     }
 
 }

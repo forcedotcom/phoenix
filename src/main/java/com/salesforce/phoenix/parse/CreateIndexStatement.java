@@ -34,7 +34,7 @@ import org.apache.hadoop.hbase.util.Pair;
 import com.google.common.collect.ListMultimap;
 
 
-public class CreateIndexStatement extends MutationStatement {
+public class CreateIndexStatement extends SingleTableSQLStatement {
     private final TableName indexTableName;
     private final PrimaryKeyConstraint indexConstraint;
     private final List<ColumnName> includeColumns;
@@ -42,11 +42,11 @@ public class CreateIndexStatement extends MutationStatement {
     private final ListMultimap<String,Pair<String,Object>> props;
     private final boolean ifNotExists;
 
-    public CreateIndexStatement(NamedNode indexTableName, TableName dataTableName, 
+    public CreateIndexStatement(NamedNode indexTableName, NamedTableNode dataTable, 
             PrimaryKeyConstraint indexConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
             ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
-        super(dataTableName, bindCount);
-        this.indexTableName = new TableName(dataTableName.getAlias(),indexTableName.getName());
+        super(dataTable, bindCount);
+        this.indexTableName = new TableName(dataTable.getAlias(),indexTableName.getName());
         this.indexConstraint = indexConstraint;
         this.includeColumns = includeColumns;
         this.splitNodes = splits;

@@ -50,7 +50,7 @@ public class CreateTableStatement implements SQLStatement {
     protected CreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
         this.tableName = tableName;
         this.props = props == null ? ImmutableListMultimap.<String,Pair<String,Object>>of() : props;
-        this.tableType = PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(tableName.getAlias()) ? PTableType.SYSTEM : isView ? PTableType.VIEW : PTableType.USER;
+        this.tableType = PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(tableName.getSchemaName()) ? PTableType.SYSTEM : isView ? PTableType.VIEW : PTableType.USER;
         this.columns = ImmutableList.copyOf(columns);
         this.pkConstraint = pkConstraint;
         this.splitNodes = splitNodes == null ? Collections.<ParseNode>emptyList() : ImmutableList.copyOf(splitNodes);

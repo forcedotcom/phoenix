@@ -27,19 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.sql.ParameterMetaData;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.List;
+
+import org.apache.hadoop.hbase.client.Mutation;
 
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
-import com.salesforce.phoenix.schema.MetaDataClient;
-import com.salesforce.phoenix.schema.PColumn;
-import com.salesforce.phoenix.schema.PIndexState;
-import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.util.MetaDataUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -87,24 +84,34 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
                 //   In the long term, we should change this to an asynchronous process to populate the index
                 //   that would allow the user to easily monitor the process of index creation.
                 StringBuilder columns = new StringBuilder();
-                PTable index = tableRef.getTable();
-                for (PColumn col: index.getColumns()) {
+                PTable dataTable = tableRef.getTable();
+                for (PColumn col: dataTable.getColumns()) {
                     columns.append(col.getName()).append(",");
                 }
                 columns.deleteCharAt(columns.length()-1);
                 String schemaName = tableRef.getSchema().getName();
-                String tableName = index.getName().getString();
+                String tableName = dataTable.getName().getString();
                 
                 StringBuilder updateStmtStr = new StringBuilder();
                 updateStmtStr.append("UPSERT INTO ").append(SchemaUtil.getTableDisplayName(schemaName, tableName)).append("(")
                     .append(columns).append(") SELECT ").append(columns).append(" FROM ")
-                    .append(index.getName());
+                    .append(SchemaUtil.getTableDisplayName(schemaName, dataTable.getName().getString()));
                 PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
-                updateStmt.execute();
-                MetaDataClient.updateIndexState(connection, schemaName, tableName, PIndexState.ACTIVE);
+                boolean wasAutoCommit = connection.getAutoCommit();
+                int rowsUpdated = 0;
+                try {
+                    connection.setAutoCommit(true);
+                    updateStmt.execute();
+                    rowsUpdated = updateStmt.getUpdateCount();
+                } finally {
+                    if (!wasAutoCommit) connection.setAutoCommit(false);
+                }
                 
-                // Did not change anything on the original table.
-                return new MutationState(0, connection);
+                List<Mutation> tableMetadata = MetaDataUtil.getIndexStateMutations(connection, schemaName, tableName, PIndexState.ACTIVE);
+                connection.getQueryServices().updateIndexState(tableMetadata);
+                 
+                // Return number of rows built for index
+                return new MutationState(rowsUpdated, connection);
             }
         };
     }
