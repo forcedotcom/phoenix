@@ -48,7 +48,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.DateUtil;
 
 /**
- * @author stoens
+ * @author simontoens
  * @since 1.2
  */
 public class DescColumnSortOrderExpressionTest {
