@@ -269,7 +269,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         int updateFreq = 5;
         int maxAge = 10;
         int startTime = 100;
-        long waitTime = 3000;
+        long waitTime = 5000;
         
         ManualTimeKeeper timeKeeper = new ManualTimeKeeper();
         timeKeeper.setCurrentTimeMillis(startTime);

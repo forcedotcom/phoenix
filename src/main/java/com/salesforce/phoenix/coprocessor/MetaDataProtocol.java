@@ -154,7 +154,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     /**
      * Drop an existing Phoenix table
      * @param tableMetadata
-     * @param isView TODO
+     * @param tableType
      * @return MetaDataMutationResult
      * @throws IOException
      */

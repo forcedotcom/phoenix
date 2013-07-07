@@ -90,7 +90,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
      * cluster.
      * @param services base services from where we derive our default configuration
-     * @param overrideProps overrides for configuration values (used during testing)
+     * @param connectionInfo to provide connection information
      * @throws SQLException
      */
     public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {

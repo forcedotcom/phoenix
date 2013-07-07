@@ -50,12 +50,6 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * Implementation of ConnectionQueryServices used in testing where no connection to
  * an hbase cluster is necessary.
  * 
- * TODO: Move into main-phoenix and use this to enable a client to create metadata
- * on the fly (without needing a connection), given a DDL command. This will enable
- * Map/Reduce jobs that create HFiles to use the JDBC driver to insert data (by
- * going under the covers of the PhoenixConnection to get the mutation state that
- * would have been sent to the server on a commit)
- *
  * @author jtaylor
  * @since 0.1
  */
