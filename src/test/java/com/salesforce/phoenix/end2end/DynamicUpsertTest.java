@@ -25,6 +25,7 @@ import java.util.Properties;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 
@@ -150,7 +151,7 @@ public class DynamicUpsertTest extends BaseClientMangedTimeTest {
     /**
      * Test an upsert of a full row with dynamic Columns and unbalanced number of values
      */
-    @Test(expected = AmbiguousColumnException.class)
+    @Test
     public void testFullUnbalancedUpsert() throws Exception {
         String upsertquery = "UPSERT INTO " + TABLE
                 + " (a.DynCol VARCHAR,b.DynCol varchar) VALUES('dynEntry','aValue','bValue','dyncola')";
@@ -161,6 +162,9 @@ public class DynamicUpsertTest extends BaseClientMangedTimeTest {
         try {
             PreparedStatement statement = conn.prepareStatement(upsertquery);
             statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH.getErrorCode(),e.getErrorCode());
         } finally {
             conn.close();
         }

@@ -409,7 +409,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 // Invalidate the cache - the next getTable call will add it
                 // TODO: consider loading the table that was just created here, patching up the parent table, and updating the cache
                 Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
-                metaDataCache.remove(parentCacheKey == null ? cacheKey : parentCacheKey);
+                if (parentCacheKey != null) {
+                    metaDataCache.remove(parentCacheKey);
+                }
+                metaDataCache.remove(cacheKey);
                 // Get timeStamp from mutations - the above method sets it if it's unset
                 long currentTimeStamp = MetaDataUtil.getClientTimeStamp(tableMetadata);
                 return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, currentTimeStamp, null);

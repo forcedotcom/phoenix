@@ -34,14 +34,12 @@ public class UpsertStatement extends SingleTableSQLStatement {
     private final List<ColumnName> columns;
     private final List<ParseNode> values;
     private final SelectStatement select;
-    private final List<ColumnDef> dynColumns;
 
     public UpsertStatement(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
         super(table, bindCount);
         this.columns = columns == null ? Collections.<ColumnName>emptyList() : columns;
         this.values = values;
         this.select = select;
-        dynColumns = table.getDynamicColumns();
     }
 
     public List<ColumnName> getColumns() {
@@ -54,9 +52,5 @@ public class UpsertStatement extends SingleTableSQLStatement {
 
     public SelectStatement getSelect() {
         return select;
-    }
-
-    public boolean onlyDynamic() {
-      return dynColumns.size()==columns.size();
     }
 }

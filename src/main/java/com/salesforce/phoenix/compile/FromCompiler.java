@@ -98,8 +98,8 @@ public class FromCompiler {
             SQLException sqlE = null;
             long timeStamp = QueryConstants.UNSET_TIMESTAMP;
             TableRef tableRef;
+            boolean retry = true;
             while (true) {
-                boolean retry = !connection.getAutoCommit();
                 try {
                     if (connection.getAutoCommit()) {
                         timeStamp = Math.abs(client.updateCache(schemaName, tableName));
@@ -115,7 +115,7 @@ public class FromCompiler {
                 } catch (SchemaNotFoundException e) {
                     sqlE = new TableNotFoundException(schemaName, tableName);
                 } catch (TableNotFoundException e) {
-                    sqlE = e;
+                    sqlE = new TableNotFoundException(schemaName, tableName);
                 }
                 if (retry && client.updateCache(schemaName, tableName) < 0) {
                     retry = false;
@@ -164,7 +164,9 @@ public class FromCompiler {
                 for (ColumnDef cdef : dynColumns) {
                     try {
                         column = theTable.getColumn(cdef.getColumnDefName().getColumnName());
-                        // TODO: remove? I think this is only needed because we compile twice
+                        // TODO: remove this after verifying that we never cache a table
+                        // after dynamic columns have been added to it. Try using psql
+                        // with a dynamic column reference during upsert.
                         if (!column.getDataType().equals(cdef.getDataType())) {
                             throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName());
                         }

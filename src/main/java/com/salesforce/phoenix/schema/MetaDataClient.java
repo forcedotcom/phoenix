@@ -513,7 +513,8 @@ public class MetaDataClient {
                     // Execute any necessary data updates
                     Long scn = connection.getSCN();
                     long ts = (scn == null ? result.getMutationTime() : scn);
-                    PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
+                    PSchema schema = connection.getPMetaData().getSchema(schemaName);
+//                    PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
                     TableRef tableRef = new TableRef(null, table, schema, ts);
                     byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
                     MutationPlan plan = compiler.compile(tableRef, emptyCF, null, tableRef.getTimeStamp());
