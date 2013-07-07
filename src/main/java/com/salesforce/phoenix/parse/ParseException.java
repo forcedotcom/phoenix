@@ -27,56 +27,29 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.Collections;
-import java.util.List;
+/**
+ * 
+ * RuntimeException for exceptions occurring during parsing,
+ * since ANTLR doesn't handle typed exceptions well.
+ *
+ * @author jtaylor
+ * @since 2.0
+ */
+public class ParseException extends RuntimeException {
 
-import org.apache.hadoop.hbase.util.Pair;
-
-import com.google.common.collect.ListMultimap;
-
-
-public class CreateIndexStatement extends SingleTableSQLStatement {
-    private final TableName indexTableName;
-    private final PrimaryKeyConstraint indexConstraint;
-    private final List<ColumnName> includeColumns;
-    private final List<ParseNode> splitNodes;
-    private final ListMultimap<String,Pair<String,Object>> props;
-    private final boolean ifNotExists;
-
-    public CreateIndexStatement(NamedNode indexTableName, NamedTableNode dataTable, 
-            PrimaryKeyConstraint indexConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
-            ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
-        super(dataTable, bindCount);
-        this.indexTableName = new TableName(dataTable.getName().getSchemaName(),indexTableName.getName());
-        this.indexConstraint = indexConstraint == null ? PrimaryKeyConstraint.EMPTY : indexConstraint;
-        this.includeColumns = includeColumns;
-        this.splitNodes = splits == null ? Collections.<ParseNode>emptyList() : splits;
-        this.props = props;
-        this.ifNotExists = ifNotExists;
+    public ParseException() {
     }
 
-    public PrimaryKeyConstraint getIndexConstraint() {
-        return indexConstraint;
+    public ParseException(String msg) {
+        super(msg);
     }
 
-    public List<ColumnName> getIncludeColumns() {
-        return includeColumns;
+    public ParseException(Throwable t) {
+        super(t);
     }
 
-    public TableName getIndexTableName() {
-        return indexTableName;
-    }
-
-    public List<ParseNode> getSplitNodes() {
-        return splitNodes;
-    }
-
-    public ListMultimap<String,Pair<String,Object>> getProps() {
-        return props;
-    }
-
-    public boolean ifNotExists() {
-        return ifNotExists;
+    public ParseException(String msg, Throwable t) {
+        super(msg, t);
     }
 
 }

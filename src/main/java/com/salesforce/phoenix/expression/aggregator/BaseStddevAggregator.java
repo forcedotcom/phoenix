@@ -78,7 +78,7 @@ public abstract class BaseStddevAggregator extends DistinctValueWithCountClientA
         double m = mean();
         double result = 0.0;
         for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
-            double colValue = this.stdDevColExp.getDataType().getCodec().decodeDouble(entry.getKey(), null);
+            double colValue = ((BigDecimal)this.stdDevColExp.getDataType().toObject(entry.getKey())).doubleValue();
             double delta = colValue - m;
             result += (delta * delta) * entry.getValue();
         }
@@ -88,7 +88,7 @@ public abstract class BaseStddevAggregator extends DistinctValueWithCountClientA
     private double mean() {
         double sum = 0.0;
         for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
-            double colValue = this.stdDevColExp.getDataType().getCodec().decodeDouble(entry.getKey(), null);
+            double colValue = ((BigDecimal)this.stdDevColExp.getDataType().toObject(entry.getKey())).doubleValue();
             sum += colValue * entry.getValue();
         }
         return sum / totalCount;

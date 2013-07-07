@@ -49,6 +49,7 @@ import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.*;
 
@@ -132,12 +133,19 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         System.arraycopy(keyBuffer, keyOffset, pnameBuf, 0, length);
         return new PNameImpl(pnameBuf);
     }
+    
+    private static Scan newTableRowsScan(byte[] key, long startTimeStamp, long stopTimeStamp) throws IOException {
+        Scan scan = new Scan();
+        scan.setTimeRange(startTimeStamp, stopTimeStamp);
+        scan.setStartRow(key);
+        byte[] stopKey = ByteUtil.concat(key, QueryConstants.SEPARATOR_BYTE_ARRAY);
+        ByteUtil.nextKey(stopKey, stopKey.length);
+        scan.setStopRow(stopKey);
+        return scan;
+    }
 
     private PTable buildTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
-        Scan scan = new Scan();
-        scan.setTimeRange(MIN_TABLE_TIMESTAMP, clientTimeStamp);
-        scan.setStartRow(key);
-        scan.setStopRow(ByteUtil.nextKey(key));
+        Scan scan = newTableRowsScan(key, MIN_TABLE_TIMESTAMP, clientTimeStamp);
         RegionScanner scanner = region.getScanner(scan);
         Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
         try {
@@ -283,10 +291,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             PName colName = newPName(colKv.getBuffer(), colKv.getRowOffset() + offset, colKeyLength-offset);
             int colKeyOffset = offset + colName.getBytes().length + 1;
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
-            int indexNameOffset = colKeyOffset + famName.getBytes().length + 1;
-            PName indexName = newPName(colKv.getBuffer(), colKv.getRowOffset() + indexNameOffset, colKeyLength-indexNameOffset);
-            if (colName.getString().isEmpty()) {
-                addIndexToTable(schemaName, indexName, dataTableName, clientTimeStamp, indexes);                
+            if (colName.getString().isEmpty() && !famName.getString().isEmpty()) {
+                addIndexToTable(schemaName, famName, dataTableName, clientTimeStamp, indexes);                
             } else {
                 addColumnToTable(results, colName, famName, colKeyValues, columns);
             }
@@ -299,11 +305,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (clientTimeStamp == HConstants.LATEST_TIMESTAMP) {
             return null;
         }
-        Scan scan = new Scan();
+        
+        Scan scan = newTableRowsScan(key, clientTimeStamp, HConstants.LATEST_TIMESTAMP);
         scan.setFilter(new FirstKeyOnlyFilter());
-        scan.setTimeRange(clientTimeStamp, HConstants.LATEST_TIMESTAMP);
-        scan.setStartRow(key);
-        scan.setStopRow(ByteUtil.nextKey(key));
         scan.setRaw(true);
         RegionScanner scanner = region.getScanner(scan);
         List<KeyValue> results = Lists.<KeyValue>newArrayList();
@@ -364,12 +368,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 return result; 
             }
             List<Integer> lids = Lists.newArrayList(5);
-            acquireLock(region, lockKey, lids);
-            if (key != lockKey) {
-                acquireLock(region, key, lids);
-            }
             long clientTimeStamp = MetaDataUtil.getClientTimeStamp(tableMetadata);
             try {
+                acquireLock(region, lockKey, lids);
+                if (key != lockKey) {
+                    acquireLock(region, key, lids);
+                }
                 // Load parent table first
                 PTable parentTable = null;
                 ImmutableBytesPtr parentCacheKey = null;
@@ -456,11 +460,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 return result; 
             }
             List<Integer> lids = Lists.newArrayList(5);
-            acquireLock(region, lockKey, lids);
-            if (key != lockKey) {
-                acquireLock(region, key, lids);
-            }
             try {
+                acquireLock(region, lockKey, lids);
+                if (key != lockKey) {
+                    acquireLock(region, key, lids);
+                }
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
                 result = doDropTable(key, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids);
                 if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
@@ -518,10 +522,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         
         List<byte[]> indexNames = Lists.newArrayList();
         // Get mutatioins for main table.
-        Scan scan = new Scan();
-        scan.setStartRow(key);
-        scan.setTimeRange(MIN_TABLE_TIMESTAMP, clientTimeStamp);
-        scan.setStopRow(ByteUtil.nextKey(key));
+        Scan scan = newTableRowsScan(key, MIN_TABLE_TIMESTAMP, clientTimeStamp);
         RegionScanner scanner = region.getScanner(scan);
         List<KeyValue> results = Lists.newArrayList();
         scanner.next(results);

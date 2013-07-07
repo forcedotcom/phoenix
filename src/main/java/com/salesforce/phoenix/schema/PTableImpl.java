@@ -498,7 +498,10 @@ public class PTableImpl implements PTable {
         PTableType tableType = PTableType.values()[WritableUtils.readVInt(input)];
         PIndexState indexState = null;
         if (tableType == PTableType.INDEX) {
-            indexState = PIndexState.values()[WritableUtils.readVInt(input)];
+            int ordinal = WritableUtils.readVInt(input);
+            if (ordinal >= 0) {
+                indexState = PIndexState.values()[ordinal];
+            }
         }
         long sequenceNumber = WritableUtils.readVLong(input);
         long timeStamp = input.readLong();
@@ -542,7 +545,7 @@ public class PTableImpl implements PTable {
         Bytes.writeByteArray(output, name.getBytes());
         WritableUtils.writeVInt(output, type.ordinal());
         if (type == PTableType.INDEX) {
-            WritableUtils.writeVInt(output, state.ordinal());
+            WritableUtils.writeVInt(output, state == null ? -1 : state.ordinal());
         }
         WritableUtils.writeVLong(output, sequenceNumber);
         output.writeLong(timeStamp);

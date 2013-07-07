@@ -52,10 +52,6 @@ public class FromCompiler {
         return EMPTY_TABLE_RESOLVER;
     }
 
-    public static ColumnResolver getResolver(final CreateIndexStatement statement, final PhoenixConnection connection) throws SQLException {
-        return EMPTY_TABLE_RESOLVER;
-    }
-
     /**
      * Iterate through the nodes in the FROM clause to build a column resolver used to lookup a column given the name
      * and alias.

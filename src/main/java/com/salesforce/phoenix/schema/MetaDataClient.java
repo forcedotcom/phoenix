@@ -51,6 +51,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.util.MetaDataUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class MetaDataClient {
@@ -137,8 +138,8 @@ public class MetaDataClient {
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
             TABLE_SCHEM_NAME + "," +
             TABLE_NAME_NAME + "," +
-            TABLE_SEQ_NUM + "," +
-            ") VALUES (?, ?, ?, ?, ?)";
+            TABLE_SEQ_NUM  +
+            ") VALUES (?, ?, ?)";
     private static final String MUTATE_TABLE =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -272,7 +273,7 @@ public class MetaDataClient {
             PColumn col = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName()).getColumn();
             unusedPkColumns.remove(col);
             PDataType dataType = getIndexRowKeyDataType(col);
-            columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), true, pair.getSecond()));
+            columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, pair.getSecond()));
         }
         
         if (!unusedPkColumns.isEmpty()) {
@@ -280,7 +281,7 @@ public class MetaDataClient {
                 ColumnName colName = FACTORY.columnName(col.getName().getString());
                 allPkColumns.add(new Pair<ColumnName, ColumnModifier>(colName, col.getColumnModifier()));
                 PDataType dataType = getIndexRowKeyDataType(col);
-                columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), true, col.getColumnModifier()));
+                columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, col.getColumnModifier()));
             }
             pk = FACTORY.primaryKey(null, allPkColumns);
         }
@@ -295,7 +296,7 @@ public class MetaDataClient {
             }
         }
         
-        CreateTableStatement tableStatement = FACTORY.createTable(statement.getIndexTableName(), statement.getProps(), columnDefs, pk, statement.getSplitNodes(), false, statement.ifNotExists(), statement.getBindCount());
+        CreateTableStatement tableStatement = FACTORY.createTable(statement.getIndexTableName(), statement.getProps(), columnDefs, pk, statement.getSplitNodes(), PTableType.INDEX, statement.ifNotExists(), statement.getBindCount());
         
         return createTable(tableStatement, splits, new PostIndexDDLCompiler(connection), tableRef.getTable());
     }
@@ -397,7 +398,7 @@ public class MetaDataClient {
             Map<String,Object> commonFamilyProps = Collections.emptyMap();
             Map<String,Object> tableProps = Collections.emptyMap();
             if (!statement.getProps().isEmpty()) {
-                if (statement.isView()) {
+                if (statement.getTableType() == PTableType.VIEW) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
                 }
                 for (String familyName : statement.getProps().keySet()) {
@@ -454,6 +455,8 @@ public class MetaDataClient {
             tableMetaData.addAll(connection.getMutationState().toMutations());
             connection.rollback();
             
+            String dataTableName = parent == null ? null : parent.getName().getString();
+            PIndexState indexState = parent == null ? null : PIndexState.BUILDING;
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
             tableUpsert.setString(1, schemaName);
             tableUpsert.setString(2, tableName);
@@ -466,8 +469,8 @@ public class MetaDataClient {
                 tableUpsert.setNull(6, Types.INTEGER);
             }
             tableUpsert.setString(7, pkName);
-            tableUpsert.setString(8, parent == null ? null : parent.getName().getString());
-            tableUpsert.setString(9, parent == null ? null : PIndexState.BUILDING.getSerializedValue());
+            tableUpsert.setString(8, dataTableName);
+            tableUpsert.setString(9, indexState == null ? null : indexState.getSerializedValue());
             tableUpsert.execute();
             
             tableMetaData.addAll(connection.getMutationState().toMutations());
@@ -501,9 +504,11 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
-                PTable table =  PTableImpl.makePTable(new PNameImpl(tableName), tableType, result.getMutationTime(), 0L, pkName == null ? null : new PNameImpl(pkName), saltBucketNum, columns);
-                connection.addTable(schemaName, table, parent); // TODO: link up correctly
-                if (tableType == PTableType.USER) {
+                PTable table =  PTableImpl.makePTable(
+                        new PNameImpl(tableName), tableType, indexState, result.getMutationTime(), PTable.INITIAL_SEQ_NUM, 
+                        pkName == null ? null : new PNameImpl(pkName), saltBucketNum, columns, dataTableName == null ? null : new PNameImpl(dataTableName), Collections.<PTable>emptyList());
+                connection.addTable(schemaName, table, parent);
+                if (tableType != PTableType.VIEW) {
                     connection.setAutoCommit(true);
                     // Execute any necessary data updates
                     Long scn = connection.getSCN();
@@ -547,7 +552,7 @@ public class MetaDataClient {
             Delete tableDelete = new Delete(key, clientTimeStamp, null);
             tableMetaData.add(tableDelete);
             if (parentTableName != null) {
-                byte[] linkKey = SchemaUtil.getParentLinkKey(schemaName, parentTableName, tableName);
+                byte[] linkKey = MetaDataUtil.getParentLinkKey(schemaName, parentTableName, tableName);
                 @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
                 Delete linkDelete = new Delete(linkKey, clientTimeStamp, null);
                 tableMetaData.add(linkDelete);

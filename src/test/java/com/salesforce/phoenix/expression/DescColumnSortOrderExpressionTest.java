@@ -34,7 +34,6 @@ import static org.junit.Assert.assertTrue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -124,13 +123,13 @@ public class DescColumnSortOrderExpressionTest {
     @Test
     public void toChar() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral(date(12, 11, 2001), PDataType.DATE));
-        evaluateAndAssertResult(new ToCharFunction(args, TEMPORAL, "", new SimpleDateFormat()), "12/11/01 12:00 AM");
+        evaluateAndAssertResult(new ToCharFunction(args, TEMPORAL, "", DateUtil.getDateFormatter("MM/dd/yy hh:mm a")), "12/11/01 12:00 AM");
     }
     
     @Test
     public void toDate() throws Exception {
-        List<Expression> args = Lists.newArrayList(getInvertedLiteral("2001-11-30 01:00:00:0 PDT", PDataType.VARCHAR));
-        evaluateAndAssertResult(new ToDateFunction(args, null, DateUtil.getDateParser("yyyy-MM-dd HH:mm:ss:S z")), date(11, 30, 2001));
+        List<Expression> args = Lists.newArrayList(getInvertedLiteral("2001-11-30 00:00:00:0", PDataType.VARCHAR));
+        evaluateAndAssertResult(new ToDateFunction(args, null, DateUtil.getDateParser("yyyy-MM-dd HH:mm:ss:S")), date(11, 30, 2001));
     }
     
     @Test
@@ -288,7 +287,7 @@ public class DescColumnSortOrderExpressionTest {
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
-        cal.setTimeZone(TimeZone.getTimeZone("America/Los_Angeles"));
+        cal.setTimeZone(DateUtil.DATE_TIME_ZONE);
         Date d = new Date(cal.getTimeInMillis()); 
         return d;
     }    

@@ -31,7 +31,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             + " FROM "
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE
             + "\" WHERE "
-            + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=? AND " + " AND " + COLUMN_NAME + " IS NULL AND " + TABLE_CAT_NAME + "=?";
+            + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=? AND " + COLUMN_NAME + " IS NULL AND " + TABLE_CAT_NAME + "=?";
 
     private static ResultSet readIndexMetaData(Connection conn, String schemName, String indexName) throws SQLException {
         PreparedStatement stmt = conn.prepareStatement(SELECT_INDEX_METADATA);
@@ -207,7 +207,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
             String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
                     + " (char_col1 ASC, int_col2 ASC, long_col2 DESC)"
-                    + " INCLUDE (int_col1, int_col2)";
+                    + " INCLUDE (int_col1)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             

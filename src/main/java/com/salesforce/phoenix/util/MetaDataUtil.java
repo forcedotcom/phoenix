@@ -42,6 +42,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PIndexState;
 
@@ -167,6 +168,10 @@ public class MetaDataUtil {
         } finally {
             if (wasAutoCommit) connection.setAutoCommit(wasAutoCommit);
         }
+    }
+
+    public static byte[] getParentLinkKey(String schemaName, String tableName, String indexName) {
+        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(indexName));
     }
 
 

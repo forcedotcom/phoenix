@@ -135,6 +135,8 @@ import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.util.SchemaUtil;
 }
@@ -309,13 +311,13 @@ package com.salesforce.phoenix.parse;
 
 // Used to incrementally parse a series of semicolon-terminated SQL statement
 // Note than unlike the rule below an EOF is not expected at the end.
-nextStatement returns [SQLStatement ret] throws SQLException
+nextStatement returns [SQLStatement ret]
     :  s=oneStatement {$ret = s;} SEMICOLON
     |  EOF
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-statement returns [SQLStatement ret] throws SQLException
+statement returns [SQLStatement ret]
     :   s=oneStatement {$ret = s;} EOF
     ;
 
@@ -325,7 +327,7 @@ query returns [SelectStatement ret]
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-oneStatement returns [SQLStatement ret] throws SQLException
+oneStatement returns [SQLStatement ret]
     :   (q=select_node {$ret=q;} 
     |    u=upsert_node {$ret=u;}
     |    d=delete_node {$ret=d;}
@@ -343,21 +345,21 @@ show_tables_node returns [SQLStatement ret]
     :   SHOW TABLES {$ret=factory.showTables();}
     ;
 
-explain_node returns [SQLStatement ret] throws SQLException
+explain_node returns [SQLStatement ret]
     :   EXPLAIN q=oneStatement {$ret=factory.explain(q);}
     ;
 
 // Parse a create table statement.
-create_table_node returns [CreateTableStatement ret] throws SQLException
-    :   CREATE (ro=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
+create_table_node returns [CreateTableStatement ret]
+    :   CREATE (tt=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
         (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
         (SPLIT ON v=values)?
-        {ret = factory.createTable(t, p, cdefs, pk, v, ro!=null, ex!=null, getBindCount()); }
+        {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
     ;
 
 // Parse a create index statement.
-create_index_node returns [CreateIndexStatement ret] throws SQLException
+create_index_node returns [CreateIndexStatement ret]
     :   CREATE INDEX i=index_name (IF NOT ex=EXISTS)? ON t=from_table_name
         (LPAREN pk=index_pk_constraint RPAREN)
         (INCLUDE (LPAREN icrefs=column_names RPAREN))?
@@ -430,7 +432,7 @@ drop_index_node returns [DropIndexStatement ret]
     ;
 
 // Parse an alter table statement.
-alter_table_node returns [AlterTableStatement ret] throws SQLException
+alter_table_node returns [AlterTableStatement ret]
     :   ALTER TABLE t=from_table_name
         ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) )
         {ret = ( c == null ? factory.addColumn(factory.namedTable(null,t), d, ex!=null, p) : factory.dropColumn(factory.namedTable(null,t), c, ex!=null) ); }
@@ -452,13 +454,12 @@ column_defs returns [List<ColumnDef> ret]
 
 column_def returns [ColumnDef ret]
     :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
-        {$ret = factory.columnDef(c, dt, n==null,
+        { $ret = factory.columnDef(c, dt, n==null,
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
             order == null ? null : ColumnModifier.fromDDLValue(order.getText()) ); }
     ;
-catch[SQLException e]{throw  new RecognitionException();}
 
 dyn_column_defs returns [List<ColumnDef> ret]
 @init{ret = new ArrayList<ColumnDef>(); }
@@ -473,7 +474,6 @@ dyn_column_def returns [ColumnDef ret]
             false, 
             null); }
     ;
-catch[SQLException e]{throw  new RecognitionException();}
 
 dyn_column_name_or_def returns [ColumnDef ret]
     :   c=column_name (dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? )?
@@ -483,7 +483,6 @@ dyn_column_name_or_def returns [ColumnDef ret]
             false, 
             null); }
     ;
-catch[SQLException e]{throw  new RecognitionException();}
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
 select_expression returns [ParseNode ret]
