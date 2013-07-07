@@ -52,7 +52,7 @@ public class CreateTableStatement implements SQLStatement {
         this.props = props == null ? ImmutableListMultimap.<String,Pair<String,Object>>of() : props;
         this.tableType = PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(tableName.getSchemaName()) ? PTableType.SYSTEM : isView ? PTableType.VIEW : PTableType.USER;
         this.columns = ImmutableList.copyOf(columns);
-        this.pkConstraint = pkConstraint;
+        this.pkConstraint = pkConstraint == null ? PrimaryKeyConstraint.EMPTY : pkConstraint;
         this.splitNodes = splitNodes == null ? Collections.<ParseNode>emptyList() : ImmutableList.copyOf(splitNodes);
         this.bindCount = bindCount;
         this.isView = isView;

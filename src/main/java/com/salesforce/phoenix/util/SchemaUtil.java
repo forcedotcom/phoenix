@@ -212,7 +212,7 @@ public class SchemaUtil {
     }
 
     public static byte[] getParentLinkKey(String schemaName, String tableName, String indexName) {
-        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(indexName));
+        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(indexName));
     }
 
     public static String getTableDisplayName(String schemaName, String tableName) {
@@ -231,6 +231,10 @@ public class SchemaUtil {
         return Bytes.toStringBinary(getColumnName(
                 StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 
                 StringUtil.toBytes(familyName), StringUtil.toBytes(columnName)));
+    }
+
+    public static String getColumnDisplayName(String familyName, String columnName) {
+        return getTableDisplayName(familyName, columnName);
     }
 
     /**

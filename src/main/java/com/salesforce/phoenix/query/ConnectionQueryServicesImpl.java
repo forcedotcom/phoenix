@@ -232,7 +232,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         } catch (SchemaNotFoundException e) {
         }
         synchronized(latestMetaDataLock) {
-            latestMetaData = latestMetaData.addTable(schemaName, table, null);
+            latestMetaData = latestMetaData.addTable(schemaName, table, parentTable);
             latestMetaDataLock.notifyAll();
             return latestMetaData;
         }

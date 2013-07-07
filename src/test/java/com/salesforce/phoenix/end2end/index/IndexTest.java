@@ -5,11 +5,7 @@ import static com.salesforce.phoenix.util.TestUtil.*;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -31,11 +27,11 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE 
             + "\" WHERE "
             + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=?";
-    private static final String SELECT_DATA_INDEX_ROW = "SELECT " + INDEX_NAME
+    private static final String SELECT_DATA_INDEX_ROW = "SELECT " + TABLE_CAT_NAME
             + " FROM "
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE
             + "\" WHERE "
-            + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=? AND " + INDEX_NAME + "=?";
+            + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=? AND " + " AND " + COLUMN_NAME + " IS NULL AND " + TABLE_CAT_NAME + "=?";
 
     private static ResultSet readIndexMetaData(Connection conn, String schemName, String indexName) throws SQLException {
         PreparedStatement stmt = conn.prepareStatement(SELECT_INDEX_METADATA);

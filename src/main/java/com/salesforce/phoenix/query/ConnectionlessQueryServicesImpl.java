@@ -89,7 +89,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public PMetaData addTable(String schemaName, PTable table, PTable parentTable) throws SQLException {
-        return metaData = metaData.addTable(schemaName, table, null);
+        return metaData = metaData.addTable(schemaName, table, parentTable);
     }
 
     @Override

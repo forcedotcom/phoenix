@@ -105,9 +105,9 @@ public class PTableImpl implements PTable {
         this.indexes = Collections.emptyList();
     }
 
-    public static PTableImpl makePTable(PTable table, List<PTable> indexes) {
+    public static PTableImpl makePTable(PTable table, long timeStamp, List<PTable> indexes) {
         return new PTableImpl(
-                table.getName(), table.getType(), table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), 
+                table.getName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
                 table.getPKName(), table.getBucketNum(), table.getColumns(), table.getDataTableName(), indexes);
     }
 
@@ -129,7 +129,7 @@ public class PTableImpl implements PTable {
 
     private PTableImpl(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
             Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes) {
-        init(name, PTableType.INDEX, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
+        init(name, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
                 dataTableName, indexes);
     }
 

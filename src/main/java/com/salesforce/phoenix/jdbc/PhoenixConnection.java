@@ -553,10 +553,10 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         // TODO: since a connection is only used by one thread at a time,
         // we could modify this metadata in place since it's not shared.
         if (scn == null || scn > table.getTimeStamp()) {
-            metaData = metaData.addTable(schemaName, table, null);
+            metaData = metaData.addTable(schemaName, table, parentTable);
         }
         //Cascade through to connectionQueryServices too
-        getQueryServices().addTable(schemaName, table, null);
+        getQueryServices().addTable(schemaName, table, parentTable);
         return metaData;
     }
 

@@ -78,6 +78,13 @@ public class PMetaDataImpl implements PMetaData {
             tables = Maps.newHashMap(schema.getTables());
         }
         tables.put(table.getName().getString(), table);
+        if (parentTable != null) {
+            List<PTable> oldIndexes = parentTable.getIndexes();
+            List<PTable> newIndexes = Lists.newArrayListWithExpectedSize(oldIndexes.size() + 1);
+            newIndexes.addAll(oldIndexes);
+            newIndexes.add(table);
+            tables.put(parentTable.getName().getString(), PTableImpl.makePTable(parentTable, table.getTimeStamp(), newIndexes));
+        }
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schemaName, schema);
         return new PMetaDataImpl(schemas);
@@ -110,8 +117,15 @@ public class PMetaDataImpl implements PMetaData {
         Map<String,PTable> tables;
         Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
         tables = Maps.newHashMap(schema.getTables());
-        if (tables.remove(tableName) == null) {
+        PTable table;
+        if ((table=tables.remove(tableName)) == null) {
             throw new TableNotFoundException(schemaName, tableName);
+        } else {
+            for (PTable index : table.getIndexes()) {
+                if (tables.remove(index.getName().getString()) == null) {
+                    throw new TableNotFoundException(schemaName, index.getName().getString());
+                }
+            }
         }
         schema = new PSchemaImpl(schema.getName(), tables);
         schemas.put(schema.getName(), schema);

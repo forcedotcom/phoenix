@@ -27,8 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -37,15 +36,17 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 public class PrimaryKeyConstraint extends NamedNode {
+    public static final PrimaryKeyConstraint EMPTY = new PrimaryKeyConstraint(null, Collections.<Pair<ColumnName, ColumnModifier>>emptyList());
+
     private final List<Pair<ColumnName, ColumnModifier>> columns;
-    private final HashMap<ColumnName, ColumnModifier> columnNameToModifier;
+    private final HashMap<ColumnName, Pair<ColumnName, ColumnModifier>> columnNameToModifier;
     
     PrimaryKeyConstraint(String name, List<Pair<ColumnName, ColumnModifier>> columns) {
         super(name);
-        this.columns = ImmutableList.copyOf(columns);
+        this.columns = columns == null ? Collections.<Pair<ColumnName, ColumnModifier>>emptyList() : ImmutableList.copyOf(columns);
         this.columnNameToModifier = Maps.newHashMapWithExpectedSize(columns.size());
         for (Pair<ColumnName, ColumnModifier> p : columns) {
-            this.columnNameToModifier.put(p.getFirst(), p.getSecond());
+            this.columnNameToModifier.put(p.getFirst(), p);
         }
     }
 
@@ -53,7 +54,7 @@ public class PrimaryKeyConstraint extends NamedNode {
         return columns;
     }
     
-    public ColumnModifier getColumnModifier(ColumnName columnName) {
+    public Pair<ColumnName, ColumnModifier> getColumn(ColumnName columnName) {
     	return columnNameToModifier.get(columnName);
     }
     

@@ -650,8 +650,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             while (rs.next()) {
                 String schema = rs.getString(2);
                 String table = rs.getString(3);
-                String name = SchemaUtil.getTableDisplayName(schema,table);
-                System.out.println(name);
+                SchemaUtil.getTableDisplayName(schema,table);
             }
             return 0;
         }
@@ -827,7 +826,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public boolean execute(String sql) throws SQLException {
         throwIfUnboundParameters();
-         System.out.println(" jbdc phoenixprepdsttmnt 728 execute "+sql);
         return parseStatement(sql).execute();
     }
 

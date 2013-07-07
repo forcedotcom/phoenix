@@ -131,7 +131,7 @@ public class MetaDataClient {
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
             TABLE_SCHEM_NAME + "," +
             TABLE_NAME_NAME + "," +
-            INDEX_NAME +
+            TABLE_CAT_NAME +
             ") VALUES (?, ?, ?)";
     private static final String INCREMENT_SEQ_NUM =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
@@ -197,10 +197,10 @@ public class MetaDataClient {
             ColumnModifier columnModifier = def.getColumnModifier();
             boolean isPK = def.isPK();
             if (pkConstraint != null) {
-                ColumnModifier pkColumnModifier = pkConstraint.getColumnModifier(columnDefName);
+                Pair<ColumnName,ColumnModifier> pkColumnModifier = pkConstraint.getColumn(columnDefName);
                 if (pkColumnModifier != null) {
                     isPK = true;
-                    columnModifier = pkColumnModifier;
+                    columnModifier = pkColumnModifier.getSecond();
                 }
             }
             
@@ -307,8 +307,8 @@ public class MetaDataClient {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_TABLE_CONFIG).build().buildException();
         }
         boolean wasAutoCommit = connection.getAutoCommit();
+        connection.rollback();
         try {
-            connection.rollback();
             connection.setAutoCommit(false);
             List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(statement.getColumnDefs().size() + 3);
             
@@ -501,7 +501,7 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
-                PTable table =  PTableImpl.makePTable(new PNameImpl(tableName), tableType, result.getMutationTime(), 0L, new PNameImpl(pkName), saltBucketNum, columns);
+                PTable table =  PTableImpl.makePTable(new PNameImpl(tableName), tableType, result.getMutationTime(), 0L, pkName == null ? null : new PNameImpl(pkName), saltBucketNum, columns);
                 connection.addTable(schemaName, table, parent); // TODO: link up correctly
                 if (tableType == PTableType.USER) {
                     connection.setAutoCommit(true);
@@ -568,20 +568,16 @@ public class MetaDataClient {
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             default:
                 try {
+                    // TODO: should we update the parent table by removing the index?
                     connection.removeTable(schemaName, tableName);
                 } catch (TableNotFoundException e) { } // Ignore - just means wasn't cached
-                PTable table = result.getTable();
-                for (PTable index: table.getIndexes()) {
-                    try {
-                        connection.removeTable(schemaName, index.getName().getString());
-                    } catch (TableNotFoundException e) { }
-                }
-                if (tableType != PTableType.VIEW) {
+                if (result.getTable() != null && tableType != PTableType.VIEW) {
                     connection.setAutoCommit(true);
                     // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                     long ts = (scn == null ? result.getMutationTime() : scn);
                     // Create empty table and schema - they're only used to get the name from
                     // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
+                    PTable table = result.getTable();
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
                     TableRef tableRef = new TableRef(null, table, schema, ts);
                     MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, null, Collections.<PColumn>emptyList(), tableRef.getTimeStamp());
@@ -631,6 +627,7 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
+            List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
             connection.setAutoCommit(false);
             TableName tableNameNode = statement.getTable().getName();
             String schemaName = tableNameNode.getSchemaName();
@@ -666,12 +663,15 @@ public class MetaDataClient {
                 
                 PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
                 Pair<byte[],Map<String,Object>> family = null;
-                PColumn column = newColumn(ordinalPosition++, colDef, null);
+                PColumn column = newColumn(ordinalPosition++, colDef, PrimaryKeyConstraint.EMPTY);
                 addColumnMutation(schemaName, tableName, column, colUpsert);
                 columns.add(column);
                 if (column.getFamilyName() != null) {
                     family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
                 }
+                tableMetaData.addAll(connection.getMutationState().toMutations());
+                connection.rollback();
+                
                 final long seqNum = table.getSequenceNumber() + 1;
                 PreparedStatement tableUpsert = connection.prepareStatement(MUTATE_TABLE);
                 tableUpsert.setString(1, schemaName);
@@ -681,8 +681,11 @@ public class MetaDataClient {
                 tableUpsert.setInt(5, ordinalPosition);
                 tableUpsert.execute();
                 
-                final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
+                tableMetaData.addAll(connection.getMutationState().toMutations());
                 connection.rollback();
+                // Force the table header row to be first
+                Collections.reverse(tableMetaData);
+                
                 byte[] emptyCF = null;
                 if (table.getType() != PTableType.VIEW && family != null && table.getColumnFamilies().isEmpty()) {
                     emptyCF = family.getFirst();
@@ -747,6 +750,7 @@ public class MetaDataClient {
                         .setColumnName(columnToDrop.getName().getString()).build().buildException();
                 }
                 int columnCount = table.getColumns().size() - 1;
+                List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(1 + table.getColumns().size() - columnToDrop.getPosition());
                 String familyName = null;
                 List<String> binds = Lists.newArrayListWithExpectedSize(4);
                 StringBuilder buf = new StringBuilder("DELETE FROM " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" WHERE " + TABLE_SCHEM_NAME);
@@ -782,6 +786,9 @@ public class MetaDataClient {
                     colUpdate.setInt(5, i);
                     colUpdate.execute();
                 }
+                tableMetaData.addAll(connection.getMutationState().toMutations());
+                connection.rollback();
+                
                 final long seqNum = table.getSequenceNumber() + 1;
                 PreparedStatement tableUpsert = connection.prepareStatement(MUTATE_TABLE);
                 tableUpsert.setString(1, schemaName);
@@ -791,8 +798,11 @@ public class MetaDataClient {
                 tableUpsert.setInt(5, columnCount);
                 tableUpsert.execute();
                 
-                final List<Mutation> tableMetaData = connection.getMutationState().toMutations();
+                tableMetaData.addAll(connection.getMutationState().toMutations());
                 connection.rollback();
+                // Force table header to be first in list
+                Collections.reverse(tableMetaData);
+                
                 // If we're dropping the last KV colum, we have to pass an indication along to the dropColumn call
                 // to populate a new empty KV column
                 byte[] emptyCF = null;

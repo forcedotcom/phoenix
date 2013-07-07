@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import com.salesforce.phoenix.util.SchemaUtil;
+
 
 public class ColumnName {
     private final NamedNode familyNode;
@@ -57,6 +59,11 @@ public class ColumnName {
         return columnNode;
     }
 
+    @Override
+    public String toString() {
+        return SchemaUtil.getColumnDisplayName(getFamilyName(),getColumnName());
+    }
+    
     @Override
     public int hashCode() {
         final int prime = 31;

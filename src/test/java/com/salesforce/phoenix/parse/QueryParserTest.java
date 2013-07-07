@@ -435,7 +435,7 @@ public class QueryParserTest {
     		List<Pair<ColumnName,ColumnModifier>> columns = pkConstraint.getColumnNames();
     		assertEquals(2, columns.size());
     		for (Pair<ColumnName,ColumnModifier> columnName : columns) {
-    			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumnModifier(columnName.getFirst()));
+    			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumn(columnName.getFirst()));
     		}    		
     	}
     }

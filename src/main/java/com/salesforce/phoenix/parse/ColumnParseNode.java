@@ -46,8 +46,12 @@ public class ColumnParseNode extends NamedParseNode {
         return visitor.visit(this);
     }
 
-    public TableName getTableName() {
-        return tableName;
+    public String getTableName() {
+        return tableName == null ? null : tableName.getTableName();
+    }
+
+    public String getSchemaName() {
+        return tableName == null ? null : tableName.getSchemaName();
     }
 
     public String getFullName() {

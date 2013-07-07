@@ -507,7 +507,7 @@ upsert_node returns [UpsertStatement ret]
     :   UPSERT INTO t=from_table_name
         (LPAREN p=upsert_column_refs RPAREN)?
         ((VALUES LPAREN v=expression_terms RPAREN) | s=select_node)
-        {ret = factory.upsert(factory.namedTable(null,t,p.getFirst()), p.getSecond(), v, s, getBindCount()); }
+        {ret = factory.upsert(factory.namedTable(null,t,p == null ? null : p.getFirst()), p == null ? null : p.getSecond(), v, s, getBindCount()); }
     ;
 
 upsert_column_refs returns [Pair<List<ColumnDef>,List<ColumnName>> ret]

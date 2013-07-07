@@ -47,7 +47,7 @@ public class CreateIndexStatement extends SingleTableSQLStatement {
             ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
         super(dataTable, bindCount);
         this.indexTableName = new TableName(dataTable.getAlias(),indexTableName.getName());
-        this.indexConstraint = indexConstraint;
+        this.indexConstraint = indexConstraint == null ? PrimaryKeyConstraint.EMPTY : indexConstraint;
         this.includeColumns = includeColumns;
         this.splitNodes = splits;
         this.props = props;

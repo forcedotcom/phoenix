@@ -463,7 +463,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             try {
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
                 result = doDropTable(key, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids);
-                if (result != null) {
+                if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                     return result;
                 }
                 Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
@@ -477,7 +477,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     ImmutableBytesPtr parentCacheKey = new ImmutableBytesPtr(lockKey);
                     metaDataCache.remove(parentCacheKey);
                 }
-                return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, null);
+                return result;
             } finally {
                 releaseLocks(region, lids);
             }
@@ -501,8 +501,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (table != null || (table = buildTable(key, cacheKey, region, HConstants.LATEST_TIMESTAMP)) != null) {
             if (table.getTimeStamp() < clientTimeStamp) {
                 // If the table is older than the client time stamp and its deleted, continue
-                if (!isTableDeleted(table)) {
-                    return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table);
+                if (isTableDeleted(table)) {
+                    return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), null);
+                }
+                if ( tableType != table.getType())  {
+                    // We said to drop a table, but found a view or visa versa
+                    return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
             } else {
                 return new MetaDataMutationResult(MutationCode.NEWER_TABLE_FOUND, EnvironmentEdgeManager.currentTimeMillis(), table);
@@ -531,12 +535,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
         invalidateList.add(cacheKey);
-        byte[][] rowKeyMetaData = new byte[5][];
+        byte[][] rowKeyMetaData = new byte[4][];
         byte[] rowKey;
         do {
             rowKey = results.get(0).getRow();
-            getVarChars(rowKey, rowKeyMetaData);
-            if (rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX] != null) {
+            int nColumns = getVarChars(rowKey, rowKeyMetaData);
+            if (nColumns == 4 && rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX].length == 0 && rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX].length > 0) {
                 indexNames.add(rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX]);
             }
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
@@ -560,12 +564,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             rowsToDelete.add(delete);
             acquireLock(region, indexKey, lids);
             MetaDataMutationResult result = doDropTable(indexKey, schemaName, indexName, PTableType.INDEX, rowsToDelete, invalidateList, lids);
-            if (result != null) {
+            if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                 return result;
             }
         }
         
-        return null;
+        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table);
     }
 
     private static interface Verifier {
