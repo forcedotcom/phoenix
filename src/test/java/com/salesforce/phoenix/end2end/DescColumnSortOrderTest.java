@@ -48,7 +48,7 @@ import org.junit.Test;
 import com.google.common.collect.Lists;
 
 /**
- * @author stoens
+ * @author simontoens
  * @since 1.2
  */
 public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
