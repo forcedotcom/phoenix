@@ -717,20 +717,14 @@ index_name returns [NamedNode ret]
     :   name=identifier {$ret = factory.indexName(name); }
     ;
 
-// TODO: figure out how not repeat this three times
+// TODO: figure out how not repeat this two times
 table_name returns [TableName ret]
     :   t=identifier {$ret = factory.table(null, t); }
     |   s=identifier DOT t=identifier {$ret = factory.table(s, t); }
     ;
 
-// TODO: figure out how not repeat this three times
+// TODO: figure out how not repeat this two times
 from_table_name returns [TableName ret]
-    :   t=identifier {$ret = factory.table(null, t); }
-    |   s=identifier DOT t=identifier {$ret = factory.table(s, t); }
-    ;
-    
-// TODO: figure out how not repeat this three times
-column_table_name returns [TableName ret]
     :   t=identifier {$ret = factory.table(null, t); }
     |   s=identifier DOT t=identifier {$ret = factory.table(s, t); }
     ;

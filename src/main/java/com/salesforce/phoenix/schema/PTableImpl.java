@@ -31,6 +31,7 @@ import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
 import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
 
 import java.io.*;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -40,6 +41,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
@@ -105,36 +107,36 @@ public class PTableImpl implements PTable {
         this.indexes = Collections.emptyList();
     }
 
-    public static PTableImpl makePTable(PTable table, long timeStamp, List<PTable> indexes) {
+    public static PTableImpl makePTable(PTable table, long timeStamp, List<PTable> indexes) throws SQLException {
         return new PTableImpl(
                 table.getName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
                 table.getPKName(), table.getBucketNum(), table.getColumns(), table.getDataTableName(), indexes);
     }
 
-    public static PTableImpl makePTable(PTable table, PIndexState state) {
+    public static PTableImpl makePTable(PTable table, PIndexState state) throws SQLException {
         return new PTableImpl(
                 table.getName(), table.getType(), state, table.getTimeStamp(), table.getSequenceNumber(), 
                 table.getPKName(), table.getBucketNum(), table.getColumns(), table.getDataTableName(), table.getIndexes());
     }
 
     public static PTableImpl makePTable(PName name, PTableType type, long timeStamp, long sequenceNumber, PName pkName,
-            Integer bucketNum, List<PColumn> columns) {
+            Integer bucketNum, List<PColumn> columns) throws SQLException {
         return new PTableImpl(name, type, null, timeStamp, sequenceNumber, pkName, bucketNum, columns, null, Collections.<PTable>emptyList());
     }
 
     public static PTableImpl makePTable(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
-            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes) {
+            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes) throws SQLException {
         return new PTableImpl(name, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, dataTableName, indexes);
     }
 
     private PTableImpl(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
-            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes) {
+            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes) throws SQLException {
         init(name, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
                 dataTableName, indexes);
     }
 
     private void init(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
-            Integer bucketNum, List<PColumn> columns, PTableStats stats, PName dataTableName, List<PTable> indexes) {
+            Integer bucketNum, List<PColumn> columns, PTableStats stats, PName dataTableName, List<PTable> indexes) throws SQLException {
         this.name = name;
         this.type = type;
         this.state = state;
@@ -163,7 +165,18 @@ public class PTableImpl implements PTable {
                 pkColumns.add(column);
                 builder.addField(column);
             }
-            columnsByName.put(column.getName().getString(), column);
+            String columnName = column.getName().getString();
+            if (columnsByName.put(columnName, column)) {
+                int count = 0;
+                for (PColumn dupColumn : columnsByName.get(columnName)) {
+                    if (Objects.equal(familyName, dupColumn.getFamilyName())) {
+                        count++;
+                        if (count > 1) {
+                            throw new ColumnAlreadyExistsException(null, name.getString(), columnName);
+                        }
+                    }
+                }
+            }
         }
         this.bucketNum = bucketNum;
         this.pkColumns = ImmutableList.copyOf(pkColumns);
@@ -536,8 +549,12 @@ public class PTableImpl implements PTable {
         byte[] dataTableNameBytes = Bytes.readByteArray(input);
         PName dataTableName = dataTableNameBytes.length == 0 ? null : new PNameImpl(dataTableNameBytes);
         PTableStats stats = new PTableStatsImpl(guidePosts);
-        init(tableName, tableType, indexState, timeStamp, sequenceNumber, pkName,
-                bucketNum.equals(NO_SALTING) ? null : bucketNum, columns, stats, dataTableName, indexes);
+        try {
+            init(tableName, tableType, indexState, timeStamp, sequenceNumber, pkName,
+                    bucketNum.equals(NO_SALTING) ? null : bucketNum, columns, stats, dataTableName, indexes);
+        } catch (SQLException e) {
+            throw new RuntimeException(e); // Impossible
+        }
     }
 
     @Override

@@ -33,6 +33,7 @@ import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -144,7 +145,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return scan;
     }
 
-    private PTable buildTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
+    private PTable buildTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException, SQLException {
         Scan scan = newTableRowsScan(key, MIN_TABLE_TIMESTAMP, clientTimeStamp);
         RegionScanner scanner = region.getScanner(scan);
         Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
@@ -165,7 +166,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    private void addIndexToTable(PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException {
+    private void addIndexToTable(PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException, SQLException {
         byte[] key = SchemaUtil.getTableKey(schemaName.getBytes(), indexName.getBytes());
         PTable indexTable = doGetTable(key, clientTimeStamp);
         if (indexTable == null) {
@@ -212,7 +213,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         columns.add(column);
     }
 
-    private PTable getTable(RegionScanner scanner, long clientTimeStamp, long tableTimeStamp) throws IOException {
+    private PTable getTable(RegionScanner scanner, long clientTimeStamp, long tableTimeStamp) throws IOException, SQLException {
         List<KeyValue> results = Lists.newArrayList();
         scanner.next(results);
         if (results.isEmpty()) {
@@ -333,7 +334,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return table.getName() == null;
     }
 
-    private PTable loadTable(RegionCoprocessorEnvironment env, byte[] key, ImmutableBytesPtr cacheKey, long clientTimeStamp, long asOfTimeStamp) throws IOException {
+    private PTable loadTable(RegionCoprocessorEnvironment env, byte[] key, ImmutableBytesPtr cacheKey, long clientTimeStamp, long asOfTimeStamp) throws IOException, SQLException {
         HRegion region = env.getRegion();
         Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
         PTable table = metaDataCache.get(cacheKey);
@@ -495,7 +496,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     private MetaDataMutationResult doDropTable(byte[] key, byte[] schemaName, byte[] tableName, PTableType tableType, 
-            List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) throws IOException {
+            List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) throws IOException, SQLException {
         long clientTimeStamp = MetaDataUtil.getClientTimeStamp(rowsToDelete);
 
         RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
@@ -747,7 +748,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    private PTable doGetTable(byte[] key, long clientTimeStamp) throws IOException {
+    private PTable doGetTable(byte[] key, long clientTimeStamp) throws IOException, SQLException {
         ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
         Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
         PTable table = metaDataCache.get(cacheKey);

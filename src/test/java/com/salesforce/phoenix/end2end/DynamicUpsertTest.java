@@ -26,7 +26,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 
 /**
@@ -173,7 +173,7 @@ public class DynamicUpsertTest extends BaseClientMangedTimeTest {
     /**
      * Test an upsert of prexisting schema defined columns and dynamic ones with different datatypes
      */
-    @Test(expected = AmbiguousColumnException.class)
+    @Test(expected = ColumnAlreadyExistsException.class)
     public void testAmbiguousStaticUpsert() throws Exception {
         String upsertquery = "UPSERT INTO " + TABLE + " (a.dummy INTEGER,b.dummy INTEGER) VALUES(1,2)";
         String url = PHOENIX_JDBC_URL + ";";
@@ -190,7 +190,7 @@ public class DynamicUpsertTest extends BaseClientMangedTimeTest {
     /**
      * Test an upsert of two conflicting dynamic columns
      */
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = ColumnAlreadyExistsException.class)
     public void testAmbiguousDynamicUpsert() throws Exception {
         String upsertquery = "UPSERT INTO " + TABLE + " (a.DynCol VARCHAR,a.DynCol INTEGER) VALUES('dynCol',1)";
         String url = PHOENIX_JDBC_URL + ";";

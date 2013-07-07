@@ -26,6 +26,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
  * Validates FROM clause and builds a ColumnResolver for resolving column references
@@ -153,38 +154,22 @@ public class FromCompiler {
         }
 
         protected PTable addDynamicColumns(List<ColumnDef> dynColumns, PTable theTable)
-                throws AmbiguousColumnException, ColumnFamilyNotFoundException {
-            List<ColumnDef> acceptedColumns = new ArrayList<ColumnDef>();
-            // TODO: add column family dynamically if it exists in the table
+                throws SQLException {
             if (!dynColumns.isEmpty()) {
                 List<PColumn> allcolumns = new ArrayList<PColumn>();
                 allcolumns.addAll(theTable.getColumns());
                 int position = allcolumns.size();
-                PColumn column = null;
-                for (ColumnDef cdef : dynColumns) {
-                    try {
-                        column = theTable.getColumn(cdef.getColumnDefName().getColumnName());
-                        // TODO: remove this after verifying that we never cache a table
-                        // after dynamic columns have been added to it. Try using psql
-                        // with a dynamic column reference during upsert.
-                        if (!column.getDataType().equals(cdef.getDataType())) {
-                            throw new AmbiguousColumnException(cdef.getColumnDefName().getColumnName());
-                        }
-                    } catch (ColumnNotFoundException e) {
-                        //Only if the column is previously unknown will we add it to the table
-                        String familyName = cdef.getColumnDefName().getFamilyName()!=null ? cdef.getColumnDefName().getFamilyName() : QueryConstants.DEFAULT_COLUMN_FAMILY;
-                        theTable.getColumnFamily(familyName);
-                        acceptedColumns.add(cdef);
-                   }  
-                }
-                for (ColumnDef addDef : acceptedColumns) {
-                    PName familyName = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME;
-                    PName Name = new PNameImpl(addDef.getColumnDefName().getColumnName());
-                    if (addDef.getColumnDefName().getFamilyName() != null) {
-                        familyName = new PNameImpl(addDef.getColumnDefName().getFamilyName());
+                PName defaultFamilyName = new PNameImpl(SchemaUtil.getEmptyColumnFamily(theTable.getColumnFamilies()));
+                for (ColumnDef dynColumn : dynColumns) {
+                    PName familyName = defaultFamilyName;
+                    PName name = new PNameImpl(dynColumn.getColumnDefName().getColumnName());
+                    String family = dynColumn.getColumnDefName().getFamilyName();
+                    if (family != null) {
+                        theTable.getColumnFamily(family); // Verifies that column family exists
+                        familyName = new PNameImpl(family);
                     }
-                    allcolumns.add(new PColumnImpl(Name, familyName, addDef.getDataType(), addDef.getMaxLength(),
-                            addDef.getScale(), addDef.isNull(), position, addDef.getColumnModifier()));
+                    allcolumns.add(new PColumnImpl(name, familyName, dynColumn.getDataType(), dynColumn.getMaxLength(),
+                            dynColumn.getScale(), dynColumn.isNull(), position, dynColumn.getColumnModifier()));
                     position++;
                 }
                 theTable = PTableImpl.makePTable(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),

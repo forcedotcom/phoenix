@@ -513,7 +513,8 @@ public class MetaDataClient {
                     // Execute any necessary data updates
                     Long scn = connection.getSCN();
                     long ts = (scn == null ? result.getMutationTime() : scn);
-                    // Getting the schema through the current connection doesn't always work (and I don't remember why)
+                    // Getting the schema through the current connection doesn't work when the connection has an scn specified
+                    // Since the table won't be added to the current connection.
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
                     TableRef tableRef = new TableRef(null, table, schema, ts);
                     byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
