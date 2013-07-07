@@ -32,12 +32,16 @@ import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
 
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.List;
 
+import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -91,6 +95,52 @@ public class TupleUtil {
             }
         }
         throw new IllegalStateException("Expected single, aggregated KeyValue from coprocessor, but instead received " + r + ". Ensure aggregating coprocessors are loaded correctly on server");
+    }
+    
+    /** Concatenate results evaluated against a list of expressions
+     * 
+     * @param result the tuple for expression evaluation
+     * @param expressions
+     * @return the concatenated byte array as ImmutableBytesWritable
+     * @throws IOException
+     */
+    public static ImmutableBytesWritable getConcatenatedValue(Tuple result, List<Expression> expressions) throws IOException {
+        ImmutableBytesWritable value = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
+        Expression expression = expressions.get(0);
+        boolean evaluated = expression.evaluate(result, value);
+        
+        if (expressions.size() == 1) {
+            if (!evaluated) {
+                value.set(ByteUtil.EMPTY_BYTE_ARRAY);
+            }
+            return value;
+        } else {
+            TrustedByteArrayOutputStream output = new TrustedByteArrayOutputStream(value.getLength() * expressions.size());
+            try {
+                if (evaluated) {
+                    output.write(value.get(), value.getOffset(), value.getLength());
+                }
+                for (int i = 1; i < expressions.size(); i++) {
+                    if (!expression.getDataType().isFixedWidth()) {
+                        output.write(QueryConstants.SEPARATOR_BYTE);
+                    }
+                    expression = expressions.get(i);
+                    // TODO: should we track trailing null values and omit the separator bytes?
+                    if (expression.evaluate(result, value)) {
+                        output.write(value.get(), value.getOffset(), value.getLength());
+                    } else if (i < expressions.size()-1 && expression.getDataType().isFixedWidth()) {
+                        // This should never happen, because any non terminating nullable fixed width type (i.e. INT or LONG) is
+                        // converted to a variable length type (i.e. DECIMAL) to allow an empty byte array to represent null.
+                        throw new DoNotRetryIOException("Non terminating null value found for fixed width expression (" + expression + ") in row: " + result);
+                    }
+                }
+                byte[] outputBytes = output.getBuffer();
+                value.set(outputBytes, 0, output.size());
+                return value;
+            } finally {
+                output.close();
+            }
+        }
     }
     
     public static int write(Tuple result, DataOutput out) throws IOException {

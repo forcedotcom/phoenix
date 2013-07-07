@@ -52,7 +52,6 @@ import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.*;
 
 
@@ -164,45 +163,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         return expressions;
     }
     
-    private ImmutableBytesWritable getKey(List<Expression> expressions, Tuple result) throws IOException {
-        ImmutableBytesWritable groupByValue = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
-        Expression expression = expressions.get(0);
-        boolean evaluated = expression.evaluate(result, groupByValue);
-        
-        if (expressions.size() == 1) {
-            if (!evaluated) {
-                groupByValue.set(ByteUtil.EMPTY_BYTE_ARRAY);
-            }
-            return groupByValue;
-        } else {
-            TrustedByteArrayOutputStream output = new TrustedByteArrayOutputStream(groupByValue.getLength() * expressions.size());
-            try {
-                if (evaluated) {
-                    output.write(groupByValue.get(), groupByValue.getOffset(), groupByValue.getLength());
-                }
-                for (int i = 1; i < expressions.size(); i++) {
-                    if (!expression.getDataType().isFixedWidth()) {
-                        output.write(QueryConstants.SEPARATOR_BYTE);
-                    }
-                    expression = expressions.get(i);
-                    // TODO: should we track trailing null values and ommit the separator bytes?
-                    if (expression.evaluate(result, groupByValue)) {
-                        output.write(groupByValue.get(), groupByValue.getOffset(), groupByValue.getLength());
-                    } else if (i < expressions.size()-1 && expression.getDataType().isFixedWidth()) {
-                        // This should never happen, because any non terminating nullable fixed width type (i.e. INT or LONG) is
-                        // converted to a variable length type (i.e. DECIMAL) to allow an empty byte array to represent null.
-                        throw new DoNotRetryIOException("Non terminating null value found for fixed width GROUP BY expression (" + expression + ") in row: " + result);
-                    }
-                }
-                byte[] outputBytes = output.getBuffer();
-                groupByValue.set(outputBytes, 0, output.size());
-                return groupByValue;
-            } finally {
-                output.close();
-            }
-        }
-    }
-    
     /**
      * Used for an aggregate query in which the key order does not necessarily match the group by key order. In this case,
      * we must collect all distinct groups within a region into a map, aggregating as we go, and then at the end of the
@@ -241,7 +201,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     hasMore = s.nextRaw(results, null) && !s.isFilterDone();
                     if (!results.isEmpty()) {
                         result.setKeyValues(results);
-                        ImmutableBytesWritable key = getKey(expressions, result);
+                        ImmutableBytesWritable key = TupleUtil.getConcatenatedValue(result, expressions);
                         Aggregator[] rowAggregators = aggregateMap.get(key);
                         if (rowAggregators == null) {
                             // If Aggregators not found for this distinct value, clone our original one (we need one per distinct value)
@@ -362,7 +322,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                         hasMore = s.nextRaw(kvs, null) && !s.isFilterDone();
                         if (!kvs.isEmpty()) {
                             result.setKeyValues(kvs);
-                            key = getKey(expressions, result);
+                            key = TupleUtil.getConcatenatedValue(result, expressions);
                             aggBoundary = currentKey != null && currentKey.compareTo(key) != 0;
                             if (!aggBoundary) {
                                 aggregators.aggregate(rowAggregators, result);

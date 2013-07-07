@@ -27,10 +27,20 @@
  ******************************************************************************/
 package com.salesforce.phoenix.cache;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -39,9 +49,18 @@ import org.apache.hadoop.io.WritableUtils;
 import org.apache.http.annotation.Immutable;
 import org.xerial.snappy.Snappy;
 
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.tuple.ResultTuple;
+import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.ServerUtil;
+import com.salesforce.phoenix.util.SizedUtil;
+import com.salesforce.phoenix.util.TupleUtil;
 
 /**
  * 
@@ -160,7 +179,7 @@ public class TenantCacheImpl implements TenantCache {
 
         @Immutable
         private class AgeOutHashCache implements HashCache {
-            private final Map<ImmutableBytesWritable,Result> hashCache;
+            private final Map<ImmutableBytesPtr,Tuple> hashCache;
             private final MemoryChunk memoryChunk;
             private final byte[][] cfs;
             private final byte[] tableName;
@@ -171,19 +190,28 @@ public class TenantCacheImpl implements TenantCache {
                     int offset = hashCacheBytes.getOffset();
                     ByteArrayInputStream input = new ByteArrayInputStream(hashCacheByteArray, offset, hashCacheBytes.getLength());
                     DataInputStream dataInput = new DataInputStream(input);
+                    int nExprs = dataInput.readInt();
+                    List<Expression> onExpressions = new ArrayList<Expression>(nExprs);
+                    for (int i = 0; i < nExprs; i++) {
+                        int expressionOrdinal = WritableUtils.readVInt(dataInput);
+                        Expression expression = ExpressionType.values()[expressionOrdinal].newInstance();
+                        expression.readFields(dataInput);
+                        onExpressions.add(expression);                        
+                    }
+                    int exprSize = dataInput.readInt();
+                    offset += exprSize;
                     int nRows = dataInput.readInt();
                     int estimatedSize = SizedUtil.sizeOfMap(nRows, SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE, SizedUtil.RESULT_SIZE) + hashCacheBytes.getLength();
                     this.memoryChunk = memoryManager.allocate(estimatedSize);
-                    HashMap<ImmutableBytesWritable,Result> hashCacheMap = new HashMap<ImmutableBytesWritable,Result>(nRows * 5 / 4);
+                    HashMap<ImmutableBytesPtr,Tuple> hashCacheMap = new HashMap<ImmutableBytesPtr,Tuple>(nRows * 5 / 4);
                     offset += Bytes.SIZEOF_INT;
-                    // Build Map with row key as key and row as value
-                    // TODO: go through TupleUtil and create Tuples here
+                    // Build Map with evaluated hash key as key and row as value
                     for (int i = 0; i < nRows; i++) {
                         int resultSize = (int)Bytes.readVLong(hashCacheByteArray, offset);
                         offset += WritableUtils.decodeVIntSize(hashCacheByteArray[offset]);
                         ImmutableBytesWritable value = new ImmutableBytesWritable(hashCacheByteArray,offset,resultSize);
-                        Result result = new Result(value);
-                        ImmutableBytesWritable key = ResultUtil.getKey(result);
+                        Tuple result = new ResultTuple(new Result(value));
+                        ImmutableBytesPtr key = new ImmutableBytesPtr(TupleUtil.getConcatenatedValue(result, onExpressions));
                         hashCacheMap.put(key, result);
                         offset += resultSize;
                     }
@@ -222,9 +250,9 @@ public class TenantCacheImpl implements TenantCache {
             }
             
             @Override
-            public Result get(ImmutableBytesWritable rowKey) {
+            public Tuple get(ImmutableBytesWritable hashKey) {
                 lastAccessTime = System.currentTimeMillis();
-                return hashCache.get(rowKey);
+                return hashCache.get(new ImmutableBytesPtr(hashKey));
             }
         }
     }
