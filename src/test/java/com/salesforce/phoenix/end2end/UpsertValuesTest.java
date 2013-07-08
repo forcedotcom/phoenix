@@ -157,4 +157,28 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         assertEquals("000000005919adfasfasfsafdasdfasfdasdfdasfdsafaxxf1", rs.getString(1));
         conn.close();
     }
+    
+    @Test
+    public void testUpsertValuesWithDescExpression() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("create table UpsertWithDesc (k VARCHAR not null primary key desc)");
+        conn.close();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("upsert into UpsertWithDesc values (to_char(100))");
+        conn.commit();
+        conn.close();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+10));
+        conn = DriverManager.getConnection(getUrl(), props);
+        ResultSet rs = conn.createStatement().executeQuery("select to_number(k) from UpsertWithDesc");
+        assertTrue(rs.next());
+        assertEquals(100, rs.getInt(1));
+        assertFalse(rs.next());
+    }
+
 }

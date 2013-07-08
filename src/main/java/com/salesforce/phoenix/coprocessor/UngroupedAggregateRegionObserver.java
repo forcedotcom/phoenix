@@ -184,28 +184,42 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                         } else if (isUpsert) {
                             Arrays.fill(values, null);
                             int i = 0;
+                            List<PColumn> projectedColumns = projectedTable.getColumns();
                             for (; i < projectedTable.getPKColumns().size(); i++) {
-                                if (selectExpressions.get(i).evaluate(result, ptr)) {
+                                Expression expression = selectExpressions.get(i);
+                                if (expression.evaluate(result, ptr)) {
                                     values[i] = ptr.copyBytes();
+                                    // If ColumnModifier from expression in SELECT doesn't match the
+                                    // column being projected into then invert the bits.
+                                    if (expression.getColumnModifier() != projectedColumns.get(i).getColumnModifier()) {
+                                        ColumnModifier.SORT_DESC.apply(values[i], values[i], 0, values[i].length);
+                                    }
                                 }
                             }
                             projectedTable.newKey(ptr, values);
                             PRow row = projectedTable.newRow(ts, ptr);
-                            for (; i < projectedTable.getColumns().size(); i++) {
-                                if (selectExpressions.get(i).evaluate(result, ptr)) {
-                                    PColumn column = projectedTable.getColumns().get(i);
+                            for (; i < projectedColumns.size(); i++) {
+                                Expression expression = selectExpressions.get(i);
+                                if (expression.evaluate(result, ptr)) {
+                                    PColumn column = projectedColumns.get(i);
                                     byte[] bytes = ptr.copyBytes();
+                                    Object value = expression.getDataType().toObject(bytes, column.getColumnModifier());
+                                    // If ColumnModifier from expression in SELECT doesn't match the
+                                    // column being projected into then invert the bits.
+                                    if (expression.getColumnModifier() != column.getColumnModifier()) {
+                                        ColumnModifier.SORT_DESC.apply(bytes, bytes, 0, bytes.length);
+                                    }
                                     // We are guaranteed that the two column will have the same type.
                                     if (!column.getDataType().isSizeCompatible(column.getDataType(),
-                                            null, bytes,
-                                            null, column.getMaxLength(), 
-                                            null, column.getScale())) {
+                                            value, bytes,
+                                            expression.getMaxLength(), column.getMaxLength(), 
+                                            expression.getScale(), column.getScale())) {
                                         throw new ValueTypeIncompatibleException(column.getDataType(),
                                                 column.getMaxLength(), column.getScale());
                                     }
-                                    bytes = column.getDataType().coerceBytes(bytes, null, column.getDataType(),
-                                            null, null, column.getMaxLength(), column.getScale());
-                                    row.setValue(projectedTable.getColumns().get(i), bytes);
+                                    bytes = column.getDataType().coerceBytes(bytes, value, expression.getDataType(),
+                                            expression.getMaxLength(), expression.getScale(), column.getMaxLength(), column.getScale());
+                                    row.setValue(column, bytes);
                                 }
                             }
                             for (Mutation mutation : row.toRowMutations()) {

@@ -133,12 +133,14 @@ public class PhoenixResultSetMetaData implements ResultSetMetaData {
 
     @Override
     public int getPrecision(int column) throws SQLException {
-        return PDataType.MAX_PRECISION; // TODO: add support in PColumn?
+        Integer precision = rowProjector.getColumnProjector(column-1).getExpression().getMaxLength();
+        return precision == null ? 0 : precision;
     }
 
     @Override
     public int getScale(int column) throws SQLException {
-        return 0; // TODO: add support in PColumn?
+        Integer scale = rowProjector.getColumnProjector(column-1).getExpression().getScale();
+        return scale == null ? 0 : scale;
     }
 
     @Override

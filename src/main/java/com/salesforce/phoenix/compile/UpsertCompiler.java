@@ -357,16 +357,29 @@ public class UpsertCompiler {
                     while (rs.next()) {
                         for (int i = 0; i < values.length; i++) {
                             column = table.getColumns().get(columnIndexes[i]);
-                            // We are guaranteed that the two column will have the same type.
+                            byte[] byteValue = rs.getBytes(i+1);
+                            Object value = rs.getObject(i+1);
+                            int rsPrecision = rs.getMetaData().getPrecision(i+1);
+                            Integer precision = rsPrecision == 0 ? null : rsPrecision;
+                            int rsScale = rs.getMetaData().getScale(i+1);
+                            Integer scale = rsScale == 0 ? null : rsScale;
+                            // If ColumnModifier from expression in SELECT doesn't match the
+                            // column being projected into then invert the bits.
+                            if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
+                                byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
+                                byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                            }
+                            // We are guaranteed that the two column will have compatible types,
+                            // as we checked that before.
                             if (!column.getDataType().isSizeCompatible(column.getDataType(),
-                                    null, rs.getBytes(i+1),
-                                    null, column.getMaxLength(), 
-                                    null, column.getScale())) {
+                                    value, byteValue,
+                                    precision, column.getMaxLength(), 
+                                    scale, column.getScale())) {
                                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
                                     .setColumnName(column.getName().getString()).build().buildException();
                             }
-                            values[i] = column.getDataType().coerceBytes(rs.getBytes(i+1), null, column.getDataType(),
-                                    null, null, column.getMaxLength(), column.getScale());
+                            values[i] = column.getDataType().coerceBytes(byteValue, value, column.getDataType(),
+                                    precision, scale, column.getMaxLength(), column.getScale());
                         }
                         setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
                         rowCount++;
@@ -410,47 +423,57 @@ public class UpsertCompiler {
             PColumn column = allColumns.get(columnIndexes[nodeIndex]);
             expressionBuilder.setColumn(column);
             LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
+            byte[] byteValue = literalExpression.getBytes();
             if (literalExpression.getDataType() != null) {
-                if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) {
-                    throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
+                // If ColumnModifier from expression in SELECT doesn't match the
+                // column being projected into then invert the bits.
+                if (literalExpression.getColumnModifier() != column.getColumnModifier()) {
+                    byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
+                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                }
+                if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) { 
+                    throw new TypeMismatchException(
+                        literalExpression.getDataType(), column.getDataType(), "expression: "
+                                + literalExpression.toString() + " in column " + column);
                 }
                 if (!column.getDataType().isSizeCompatible(literalExpression.getDataType(),
-                        literalExpression.getValue(), literalExpression.getBytes(),
-                        literalExpression.getMaxLength(), column.getMaxLength(), 
-                        literalExpression.getScale(), column.getScale())) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
-                        .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
-                    }
+                        literalExpression.getValue(), byteValue, literalExpression.getMaxLength(),
+                        column.getMaxLength(), literalExpression.getScale(), column.getScale())) { 
+                    throw new SQLExceptionInfo.Builder(
+                        SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE).setColumnName(column.getName().getString())
+                        .setMessage("value=" + literalExpression.toString()).build().buildException();
                 }
-                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType(),
-                        literalExpression.getMaxLength(), literalExpression.getScale(), column.getMaxLength(), column.getScale());
-                values[nodeIndex] = byteValue;
-                nodeIndex++;
             }
-            return new MutationPlan() {
+            byteValue = column.getDataType().coerceBytes(byteValue, literalExpression.getValue(),
+                    literalExpression.getDataType(), literalExpression.getMaxLength(), literalExpression.getScale(),
+                    column.getMaxLength(), column.getScale());
+            values[nodeIndex] = byteValue;
+            nodeIndex++;
+        }
+        return new MutationPlan() {
 
-                @Override
-                public PhoenixConnection getConnection() {
-                    return connection;
-                }
-   
-                @Override
-                public ParameterMetaData getParameterMetaData() {
-                    return context.getBindManager().getParameterMetaData();
-                }
-    
-                @Override
-                public MutationState execute() {
-                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
-                    setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
-                    return new MutationState(tableRef, mutation, 0, maxSize, connection);
-                }
-    
-                @Override
-                public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("PUT SINGLE ROW"));
+            @Override
+            public PhoenixConnection getConnection() {
+                return connection;
             }
-            
+
+            @Override
+            public ParameterMetaData getParameterMetaData() {
+                return context.getBindManager().getParameterMetaData();
+            }
+
+            @Override
+            public MutationState execute() {
+                Map<ImmutableBytesPtr, Map<PColumn, byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
+                setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
+                return new MutationState(tableRef, mutation, 0, maxSize, connection);
+            }
+
+            @Override
+            public ExplainPlan getExplainPlan() throws SQLException {
+                return new ExplainPlan(Collections.singletonList("PUT SINGLE ROW"));
+            }
+
         };
     }
     

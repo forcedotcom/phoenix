@@ -37,9 +37,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
-import com.google.common.primitives.Booleans;
-import com.google.common.primitives.Doubles;
-import com.google.common.primitives.Longs;
+import com.google.common.primitives.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.*;
 
@@ -3756,7 +3754,11 @@ public enum PDataType {
     }
 
     public Object toObject(byte[] bytes) {
-        return toObject(bytes, 0, bytes.length, this);
+        return toObject(bytes, (ColumnModifier)null);
+    }
+
+    public Object toObject(byte[] bytes, ColumnModifier columnModifier) {
+        return toObject(bytes, 0, bytes.length, this, columnModifier);
     }
 
     private static final Map<String, PDataType> SQL_TYPE_NAME_TO_PCOLUMN_DATA_TYPE;
