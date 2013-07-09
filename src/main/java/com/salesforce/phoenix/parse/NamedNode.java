@@ -6,6 +6,15 @@ public class NamedNode {
     private final String name;
     private final boolean isCaseSensitive;
     
+    public static NamedNode caseSensitiveNamedNode(String name) {
+        return new NamedNode(name,true);
+    }
+    
+    private NamedNode(String name, boolean isCaseSensitive) {
+        this.name = name;
+        this.isCaseSensitive = isCaseSensitive;
+    }
+
     NamedNode(String name) {
         this.name = SchemaUtil.normalizeIdentifier(name);
         this.isCaseSensitive = name == null ? false : SchemaUtil.isCaseSensitive(name);

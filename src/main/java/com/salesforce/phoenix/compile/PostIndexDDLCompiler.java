@@ -36,8 +36,8 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.MetaDataUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -46,9 +46,11 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 public class PostIndexDDLCompiler implements PostOpCompiler {
     private final PhoenixConnection connection;
+    private final PTable dataTable;
 
-    public PostIndexDDLCompiler(PhoenixConnection connection) {
+    public PostIndexDDLCompiler(PhoenixConnection connection, PTable dataTable) {
         this.connection = connection;
+        this.dataTable = dataTable;
     }
 
     @Override
@@ -83,19 +85,31 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
                 //   will as a result take a very very long time.
                 //   In the long term, we should change this to an asynchronous process to populate the index
                 //   that would allow the user to easily monitor the process of index creation.
-                StringBuilder columns = new StringBuilder();
-                PTable dataTable = tableRef.getTable();
+                StringBuilder indexColumns = new StringBuilder();
+                StringBuilder dataColumns = new StringBuilder();
+                PTable indexTable = tableRef.getTable();
                 for (PColumn col: dataTable.getColumns()) {
-                    columns.append(col.getName()).append(",");
+                    String indexColName = IndexUtil.getIndexColumnName(col);
+                    try {
+                        indexTable.getColumn(indexColName);
+                        if (col.getFamilyName() != null) {
+                            dataColumns.append('"').append(col.getFamilyName()).append("\".");
+                        }
+                        dataColumns.append('"').append(col.getName()).append("\",");
+                        indexColumns.append('"').append(indexColName).append("\",");
+                    } catch (ColumnNotFoundException e) {
+                        // Catch and ignore - means that this data column is not in the index
+                    }
                 }
-                columns.deleteCharAt(columns.length()-1);
+                dataColumns.setLength(dataColumns.length()-1);
+                indexColumns.setLength(indexColumns.length()-1);
                 String schemaName = tableRef.getSchema().getName();
-                String tableName = dataTable.getName().getString();
+                String tableName = tableRef.getTable().getName().getString();
                 
                 StringBuilder updateStmtStr = new StringBuilder();
-                updateStmtStr.append("UPSERT INTO ").append(SchemaUtil.getTableDisplayName(schemaName, tableName)).append("(")
-                    .append(columns).append(") SELECT ").append(columns).append(" FROM ")
-                    .append(SchemaUtil.getTableDisplayName(schemaName, dataTable.getName().getString()));
+                updateStmtStr.append("UPSERT INTO ").append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(tableName).append("\"(")
+                    .append(indexColumns).append(") SELECT ").append(dataColumns).append(" FROM ")
+                    .append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(dataTable.getName().getString()).append('"');
                 PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
                 boolean wasAutoCommit = connection.getAutoCommit();
                 int rowsUpdated = 0;

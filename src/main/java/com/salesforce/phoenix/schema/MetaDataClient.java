@@ -51,8 +51,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.util.MetaDataUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 
 public class MetaDataClient {
     private static final ParseNodeFactory FACTORY = new ParseNodeFactory();
@@ -233,29 +232,29 @@ public class MetaDataClient {
         }
     }
 
-    // Since we cannot have nullable fixed length in a row key
-    // we need to translate to variable length.
-    private PDataType getIndexRowKeyDataType(PColumn col) throws SQLException {
-        if (!col.isNullable() || !col.getDataType().isFixedWidth()) {
-            return col.getDataType();
-        }
-        // for INT, BIGINT
-        if (col.getDataType().isCoercibleTo(PDataType.DECIMAL)) {
-            return PDataType.DECIMAL;
-        }
-        // for CHAR
-        if (col.getDataType().isCoercibleTo(PDataType.VARCHAR)) {
-            return PDataType.VARCHAR;
-        }
-        // Should not happen;
-        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(col.getName().getString())
-            .setMessage("Type="+col.getDataType()).build().buildException();
-    }
-
     public MutationState createTable(CreateTableStatement statement, byte[][] splits) throws SQLException {
         return createTable(statement, splits, new PostDDLCompiler(connection), null);
     }
 
+    /**
+     * Create an index table by morphing the CreateIndexStatement into a CreateTableStatement and calling
+     * MetaDataClient.createTable. In doing so, we perform the following translations:
+     * 1) Change the type of any columns being indexed to types that support null if the column is nullable.
+     *    For example, a BIGINT type would be coerced to a DECIMAL type, since a DECIMAL type supports null
+     *    when it's in the row key while a BIGINT does not.
+     * 2) Append any row key column from the data table that is not in the indexed column list. Our indexes
+     *    rely on having a 1:1 correspondence between the index and data rows.
+     * 3) Change the name of the columns to include the column family. For example, if you have a column
+     *    named "B" in a column family named "A", the indexed column name will be "A:B". This makes it easy
+     *    to translate the column references in a query to the correct column references in an index table
+     *    regardless of whether the column reference is prefixed with the column family name or not. It also
+     *    has the side benefit of allowing the same named column in different column families to both be
+     *    listed as an index column.
+     * @param statement
+     * @param splits
+     * @return
+     * @throws SQLException
+     */
     public MutationState createIndex(CreateIndexStatement statement, byte[][] splits) throws SQLException {
         // TODO: do we need to pass FACTORY in?
         PrimaryKeyConstraint pk = statement.getIndexConstraint();
@@ -267,38 +266,43 @@ public class MetaDataClient {
         List<Pair<ColumnName, ColumnModifier>> allPkColumns = Lists.newArrayListWithExpectedSize(unusedPkColumns.size());
         List<ColumnDef> columnDefs = Lists.newArrayListWithExpectedSize(includedColumns.size() + indexedPkColumns.size());
         
-        allPkColumns.addAll(indexedPkColumns);
         for (Pair<ColumnName, ColumnModifier> pair : indexedPkColumns) {
             ColumnName colName = pair.getFirst();
             PColumn col = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName()).getColumn();
             unusedPkColumns.remove(col);
-            PDataType dataType = getIndexRowKeyDataType(col);
+            PDataType dataType = IndexUtil.getIndexColumnDataType(col);
+            colName = SchemaUtil.isPKColumn(col) ? colName : ColumnName.caseSensitiveColumnName(IndexUtil.getIndexColumnName(col));
+            allPkColumns.add(new Pair<ColumnName, ColumnModifier>(colName, col.getColumnModifier()));
             columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, pair.getSecond()));
+        }
+        
+        for (ColumnName colName : includedColumns) {
+            PColumn col = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName()).getColumn();
+            colName = SchemaUtil.isPKColumn(col) ? colName : ColumnName.caseSensitiveColumnName(IndexUtil.getIndexColumnName(col));
+            // Check for duplicates between indexed and included columns
+            if (pk.contains(colName)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.COLUMN_EXIST_IN_DEF).build().buildException();
+            }
+            if (!SchemaUtil.isPKColumn(col)) {
+                // Need to re-create ColumnName, since the above one won't have the column family name
+                colName = ColumnName.caseSensitiveColumnName(col.getFamilyName().getString(), IndexUtil.getIndexColumnName(col));
+                columnDefs.add(FACTORY.columnDef(colName, col.getDataType().getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, col.getColumnModifier()));
+            }
         }
         
         if (!unusedPkColumns.isEmpty()) {
             for (PColumn col : unusedPkColumns) {
-                ColumnName colName = FACTORY.columnName(col.getName().getString());
+                ColumnName colName = ColumnName.caseSensitiveColumnName(col.getName().getString());
                 allPkColumns.add(new Pair<ColumnName, ColumnModifier>(colName, col.getColumnModifier()));
-                PDataType dataType = getIndexRowKeyDataType(col);
+                PDataType dataType = IndexUtil.getIndexColumnDataType(col);
                 columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, col.getColumnModifier()));
             }
             pk = FACTORY.primaryKey(null, allPkColumns);
         }
         
-        for (ColumnName colName : includedColumns) {
-            PColumn col = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName()).getColumn();
-            if (pk.contains(colName)) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.COLUMN_EXIST_IN_DEF).build().buildException();
-            }
-            if (!SchemaUtil.isPKColumn(col)) {
-                columnDefs.add(FACTORY.columnDef(colName, col.getDataType().getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, col.getColumnModifier()));
-            }
-        }
-        
         CreateTableStatement tableStatement = FACTORY.createTable(statement.getIndexTableName(), statement.getProps(), columnDefs, pk, statement.getSplitNodes(), PTableType.INDEX, statement.ifNotExists(), statement.getBindCount());
         
-        return createTable(tableStatement, splits, new PostIndexDDLCompiler(connection), tableRef.getTable());
+        return createTable(tableStatement, splits, new PostIndexDDLCompiler(connection, tableRef.getTable()), tableRef.getTable());
     }
 
     private MutationState createTable(CreateTableStatement statement, byte[][] splits, PostOpCompiler compiler, PTable parent) throws SQLException {
