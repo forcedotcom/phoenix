@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.http.annotation.Immutable;
 
 import com.salesforce.phoenix.memory.MemoryManager;
+import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SQLCloseable;
 
@@ -160,6 +161,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String MAX_HASH_CACHE_TIME_TO_LIVE_MS = "phoenix.coprocessor.maxHashCacheTimeToLiveMs";
     public static final String MAX_INTRA_REGION_PARALLELIZATION_ATTRIB  = "phoenix.query.maxIntraRegionParallelization";
     public static final String ROW_KEY_ORDER_SALTED_TABLE_ATTRIB  = "phoenix.query.rowKeyOrderSaltedTable";
+    public static final String USE_INDEXES_ATTRIB  = "phoenix.query.useIndexes";
 
     public static final String CALL_QUEUE_PRODUCER_ATTRIB_NAME = "CALL_QUEUE_PRODUCER";
     
@@ -186,4 +188,9 @@ public interface QueryServices extends SQLCloseable {
      * read-only structure that avoids any synchronization
      */
     public ReadOnlyProps getProps();
+    
+    /**
+     * Get query optimizer used to choose the best query plan
+     */
+    public QueryOptimizer getOptimizer();
 }

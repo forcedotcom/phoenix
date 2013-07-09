@@ -111,7 +111,7 @@ public class FromCompiler {
                     if (!table.getDynamicColumns().isEmpty()) {
                         theTable = this.addDynamicColumns(table.getDynamicColumns(), theTable);
                     }
-                    tableRef = new TableRef(null, theTable, theSchema, timeStamp);
+                    tableRef = new TableRef(null, theTable, theSchema, timeStamp, !table.getDynamicColumns().isEmpty());
                     break;
                 } catch (SchemaNotFoundException e) {
                     sqlE = new TableNotFoundException(schemaName, tableName);
@@ -226,7 +226,7 @@ public class FromCompiler {
             if (!dynamicColumnDefs.isEmpty()) {
                 theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
             }
-            TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp);
+            TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp, !dynamicColumnDefs.isEmpty());
             return tableRef;
         }
 

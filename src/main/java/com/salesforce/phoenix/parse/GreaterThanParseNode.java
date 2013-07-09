@@ -50,8 +50,7 @@ public class GreaterThanParseNode extends ComparisonParseNode {
     }
 
     @Override
-    public ComparisonParseNode invert(ParseNodeFactory factory) {
-        return factory.lt(this.getRHS(), this.getLHS());
+    public CompareOp getInvertFilterOp() {
+        return CompareOp.LESS;
     }
-    
 }

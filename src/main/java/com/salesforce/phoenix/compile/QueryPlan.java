@@ -30,6 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
@@ -52,10 +53,8 @@ public interface QueryPlan extends StatementPlan {
      */
     Scanner getScanner() throws SQLException;
     
-    boolean isAggregate();
-    
     // TODO: change once joins are supported
-    TableRef getTable();
+    TableRef getTableRef();
     /**
      * Returns projector used to formulate resultSet row
      */
@@ -65,5 +64,9 @@ public interface QueryPlan extends StatementPlan {
 
     OrderBy getOrderBy();
 
+    GroupBy getGroupBy();
+
     List<KeyRange> getSplits();
+
+    StatementContext getContext();
 }

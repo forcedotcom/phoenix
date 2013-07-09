@@ -63,6 +63,7 @@ public class QueryServicesOptions {
     public static final boolean DEFAULT_CALL_QUEUE_ROUND_ROBIN = true; 
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
     public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = false; // Merge sort on client to ensure salted tables are row key ordered
+    public static final boolean DEFAULT_USE_INDEXES = true; // Use indexes
     
     public final static int DEFAULT_MUTATE_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT and DELETE
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
@@ -116,6 +117,7 @@ public class QueryServicesOptions {
             .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
             .setIfUnset(MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, DEFAULT_MAX_INTRA_REGION_PARALLELIZATION)
             .setIfUnset(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)
+            .setIfUnset(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES)
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
@@ -288,6 +290,10 @@ public class QueryServicesOptions {
     
     public int getRegionBoundaryCacheTTLMs() {
         return config.getInt(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS);
+    }
+
+    public boolean isUseIndexes() {
+        return config.getBoolean(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES);
     }
 
     public QueryServicesOptions setMaxHashCacheTTLMs(int ttl) {

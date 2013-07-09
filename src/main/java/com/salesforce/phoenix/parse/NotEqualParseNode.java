@@ -50,7 +50,7 @@ public class NotEqualParseNode extends ComparisonParseNode {
     }
 
     @Override
-    public ComparisonParseNode invert(ParseNodeFactory factory) {
-        return this;
+    public CompareOp getInvertFilterOp() {
+        return CompareOp.NOT_EQUAL;
     }
 }

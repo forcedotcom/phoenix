@@ -31,6 +31,7 @@ import java.lang.reflect.Constructor;
 import java.sql.SQLException;
 import java.util.*;
 
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ListMultimap;
@@ -310,11 +311,6 @@ public class ParseNodeFactory {
     }
 
 
-    public EqualParseNode equal(ParseNode lhs, ParseNode rhs) {
-        return new EqualParseNode(lhs, rhs);
-    }
-
-
     public FunctionParseNode functionDistinct(String name, List<ParseNode> args) {
         if (CountAggregateFunction.NAME.equals(SchemaUtil.normalizeIdentifier(name))) {
             BuiltInFunctionInfo info = getInfo(
@@ -352,15 +348,6 @@ public class ParseNodeFactory {
         children.add(new LiteralParseNode(Boolean.valueOf(isAscending)));
         children.add(valueNodes.get(0));
         return function(name, children);
-    }
-
-    public GreaterThanParseNode gt(ParseNode lhs, ParseNode rhs) {
-        return new GreaterThanParseNode(lhs, rhs);
-    }
-
-
-    public GreaterThanOrEqualParseNode gte(ParseNode lhs, ParseNode rhs) {
-        return new GreaterThanOrEqualParseNode(lhs, rhs);
     }
 
 
@@ -430,6 +417,33 @@ public class ParseNodeFactory {
         return literalNode;
     }
 
+    public ComparisonParseNode comparison(CompareOp op, ParseNode lhs, ParseNode rhs) {
+        switch (op){
+        case LESS:
+            return lt(lhs,rhs);
+        case LESS_OR_EQUAL:
+            return lte(lhs,rhs);
+        case EQUAL:
+            return equal(lhs,rhs);
+        case NOT_EQUAL:
+            return notEqual(lhs,rhs);
+        case GREATER_OR_EQUAL:
+            return gte(lhs,rhs);
+        case GREATER:
+            return gt(lhs,rhs);
+        default:
+            throw new IllegalArgumentException("Unexpcted CompareOp of " + op);
+        }
+    }
+
+    public GreaterThanParseNode gt(ParseNode lhs, ParseNode rhs) {
+        return new GreaterThanParseNode(lhs, rhs);
+    }
+
+
+    public GreaterThanOrEqualParseNode gte(ParseNode lhs, ParseNode rhs) {
+        return new GreaterThanOrEqualParseNode(lhs, rhs);
+    }
 
     public LessThanParseNode lt(ParseNode lhs, ParseNode rhs) {
         return new LessThanParseNode(lhs, rhs);
@@ -440,19 +454,21 @@ public class ParseNodeFactory {
         return new LessThanOrEqualParseNode(lhs, rhs);
     }
 
+    public EqualParseNode equal(ParseNode lhs, ParseNode rhs) {
+        return new EqualParseNode(lhs, rhs);
+    }
+
 
     public MultiplyParseNode negate(ParseNode child) {
         return new MultiplyParseNode(Arrays.asList(child,this.literal(-1)));
     }
 
+    public NotEqualParseNode notEqual(ParseNode lhs, ParseNode rhs) {
+        return new NotEqualParseNode(lhs, rhs);
+    }
 
     public NotParseNode not(ParseNode child) {
         return new NotParseNode(child);
-    }
-
-
-    public NotEqualParseNode notEqual(ParseNode lhs, ParseNode rhs) {
-        return new NotEqualParseNode(lhs, rhs);
     }
 
 
@@ -486,6 +502,10 @@ public class ParseNodeFactory {
 
     public SelectStatement select(SelectStatement statement, ParseNode where, ParseNode having) {
         return select(statement.getFrom(), statement.getHint(), statement.isDistinct(), statement.getSelect(), where, statement.getGroupBy(), having, statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+    }
+
+    public SelectStatement select(SelectStatement statement, List<TableNode> tables) {
+        return select(tables, statement.getHint(), statement.isDistinct(), statement.getSelect(), statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
 
     public SubqueryParseNode subquery(SelectStatement select) {

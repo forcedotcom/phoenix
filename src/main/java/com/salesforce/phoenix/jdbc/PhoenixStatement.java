@@ -156,15 +156,15 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public QueryPlan compilePlan(List<Object> binds) throws SQLException {
-            QueryCompiler compiler = new QueryCompiler(connection, getMaxRows());
-            return lastQueryPlan = compiler.compile(this, binds);
+            return lastQueryPlan = connection.getQueryServices().getOptimizer().optimize(this, PhoenixStatement.this, binds);
         }
         
         @Override
         public ResultSetMetaData getResultSetMetaData() throws SQLException {
             if (resultSetMetaData == null) {
+                // Just compile top level query without optimizing to get ResultSetMetaData
                 List<Object> nullParameters = Arrays.asList(new Object[this.getBindCount()]);
-                QueryPlan plan = compilePlan(nullParameters);
+                QueryPlan plan = new QueryCompiler(connection, getMaxRows()).compile(this, nullParameters);
                 resultSetMetaData = new PhoenixResultSetMetaData(connection, plan.getProjector());
             }
             return resultSetMetaData;
@@ -827,6 +827,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     public boolean execute(String sql) throws SQLException {
         throwIfUnboundParameters();
         return parseStatement(sql).execute();
+    }
+
+    public QueryPlan compileQuery(String sql) throws SQLException {
+        throwIfUnboundParameters();
+        return (QueryPlan)parseStatement(sql).compilePlan(this.getParameters());
     }
 
     @Override

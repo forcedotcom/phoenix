@@ -161,7 +161,7 @@ public class UpsertCompiler {
             nValuesToSet = projector.getColumnCount();
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
-            runOnServer = !plan.isAggregate() && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() == null;
+            runOnServer = plan.getGroupBy()==null && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() == null;
         } else {
             nValuesToSet = valueNodes.size();
         }

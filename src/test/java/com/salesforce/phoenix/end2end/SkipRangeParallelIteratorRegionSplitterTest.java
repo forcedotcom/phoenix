@@ -98,7 +98,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         Connection conn = DriverManager.getConnection(url, props);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
         PSchema schema = pconn.getPMetaData().getSchemas().get("");
-        TableRef table = new TableRef(null,schema.getTable(TABLE_NAME),schema, ts);
+        TableRef table = new TableRef(null,schema.getTable(TABLE_NAME),schema, ts, false);
         NavigableMap<HRegionInfo, ServerName> regions = pconn.getQueryServices().getAllTableRegions(table);
         
         conn.close();

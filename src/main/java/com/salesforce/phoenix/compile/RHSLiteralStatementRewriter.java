@@ -25,64 +25,41 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.compile;
 
-import java.util.concurrent.ExecutorService;
+import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.job.JobManager;
-import com.salesforce.phoenix.memory.GlobalMemoryManager;
-import com.salesforce.phoenix.memory.MemoryManager;
-import com.salesforce.phoenix.optimize.QueryOptimizer;
-import com.salesforce.phoenix.util.ReadOnlyProps;
-
+import com.salesforce.phoenix.parse.*;
 
 
 /**
  * 
- * Base class for QueryService implementors.
+ * Class that creates a new select statement ensuring that a literal always occurs
+ * on the RHS (i.e. if literal found on the LHS, then the operator is reversed and
+ * the literal is put on the RHS)
  *
  * @author jtaylor
  * @since 0.1
  */
-public abstract class BaseQueryServicesImpl implements QueryServices {
-    private final ExecutorService executor;
-    private final MemoryManager memoryManager;
-    private final ReadOnlyProps props;
-    private final QueryOptimizer queryOptimizer;
+public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
     
-    public BaseQueryServicesImpl(QueryServicesOptions options) {
-        this.executor =  JobManager.createThreadPoolExec(
-                options.getKeepAliveMs(), 
-                options.getThreadPoolSize(), 
-                options.getQueueSize());
-        this.memoryManager = new GlobalMemoryManager(
-                Runtime.getRuntime().totalMemory() * options.getMaxMemoryPerc() / 100,
-                options.getMaxMemoryWaitMs());
-        this.props = options.getProps();
-        this.queryOptimizer = new QueryOptimizer(this);
+    /**
+     * Rewrite the select statement by switching any constants to the right hand side
+     * of the expression.
+     * @param statement the select statement
+     * @return new select statement
+     * @throws SQLException 
+     */
+    public static SelectStatement normalize(SelectStatement statement) throws SQLException {
+        return rewrite(statement, new RHSLiteralStatementRewriter());
     }
     
     @Override
-    public ExecutorService getExecutor() {
-        return executor;
+    public ParseNode visitLeave(ComparisonParseNode node, List<ParseNode> nodes) throws SQLException {
+         if (nodes.get(0).isConstant() && !nodes.get(1).isConstant()) {
+             return NODE_FACTORY.comparison(node.getInvertFilterOp(), nodes.get(1), nodes.get(0));
+         }
+         return super.visitLeave(node, nodes);
     }
-
-    @Override
-    public MemoryManager getMemoryManager() {
-        return memoryManager;
-    }
-
-    @Override
-    public final ReadOnlyProps getProps() {
-        return props;
-    }
-
-    @Override
-    public void close() {
-    }
-
-    @Override
-    public QueryOptimizer getOptimizer() {
-        return queryOptimizer;
-    }   
 }

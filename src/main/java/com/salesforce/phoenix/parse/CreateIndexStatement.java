@@ -49,7 +49,7 @@ public class CreateIndexStatement extends SingleTableSQLStatement {
         super(dataTable, bindCount);
         this.indexTableName = new TableName(dataTable.getName().getSchemaName(),indexTableName.getName());
         this.indexConstraint = indexConstraint == null ? PrimaryKeyConstraint.EMPTY : indexConstraint;
-        this.includeColumns = includeColumns;
+        this.includeColumns = includeColumns == null ? Collections.<ColumnName>emptyList() : includeColumns;
         this.splitNodes = splits == null ? Collections.<ParseNode>emptyList() : splits;
         this.props = props;
         this.ifNotExists = ifNotExists;

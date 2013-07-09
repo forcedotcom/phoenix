@@ -520,7 +520,7 @@ public class MetaDataClient {
                     // Getting the schema through the current connection doesn't work when the connection has an scn specified
                     // Since the table won't be added to the current connection.
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
-                    TableRef tableRef = new TableRef(null, table, schema, ts);
+                    TableRef tableRef = new TableRef(null, table, schema, ts, false);
                     byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
                     MutationPlan plan = compiler.compile(tableRef, emptyCF, null, tableRef.getTimeStamp());
                     return connection.getQueryServices().updateData(plan);
@@ -590,7 +590,7 @@ public class MetaDataClient {
                     // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
                     PTable table = result.getTable();
                     PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
-                    TableRef tableRef = new TableRef(null, table, schema, ts);
+                    TableRef tableRef = new TableRef(null, table, schema, ts, false);
                     MutationPlan plan = new PostDDLCompiler(connection).compile(tableRef, null, Collections.<PColumn>emptyList(), tableRef.getTimeStamp());
                     return connection.getQueryServices().updateData(plan);
                 }
@@ -717,7 +717,7 @@ public class MetaDataClient {
                         connection.setAutoCommit(true);
                         // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                         long ts = (scn == null ? result.getMutationTime() : scn);
-                        MutationPlan plan = new PostDDLCompiler(connection).compile(new TableRef(null, table, schema, ts), emptyCF, null, ts);
+                        MutationPlan plan = new PostDDLCompiler(connection).compile(new TableRef(null, table, schema, ts, false), emptyCF, null, ts);
                         return connection.getQueryServices().updateData(plan);
                     }
                     return new MutationState(0,connection);

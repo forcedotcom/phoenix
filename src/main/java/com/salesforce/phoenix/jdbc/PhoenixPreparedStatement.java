@@ -22,6 +22,7 @@ import java.sql.*;
 import java.sql.Date;
 import java.util.*;
 
+import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.StatementPlan;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.SQLCloseable;
@@ -89,6 +90,12 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
         throwIfUnboundParameters();
         return statement.executeQuery();
     }
+
+    public QueryPlan compileQuery() throws SQLException {
+        throwIfUnboundParameters();
+        return (QueryPlan)statement.compilePlan(this.getParameters());
+    }
+
 
     @Override
     public int executeUpdate() throws SQLException {

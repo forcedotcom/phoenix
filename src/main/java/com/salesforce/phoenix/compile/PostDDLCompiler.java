@@ -112,7 +112,7 @@ public class PostDDLCompiler implements PostOpCompiler {
                 if (tableRef.getTable().getType() == PTableType.INDEX) {
                     PTable table = tableRef.getTable();
                     for (PTable index: table.getIndexes()) {
-                        tableRefs.add(new TableRef(null, index, tableRef.getSchema(), timestamp));
+                        tableRefs.add(new TableRef(null, index, tableRef.getSchema(), timestamp, false));
                     }
                 }
                 ColumnResolver resolver = new ColumnResolver() {

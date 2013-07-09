@@ -53,7 +53,7 @@ public class ScanPlan extends BasicQueryPlan {
     private List<KeyRange> splits;
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy) {
-        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy);
+        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null);
         if (!orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
             int thresholdBytes = context.getConnection().getQueryServices().getProps().getInt(
                     QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
@@ -67,16 +67,11 @@ public class ScanPlan extends BasicQueryPlan {
     }
     
     @Override
-    public boolean isAggregate() {
-        return false;
-    }
-    
-    @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
         // Set any scan attributes before creating the scanner, as it will be too late afterwards
         context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
         ResultIterator scanner;
-        TableRef tableRef = this.getTable();
+        TableRef tableRef = this.getTableRef();
         PTable table = tableRef.getTable();
         boolean isSalted = table.getBucketNum() != null;
         /* If no limit or topN, use parallel iterator so that we get results faster. Otherwise, if

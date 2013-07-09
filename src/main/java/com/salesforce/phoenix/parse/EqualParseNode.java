@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import org.apache.hadoop.hbase.filter.CompareFilter;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 
 
@@ -46,11 +45,11 @@ public class EqualParseNode extends ComparisonParseNode {
 
     @Override
     public CompareOp getFilterOp() {
-        return CompareFilter.CompareOp.EQUAL;
+        return CompareOp.EQUAL;
     }
 
     @Override
-    public ComparisonParseNode invert(ParseNodeFactory factory) {
-        return factory.equal(this.getRHS(), this.getLHS());
+    public CompareOp getInvertFilterOp() {
+        return CompareOp.EQUAL;
     }
 }
