@@ -252,7 +252,7 @@ public class MetaDataClient {
      *    listed as an index column.
      * @param statement
      * @param splits
-     * @return
+     * @return MutationState from population of index table from data table
      * @throws SQLException
      */
     public MutationState createIndex(CreateIndexStatement statement, byte[][] splits) throws SQLException {
