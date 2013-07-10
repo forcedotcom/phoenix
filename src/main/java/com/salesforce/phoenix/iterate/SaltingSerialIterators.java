@@ -35,7 +35,6 @@ import org.apache.hadoop.hbase.client.Scan;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.execute.ScanRowCounter;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -72,7 +71,7 @@ public class SaltingSerialIterators implements ResultIterators {
             byte[] startKey, byte[] endKey, List<PeekingResultIterator> iterators) throws SQLException {
         Scan scan = ScanUtil.newScan(context.getScan());
         if (ScanUtil.intersectScanRange(scan, startKey, endKey)) {
-            final ResultIterator delegate = new SerialLimitingResultIterator(new TableResultIterator(context, tableRef, scan), limit, new ScanRowCounter());
+            final ResultIterator delegate = new LimitingResultIterator(new TableResultIterator(context, tableRef, scan), limit);
             iterators.add(new LookAheadResultIterator() {
 
                 @Override
