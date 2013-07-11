@@ -60,7 +60,7 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator {
         if (count == null) {
             this.valueVsCount.put(key, 1);
         } else {
-            this.valueVsCount.put(key, count++);
+            this.valueVsCount.put(key, ++count);
         }
     }
 
