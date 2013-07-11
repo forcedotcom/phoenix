@@ -128,6 +128,88 @@ public class PercentileTest extends BaseClientMangedTimeTest {
     }
 
     @Test
+	public void testPercentileDiscAsc() throws Exception {
+		long ts = nextTimestamp();
+		String tenantId = getOrganizationId();
+		initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+		String query = "SELECT PERCENTILE_DISC(0.9) WITHIN GROUP (ORDER BY A_INTEGER ASC) FROM aTable";
+
+		Properties props = new Properties(TEST_PROPERTIES);
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+				Long.toString(ts + 2)); // Execute at
+										// timestamp 2
+		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+		try {
+			PreparedStatement statement = conn.prepareStatement(query);
+			ResultSet rs = statement.executeQuery();
+			assertTrue(rs.next());
+			int percentile_disc = rs.getInt(1);
+			assertEquals(9, percentile_disc);
+			assertFalse(rs.next());
+		} finally {
+			conn.close();
+		}
+	}
+	
+	@Test
+	public void testPercentileDiscDesc() throws Exception {
+		long ts = nextTimestamp();
+		String tenantId = getOrganizationId();
+		initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+		String query = "SELECT PERCENTILE_DISC(0.9) WITHIN GROUP (ORDER BY A_INTEGER DESC) FROM aTable";
+
+		Properties props = new Properties(TEST_PROPERTIES);
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+				Long.toString(ts + 2)); // Execute at
+										// timestamp 2
+		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+		try {
+			PreparedStatement statement = conn.prepareStatement(query);
+			ResultSet rs = statement.executeQuery();
+			assertTrue(rs.next());
+			int percentile_disc = rs.getInt(1);
+			assertEquals(1, percentile_disc);
+			assertFalse(rs.next());
+		} finally {
+			conn.close();
+		}
+	}
+    
+    @Test
+    public void testPercentileDiscWithGroupby() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, null, getDefaultSplits(tenantId), null, ts);
+
+        String query = "SELECT A_STRING, PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY A_INTEGER ASC) FROM aTable GROUP BY A_STRING";
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at
+                                                                                     // timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals("a",rs.getString(1));
+            int percentile_disc = rs.getInt(2);
+            assertEquals(2, percentile_disc);
+            assertTrue(rs.next());
+            assertEquals("b",rs.getString(1));
+            percentile_disc = rs.getInt(2);
+            assertEquals(5, percentile_disc);
+            assertTrue(rs.next());
+            assertEquals("c",rs.getString(1));
+            percentile_disc = rs.getInt(2);
+            assertEquals(8, percentile_disc);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    @Test
     public void testPercentRank() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
@@ -220,7 +302,7 @@ public class PercentileTest extends BaseClientMangedTimeTest {
             assertTrue(rs.next());
             BigDecimal rank = rs.getBigDecimal(1);
             rank = rank.setScale(2, RoundingMode.HALF_UP);
-            assertEquals(0.33, rank.doubleValue(), 0.0);
+            assertEquals(0.11, rank.doubleValue(), 0.0);
             assertFalse(rs.next());
         } finally {
             conn.close();

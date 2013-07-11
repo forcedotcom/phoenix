@@ -90,7 +90,8 @@ public enum ExpressionType {
     PercentileContAggregateFunction(PercentileContAggregateFunction.class),
     PercentRankAggregateFunction(PercentRankAggregateFunction.class),
     StddevPopFunction(StddevPopFunction.class),
-    StddevSampFunction(StddevSampFunction.class);
+    StddevSampFunction(StddevSampFunction.class),
+    PercentileDiscAggregateFunction(PercentileDiscAggregateFunction.class);
 
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
