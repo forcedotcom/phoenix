@@ -77,7 +77,7 @@ public class ScanPlan extends BasicQueryPlan {
         /* If no limit or topN, use parallel iterator so that we get results faster. Otherwise, if
          * limit is provided, run query serially.
          */
-        ParallelIterators iterators = new ParallelIterators(context, tableRef, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY, orderBy.getOrderByExpressions().isEmpty() ? limit : null);
+        ParallelIterators iterators = new ParallelIterators(context, tableRef, GroupBy.EMPTY_GROUP_BY, orderBy.getOrderByExpressions().isEmpty() ? limit : null);
         splits = iterators.getSplits();
         if (limit == null || !orderBy.getOrderByExpressions().isEmpty()) {
             if (orderBy.getOrderByExpressions().isEmpty()) {

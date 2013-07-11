@@ -36,14 +36,11 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.ServerUtil;
-import com.salesforce.phoenix.util.TupleUtil;
+import com.salesforce.phoenix.util.*;
 
 
 
@@ -57,7 +54,6 @@ import com.salesforce.phoenix.util.TupleUtil;
  */
 public class SpoolingResultIterator implements PeekingResultIterator {
     private final PeekingResultIterator spoolFrom;
-    private long rowCount;
     
     /**
      * Create a result iterator by iterating through the results of a scan, spooling them to disk once
@@ -66,10 +62,9 @@ public class SpoolingResultIterator implements PeekingResultIterator {
      * @param mm memory manager tracking memory usage across threads.
      * @param thresholdBytes the requested threshold.  Will be dialed down if memory usage (as determined by
      *  the memory manager) is exceeded.
-     * @param rowCounter 
      * @throws SQLException
      */
-    public SpoolingResultIterator(ResultIterator scanner, MemoryManager mm, int thresholdBytes, RowCounter rowCounter) throws SQLException {
+    public SpoolingResultIterator(ResultIterator scanner, MemoryManager mm, int thresholdBytes) throws SQLException {
         boolean success = false;
         boolean usedOnDiskIterator = false;
         final MemoryChunk chunk = mm.allocate(0, thresholdBytes);
@@ -90,7 +85,6 @@ public class SpoolingResultIterator implements PeekingResultIterator {
             for (Tuple result = scanner.next(); result != null; result = scanner.next()) {
                 int length = TupleUtil.write(result, out);
                 maxSize = Math.max(length, maxSize);
-                rowCount += rowCounter.calculate(result);
             }
             spoolTo.close();
             if (spoolTo.isInMemory()) {
@@ -121,10 +115,6 @@ public class SpoolingResultIterator implements PeekingResultIterator {
         }
     }
 
-    public long getRowCount() {
-        return rowCount;
-    }
-    
     @Override
     public Tuple peek() throws SQLException {
         return spoolFrom.peek();

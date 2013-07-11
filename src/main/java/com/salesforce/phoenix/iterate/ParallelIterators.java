@@ -41,7 +41,6 @@ import org.apache.hadoop.hbase.util.Pair;
 import com.google.common.base.Function;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.StatementContext;
-import com.salesforce.phoenix.execute.RowCounter;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.query.*;
@@ -58,7 +57,6 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class ParallelIterators extends ExplainTable implements ResultIterators {
-    private final RowCounter rowCounter;
     private final List<KeyRange> splits;
 
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
@@ -71,9 +69,8 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         }
     };
 
-    public ParallelIterators(StatementContext context, TableRef table, RowCounter rowCounter, GroupBy groupBy, Integer limit) throws SQLException {
+    public ParallelIterators(StatementContext context, TableRef table, GroupBy groupBy, Integer limit) throws SQLException {
         super(context, table, groupBy);
-        this.rowCounter = rowCounter;
         this.splits = getSplits(context, table);
         if (limit != null) {
             ScanUtil.andFilterAtEnd(context.getScan(), new PageFilter(limit));
@@ -122,7 +119,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                             public PeekingResultIterator call() throws Exception {
                                 // TODO: different HTableInterfaces for each thread or the same is better?
                                 ResultIterator scanner = new TableResultIterator(context, table, splitScan);
-                                return new SpoolingResultIterator(scanner, mm, spoolThresholdBytes, rowCounter);
+                                return new SpoolingResultIterator(scanner, mm, spoolThresholdBytes);
                             }
     
                             /**

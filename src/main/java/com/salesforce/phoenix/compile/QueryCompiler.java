@@ -121,7 +121,7 @@ public class QueryCompiler {
         // expressions as group by key expressions since they're pre, not post filtered.
         WhereCompiler.getWhereClause(context, statement.getWhere());
         OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, isDistinct, limit, aliasParseNodeMap); 
-        RowProjector projector = ProjectionCompiler.getRowProjector(context, statement.getSelect(), statement.isDistinct(), groupBy, orderBy, limit, targetColumns);
+        RowProjector projector = ProjectionCompiler.getRowProjector(context, statement.getSelect(), statement.isDistinct(), groupBy, orderBy, targetColumns);
         
         // Final step is to build the query plan
         TableRef table = resolver.getTables().get(0);
