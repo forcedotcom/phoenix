@@ -77,9 +77,9 @@ public class ScanPlan extends BasicQueryPlan {
         /* If no limit or topN, use parallel iterator so that we get results faster. Otherwise, if
          * limit is provided, run query serially.
          */
+        ParallelIterators iterators = new ParallelIterators(context, tableRef, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY, orderBy.getOrderByExpressions().isEmpty() ? limit : null);
+        splits = iterators.getSplits();
         if (limit == null || !orderBy.getOrderByExpressions().isEmpty()) {
-            ParallelIterators iterators = new ParallelIterators(context, tableRef, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY);
-            splits = iterators.getSplits();
             if (orderBy.getOrderByExpressions().isEmpty()) {
                 if (isSalted && 
                         services.getProps().getBoolean(
@@ -109,12 +109,11 @@ public class ScanPlan extends BasicQueryPlan {
                     services.getProps().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
-                ResultIterators iterators = new SaltingSerialIterators(context, tableRef, limit);
                 scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
             } else {
-                scanner = new TableResultIterator(context, tableRef);
+                scanner = new ConcatResultIterator(iterators);
             }
-            scanner = new SerialLimitingResultIterator(scanner, limit, new ScanRowCounter());
+            scanner = new LimitingResultIterator(scanner, limit);
             splits = null;
         }
 

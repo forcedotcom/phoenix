@@ -31,8 +31,7 @@ import java.text.Format;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.FilterList;
+import org.apache.hadoop.hbase.filter.*;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.*;
@@ -94,19 +93,31 @@ public abstract class ExplainTable {
         
         Scan scan = context.getScan();
         Filter filter = scan.getFilter();
+        PageFilter pageFilter = null;
         if (filter != null) {
             String filterDesc = "";
             if (hasSkipScanFilter) {
                 if (filter instanceof FilterList) {
                     FilterList filterList = (FilterList) filter;
-                    assert (filterList.getFilters().size() == 2);
                     filterDesc = filterList.getFilters().get(1).toString();
+                    if (filterList.getFilters().size() > 2) {
+                        pageFilter = (PageFilter) filterList.getFilters().get(2);
+                    }
+                }
+            } else if (filter instanceof FilterList) {
+                FilterList filterList = (FilterList) filter;
+                filterDesc = filterList.getFilters().get(0).toString();
+                if (filterList.getFilters().size() > 1) {
+                    pageFilter = (PageFilter) filterList.getFilters().get(1);
                 }
             } else {
                 filterDesc = filter.toString();
             }
             if (filterDesc.length() > 0) {
                 planSteps.add("    SERVER FILTER BY " + filterDesc);
+            }
+            if (pageFilter != null) {
+                planSteps.add("    SERVER " + pageFilter.getPageSize() + " ROW LIMIT");
             }
         }
         groupBy.explain(planSteps);

@@ -220,7 +220,7 @@ public class ProjectionCompiler {
                 // to be projected and use a FirstKeyOnlyFilter to skip from row to row.
                 // TODO: benchmark versus projecting our empty column
                 if (scan.getFamilyMap().isEmpty() && table.getColumnFamilies().size() == 1) { 
-                    ScanUtil.andFilter(scan, new FirstKeyOnlyFilter());
+                    ScanUtil.andFilterAtBeginning(scan, new FirstKeyOnlyFilter());
                     projectNotNull = false;
                 }
             }

@@ -34,6 +34,7 @@ import java.util.concurrent.*;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.PageFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -70,10 +71,13 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         }
     };
 
-    public ParallelIterators(StatementContext context, TableRef table, RowCounter rowCounter, GroupBy groupBy) throws SQLException {
+    public ParallelIterators(StatementContext context, TableRef table, RowCounter rowCounter, GroupBy groupBy, Integer limit) throws SQLException {
         super(context, table, groupBy);
         this.rowCounter = rowCounter;
         this.splits = getSplits(context, table);
+        if (limit != null) {
+            ScanUtil.andFilterAtEnd(context.getScan(), new PageFilter(limit));
+        }
     }
 
     /**
