@@ -31,6 +31,8 @@ package com.salesforce.phoenix.execute;
 import java.sql.SQLException;
 import java.util.List;
 
+import org.apache.hadoop.hbase.filter.PageFilter;
+
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
@@ -39,6 +41,7 @@ import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.util.ScanUtil;
 
 
 
@@ -74,13 +77,13 @@ public class ScanPlan extends BasicQueryPlan {
         TableRef tableRef = this.getTableRef();
         PTable table = tableRef.getTable();
         boolean isSalted = table.getBucketNum() != null;
-        /* If no limit or topN, use parallel iterator so that we get results faster. Otherwise, if
-         * limit is provided, run query serially.
-         */
+        
+        // Use parallel iterator so we get results faster.
         ParallelIterators iterators = new ParallelIterators(context, tableRef, GroupBy.EMPTY_GROUP_BY, orderBy.getOrderByExpressions().isEmpty() ? limit : null);
         splits = iterators.getSplits();
-        if (limit == null || !orderBy.getOrderByExpressions().isEmpty()) {
-            if (orderBy.getOrderByExpressions().isEmpty()) {
+        
+        if (limit == null || !orderBy.getOrderByExpressions().isEmpty()) { // no limit or has order by  
+            if (orderBy.getOrderByExpressions().isEmpty()) { // no limit
                 if (isSalted && 
                         services.getProps().getBoolean(
                                 QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
@@ -89,7 +92,7 @@ public class ScanPlan extends BasicQueryPlan {
                 } else {
                     scanner = new ConcatResultIterator(iterators);
                 }
-            } else {
+            } else { // has limit and has order by
                 // If we expect to have a small amount of data in a single region
                 // do the sort on the client side
                 if (context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) {
@@ -101,17 +104,19 @@ public class ScanPlan extends BasicQueryPlan {
                     scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
                 }
             }
-        } else {
+        } else { // has limit and no order by.
             // If we're a salted table and we're guaranteeing the same row key order traversal,
             // use a ResultIterators implementation that runs one serial scan per bucket and
-            // then does a merge sort against those.  Otherwise, we can use a regular table scan.
+            // then does a merge sort against those.
             if (isSalted && 
                     services.getProps().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
                 scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
             } else {
-                scanner = new ConcatResultIterator(iterators);
+            	// Add in a limiting filter so each scan would not return more than necessary
+            	ScanUtil.andFilterAtEnd(context.getScan(), new PageFilter(limit));
+            	scanner = new ConcatResultIterator(iterators);
             }
             scanner = new LimitingResultIterator(scanner, limit);
             splits = null;
