@@ -79,7 +79,7 @@ public class ScanPlan extends BasicQueryPlan {
         boolean isSalted = table.getBucketNum() != null;
         
         // Use parallel iterator so we get results faster.
-        ParallelIterators iterators = new ParallelIterators(context, tableRef, RowCounter.UNLIMIT_ROW_COUNTER, GroupBy.EMPTY_GROUP_BY);
+        ParallelIterators iterators = new ParallelIterators(context, tableRef, GroupBy.EMPTY_GROUP_BY, orderBy.getOrderByExpressions().isEmpty() ? limit : null);
         splits = iterators.getSplits();
         
         if (limit == null || !orderBy.getOrderByExpressions().isEmpty()) { // no limit or has order by  
@@ -112,11 +112,10 @@ public class ScanPlan extends BasicQueryPlan {
                     services.getProps().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)) {
-                ResultIterators iters = new SaltingSerialIterators(context, tableRef, limit);
-                scanner = new MergeSortRowKeyResultIterator(iters, SaltingUtil.NUM_SALTING_BYTES);
+                scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
             } else {
             	// Add in a limiting filter so each scan would not return more than necessary
-            	ScanUtil.andFilter(context.getScan(), new PageFilter(limit));
+            	ScanUtil.andFilterAtEnd(context.getScan(), new PageFilter(limit));
             	scanner = new ConcatResultIterator(iterators);
             }
             scanner = new LimitingResultIterator(scanner, limit);

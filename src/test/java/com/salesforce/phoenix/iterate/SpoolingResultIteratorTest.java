@@ -36,7 +36,6 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
-import com.salesforce.phoenix.execute.ScanRowCounter;
 import com.salesforce.phoenix.memory.*;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -61,7 +60,7 @@ public class SpoolingResultIteratorTest {
             };
 
         MemoryManager memoryManager = new DelegatingMemoryManager(new GlobalMemoryManager(threshold, 0));
-        ResultIterator scanner = new SpoolingResultIterator(iterator, memoryManager, threshold, new ScanRowCounter());
+        ResultIterator scanner = new SpoolingResultIterator(iterator, memoryManager, threshold);
         AssertResults.assertResults(scanner, expectedResults);
     }
 
