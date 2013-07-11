@@ -330,7 +330,7 @@ public class MetaDataClient {
                 incrementStatement.execute();
                 // Get list of mutations and add to table meta data that will be passed to server
                 // to guarantee order. This row will always end up last
-                tableMetaData.addAll(connection.getMutationState().toMutations());
+                tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
 
                 // Add row linking from data table row to index table row
@@ -456,7 +456,7 @@ public class MetaDataClient {
             // Switch the LinkedList to ArrayList for faster position lookup.
             pkColumns = new ArrayList<PColumn>(pkColumns);
             
-            tableMetaData.addAll(connection.getMutationState().toMutations());
+            tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
             connection.rollback();
             
             String dataTableName = parent == null ? null : parent.getName().getString();
@@ -477,7 +477,7 @@ public class MetaDataClient {
             tableUpsert.setString(9, indexState == null ? null : indexState.getSerializedValue());
             tableUpsert.execute();
             
-            tableMetaData.addAll(connection.getMutationState().toMutations());
+            tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
             connection.rollback();
             
             /*
@@ -680,7 +680,7 @@ public class MetaDataClient {
                 if (column.getFamilyName() != null) {
                     family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
                 }
-                tableMetaData.addAll(connection.getMutationState().toMutations());
+                tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 
                 final long seqNum = table.getSequenceNumber() + 1;
@@ -692,7 +692,7 @@ public class MetaDataClient {
                 tableUpsert.setInt(5, ordinalPosition);
                 tableUpsert.execute();
                 
-                tableMetaData.addAll(connection.getMutationState().toMutations());
+                tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 // Force the table header row to be first
                 Collections.reverse(tableMetaData);
@@ -797,7 +797,7 @@ public class MetaDataClient {
                     colUpdate.setInt(5, i);
                     colUpdate.execute();
                 }
-                tableMetaData.addAll(connection.getMutationState().toMutations());
+                tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 
                 final long seqNum = table.getSequenceNumber() + 1;
@@ -809,7 +809,7 @@ public class MetaDataClient {
                 tableUpsert.setInt(5, columnCount);
                 tableUpsert.execute();
                 
-                tableMetaData.addAll(connection.getMutationState().toMutations());
+                tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 // Force table header to be first in list
                 Collections.reverse(tableMetaData);

@@ -33,6 +33,7 @@ import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -236,17 +237,51 @@ public class PhoenixRuntime {
      * @return the list of HBase mutations for uncommitted data
      * @throws SQLException 
      */
+    @Deprecated
     public static List<KeyValue> getUncommittedData(Connection conn) throws SQLException {
-        List<Mutation> mutations = conn.unwrap(PhoenixConnection.class).getMutationState().toMutations();
-        List<KeyValue> keyValues = Lists.newArrayListWithExpectedSize(mutations.size() * 5); // Guess-timate 5 key values per row
-        for (Mutation mutation : mutations) {
-        	for (List<KeyValue> keyValueList : mutation.getFamilyMap().values()) {
-        		for (KeyValue keyValue : keyValueList) {
-        			keyValues.add(keyValue);
-        		}
-        	}
+        Iterator<Pair<byte[],List<KeyValue>>> iterator = getUncommittedDataIterator(conn);
+        if (iterator.hasNext()) {
+            return iterator.next().getSecond();
         }
-        Collections.sort(keyValues, KeyValue.COMPARATOR);
-        return keyValues;
+        return Collections.emptyList();
+    }
+    
+    /**
+     * Get the list of uncommitted KeyValues for the connection. Currently used to write an
+     * Phoenix-compliant HFile from a map/reduce job.
+     * @param conn an open JDBC connection
+     * @return the list of HBase mutations for uncommitted data
+     * @throws SQLException 
+     */
+    public static Iterator<Pair<byte[],List<KeyValue>>> getUncommittedDataIterator(Connection conn) throws SQLException {
+        final Iterator<Pair<byte[],List<Mutation>>> iterator = conn.unwrap(PhoenixConnection.class).getMutationState().toMutations();
+        return new Iterator<Pair<byte[],List<KeyValue>>>() {
+
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Pair<byte[], List<KeyValue>> next() {
+                Pair<byte[],List<Mutation>> pair = iterator.next();
+                List<KeyValue> keyValues = Lists.newArrayListWithExpectedSize(pair.getSecond().size() * 5); // Guess-timate 5 key values per row
+                for (Mutation mutation : pair.getSecond()) {
+                    for (List<KeyValue> keyValueList : mutation.getFamilyMap().values()) {
+                        for (KeyValue keyValue : keyValueList) {
+                            keyValues.add(keyValue);
+                        }
+                    }
+                }
+                Collections.sort(keyValues, KeyValue.COMPARATOR);
+                return new Pair<byte[], List<KeyValue>>(pair.getFirst(),keyValues);
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+            
+        };
     }
 }

@@ -27,19 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
-import java.math.BigDecimal;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TreeSet;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.pig.parser.QueryParser.foreach_clause_complex_return;
 
-import com.salesforce.phoenix.expression.ColumnExpression;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;

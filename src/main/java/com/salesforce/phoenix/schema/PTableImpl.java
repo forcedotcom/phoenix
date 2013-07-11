@@ -317,7 +317,7 @@ public class PTableImpl implements PTable {
         }
     }
 
-    private PRow newRow(long ts, ImmutableBytesWritable key, int i, Object[] values) {
+    private PRow newRow(long ts, ImmutableBytesWritable key, int i, byte[]... values) {
         PRow row = new PRowImpl(key, ts, getBucketNum());
         if (i < values.length) {
             for (PColumnFamily family : getColumnFamilies()) {

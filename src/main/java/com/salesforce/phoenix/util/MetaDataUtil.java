@@ -145,6 +145,10 @@ public class MetaDataUtil {
 
     public static long getClientTimeStamp(List<Mutation> tableMetadata) {
         Mutation m = tableMetadata.get(0);
+        return getClientTimeStamp(m);
+    }    
+
+    public static long getClientTimeStamp(Mutation m) {
         Collection<List<KeyValue>> kvs = m.getFamilyMap().values();
         // Empty if Mutation is a Delete
         // TODO: confirm that Delete timestamp is reset like Put
@@ -162,7 +166,7 @@ public class MetaDataUtil {
             updateIdxState.setString(2, indexName);
             updateIdxState.setString(3, state.getSerializedValue());
             updateIdxState.execute();
-            List<Mutation> mutations = connection.getMutationState().toMutations();
+            List<Mutation> mutations = connection.getMutationState().toMutations().next().getSecond();
             connection.rollback();
             return mutations;
         } finally {

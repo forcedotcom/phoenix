@@ -28,13 +28,22 @@
 package com.salesforce.phoenix.util;
 
 import java.sql.SQLException;
+import java.util.*;
 
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
+
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.schema.PColumn;
-import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.*;
 
 public class IndexUtil {
+    private static final String INDEX_COLUMN_NAME_SEP = ":";
+    private static final byte[] INDEX_COLUMN_NAME_SEP_BYTES = Bytes.toBytes(INDEX_COLUMN_NAME_SEP);
 
     private IndexUtil() {
     }
@@ -42,29 +51,112 @@ public class IndexUtil {
     // Since we cannot have nullable fixed length in a row key
     // we need to translate to variable length.
     public static PDataType getIndexColumnDataType(PColumn dataColumn) throws SQLException {
-        if (!dataColumn.isNullable() || !dataColumn.getDataType().isFixedWidth()) {
-            return dataColumn.getDataType();
+        return getIndexColumnDataType(dataColumn.isNullable(),dataColumn.getDataType(),dataColumn.getName().getString());
+    }
+    
+    // Since we cannot have nullable fixed length in a row key
+    // we need to translate to variable length.
+    public static PDataType getIndexColumnDataType(boolean isNullable, PDataType dataType, String columnName) throws SQLException {
+        if (!isNullable || !dataType.isFixedWidth()) {
+            return dataType;
         }
         // for INT, BIGINT
-        if (dataColumn.getDataType().isCoercibleTo(PDataType.DECIMAL)) {
+        if (dataType.isCoercibleTo(PDataType.DECIMAL)) {
             return PDataType.DECIMAL;
         }
         // for CHAR
-        if (dataColumn.getDataType().isCoercibleTo(PDataType.VARCHAR)) {
+        if (dataType.isCoercibleTo(PDataType.VARCHAR)) {
             return PDataType.VARCHAR;
         }
         // Should not happen;
-        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(dataColumn.getName().getString())
-            .setMessage("Type="+dataColumn.getDataType()).build().buildException();
+        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(columnName)
+            .setMessage("Type="+dataType).build().buildException();
     }
     
     public static String getIndexColumnName(String dataColumnFamilyName, String dataColumnName) {
-        return dataColumnFamilyName == null ? dataColumnName : dataColumnFamilyName + ":" + dataColumnName;
+        return dataColumnFamilyName == null ? dataColumnName : dataColumnFamilyName + INDEX_COLUMN_NAME_SEP + dataColumnName;
+    }
+    
+    public static byte[] getIndexColumnName(byte[] dataColumnFamilyName, byte[] dataColumnName) {
+        return dataColumnFamilyName == null ? dataColumnName : ByteUtil.concat(dataColumnFamilyName, INDEX_COLUMN_NAME_SEP_BYTES, dataColumnName);
     }
     
     public static String getIndexColumnName(PColumn dataColumn) {
         String dataColumnFamilyName = SchemaUtil.isPKColumn(dataColumn) ? null : dataColumn.getFamilyName().getString();
         return getIndexColumnName(dataColumnFamilyName, dataColumn.getName().getString());
+    }
+
+    private static void coerceDataValueToIndexValue(PColumn dataColumn, PColumn indexColumn, ImmutableBytesWritable ptr) {
+        PDataType dataType = dataColumn.getDataType();
+        // TODO: push to RowKeySchema? 
+        ColumnModifier dataModifier = dataColumn.getColumnModifier();
+        PDataType indexType = indexColumn.getDataType();
+        ColumnModifier indexModifier = indexColumn.getColumnModifier();
+        // We know ordinal position will match pk position, because you cannot
+        // alter an index table.
+        indexType.coerceBytes(ptr, dataType, dataModifier, indexModifier);
+    }
+    
+    public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation, ImmutableBytesWritable ptr) throws SQLException {
+        byte[] dataRowKey = dataMutation.getRow();
+        RowKeySchema dataRowKeySchema = dataTable.getRowKeySchema();
+        List<PColumn> dataPKColumns = dataTable.getPKColumns();
+        List<PColumn> indexPKColumns = indexTable.getPKColumns();
+        List<PColumn> indexColumns = indexTable.getColumns();
+        int nIndexColumns = indexPKColumns.size();
+        int maxIndexValues = indexColumns.size() - nIndexColumns;
+        BitSet indexValuesSet = new BitSet(maxIndexValues);
+        byte[][] indexValues = new byte[indexTable.getColumns().size()][];
+        int i = 0;
+        int maxOffset = dataRowKey.length;
+        for (Boolean hasValue = dataRowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); hasValue != null; hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET)) {
+            if (hasValue) {
+                PColumn dataColumn = dataPKColumns.get(i);
+                PColumn indexColumn = indexTable.getColumn(dataColumn.getName().getString());
+                coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
+                indexValues[indexColumn.getPosition()] = ptr.copyBytes();
+            }
+        }
+        PRow row;
+        long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
+        if (dataMutation instanceof Delete && dataMutation.getFamilyMap().values().isEmpty()) {
+            indexTable.newKey(ptr, indexValues);
+            row = indexTable.newRow(ts, ptr);
+            row.delete();
+        } else {
+            for (Map.Entry<byte[],List<KeyValue>> entry : dataMutation.getFamilyMap().entrySet()) {
+                PColumnFamily family = dataTable.getColumnFamily(entry.getKey());
+                for (KeyValue kv : entry.getValue()) {
+                    byte[] cq = kv.getQualifier();
+                    PColumn dataColumn = family.getColumn(cq);
+                    PColumn indexColumn = family.getColumn(getIndexColumnName(family.getName().getBytes(), cq));
+                    ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
+                    coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
+                    indexValues[indexColumn.getPosition()] = ptr.copyBytes();
+                    if (!SchemaUtil.isPKColumn(indexColumn)) {
+                        indexValuesSet.set(indexColumn.getPosition());
+                    }
+                }
+            }
+            indexTable.newKey(ptr, indexValues);
+            row = indexTable.newRow(ts, ptr);
+            int pos = 0;
+            while ((pos = indexValuesSet.nextSetBit(pos)) >= 0) {
+                int index = nIndexColumns + pos++;
+                PColumn indexColumn = indexColumns.get(index);
+                row.setValue(indexColumn, indexValues[index]);
+            }
+        }
+        return row.toRowMutations();
+    }
+
+    public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations) throws SQLException {
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
+        for (Mutation dataMutation : dataMutations) {
+            indexMutations.addAll(generateIndexData(table, index, dataMutation, ptr));
+        }
+        return indexMutations;
     }
 
 }
