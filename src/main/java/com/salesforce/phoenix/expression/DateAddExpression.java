@@ -67,6 +67,8 @@ public class DateAddExpression extends AddExpression {
                 value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
             } else if (type.isCoercibleTo(PDataType.LONG)) {
                 value = type.getCodec().decodeLong(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY;
+            } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
+                value = (long)(type.getCodec().decodeDouble(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY);
             } else {
                 value = type.getCodec().decodeLong(ptr, columnModifier);
             }

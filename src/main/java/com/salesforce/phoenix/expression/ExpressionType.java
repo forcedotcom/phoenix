@@ -86,7 +86,11 @@ public enum ExpressionType {
     UpperFunction(UpperFunction.class),
     LowerFunction(LowerFunction.class),
     TrimFunction(TrimFunction.class),
-    DistinctCountAggregateFunction(DistinctCountAggregateFunction.class);
+    DistinctCountAggregateFunction(DistinctCountAggregateFunction.class),
+    DoubleAddExpression(DoubleAddExpression.class),
+    DoubleSubtractExpression(DoubleSubtractExpression.class),
+    DoubleMultiplyExpression(DoubleMultiplyExpression.class),
+    DoubleDivideExpression(DoubleDivideExpression.class);
 
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

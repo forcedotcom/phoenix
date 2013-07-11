@@ -62,7 +62,11 @@ public abstract class BaseTest {
                 "    x_decimal decimal(31,10),\n" +
                 "    x_long bigint,\n" +
                 "    x_integer integer,\n" +
-                "    y_integer integer\n" +
+                "    y_integer integer,\n" +
+                "    a_byte tinyint,\n" +
+                "    a_short smallint,\n" +
+                "    a_float float,\n" +
+                "    a_double double\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
                 ")");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +

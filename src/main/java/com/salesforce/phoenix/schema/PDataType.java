@@ -1208,6 +1208,10 @@ public enum PDataType {
             case UNSIGNED_SMALLINT:
             case UNSIGNED_TINYINT:
                 return BigDecimal.valueOf(actualType.getCodec().decodeLong(b, o, null));
+            case FLOAT:
+                return BigDecimal.valueOf(actualType.getCodec().decodeFloat(b, o, null));
+            case DOUBLE:
+                return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1231,6 +1235,10 @@ public enum PDataType {
             case TINYINT:
             case UNSIGNED_TINYINT:
                 return BigDecimal.valueOf((Byte)object);
+            case FLOAT:
+                return BigDecimal.valueOf((Float)object);
+            case DOUBLE:
+                return BigDecimal.valueOf((Double)object);
             case DECIMAL:
                 return object;
             default:
@@ -1299,6 +1307,24 @@ public enum PDataType {
                             bd.byteValueExact();
                             return true;
                         } catch (ArithmeticException e) {
+                            return false;
+                        }
+                    case FLOAT:
+                        bd = (BigDecimal) value;
+                        try {
+                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
+                            BigDecimal minFloat = BigDecimal.valueOf(Float.MIN_VALUE);
+                            return bd.compareTo(maxFloat)<=0 && bd.compareTo(minFloat)>=0;
+                        } catch(Exception e) {
+                            return false;
+                        }
+                    case DOUBLE:
+                        bd = (BigDecimal) value;
+                        try {
+                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
+                            BigDecimal minDouble = BigDecimal.valueOf(Double.MIN_VALUE);
+                            return bd.compareTo(maxDouble)<=0 && bd.compareTo(minDouble)>=0;
+                        } catch(Exception e) {
                             return false;
                         }
                     default:
