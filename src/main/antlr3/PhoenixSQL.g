@@ -737,14 +737,15 @@ expression_literal_bind returns [ParseNode ret]
 
 // Get a string, integer, double, date, boolean, or NULL value.
 literal returns [LiteralParseNode ret]
-    :   s=STRING_LITERAL { ret = factory.literal(s.getText()); }
-    |   n=int_literal { ret = n; }
+    :   t=STRING_LITERAL { ret = factory.literal(t.getText()); }
+    |   l=int_literal { ret = l; }
     |   l=long_literal { ret = l; }
-    |   d=DECIMAL {
+    |   l=double_literal { ret = l; }
+    |   t=DECIMAL {
             try {
-                ret = factory.literal(new BigDecimal(d.getText()));
+                ret = factory.literal(new BigDecimal(t.getText()));
             } catch (NumberFormatException e) { // Shouldn't happen since we just parsed a decimal
-                throwRecognitionException(d);
+                throwRecognitionException(t);
             }
         }
     |   NULL {ret = factory.literal(null);}
@@ -775,6 +776,18 @@ long_literal returns [LiteralParseNode ret]
                 ret = factory.literal(v);
             } catch (NumberFormatException e) { // Shouldn't happen since we just parsed a number
                 throwRecognitionException(l);
+            }
+        }
+    ;
+
+double_literal returns [LiteralParseNode ret]
+    :   d=DOUBLE {
+            try {
+                String dt = d.getText();
+                Double v = Double.valueOf(dt.substring(0, dt.length() - 1));
+                ret = factory.literal(v);
+            } catch (NumberFormatException e) { // Shouldn't happen since we just parsed a number
+                throwRecognitionException(d);
             }
         }
     ;
