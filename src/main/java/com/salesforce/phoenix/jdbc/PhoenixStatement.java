@@ -438,6 +438,56 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
     }
 
+    private class ExecutableAlterIndexStatement extends AlterIndexStatement implements ExecutableStatement {
+
+        public ExecutableAlterIndexStatement(NamedTableNode indexTableNode, String dataTableName, boolean ifExists, PIndexState state) {
+            super(indexTableNode, dataTableName, ifExists, state);
+        }
+
+        @Override
+        public PhoenixResultSet executeQuery() throws SQLException {
+            throw new ExecuteQueryNotApplicableException("ALTER INDEX", this.toString());
+        }
+
+        @Override
+        public boolean execute() throws SQLException {
+            executeUpdate();
+            return false;
+        }
+
+        @Override
+        public int executeUpdate() throws SQLException {
+            MetaDataClient client = new MetaDataClient(connection);
+            MutationState state = client.alterIndex(this);
+            lastQueryPlan = null;
+            lastResultSet = null;
+            lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
+            lastUpdateOperation = UpdateOperation.UPSERTED;
+            return lastUpdateCount;
+        }
+
+        @Override
+        public ResultSetMetaData getResultSetMetaData() throws SQLException {
+            return null;
+        }
+
+        @Override
+        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+            return new StatementPlan() {
+                
+                @Override
+                public ParameterMetaData getParameterMetaData() {
+                    return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
+                }
+                
+                @Override
+                public ExplainPlan getExplainPlan() throws SQLException {
+                    return new ExplainPlan(Collections.singletonList("ALTER INDEX"));
+                }
+            };
+        }
+    }
+
     private class ExecutableAddColumnStatement extends AddColumnStatement implements ExecutableStatement {
 
         ExecutableAddColumnStatement(NamedTableNode table, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
@@ -723,6 +773,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName, boolean ifExists) {
             return new ExecutableDropIndexStatement(indexName, tableName, ifExists);
+        }
+        
+        @Override
+        public AlterIndexStatement alterIndex(NamedTableNode indexTableNode, String dataTableName, boolean ifExists, PIndexState state) {
+            return new ExecutableAlterIndexStatement(indexTableNode, dataTableName, ifExists, state);
         }
         
         @Override

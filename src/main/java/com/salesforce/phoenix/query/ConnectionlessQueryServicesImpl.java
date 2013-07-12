@@ -27,13 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
+
 import java.sql.SQLException;
 import java.util.*;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.phoenix.compile.MutationPlan;
@@ -41,6 +43,7 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResul
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -158,7 +161,16 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) {
-        return null;
+    public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata, String parentTableName) throws SQLException {
+        byte[][] rowKeyMetadata = new byte[2][];
+        SchemaUtil.getVarChars(tableMetadata.get(0).getRow(), rowKeyMetadata);
+        KeyValue newKV = tableMetadata.get(0).getFamilyMap().get(TABLE_FAMILY_BYTES).get(0);
+        PIndexState newState =  PIndexState.fromSerializedValue(newKV.getBuffer()[newKV.getValueOffset()]);
+        String schemaName = Bytes.toString(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX]);
+        String indexName = Bytes.toString(rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+        PSchema schema = metaData.getSchema(schemaName);
+        PTable index = schema.getTable(indexName);
+        index = PTableImpl.makePTable(index,newState == PIndexState.ENABLE ? PIndexState.ACTIVE : newState == PIndexState.DISABLE ? PIndexState.INACTIVE : newState);
+        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, index);
     }
 }

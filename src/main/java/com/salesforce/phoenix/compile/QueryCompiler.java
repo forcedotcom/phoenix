@@ -36,12 +36,12 @@ import org.apache.hadoop.hbase.client.Scan;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
-import com.salesforce.phoenix.execute.AggregatePlan;
-import com.salesforce.phoenix.execute.ScanPlan;
+import com.salesforce.phoenix.execute.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 
@@ -107,7 +107,12 @@ public class QueryCompiler {
         
         statement = RHSLiteralStatementRewriter.normalize(statement);
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+        TableRef tableRef = resolver.getTables().get(0);
+        PTable table = tableRef.getTable();
         StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
+        if (table.getType() == PTableType.INDEX && table.getIndexState() != PIndexState.ACTIVE) {
+            return new DegenerateQueryPlan(context, tableRef);
+        }
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
 
@@ -124,7 +129,6 @@ public class QueryCompiler {
         RowProjector projector = ProjectionCompiler.getRowProjector(context, statement.getSelect(), statement.isDistinct(), groupBy, orderBy, targetColumns);
         
         // Final step is to build the query plan
-        TableRef table = resolver.getTables().get(0);
         if (maxRows > 0) {
             if (limit != null) {
                 limit = Math.min(limit, maxRows);
@@ -135,9 +139,9 @@ public class QueryCompiler {
         if (context.isAggregate()) {
             // We must add an extra dedup step if there's a group by and a select distinct
             boolean dedup = !statement.getGroupBy().isEmpty() && statement.isDistinct();
-            return new AggregatePlan(context, table, projector, limit, groupBy, dedup, having, orderBy);
+            return new AggregatePlan(context, tableRef, projector, limit, groupBy, dedup, having, orderBy);
         } else {
-            return new ScanPlan(context, table, projector, limit, orderBy);
+            return new ScanPlan(context, tableRef, projector, limit, orderBy);
         }
     }
 }

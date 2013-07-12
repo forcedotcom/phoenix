@@ -91,6 +91,8 @@ tokens
     INDEX='index';
     INCLUDE='include';
     WITHIN='within';
+    ENABLE='enable';
+    DISABLE='disable';
 }
 
 
@@ -137,6 +139,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.util.SchemaUtil;
 }
@@ -335,6 +338,7 @@ oneStatement returns [SQLStatement ret]
     |    ci=create_index_node {$ret=ci;}
     |    dt=drop_table_node {$ret=dt;}
     |    di=drop_index_node {$ret=di;}
+    |    ai=alter_index_node {$ret=ai;}
     |    at=alter_table_node {$ret=at;}
     |    e=explain_node {$ret=e;}
     |    st=show_tables_node {$ret=st;}
@@ -429,6 +433,12 @@ drop_table_node returns [DropTableStatement ret]
 drop_index_node returns [DropIndexStatement ret]
     : DROP INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name
       {ret = factory.dropIndex(i, t, ex!=null); }
+    ;
+
+// Parse a alter index statement
+alter_index_node returns [AlterIndexStatement ret]
+    : ALTER INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name (ENABLE | d=DISABLE)
+      {ret = factory.alterIndex(factory.namedTable(null,factory.table(t.getSchemaName(),i.getName())), t.getTableName(), ex!=null, d==null ? PIndexState.ENABLE : PIndexState.DISABLE); }
     ;
 
 // Parse an alter table statement.

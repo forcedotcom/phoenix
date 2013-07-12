@@ -45,6 +45,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class RowProjector {
+    public static final RowProjector EMPTY_PROJECTOR = new RowProjector(Collections.<ColumnProjector>emptyList(),0);
+
     private final List<? extends ColumnProjector> columnProjectors;
     private final Map<String,Integer> reverseIndex;
     private final boolean allCaseSensitive;

@@ -147,6 +147,14 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             assertEquals("IDX", rs.getString(1));
             assertFalse(rs.next());
             
+            ddl = "ALTER INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " DISABLE";
+            conn.createStatement().execute(ddl);
+            // Verify the metadata for index is correct.
+            rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX");
+            assertTrue(rs.next());
+            assertEquals("IDX", rs.getString(2));
+            assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString(4));
+            
             ddl = "DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
             stmt = conn.prepareStatement(ddl);
             stmt.execute();
@@ -219,13 +227,13 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         ResultSet rs;
         
         query = "SELECT k,v FROM t WHERE v = 'y'";
-        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'",QueryUtil.getExplainPlan(rs));
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
         assertEquals("b",rs.getString(1));
         assertEquals("y",rs.getString(2));
         assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'",QueryUtil.getExplainPlan(rs));
 
         // Will use index, so rows returned in DESC order.
         // This is not a bug, though, because we can

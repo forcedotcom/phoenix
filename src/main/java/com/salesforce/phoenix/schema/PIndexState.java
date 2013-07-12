@@ -30,6 +30,8 @@ package com.salesforce.phoenix.schema;
 
 public enum PIndexState {
     BUILDING("b"),
+    ENABLE("e"),
+    DISABLE("d"),
     ACTIVE("a"),
     INACTIVE("i");
 

@@ -282,6 +282,10 @@ public class ParseNodeFactory {
         return new DropIndexStatement(indexName, tableName, ifExists);
     }
     
+    public AlterIndexStatement alterIndex(NamedTableNode indexTableNode, String dataTableName, boolean ifExists, PIndexState state) {
+        return new AlterIndexStatement(indexTableNode, dataTableName, ifExists, state);
+    }
+    
     public TableName table(String schemaName, String tableName) {
         return new TableName(schemaName,tableName);
     }

@@ -77,11 +77,14 @@ public class PMetaDataImpl implements PMetaData {
         } else {
             tables = Maps.newHashMap(schema.getTables());
         }
-        tables.put(table.getName().getString(), table);
+        PTable oldTable = tables.put(table.getName().getString(), table);
         if (parentTable != null) {
             List<PTable> oldIndexes = parentTable.getIndexes();
             List<PTable> newIndexes = Lists.newArrayListWithExpectedSize(oldIndexes.size() + 1);
             newIndexes.addAll(oldIndexes);
+            if (oldTable != null) {
+                newIndexes.remove(oldTable);
+            }
             newIndexes.add(table);
             tables.put(parentTable.getName().getString(), PTableImpl.makePTable(parentTable, table.getTimeStamp(), newIndexes));
         }

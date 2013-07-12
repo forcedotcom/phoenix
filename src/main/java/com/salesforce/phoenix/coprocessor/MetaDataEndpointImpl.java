@@ -253,6 +253,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             int cmp = Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), 
                     searchKv.getBuffer(), searchKv.getQualifierOffset(), searchKv.getQualifierLength());
             if (cmp == 0) {
+                timeStamp = Math.max(timeStamp, kv.getTimestamp()); // Find max timestamp of table header row
                 tableKeyValues[j++] = kv;
                 i++;
             } else if (cmp > 0) {
@@ -829,17 +830,41 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             if (result != null) {
                 return result; 
             }
+            long timeStamp = MetaDataUtil.getClientTimeStamp(tableMetadata);
+            ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
+            List<KeyValue> newKVs = tableMetadata.get(0).getFamilyMap().get(TABLE_FAMILY_BYTES);
+            KeyValue newKV = newKVs.get(0);
+            PIndexState newState =  PIndexState.fromSerializedValue(newKV.getBuffer()[newKV.getValueOffset()]);
             Integer lid = region.getLock(null, key, true);
             if (lid == null) {
                 throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(key));
             }
             try {
-                ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
-
-                region.mutateRowsWithLocks(tableMetadata, Collections.<byte[]>emptySet());
-                // Invalidate from cache
-                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
-                metaDataCache.remove(cacheKey);
+                Get get = new Get(key);
+                get.setTimeRange(PTable.INITIAL_SEQ_NUM, timeStamp);
+                get.addColumn(TABLE_FAMILY_BYTES, INDEX_STATE_BYTES);
+                Result currentResult = region.get(get);
+                if (currentResult == null) {
+                    return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
+                }
+                KeyValue currentStateKV = currentResult.raw()[0];
+                PIndexState currentState = PIndexState.fromSerializedValue(currentStateKV.getBuffer()[currentStateKV.getValueOffset()]);
+                if (currentState == PIndexState.BUILDING && newState != PIndexState.ACTIVE) {
+                    timeStamp = currentStateKV.getTimestamp();
+                }
+                if ((currentState == PIndexState.DISABLE && newState == PIndexState.ACTIVE) || (currentState == PIndexState.ACTIVE && newState == PIndexState.DISABLE)) {
+                    newState = PIndexState.INACTIVE;
+                    newKVs.set(0, KeyValueUtil.newKeyValue(key, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES, timeStamp, Bytes.toBytes(newState.getSerializedValue())));
+                } else if (currentState == PIndexState.INACTIVE && newState == PIndexState.ENABLE) {
+                    newState = PIndexState.ACTIVE;
+                    newKVs.set(0, KeyValueUtil.newKeyValue(key, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES, timeStamp, Bytes.toBytes(newState.getSerializedValue())));
+                }
+                if (currentState != newState) {
+                    region.mutateRowsWithLocks(tableMetadata, Collections.<byte[]>emptySet());
+                    // Invalidate from cache
+                    Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+                    metaDataCache.remove(cacheKey);
+                }
                 // Get client timeStamp from mutations, since it may get updated by the mutateRowsWithLocks call
                 long currentTime = MetaDataUtil.getClientTimeStamp(tableMetadata);
                 return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, null);

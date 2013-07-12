@@ -89,6 +89,7 @@ public class MetaDataClient {
             
         }
         // Don't bother with server call: we can't possibly find a newer table
+        // TODO: review - this seems weird
         if (tableTimestamp == clientTimeStamp - 1) {
             return clientTimeStamp;
         }
@@ -127,7 +128,7 @@ public class MetaDataClient {
             DATA_TABLE_NAME + "," +
             INDEX_STATE +
             ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String CREATE_INDEX =
+    private static final String CREATE_INDEX_LINK =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
             TABLE_SCHEM_NAME + "," +
             TABLE_NAME_NAME + "," +
@@ -147,6 +148,12 @@ public class MetaDataClient {
         TABLE_SEQ_NUM + "," +
         COLUMN_COUNT +
         ") VALUES (?, ?, ?, ?, ?)";
+    private static final String UPDATE_INDEX_STATE =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            INDEX_STATE +
+            ") VALUES (?, ?, ?)";
     private static final String INSERT_COLUMN =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
         TABLE_SCHEM_NAME + "," +
@@ -236,6 +243,7 @@ public class MetaDataClient {
         return createTable(statement, splits, new PostDDLCompiler(connection), null);
     }
 
+
     /**
      * Create an index table by morphing the CreateIndexStatement into a CreateTableStatement and calling
      * MetaDataClient.createTable. In doing so, we perform the following translations:
@@ -256,12 +264,12 @@ public class MetaDataClient {
      * @throws SQLException
      */
     public MutationState createIndex(CreateIndexStatement statement, byte[][] splits) throws SQLException {
-        // TODO: do we need to pass FACTORY in?
         PrimaryKeyConstraint pk = statement.getIndexConstraint();
         List<Pair<ColumnName, ColumnModifier>> indexedPkColumns = pk.getColumnNames();
         List<ColumnName> includedColumns = statement.getIncludeColumns();
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         TableRef tableRef = resolver.getTables().get(0);
+        String dataTableName = tableRef.getTable().getName().getString();
         Set<PColumn> unusedPkColumns = new HashSet<PColumn>(tableRef.getTable().getPKColumns());
         List<Pair<ColumnName, ColumnModifier>> allPkColumns = Lists.newArrayListWithExpectedSize(unusedPkColumns.size());
         List<ColumnDef> columnDefs = Lists.newArrayListWithExpectedSize(includedColumns.size() + indexedPkColumns.size());
@@ -300,10 +308,14 @@ public class MetaDataClient {
             pk = FACTORY.primaryKey(null, allPkColumns);
         }
         
-        CreateTableStatement tableStatement = FACTORY.createTable(statement.getIndexTableName(), statement.getProps(), columnDefs, pk, statement.getSplitNodes(), PTableType.INDEX, statement.ifNotExists(), statement.getBindCount());
+        TableName indexTableName = statement.getIndexTableName();
+        CreateTableStatement tableStatement = FACTORY.createTable(indexTableName, statement.getProps(), columnDefs, pk, statement.getSplitNodes(), PTableType.INDEX, statement.ifNotExists(), statement.getBindCount());
         
-        return createTable(tableStatement, splits, new PostIndexDDLCompiler(connection, tableRef.getTable()), tableRef.getTable());
-    }
+        MutationState state = createTable(tableStatement, splits, new PostIndexDDLCompiler(connection, tableRef.getTable()), tableRef.getTable());
+        AlterIndexStatement indexStatement = FACTORY.alterIndex(FACTORY.namedTable(null, indexTableName), dataTableName, false, PIndexState.ACTIVE);
+        alterIndex(indexStatement);
+        return state;
+     }
 
     private MutationState createTable(CreateTableStatement statement, byte[][] splits, PostOpCompiler compiler, PTable parent) throws SQLException {
         PTableType tableType = statement.getTableType();
@@ -334,7 +346,7 @@ public class MetaDataClient {
                 connection.rollback();
 
                 // Add row linking from data table row to index table row
-                PreparedStatement linkStatement = connection.prepareStatement(CREATE_INDEX);
+                PreparedStatement linkStatement = connection.prepareStatement(CREATE_INDEX_LINK);
                 linkStatement.setString(1, schemaName);
                 linkStatement.setString(2, parent.getName().getString());
                 linkStatement.setString(3, tableName);
@@ -859,6 +871,46 @@ public class MetaDataClient {
                     retried = true;
                 }
             }
+        } finally {
+            connection.setAutoCommit(wasAutoCommit);
+        }
+    }
+
+    public MutationState alterIndex(AlterIndexStatement statement) throws SQLException {
+        connection.rollback();
+        boolean wasAutoCommit = connection.getAutoCommit();
+        try {
+            String dataTableName = statement.getTableName();
+            connection.setAutoCommit(false);
+            final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+            TableRef indexTableRef = resolver.getTables().get(0);
+            PTable index = indexTableRef.getTable();
+            String schemaName = indexTableRef.getSchema().getName();
+            String indexName = index.getName().getString();
+            PreparedStatement tableUpsert = connection.prepareStatement(UPDATE_INDEX_STATE);
+            tableUpsert.setString(1, schemaName);
+            tableUpsert.setString(2, indexName);
+            tableUpsert.setString(3, statement.getIndexState().getSerializedValue());
+            tableUpsert.execute();
+            List<Mutation> tableMetadata = connection.getMutationState().toMutations().next().getSecond();
+            connection.rollback();
+
+            MetaDataMutationResult result = connection.getQueryServices().updateIndexState(tableMetadata, dataTableName);
+            MutationCode code = result.getMutationCode();
+            if (code == MutationCode.TABLE_NOT_FOUND) {
+                throw new TableNotFoundException(schemaName,indexName);
+            }
+            if (code == MutationCode.TABLE_ALREADY_EXISTS) {
+                if (result.getTable() != null) { // To accommodate connection-less update of index state
+                    connection.addTable(schemaName, result.getTable(), connection.getPMetaData().getSchema(schemaName).getTable(dataTableName));
+                }
+            }
+            return new MutationState(1, connection);
+        } catch (TableNotFoundException e) {
+            if (!statement.ifExists()) {
+                throw e;
+            }
+            return new MutationState(0, connection);
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }

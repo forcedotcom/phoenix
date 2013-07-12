@@ -27,11 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 
@@ -40,21 +37,12 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PIndexState;
 
 
 public class MetaDataUtil {
-    private static final String UPDATE_INDEX_STATE =
-            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
-            TABLE_SCHEM_NAME + "," +
-            TABLE_NAME_NAME + "," +
-            INDEX_STATE +
-            ") VALUES (?, ?, ?)";
-
     // Given the encoded integer representing the phoenix version in the encoded version value.
     // The second byte in int would be the major version, 3rd byte minor version, and 4th byte 
     // patch version.
@@ -154,25 +142,6 @@ public class MetaDataUtil {
         // TODO: confirm that Delete timestamp is reset like Put
         return kvs.isEmpty() ? m.getTimeStamp() : kvs.iterator().next().get(0).getTimestamp();
     }    
-
-    public static List<Mutation> getIndexStateMutations(PhoenixConnection connection, String schemaName,
-            String indexName, PIndexState state) throws SQLException {
-        boolean wasAutoCommit = connection.getAutoCommit();
-        try {
-            connection.setAutoCommit(false);
-            connection.rollback();
-            PreparedStatement updateIdxState = connection.prepareStatement(UPDATE_INDEX_STATE);
-            updateIdxState.setString(1, schemaName);
-            updateIdxState.setString(2, indexName);
-            updateIdxState.setString(3, state.getSerializedValue());
-            updateIdxState.execute();
-            List<Mutation> mutations = connection.getMutationState().toMutations().next().getSecond();
-            connection.rollback();
-            return mutations;
-        } finally {
-            if (wasAutoCommit) connection.setAutoCommit(wasAutoCommit);
-        }
-    }
 
     public static byte[] getParentLinkKey(String schemaName, String tableName, String indexName) {
         return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(indexName));

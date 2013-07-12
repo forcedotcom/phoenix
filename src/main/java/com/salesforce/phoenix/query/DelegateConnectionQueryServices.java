@@ -130,8 +130,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws SQLException {
-        return getDelegate().updateIndexState(tableMetadata);
+    public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata, String parentTableName) throws SQLException {
+        return getDelegate().updateIndexState(tableMetadata, parentTableName);
     }
     
     @Override

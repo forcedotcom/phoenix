@@ -59,8 +59,11 @@ public class QueryOptimizer {
                 SelectStatement indexSelect = FACTORY.select(translatedSelect, tables);
                 compiler = new QueryCompiler(connection, statement.getMaxRows());
                 QueryPlan plan = compiler.compile(indexSelect, binds);
-                // Checking the number of columns handles the wildcard cases correctly
-                if (plan.getProjector().getColumnCount() == nColumns) {
+                // Checking the index status and number of columns handles the wildcard cases correctly
+                // We can't check the status earlier, because the index table may be out-of-date.
+                // TODO: provide a way of resolving the index table before compilation to save
+                // having to compile it if it's not active
+                if (plan.getTableRef().getTable().getIndexState() == PIndexState.ACTIVE && plan.getProjector().getColumnCount() == nColumns) {
                     plans.add(plan);
                 }
             } catch (ColumnNotFoundException e) {

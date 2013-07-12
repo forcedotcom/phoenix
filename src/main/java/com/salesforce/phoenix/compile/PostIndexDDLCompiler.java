@@ -30,14 +30,11 @@ package com.salesforce.phoenix.compile;
 import java.sql.*;
 import java.util.List;
 
-import org.apache.hadoop.hbase.client.Mutation;
-
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.IndexUtil;
-import com.salesforce.phoenix.util.MetaDataUtil;
 
 
 /**
@@ -120,10 +117,6 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
                 } finally {
                     if (!wasAutoCommit) connection.setAutoCommit(false);
                 }
-                
-                List<Mutation> tableMetadata = MetaDataUtil.getIndexStateMutations(connection, schemaName, tableName, PIndexState.ACTIVE);
-                connection.getQueryServices().updateIndexState(tableMetadata);
-                 
                 // Return number of rows built for index
                 return new MutationState(rowsUpdated, connection);
             }
