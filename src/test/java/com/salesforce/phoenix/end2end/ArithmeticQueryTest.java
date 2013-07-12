@@ -47,7 +47,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
         try {
             String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmetic" + 
                     "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
-                    "col1 DECIMAL, col2 DECIMAL(5), col3 DECIMAL(5,2))";
+                    "col1 DECIMAL(31,0), col2 DECIMAL(5), col3 DECIMAL(5,2))";
             createTestTable(getUrl(), ddl);
             
             // Test upsert correct values 
@@ -236,7 +236,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
         conn.setAutoCommit(false);
         try {
             String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
-                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(31, 11), col2 DECIMAL(31,1), col3 DECIMAL(31,1))";
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col1 DECIMAL(31, 11), col2 DECIMAL(31,1), col3 DECIMAL(38,1))";
             createTestTable(getUrl(), ddl);
             
             String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -244,7 +244,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.setString(1, "1");
             stmt.setBigDecimal(2, new BigDecimal("99999999999999999999.1"));
             stmt.setBigDecimal(3, new BigDecimal("99999999999999999999.1"));
-            stmt.setBigDecimal(4, new BigDecimal("999999999999999999999999999999.1"));
+            stmt.setBigDecimal(4, new BigDecimal("9999999999999999999999999999999999999.1"));
             stmt.execute();
             conn.commit();
             stmt.setString(1, "2");
@@ -277,13 +277,13 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             result = rs.getBigDecimal(1);
             assertEquals(new BigDecimal("33333333333333333333.0333"), result);
             
-            // We cap our decimal to a precision of 31.
+            // We cap our decimal to a precision of 38.
             query = "SELECT avg(col3) FROM testDecimalArithmatic";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
-            assertEquals(new BigDecimal("333333333333333333333333333333"), result);
+            assertEquals(new BigDecimal("3333333333333333333333333333333333333"), result);
         } finally {
             conn.close();
         }
@@ -304,6 +304,14 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, "testValueOne");
             stmt.setBigDecimal(2, new BigDecimal("1234567890123456789012345678901"));
+            stmt.setBigDecimal(3, new BigDecimal("123.45"));
+            stmt.setInt(4, 10);
+            stmt.setLong(5, 10L);
+            stmt.execute();
+            conn.commit();
+
+            stmt.setString(1, "testValueTwo");
+            stmt.setBigDecimal(2, new BigDecimal("12345678901234567890123456789012345678"));
             stmt.setBigDecimal(3, new BigDecimal("123.45"));
             stmt.setInt(4, 10);
             stmt.setLong(5, 10L);
@@ -368,33 +376,48 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             result = rs.getBigDecimal(1);
             assertEquals(new BigDecimal("113.45"), result);
             
-            try {
-                query = "SELECT col1 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
-                stmt = conn.prepareStatement(query);
-                rs = stmt.executeQuery();
-                assertTrue(rs.next());
-                result = rs.getBigDecimal(1);
-                fail("Should have caught bad values.");
-            } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));
-            }
-            
-            try {
-                query = "SELECT col1 * col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
-                stmt = conn.prepareStatement(query);
-                rs = stmt.executeQuery();
-                assertTrue(rs.next());
-                result = rs.getBigDecimal(1);
-                fail("Should have caught bad values.");
-            } catch (Exception e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));            }
-            
-            query = "SELECT col2 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            query = "SELECT col1 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
             rs = stmt.executeQuery();
             assertTrue(rs.next());
             result = rs.getBigDecimal(1);
-            assertEquals(new BigDecimal("1234.5"), result);
+            assertEquals(new BigDecimal("1.234567890123456789012345678901E+31"), result);
+            
+            query = "SELECT col1 * col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1.234567890123456789012345678901E+31"), result);
+
+            query = "SELECT col1 * col3 FROM testDecimalArithmatic WHERE pk='testValueOne'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(new BigDecimal("1.234567890123456789012345678901E+31"), result);
+            
+            try {
+            	query = "SELECT col1 * col3 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
+            	stmt = conn.prepareStatement(query);
+            	rs = stmt.executeQuery();
+            	assertTrue(rs.next());
+            	result = rs.getBigDecimal(1);
+            	fail("Should have caught error.");
+            } catch (Exception e) {
+            	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,0)"));
+            }
+            
+            try {
+            	query = "SELECT col1 * col4 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
+            	stmt = conn.prepareStatement(query);
+            	rs = stmt.executeQuery();
+            	assertTrue(rs.next());
+            	result = rs.getBigDecimal(1);
+            	fail("Should have caught error.");
+            } catch (Exception e) {
+            	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,0)"));
+            }
             
             query = "SELECT col2 * col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);

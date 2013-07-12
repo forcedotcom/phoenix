@@ -99,6 +99,11 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
     }
 
     private static int getScale(int lp, int rp, int ls, int rs) {
+    	// If we are adding a decimal with scale and precision to a decimal
+    	// with no precision nor scale, the scale system does not apply.
+    	if (ls == PDataType.NO_SCALE || rs == PDataType.NO_SCALE) {
+    		return PDataType.NO_SCALE;
+    	}
         int val = ls + rs;
         return Math.min(PDataType.MAX_PRECISION, val);
     }
