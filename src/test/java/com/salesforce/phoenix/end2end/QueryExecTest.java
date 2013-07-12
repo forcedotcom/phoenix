@@ -1420,6 +1420,56 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         int compareResult = Bytes.compareTo(lhsOutPtr.get(), lhsOutPtr.getOffset(), lhsOutPtr.getLength(), rhsOutPtr.get(), rhsOutPtr.getOffset(), rhsOutPtr.getLength());
         return ByteUtil.compare(op, compareResult);
     }
+    
+    @Test
+    public void testDateAdd() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
+        String query = "SELECT entity_id, b_string FROM ATABLE WHERE a_date + 0.5d < ?";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setDate(1, new Date(System.currentTimeMillis() + MILLIS_IN_DAY));
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ROW1, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW4, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW7, rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDateSubtract() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
+        String query = "SELECT entity_id, b_string FROM ATABLE WHERE a_date - 0.5d > ?";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setDate(1, new Date(System.currentTimeMillis() + MILLIS_IN_DAY));
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ROW3, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW6, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW9, rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
 
     @Test
     public void testTimestamp() throws Exception {
