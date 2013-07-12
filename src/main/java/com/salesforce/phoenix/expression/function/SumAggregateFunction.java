@@ -73,6 +73,14 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
         switch( type ) {
             case DECIMAL:
                 return new DecimalSumAggregator(columnModifier);
+            case DOUBLE:
+            case FLOAT:
+                return new DoubleSumAggregator(columnModifier) {
+                    @Override
+                    protected PDataType getInputDataType() {
+                        return type;
+                    }
+                };
             default:
                 return new NumberSumAggregator(columnModifier) {
                     @Override
@@ -93,6 +101,8 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
                 return new DecimalSumAggregator(null);
             case LONG:
                 return new LongSumAggregator(null);
+            case DOUBLE:
+                return new DoubleSumAggregator(null);
             default:
                 throw new IllegalStateException("Unexpected SUM type: " + getDataType());
         }

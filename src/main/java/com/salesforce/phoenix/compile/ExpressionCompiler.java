@@ -840,22 +840,27 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     }
                 }
                 for (; i < children.size(); i++) {
+                    // This logic finds the common type to which all child types are coercible
+                    // without losing precision.
                     PDataType type = children.get(i).getDataType();
                     if (type == null) {
                         continue;
-                    } else if (type == PDataType.DECIMAL) {
-                        if (theType == null
-                                || (!theType.isCoercibleTo(PDataType.DATE)
-                                        && (theType.isCoercibleTo(PDataType.LONG) || !theType
-                                                .isCoercibleTo(PDataType.DOUBLE)))) {
-                            theType = PDataType.DECIMAL;
-                        }
                     } else if (type.isCoercibleTo(PDataType.LONG)) {
                         if (theType == null) {
                             theType = PDataType.LONG;
                         }
+                    } else if (type == PDataType.DECIMAL) {
+                        // Coerce return type to DECIMAL from LONG or DOUBLE if DECIMAL child found,
+                        // unless we're doing date arithmetic.
+                        if (theType == null
+                                || !theType.isCoercibleTo(PDataType.DATE)) {
+                            theType = PDataType.DECIMAL;
+                        }
                     } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
-                        if (theType == null) {
+                        // Coerce return type to DOUBLE from LONG if DOUBLE child found,
+                        // unless we're doing date arithmetic or we've found another child of type DECIMAL
+                        if (theType == null
+                                || (theType != PDataType.DECIMAL && !theType.isCoercibleTo(PDataType.DATE) )) {
                             theType = PDataType.DOUBLE;
                         }
                     } else {
