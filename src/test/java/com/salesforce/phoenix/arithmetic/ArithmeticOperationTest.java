@@ -72,7 +72,7 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("12468.45"), ptr);
 
         // Exceeds precision.
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("99999999999999999999999999999999999999"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalAddExpression(children);
@@ -81,11 +81,11 @@ public class ArithmeticOperationTest {
             evaluated = e.evaluate(null, ptr);
             fail("Evaluation should have failed");
         } catch (ValueTypeIncompatibleException ex) {
-            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));
+            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,0)"));
         }
 
         // Pass since we roll out imposing precisioin and scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("99999999999999999999999999999999999999"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL, 3, 0);
         op3 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2, op3);
@@ -93,10 +93,10 @@ public class ArithmeticOperationTest {
         ptr = new ImmutableBytesWritable();
         evaluated = e.evaluate(null, ptr);
         assertTrue(evaluated);
-        assertEqualValue(PDataType.DECIMAL, new BigDecimal("9999999999999999999999999999999"), ptr);
+        assertEqualValue(PDataType.DECIMAL, new BigDecimal("99999999999999999999999999999999999999"), ptr);
 
         // Exceeds scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345678901234567890123456789012345678"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL, 5, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalAddExpression(children);
@@ -105,8 +105,18 @@ public class ArithmeticOperationTest {
             evaluated = e.evaluate(null, ptr);
             fail("Evaluation should have failed");
         } catch (ValueTypeIncompatibleException ex) {
-            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,2)"));
+            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,2)"));
         }
+        
+        // Decimal with no precision and scale.
+        op1 = LiteralExpression.newConstant(new BigDecimal("9999.1"), PDataType.DECIMAL);
+        op2 = LiteralExpression.newConstant(new BigDecimal("1.1111"), PDataType.DECIMAL, 5, 4);
+        children = Arrays.<Expression>asList(op1, op2);
+        e = new DecimalAddExpression(children);
+        ptr = new ImmutableBytesWritable();
+        evaluated = e.evaluate(null, ptr);
+        assertTrue(evaluated);
+        assertEqualValue(PDataType.DECIMAL, new BigDecimal("10000.2111"), ptr);
     }
 
     // Subtraction
@@ -139,7 +149,7 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("12221.55"), ptr);
 
         // Excceds precision
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("99999999999999999999999999999999999999"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalSubtractExpression(children);
@@ -148,11 +158,11 @@ public class ArithmeticOperationTest {
             evaluated = e.evaluate(null, ptr);
             fail("Evaluation should have failed");
         } catch (ValueTypeIncompatibleException ex) {
-            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));
+            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,0)"));
         }
 
         // Pass since we roll up precision and scale imposing.
-        op1 = LiteralExpression.newConstant(new BigDecimal("9999999999999999999999999999999"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("99999999999999999999999999999999999999"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("-123"), PDataType.DECIMAL, 3, 0);
         op3 = LiteralExpression.newConstant(new BigDecimal("123"), PDataType.DECIMAL, 3, 0);
         children = Arrays.<Expression>asList(op1, op2, op3);
@@ -160,10 +170,10 @@ public class ArithmeticOperationTest {
         ptr = new ImmutableBytesWritable();
         evaluated = e.evaluate(null, ptr);
         assertTrue(evaluated);
-        assertEqualValue(PDataType.DECIMAL, new BigDecimal("9999999999999999999999999999999"), ptr);
+        assertEqualValue(PDataType.DECIMAL, new BigDecimal("99999999999999999999999999999999999999"), ptr);
 
         // Exceeds scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345678901234567890123456789012345678"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("123.45"), PDataType.DECIMAL, 5, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalSubtractExpression(children);
@@ -172,8 +182,18 @@ public class ArithmeticOperationTest {
             evaluated = e.evaluate(null, ptr);
             fail("Evaluation should have failed");
         } catch (ValueTypeIncompatibleException ex) {
-            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,2)"));
+            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,2)"));
         }
+        
+        // Decimal with no precision and scale.
+        op1 = LiteralExpression.newConstant(new BigDecimal("1111.1"), PDataType.DECIMAL);
+        op2 = LiteralExpression.newConstant(new BigDecimal("1.1111"), PDataType.DECIMAL, 5, 4);
+        children = Arrays.<Expression>asList(op1, op2);
+        e = new DecimalSubtractExpression(children);
+        ptr = new ImmutableBytesWritable();
+        evaluated = e.evaluate(null, ptr);
+        assertTrue(evaluated);
+        assertEqualValue(PDataType.DECIMAL, new BigDecimal("1109.9889"), ptr);
     }
 
     // Multiplication
@@ -197,7 +217,7 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("1523990.25"), ptr);
 
         // Value too big, exceeds precision.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345678901234567890123456789012345678"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("12345"), PDataType.DECIMAL, 5, 0);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalMultiplyExpression(children);
@@ -206,11 +226,11 @@ public class ArithmeticOperationTest {
             evaluated = e.evaluate(null, ptr);
             fail("Evaluation should have failed");
         } catch (ValueTypeIncompatibleException ex) {
-            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));
+            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,0)"));
         }
 
         // Values exceeds scale.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345678901234567890123456789012345678"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("1.45"), PDataType.DECIMAL, 3, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalMultiplyExpression(children);
@@ -219,8 +239,18 @@ public class ArithmeticOperationTest {
             evaluated = e.evaluate(null, ptr);
             fail("Evaluation should have failed");
         } catch (ValueTypeIncompatibleException ex) {
-            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,2)"));
+            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,2)"));
         }
+        
+        // Decimal with no precision and scale.
+        op1 = LiteralExpression.newConstant(new BigDecimal("1111.1"), PDataType.DECIMAL);
+        op2 = LiteralExpression.newConstant(new BigDecimal("1.1111"), PDataType.DECIMAL, 5, 4);
+        children = Arrays.<Expression>asList(op1, op2);
+        e = new DecimalMultiplyExpression(children);
+        ptr = new ImmutableBytesWritable();
+        evaluated = e.evaluate(null, ptr);
+        assertTrue(evaluated);
+        assertEqualValue(PDataType.DECIMAL, new BigDecimal("1234.54321"), ptr);
     }
 
     // Division
@@ -247,7 +277,7 @@ public class ArithmeticOperationTest {
         assertEqualValue(PDataType.DECIMAL, new BigDecimal("1.2345E+6"), ptr);
 
         // Exceeds precision.
-        op1 = LiteralExpression.newConstant(new BigDecimal("1234567890123456789012345678901"), PDataType.DECIMAL, 31, 0);
+        op1 = LiteralExpression.newConstant(new BigDecimal("12345678901234567890123456789012345678"), PDataType.DECIMAL, 38, 0);
         op2 = LiteralExpression.newConstant(new BigDecimal("0.01"), PDataType.DECIMAL, 2, 2);
         children = Arrays.<Expression>asList(op1, op2);
         e = new DecimalDivideExpression(children);
@@ -256,8 +286,18 @@ public class ArithmeticOperationTest {
             evaluated = e.evaluate(null, ptr);
             fail("Evaluation should have failed");
         } catch (ValueTypeIncompatibleException ex) {
-            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(31,0)"));
+            assertTrue(ex.getMessage(), ex.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,0)"));
         }
+        
+        // Decimal with no precision and scale.
+        op1 = LiteralExpression.newConstant(new BigDecimal("10"), PDataType.DECIMAL);
+        op2 = LiteralExpression.newConstant(new BigDecimal("3"), PDataType.DECIMAL, 5, 4);
+        children = Arrays.<Expression>asList(op1, op2);
+        e = new DecimalDivideExpression(children);
+        ptr = new ImmutableBytesWritable();
+        evaluated = e.evaluate(null, ptr);
+        assertTrue(evaluated);
+        assertEqualValue(PDataType.DECIMAL, new BigDecimal("3.3333333333333333333333333333333333333"), ptr);
     }
 
     private static void assertEqualValue(PDataType type, Object value, ImmutableBytesWritable ptr) {

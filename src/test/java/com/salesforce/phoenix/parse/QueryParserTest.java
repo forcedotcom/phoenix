@@ -479,7 +479,15 @@ public class QueryParserTest {
             parser.parseStatement();
             fail("Should have caught bad decimal definition.");
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 209 (22003): Decimal precision outside of range. Should be within 1 and 31. columnName=COL"));
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 209 (22003): Decimal precision outside of range. Should be within 1 and 38. columnName=COL"));
+        }
+        try {
+            SQLParser parser = new SQLParser("CREATE TABLE IF NOT EXISTS testBadDecimalDef" + 
+                    "  (pk VARCHAR NOT NULL PRIMARY KEY, col DECIMAL(40, 5))");
+            parser.parseStatement();
+            fail("Should have caught bad decimal definition.");
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 209 (22003): Decimal precision outside of range. Should be within 1 and 38. columnName=COL"));
         }
     }
 
