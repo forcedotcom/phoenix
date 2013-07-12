@@ -81,12 +81,19 @@ public class ColumnDef {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.DECIMAL_PRECISION_OUT_OF_RANGE)
                         .setColumnName(columnDefName.getColumnName()).build().buildException();
                 }
-                // If scale is not specify, it is set to 0. This is the standard as specified in
+                // When a precision is specified and a scale is not specified, it is set to 0. 
+                // 
+                // This is the standard as specified in
                 // http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
                 // and 
                 // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
                 // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
-                scale = scale == null ? PDataType.DEFAULT_SCALE : scale > maxLength ? maxLength : scale; 
+                //
+                // When neither a precision nor a scale is specified, the precision and scale is
+                // ignored. All decimal are stored with as much decimal points as possible.
+                scale = scale == null ? 
+                		maxLength == null ? PDataType.NO_SCALE : PDataType.DEFAULT_SCALE : 
+                		scale > maxLength ? maxLength : scale; 
             } else if (this.dataType == PDataType.BINARY) {
                 if (maxLength == null) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_BINARY_LENGTH)
