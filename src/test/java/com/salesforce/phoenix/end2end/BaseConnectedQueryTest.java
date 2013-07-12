@@ -88,6 +88,57 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         }
     }
     
+    protected static void initSumDoubleValues(byte[][] splits, Long ts) throws Exception {
+        if (ts == null) {
+            ensureTableCreated(getUrl(), "SumDoubleTest", splits);
+        } else {
+            ensureTableCreated(getUrl(), "SumDoubleTest", splits, ts-2);
+        }
+        Properties props = new Properties();
+        if (ts != null) {
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+        }
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        try {
+            // Insert all rows at ts
+            PreparedStatement stmt = conn.prepareStatement(
+                    "upsert into " +
+                    "SumDoubleTest(" +
+                    "    id, " +
+                    "    d, " +
+                    "    f) " +
+                    "VALUES (?, ?, ?)");
+            stmt.setString(1, "1");
+            stmt.setDouble(2, 0.001);
+            stmt.setFloat(3, 0.01f);
+            stmt.execute();
+                
+            stmt.setString(1, "2");
+            stmt.setDouble(2, 0.002);
+            stmt.setFloat(3, 0.02f);
+            stmt.execute();
+                
+            stmt.setString(1, "3");
+            stmt.setDouble(2, 0.003);
+            stmt.setFloat(3, 0.03f);
+            stmt.execute();
+                
+            stmt.setString(1, "4");
+            stmt.setDouble(2, 0.004);
+            stmt.setFloat(3, 0.04f);
+            stmt.execute();
+                
+            stmt.setString(1, "5");
+            stmt.setDouble(2, 0.005);
+            stmt.setFloat(3, 0.05f);
+            stmt.execute();
+                
+            conn.commit();
+        } finally {
+            conn.close();
+        }
+    }
+    
     protected static void initATableValues(String tenantId, byte[][] splits) throws Exception {
         initATableValues(tenantId, splits, null);
     }
