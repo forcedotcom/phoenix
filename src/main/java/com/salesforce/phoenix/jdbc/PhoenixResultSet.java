@@ -273,12 +273,19 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
 
     @Override
     public byte getByte(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+//        throw new SQLFeatureNotSupportedException();
+        checkCursorState();
+        Byte value = (Byte)rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.TINYINT, ptr);
+        wasNull = (value == null);
+        if (value == null) {
+            return 0;
+        }
+        return value;
     }
 
     @Override
     public byte getByte(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        return getByte(findColumn(columnLabel));
     }
 
     @Override
@@ -343,12 +350,12 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     @Override
     public double getDouble(int columnIndex) throws SQLException {
         checkCursorState();
-        BigDecimal value = (BigDecimal)rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.DECIMAL, ptr);
+        Double value = (Double)rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.DOUBLE, ptr);
         wasNull = (value == null);
         if (value == null) {
             return 0;
         }
-        return value.doubleValue();
+        return value;
     }
 
     @Override
@@ -369,12 +376,12 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     @Override
     public float getFloat(int columnIndex) throws SQLException {
         checkCursorState();
-        BigDecimal value = (BigDecimal)rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.DECIMAL, ptr);
+        Float value = (Float)rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.FLOAT, ptr);
         wasNull = (value == null);
         if (value == null) {
             return 0;
         }
-        return value.floatValue();
+        return value;
     }
 
     @Override
@@ -516,12 +523,18 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
 
     @Override
     public short getShort(int columnIndex) throws SQLException {
-        return (short)getInt(columnIndex);
+        checkCursorState();
+        Short value = (Short)rowProjector.getColumnProjector(columnIndex-1).getValue(currentRow, PDataType.SMALLINT, ptr);
+        wasNull = (value == null);
+        if (value == null) {
+            return 0;
+        }
+        return value;
     }
 
     @Override
     public short getShort(String columnLabel) throws SQLException {
-        return (short)getInt(columnLabel);
+        return getShort(findColumn(columnLabel));
     }
 
     @Override

@@ -343,12 +343,6 @@ public class PDataTypeTest {
         bb = PDataType.FLOAT.toBytes(nb);
         assertTrue(Bytes.compareTo(ba, bb) > 0);
         
-        na = null;
-        nb = Float.NEGATIVE_INFINITY;
-        ba = PDataType.FLOAT.toBytes(na);
-        bb = PDataType.FLOAT.toBytes(nb);
-        assertTrue(Bytes.compareTo(ba, bb) < 0);
-        
         na = Float.NEGATIVE_INFINITY;
         nb = -Float.MAX_VALUE;
         ba = PDataType.FLOAT.toBytes(na);
@@ -440,12 +434,6 @@ public class PDataTypeTest {
         ba = PDataType.DOUBLE.toBytes(na);
         bb = PDataType.DOUBLE.toBytes(nb);
         assertTrue(Bytes.compareTo(ba, bb) > 0);
-        
-        na = null;
-        nb = Double.NEGATIVE_INFINITY;
-        ba = PDataType.DOUBLE.toBytes(na);
-        bb = PDataType.DOUBLE.toBytes(nb);
-        assertTrue(Bytes.compareTo(ba, bb) < 0);
         
         na = Double.NEGATIVE_INFINITY;
         nb = -Double.MAX_VALUE;

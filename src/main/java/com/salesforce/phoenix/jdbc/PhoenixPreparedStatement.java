@@ -188,7 +188,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setByte(int parameterIndex, byte x) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        parameters.set(parameterIndex - 1, x);
     }
 
     @Override
@@ -234,12 +234,14 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setDouble(int parameterIndex, double x) throws SQLException {
-        parameters.set(parameterIndex - 1, BigDecimal.valueOf(x));
+//        parameters.set(parameterIndex - 1, BigDecimal.valueOf(x));
+        parameters.set(parameterIndex - 1, x);
     }
 
     @Override
     public void setFloat(int parameterIndex, float x) throws SQLException {
-        parameters.set(parameterIndex - 1, BigDecimal.valueOf(x));
+//        parameters.set(parameterIndex - 1, BigDecimal.valueOf(x));
+        parameters.set(parameterIndex - 1, x);
     }
 
     @Override
@@ -327,7 +329,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setShort(int parameterIndex, short x) throws SQLException {
-        parameters.set(parameterIndex - 1, Integer.valueOf(x));
+        parameters.set(parameterIndex - 1, x);
     }
 
     @Override

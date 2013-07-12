@@ -91,8 +91,11 @@ public enum ExpressionType {
     PercentRankAggregateFunction(PercentRankAggregateFunction.class),
     StddevPopFunction(StddevPopFunction.class),
     StddevSampFunction(StddevSampFunction.class),
-    PercentileDiscAggregateFunction(PercentileDiscAggregateFunction.class);
-
+    PercentileDiscAggregateFunction(PercentileDiscAggregateFunction.class),
+    DoubleAddExpression(DoubleAddExpression.class),
+    DoubleSubtractExpression(DoubleSubtractExpression.class),
+    DoubleMultiplyExpression(DoubleMultiplyExpression.class),
+    DoubleDivideExpression(DoubleDivideExpression.class);
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
     }
