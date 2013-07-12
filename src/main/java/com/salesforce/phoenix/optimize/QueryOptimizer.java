@@ -32,8 +32,13 @@ public class QueryOptimizer {
             return dataPlan;
         }
         
-        List<PTable>indexes = dataPlan.getTableRef().getTable().getIndexes();
-        if (indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols()) {
+        PTable dataTable = dataPlan.getTableRef().getTable();
+        List<PTable>indexes = dataTable.getIndexes();
+        /*
+         * Only indexes on tables with immutable rows may be used until we hook up
+         * incremental index maintenance. 
+         */
+        if (dataTable.getType() != PTableType.IMMUTABLE || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols()) {
             return dataPlan;
         }
         
@@ -90,9 +95,8 @@ public class QueryOptimizer {
         
         List<QueryPlan> candidates = Lists.newArrayListWithExpectedSize(plans.size());
         if (dataPlan.getLimit() == null) {
-            candidates = Lists.newArrayList(plans);
+            candidates.addAll(plans);
         } else {
-            candidates = Lists.newArrayListWithExpectedSize(plans.size());
             for (QueryPlan plan : plans) {
                 // If ORDER BY optimized out (or not present at all)
                 if (plan.getOrderBy() == OrderBy.EMPTY_ORDER_BY) {

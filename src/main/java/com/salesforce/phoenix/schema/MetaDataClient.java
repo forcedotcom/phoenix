@@ -272,8 +272,8 @@ public class MetaDataClient {
             unusedPkColumns.remove(col);
             PDataType dataType = IndexUtil.getIndexColumnDataType(col);
             colName = SchemaUtil.isPKColumn(col) ? colName : ColumnName.caseSensitiveColumnName(IndexUtil.getIndexColumnName(col));
-            allPkColumns.add(new Pair<ColumnName, ColumnModifier>(colName, col.getColumnModifier()));
-            columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, pair.getSecond()));
+            allPkColumns.add(new Pair<ColumnName, ColumnModifier>(colName, pair.getSecond()));
+            columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, null));
         }
         
         for (ColumnName colName : includedColumns) {
@@ -459,6 +459,16 @@ public class MetaDataClient {
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
             connection.rollback();
             
+            boolean isImmutableRows;
+            Boolean isImmutableRowsProp = (Boolean) tableProps.remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME);
+            if (isImmutableRowsProp == null) {
+                isImmutableRows = connection.getQueryServices().getProps().getBoolean(QueryServices.IMMUTABLE_ROWS_ATTRIB, QueryServicesOptions.DEFAULT_IMMUTABLE_ROWS);
+            } else {
+                isImmutableRows = isImmutableRowsProp;
+            }
+            if (isImmutableRows) {
+                tableType = PTableType.IMMUTABLE;
+            }
             String dataTableName = parent == null ? null : parent.getName().getString();
             PIndexState indexState = parent == null ? null : PIndexState.BUILDING;
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);

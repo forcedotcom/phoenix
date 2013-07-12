@@ -3697,6 +3697,7 @@ public enum PDataType {
             byte[] b = ptr.copyBytes();
             ColumnModifier.SORT_DESC.apply(b, b, 0, b.length);
             ptr.set(b);
+            return;
         }
         
         Object coercedValue = toObject(ptr, actualType, actualModifier);

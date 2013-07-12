@@ -39,6 +39,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 
 public class IndexUtil {
@@ -109,6 +110,7 @@ public class IndexUtil {
         byte[][] indexValues = new byte[indexTable.getColumns().size()][];
         int i = 0;
         int maxOffset = dataRowKey.length;
+        ptr.set(dataRowKey);
         for (Boolean hasValue = dataRowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); hasValue != null; hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET)) {
             if (hasValue) {
                 PColumn dataColumn = dataPKColumns.get(i);
@@ -128,13 +130,15 @@ public class IndexUtil {
                 PColumnFamily family = dataTable.getColumnFamily(entry.getKey());
                 for (KeyValue kv : entry.getValue()) {
                     byte[] cq = kv.getQualifier();
-                    PColumn dataColumn = family.getColumn(cq);
-                    PColumn indexColumn = family.getColumn(getIndexColumnName(family.getName().getBytes(), cq));
-                    ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
-                    coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                    indexValues[indexColumn.getPosition()] = ptr.copyBytes();
-                    if (!SchemaUtil.isPKColumn(indexColumn)) {
-                        indexValuesSet.set(indexColumn.getPosition());
+                    if (Bytes.compareTo(QueryConstants.EMPTY_COLUMN_BYTES, cq) != 0) {
+                        PColumn dataColumn = family.getColumn(cq);
+                        PColumn indexColumn = indexTable.getColumn(getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
+                        ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
+                        coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
+                        indexValues[indexColumn.getPosition()] = ptr.copyBytes();
+                        if (!SchemaUtil.isPKColumn(indexColumn)) {
+                            indexValuesSet.set(indexColumn.getPosition());
+                        }
                     }
                 }
             }
@@ -154,7 +158,7 @@ public class IndexUtil {
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
         for (Mutation dataMutation : dataMutations) {
-            indexMutations.addAll(generateIndexData(table, index, dataMutation, ptr));
+            indexMutations.addAll(generateIndexData(index, table, dataMutation, ptr));
         }
         return indexMutations;
     }

@@ -44,6 +44,7 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
  */
 public interface PTable extends Writable {
     public static final long INITIAL_SEQ_NUM = 0;
+    public static final String IS_IMMUTABLE_ROWS_PROP_NAME = "IMMUTABLE_ROWS";
 
     long getTimeStamp();
     long getSequenceNumber();

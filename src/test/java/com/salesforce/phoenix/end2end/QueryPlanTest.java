@@ -35,18 +35,9 @@ import java.util.Properties;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.util.QueryUtil;
+
 public class QueryPlanTest extends BaseConnectedQueryTest {
-    private static String getPlan(ResultSet rs) throws SQLException {
-        StringBuilder buf = new StringBuilder();
-        while (rs.next()) {
-            buf.append(rs.getString(1));
-            buf.append('\n');
-        }
-        if (buf.length() > 0) {
-            buf.setLength(buf.length()-1);
-        }
-        return buf.toString();
-    }
     @Test
     public void testExplainPlan() throws Exception {
         ensureTableCreated(getUrl(), ATABLE_NAME, getDefaultSplits(getOrganizationId()));
@@ -161,7 +152,7 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 Statement statement = conn.createStatement();
                 ResultSet rs = statement.executeQuery("EXPLAIN " + query);
                 // TODO: figure out a way of verifying that query isn't run during explain execution
-                assertEquals(query, plan, getPlan(rs));
+                assertEquals(query, plan, QueryUtil.getExplainPlan(rs));
             } catch (Exception e) {
                 throw new Exception(query + ": "+ e.getMessage(), e);
             } finally {

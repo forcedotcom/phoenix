@@ -149,7 +149,10 @@ public class MutationState implements SQLCloseable {
             mutations.addAll(row.toRowMutations());
         }
         final byte[] schemaName = Bytes.toBytes(tableRef.getSchema().getName());
-        final Iterator<PTable> indexes = tableRef.getTable().getIndexes().iterator();
+        final Iterator<PTable> indexes = // Only maintain tables with immutable rows through this client-side mechanism
+                tableRef.getTable().getType() == PTableType.IMMUTABLE ? 
+                        tableRef.getTable().getIndexes().iterator() : 
+                        Iterators.<PTable>emptyIterator();
         return new Iterator<Pair<byte[],List<Mutation>>>() {
             boolean isFirst = true;
 
@@ -286,8 +289,6 @@ public class MutationState implements SQLCloseable {
                 try {
                     hTable.batch(mutations);
                     committedList.add(entry);
-                    numEntries -= entry.getValue().size();
-                    iterator.remove(); // Remove batches as we process them
                 } catch (Exception e) {
                     // Throw to client with both what was committed so far and what is left to be committed.
                     // That way, client can either undo what was done or try again with what was not done.
@@ -308,6 +309,8 @@ public class MutationState implements SQLCloseable {
                     }
                 }
             }
+            numEntries -= entry.getValue().size();
+            iterator.remove(); // Remove batches as we process them
         }
         assert(numEntries==0);
         assert(this.mutations.isEmpty());

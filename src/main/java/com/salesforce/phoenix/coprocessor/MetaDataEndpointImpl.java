@@ -535,7 +535,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         KeyValue typeKeyValue = KeyValueUtil.getColumnLatest(results, PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES, PhoenixDatabaseMetaData.TABLE_TYPE_BYTES);
         assert(typeKeyValue != null && typeKeyValue.getValueLength() == 1);
-        if ( tableType != PTableType.fromSerializedValue(typeKeyValue.getBuffer()[typeKeyValue.getValueOffset()]))  {
+        if ( tableType.getRootType() != PTableType.fromSerializedValue(typeKeyValue.getBuffer()[typeKeyValue.getValueOffset()]).getRootType())  {
             // We said to drop a table, but found a view or visa versa
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
