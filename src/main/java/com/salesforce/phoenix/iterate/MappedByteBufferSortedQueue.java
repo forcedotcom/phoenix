@@ -45,6 +45,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 
 public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
     private Comparator<ResultEntry> comparator;
+    private final int limit;
     private final int thresholdBytes;
     private List<MappedByteBufferPriorityQueue> queues = new ArrayList<MappedByteBufferPriorityQueue>();
     private MappedByteBufferPriorityQueue currentQueue = null;
@@ -52,11 +53,12 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
     MinMaxPriorityQueue<IndexedResultEntry> mergedQueue = null;
 
     public MappedByteBufferSortedQueue(Comparator<ResultEntry> comparator,
-            int thresholdBytes) throws IOException {
+            Integer limit, int thresholdBytes) throws IOException {
         this.comparator = comparator;
+        this.limit = limit == null ? -1 : limit;
         this.thresholdBytes = thresholdBytes;
         this.currentQueue = new MappedByteBufferPriorityQueue(0,
-                thresholdBytes, comparator);
+                this.limit, thresholdBytes, comparator);
         this.queues.add(currentQueue);
     }
 
@@ -67,7 +69,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
             if (isFlush) {
                 currentIndex++;
                 currentQueue = new MappedByteBufferPriorityQueue(currentIndex,
-                        thresholdBytes, comparator);
+                        limit, thresholdBytes, comparator);
                 queues.add(currentQueue);
             }
         } catch (IOException ioe) {
@@ -178,7 +180,8 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
     private static class MappedByteBufferPriorityQueue {
         private static final long DEFAULT_MAPPING_SIZE = 1024;
         
-        private int thresholdBytes;
+        private final int limit;
+        private final int thresholdBytes;
         private long totalResultSize = 0;
         private int maxResultSize = 0;
         private long mappingSize = 0;
@@ -195,12 +198,14 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
         private int index;
         private int flushedCount;
 
-        public MappedByteBufferPriorityQueue(int index, int thresholdBytes,
+        public MappedByteBufferPriorityQueue(int index, int limit, int thresholdBytes,
                 Comparator<ResultEntry> comparator) throws IOException {
             this.index = index;
+            this.limit = limit;
             this.thresholdBytes = thresholdBytes;
-            results = MinMaxPriorityQueue.<ResultEntry> orderedBy(comparator)
-                    .create();
+            results = limit < 0 ? 
+                    MinMaxPriorityQueue.<ResultEntry> orderedBy(comparator).create()
+                  : MinMaxPriorityQueue.<ResultEntry> orderedBy(comparator).maximumSize(limit).create();
         }
         
         public int size() {
@@ -255,50 +260,52 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
             
             int sortKeySize = sizeof(entry.sortKeys);
             int resultSize = sizeof(toKeyValues(entry)) + sortKeySize;
-            results.add(entry);
-            maxResultSize = Math.max(maxResultSize, resultSize);
-            totalResultSize += resultSize;
-            if (totalResultSize >= thresholdBytes) {
-                this.file = File.createTempFile(UUID.randomUUID().toString(), null);
-                this.af = new RandomAccessFile(file, "rw");
-                this.fc = af.getChannel();
-                mappingSize = Math.min(Math.max(maxResultSize, DEFAULT_MAPPING_SIZE), totalResultSize);
-                writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex, mappingSize);
+            boolean added = results.add(entry);
+            if (added) {
+                maxResultSize = Math.max(maxResultSize, resultSize);
+                totalResultSize = limit < 0 ? (totalResultSize + resultSize) : maxResultSize * results.size();
+                if (totalResultSize >= thresholdBytes) {
+                    this.file = File.createTempFile(UUID.randomUUID().toString(), null);
+                    this.af = new RandomAccessFile(file, "rw");
+                    this.fc = af.getChannel();
+                    mappingSize = Math.min(Math.max(maxResultSize, DEFAULT_MAPPING_SIZE), totalResultSize);
+                    writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex, mappingSize);
                 
-                for (int i = 0; i < results.size(); i++) {                
-                    int totalLen = 0;
-                    ResultEntry re = results.pollFirst();
-                    List<KeyValue> keyValues = toKeyValues(re);
-                    for (KeyValue kv : keyValues) {
-                        totalLen += (kv.getLength() + Bytes.SIZEOF_INT);
-                    }
-                    writeBuffer.putInt(totalLen);
-                    for (KeyValue kv : keyValues) {
-                        writeBuffer.putInt(kv.getLength());
-                        writeBuffer.put(kv.getBuffer(), kv.getOffset(), kv
-                                .getLength());
-                    }
-                    ImmutableBytesWritable[] sortKeys = re.sortKeys;
-                    writeBuffer.putInt(sortKeys.length);
-                    for (ImmutableBytesWritable sortKey : sortKeys) {
-                        if (sortKey != null) {
-                            writeBuffer.putInt(sortKey.getLength());
-                            writeBuffer.put(sortKey.get(), sortKey.getOffset(),
-                                    sortKey.getLength());
-                        } else {
-                            writeBuffer.putInt(0);
+                    for (int i = 0; i < results.size(); i++) {                
+                        int totalLen = 0;
+                        ResultEntry re = results.pollFirst();
+                        List<KeyValue> keyValues = toKeyValues(re);
+                        for (KeyValue kv : keyValues) {
+                            totalLen += (kv.getLength() + Bytes.SIZEOF_INT);
+                        }
+                        writeBuffer.putInt(totalLen);
+                        for (KeyValue kv : keyValues) {
+                            writeBuffer.putInt(kv.getLength());
+                            writeBuffer.put(kv.getBuffer(), kv.getOffset(), kv
+                                    .getLength());
+                        }
+                        ImmutableBytesWritable[] sortKeys = re.sortKeys;
+                        writeBuffer.putInt(sortKeys.length);
+                        for (ImmutableBytesWritable sortKey : sortKeys) {
+                            if (sortKey != null) {
+                                writeBuffer.putInt(sortKey.getLength());
+                                writeBuffer.put(sortKey.get(), sortKey.getOffset(),
+                                        sortKey.getLength());
+                            } else {
+                                writeBuffer.putInt(0);
+                            }
+                        }
+                        // buffer close to exhausted, re-map.
+                        if (mappingSize - writeBuffer.position() < maxResultSize) {
+                            writeIndex += writeBuffer.position();
+                            writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex, mappingSize);
                         }
                     }
-                    // buffer close to exhausted, re-map.
-                    if (mappingSize - writeBuffer.position() < maxResultSize) {
-                        writeIndex += writeBuffer.position();
-                        writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex, mappingSize);
-                    }
+                    writeBuffer.putInt(-1); // end
+                    flushedCount = results.size();
+                    results.clear();
+                    flushBuffer = true;
                 }
-                writeBuffer.putInt(-1); // end
-                flushedCount = results.size();
-                results.clear();
-                flushBuffer = true;
             }
             return flushBuffer;
         }
