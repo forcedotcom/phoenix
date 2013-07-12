@@ -285,6 +285,44 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testSumDouble() throws Exception {
+        long ts = nextTimestamp();
+        initSumDoubleValues(null, ts);
+        String query = "SELECT SUM(d) FROM SumDoubleTest";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Doubles.compare(rs.getDouble(1), 0.015)==0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testSumFloat() throws Exception {
+        long ts = nextTimestamp();
+        initSumDoubleValues(null, ts);
+        String query = "SELECT SUM(f) FROM SumDoubleTest";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Floats.compare(rs.getFloat(1), 0.15f)==0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testNotInListOfFloat() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
@@ -1381,6 +1419,56 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     private static boolean compare(CompareOp op, ImmutableBytesWritable lhsOutPtr, ImmutableBytesWritable rhsOutPtr) {
         int compareResult = Bytes.compareTo(lhsOutPtr.get(), lhsOutPtr.getOffset(), lhsOutPtr.getLength(), rhsOutPtr.get(), rhsOutPtr.getOffset(), rhsOutPtr.getLength());
         return ByteUtil.compare(op, compareResult);
+    }
+    
+    @Test
+    public void testDateAdd() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
+        String query = "SELECT entity_id, b_string FROM ATABLE WHERE a_date + 0.5d < ?";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setDate(1, new Date(System.currentTimeMillis() + MILLIS_IN_DAY));
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ROW1, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW4, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW7, rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDateSubtract() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
+        String query = "SELECT entity_id, b_string FROM ATABLE WHERE a_date - 0.5d > ?";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setDate(1, new Date(System.currentTimeMillis() + MILLIS_IN_DAY));
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ROW3, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW6, rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals(ROW9, rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
     }
 
     @Test

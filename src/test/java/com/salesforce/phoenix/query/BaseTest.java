@@ -237,6 +237,8 @@ public abstract class BaseTest {
                 "   b.long_col2 BIGINT, " +
                 "   b.decimal_col2 DECIMAL(31, 10) " +
                 "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk, decimal_pk))");
+        builder.put("SumDoubleTest","create table SumDoubleTest" +
+                "   (id varchar not null primary key, d DOUBLE, f FLOAT, i integer, de decimal)");
         tableDDLMap = builder.build();
     }
 

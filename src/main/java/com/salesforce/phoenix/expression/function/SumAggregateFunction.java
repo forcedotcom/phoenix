@@ -131,7 +131,15 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
 
     @Override
     public PDataType getDataType() {
-        return super.getDataType() == PDataType.DECIMAL ? PDataType.DECIMAL : PDataType.LONG;
+        switch(super.getDataType()) {
+        case DECIMAL:
+            return PDataType.DECIMAL;
+        case FLOAT:
+        case DOUBLE:
+            return PDataType.DOUBLE;
+        default:
+            return PDataType.LONG;
+        }
     }
 
     @Override
