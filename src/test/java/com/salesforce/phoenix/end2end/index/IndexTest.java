@@ -5,11 +5,7 @@ import static com.salesforce.phoenix.util.TestUtil.*;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -18,6 +14,7 @@ import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.util.QueryUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
 
@@ -31,11 +28,11 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE 
             + "\" WHERE "
             + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=?";
-    private static final String SELECT_DATA_INDEX_ROW = "SELECT " + INDEX_NAME
+    private static final String SELECT_DATA_INDEX_ROW = "SELECT " + TABLE_CAT_NAME
             + " FROM "
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE
             + "\" WHERE "
-            + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=? AND " + INDEX_NAME + "=?";
+            + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=? AND " + COLUMN_NAME + " IS NULL AND " + TABLE_CAT_NAME + "=?";
 
     private static ResultSet readIndexMetaData(Connection conn, String schemName, String indexName) throws SQLException {
         PreparedStatement stmt = conn.prepareStatement(SELECT_INDEX_METADATA);
@@ -203,6 +200,89 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
     }
 
     @Test
+    public void testImmutableTableIndexMaintanence() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("CREATE INDEX i ON t (v DESC)");
+        PreparedStatement stmt = conn.prepareStatement("UPSERT INTO t VALUES(?,?)");
+        stmt.setString(1,"a");
+        stmt.setString(2, "x");
+        stmt.execute();
+        stmt.setString(1,"b");
+        stmt.setString(2, "y");
+        stmt.execute();
+        conn.commit();
+        
+        String query;
+        ResultSet rs;
+        
+        query = "SELECT k,v FROM t WHERE v = 'y'";
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'",QueryUtil.getExplainPlan(rs));
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertFalse(rs.next());
+
+        // Will use index, so rows returned in DESC order.
+        // This is not a bug, though, because we can
+        // return in any order.
+        query = "SELECT k,v FROM t WHERE v >= 'x'";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']",QueryUtil.getExplainPlan(rs));
+        
+        // Will still use index, since there's no LIMIT clause
+        query = "SELECT k,v FROM t WHERE v >= 'x' ORDER BY k";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        // Turns into an ORDER BY, which could be bad if lots of data is
+        // being returned. Without stats we don't know. The alternative
+        // would be a full table scan.
+        assertEquals(
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']\n" + 
+        		"    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
+        		"CLIENT MERGE SORT",
+        		QueryUtil.getExplainPlan(rs));
+        
+        // Will use data table now, since there's a LIMIT clause and
+        // we're able to optimize out the ORDER BY
+        query = "SELECT k,v FROM t WHERE v >= 'x' ORDER BY k LIMIT 2";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        assertEquals(
+                "CLIENT PARALLEL 1-WAY FULL SCAN OVER T\n" + 
+                "    SERVER FILTER BY V >= 'x'\n" + 
+                "    SERVER 2 ROW LIMIT\n" + 
+                "CLIENT 2 ROW LIMIT",
+                QueryUtil.getExplainPlan(rs));
+    }
+    
+    @Test
     public void testIndexDefinitionWithNullableFixedWidthColInPK() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -211,7 +291,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
             String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
                     + " (char_col1 ASC, int_col2 ASC, long_col2 DESC)"
-                    + " INCLUDE (int_col1, int_col2)";
+                    + " INCLUDE (int_col1)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             

@@ -89,7 +89,7 @@ public class UpsertCompiler {
         final PhoenixConnection connection = statement.getConnection();
         ConnectionQueryServices services = connection.getQueryServices();
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
-        final ColumnResolver resolver = FromCompiler.getResolver(upsert, connection,upsert.getDynColumns());
+        final ColumnResolver resolver = FromCompiler.getResolver(upsert, connection);
         final TableRef tableRef = resolver.getTables().get(0);
         PTable table = tableRef.getTable();
         if (table.getType() == PTableType.VIEW) {
@@ -98,14 +98,14 @@ public class UpsertCompiler {
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(connection, resolver, binds, upsert.getBindCount(), scan);
         // Setup array of column indexes parallel to values that are going to be set
-        List<ParseNode> columnNodes = upsert.getColumns();
+        List<ColumnName> columnNodes = upsert.getColumns();
         List<PColumn> allColumns = table.getColumns();
 
         int[] columnIndexesToBe;
         int[] pkSlotIndexesToBe;
         PColumn[] targetColumns;
         // Allow full row upsert if no columns or only dynamic one are specified and values count match
-        if (columnNodes.isEmpty() || (upsert.onlyDynamic() && upsert.getValues().size() == table.getColumns().size())) {
+        if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
             columnIndexesToBe = new int[allColumns.size()];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = new PColumn[columnIndexesToBe.length];
@@ -123,16 +123,14 @@ public class UpsertCompiler {
             targetColumns = new PColumn[columnIndexesToBe.length];
             Arrays.fill(columnIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             Arrays.fill(pkSlotIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
-            ColumnUpsertCompiler expressionBuilder = new ColumnUpsertCompiler(context, columnIndexesToBe, pkSlotIndexesToBe);
             BitSet pkColumnsSet = new BitSet(table.getPKColumns().size());
             for (int i =0; i < columnNodes.size(); i++) {
-                ParseNode colNode = columnNodes.get(i);
-                expressionBuilder.setNodeIndex(i);
-                colNode.accept(expressionBuilder);
-                PColumn col = allColumns.get(columnIndexesToBe[i]);
-                targetColumns[i] = col;
-                if (SchemaUtil.isPKColumn(col)) {
-                    pkColumnsSet.set(pkSlotIndexesToBe[i]);
+                ColumnName colName = columnNodes.get(i);
+                ColumnRef ref = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName());
+                columnIndexesToBe[i] = ref.getColumnPosition();
+                targetColumns[i] = ref.getColumn();
+                if (SchemaUtil.isPKColumn(ref.getColumn())) {
+                    pkColumnsSet.set(pkSlotIndexesToBe[i] = ref.getPKSlotPosition());
                 }
             }
             int i = table.getBucketNum() == null ? 0 : 1;
@@ -163,7 +161,7 @@ public class UpsertCompiler {
             nValuesToSet = projector.getColumnCount();
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
-            runOnServer = !plan.isAggregate() && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() == null;
+            runOnServer = plan.getGroupBy()==null && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() == null;
         } else {
             nValuesToSet = valueNodes.size();
         }
@@ -266,7 +264,7 @@ public class UpsertCompiler {
                         projectedColumns.add(column.getPosition() == i ? column : new PColumnImpl(column, i));
                     }
                     // Build table from projectedColumns
-                    PTable projectedTable = PTableImpl.makePTable(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, null);
+                    PTable projectedTable = PTableImpl.makePTable(table.getName(), table.getType(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns);
                     
                     // Remove projection of empty column, since it can lead to problems when building another projection
                     // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
@@ -276,7 +274,7 @@ public class UpsertCompiler {
                             NODE_FACTORY.aliasedNode(null, 
                                     NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
                     // Ignore order by - it has no impact
-                    final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+                    final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
                     /*
                      * Transfer over PTable representing subset of columns selected, but all PK columns.
                      * Move columns setting PK first in pkSlot order, adding LiteralExpression of null for any missing ones.
@@ -359,16 +357,29 @@ public class UpsertCompiler {
                     while (rs.next()) {
                         for (int i = 0; i < values.length; i++) {
                             column = table.getColumns().get(columnIndexes[i]);
-                            // We are guaranteed that the two column will have the same type.
+                            byte[] byteValue = rs.getBytes(i+1);
+                            Object value = rs.getObject(i+1);
+                            int rsPrecision = rs.getMetaData().getPrecision(i+1);
+                            Integer precision = rsPrecision == 0 ? null : rsPrecision;
+                            int rsScale = rs.getMetaData().getScale(i+1);
+                            Integer scale = rsScale == 0 ? null : rsScale;
+                            // If ColumnModifier from expression in SELECT doesn't match the
+                            // column being projected into then invert the bits.
+                            if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
+                                byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
+                                byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                            }
+                            // We are guaranteed that the two column will have compatible types,
+                            // as we checked that before.
                             if (!column.getDataType().isSizeCompatible(column.getDataType(),
-                                    null, rs.getBytes(i+1),
-                                    null, column.getMaxLength(), 
-                                    null, column.getScale())) {
+                                    value, byteValue,
+                                    precision, column.getMaxLength(), 
+                                    scale, column.getScale())) {
                                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
                                     .setColumnName(column.getName().getString()).build().buildException();
                             }
-                            values[i] = column.getDataType().coerceBytes(rs.getBytes(i+1), null, column.getDataType(),
-                                    null, null, column.getMaxLength(), column.getScale());
+                            values[i] = column.getDataType().coerceBytes(byteValue, value, column.getDataType(),
+                                    precision, scale, column.getMaxLength(), column.getScale());
                         }
                         setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
                         rowCount++;
@@ -412,74 +423,58 @@ public class UpsertCompiler {
             PColumn column = allColumns.get(columnIndexes[nodeIndex]);
             expressionBuilder.setColumn(column);
             LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
+            byte[] byteValue = literalExpression.getBytes();
             if (literalExpression.getDataType() != null) {
-                if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) {
-                    throw new TypeMismatchException(literalExpression.getDataType(), column.getDataType(), "expression: " + literalExpression.toString() + " in column " + column);
+                // If ColumnModifier from expression in SELECT doesn't match the
+                // column being projected into then invert the bits.
+                if (literalExpression.getColumnModifier() != column.getColumnModifier()) {
+                    byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
+                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                }
+                if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) { 
+                    throw new TypeMismatchException(
+                        literalExpression.getDataType(), column.getDataType(), "expression: "
+                                + literalExpression.toString() + " in column " + column);
                 }
                 if (!column.getDataType().isSizeCompatible(literalExpression.getDataType(),
-                        literalExpression.getValue(), literalExpression.getBytes(),
-                        literalExpression.getMaxLength(), column.getMaxLength(), 
-                        literalExpression.getScale(), column.getScale())) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
-                        .setColumnName(column.getName().getString()).setMessage("value=" + literalExpression.toString()).build().buildException();
-                    }
+                        literalExpression.getValue(), byteValue, literalExpression.getMaxLength(),
+                        column.getMaxLength(), literalExpression.getScale(), column.getScale())) { 
+                    throw new SQLExceptionInfo.Builder(
+                        SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE).setColumnName(column.getName().getString())
+                        .setMessage("value=" + literalExpression.toString()).build().buildException();
                 }
-                byte[] byteValue = column.getDataType().coerceBytes(literalExpression.getBytes(), literalExpression.getValue(), literalExpression.getDataType(),
-                        literalExpression.getMaxLength(), literalExpression.getScale(), column.getMaxLength(), column.getScale());
-                values[nodeIndex] = byteValue;
-                nodeIndex++;
             }
-            return new MutationPlan() {
+            byteValue = column.getDataType().coerceBytes(byteValue, literalExpression.getValue(),
+                    literalExpression.getDataType(), literalExpression.getMaxLength(), literalExpression.getScale(),
+                    column.getMaxLength(), column.getScale());
+            values[nodeIndex] = byteValue;
+            nodeIndex++;
+        }
+        return new MutationPlan() {
 
-                @Override
-                public PhoenixConnection getConnection() {
-                    return connection;
-                }
-   
-                @Override
-                public ParameterMetaData getParameterMetaData() {
-                    return context.getBindManager().getParameterMetaData();
-                }
-    
-                @Override
-                public MutationState execute() {
-                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
-                    setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
-                    return new MutationState(tableRef, mutation, 0, maxSize, connection);
-                }
-    
-                @Override
-                public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("PUT SINGLE ROW"));
+            @Override
+            public PhoenixConnection getConnection() {
+                return connection;
             }
-            
+
+            @Override
+            public ParameterMetaData getParameterMetaData() {
+                return context.getBindManager().getParameterMetaData();
+            }
+
+            @Override
+            public MutationState execute() {
+                Map<ImmutableBytesPtr, Map<PColumn, byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
+                setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
+                return new MutationState(tableRef, mutation, 0, maxSize, connection);
+            }
+
+            @Override
+            public ExplainPlan getExplainPlan() throws SQLException {
+                return new ExplainPlan(Collections.singletonList("PUT SINGLE ROW"));
+            }
+
         };
-    }
-    
-    private static final class ColumnUpsertCompiler extends ExpressionCompiler {
-        private final int[] columnIndex;
-        private final int[] pkSlotIndex;
-        private int nodeIndex;
-        
-        private ColumnUpsertCompiler(StatementContext context, int[] columnIndex, int[] pkSlotIndex) {
-            super(context);
-            this.columnIndex = columnIndex;
-            this.pkSlotIndex = pkSlotIndex;
-        }
-
-        public void setNodeIndex(int nodeIndex) {
-            this.nodeIndex = nodeIndex;
-        }
-        
-        @Override
-        protected ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
-            ColumnRef ref = super.resolveColumn(node);
-            this.columnIndex[this.nodeIndex] = ref.getColumnPosition();
-            if (SchemaUtil.isPKColumn(ref.getColumn())) {
-                pkSlotIndex[this.nodeIndex] = ref.getPKSlotPosition();
-            }
-            return ref;
-        }
     }
     
     private static final class UpsertValuesCompiler extends ExpressionCompiler {

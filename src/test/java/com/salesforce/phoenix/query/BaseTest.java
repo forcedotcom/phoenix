@@ -213,7 +213,7 @@ public abstract class BaseTest {
                 "   (pk unsigned_int not null primary key)");
         builder.put("PKUnsignedLongValueTest", "create table PKUnsignedLongValueTest" +
                 "   (pk unsigned_long not null\n" +
-                "    CONSTRAINT pk PRIMARY KEY (unsigned_long))");
+                "    CONSTRAINT pk PRIMARY KEY (pk))");
         builder.put("KVIntValueTest", "create table KVIntValueTest" +
                 "   (pk integer not null primary key,\n" +
                 "    kv integer)\n");

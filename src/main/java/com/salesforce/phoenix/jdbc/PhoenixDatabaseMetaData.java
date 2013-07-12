@@ -63,7 +63,7 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce.phoenix.jdbc.Jdbc7Shim.DatabaseMetaData {
-    public static final int INDEX_NAME_INDEX = 4;
+    public static final int INDEX_NAME_INDEX = 3; // Shared with FAMILY_NAME_INDEX
     public static final int FAMILY_NAME_INDEX = 3;
     public static final int COLUMN_NAME_INDEX = 2;
     public static final int TABLE_NAME_INDEX = 1;
@@ -98,8 +98,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String SALT_BUCKETS = "SALT_BUCKETS";
     public static final byte[] SALT_BUCKETS_BYTES = Bytes.toBytes(SALT_BUCKETS);
     
-    public static final String INDEX_NAME = "INDEX_NAME";
-    public static final byte[] INDEX_NAME_BYTES = Bytes.toBytes(INDEX_NAME);
+    public static final String DATA_TABLE_NAME = "DATA_TABLE_NAME";
+    public static final byte[] DATA_TABLE_NAME_BYTES = Bytes.toBytes(DATA_TABLE_NAME);
     public static final String INDEX_STATE = "INDEX_STATE";
     public static final byte[] INDEX_STATE_BYTES = Bytes.toBytes(INDEX_STATE);
     
@@ -750,7 +750,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             return emptyResultSet;
         }
         StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/" +
-                "null " + TABLE_CAT_NAME + "," + // no catalog for tables
+                TABLE_CAT_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
                 TABLE_TYPE_NAME + "," +
@@ -759,7 +759,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SELF_REFERENCING_COL_NAME_NAME + "," +
                 REF_GENERATION_NAME +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
-                " where " + COLUMN_NAME + " is null");
+                " where " + COLUMN_NAME + " is null" +
+                " and " + TABLE_CAT_NAME + " is null");
         if (schemaPattern != null) {
             buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
         }

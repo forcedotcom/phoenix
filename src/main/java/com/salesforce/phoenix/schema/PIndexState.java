@@ -29,10 +29,9 @@ package com.salesforce.phoenix.schema;
 
 
 public enum PIndexState {
-    CREATED("c"),
+    BUILDING("b"),
     ACTIVE("a"),
-    INACTIVE("i"),
-    DROPPED("d");
+    INACTIVE("i");
 
     private final String serializedValue;
 

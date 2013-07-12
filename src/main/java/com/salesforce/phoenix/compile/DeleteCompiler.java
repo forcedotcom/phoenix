@@ -111,7 +111,7 @@ public class DeleteCompiler {
             List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                     NODE_FACTORY.aliasedNode(null, 
                             NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
             final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
             return new MutationPlan() {
 
@@ -158,7 +158,7 @@ public class DeleteCompiler {
             List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                     NODE_FACTORY.aliasedNode(null,
                         NODE_FACTORY.literal(1)));
-            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY, null);
+            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
             final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy);
             return new MutationPlan() {
 

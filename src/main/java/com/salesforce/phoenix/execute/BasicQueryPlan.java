@@ -34,6 +34,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.*;
@@ -56,25 +57,33 @@ public abstract class BasicQueryPlan implements QueryPlan {
     protected final ParameterMetaData paramMetaData;
     protected final Integer limit;
     protected final OrderBy orderBy;
+    protected final GroupBy groupBy;
 
     private Scanner scanner;
 
-    protected BasicQueryPlan(StatementContext context, TableRef table, RowProjector projection, ParameterMetaData paramMetaData, Integer limit, OrderBy orderBy) {
+    protected BasicQueryPlan(StatementContext context, TableRef table, RowProjector projection, ParameterMetaData paramMetaData, Integer limit, OrderBy orderBy, GroupBy groupBy) {
         this.context = context;
         this.table = table;
         this.projection = projection;
         this.paramMetaData = paramMetaData;
         this.limit = limit;
         this.orderBy = orderBy;
+        this.groupBy = groupBy;
     }
 
+    @Override
+    public GroupBy getGroupBy() {
+        return groupBy;
+    }
+
+    
     @Override
     public OrderBy getOrderBy() {
         return orderBy;
     }
 
     @Override
-    public TableRef getTable() {
+    public TableRef getTableRef() {
         return table;
     }
 
@@ -141,6 +150,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
         return paramMetaData;
     }
 
+    @Override
     public StatementContext getContext() {
         return context;
     }

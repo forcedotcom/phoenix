@@ -55,23 +55,16 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 public class AggregatePlan extends BasicQueryPlan {
     private final Aggregators aggregators;
-    private final GroupBy groupBy;
     private final Expression having;
     private final boolean dedup;
     private List<KeyRange> splits;
 
     public AggregatePlan(StatementContext context, TableRef table, RowProjector projector, Integer limit,
             GroupBy groupBy, boolean dedup, Expression having, OrderBy orderBy) {
-        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy);
-        this.groupBy = groupBy;
+        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, groupBy);
         this.having = having;
         this.dedup = dedup;
         this.aggregators = context.getAggregationManager().getAggregators();
-    }
-
-    @Override
-    public boolean isAggregate() {
-        return true;
     }
 
     @Override
@@ -89,7 +82,7 @@ public class AggregatePlan extends BasicQueryPlan {
         if (groupBy.isEmpty()) {
             UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
         }
-        ParallelIterators parallelIterators = new ParallelIterators(context, table, RowCounter.UNLIMIT_ROW_COUNTER, groupBy);
+        ParallelIterators parallelIterators = new ParallelIterators(context, table, groupBy, null);
         splits = parallelIterators.getSplits();
 
         AggregatingResultIterator aggResultIterator;

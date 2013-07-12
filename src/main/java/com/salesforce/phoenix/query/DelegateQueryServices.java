@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 
 import com.salesforce.phoenix.memory.MemoryManager;
+import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
@@ -72,5 +73,10 @@ public class DelegateQueryServices implements QueryServices {
     @Override
     public ReadOnlyProps getProps() {
         return parent.getProps();
+    }
+
+    @Override
+    public QueryOptimizer getOptimizer() {
+        return parent.getOptimizer();
     }
 }

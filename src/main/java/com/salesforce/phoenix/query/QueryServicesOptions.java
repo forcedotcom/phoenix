@@ -50,8 +50,8 @@ public class QueryServicesOptions {
 	public static final int DEFAULT_THREAD_POOL_SIZE = 20;
 	public static final int DEFAULT_QUEUE_SIZE = 250;
 	public static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
-	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 50; // 50m
-	public static final int DEFAULT_MAX_MEMORY_PERC = 20; // 20% of heap
+	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 20; // 50m
+	public static final int DEFAULT_MAX_MEMORY_PERC = 50; // 50% of heap
 	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
 	public static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
 	public static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
@@ -63,6 +63,8 @@ public class QueryServicesOptions {
     public static final boolean DEFAULT_CALL_QUEUE_ROUND_ROBIN = true; 
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
     public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = false; // Merge sort on client to ensure salted tables are row key ordered
+    public static final boolean DEFAULT_USE_INDEXES = true; // Use indexes
+    public static final boolean DEFAULT_IMMUTABLE_ROWS = false; // Tables rows may be updated
     
     public final static int DEFAULT_MUTATE_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT and DELETE
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
@@ -116,6 +118,8 @@ public class QueryServicesOptions {
             .setIfUnset(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS)
             .setIfUnset(MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, DEFAULT_MAX_INTRA_REGION_PARALLELIZATION)
             .setIfUnset(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)
+            .setIfUnset(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES)
+            .setIfUnset(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS)
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
@@ -290,6 +294,14 @@ public class QueryServicesOptions {
         return config.getInt(REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS);
     }
 
+    public boolean isUseIndexes() {
+        return config.getBoolean(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES);
+    }
+
+    public boolean isImmutableRows() {
+        return config.getBoolean(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS);
+    }
+
     public QueryServicesOptions setMaxHashCacheTTLMs(int ttl) {
         return set(MAX_HASH_CACHE_TIME_TO_LIVE_MS, ttl);
     }
@@ -308,6 +320,14 @@ public class QueryServicesOptions {
     
     public QueryServicesOptions setRpcTimeoutMs(int timeout) {
         return set(RPC_TIMEOUT_ATTRIB, timeout);
+    }
+    
+    public QueryServicesOptions setUseIndexes(boolean useIndexes) {
+        return set(USE_INDEXES_ATTRIB, useIndexes);
+    }
+    
+    public QueryServicesOptions setImmutableRows(boolean isImmutableRows) {
+        return set(IMMUTABLE_ROWS_ATTRIB, isImmutableRows);
     }
     
 }

@@ -90,6 +90,7 @@ tokens
     ALL='all';
     INDEX='index';
     INCLUDE='include';
+    WITHIN='within';
 }
 
 
@@ -134,6 +135,9 @@ import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.util.SchemaUtil;
 }
 
@@ -307,13 +311,13 @@ package com.salesforce.phoenix.parse;
 
 // Used to incrementally parse a series of semicolon-terminated SQL statement
 // Note than unlike the rule below an EOF is not expected at the end.
-nextStatement returns [SQLStatement ret] throws SQLException
+nextStatement returns [SQLStatement ret]
     :  s=oneStatement {$ret = s;} SEMICOLON
     |  EOF
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-statement returns [SQLStatement ret] throws SQLException
+statement returns [SQLStatement ret]
     :   s=oneStatement {$ret = s;} EOF
     ;
 
@@ -323,7 +327,7 @@ query returns [SelectStatement ret]
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-oneStatement returns [SQLStatement ret] throws SQLException
+oneStatement returns [SQLStatement ret]
     :   (q=select_node {$ret=q;} 
     |    u=upsert_node {$ret=u;}
     |    d=delete_node {$ret=d;}
@@ -341,49 +345,53 @@ show_tables_node returns [SQLStatement ret]
     :   SHOW TABLES {$ret=factory.showTables();}
     ;
 
-explain_node returns [SQLStatement ret] throws SQLException
+explain_node returns [SQLStatement ret]
     :   EXPLAIN q=oneStatement {$ret=factory.explain(q);}
     ;
 
 // Parse a create table statement.
-create_table_node returns [CreateTableStatement ret] throws SQLException
-    :   CREATE (ro=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
+create_table_node returns [CreateTableStatement ret]
+    :   CREATE (tt=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
         (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
         (SPLIT ON v=values)?
-        {ret = factory.createTable(t, p, cdefs, pk, v, ro!=null, ex!=null, getBindCount()); }
+        {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
     ;
 
 // Parse a create index statement.
-create_index_node returns [CreateIndexStatement ret] throws SQLException
-    :   CREATE INDEX i=index_name ON t=from_table_name
+create_index_node returns [CreateIndexStatement ret]
+    :   CREATE INDEX i=index_name (IF NOT ex=EXISTS)? ON t=from_table_name
         (LPAREN pk=index_pk_constraint RPAREN)
-        (INCLUDE (LPAREN icrefs=column_refs RPAREN))?
+        (INCLUDE (LPAREN icrefs=column_names RPAREN))?
         (p=fam_properties)?
-        {ret = factory.createIndex(i, t, pk, icrefs, p, getBindCount()); }
-    ;
-
-// Column references with optional column modifiers
-index_column_refs returns [List<ParseNode> ret]
-@init{ret = new ArrayList<ParseNode>(); }
-    :   (v = index_column_ref {$ret.add(v);}) (COMMA (v=index_column_ref {$ret.add(v);}) )*
-    ;
-
-index_column_ref returns [ParseNode ret]
-    :   field = identifier (order=ASC|order=DESC)? {$ret = factory.indexColumn(field, order == null ? null : ColumnModifier.fromDDLValue(order.getText())); }
+        (SPLIT ON v=values)?
+        {ret = factory.createIndex(i, factory.namedTable(null,t), pk, icrefs, v, p, ex!=null, getBindCount()); }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
-    :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=identifiers RPAREN { $ret = factory.primaryKey(n,cols); }
+    :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=col_name_with_mod_list RPAREN { $ret = factory.primaryKey(n,cols); }
     ;
+
+col_name_with_mod_list returns [List<Pair<ColumnName, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<ColumnName, ColumnModifier>>(); }
+    :   p=col_name_with_mod {$ret.add(p);}  (COMMA p = col_name_with_mod {$ret.add(p);} )*
+;
+
+col_name_with_mod returns [Pair<ColumnName, ColumnModifier> ret]
+    :   f=identifier (order=ASC|order=DESC)? {$ret = Pair.newPair(factory.columnName(f), order == null ? null : ColumnModifier.fromDDLValue(order.getText()));}
+;
 
 index_pk_constraint returns [PrimaryKeyConstraint ret]
-    :   cols = identifiers {$ret = factory.primaryKey(null, cols); }
+    :   cols = col_def_name_with_mod_list {$ret = factory.primaryKey(null, cols); }
     ;
 
-identifiers returns [List<Pair<String, ColumnModifier>> ret]
-@init{ret = new ArrayList<Pair<String, ColumnModifier>>(); }
-    :   c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));}  (COMMA c = identifier (order=ASC|order=DESC)? {$ret.add(Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText())));} )*
+col_def_name_with_mod_list returns [List<Pair<ColumnName, ColumnModifier>> ret]
+@init{ret = new ArrayList<Pair<ColumnName, ColumnModifier>>(); }
+    :   p=col_def_name_with_mod {$ret.add(p);}  (COMMA p = col_def_name_with_mod {$ret.add(p);} )*
+;
+
+col_def_name_with_mod returns [Pair<ColumnName, ColumnModifier> ret]
+    :   c=column_name (order=ASC|order=DESC)? {$ret = Pair.newPair(c, order == null ? null : ColumnModifier.fromDDLValue(order.getText()));}
 ;
 
 fam_properties returns [ListMultimap<String,Pair<String,Object>> ret]
@@ -400,29 +408,34 @@ prop_value returns [Object ret]
     :   l=literal { $ret = l.getValue(); }
     ;
     
-column_def_name returns [ColumnDefName ret]
-    :   field=identifier {$ret = factory.columnDefName(field); }
-    |   family=identifier DOT field=identifier {$ret = factory.columnDefName(family, field); }
+column_name returns [ColumnName ret]
+    :   field=identifier {$ret = factory.columnName(field); }
+    |   family=identifier DOT field=identifier {$ret = factory.columnName(family, field); }
     ;
+
+column_names returns [List<ColumnName> ret]
+@init{ret = new ArrayList<ColumnName>(); }
+    :  v = column_name {$ret.add(v);}  (COMMA v = column_name {$ret.add(v);} )*
+;
 
 	
 // Parse a drop table statement.
 drop_table_node returns [DropTableStatement ret]
-    :   DROP (ro=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
-        {ret = factory.dropTable(t, ex!=null, ro!=null); }
+    :   DROP (v=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
+        {ret = factory.dropTable(t, v==null ? PTableType.USER : PTableType.VIEW, ex!=null); }
     ;
 
 // Parse a drop index statement
 drop_index_node returns [DropIndexStatement ret]
-    : DROP INDEX i=index_name ON t=from_table_name
-      {ret = factory.dropIndex(i, t); }
+    : DROP INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name
+      {ret = factory.dropIndex(i, t, ex!=null); }
     ;
 
 // Parse an alter table statement.
-alter_table_node returns [AlterTableStatement ret] throws SQLException
+alter_table_node returns [AlterTableStatement ret]
     :   ALTER TABLE t=from_table_name
-        ( (DROP COLUMN (IF ex=EXISTS)? c=column_ref) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) )
-        {ret = ( c == null ? factory.addColumn(t, d, ex!=null, p) : factory.dropColumn(t, c, ex!=null) ); }
+        ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) )
+        {ret = ( c == null ? factory.addColumn(factory.namedTable(null,t), d, ex!=null, p) : factory.dropColumn(factory.namedTable(null,t), c, ex!=null) ); }
     ;
 
 prop_name returns [String ret]
@@ -434,18 +447,41 @@ properties returns [Map<String,Object> ret]
     :  k=prop_name EQ v=prop_value {$ret.put(k,v);}  (COMMA k=prop_name EQ v=prop_value {$ret.put(k,v);} )*
     ;
 
-column_defs returns [List<ColumnDef> ret] throws SQLException
+column_defs returns [List<ColumnDef> ret]
 @init{ret = new ArrayList<ColumnDef>(); }
     :  v = column_def {$ret.add(v);}  (COMMA v = column_def {$ret.add(v);} )*
 ;
 
-column_def returns [ColumnDef ret] throws SQLException
-    :   c=column_def_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
-        {$ret = factory.columnDef(c, dt, n==null,
+column_def returns [ColumnDef ret]
+    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
+        { $ret = factory.columnDef(c, dt, n==null,
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
             order == null ? null : ColumnModifier.fromDDLValue(order.getText()) ); }
+    ;
+
+dyn_column_defs returns [List<ColumnDef> ret]
+@init{ret = new ArrayList<ColumnDef>(); }
+    :  v = dyn_column_def {$ret.add(v);}  (COMMA v = dyn_column_def {$ret.add(v);} )*
+;
+
+dyn_column_def returns [ColumnDef ret]
+    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)?
+        {$ret = factory.columnDef(c, dt, true,
+            l == null ? null : Integer.parseInt( l.getText() ),
+            s == null ? null : Integer.parseInt( s.getText() ),
+            false, 
+            null); }
+    ;
+
+dyn_column_name_or_def returns [ColumnDef ret]
+    :   c=column_name (dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? )?
+        {$ret = factory.columnDef(c, dt, true,
+            l == null ? null : Integer.parseInt( l.getText() ),
+            s == null ? null : Integer.parseInt( s.getText() ),
+            false, 
+            null); }
     ;
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
@@ -468,11 +504,17 @@ select_node returns [SelectStatement ret]
 // Parse a full upsert expression structure.
 upsert_node returns [UpsertStatement ret]
     :   UPSERT INTO t=from_table_name
-        (LPAREN c=column_refs RPAREN)?
+        (LPAREN p=upsert_column_refs RPAREN)?
         ((VALUES LPAREN v=expression_terms RPAREN) | s=select_node)
-        {ret = factory.upsert(t, c, v, s, getBindCount()); }
+        {ret = factory.upsert(factory.namedTable(null,t,p == null ? null : p.getFirst()), p == null ? null : p.getSecond(), v, s, getBindCount()); }
     ;
 
+upsert_column_refs returns [Pair<List<ColumnDef>,List<ColumnName>> ret]
+@init{ret = new Pair<List<ColumnDef>,List<ColumnName>>(new ArrayList<ColumnDef>(), new ArrayList<ColumnName>()); }
+    :  d=dyn_column_name_or_def { if (d.getDataType()!=null) { $ret.getFirst().add(d); } $ret.getSecond().add(d.getColumnDefName()); } 
+       (COMMA d=dyn_column_name_or_def { if (d.getDataType()!=null) { $ret.getFirst().add(d); } $ret.getSecond().add(d.getColumnDefName()); } )*
+;
+	
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
 upsert_select_node returns [SelectStatement ret]
     :   s=select_node {$ret = s;}
@@ -484,7 +526,7 @@ delete_node returns [DeleteStatement ret]
         (WHERE v=condition)?
         (ORDER BY order=order_by)?
         (LIMIT l=limit)?
-        {ret = factory.delete(t, hint, v, order, l, getBindCount()); }
+        {ret = factory.delete(factory.namedTable(null,t), hint, v, order, l, getBindCount()); }
     ;
 
 limit returns [LimitNode ret]
@@ -546,16 +588,14 @@ table_refs returns [List<TableNode> ret]
 
 // parse a field, if it might be a bind name.
 named_table returns [NamedTableNode ret]
-    :   t=from_table_name { $ret = factory.namedTable(null,t,null); }
+    :   t=from_table_name (LPAREN cdefs=dyn_column_defs RPAREN)?  { $ret = factory.namedTable(null,t,cdefs); }
     ;
-
 
 table_ref returns [TableNode ret]
     :   n=bind_name ((AS)? alias=identifier)? { $ret = factory.bindTable(alias, factory.table(null,n)); } // TODO: review
-    |   t=from_table_name ((AS)? alias=identifier)? (LPAREN cdefs=column_defs RPAREN)? { $ret = factory.namedTable(alias, t,cdefs); }
+    |   t=from_table_name ((AS)? alias=identifier)? (LPAREN cdefs=dyn_column_defs RPAREN)? { $ret = factory.namedTable(alias,t,cdefs); }
     |   LPAREN s=select_node RPAREN ((AS)? alias=identifier)? { $ret = factory.subselect(alias, s); }
     ;
-catch[SQLException e]{throw  new RecognitionException();}
 
 join_specs returns [List<TableNode> ret]
     :   t=named_table {$ret.add(t);} (s=join_spec { $ret.add(s); })+
@@ -657,10 +697,10 @@ expression_negate returns [ParseNode ret]
 
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
 expression_term returns [ParseNode ret]
-@init{ParseNode n;}
+@init{ParseNode n;boolean isAscending=true;}
     :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
     |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
-    |   field=identifier LPAREN l=expression_list RPAREN { $ret = factory.function(field, l);} 
+    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_list (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?{ $ret = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);} 
     |   field=identifier LPAREN t=ASTERISK RPAREN { if (!isCountFunction(field)) { throwRecognitionException(t); } $ret = factory.function(field, LiteralParseNode.STAR);} 
     |   field=identifier LPAREN t=DISTINCT l=expression_list RPAREN { $ret = factory.functionDistinct(field, l);}
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
@@ -673,35 +713,18 @@ expression_terms returns [List<ParseNode> ret]
     :  v = expression {$ret.add(v);}  (COMMA v = expression {$ret.add(v);} )*
 ;
 
-column_refs returns [List<ParseNode> ret]
-@init{ret = new ArrayList<ParseNode>(); }
-     :  (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);})  (COMMA (d = column_def {$ret.add(factory.dynColumn(d));}|v = column_ref {$ret.add(v);}) )*
-;
-catch[SQLException e]{throw  new RecognitionException();}
-
-column_ref returns [ParseNode ret]
-    :   field=identifier {$ret = factory.column(field); }
-    |   tableName=column_table_name DOT field=identifier {$ret = factory.column(tableName, field); }
-    ;
-
 index_name returns [NamedNode ret]
     :   name=identifier {$ret = factory.indexName(name); }
     ;
 
-// TODO: figure out how not repeat this three times
+// TODO: figure out how not repeat this two times
 table_name returns [TableName ret]
     :   t=identifier {$ret = factory.table(null, t); }
     |   s=identifier DOT t=identifier {$ret = factory.table(s, t); }
     ;
 
-// TODO: figure out how not repeat this three times
+// TODO: figure out how not repeat this two times
 from_table_name returns [TableName ret]
-    :   t=identifier {$ret = factory.table(null, t); }
-    |   s=identifier DOT t=identifier {$ret = factory.table(s, t); }
-    ;
-    
-// TODO: figure out how not repeat this three times
-column_table_name returns [TableName ret]
     :   t=identifier {$ret = factory.table(null, t); }
     |   s=identifier DOT t=identifier {$ret = factory.table(s, t); }
     ;

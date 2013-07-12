@@ -27,31 +27,22 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-
-public class UpsertStatement extends MutationStatement {
-    private final List<ParseNode> columns;
+public class UpsertStatement extends SingleTableSQLStatement { 
+    private final List<ColumnName> columns;
     private final List<ParseNode> values;
     private final SelectStatement select;
-    private final List<ColumnDef> dynColumns;
 
-    public UpsertStatement(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+    public UpsertStatement(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
         super(table, bindCount);
-        this.columns = columns == null ? Collections.<ParseNode>emptyList() : columns;
+        this.columns = columns == null ? Collections.<ColumnName>emptyList() : columns;
         this.values = values;
         this.select = select;
-        List<ColumnDef> dynamicColumns = new ArrayList<ColumnDef>();
-        for(ParseNode pn:this.columns){
-          if(pn instanceof DynamicColumnParseNode){
-            dynamicColumns.add(((DynamicColumnParseNode)pn).getColumnDef());
-          }
-        }
-        this.dynColumns = ImmutableList.copyOf(dynamicColumns);
     }
 
-    public List<ParseNode> getColumns() {
+    public List<ColumnName> getColumns() {
         return columns;
     }
 
@@ -61,13 +52,5 @@ public class UpsertStatement extends MutationStatement {
 
     public SelectStatement getSelect() {
         return select;
-    }
-
-    public List<ColumnDef> getDynColumns() {
-      return dynColumns;
-    }
-
-    public boolean onlyDynamic() {
-      return dynColumns.size()==columns.size();
     }
 }

@@ -27,21 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.*;
 import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -51,7 +43,109 @@ import com.salesforce.phoenix.util.TestUtil;
 
 
 public class PDataTypeTest {
+    public static int compareDoubleToLong(double d, long l) {
+        if (d > Long.MAX_VALUE) {
+            return 1;
+        }
+        if (d < Long.MIN_VALUE) {
+            return -1;
+        }
+        long diff = (long)d - l;
+        return Long.signum(diff);
+    }
+    
+    public static int compareFloatToLong(float f, long l) {
+        if (f > Integer.MAX_VALUE || f < Integer.MIN_VALUE) {
+            return f < l ? -1 : f > l ? 1 : 0;
+        }
+        long diff = (long)f - l;
+        return Long.signum(diff);
+    }
+    
     @Test
+    public void testFloatToLongComparison() {
+        assertTrue(compareFloatToLong(Integer.MAX_VALUE, Integer.MAX_VALUE-1) > 0);
+        assertTrue(compareFloatToLong(Integer.MIN_VALUE, Integer.MIN_VALUE+1) < 0);
+        assertTrue(compareFloatToLong(Integer.MIN_VALUE, Integer.MIN_VALUE) == 0);
+        assertTrue(compareFloatToLong(Integer.MAX_VALUE + 1.0F, Integer.MAX_VALUE) > 0); // Passes due to rounding
+        assertTrue(compareFloatToLong(Integer.MAX_VALUE + 129.0F, Integer.MAX_VALUE) > 0);
+        assertTrue(compareFloatToLong(Integer.MIN_VALUE - 128.0F, Integer.MIN_VALUE) == 0);
+        assertTrue(compareFloatToLong(Integer.MIN_VALUE - 129.0F, Integer.MIN_VALUE) < 0);
+        
+        float f1 = 9111111111111111.0F;
+        float f2 = 9111111111111112.0F;
+        assertTrue(f1 == f2);
+        long la = 9111111111111111L;
+        assertTrue(f1 > Integer.MAX_VALUE);
+        assertTrue(la == f1);
+        assertTrue(la == f2);
+//        assertEquals(BigDecimal.valueOf(9111111111111111.0F),BigDecimal.valueOf(9111111111111111L));
+//        assertTrue(BigDecimal.valueOf(9111111111111112.0F).compareTo(BigDecimal.valueOf(9111111111111111L)) > 0);
+        assertTrue(compareFloatToLong(f1, la) == 0);
+        assertTrue(compareFloatToLong(f2, la) == 0);
+    }
+        
+    @Test
+    public void testDoubleToLongComparison() {
+        assertTrue(compareDoubleToLong(Long.MAX_VALUE, Long.MAX_VALUE-1) > 0);
+        assertTrue(compareDoubleToLong(Long.MIN_VALUE, Long.MIN_VALUE+1) < 0);
+        assertTrue(compareDoubleToLong(Long.MIN_VALUE, Long.MIN_VALUE) == 0);
+        assertTrue(compareDoubleToLong(Long.MAX_VALUE + 1024.0, Long.MAX_VALUE) == 0);
+        assertTrue(compareDoubleToLong(Long.MAX_VALUE + 1025.0, Long.MAX_VALUE) > 0);
+        assertTrue(compareDoubleToLong(Long.MIN_VALUE - 1024.0, Long.MIN_VALUE) == 0);
+        assertTrue(compareDoubleToLong(Long.MIN_VALUE - 1025.0, Long.MIN_VALUE) < 0);
+        
+        long i = 10;
+        long maxl = (1L<<62);
+        System.out.println("maxl = " + maxl);
+        try {
+            for (; i < 100; i++) {
+                double d = Math.pow(2, i);
+                if ((long)d > maxl) {
+                    assertTrue(i>62);
+                    continue;
+                }
+                long l = (1L<<i) - 1;
+                assertTrue(l + 1L == (long)d);
+                assertTrue(l < (long)d);
+            }
+        } catch (AssertionError t) {
+            System.out.println("Failed at i = " + i);
+            throw t;
+        }
+        double d = 0.0;
+        try {
+            while (d <= 1024) {
+                double d1 = Long.MAX_VALUE;
+                double d2 = Long.MAX_VALUE + d;
+                assertTrue(d2 == d1);
+                d++;
+            }
+        } catch (AssertionError t) {
+            System.out.println("Failed at d = " + d);
+            throw t;
+        }
+        d = 0.0;
+        try {
+            while (d >= -1024) {
+                double d1 = Long.MIN_VALUE;
+                double d2 = Long.MIN_VALUE + d;
+                assertTrue(d2 == d1);
+                d--;
+            }
+        } catch (AssertionError t) {
+            System.out.println("Failed at d = " + d);
+            throw t;
+        }
+        double d1 = Long.MAX_VALUE;
+        double d2 = Long.MAX_VALUE + 1024.0;
+        double d3 = Long.MAX_VALUE + 1025.0;
+        assertTrue(d1 == d2);
+        assertTrue(d3 > d1);
+        long l1 = Long.MAX_VALUE - 1;
+        assertTrue((long)d1 > l1);
+    }
+    
     public void testLong() {
         Long la = 4L;
         byte[] b = PDataType.LONG.toBytes(la);
@@ -127,7 +221,7 @@ public class PDataTypeTest {
         b = PDataType.SMALLINT.toBytes(na, ColumnModifier.SORT_DESC);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         ptr.set(b);
-        nb = (Short)PDataType.SMALLINT.getCodec().decodeShort(ptr, ColumnModifier.SORT_DESC);
+        nb = PDataType.SMALLINT.getCodec().decodeShort(ptr, ColumnModifier.SORT_DESC);
         assertEquals(na,nb);
 
         na = 1;
@@ -234,7 +328,7 @@ public class PDataTypeTest {
         b = PDataType.FLOAT.toBytes(na, ColumnModifier.SORT_DESC);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         ptr.set(b);
-        nb = (Float)PDataType.FLOAT.getCodec().decodeFloat(ptr, ColumnModifier.SORT_DESC);
+        nb = PDataType.FLOAT.getCodec().decodeFloat(ptr, ColumnModifier.SORT_DESC);
         assertEquals(na,nb);
         
         na = 1.0f;
@@ -326,7 +420,7 @@ public class PDataTypeTest {
         b = PDataType.DOUBLE.toBytes(na, ColumnModifier.SORT_DESC);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         ptr.set(b);
-        nb = (Double)PDataType.DOUBLE.getCodec().decodeDouble(ptr, ColumnModifier.SORT_DESC);
+        nb = PDataType.DOUBLE.getCodec().decodeDouble(ptr, ColumnModifier.SORT_DESC);
         assertEquals(na,nb);
 
         na = 1.0;

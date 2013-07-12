@@ -61,9 +61,7 @@ public abstract class ComparisonParseNode extends BinaryParseNode {
     public abstract CompareFilter.CompareOp getFilterOp();
     
     /**
-     * Inverts the comparison operator and swaps the LHS and RHS to ensure that the literal always appears on the RHS
-     * @param factory
-     * @return the newly constructed ComparisonNode or this if no change was necessary (i.e. = case)
+     * Return the inverted operator for the CompareOp
      */
-    public abstract ComparisonParseNode invert(ParseNodeFactory factory);
+    public abstract CompareFilter.CompareOp getInvertFilterOp();
 }

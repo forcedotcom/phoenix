@@ -37,9 +37,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
-import com.google.common.primitives.Booleans;
-import com.google.common.primitives.Doubles;
-import com.google.common.primitives.Longs;
+import com.google.common.primitives.*;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.util.*;
 
@@ -3746,9 +3744,26 @@ public enum PDataType {
      * @return the byte length of the serialized object
      */
     public abstract int toBytes(Object object, byte[] bytes, int offset);
+    
+    public void coerceBytes(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier actualModifier, ColumnModifier expectedModifier) {
+        if (this.isBytesComparableWith(actualType)) { // No coerce necessary
+            if (actualModifier == expectedModifier) {
+                return;
+            }
+            // TODO: generalize ColumnModifier?
+            byte[] b = ptr.copyBytes();
+            ColumnModifier.SORT_DESC.apply(b, b, 0, b.length);
+            ptr.set(b);
+            return;
+        }
+        
+        Object coercedValue = toObject(ptr, actualType, actualModifier);
+        byte[] b = toBytes(coercedValue, expectedModifier);
+        ptr.set(b);
+    }
 
     public byte[] coerceBytes(byte[] b, Object object, PDataType actualType) {
-        if (this == actualType) { // No coerce necessary
+        if (this.isBytesComparableWith(actualType)) { // No coerce necessary
             return b;
         } else { // TODO: optimize in specific cases
             Object coercedValue = toObject(object, actualType);
@@ -3813,7 +3828,11 @@ public enum PDataType {
     }
 
     public Object toObject(byte[] bytes) {
-        return toObject(bytes, 0, bytes.length, this);
+        return toObject(bytes, (ColumnModifier)null);
+    }
+
+    public Object toObject(byte[] bytes, ColumnModifier columnModifier) {
+        return toObject(bytes, 0, bytes.length, this, columnModifier);
     }
 
     private static final Map<String, PDataType> SQL_TYPE_NAME_TO_PCOLUMN_DATA_TYPE;

@@ -205,12 +205,10 @@ public class SchemaUtil {
      */
     public static byte[] getTableKey(byte[] schemaName, byte[] tableName) {
         return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
-//        return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY);
     }
 
     public static byte[] getTableKey(String schemaName, String tableName) {
         return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName));
-//        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY);
     }
 
     public static String getTableDisplayName(String schemaName, String tableName) {
@@ -229,6 +227,10 @@ public class SchemaUtil {
         return Bytes.toStringBinary(getColumnName(
                 StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 
                 StringUtil.toBytes(familyName), StringUtil.toBytes(columnName)));
+    }
+
+    public static String getColumnDisplayName(String familyName, String columnName) {
+        return getTableDisplayName(familyName, columnName);
     }
 
     /**

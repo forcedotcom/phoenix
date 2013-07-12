@@ -42,7 +42,6 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.aggregator.ClientAggregators;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
-import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
 import com.salesforce.phoenix.expression.visitor.SingleAggregateFunctionVisitor;
 import com.salesforce.phoenix.parse.*;
@@ -71,20 +70,19 @@ public class ProjectionCompiler {
      * @param isDistinct true if SELECT DISTINCT and false otherwise
      * @param groupBy compiled GROUP BY clause
      * @param orderBy compiled ORDER BY clause
-     * @param limit maximum number of rows to scan during query execution or null if unbounded
      * @param targetColumns list of columns, parallel to aliasedNodes, that are being set for an
      * UPSERT SELECT statement. Used to coerce expression types to the expected target type.
      * @return projector used to access row values during scan
      * @throws SQLException 
      */
-    public static RowProjector getRowProjector(StatementContext context, List<AliasedNode> aliasedNodes, boolean isDistinct, GroupBy groupBy, OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
-        return getRowProjector(context, isDistinct, aliasedNodes, groupBy, orderBy, limit, targetColumns);
+    public static RowProjector getRowProjector(StatementContext context, List<AliasedNode> aliasedNodes, boolean isDistinct, GroupBy groupBy, OrderBy orderBy, PColumn[] targetColumns) throws SQLException {
+        return getRowProjector(context, isDistinct, aliasedNodes, groupBy, orderBy, targetColumns);
     }
 
 
     public static RowProjector getRowProjector(StatementContext context, List<AliasedNode> aliasedNodes, boolean isDistinct, GroupBy groupBy,
-            OrderBy orderBy, Integer limit) throws SQLException  {
-        return getRowProjector(context, isDistinct, aliasedNodes, groupBy, orderBy, limit, null);
+            OrderBy orderBy) throws SQLException  {
+        return getRowProjector(context, isDistinct, aliasedNodes, groupBy, orderBy, null);
     }
     
     private static void projectAllColumnFamilies(PTable table, Scan scan) {
@@ -113,9 +111,9 @@ public class ProjectionCompiler {
     }
     
     public static RowProjector getRowProjector(StatementContext context, boolean isDistinct, List<AliasedNode> aliasedNodes, GroupBy groupBy,
-            OrderBy orderBy, Integer limit, PColumn[] targetColumns) throws SQLException {
+            OrderBy orderBy, PColumn[] targetColumns) throws SQLException {
         // Setup projected columns in Scan
-        SelectClauseVisitor selectVisitor = new SelectClauseVisitor(context, groupBy, limit);
+        SelectClauseVisitor selectVisitor = new SelectClauseVisitor(context, groupBy);
         List<ExpressionProjector> projectedColumns = new ArrayList<ExpressionProjector>();
         TableRef tableRef = context.getResolver().getTables().get(0);
         PTable table = tableRef.getTable();
@@ -220,7 +218,7 @@ public class ProjectionCompiler {
                 // to be projected and use a FirstKeyOnlyFilter to skip from row to row.
                 // TODO: benchmark versus projecting our empty column
                 if (scan.getFamilyMap().isEmpty() && table.getColumnFamilies().size() == 1) { 
-                    ScanUtil.andFilter(scan, new FirstKeyOnlyFilter());
+                    ScanUtil.andFilterAtBeginning(scan, new FirstKeyOnlyFilter());
                     projectNotNull = false;
                 }
             }
@@ -256,7 +254,6 @@ public class ProjectionCompiler {
             return minNullableIndex;
         }
         
-        private final Integer limit;
         /**
          * Track whether or not the projection expression is case sensitive. We use this
          * information to determine whether or not we normalize the column name passed
@@ -264,9 +261,8 @@ public class ProjectionCompiler {
         private boolean isCaseSensitive;
         private int elementCount;
         
-        private SelectClauseVisitor(StatementContext context, GroupBy groupBy, Integer limit) {
+        private SelectClauseVisitor(StatementContext context, GroupBy groupBy) {
             super(context, groupBy);
-            this.limit = limit;
             reset();
         }
 
@@ -294,10 +290,6 @@ public class ProjectionCompiler {
             }
             if (aggFuncSet.isEmpty() && groupBy.isEmpty()) {
                 return;
-            }
-            if (limit != null) {
-                CountAggregateFunction rowCountExpression = (CountAggregateFunction)context.getExpressionManager().addIfAbsent(new CountAggregateFunction());
-                aggFuncSet.add(rowCountExpression);
             }
             List<SingleAggregateFunction> aggFuncs = new ArrayList<SingleAggregateFunction>(aggFuncSet);
             Collections.sort(aggFuncs, SingleAggregateFunction.SCHEMA_COMPARATOR);

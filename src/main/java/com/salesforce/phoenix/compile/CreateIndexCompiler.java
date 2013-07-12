@@ -34,9 +34,13 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.CreateIndexStatement;
+import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.MetaDataClient;
 
 public class CreateIndexCompiler {
@@ -50,6 +54,18 @@ public class CreateIndexCompiler {
         final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan);
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
+        List<ParseNode> splitNodes = statement.getSplitNodes();
+        final byte[][] splits = new byte[splitNodes.size()][];
+        for (int i = 0; i < splits.length; i++) {
+            ParseNode node = splitNodes.get(i);
+            if (!node.isConstant()) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.SPLIT_POINT_NOT_CONSTANT)
+                    .setMessage("Node: " + node).build().buildException();
+            }
+            LiteralExpression expression = (LiteralExpression)node.accept(expressionCompiler);
+            splits[i] = expression.getBytes();
+        }
         final MetaDataClient client = new MetaDataClient(connection);
         
         return new MutationPlan() {
@@ -66,7 +82,7 @@ public class CreateIndexCompiler {
 
             @Override
             public MutationState execute() throws SQLException {
-                return client.createIndex(statement);
+                return client.createIndex(statement, splits);
             }
 
             @Override

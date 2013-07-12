@@ -362,7 +362,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
      * @throws SQLException if the column expression node does not refer to a known/unambiguous column
      */
     protected ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
-        return context.getResolver().resolveColumn(node);
+        return context.getResolver().resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
     }
     
     @Override

@@ -156,15 +156,15 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public QueryPlan compilePlan(List<Object> binds) throws SQLException {
-            QueryCompiler compiler = new QueryCompiler(connection, getMaxRows());
-            return lastQueryPlan = compiler.compile(this, binds);
+            return lastQueryPlan = connection.getQueryServices().getOptimizer().optimize(this, PhoenixStatement.this, binds);
         }
         
         @Override
         public ResultSetMetaData getResultSetMetaData() throws SQLException {
             if (resultSetMetaData == null) {
+                // Just compile top level query without optimizing to get ResultSetMetaData
                 List<Object> nullParameters = Arrays.asList(new Object[this.getBindCount()]);
-                QueryPlan plan = compilePlan(nullParameters);
+                QueryPlan plan = new QueryCompiler(connection, getMaxRows()).compile(this, nullParameters);
                 resultSetMetaData = new PhoenixResultSetMetaData(connection, plan.getProjector());
             }
             return resultSetMetaData;
@@ -190,7 +190,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableUpsertStatement extends UpsertStatement implements MutatableStatement {
-        private ExecutableUpsertStatement(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+        private ExecutableUpsertStatement(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
             super(table, columns, values, select, bindCount);
         }
 
@@ -224,7 +224,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableDeleteStatement extends DeleteStatement implements MutatableStatement {
-        private ExecutableDeleteStatement(TableName table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+        private ExecutableDeleteStatement(NamedTableNode table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
             super(table, hint, whereNode, orderBy, limit, bindCount);
         }
 
@@ -258,8 +258,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableCreateTableStatement extends CreateTableStatement implements ExecutableStatement {
-        ExecutableCreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columnDefs, PrimaryKeyConstraint pkConstraint, List<ParseNode> splitNodes, boolean isView, boolean ifNotExists, int bindCount) {
-            super(tableName, props, columnDefs, pkConstraint, splitNodes, isView, ifNotExists, bindCount);
+        ExecutableCreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columnDefs, PrimaryKeyConstraint pkConstraint, List<ParseNode> splitNodes, PTableType tableType, boolean ifNotExists, int bindCount) {
+            super(tableName, props, columnDefs, pkConstraint, splitNodes, tableType, ifNotExists, bindCount);
         }
 
         @Override
@@ -298,9 +298,9 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
 
-        public ExecutableCreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint,
-                List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-            super(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
+        public ExecutableCreateIndexStatement(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
+                ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+            super(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
 
         @Override
@@ -340,8 +340,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropTableStatement extends DropTableStatement implements ExecutableStatement {
 
-        ExecutableDropTableStatement(TableName tableName, boolean ifExists, boolean isView) {
-            super(tableName, ifExists, isView);
+        ExecutableDropTableStatement(TableName tableName, PTableType tableType, boolean ifExists) {
+            super(tableName, tableType, ifExists);
         }
 
         @Override
@@ -390,8 +390,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropIndexStatement extends DropIndexStatement implements ExecutableStatement {
 
-        public ExecutableDropIndexStatement(NamedNode indexName, TableName tableName) {
-            super(indexName, tableName);
+        public ExecutableDropIndexStatement(NamedNode indexName, TableName tableName, boolean ifExists) {
+            super(indexName, tableName, ifExists);
         }
 
         @Override
@@ -440,8 +440,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableAddColumnStatement extends AddColumnStatement implements ExecutableStatement {
 
-        ExecutableAddColumnStatement(TableName tableName, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
-            super(tableName, columnDef, ifNotExists, props);
+        ExecutableAddColumnStatement(NamedTableNode table, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
+            super(table, columnDef, ifNotExists, props);
         }
 
         @Override
@@ -490,8 +490,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropColumnStatement extends DropColumnStatement implements ExecutableStatement {
 
-        ExecutableDropColumnStatement(TableName tableName, ParseNode columnRef, boolean ifExists) {
-            super(tableName, columnRef, ifExists);
+        ExecutableDropColumnStatement(NamedTableNode table, ColumnName columnRef, boolean ifExists) {
+            super(table, columnRef, ifExists);
         }
 
         @Override
@@ -650,8 +650,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             while (rs.next()) {
                 String schema = rs.getString(2);
                 String table = rs.getString(3);
-                String name = SchemaUtil.getTableDisplayName(schema,table);
-                System.out.println(name);
+                SchemaUtil.getTableDisplayName(schema,table);
             }
             return 0;
         }
@@ -687,43 +686,43 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public ExecutableUpsertStatement upsert(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+        public ExecutableUpsertStatement upsert(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
             return new ExecutableUpsertStatement(table, columns, values, select, bindCount);
         }
         
         @Override
-        public ExecutableDeleteStatement delete(TableName table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+        public ExecutableDeleteStatement delete(NamedTableNode table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
             return new ExecutableDeleteStatement(table, hint, whereNode, orderBy, limit, bindCount);
         }
         
         @Override
-        public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
-            return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
+        public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, PTableType tableType, boolean ifNotExists, int bindCount) {
+            return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
         }
         
         @Override
-        public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-            return new ExecutableCreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
+        public CreateIndexStatement createIndex(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+            return new ExecutableCreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
         }
         
         @Override
-        public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
-            return new ExecutableAddColumnStatement(tableName, columnDef, ifNotExists, props);
+        public AddColumnStatement addColumn(NamedTableNode table,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
+            return new ExecutableAddColumnStatement(table, columnDef, ifNotExists, props);
         }
         
         @Override
-        public DropColumnStatement dropColumn(TableName tableName,  ParseNode columnNode, boolean ifExists) {
-            return new ExecutableDropColumnStatement(tableName, columnNode, ifExists);
+        public DropColumnStatement dropColumn(NamedTableNode table,  ColumnName columnNode, boolean ifExists) {
+            return new ExecutableDropColumnStatement(table, columnNode, ifExists);
         }
         
         @Override
-        public DropTableStatement dropTable(TableName tableName, boolean ifExists, boolean isView) {
-            return new ExecutableDropTableStatement(tableName, ifExists, isView);
+        public DropTableStatement dropTable(TableName tableName, PTableType tableType, boolean ifExists) {
+            return new ExecutableDropTableStatement(tableName, tableType, ifExists);
         }
         
         @Override
-        public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName) {
-            return new ExecutableDropIndexStatement(indexName, tableName);
+        public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName, boolean ifExists) {
+            return new ExecutableDropIndexStatement(indexName, tableName, ifExists);
         }
         
         @Override
@@ -827,8 +826,12 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public boolean execute(String sql) throws SQLException {
         throwIfUnboundParameters();
-         System.out.println(" jbdc phoenixprepdsttmnt 728 execute "+sql);
         return parseStatement(sql).execute();
+    }
+
+    public QueryPlan compileQuery(String sql) throws SQLException {
+        throwIfUnboundParameters();
+        return (QueryPlan)parseStatement(sql).compilePlan(this.getParameters());
     }
 
     @Override

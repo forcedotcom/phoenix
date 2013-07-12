@@ -144,7 +144,7 @@ public class ScanUtil {
         return mayHaveRows;
     }
 
-    public static void andFilter(Scan scan, Filter andWithFilter) {
+    public static void andFilterAtBeginning(Scan scan, Filter andWithFilter) {
         if (andWithFilter == null) {
             return;
         }
@@ -159,6 +159,24 @@ public class ScanUtil {
             scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,allFilters));
         } else {
             scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,Arrays.asList(andWithFilter, filter)));
+        }
+    }
+
+    public static void andFilterAtEnd(Scan scan, Filter andWithFilter) {
+        if (andWithFilter == null) {
+            return;
+        }
+        Filter filter = scan.getFilter();
+        if (filter == null) {
+            scan.setFilter(andWithFilter); 
+        } else if (filter instanceof FilterList && ((FilterList)filter).getOperator() == FilterList.Operator.MUST_PASS_ALL) {
+            FilterList filterList = (FilterList)filter;
+            List<Filter> allFilters = new ArrayList<Filter>(filterList.getFilters().size() + 1);
+            allFilters.addAll(filterList.getFilters());
+            allFilters.add(andWithFilter);
+            scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,allFilters));
+        } else {
+            scan.setFilter(new FilterList(FilterList.Operator.MUST_PASS_ALL,Arrays.asList(filter, andWithFilter)));
         }
     }
 

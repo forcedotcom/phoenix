@@ -40,6 +40,7 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -67,12 +68,12 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     public PhoenixConnection connect(String url, Properties info) throws SQLException;
 
-    public MetaDataMutationResult getTable(byte[] schemaBytes, byte[] tableBytes, long tableTimestamp, long clientTimetamp) throws SQLException;
-    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, boolean isView, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException;
-    public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, boolean isView) throws SQLException;
-    public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata) throws SQLException;
+    public MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimetamp) throws SQLException;
+    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException;
+    public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, PTableType tableType) throws SQLException;
     public MetaDataMutationResult addColumn(List<Mutation> tableMetaData, boolean isView, Pair<byte[],Map<String,Object>> family) throws SQLException;
     public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, byte[] emptyCF) throws SQLException;
+    public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws SQLException;
     public MutationState updateData(MutationPlan plan) throws SQLException;
 
     public void init(String url, Properties props) throws SQLException;

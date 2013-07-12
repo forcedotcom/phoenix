@@ -27,20 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public abstract class AlterTableStatement implements SQLStatement {
-    private final TableName tableName;
+public abstract class AlterTableStatement extends SingleTableSQLStatement {
 
-    AlterTableStatement(TableName tableName) {
-        this.tableName = tableName;
-    }
-    
-    @Override
-    public int getBindCount() {
-        return 0; // No binds for DDL
-    }
-
-    public TableName getTableName() {
-        return tableName;
+    AlterTableStatement(NamedTableNode table) {
+        super(table, 0);
     }
 
 }

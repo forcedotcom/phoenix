@@ -30,19 +30,17 @@ package com.salesforce.phoenix.execute;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import com.google.common.collect.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.util.SQLCloseable;
-import com.salesforce.phoenix.util.ServerUtil;
+import com.salesforce.phoenix.util.*;
 
 /**
  * 
@@ -134,11 +132,13 @@ public class MutationState implements SQLCloseable {
         throwIfTooBig();
     }
     
-    private static void addRowMutations(PTable table, Iterator<Entry<ImmutableBytesPtr, Map<PColumn, byte[]>>> iterator, long timestamp, List<Mutation> mutations) {
+    private static Iterator<Pair<byte[],List<Mutation>>> addRowMutations(final TableRef tableRef, final Map<ImmutableBytesPtr, Map<PColumn, byte[]>> values, long timestamp) {
+        final List<Mutation> mutations = Lists.newArrayListWithExpectedSize(values.size());
+        Iterator<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>> iterator = values.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry = iterator.next();
             ImmutableBytesPtr key = rowEntry.getKey();
-            PRow row = table.newRow(timestamp, key);
+            PRow row = tableRef.getTable().newRow(timestamp, key);
             if (rowEntry.getValue() == null) { // means delete
                 row.delete();
             } else {
@@ -148,24 +148,82 @@ public class MutationState implements SQLCloseable {
             }
             mutations.addAll(row.toRowMutations());
         }
+        final byte[] schemaName = Bytes.toBytes(tableRef.getSchema().getName());
+        final Iterator<PTable> indexes = // Only maintain tables with immutable rows through this client-side mechanism
+                tableRef.getTable().getType() == PTableType.IMMUTABLE ? 
+                        tableRef.getTable().getIndexes().iterator() : 
+                        Iterators.<PTable>emptyIterator();
+        return new Iterator<Pair<byte[],List<Mutation>>>() {
+            boolean isFirst = true;
+
+            @Override
+            public boolean hasNext() {
+                return isFirst || indexes.hasNext();
+            }
+
+            @Override
+            public Pair<byte[], List<Mutation>> next() {
+                if (isFirst) {
+                    isFirst = false;
+                    return new Pair<byte[],List<Mutation>>(tableRef.getTableName(),mutations);
+                }
+                PTable index = indexes.next();
+                byte[] fullTableName = SchemaUtil.getTableName(schemaName, index.getName().getBytes());
+                List<Mutation> indexMutations;
+                try {
+                    indexMutations = IndexUtil.generateIndexData(tableRef.getTable(), index, mutations);
+                } catch (SQLException e) {
+                    throw new IllegalDataException(e);
+                }
+                return new Pair<byte[],List<Mutation>>(fullTableName,indexMutations);
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+            
+        };
     }
     
     /**
      * Get the unsorted list of HBase mutations for the tables with uncommitted data.
      * @return list of HBase mutations for uncommitted data.
      */
-    public List<Mutation> toMutations() {
-        Long scn = connection.getSCN();
-        long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
-        List<Mutation> mutations = Lists.newArrayListWithExpectedSize(this.numEntries);
-        Iterator<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> iterator = this.mutations.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> entry = iterator.next();
-            PTable table = entry.getKey().getTable();
-            List<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>> rowMutations = new ArrayList<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>>(entry.getValue().entrySet());
-            addRowMutations(table, rowMutations.iterator(), timestamp, mutations);
+    public Iterator<Pair<byte[],List<Mutation>>> toMutations() {
+        final Iterator<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> iterator = this.mutations.entrySet().iterator();
+        if (!iterator.hasNext()) {
+            return Iterators.emptyIterator();
         }
-        return mutations;
+        Long scn = connection.getSCN();
+        final long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
+        return new Iterator<Pair<byte[],List<Mutation>>>() {
+            private Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> current = iterator.next();
+            private Iterator<Pair<byte[],List<Mutation>>> innerIterator = init();
+                    
+            private Iterator<Pair<byte[],List<Mutation>>> init() {
+                return addRowMutations(current.getKey(), current.getValue(), timestamp);
+            }
+            
+            @Override
+            public boolean hasNext() {
+                return innerIterator.hasNext() || iterator.hasNext();
+            }
+
+            @Override
+            public Pair<byte[], List<Mutation>> next() {
+                if (!innerIterator.hasNext()) {
+                    current = iterator.next();
+                }
+                return innerIterator.next();
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+            
+        };
     }
         
     /**
@@ -219,36 +277,40 @@ public class MutationState implements SQLCloseable {
         while (iterator.hasNext()) {
             Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> entry = iterator.next();
             TableRef tableRef = entry.getKey();
-            PTable table = tableRef.getTable();
             long serverTimestamp = serverTimeStamps[i++];
-            List<Mutation> mutations = Lists.newArrayListWithExpectedSize(entry.getValue().size());
-            addRowMutations(table, entry.getValue().entrySet().iterator(), serverTimestamp, mutations);
-            SQLException sqlE = null;
-            HTableInterface hTable = connection.getQueryServices().getTable(tableRef.getTableName());
-            try {
-                hTable.batch(mutations);
-                committedList.add(entry);
-                numEntries -= entry.getValue().size();
-                iterator.remove(); // Remove batches as we process them
-            } catch (Exception e) {
-                // Throw to client with both what was committed so far and what is left to be committed.
-                // That way, client can either undo what was done or try again with what was not done.
-                sqlE = new CommitException(e, this, new MutationState(committedList, this.sizeOffset, this.maxSize, this.connection));
-            } finally {
+            Iterator<Pair<byte[],List<Mutation>>> mutationsIterator = addRowMutations(tableRef, entry.getValue(), serverTimestamp);
+            while (mutationsIterator.hasNext()) {
+                Pair<byte[],List<Mutation>> pair = mutationsIterator.next();
+                byte[] htableName = pair.getFirst();
+                List<Mutation> mutations = pair.getSecond();
+                
+                SQLException sqlE = null;
+                HTableInterface hTable = connection.getQueryServices().getTable(htableName);
                 try {
-                    hTable.close();
-                } catch (IOException e) {
-                    if (sqlE != null) {
-                        sqlE.setNextException(ServerUtil.parseServerException(e));
-                    } else {
-                        sqlE = ServerUtil.parseServerException(e);
-                    }
+                    hTable.batch(mutations);
+                    committedList.add(entry);
+                } catch (Exception e) {
+                    // Throw to client with both what was committed so far and what is left to be committed.
+                    // That way, client can either undo what was done or try again with what was not done.
+                    sqlE = new CommitException(e, this, new MutationState(committedList, this.sizeOffset, this.maxSize, this.connection));
                 } finally {
-                    if (sqlE != null) {
-                        throw sqlE;
+                    try {
+                        hTable.close();
+                    } catch (IOException e) {
+                        if (sqlE != null) {
+                            sqlE.setNextException(ServerUtil.parseServerException(e));
+                        } else {
+                            sqlE = ServerUtil.parseServerException(e);
+                        }
+                    } finally {
+                        if (sqlE != null) {
+                            throw sqlE;
+                        }
                     }
                 }
             }
+            numEntries -= entry.getValue().size();
+            iterator.remove(); // Remove batches as we process them
         }
         assert(numEntries==0);
         assert(this.mutations.isEmpty());

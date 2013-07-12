@@ -90,7 +90,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
      * cluster.
      * @param services base services from where we derive our default configuration
-     * @param overrideProps overrides for configuration values (used during testing)
+     * @param connectionInfo to provide connection information
      * @throws SQLException
      */
     public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
@@ -220,7 +220,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+    public PMetaData addTable(String schemaName, PTable table, PTable parentTable) throws SQLException {
         try {
             // If existing table isn't older than new table, don't replace
             // If a client opens a connection at an earlier timestamp, this can happen
@@ -232,7 +232,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         } catch (SchemaNotFoundException e) {
         }
         synchronized(latestMetaDataLock) {
-            latestMetaData = latestMetaData.addTable(schemaName, table);
+            latestMetaData = latestMetaData.addTable(schemaName, table, parentTable);
             latestMetaDataLock.notifyAll();
             return latestMetaData;
         }
@@ -784,7 +784,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, boolean isView, Map<String,Object> tableProps,
+    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps,
             final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
         Mutation m = tableMetaData.get(0);
@@ -793,7 +793,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
-        ensureTableCreated(tableName, isView, tableProps, families, splits);
+        ensureTableCreated(tableName, tableType == PTableType.VIEW, tableProps, families, splits);
 
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
@@ -820,7 +820,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult dropTable(final List<Mutation> tableMetaData, final boolean isView) throws SQLException {
+    public MetaDataMutationResult dropTable(final List<Mutation> tableMetaData, final PTableType tableType) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
@@ -828,22 +828,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
                     public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
-                      return instance.dropTable(tableMetaData, isView);
-                    }
-                });
-    }
-
-    @Override
-    public MetaDataMutationResult dropIndex(final List<Mutation> tableMetaData) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
-        SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
-        byte[] tableKey = SchemaUtil.getTableKey(
-                rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
-        return metaDataCoprocessorExec(tableKey,
-                new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
-                    @Override
-                    public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
-                      return instance.dropIndex(tableMetaData);
+                      return instance.dropTable(tableMetaData, tableType.getSerializedValue());
                     }
                 });
     }
@@ -954,5 +939,19 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         } catch (IOException e) {
             throw new PhoenixIOException(e);
         }
+    }
+
+    @Override
+    public MetaDataMutationResult updateIndexState(final List<Mutation> tableMetaData) throws SQLException {
+        byte[][] rowKeyMetadata = new byte[2][];
+        SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
+        byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+        return metaDataCoprocessorExec(tableKey,
+                new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
+                    @Override
+                    public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
+                      return instance.updateIndexState(tableMetaData);
+                    }
+                });
     }
 }

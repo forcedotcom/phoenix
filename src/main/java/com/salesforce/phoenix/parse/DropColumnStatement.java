@@ -28,16 +28,16 @@
 package com.salesforce.phoenix.parse;
 
 public class DropColumnStatement extends AlterTableStatement {
-    private final ParseNode columnRef;
+    private final ColumnName columnRef;
     private final boolean ifExists;
     
-    protected DropColumnStatement(TableName tableName, ParseNode columnRef, boolean ifExists) {
-        super(tableName);
+    protected DropColumnStatement(NamedTableNode table, ColumnName columnRef, boolean ifExists) {
+        super(table);
         this.columnRef = columnRef;
         this.ifExists = ifExists;
     }
 
-    public ParseNode getColumnRef() {
+    public ColumnName getColumnRef() {
         return columnRef;
     }
 

@@ -29,7 +29,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -170,7 +170,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
     /**
      * Test an upsert of prexisting schema defined columns and dynamic ones with different datatypes
      */
-    @Test(expected = AmbiguousColumnException.class)
+    @Test(expected = ColumnAlreadyExistsException.class)
     public void testAmbiguousStaticSelect() throws Exception {
         String upsertquery = "Select * FROM HBASE_DYNAMIC_COLUMNS(A.F1V1 INTEGER)";
         String url = PHOENIX_JDBC_URL + ";";

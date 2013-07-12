@@ -33,38 +33,50 @@ import java.util.List;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ListMultimap;
-import com.salesforce.phoenix.schema.PTableType;
 
 
-public class CreateIndexStatement extends CreateTableStatement implements SQLStatement {
+public class CreateIndexStatement extends SingleTableSQLStatement {
+    private final TableName indexTableName;
+    private final PrimaryKeyConstraint indexConstraint;
+    private final List<ColumnName> includeColumns;
+    private final List<ParseNode> splitNodes;
+    private final ListMultimap<String,Pair<String,Object>> props;
+    private final boolean ifNotExists;
 
-    private final String dataTableName;
-    private final TableName tableName;
-    private final List<ParseNode> includeColumns;
-
-    public CreateIndexStatement(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns,
-            ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-        super(tableName, props, Collections.<ColumnDef>emptyList(), pkConstraint, null, false, false, bindCount);
-        this.includeColumns = includeColumns;
-        this.dataTableName = tableName.getTableName();
-        this.tableName = new TableName(tableName.getSchemaName(), indexName.getName());
+    public CreateIndexStatement(NamedNode indexTableName, NamedTableNode dataTable, 
+            PrimaryKeyConstraint indexConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
+            ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+        super(dataTable, bindCount);
+        this.indexTableName = new TableName(dataTable.getName().getSchemaName(),indexTableName.getName());
+        this.indexConstraint = indexConstraint == null ? PrimaryKeyConstraint.EMPTY : indexConstraint;
+        this.includeColumns = includeColumns == null ? Collections.<ColumnName>emptyList() : includeColumns;
+        this.splitNodes = splits == null ? Collections.<ParseNode>emptyList() : splits;
+        this.props = props;
+        this.ifNotExists = ifNotExists;
     }
 
-    public List<ParseNode> getIncludeColumns() {
+    public PrimaryKeyConstraint getIndexConstraint() {
+        return indexConstraint;
+    }
+
+    public List<ColumnName> getIncludeColumns() {
         return includeColumns;
     }
 
-    @Override
-    public TableName getTableName() {
-        return tableName;
+    public TableName getIndexTableName() {
+        return indexTableName;
     }
 
-    public String getDataTableName() {
-        return dataTableName;
+    public List<ParseNode> getSplitNodes() {
+        return splitNodes;
     }
 
-    @Override
-    public PTableType getTableType() {
-        return PTableType.INDEX;
+    public ListMultimap<String,Pair<String,Object>> getProps() {
+        return props;
     }
+
+    public boolean ifNotExists() {
+        return ifNotExists;
+    }
+
 }

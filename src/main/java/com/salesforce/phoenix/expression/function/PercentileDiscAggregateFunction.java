@@ -25,26 +25,54 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.execute;
+package com.salesforce.phoenix.expression.function;
 
-import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.schema.tuple.Tuple;
-
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
+import com.salesforce.phoenix.expression.aggregator.PercentileDiscClientAggregator;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 /**
  * 
- * Row counter for a regular scan which just increments row count by 1.
+ * Built-in function for PERCENTILE_DIST(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
  *
- * @author jtaylor
- * @since 0.1
+ * @author ramkrishna
+ * @since 1.2.1
  */
-public class ScanRowCounter implements RowCounter {
+@BuiltInFunction(name = PercentileDiscAggregateFunction.NAME, args = { @Argument(allowedTypes = { PDataType.DECIMAL }),
+        @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true),
+        @Argument(allowedTypes = { PDataType.DECIMAL }, isConstant = true, minValue = "0", maxValue = "1") })
+public class PercentileDiscAggregateFunction extends SingleAggregateFunction {
 
-    @Override
-    public long calculate(Tuple result) throws SQLException {
-        return 1;
-    }
+	public static final String NAME = "PERCENTILE_DISC";
+
+	public PercentileDiscAggregateFunction() {
+	}
+
+	public PercentileDiscAggregateFunction(List<Expression> childern) {
+		super(childern);
+	}
+	
+	@Override
+	public Aggregator newServerAggregator() {
+		return new DistinctValueWithCountServerAggregator();
+	}
+	
+	@Override
+	public Aggregator newClientAggregator() {
+		return new PercentileDiscClientAggregator(children);
+	}
+
+	@Override
+	public String getName() {
+		return NAME;
+	}
+	
 
 }

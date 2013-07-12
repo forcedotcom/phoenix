@@ -104,7 +104,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
     private static TableRef getTableRef(Connection conn, long ts) throws SQLException {
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
         PSchema schema = pconn.getPMetaData().getSchemas().get(STABLE_SCHEMA_NAME);
-        TableRef table = new TableRef(null,schema.getTable(STABLE_NAME),schema, ts);
+        TableRef table = new TableRef(null,schema.getTable(STABLE_NAME),schema, ts, false);
         return table;
     }
     
@@ -269,7 +269,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         int updateFreq = 5;
         int maxAge = 10;
         int startTime = 100;
-        long waitTime = 3000;
+        long waitTime = 5000;
         
         ManualTimeKeeper timeKeeper = new ManualTimeKeeper();
         timeKeeper.setCurrentTimeMillis(startTime);

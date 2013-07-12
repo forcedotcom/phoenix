@@ -49,8 +49,9 @@ public class GreaterThanOrEqualParseNode extends ComparisonParseNode {
         return CompareFilter.CompareOp.GREATER_OR_EQUAL;
     }
 
+
     @Override
-    public ComparisonParseNode invert(ParseNodeFactory factory) {
-        return factory.lte(this.getRHS(), this.getLHS());
-    }    
+    public CompareOp getInvertFilterOp() {
+        return CompareOp.LESS_OR_EQUAL;
+    }
 }

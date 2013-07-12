@@ -86,16 +86,7 @@ public class CoerceExpression extends BaseSingleExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (getChild().evaluate(tuple, ptr)) {
-            // TODO: add PDataType.toBytes(ptr, type)
-            if (getDataType().isBytesComparableWith(getChild().getDataType())) {
-                return true;
-            }
-            // TODO: use Native to prevent creating object
-            // TODO: if type matches don't go to object and back again
-            Object o = getDataType().toObject(ptr, getChild().getDataType());
-            // TODO: use shared buffer: need a way of the buffer indicating that it must be consumed immediately, though.
-            byte[] b = getDataType().toBytes(o);
-            ptr.set(b);
+            getDataType().coerceBytes(ptr, getChild().getDataType(), getChild().getColumnModifier(), getColumnModifier());
             return true;
         }
         return false;

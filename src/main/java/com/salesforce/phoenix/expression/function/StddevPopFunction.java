@@ -25,63 +25,52 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.iterate;
+package com.salesforce.phoenix.expression.function;
 
-import java.sql.SQLException;
 import java.util.List;
 
-import com.salesforce.phoenix.execute.RowCounter;
-import com.salesforce.phoenix.schema.tuple.Tuple;
-
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
- * Result scanner that wraps another result scanner and honors a row count limit.
- *
- * @author jtaylor
- * @since 0.1
+ * Built-in function for STDDEV_POP(<expression>) aggregate function
+ * 
+ * @author anoopsjohn
+ * @since 1.2.1
  */
-public class SerialLimitingResultIterator implements ResultIterator {
-    private final ResultIterator scanner;
-    private final long limit;
-    private final RowCounter rowCounter;
+@BuiltInFunction(name = StddevPopFunction.NAME, args = { @Argument(allowedTypes={PDataType.DECIMAL})})
+public class StddevPopFunction extends SingleAggregateFunction {
+    public static final String NAME = "STDDEV_POP";
+
+    public StddevPopFunction() {
+
+    }
+
+    public StddevPopFunction(List<Expression> childern) {
+        super(childern);
+    }
+
+    @Override
+    public Aggregator newServerAggregator() {
+        return new DistinctValueWithCountServerAggregator();
+    }
+
+    @Override
+    public Aggregator newClientAggregator() {
+        return new StddevPopAggregator(children);
+    }
     
-    private long count;
-    
-    public SerialLimitingResultIterator(ResultIterator scanner, long limit, RowCounter rowCounter) {
-        this.scanner = scanner;
-        this.limit = limit;
-        this.rowCounter = rowCounter;
+    @Override
+    public String getName() {
+        return NAME;
     }
 
     @Override
-    public void close() throws SQLException {
-        scanner.close();
-    }
-
-    @Override
-    public Tuple next() throws SQLException {
-        if (count == limit) {
-            return null;
-        }
-        Tuple result = scanner.next();
-        if (result != null) {
-            count += rowCounter.calculate(result);
-        }
-        return result;
-    }
-
-    @Override
-    public void explain(List<String> planSteps) {
-        scanner.explain(planSteps);
-        StringBuilder buf = new StringBuilder("CLIENT SERIAL");
-        if (rowCounter != RowCounter.UNLIMIT_ROW_COUNTER) {
-            buf.append(" " + limit + " ROW LIMIT");
-        }
-        if (planSteps.isEmpty()) {
-            planSteps.add(buf.toString());
-        } else {
-            planSteps.set(0, buf.toString() + " " + planSteps.get(0));
-        }
+    public PDataType getDataType() {
+        return PDataType.DECIMAL;
     }
 }

@@ -31,6 +31,7 @@ import java.lang.reflect.Constructor;
 import java.sql.SQLException;
 import java.util.*;
 
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ListMultimap;
@@ -233,12 +234,12 @@ public class ParseNodeFactory {
         return new IndexColumnParseNode(name, modifier);
     }
     
-    public ColumnDefName columnDefName(String columnName) {
-        return new ColumnDefName(columnName);
+    public ColumnName columnName(String columnName) {
+        return new ColumnName(columnName);
     }
 
-    public ColumnDefName columnDefName(String familyName, String columnName) {
-        return new ColumnDefName(familyName, columnName);
+    public ColumnName columnName(String familyName, String columnName) {
+        return new ColumnName(familyName, columnName);
     }
 
     public PropertyName propertyName(String propertyName) {
@@ -249,36 +250,36 @@ public class ParseNodeFactory {
         return new PropertyName(familyName, propertyName);
     }
 
-    public ColumnDef columnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
+    public ColumnDef columnDef(ColumnName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK, ColumnModifier columnModifier) {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK, columnModifier);
     }
 
-    public PrimaryKeyConstraint primaryKey(String name, List<Pair<String, ColumnModifier>> columnNameAndModifier) {
+    public PrimaryKeyConstraint primaryKey(String name, List<Pair<ColumnName, ColumnModifier>> columnNameAndModifier) {
         return new PrimaryKeyConstraint(name, columnNameAndModifier);
     }
     
-    public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, boolean readOnly, boolean ifNotExists, int bindCount) {
-        return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, readOnly, ifNotExists, bindCount);
+    public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, PTableType tableType, boolean ifNotExists, int bindCount) {
+        return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
     }
     
-    public CreateIndexStatement createIndex(NamedNode indexName, TableName tableName, PrimaryKeyConstraint pkConstraint, List<ParseNode> includeColumns, ListMultimap<String,Pair<String,Object>> props, int bindCount) {
-        return new CreateIndexStatement(indexName, tableName, pkConstraint, includeColumns, props, bindCount);
+    public CreateIndexStatement createIndex(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
+        return new CreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
-    public AddColumnStatement addColumn(TableName tableName,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
-        return new AddColumnStatement(tableName, columnDef, ifNotExists, props);
+    public AddColumnStatement addColumn(NamedTableNode table,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
+        return new AddColumnStatement(table, columnDef, ifNotExists, props);
     }
     
-    public DropColumnStatement dropColumn(TableName tableName,  ParseNode columnNode, boolean ifExists) {
-        return new DropColumnStatement(tableName, columnNode, ifExists);
+    public DropColumnStatement dropColumn(NamedTableNode table,  ColumnName columnNode, boolean ifExists) {
+        return new DropColumnStatement(table, columnNode, ifExists);
     }
     
-    public DropTableStatement dropTable(TableName tableName, boolean ifExists, boolean isView) {
-        return new DropTableStatement(tableName, ifExists, isView);
+    public DropTableStatement dropTable(TableName tableName, PTableType tableType, boolean ifExists) {
+        return new DropTableStatement(tableName, tableType, ifExists);
     }
     
-    public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName) {
-        return new DropIndexStatement(indexName, tableName);
+    public DropIndexStatement dropIndex(NamedNode indexName, TableName tableName, boolean ifExists) {
+        return new DropIndexStatement(indexName, tableName, ifExists);
     }
     
     public TableName table(String schemaName, String tableName) {
@@ -287,6 +288,10 @@ public class ParseNodeFactory {
 
     public NamedNode indexName(String name) {
         return new NamedNode(name);
+    }
+
+    public NamedTableNode namedTable(String alias, TableName name) {
+        return new NamedTableNode(alias, name);
     }
 
     public NamedTableNode namedTable(String alias, TableName name ,List<ColumnDef> dyn_columns) {
@@ -303,11 +308,6 @@ public class ParseNodeFactory {
 
     public DivideParseNode divide(List<ParseNode> children) {
         return new DivideParseNode(children);
-    }
-
-
-    public EqualParseNode equal(ParseNode lhs, ParseNode rhs) {
-        return new EqualParseNode(lhs, rhs);
     }
 
 
@@ -337,14 +337,17 @@ public class ParseNodeFactory {
         }
     }
 
-
-    public GreaterThanParseNode gt(ParseNode lhs, ParseNode rhs) {
-        return new GreaterThanParseNode(lhs, rhs);
-    }
-
-
-    public GreaterThanOrEqualParseNode gte(ParseNode lhs, ParseNode rhs) {
-        return new GreaterThanOrEqualParseNode(lhs, rhs);
+    public FunctionParseNode function(String name, List<ParseNode> valueNodes,
+            List<ParseNode> columnNodes, boolean isAscending) {
+        // Right now we support PERCENT functions on only one column
+        if (valueNodes.size() != 1 || columnNodes.size() != 1) {
+            throw new UnsupportedOperationException(name + " not supported on multiple columns");
+        }
+        List<ParseNode> children = new ArrayList<ParseNode>(3);
+        children.add(columnNodes.get(0));
+        children.add(new LiteralParseNode(Boolean.valueOf(isAscending)));
+        children.add(valueNodes.get(0));
+        return function(name, children);
     }
 
 
@@ -414,6 +417,33 @@ public class ParseNodeFactory {
         return literalNode;
     }
 
+    public ComparisonParseNode comparison(CompareOp op, ParseNode lhs, ParseNode rhs) {
+        switch (op){
+        case LESS:
+            return lt(lhs,rhs);
+        case LESS_OR_EQUAL:
+            return lte(lhs,rhs);
+        case EQUAL:
+            return equal(lhs,rhs);
+        case NOT_EQUAL:
+            return notEqual(lhs,rhs);
+        case GREATER_OR_EQUAL:
+            return gte(lhs,rhs);
+        case GREATER:
+            return gt(lhs,rhs);
+        default:
+            throw new IllegalArgumentException("Unexpcted CompareOp of " + op);
+        }
+    }
+
+    public GreaterThanParseNode gt(ParseNode lhs, ParseNode rhs) {
+        return new GreaterThanParseNode(lhs, rhs);
+    }
+
+
+    public GreaterThanOrEqualParseNode gte(ParseNode lhs, ParseNode rhs) {
+        return new GreaterThanOrEqualParseNode(lhs, rhs);
+    }
 
     public LessThanParseNode lt(ParseNode lhs, ParseNode rhs) {
         return new LessThanParseNode(lhs, rhs);
@@ -424,19 +454,21 @@ public class ParseNodeFactory {
         return new LessThanOrEqualParseNode(lhs, rhs);
     }
 
+    public EqualParseNode equal(ParseNode lhs, ParseNode rhs) {
+        return new EqualParseNode(lhs, rhs);
+    }
+
 
     public MultiplyParseNode negate(ParseNode child) {
         return new MultiplyParseNode(Arrays.asList(child,this.literal(-1)));
     }
 
+    public NotEqualParseNode notEqual(ParseNode lhs, ParseNode rhs) {
+        return new NotEqualParseNode(lhs, rhs);
+    }
 
     public NotParseNode not(ParseNode child) {
         return new NotParseNode(child);
-    }
-
-
-    public NotEqualParseNode notEqual(ParseNode lhs, ParseNode rhs) {
-        return new NotEqualParseNode(lhs, rhs);
     }
 
 
@@ -460,16 +492,20 @@ public class ParseNodeFactory {
         return new SelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
     }
     
-    public UpsertStatement upsert(TableName table, List<ParseNode> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+    public UpsertStatement upsert(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
         return new UpsertStatement(table, columns, values, select, bindCount);
     }
     
-    public DeleteStatement delete(TableName table, HintNode hint, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+    public DeleteStatement delete(NamedTableNode table, HintNode hint, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
         return new DeleteStatement(table, hint, node, orderBy, limit, bindCount);
     }
 
     public SelectStatement select(SelectStatement statement, ParseNode where, ParseNode having) {
         return select(statement.getFrom(), statement.getHint(), statement.isDistinct(), statement.getSelect(), where, statement.getGroupBy(), having, statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+    }
+
+    public SelectStatement select(SelectStatement statement, List<TableNode> tables) {
+        return select(tables, statement.getHint(), statement.isDistinct(), statement.getSelect(), statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
 
     public SubqueryParseNode subquery(SelectStatement select) {

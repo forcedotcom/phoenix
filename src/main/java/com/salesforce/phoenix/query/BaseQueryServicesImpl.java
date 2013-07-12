@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import com.salesforce.phoenix.job.JobManager;
 import com.salesforce.phoenix.memory.GlobalMemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager;
+import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
@@ -47,6 +48,7 @@ public abstract class BaseQueryServicesImpl implements QueryServices {
     private final ExecutorService executor;
     private final MemoryManager memoryManager;
     private final ReadOnlyProps props;
+    private final QueryOptimizer queryOptimizer;
     
     public BaseQueryServicesImpl(QueryServicesOptions options) {
         this.executor =  JobManager.createThreadPoolExec(
@@ -57,6 +59,7 @@ public abstract class BaseQueryServicesImpl implements QueryServices {
                 Runtime.getRuntime().totalMemory() * options.getMaxMemoryPerc() / 100,
                 options.getMaxMemoryWaitMs());
         this.props = options.getProps();
+        this.queryOptimizer = new QueryOptimizer(this);
     }
     
     @Override
@@ -76,5 +79,10 @@ public abstract class BaseQueryServicesImpl implements QueryServices {
 
     @Override
     public void close() {
+    }
+
+    @Override
+    public QueryOptimizer getOptimizer() {
+        return queryOptimizer;
     }   
 }

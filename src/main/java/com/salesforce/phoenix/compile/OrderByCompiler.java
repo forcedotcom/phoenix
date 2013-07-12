@@ -33,9 +33,11 @@ import java.util.*;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
+import com.salesforce.phoenix.compile.TrackOrderPreservingExpressionCompiler.Ordering;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.parse.OrderByNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -88,15 +90,19 @@ public class OrderByCompiler {
             return OrderBy.EMPTY_ORDER_BY;
         }
         // accumulate columns in ORDER BY
-        OrderByVisitor visitor = new OrderByVisitor(context, groupBy, aliasParseNodeMap);
+        TrackOrderPreservingExpressionCompiler visitor = 
+                new TrackOrderPreservingExpressionCompiler(context, groupBy, 
+                        aliasParseNodeMap, orderByNodes.size(), Ordering.ORDERED);
         Expression nonAggregateExpression = null;
+        LinkedHashSet<OrderByExpression> orderByExpressions = Sets.newLinkedHashSetWithExpectedSize(orderByNodes.size());
         for (OrderByNode node : orderByNodes) {
+            boolean isAscending = node.isAscending();
             Expression expression = node.getNode().accept(visitor);
-            // Detect mix of aggregate and non aggregates (i.e. ORDER BY txns, SUM(txns)
-            if (! (expression instanceof LiteralExpression) ) { // Filter out top level literals
+            if (visitor.addEntry(expression, isAscending ? null : ColumnModifier.SORT_DESC)) {
                 if (!visitor.isAggregate()) {
                     nonAggregateExpression = expression;
                 }
+                // Detect mix of aggregate and non aggregates (i.e. ORDER BY txns, SUM(txns)
                 if (nonAggregateExpression != null) {
                     if (context.isAggregate()) {
                         if (isDistinct) {
@@ -106,40 +112,24 @@ public class OrderByCompiler {
                         ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
                     }
                 }
-                boolean isAscending = node.isAscending();
                 if (expression.getColumnModifier() == ColumnModifier.SORT_DESC) {
                     isAscending = !isAscending;
                 }
-                OrderByExpression col = new OrderByExpression(expression, node.isNullsLast(), isAscending);
-                visitor.addOrderByExpression(col);
+                OrderByExpression orderByExpression = new OrderByExpression(expression, node.isNullsLast(), isAscending);
+                orderByExpressions.add(orderByExpression);
             }
             visitor.reset();
         }
+        
+        // If we're ordering by the order returned by the scan, we don't need an order by
+        if (visitor.isOrderPreserving()) {
+            return OrderBy.EMPTY_ORDER_BY;
+        }
 
-        return new OrderBy(context.isAggregate(), visitor.getOrderByExpressions());
+        return new OrderBy(context.isAggregate(), Lists.newArrayList(orderByExpressions.iterator()));
     }
 
 
     private OrderByCompiler() {
-    }
-    
-    private static class OrderByVisitor extends AliasingExpressionCompiler {
-        private final Set<OrderByExpression> visited = Sets.newHashSet();
-        private final List<OrderByExpression> orderByExpressions = Lists.newArrayList();
-        
-        private OrderByVisitor(StatementContext context, GroupBy groupBy, Map<String, ParseNode> aliasParseNodeMap) {
-            super(context, groupBy, aliasParseNodeMap);
-        }
-        
-        private List<OrderByExpression> getOrderByExpressions() {
-            return orderByExpressions;
-        }
-        
-        private void addOrderByExpression(OrderByExpression orderByExpression) {
-            if (!visited.contains(orderByExpression)) {
-                orderByExpressions.add(orderByExpression);
-                visited.add(orderByExpression);
-            }
-        }
     }
 }

@@ -27,21 +27,29 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public abstract class MutationStatement implements SQLStatement {
-    private final TableName table;
-    private final int bindCount;
+/**
+ * 
+ * RuntimeException for exceptions occurring during parsing,
+ * since ANTLR doesn't handle typed exceptions well.
+ *
+ * @author jtaylor
+ * @since 2.0
+ */
+public class ParseException extends RuntimeException {
 
-    public MutationStatement(TableName table, int bindCount) {
-        this.table = table;
-        this.bindCount = bindCount;
-    }
-    
-    public TableName getTable() {
-        return table;
+    public ParseException() {
     }
 
-    @Override
-    public int getBindCount() {
-        return bindCount;
+    public ParseException(String msg) {
+        super(msg);
     }
+
+    public ParseException(Throwable t) {
+        super(t);
+    }
+
+    public ParseException(String msg, Throwable t) {
+        super(msg, t);
+    }
+
 }

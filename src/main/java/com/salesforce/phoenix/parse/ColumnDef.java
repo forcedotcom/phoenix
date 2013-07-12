@@ -44,7 +44,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class ColumnDef {
-    private final ColumnDefName columnDefName;
+    private final ColumnName columnDefName;
     private final PDataType dataType;
     private final boolean isNull;
     private final Integer maxLength;
@@ -52,68 +52,72 @@ public class ColumnDef {
     private final boolean isPK;
     private final ColumnModifier columnModifier;
  
-    ColumnDef(ColumnDefName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
-            Integer scale, boolean isPK, ColumnModifier columnModifier) throws SQLException {
-        this.columnDefName = columnDefName;
-        this.dataType = PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
-        this.isNull = isNull;
-        if (this.dataType == PDataType.CHAR) {
-            if (maxLength == null) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_CHAR_LENGTH)
-                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
+    ColumnDef(ColumnName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength,
+            Integer scale, boolean isPK, ColumnModifier columnModifier) {
+        try {
+            this.columnDefName = columnDefName;
+            this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
+            this.isNull = isNull;
+            if (this.dataType == PDataType.CHAR) {
+                if (maxLength == null) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_CHAR_LENGTH)
+                        .setColumnName(columnDefName.getColumnName()).build().buildException();
+                }
+                if (maxLength < 1) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
+                        .setColumnName(columnDefName.getColumnName()).build().buildException();
+                }
+                scale = null;
+            } else if (this.dataType == PDataType.VARCHAR) {
+                if (maxLength != null && maxLength < 1) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
+                        .setColumnName(columnDefName.getColumnName()).build().buildException(); 
+                }
+                scale = null;
+            } else if (this.dataType == PDataType.DECIMAL) {
+                maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
+                // for deciaml, 1 <= maxLength <= PDataType.MAX_PRECISION;
+                if (maxLength < 1 || maxLength > PDataType.MAX_PRECISION) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DECIMAL_PRECISION_OUT_OF_RANGE)
+                        .setColumnName(columnDefName.getColumnName()).build().buildException();
+                }
+                // If scale is not specify, it is set to 0. This is the standard as specified in
+                // http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
+                // and 
+                // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
+                // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
+                scale = scale == null ? PDataType.DEFAULT_SCALE : scale > maxLength ? maxLength : scale; 
+            } else if (this.dataType == PDataType.BINARY) {
+                if (maxLength == null) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_BINARY_LENGTH)
+                        .setColumnName(columnDefName.getColumnName()).build().buildException();
+                }
+                if (maxLength < 1) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_BINARY_LENGTH)
+                        .setColumnName(columnDefName.getColumnName()).build().buildException();
+                }
+                scale = null;
+            } else if (this.dataType == PDataType.INTEGER) {
+                maxLength = PDataType.INT_PRECISION;
+                scale = PDataType.ZERO;
+            } else if (this.dataType == PDataType.LONG) {
+                maxLength = PDataType.LONG_PRECISION;
+                scale = PDataType.ZERO;
+            } else {
+                // ignore maxLength and scale for other types.
+                maxLength = null;
+                scale = null;
             }
-            if (maxLength < 1) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
-                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
-            }
-            scale = null;
-        } else if (this.dataType == PDataType.VARCHAR) {
-            if (maxLength != null && maxLength < 1) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
-                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException(); 
-            }
-            scale = null;
-        } else if (this.dataType == PDataType.DECIMAL) {
-            maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
-            // for deciaml, 1 <= maxLength <= PDataType.MAX_PRECISION;
-            if (maxLength < 1 || maxLength > PDataType.MAX_PRECISION) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.DECIMAL_PRECISION_OUT_OF_RANGE)
-                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
-            }
-            // If scale is not specify, it is set to 0. This is the standard as specified in
-            // http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
-            // and 
-            // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
-            // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
-            scale = scale == null ? PDataType.DEFAULT_SCALE : scale > maxLength ? maxLength : scale; 
-        } else if (this.dataType == PDataType.BINARY) {
-            if (maxLength == null) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_BINARY_LENGTH)
-                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
-            }
-            if (maxLength < 1) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_BINARY_LENGTH)
-                    .setColumnName(columnDefName.getColumnName().getName()).build().buildException();
-            }
-            scale = null;
-        } else if (this.dataType == PDataType.INTEGER) {
-            maxLength = PDataType.INT_PRECISION;
-            scale = PDataType.ZERO;
-        } else if (this.dataType == PDataType.LONG) {
-            maxLength = PDataType.LONG_PRECISION;
-            scale = PDataType.ZERO;
-        } else {
-            // ignore maxLength and scale for other types.
-            maxLength = null;
-            scale = null;
+            this.maxLength = maxLength;
+            this.scale = scale;
+            this.isPK = isPK;
+            this.columnModifier = columnModifier;
+        } catch (SQLException e) {
+            throw new ParseException(e);
         }
-        this.maxLength = maxLength;
-        this.scale = scale;
-        this.isPK = isPK;
-        this.columnModifier = columnModifier;
     }
 
-    public ColumnDefName getColumnDefName() {
+    public ColumnName getColumnDefName() {
         return columnDefName;
     }
 

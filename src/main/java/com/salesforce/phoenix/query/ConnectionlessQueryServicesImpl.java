@@ -50,12 +50,6 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * Implementation of ConnectionQueryServices used in testing where no connection to
  * an hbase cluster is necessary.
  * 
- * TODO: Move into main-phoenix and use this to enable a client to create metadata
- * on the fly (without needing a connection), given a DDL command. This will enable
- * Map/Reduce jobs that create HFiles to use the JDBC driver to insert data (by
- * going under the covers of the PhoenixConnection to get the mutation state that
- * would have been sent to the server on a commit)
- *
  * @author jtaylor
  * @since 0.1
  */
@@ -88,8 +82,8 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
-        return metaData = metaData.addTable(schemaName, table);
+    public PMetaData addTable(String schemaName, PTable table, PTable parentTable) throws SQLException {
+        return metaData = metaData.addTable(schemaName, table, parentTable);
     }
 
     @Override
@@ -124,12 +118,12 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, boolean readOnly, Map<String,Object> tableProps, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
+    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, 0, null);
     }
 
     @Override
-    public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, boolean isView) throws SQLException {
+    public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, PTableType tableType) throws SQLException {
         return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
     }
 
@@ -164,7 +158,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata) throws SQLException {
-        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
+    public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) {
+        return null;
     }
 }

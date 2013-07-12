@@ -30,29 +30,28 @@ package com.salesforce.phoenix.parse;
 
 /**
  * 
- * Node representing a dynamic defintion to a column in a SQL expression
+ * Node representing a dynamic definition to a column in a SQL expression
  *
  * @author nmaillard
  * @since 1.3
  */
 
 public class DynamicColumnParseNode extends ColumnParseNode {
-  protected final String fullName;
-  private final ColumnDef columnDef;
+    protected final String fullName;
+    private final ColumnDef columnDef;
   
-  DynamicColumnParseNode(ColumnDef node) {
-    super(node.getColumnDefName().getColumnName().getName());
-    columnDef = node;
-    fullName = getName();
-  }
+    DynamicColumnParseNode(ColumnDef node) {
+        super(node.getColumnDefName().getColumnName());
+        columnDef = node;
+        fullName = getName();
+    }
   
-  @Override
-public String getFullName() {
-    return fullName;
-  }
+    @Override
+    public String getFullName() {
+        return fullName;
+    }
   
-  public ColumnDef getColumnDef(){
-    return columnDef;
-  }
-
+    public ColumnDef getColumnDef(){
+        return columnDef;
+    }
 }

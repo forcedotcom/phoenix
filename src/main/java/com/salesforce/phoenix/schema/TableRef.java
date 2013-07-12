@@ -38,13 +38,15 @@ public final class TableRef {
     private final PSchema schema;
     private final byte[] tableName;
     private final long timeStamp;
+    private final boolean hasDynamicCols;
 
-    public TableRef(String alias, PTable table, PSchema schema, long timeStamp) {
+    public TableRef(String alias, PTable table, PSchema schema, long timeStamp, boolean hasDynamicCols) {
         this.alias = alias;
         this.table = table;
         this.schema = schema;
         this.tableName = SchemaUtil.getTableName(Bytes.toBytes(schema.getName()), table.getName().getBytes());
         this.timeStamp = timeStamp;
+        this.hasDynamicCols = hasDynamicCols;
     }
 
     public PTable getTable() {
@@ -85,6 +87,10 @@ public final class TableRef {
 
     public long getTimeStamp() {
         return timeStamp;
+    }
+
+    public boolean hasDynamicCols() {
+        return hasDynamicCols;
     }
 
 }

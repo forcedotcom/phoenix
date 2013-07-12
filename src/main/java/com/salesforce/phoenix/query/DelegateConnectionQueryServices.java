@@ -75,8 +75,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
-        return getDelegate().addTable(schemaName, table);
+    public PMetaData addTable(String schemaName, PTable table, PTable parentTable) throws SQLException {
+        return getDelegate().addTable(schemaName, table, parentTable);
     }
 
     @Override
@@ -108,13 +108,15 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult createTable(final List<Mutation> tabeMetaData, boolean isView, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
-        return getDelegate().createTable(tabeMetaData, isView, tableProps, families, splits);
+    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, PTableType tableType,
+            Map<String, Object> tableProps, List<Pair<byte[], Map<String, Object>>> families, byte[][] splits)
+            throws SQLException {
+        return getDelegate().createTable(tableMetaData, tableType, tableProps, families, splits);
     }
 
     @Override
-    public MetaDataMutationResult dropTable(List<Mutation> tabeMetaData, boolean isView) throws SQLException {
-        return getDelegate().dropTable(tabeMetaData, isView);
+    public MetaDataMutationResult dropTable(List<Mutation> tabeMetaData, PTableType tableType) throws SQLException {
+        return getDelegate().dropTable(tabeMetaData, tableType);
     }
 
     @Override
@@ -127,6 +129,11 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
         return getDelegate().dropColumn(tabeMetaData, emptyCF);
     }
 
+    @Override
+    public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws SQLException {
+        return getDelegate().updateIndexState(tableMetadata);
+    }
+    
     @Override
     public void init(String url, Properties props) throws SQLException {
         getDelegate().init(url, props);
@@ -145,10 +152,5 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     @Override
     public HBaseAdmin getAdmin() throws SQLException {
         return getDelegate().getAdmin();
-    }
-
-    @Override
-    public MetaDataMutationResult dropIndex(List<Mutation> tableMetadata) throws SQLException {
-        return getDelegate().dropIndex(tableMetadata);
     }
 }

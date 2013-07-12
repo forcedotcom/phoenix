@@ -35,18 +35,9 @@ import java.util.Properties;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.util.QueryUtil;
+
 public class QueryPlanTest extends BaseConnectedQueryTest {
-    private static String getPlan(ResultSet rs) throws SQLException {
-        StringBuilder buf = new StringBuilder();
-        while (rs.next()) {
-            buf.append(rs.getString(1));
-            buf.append('\n');
-        }
-        if (buf.length() > 0) {
-            buf.setLength(buf.length()-1);
-        }
-        return buf.toString();
-    }
     @Test
     public void testExplainPlan() throws Exception {
         ensureTableCreated(getUrl(), ATABLE_NAME, getDefaultSplits(getOrganizationId()));
@@ -125,8 +116,10 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "    SERVER FILTER BY (X_INTEGER = 2 AND A_INTEGER < 5)",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' AND entity_id != '000000000000002' AND x_integer = 2 AND a_integer < 5 LIMIT 10",
-                "CLIENT SERIAL 10 ROW LIMIT RANGE SCAN OVER ATABLE '000000000000001'\n" + 
-                "    SERVER FILTER BY (ENTITY_ID != '000000000000002' AND X_INTEGER = 2 AND A_INTEGER < 5)",
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001'\n" + 
+                "    SERVER FILTER BY (ENTITY_ID != '000000000000002' AND X_INTEGER = 2 AND A_INTEGER < 5)\n" + 
+                "    SERVER 10 ROW LIMIT\n" + 
+                "CLIENT 10 ROW LIMIT",
 
                 "SELECT a_string,b_string FROM atable WHERE organization_id = '000000000000001' ORDER BY a_string ASC NULLS FIRST LIMIT 10",
                 "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001'\n" + 
@@ -159,7 +152,7 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 Statement statement = conn.createStatement();
                 ResultSet rs = statement.executeQuery("EXPLAIN " + query);
                 // TODO: figure out a way of verifying that query isn't run during explain execution
-                assertEquals(query, plan, getPlan(rs));
+                assertEquals(query, plan, QueryUtil.getExplainPlan(rs));
             } catch (Exception e) {
                 throw new Exception(query + ": "+ e.getMessage(), e);
             } finally {

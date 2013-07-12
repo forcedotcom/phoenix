@@ -27,26 +27,21 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.util.List;
 
-public class ColumnDefName {
-    private final NamedNode familyName;
-    private final NamedNode columnName;
+import org.apache.hadoop.hbase.util.Pair;
 
-    ColumnDefName(String familyName, String columnName) {
-        this.familyName = familyName == null ? null : new NamedNode(familyName);
-        this.columnName = new NamedNode(columnName);
+import com.google.common.collect.ImmutableList;
+import com.salesforce.phoenix.schema.ColumnModifier;
+
+public class IndexKeyConstraint {
+    private final List<Pair<ColumnParseNode, ColumnModifier>> columnNameToModifier;
+    
+    IndexKeyConstraint(List<Pair<ColumnParseNode, ColumnModifier>> columnNameAndModifier) {
+        this.columnNameToModifier = ImmutableList.copyOf(columnNameAndModifier);
     }
 
-    ColumnDefName(String columnName) {
-        this(null, columnName);
+    public List<Pair<ColumnParseNode, ColumnModifier>> getColumns() {
+        return columnNameToModifier;
     }
-
-    public NamedNode getFamilyName() {
-        return familyName;
-    }
-
-    public NamedNode getColumnName() {
-        return columnName;
-    }
-
 }

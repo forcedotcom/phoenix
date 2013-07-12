@@ -25,29 +25,26 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.execute;
+package com.salesforce.phoenix.expression.aggregator;
 
-import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.schema.tuple.Tuple;
-
-
+import com.salesforce.phoenix.expression.Expression;
 
 /**
+ * Client side Aggregator for STDDEV_SAMP aggregations
  * 
- * Interface to abstract how many rows were scanned.  For row count aggregation,
- * which happens on the server side, this will be the row count value returned.
- * For regular scans, it'll just be 1.
- *
- * @author jtaylor
- * @since 0.1
+ * @author anoopsjohn
+ * @since 1.2.1
  */
-public interface RowCounter {
-    public static final RowCounter UNLIMIT_ROW_COUNTER = new RowCounter() {
-        @Override
-        public final long calculate(Tuple result) throws SQLException {
-            return 0;
-        }
-    };
-    long calculate(Tuple result) throws SQLException;
+public class StddevSampAggregator extends BaseStddevAggregator {
+
+    public StddevSampAggregator(List<Expression> exps) {
+        super(exps);
+    }
+
+    @Override
+    protected long getDataPointsCount() {
+        return totalCount - 1;
+    }
 }

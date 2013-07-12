@@ -43,6 +43,8 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
  * @since 0.1
  */
 public interface PTable extends Writable {
+    public static final long INITIAL_SEQ_NUM = 0;
+    public static final String IS_IMMUTABLE_ROWS_PROP_NAME = "IMMUTABLE_ROWS";
 
     long getTimeStamp();
     long getSequenceNumber();
@@ -56,7 +58,7 @@ public interface PTable extends Writable {
      */
     PTableType getType();
 
-    String getPKName();
+    PName getPKName();
 
     /**
      * Get the PK columns ordered by position.
@@ -159,22 +161,10 @@ public interface PTable extends Writable {
     Integer getBucketNum();
 
     /**
-     * Add the argument index to the list of index for this table.
-     * @param index index table to be added.
-     */
-    void addIndex(PTable index);
-
-    /**
      * Return the list of indexes defined on this table.
      * @return the list of indexes.
      */
     List<PTable> getIndexes();
-
-    /**
-     * For a table of index type, set the state for the table.
-     * @return the state for this table.
-     */
-    void setIndexState(PIndexState state);
 
     /**
      * For a table of index type, return the state of the table.
@@ -186,5 +176,5 @@ public interface PTable extends Writable {
      * For a table of index type, return the name of the data table.
      * @return the name of the data table that this index is on.
      */
-    String getDataTableName();
+    PName getDataTableName();
 }
