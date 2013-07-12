@@ -285,6 +285,44 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testSumDouble() throws Exception {
+        long ts = nextTimestamp();
+        initSumDoubleValues(null, ts);
+        String query = "SELECT SUM(d) FROM SumDoubleTest";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Doubles.compare(rs.getDouble(1), 0.015)==0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testSumFloat() throws Exception {
+        long ts = nextTimestamp();
+        initSumDoubleValues(null, ts);
+        String query = "SELECT SUM(f) FROM SumDoubleTest";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Floats.compare(rs.getFloat(1), 0.15f)==0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testNotInListOfFloat() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
