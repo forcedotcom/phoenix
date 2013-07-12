@@ -25,64 +25,74 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
-
-import java.math.BigDecimal;
-import java.util.List;
+package com.salesforce.phoenix.expression.aggregator;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.SizedUtil;
 
-
-public class DateAddExpression extends AddExpression {
-    static private final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
+public class DoubleSumAggregator extends BaseAggregator {
     
-    public DateAddExpression() {
+    private double sum = 0;
+    private byte[] buffer;
+
+    public DoubleSumAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
+    }
+    
+    protected PDataType getInputDataType() {
+        return PDataType.DOUBLE;
+    }
+    
+    private void initBuffer() {
+        buffer = new byte[getDataType().getByteSize()];
     }
 
-    public DateAddExpression(List<Expression> children) {
-        super(children);
+    @Override
+    public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
+        double value = getInputDataType().getCodec().decodeDouble(ptr, columnModifier);
+        sum += value;
+        if (buffer == null) {
+            initBuffer();
+        }
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        long finalResult=0;
-        
-        for(int i=0;i<children.size();i++) {
-            if (!children.get(i).evaluate(tuple, ptr)) {
+        if (buffer == null) {
+            if (isNullable()) {
                 return false;
             }
-            if (ptr.getLength() == 0) {
-                return true;
-            }
-            long value;
-            PDataType type = children.get(i).getDataType();
-            ColumnModifier columnModifier = children.get(i).getColumnModifier();
-            if (type == PDataType.DECIMAL) {
-                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier);
-                value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
-            } else if (type.isCoercibleTo(PDataType.LONG)) {
-                value = type.getCodec().decodeLong(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY;
-            } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
-                value = (long)(type.getCodec().decodeDouble(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY);
-            } else {
-                value = type.getCodec().decodeLong(ptr, columnModifier);
-            }
-            finalResult += value;
+            initBuffer();
         }
-        byte[] resultPtr=new byte[getDataType().getByteSize()];
-        ptr.set(resultPtr);
-        getDataType().getCodec().encodeLong(finalResult, ptr);
+        ptr.set(buffer);
+        getDataType().getCodec().encodeDouble(sum, ptr);
         return true;
     }
 
     @Override
-    public final PDataType getDataType() {
-        return PDataType.DATE;
+    public PDataType getDataType() {
+        return PDataType.DOUBLE;
+    }
+    
+    @Override
+    public String toString() {
+        return "SUM [sum=" + sum + "]";
+    }
+    
+    @Override
+    public void reset() {
+        sum = 0;
+        buffer = null;
+        super.reset();
+    }
+    
+    @Override
+    public int getSize() {
+        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getDataType().getByteSize();
     }
 
 }

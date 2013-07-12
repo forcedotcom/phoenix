@@ -122,8 +122,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                     "    X_DECIMAL, " +
                     "    X_LONG, " +
                     "    X_INTEGER," +
-                    "    Y_INTEGER)" +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    "    Y_INTEGER," +
+                    "    A_BYTE," +
+                    "    A_SHORT," +
+                    "    A_FLOAT," +
+                    "    A_DOUBLE)" +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             stmt.setString(1, tenantId);
             stmt.setString(2, ROW1);
             stmt.setString(3, A_VALUE);
@@ -134,6 +138,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setNull(8, Types.BIGINT);
             stmt.setNull(9, Types.INTEGER);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)1);
+            stmt.setShort(12, (short) 128);
+            stmt.setFloat(13, 0.01f);
+            stmt.setDouble(14, 0.0001);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -146,6 +154,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setNull(8, Types.BIGINT);
             stmt.setNull(9, Types.INTEGER);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)2);
+            stmt.setShort(12, (short) 129);
+            stmt.setFloat(13, 0.02f);
+            stmt.setDouble(14, 0.0002);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -158,6 +170,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setNull(8, Types.BIGINT);
             stmt.setNull(9, Types.INTEGER);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)3);
+            stmt.setShort(12, (short) 130);
+            stmt.setFloat(13, 0.03f);
+            stmt.setDouble(14, 0.0003);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -170,6 +186,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setNull(8, Types.BIGINT);
             stmt.setNull(9, Types.INTEGER);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)4);
+            stmt.setShort(12, (short) 131);
+            stmt.setFloat(13, 0.04f);
+            stmt.setDouble(14, 0.0004);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -182,6 +202,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setNull(8, Types.BIGINT);
             stmt.setNull(9, Types.INTEGER);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)5);
+            stmt.setShort(12, (short) 132);
+            stmt.setFloat(13, 0.05f);
+            stmt.setDouble(14, 0.0005);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -194,6 +218,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setNull(8, Types.BIGINT);
             stmt.setNull(9, Types.INTEGER);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)6);
+            stmt.setShort(12, (short) 133);
+            stmt.setFloat(13, 0.06f);
+            stmt.setDouble(14, 0.0006);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -206,6 +234,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setLong(8, 5L);
             stmt.setInt(9, 5);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)7);
+            stmt.setShort(12, (short) 134);
+            stmt.setFloat(13, 0.07f);
+            stmt.setDouble(14, 0.0007);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -220,6 +252,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setLong(8, l);
             stmt.setInt(9, 4);
             stmt.setNull(10, Types.INTEGER);
+            stmt.setByte(11, (byte)8);
+            stmt.setShort(12, (short) 135);
+            stmt.setFloat(13, 0.08f);
+            stmt.setDouble(14, 0.0008);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -234,6 +270,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setLong(8, l);
             stmt.setInt(9, 3);
             stmt.setInt(10, 300);
+            stmt.setByte(11, (byte)9);
+            stmt.setShort(12, (short) 0);
+            stmt.setFloat(13, 0.09f);
+            stmt.setDouble(14, 0.0009);
             stmt.execute();
                 
             conn.commit();

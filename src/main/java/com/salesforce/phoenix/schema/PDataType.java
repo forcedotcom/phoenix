@@ -837,13 +837,10 @@ public enum PDataType {
         @Override
         public int toBytes(Object object, byte[] bytes, int offset) {
             if (object == null) {
-                int i = 0;
-                Bytes.putInt(bytes, offset, i);
-                return Bytes.SIZEOF_INT;
-            } else {
-                return this.getCodec().encodeFloat(((Number) object).floatValue(),
-                        bytes, offset);    
+                throw new ConstraintViolationException(this + " may not be null");
             }
+            return this.getCodec().encodeFloat(((Number) object).floatValue(),
+                    bytes, offset);
         }
 
         @Override
@@ -1003,13 +1000,10 @@ public enum PDataType {
         @Override
         public int toBytes(Object object, byte[] bytes, int offset) {
             if (object == null) {
-                int i = 0;
-                Bytes.putLong(bytes, offset, i);
-                return Bytes.SIZEOF_LONG;
-            } else {
-                return this.getCodec().encodeDouble(((Number) object).doubleValue(),
-                        bytes, offset);    
-            }
+                throw new ConstraintViolationException(this + " may not be null");
+            } 
+            return this.getCodec().encodeDouble(((Number) object).doubleValue(),
+                    bytes, offset); 
         }
 
         @Override
@@ -1206,6 +1200,10 @@ public enum PDataType {
             case UNSIGNED_SMALLINT:
             case UNSIGNED_TINYINT:
                 return BigDecimal.valueOf(actualType.getCodec().decodeLong(b, o, null));
+            case FLOAT:
+                return BigDecimal.valueOf(actualType.getCodec().decodeFloat(b, o, null));
+            case DOUBLE:
+                return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1229,6 +1227,10 @@ public enum PDataType {
             case TINYINT:
             case UNSIGNED_TINYINT:
                 return BigDecimal.valueOf((Byte)object);
+            case FLOAT:
+                return BigDecimal.valueOf((Float)object);
+            case DOUBLE:
+                return BigDecimal.valueOf((Double)object);
             case DECIMAL:
                 return object;
             default:
@@ -1297,6 +1299,24 @@ public enum PDataType {
                             bd.byteValueExact();
                             return true;
                         } catch (ArithmeticException e) {
+                            return false;
+                        }
+                    case FLOAT:
+                        bd = (BigDecimal) value;
+                        try {
+                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
+                            BigDecimal minFloat = BigDecimal.valueOf(Float.MIN_VALUE);
+                            return bd.compareTo(maxFloat)<=0 && bd.compareTo(minFloat)>=0;
+                        } catch(Exception e) {
+                            return false;
+                        }
+                    case DOUBLE:
+                        bd = (BigDecimal) value;
+                        try {
+                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
+                            BigDecimal minDouble = BigDecimal.valueOf(Double.MIN_VALUE);
+                            return bd.compareTo(maxDouble)<=0 && bd.compareTo(minDouble)>=0;
+                        } catch(Exception e) {
                             return false;
                         }
                     default:
@@ -2520,7 +2540,40 @@ public enum PDataType {
         }
         // convert to native and compare
 //        return Longs.compare(this.getCodec().decodeLong(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColumnModifier));
-        return Doubles.compare(this.getCodec().decodeDouble(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeDouble(rhs, rhsOffset, rhsColumnModifier));
+        if(this.isCoercibleTo(PDataType.LONG) && rhsType.isCoercibleTo(PDataType.LONG)) {
+            return Longs.compare(this.getCodec().decodeLong(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColumnModifier));
+        } else if (isDoubleOrFloat(this) && isDoubleOrFloat(rhsType)) {
+            return Doubles.compare(this.getCodec().decodeDouble(lhs, lhsOffset, lhsColumnModifier), rhsType.getCodec().decodeDouble(rhs, rhsOffset, rhsColumnModifier));
+        } else {
+            double dvalue = 0.0;
+            long lvalue = 0;
+            if (this.isCoercibleTo(PDataType.LONG)) {
+                lvalue = this.getCodec().decodeLong(lhs, lhsOffset, lhsColumnModifier);
+            } else if (this.isCoercibleTo(PDataType.DOUBLE)) {
+                dvalue = this.getCodec().decodeDouble(lhs, lhsOffset, lhsColumnModifier);
+            }
+            if (rhsType.isCoercibleTo(PDataType.LONG)) {
+                lvalue = rhsType.getCodec().decodeLong(rhs, rhsOffset, rhsColumnModifier);
+            } else if (rhsType.isCoercibleTo(PDataType.DOUBLE)) {
+                dvalue = rhsType.getCodec().decodeDouble(rhs, rhsOffset, rhsColumnModifier);
+            }
+            return compareDoubleToLong(dvalue, lvalue);
+        }
+    }
+    
+    public static boolean isDoubleOrFloat(PDataType type){
+        return type == PDataType.FLOAT || type == PDataType.DOUBLE;
+    }
+    
+    public static int compareDoubleToLong(double d, long l) {
+        if (d > Long.MAX_VALUE) {
+            return 1;
+        }
+        if (d < Long.MIN_VALUE) {
+            return -1;
+        }
+        long diff = (long)d - l;
+        return Long.signum(diff);
     }
 
     public static interface PDataCodec {
@@ -3209,7 +3262,9 @@ public enum PDataType {
         @Override
         public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
             if (columnModifier != null) {// ColumnModifier.SORT_DESC
-                b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_INT);
+                for (int i = o; i < Bytes.SIZEOF_INT; i++) {
+                    b[i] = (byte) (b[i] ^ 0xff);
+                }
             }
             int i = Bytes.toInt(b, o);
             i--;
@@ -3302,7 +3357,9 @@ public enum PDataType {
         @Override
         public double decodeDouble(byte[] b, int o, ColumnModifier columnModifier) {
             if (columnModifier != null) {// ColumnModifier.SORT_DESC
-                b = columnModifier.apply(b, new byte[b.length], o, Bytes.SIZEOF_LONG);
+                for (int i = o; i < Bytes.SIZEOF_LONG; i++) {
+                    b[i] = (byte) (b[i] ^ 0xff);
+                }
             } 
             long l = Bytes.toLong(b, o);
             l--;
