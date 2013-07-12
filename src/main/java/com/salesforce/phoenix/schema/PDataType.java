@@ -1327,8 +1327,8 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
-                Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
+        public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b, Integer maxLength,
+        		Integer desiredMaxLength, Integer scale, Integer desiredScale) {
             // Get precision and scale if it is not already passed in and either the object or byte values
             // is meaningful.
             if (maxLength == null && scale == null) {
@@ -1346,7 +1346,8 @@ public enum PDataType {
                 }
             }
             if (desiredMaxLength != null && desiredScale != null && maxLength != null && scale != null &&
-                    (desiredMaxLength - desiredScale) < (maxLength - scale)) {
+            		((desiredScale == PDataType.NO_SCALE && desiredMaxLength < maxLength) || 
+            				(desiredMaxLength - desiredScale) < (maxLength - scale))) {
                 return false;
             }
             return true;
@@ -1355,8 +1356,8 @@ public enum PDataType {
         @Override
         public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
                 Integer desiredMaxLength, Integer desiredScale) {
-            if (desiredScale == null) {
-                // scale or deiredScale not available, delegate to parents.
+            if (desiredScale == null || desiredScale == PDataType.NO_SCALE) {
+                // deiredScale not available, or we do not have scale requirement, delegate to parents.
                 return super.coerceBytes(b, object, actualType);
             }
             if (scale == null) {
@@ -3425,9 +3426,10 @@ public enum PDataType {
         }
     }
 
-    public static final int MAX_PRECISION = 31; // Max precision guaranteed to fit into a long (and this should be plenty)
+    public static final int MAX_PRECISION = 38; // Max precision guaranteed to fit into a long (and this should be plenty)
     public static final int MIN_DECIMAL_AVG_SCALE = 4;
     public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
+    public static final int NO_SCALE = Integer.MIN_VALUE; // Oracle allows negative scale, so use the smallest value for this purpose.
     public static final int DEFAULT_SCALE = 0;
 
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;
