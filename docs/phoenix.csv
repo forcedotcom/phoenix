@@ -1,7 +1,7 @@
-SECTION,TOPIC,SYNTAX,TEXT,EXAMPLE
-Commands,SELECT,"
-SELECT [/*+ hint */] [DISTINCT | ALL] selectExpression [,...] 
-FROM tableExpression [( column [,...] )] [ WHERE expression ]
+"SECTION","TOPIC","SYNTAX","TEXT","EXAMPLE"
+"Commands","SELECT","
+SELECT [/*+ hint */] [DISTINCT | ALL] selectExpression [,...]
+FROM tableExpression [( columnDef [,...] )] [ WHERE expression ]
 [ GROUP BY expression [,...] ] [ HAVING expression ]
 [ ORDER BY order [,...] ] [ LIMIT {bindParameter | number} ]
 ","
@@ -27,8 +27,8 @@ SELECT NAME, SUM(VAL) FROM TEST GROUP BY NAME HAVING COUNT(1) > 2;
 SELECT 'ID' COL, MAX(ID) AS MAX FROM TEST;
 SELECT * FROM TEST LIMIT 1000;
 "
-Commands,UPSERT VALUES,"
-UPSERT INTO tableName [( columnName [,...] )] VALUES ( constantTerm [,...] )
+"Commands","UPSERT VALUES","
+UPSERT INTO tableName [( { columnRef | columnDef } [,...] )] VALUES ( constantTerm [,...] )
 ","
 Inserts if not present and updates otherwise the value in the table. The list of
 columns is optional and if not present, the values will map to the column in the
@@ -38,8 +38,8 @@ order they are declared in the schema. The values must evaluate to constants.
 UPSERT INTO TEST VALUES('foo','bar',3);
 UPSERT INTO TEST(NAME,ID) VALUES('foo',123);
 "
-Commands,UPSERT SELECT,"
-UPSERT INTO tableName [( columnName [,...] )] select
+"Commands","UPSERT SELECT","
+UPSERT INTO tableName [( { columnRef | columnDef } [,...] )] select
 ","
 Inserts if not present and updates otherwise rows in the table based on the
 results of running another query. The values are set based on their matching
@@ -55,7 +55,7 @@ connection property (or the phoenix.mutate.upsertBatchSize HBase config property
 UPSERT INTO test.targetTable(col1, col2) SELECT col3, col4 FROM test.sourceTable WHERE col5 < 100
 UPSERT INTO foo SELECT * FROM bar;
 "
-Commands,DELETE,"
+"Commands","DELETE","
 DELETE [/*+ hint */] FROM tableName [ WHERE expression ]
 [ ORDER BY order [,...] ] [ LIMIT {bindParameter | number} ]
 ","
@@ -67,10 +67,10 @@ DELETE FROM TEST;
 DELETE FROM TEST WHERE ID=123;
 DELETE FROM TEST WHERE NAME LIKE 'foo%';
 "
-,,,,
-Commands,CREATE,"
-CREATE { TABLE | VIEW } [IF NOT EXISTS] tableName
-( column [,...] [constraint] )
+
+"Commands","CREATE","
+CREATE { TABLE | VIEW } [IF NOT EXISTS] tableRef
+( columnDef [,...] [constraint] )
 [tableOptions] [ SPLIT ON ( splitPoint [,...] ) ]
 ","
 Creates a new table or view. For the creation of a table, the HBase table and any column families referenced are created
@@ -85,18 +85,18 @@ a table. For a table only, HBase table and column configuration options may
 be passed through as key/value pairs to setup the HBase table as needed.
 
 ","
-CREATE TABLE my_table ( id BIGINT not null primary key, date DATE not null)
+CREATE TABLE my_schema.my_table ( id BIGINT not null primary key, date DATE not null)
 CREATE TABLE my_table ( id INTEGER not null primary key desc, date DATE not null,
     m.db_utilization DECIMAL, i.db_utilization)
     m.DATA_BLOCK_ENCODING='DIFF'
-CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null,
+CREATE TABLE stats.prod_metrics ( host char(50) not null, created_date date not null,
     txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )
 CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer)
     DATA_BLOCK_ENCODING='NONE',VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)
 "
-,,,,
-Commands,DROP,"
-DROP {TABLE | VIEW} [IF EXISTS] tableName
+
+"Commands","DROP","
+DROP {TABLE | VIEW} [IF EXISTS] tableRef
 ","
 Drops a table or view. When dropping a table, the data in the table is deleted. For a view, on the other hand, the data
 is not affected. Note that the schema is versioned, such that snapshot queries connecting at an earlier time stamp may
@@ -106,9 +106,9 @@ still query against the dropped table, as the HBase table itself is not deleted.
 DROP TABLE my_schema.my_table
 DROP VIEW my_view
 "
-,,,,
-Commands,ALTER TABLE,"
-ALTER TABLE tableName { { ADD [IF NOT EXISTS] column [options] } | { DROP COLUMN [IF EXISTS] [ familyName. ] columnName } }
+
+"Commands","ALTER TABLE","
+ALTER TABLE tableRef { { ADD [IF NOT EXISTS] columnDef [options] } | { DROP COLUMN [IF EXISTS] columnRef } }
 ","
 Adds or removes a column from an existing table or view. When a column is dropped from a table, the data in
 that column is deleted as well. PK columns may not be dropped, and only nullable PK columns may be added. For a view,
@@ -124,8 +124,47 @@ ALTER TABLE my_table DROP COLUMN d.dept_id
 ALTER TABLE my_table DROP COLUMN dept_name
 ALTER TABLE my_table DROP COLUMN parent_id
 "
-,,,,
-Commands,EXPLAIN,"
+
+"Commands","CREATE INDEX","
+CREATE INDEX [IF NOT EXISTS] indexName
+ON tableRef ( columnRef [ASC | DESC] [,...] )
+[ INCLUDE ( columnRef [,...] ) ]
+[indexOptions] [ SPLIT ON ( splitPoint [,...] ) ]
+","
+Creates a new secondary index on a table. Currently indexes may only be added to tables that are declared as having
+immutable rows (i.e. by specifying the IMMUTABLE_ROWS=true property when the table is created). Immutable rows are
+expected to be inserted once in their entirety and then never updated. This limitation will be removed once incremental
+index maintenance has been implemented. The current implementation inserts the index rows when the data row is inserted.
+","
+CREATE INDEX my_idx ON sales.opportunity(last_updated_date DESC)
+CREATE INDEX my_idx ON log.event(created_date DESC) INCLUDE (name, payload) SALT_BUCKETS=10
+CREATE INDEX IF NOT EXISTS my_comp_idx ON server_metrics ( gc_time DESC, created_date DESC )
+    DATA_BLOCK_ENCODING='NONE',VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)
+"
+
+"Commands","DROP INDEX","
+DROP INDEX [IF EXISTS] indexName ON tableRef
+","
+Drops an index from a table. When dropping an index, the data in the index is deleted. Note that since metadata is versioned,
+snapshot queries connecting at an earlier time stamp may still use the index, as the HBase table backing the index is not deleted.
+
+","
+DROP INDEX my_idx ON sales.opportunity
+DROP INDEX IF EXISTS my_idx ON server_metrics
+"
+
+"Commands","ALTER INDEX","
+ALTER INDEX [IF EXISTS] indexName ON tableRef { ENABLE | DISABLE }
+","
+Disables or enables an index. An index that is disabled will not be used at query time. This has no affect on index maintenance -
+an index that is disabled will continue to be maintained.
+
+","
+ALTER INDEX my_idx ON sales.opportunity DISABLE
+ALTER INDEX IF EXISTS my_idx ON server_metrics ENABLE
+"
+
+"Commands","EXPLAIN","
 EXPLAIN {select|upsertSelect|delete}
 ","
 Computes the logical steps necessary to execute the given command. Each step is represented as a string in a single column result set row.
@@ -134,8 +173,8 @@ Computes the logical steps necessary to execute the given command. Each step is 
 EXPLAIN SELECT NAME, COUNT(*) FROM TEST GROUP BY NAME HAVING COUNT(*) > 2;
 EXPLAIN SELECT entity_id FROM CORE.CUSTOM_ENTITY_DATA WHERE organization_id='00D300000000XHP' AND SUBSTR(entity_id,1,3) = '002' AND created_date < CURRENT_DATE()-1;
 "
-,,,,
-Other Grammar,Constraint,"
+
+"Other Grammar","Constraint","
 CONSTRAINT constraintName PRIMARY KEY (columnName [ASC | DESC] [,...])
 ","
 Defines a multi-part primary key constraint. Each column may be declared to be
@@ -145,8 +184,8 @@ sorted in ascending or descending ordering. The default is ascending.
 CONSTRAINT my_pk PRIMARY KEY (host,created_date)
 CONSTRAINT my_pk PRIMARY KEY (host ASC,created_date DESC)
 "
-,,,,
-Other Grammar,Table Options,"
+
+"Other Grammar","Options","
 { [familyName .] name= {value | bindParameter}} [,...]
 ","
 Sets an option on an HBase table or column by modifying the respective HBase metadata.
@@ -156,30 +195,25 @@ HTableDescriptor.
 
 One built-in option is SALT_BUCKETS. This option causes an extra byte to be transparently
 prepended to every row key to ensure an even distribution of write load across all
-your region servers. This is useful when your row key is always monotonically increasing 
+your region servers. This is useful when your row key is always monotonically increasing
 causing hot spotting on a single region server. The byte is determined by hashing the row
 key and modding it with the SALT_BUCKETS value. The value may be from 1 to 256. If not
 split points are defined for the table, it will automatically be pre-split at each possible
 salt bucket value. For an excellent write-up of this technique, see
 http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/
 
+Another built-in options is IMMUTABLE_ROWS. Only tables with immutable rows are allowed to have indexes.
+Immutable rows are expected to be inserted once in their entirety and then never updated. This limitation will be removed
+once incremental index maintenance has been implemented. The current implementation inserts the index rows when the data
+row is inserted.
 ","
+IMMUTABLE_ROWS=true
 SALT_BUCKETS=10
 DATA_BLOCK_ENCODING='NONE',a.VERSIONS=10
 MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
 "
-,,,,
-Other Grammar,Options,"
-{name= {value | bindParameter}} [,...]
-","
-Sets an option on an HBase column by modifying the HColumnDescriptor.
 
-","
-DATA_BLOCK_ENCODING='NONE',VERSIONS=10
-MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
-"
-,,,,
-Other Grammar,Hint,"
+"Other Grammar","Hint","
 name [,...]
 ","
 Advanced features that overrides default query processing behavior. The
@@ -192,16 +226,16 @@ filters on a range for non selective leading primary key column along
 with other primary key columns 3) NO_INTRA_REGION_PARALLELIZATION to prevent the
 spawning of multiple threads to process data within a single region. This
 option is useful when the overall data set being queries is known to be
-small. 
+small.
 
 ","
 /*+ SKIP_SCAN */
 /*+ RANGE_SCAN */
 /*+ NO_INTRA_REGION_PARALLELIZATION */
 "
-,,,,
-Other Grammar,Column,"
-[familyName .] columnName dataType [[NOT] NULL] [PRIMARY KEY [ASC | DESC] ]
+
+"Other Grammar","Column Def","
+columnRef dataType [[NOT] NULL] [PRIMARY KEY [ASC | DESC] ]
 ","
 Define a new primary key column. The column name is case insensitive by default and
 case sensitive if double quoted. The sort order of a primary key may be ascending (ASC)
@@ -212,8 +246,27 @@ id char(15) not null primary key
 key integer null
 m.response_time bigint
 "
-,,,,
-Other Grammar,Select Expression,"
+
+"Other Grammar","Table Ref","
+[schemaName .] tableName
+","
+References a table with an optional schema name qualifier
+","
+Sales.Contact
+HR.Employee
+Department
+"
+
+"Other Grammar","Column Ref","
+[familyName .] columnName
+","
+References a column with an optional family name qualifier
+","
+e.salary
+dept_name
+"
+
+"Other Grammar","Select Expression","
 * | ( familyName . *) | term [ [ AS ] columnAlias ]
 ","
 An expression in a SELECT statement. All columns in a table may be selected using
@@ -224,8 +277,8 @@ cf.*
 ID AS VALUE
 VALUE + 1 VALUE_PLUS_ONE
 "
-,,,,
-Other Grammar,Split Point,"
+
+"Other Grammar","Split Point","
 value | bindParameter
 
 ","
@@ -234,40 +287,40 @@ preparedStatement.setBinary(int,byte[]) to supply arbitrary bytes.
 ","
 'A'
 "
-,,,,
-Other Grammar,Table Expression,"
+
+"Other Grammar","Table Expression","
 { [ schemaName. ] tableName } [ [ AS ] tableAlias ]
 ","
 A reference to a table. Joins and sub queries are not currently supported.
 ","
 PRODUCT_METRICS AS PM
 "
-,,,,
-Other Grammar,Order,"
+
+"Other Grammar","Order","
 { expression } [ ASC | DESC ] [ NULLS { FIRST | LAST } ]
 ","
 Sorts the result by an expression. Only supported for queries that use GROUP BY.
 ","
 NAME DESC NULLS LAST
 "
-,,,,
-Other Grammar,Expression,"
+
+"Other Grammar","Expression","
 andCondition [ { OR andCondition } [...] ]
 ","
 Value or condition.
 ","
 ID=1 OR NAME='Hi'
 "
-,,,,
-Other Grammar,And Condition,"
+
+"Other Grammar","And Condition","
 condition [ { AND condition } [...] ]
 ","
 Value or condition.
 ","
 ID=1 AND NAME='Hi'
 "
-,,,,
-Other Grammar,Condition,"
+
+"Other Grammar","Condition","
 operand [ compare { operand }
     | IN ( { constantOperand [,...] } )
     | [ NOT ] LIKE operand
@@ -283,24 +336,24 @@ Patterns that end with an escape character are invalid and the expression return
 ","
 NAME LIKE 'Jo%'
 "
-,,,,
-Other Grammar,Compare,"
+
+"Other Grammar","Compare","
 <> | <= | >= | = | < | > | !=
 ","
 Comparison operator. The operator != is the same as <>.
 ","
 <>
 "
-,,,,
-Other Grammar,Operand,"
+
+"Other Grammar","Operand","
 summand [ { || } summand [...] ]
 ","
 A string concatenation.
 ","
 'foo'|| s
 "
-,,,,
-Other Grammar,Summand,"
+
+"Other Grammar","Summand","
 factor [ { + | - } factor [...] ]
 ","
 An addition or subtraction of numeric or date type values
@@ -308,8 +361,8 @@ An addition or subtraction of numeric or date type values
 a + b
 a - b
 "
-,,,,
-Other Grammar,Factor,"
+
+"Other Grammar","Factor","
 term [ { * | / } term [...] ]
 ","
 A multiplication or division.
@@ -317,23 +370,23 @@ A multiplication or division.
 c * d
 e / 5
 "
-,,,,
-Other Grammar,Term,"
+
+"Other Grammar","Term","
 value
     | bindParameter
     | function
     | case
     | caseWhen
     | ( operand )
-    | [ tableAlias. ] columnName
+    | [ tableAlias. ] columnRef
 ","
 A value.
 ","
 'Hello'
 "
-,,,,
-,,,,
-Other Grammar,Bind Parameter,"
+
+
+"Other Grammar","Bind Parameter","
 ?
     | :number
 ","
@@ -342,16 +395,16 @@ A parameters can be indexed, for example "":1"" meaning the first parameter.
 :1
 ?
 "
-,,,,
-Other Grammar,Value,"
+
+"Other Grammar","Value","
 string | numeric | boolean | null
 ","
 A literal value of any data type, or null.
 ","
 10
 "
-,,,,
-Other Grammar,Case,"
+
+"Other Grammar","Case","
 CASE term { WHEN expression THEN term } [...]
 [ ELSE expression ] END
 ","
@@ -360,8 +413,8 @@ no else part is specified, return NULL.
 ","
 CASE CNT WHEN 0 THEN 'No' WHEN 1 THEN 'One' ELSE 'Some' END
 "
-,,,,
-Other Grammar,Case When,"
+
+"Other Grammar","Case When","
 CASE { WHEN expression THEN term} [...]
 [ ELSE term ] END
 ","
@@ -370,16 +423,16 @@ specified, return NULL.
 ","
 CASE WHEN CNT<10 THEN 'Low' ELSE 'High' END
 "
-,,,,
-Other Grammar,Name,"
+
+"Other Grammar","Name","
 { { A-Z|_  } [ { A-Z|_|0-9 } [...] ] } | quotedName
 ","
 Unquoted names are not case sensitive. There is no maximum name length.
 ","
 my_column
 "
-,,,,
-Other Grammar,Quoted Name,"
+
+"Other Grammar","Quoted Name","
 ""anythingExceptDoubleQuote""
 ","
 Quoted names are case sensitive, and can contain spaces. There is no maximum
@@ -388,25 +441,26 @@ inside an identifier.
 ","
 ""first-name""
 "
-,,,,
-Other Grammar,Alias,"
+
+"Other Grammar","Alias","
 name
 ","
 An alias is a name that is only valid in the context of the statement.
 ","
 A
 "
-,,,,
-Other Grammar,Null,"
+
+"Other Grammar","Null","
 NULL
 ","
 NULL is a value without data type and means 'unknown value'.
 ","
 NULL
 "
-,,,,
-Other Grammar,Data Type,"
-charType | varcharType | integerType | bigintType | decimalType | timestampType | dateType | timeType | unsignedLongType | unsignedIntType | binaryType | varBinaryType | tinyintType | unsignedtinyintType | smallintType | unsignedsmallintType | floatType | doubleType","
+
+"Other Grammar","Data Type","
+charType | varcharType | integerType | bigintType | decimalType | timestampType | dateType | timeType | unsignedLongType | unsignedIntType | binaryType | varBinaryType
+","
 A type name.
 ","
 CHAR(15)
@@ -415,8 +469,8 @@ VARCHAR(1000)
 INTEGER
 BINARY(200)
 "
-,,,,
-Other Grammar,String,"
+
+"Other Grammar","String","
 'anythingExceptSingleQuote'
 ","
 A string starts and ends with a single quote. Two single quotes can be used to
@@ -424,17 +478,17 @@ create a single quote inside a string.
 ","
 'John''s car'
 "
-,,,,
-Other Grammar,Boolean,"
+
+"Other Grammar","Boolean","
 TRUE | FALSE
 ","
 A boolean value.
 ","
 TRUE
 "
-,,,,
-Other Grammar,Numeric,"
-int | long | decimal | tinyint | unsignedtinyint | smallint | unsignedsmallint | float | double
+
+"Other Grammar","Numeric","
+int | long | decimal
 ","
 The data type of a numeric value is always the lowest possible for the given value.
 If the number contains a dot this is decimal; otherwise it is int, long, or decimal (depending on the value).
@@ -443,24 +497,24 @@ SELECT -10.05
 SELECT 5
 SELECT 12345678912345
 "
-,,,,
-Other Grammar,Int,"
+
+"Other Grammar","Int","
 [ - ] number
 ","
 The maximum integer number is 2147483647, the minimum is -2147483648.
 ","
 10
 "
-,,,,
-Other Grammar,Long,"
+
+"Other Grammar","Long","
 [ - ] number
 ","
 Long numbers are between -9223372036854775808 and 9223372036854775807.
 ","
 100000
 "
-,,,,
-Other Grammar,Decimal,"
+
+"Other Grammar","Decimal","
 [ - ] { number [ . number ] }
 ","
 A decimal number with fixed precision and scale.
@@ -468,16 +522,16 @@ Internally, ""java.lang.BigDecimal"" is used.
 ","
 SELECT -10.5
 "
-,,,,
-Other Grammar,Number,"
+
+"Other Grammar","Number","
 0-9 [...]
 ","
 The maximum length of the number depends on the data type used.
 ","
 100
 "
-,,,,
-Other Grammar,Comments,"
+
+"Other Grammar","Comments","
 -- anythingUntilEndOfLine | // anythingUntilEndOfLine | /* anythingUntilEndComment */
 ","
 Comments can be used anywhere in a command and are ignored by the database. Line
@@ -486,8 +540,8 @@ multiple lines long.
 ","
 // This is a comment
 "
-,,,,
-Data Types,INTEGER Type,"
+
+"Data Types","INTEGER Type","
 INTEGER
 ","
 Possible values: -2147483648 to 2147483647.
@@ -497,8 +551,8 @@ integer with the sign bit flipped (for binary comparability).
 ","
 INTEGER
 "
-,,,,
-Data Types,UNSIGNED_INT Type,"
+
+"Data Types","UNSIGNED_INT Type","
 UNSIGNED_INT
 ","
 Possible values: 0 to 2147483647.
@@ -507,8 +561,8 @@ integer, matching the HBase.toBytes(int) method.
 ","
 UNSIGNED_INT
 "
-,,,,
-Data Types,BIGINT Type,"
+
+"Data Types","BIGINT Type","
 BIGINT
 ","
 Possible values: -9223372036854775808 to 9223372036854775807.
@@ -517,8 +571,8 @@ long with the sign bit flipped (for binary comparability).
 ","
 BIGINT
 "
-,,,,
-Data Types,UNSIGNED_LONG Type,"
+
+"Data Types","UNSIGNED_LONG Type","
 UNSIGNED_LONG
 ","
 Possible values: 0 to 9223372036854775807.
@@ -527,68 +581,72 @@ integer, matching the HBase.toBytes(long) method.
 ","
 UNSIGNED_LONG
 "
-,,,,
-Data Types,TINYINT Type,"
+
+"Data Types","TINYINT Type","
 TINYINT
 ","
 Possible values: -128 to 127.
 Mapped to ""java.lang.Byte"". The binary representation is an 1 byte
-integer, matching the HBase.toBytes(byte) method.
+integer, matching the HBase.toBytes(byte) method with the sign bit
+flipped so that a negative Byte sorts before a positive Byte.
 ","
 TINYINT
 "
-,,,,
-Data Types,UNSIGNED_TINYINT Type,"
-UNSIGNED_TINYINT 
+
+"Data Types","UNSIGNED_TINYINT Type","
+UNSIGNED_TINYINT
 ","
-Possible values: 0 to 255.
+Possible values: 0 to 127.
 Mapped to ""java.lang.Byte"". The binary representation is an 1 byte
 integer, matching the HBase.toBytes(byte) method.
 ","
-UNSIGNED_TINYINT 
+UNSIGNED_TINYINT
 "
-,,,,
-Data Types,SMALLINT Type,"
+
+"Data Types","SMALLINT Type","
 SMALLINT
 ","
 Possible values: -32768 to 32767.
 Mapped to ""java.lang.Short"". The binary representation is an 2 byte
-integer, matching the HBase.toBytes(short) method.
+integer, matching the HBase.toBytes(short) method with the sign bit
+flipped so that a negative Short sorts before a positive Short.
 ","
 SMALLINT
 "
-,,,,
-Data Types,UNSIGNED_SMALLINT Type,"
+
+"Data Types","UNSIGNED_SMALLINT Type","
 UNSIGNED_SMALLINT
 ","
-Possible values: 0 to 65535.
+Possible values: 0 to 32767.
 Mapped to ""java.lang.Short"". The binary representation is an 2 byte
 integer, matching the HBase.toBytes(short) method.
 ","
 UNSIGNED_SMALLINT
 "
-,,,,
-Data Types,FLOAT Type,"
+
+"Data Types","FLOAT Type","
 FLOAT
 ","
 Possible values: -3.402823466 E + 38 to 3.402823466 E + 38.
 Mapped to ""java.lang.Float"". The binary representation is an 4 byte
-integer, matching the HBase.toBytes(float) method.
+integer, matching the HBase.toBytes(float) method with the sign bit
+flipped so that a negative Float sorts before a positive Float.
 ","
 FLOAT
 "
-,,,,
-Data Types,DOUBLE Type,"
+
+"Data Types","DOUBLE Type","
 DOUBLE
 ","
 Possible values: -1.7976931348623158 E + 308 to 1.7976931348623158 E + 308.
 Mapped to ""java.lang.Double"". The binary representation is an 8 byte
-integer, matching the HBase.toBytes(double) method.
+integer, matching the HBase.toBytes(double) method with the sign bit
+flipped so that a negative Double sorts before a positive Double
 ","
 DOUBLE
 "
-,,,,
-Data Types,DECIMAL Type,"
+
+"Data Types","DECIMAL Type","
 DECIMAL
 ","
 Data type with fixed precision and scale. The maximum precision is 18 digits.
@@ -598,8 +656,8 @@ with a null byte unless it is the last column.
 ","
 DECIMAL
 "
-,,,,
-Data Types,BOOLEAN Type,"
+
+"Data Types","BOOLEAN Type","
 BOOLEAN
 ","
 Possible values: TRUE and FALSE.
@@ -608,8 +666,8 @@ Mapped to ""java.lang.Boolean"". The binary representation is a single byte with
 ","
 BOOLEAN
 "
-,,,,
-Data Types,TIME Type,"
+
+"Data Types","TIME Type","
 TIME
 ","
 The time data type. The format is yyyy-MM-dd hh:mm:ss, with both the date
@@ -618,8 +676,8 @@ The binary representation is an 8 byte long (the number of milliseconds from the
 ","
 TIME
 "
-,,,,
-Data Types,DATE Type,"
+
+"Data Types","DATE Type","
 DATE
 ","
 The date data type. The format is yyyy-MM-dd hh:mm:ss, with both the date
@@ -628,8 +686,8 @@ The binary representation is an 8 byte long (the number of milliseconds from the
 ","
 DATE
 "
-,,,,
-Data Types,TIMESTAMP Type,"
+
+"Data Types","TIMESTAMP Type","
 TIMESTAMP
 ","
 The timestamp data type. The format is yyyy-MM-dd hh:mm:ss[.nnnnnnnnn].
@@ -640,8 +698,8 @@ an 8 byte long for the epoch time plus a 4 byte integer for the nanos.
 ","
 TIMESTAMP
 "
-,,,,
-Data Types,VARCHAR Type,"
+
+"Data Types","VARCHAR Type","
 VARCHAR  [ ( precisionInt ) ]
 ","
 A variable length String with an optional max byte length. The binary representation
@@ -653,8 +711,8 @@ Mapped to ""java.lang.String"".
 VARCHAR
 VARCHAR(255)
 "
-,,,,
-Data Types,CHAR Type,"
+
+"Data Types","CHAR Type","
 CHAR ( precisionInt )
 ","
 A fixed length String with single-byte characters. The binary representation
@@ -664,8 +722,8 @@ Mapped to ""java.lang.String"".
 ","
 CHAR(10)
 "
-,,,,
-Data Types,BINARY Type,"
+
+"Data Types","BINARY Type","
 BINARY ( precisionInt )
 ","
 Raw fixed length byte array.
@@ -674,8 +732,8 @@ Mapped to ""byte[]"".
 ","
 BINARY
 "
-,,,,
-Data Types,VARBINARY Type,"
+
+"Data Types","VARBINARY Type","
 VARBINARY
 ","
 Raw variable length byte array.
@@ -684,8 +742,8 @@ Mapped to ""byte[]"".
 ","
 VARBINARY
 "
-,,,,
-Functions (Aggregate),AVG,"
+
+"Functions (Aggregate)","AVG","
 AVG ( { numericTerm } )
 ","
 The average (mean) value.
@@ -695,8 +753,8 @@ The returned value is of the same data type as the parameter.
 ","
 AVG(X)
 "
-,,,,
-Functions (Aggregate),COUNT,"
+
+"Functions (Aggregate)","COUNT","
 COUNT( [ DISTINCT ] { * | { term } } )
 ","
 The count of all row, or of the non-null values.
@@ -707,8 +765,8 @@ Aggregates are only allowed in select statements.
 ","
 COUNT(*)
 "
-,,,,
-Functions (Aggregate),MAX,"
+
+"Functions (Aggregate)","MAX","
 MAX(term)
 ","
 The highest value.
@@ -718,8 +776,8 @@ The returned value is of the same data type as the parameter.
 ","
 MAX(NAME)
 "
-,,,,
-Functions (Aggregate),MIN,"
+
+"Functions (Aggregate)","MIN","
 MIN(term)
 ","
 The lowest value.
@@ -729,8 +787,8 @@ The returned value is of the same data type as the parameter.
 ","
 MIN(NAME)
 "
-,,,,
-Functions (Aggregate),SUM,"
+
+"Functions (Aggregate)","SUM","
 SUM( { numericTerm } )
 ","
 The sum of all values.
@@ -740,9 +798,9 @@ The returned value is of the same data type as the parameter.
 ","
 SUM(X)
 "
-,,,,
-Functions (Aggregate),PERCENTILE_CONT,"
-PERCENTILE_CONT( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } ASC | DESC)
+
+"Functions (Aggregate)","PERCENTILE_CONT","
+PERCENTILE_CONT( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } { ASC | DESC } )
 ","
 The nth percentile of values in the column.
 The percentile value can be between 0 and 1 inclusive.
@@ -751,9 +809,17 @@ The returned value is of decimal data type.
 ","
 PERCENTILE_CONT( 0.9 ) WITHIN GROUP (ORDER BY X ASC)
 "
-,,,,
-Functions (Aggregate),PERCENTILE_RANK,"
-PERCENTILE_RANK( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } ASC | DESC)
+
+"Functions (Aggregate)","PERCENTILE_DISC","
+PERCENTILE_DIST( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } { ASC | DESC } )
+","
+PERCENTILE_DISC is an inverse distribution function that assumes a discrete distribution model. It takes a percentile value and a sort specification and returns an element from the set. Nulls are ignored in the calculation.
+","
+PERCENTILE_DISC( 0.9 ) WITHIN GROUP (ORDER BY X DESC)
+"
+
+"Functions (Aggregate)","PERCENTILE_RANK","
+PERCENTILE_RANK( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } { ASC | DESC } )
 ","
 The percentile rank for a hypothetical value, if inserted into the column.
 Aggregates are only allowed in select statements.
@@ -761,8 +827,8 @@ The returned value is of decimal data type.
 ","
 PERCENTILE_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)
 "
-,,,,
-Functions (Aggregate),STDDEV_POP,"
+
+"Functions (Aggregate)","STDDEV_POP","
 STDDEV_POP( { numericTerm } )
 ","
 The population standard deviation of all values.
@@ -771,8 +837,8 @@ The returned value is of decimal data type.
 ","
 STDDEV_POP( X )
 "
-,,,,
-Functions (Aggregate),STDDEV_SAMP,"
+
+"Functions (Aggregate)","STDDEV_SAMP","
 STDDEV_SAMP( { numericTerm } )
 ","
 The sample standard deviation of all values.
@@ -781,8 +847,8 @@ The returned value is of decimal data type.
 ","
 STDDEV_SAMP( X )
 "
-,,,,
-Functions (Time and Date),ROUND,"
+
+"Functions (Time and Date)","ROUND","
 ROUND(timestampTerm, {'DAY' | 'HOUR' | 'MINUTE' | 'SECOND' | 'MILLISECOND'} [, multiplierNumber])
 ","
 Rounds the timestamp to the nearest time unit specified. The multiplier is used to
@@ -792,8 +858,8 @@ This method returns a date.
 ROUND(date, 'MINUTE', 30)
 ROUND(time, 'HOUR')
 "
-,,,,
-Functions (Time and Date),TRUNCATE,"
+
+"Functions (Time and Date)","TRUNCATE","
 TRUNC(timestampTerm, {'DAY' | 'HOUR' | 'MINUTE' | 'SECOND' | 'MILLISECOND'} [, multiplierInt])
 ","
 Truncates the timestamp to the next time unit closer to 0. The multiplier is used to
@@ -803,8 +869,8 @@ This method returns a date.
 TRUNCATE(timestamp, 'SECOND', 30)
 TRUNCATE(date, 'DAY', 7)
 "
-,,,,
-Functions (String),SUBSTR,"
+
+"Functions (String)","SUBSTR","
 SUBSTR( stringTerm, startInt [, lengthInt ] )
 ","
 Returns a substring of a string starting at the one-based position.
@@ -816,40 +882,40 @@ will be returned.
 SUBSTR('[Hello]', 2, 5)
 SUBSTR('Hello World', -5)
 "
-,,,,
-Functions (String),TRIM,"
+
+"Functions (String)","TRIM","
 TRIM( stringTerm )
 ","
 Removes leading and trailing spaces from the input string.
 ","
 TRIM('  Hello  ')
 "
-,,,,
-Functions (String),LTRIM,"
+
+"Functions (String)","LTRIM","
 LTRIM( stringTerm )
 ","
 Removes leading spaces from the input string.
 ","
 LTRIM('  Hello')
 "
-,,,,
-Functions (String),RTRIM,"
+
+"Functions (String)","RTRIM","
 RTRIM( stringTerm )
 ","
 Removes trailing spaces from the input string.
 ","
 RTRIM('Hello   ')
 "
-,,,,
-Functions (String),LENGTH,"
+
+"Functions (String)","LENGTH","
 LENGTH( stringTerm )
 ","
 Returns the length of the string in characters.
 ","
 LENGTH('Hello')
 "
-,,,,
-Functions (String),REGEXP_SUBSTR,"
+
+"Functions (String)","REGEXP_SUBSTR","
 REGEXP_SUBSTR( stringTerm, patternString [, startInt ] )
 ","
 Returns a substring of a string by applying a regular
@@ -859,8 +925,8 @@ specified, the start index defaults to 1.
 ","
 REGEXP_SUBSTR('na1-appsrv35-sj35', '[^-]+') evaluates to 'na1'
 "
-,,,,
-Functions (String),REGEXP_REPLACE,"
+
+"Functions (String)","REGEXP_REPLACE","
 REGEXP_REPLACE( stringTerm, patternString [, replacementString ] )
 ","
 Returns a string by applying a regular expression and replacing the matches with the replacement
@@ -868,8 +934,8 @@ string. If the replacement string is not specified, it defaults to an empty stri
 ","
 REGEXP_REPLACE('abc123ABC', '[0-9]+', '#') evaluates to 'abc#ABC'
 "
-,,,,
-Functions (Number),TO_NUMBER,"
+
+"Functions (Number)","TO_NUMBER","
 TO_NUMBER( stringTerm [, formatString] )
 ","
 Formats a string as a number, optionally accepting a format string.
@@ -878,32 +944,32 @@ This method returns a decimal number.
 ","
 TO_NUMBER('$123.33', '\u00A4###.##')
 "
-,,,,
-Functions (String),UPPER,"
+
+"Functions (String)","UPPER","
 UPPER( stringTerm )
 ","
 Returns upper case string of the string argument.
 ","
 UPPER('Hello')
 "
-,,,,
-Functions (String),LOWER,"
+
+"Functions (String)","LOWER","
 LOWER( stringTerm )
 ","
 Returns lower case string of the string argument.
 ","
 LOWER('HELLO')
 "
-,,,,
-Functions (String),REVERSE,"
+
+"Functions (String)","REVERSE","
 REVERSE( stringTerm )
 ","
 Returns reversed string of the string argument.
 ","
 REVERSE('Hello')
 "
-,,,,
-Functions (String),TO_CHAR,"
+
+"Functions (String)","TO_CHAR","
 TO_CHAR( timestampTerm | numberTerm [, formatString] )
 ","
 Formats a date, time, timestamp, or number as a string.
@@ -916,8 +982,8 @@ numbers. This method returns a string.
 TO_CHAR(myDate, '2001-02-03 04:05:06')
 TO_CHAR(myDecimal, '#,##0.###')
 "
-,,,,
-Functions (Time and Date),TO_DATE,"
+
+"Functions (Time and Date)","TO_DATE","
 TO_DATE( stringTerm [, formatString] )
 ","
 Parses a string and returns a date.
@@ -928,8 +994,8 @@ For details of the format, see ""java.text.SimpleDateFormat"".
 ","
 TO_DATE('Sat, 3 Feb 2001 03:05:06 GMT', 'EEE, d MMM yyyy HH:mm:ss z')
 "
-,,,,
-Functions (Time and Date),CURRENT_DATE,"
+
+"Functions (Time and Date)","CURRENT_DATE","
 CURRENT_DATE()
 ","
 Returns the current server-side date, bound at the start of the execution
@@ -938,8 +1004,8 @@ metadata of the table being queried.
 ","
 CURRENT_DATE()
 "
-,,,,
-Functions (Time and Date),CURRENT_TIME,"
+
+"Functions (Time and Date)","CURRENT_TIME","
 CURRENT_TIME()
 ","
 Same as CURRENT_DATE(), except returns a value of type TIME. In either case,
@@ -947,9 +1013,9 @@ the underlying representation is the epoch time as a long value.
 ","
 CURRENT_TIME()
 "
-,,,,
-,,,,
-Functions (General),COALESCE,"
+
+
+"Functions (General)","COALESCE","
 COALESCE( firstTerm, secondTerm )
 ","
 Returns the value of the first argument if not null and the second argument otherwise. Useful
@@ -957,3 +1023,5 @@ to guarantee that a column in an UPSERT SELECT command will evaluate to a non nu
 ","
 COALESCE(last_update_date, CURRENT_DATE())
 "
+
+
