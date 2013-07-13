@@ -65,7 +65,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         DatabaseMetaData dbmd = conn.getMetaData();
-        String aTableName = TestUtil.ATABLE_NAME;
+        String aTableName = StringUtil.escapeLike(TestUtil.ATABLE_NAME);
         String aSchemaName = TestUtil.ATABLE_SCHEMA_NAME;
         ResultSet rs = dbmd.getTables(null, aSchemaName, aTableName, null);
         assertTrue(rs.next());

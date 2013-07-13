@@ -165,8 +165,9 @@ public class MetaDataClient {
         COLUMN_SIZE + "," +
         DECIMAL_DIGITS + "," +
         ORDINAL_POSITION + "," + 
-        COLUMN_MODIFIER +
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        COLUMN_MODIFIER + "," +
+        DATA_TABLE_NAME + // write this both in the column and table rows for access by metadata APIs
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
         TABLE_SCHEM_NAME + "," +
@@ -176,7 +177,7 @@ public class MetaDataClient {
         ORDINAL_POSITION +
         ") VALUES (?, ?, ?, ?, ?)";
 
-    private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert) throws SQLException {
+    private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert, String parentTableName) throws SQLException {
         colUpsert.setString(1, schemaName);
         colUpsert.setString(2, tableName);
         colUpsert.setString(3, column.getName().getString());
@@ -195,6 +196,7 @@ public class MetaDataClient {
         }
         colUpsert.setInt(9, column.getPosition()+1);
         colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
+        colUpsert.setString(11, parentTableName);
         colUpsert.execute();
     }
 
@@ -269,11 +271,16 @@ public class MetaDataClient {
         List<ColumnName> includedColumns = statement.getIncludeColumns();
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         TableRef tableRef = resolver.getTables().get(0);
+        if (tableRef.getTable().getType() != PTableType.IMMUTABLE) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_ONLY_ON_IMMUTABLE_TABLE).setSchemaName(tableRef.getSchema().getName())
+            .setTableName(tableRef.getTable().getName().getString()).build().buildException();
+        }
         String dataTableName = tableRef.getTable().getName().getString();
-        Set<PColumn> unusedPkColumns = new HashSet<PColumn>(tableRef.getTable().getPKColumns());
+        Set<PColumn> unusedPkColumns = new LinkedHashSet<PColumn>(tableRef.getTable().getPKColumns());
         List<Pair<ColumnName, ColumnModifier>> allPkColumns = Lists.newArrayListWithExpectedSize(unusedPkColumns.size());
         List<ColumnDef> columnDefs = Lists.newArrayListWithExpectedSize(includedColumns.size() + indexedPkColumns.size());
         
+        // First columns are the indexed ones
         for (Pair<ColumnName, ColumnModifier> pair : indexedPkColumns) {
             ColumnName colName = pair.getFirst();
             PColumn col = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName()).getColumn();
@@ -284,6 +291,18 @@ public class MetaDataClient {
             columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, null));
         }
         
+        // Next all the PK columns from the data table that aren't indexed
+        if (!unusedPkColumns.isEmpty()) {
+            for (PColumn col : unusedPkColumns) {
+                ColumnName colName = ColumnName.caseSensitiveColumnName(col.getName().getString());
+                allPkColumns.add(new Pair<ColumnName, ColumnModifier>(colName, col.getColumnModifier()));
+                PDataType dataType = IndexUtil.getIndexColumnDataType(col);
+                columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, col.getColumnModifier()));
+            }
+            pk = FACTORY.primaryKey(null, allPkColumns);
+        }
+        
+        // Last all the included columns (minus any PK columns)
         for (ColumnName colName : includedColumns) {
             PColumn col = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName()).getColumn();
             colName = SchemaUtil.isPKColumn(col) ? colName : ColumnName.caseSensitiveColumnName(IndexUtil.getIndexColumnName(col));
@@ -296,16 +315,6 @@ public class MetaDataClient {
                 colName = ColumnName.caseSensitiveColumnName(col.getFamilyName().getString(), IndexUtil.getIndexColumnName(col));
                 columnDefs.add(FACTORY.columnDef(colName, col.getDataType().getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, col.getColumnModifier()));
             }
-        }
-        
-        if (!unusedPkColumns.isEmpty()) {
-            for (PColumn col : unusedPkColumns) {
-                ColumnName colName = ColumnName.caseSensitiveColumnName(col.getName().getString());
-                allPkColumns.add(new Pair<ColumnName, ColumnModifier>(colName, col.getColumnModifier()));
-                PDataType dataType = IndexUtil.getIndexColumnDataType(col);
-                columnDefs.add(FACTORY.columnDef(colName, dataType.getSqlTypeName(), col.isNullable(), col.getMaxLength(), col.getScale(), false, col.getColumnModifier()));
-            }
-            pk = FACTORY.primaryKey(null, allPkColumns);
         }
         
         TableName indexTableName = statement.getIndexTableName();
@@ -332,12 +341,13 @@ public class MetaDataClient {
             TableName tableNameNode = statement.getTableName();
             String schemaName = tableNameNode.getSchemaName();
             String tableName = tableNameNode.getTableName();
-
+            String parentTableName = null;
             if (parent != null) {
+                parentTableName = parent.getName().getString();
                 // Update data table sequence number
                 PreparedStatement incrementStatement = connection.prepareStatement(INCREMENT_SEQ_NUM);
                 incrementStatement.setString(1, schemaName);
-                incrementStatement.setString(2, parent.getName().getString());
+                incrementStatement.setString(2, parentTableName);
                 incrementStatement.setLong(3, parent.getSequenceNumber() + 1);
                 incrementStatement.execute();
                 // Get list of mutations and add to table meta data that will be passed to server
@@ -455,7 +465,7 @@ public class MetaDataClient {
             }
             
             for (PColumn column : columns) {
-                addColumnMutation(schemaName, tableName, column, colUpsert);
+                addColumnMutation(schemaName, tableName, column, colUpsert, parentTableName);
             }
             
             Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
@@ -516,7 +526,7 @@ public class MetaDataClient {
             MutationCode code = result.getMutationCode();
             switch(code) {
             case TABLE_ALREADY_EXISTS:
-                connection.addTable(schemaName, result.getTable(), parent);
+                connection.addTable(schemaName, result.getTable(), parentTableName);
                 if (!statement.ifNotExists()) {
                     throw new TableAlreadyExistsException(schemaName, tableName);
                 }
@@ -533,7 +543,7 @@ public class MetaDataClient {
                 PTable table =  PTableImpl.makePTable(
                         new PNameImpl(tableName), tableType, indexState, result.getMutationTime(), PTable.INITIAL_SEQ_NUM, 
                         pkName == null ? null : new PNameImpl(pkName), saltBucketNum, columns, dataTableName == null ? null : new PNameImpl(dataTableName), Collections.<PTable>emptyList());
-                connection.addTable(schemaName, table, parent);
+                connection.addTable(schemaName, table, parentTableName);
                 if (tableType != PTableType.VIEW) {
                     connection.setAutoCommit(true);
                     // Execute any necessary data updates
@@ -694,10 +704,19 @@ public class MetaDataClient {
                         .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
                 }
                 
+                if (statement.getProps().remove(PhoenixDatabaseMetaData.SALT_BUCKETS) != null) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.SALT_ONLY_ON_CREATE_TABLE).setSchemaName(schema.getName())
+                    .setTableName(table.getName().getString()).build().buildException();
+                }
+                if (statement.getProps().remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME) != null) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.IMMUTABLE_ROWS_ONLY_ON_CREATE_TABLE).setSchemaName(schema.getName())
+                    .setTableName(table.getName().getString()).build().buildException();
+                }
+                
                 PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
                 Pair<byte[],Map<String,Object>> family = null;
                 PColumn column = newColumn(ordinalPosition++, colDef, PrimaryKeyConstraint.EMPTY);
-                addColumnMutation(schemaName, tableName, column, colUpsert);
+                addColumnMutation(schemaName, tableName, column, colUpsert, null);
                 columns.add(column);
                 if (column.getFamilyName() != null) {
                     family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
@@ -902,7 +921,7 @@ public class MetaDataClient {
             }
             if (code == MutationCode.TABLE_ALREADY_EXISTS) {
                 if (result.getTable() != null) { // To accommodate connection-less update of index state
-                    connection.addTable(schemaName, result.getTable(), connection.getPMetaData().getSchema(schemaName).getTable(dataTableName));
+                    connection.addTable(schemaName, result.getTable(), dataTableName);
                 }
             }
             return new MutationState(1, connection);

@@ -406,8 +406,7 @@ NULL
 "
 ,,,,
 Other Grammar,Data Type,"
-charType | varcharType | integerType | bigintType | decimalType | timestampType | dateType | timeType | unsignedLongType | unsignedIntType | binaryType | varBinaryType
-","
+charType | varcharType | integerType | bigintType | decimalType | timestampType | dateType | timeType | unsignedLongType | unsignedIntType | binaryType | varBinaryType | tinyintType | unsignedtinyintType | smallintType | unsignedsmallintType | floatType | doubleType","
 A type name.
 ","
 CHAR(15)
@@ -435,7 +434,7 @@ TRUE
 "
 ,,,,
 Other Grammar,Numeric,"
-int | long | decimal
+int | long | decimal | tinyint | unsignedtinyint | smallint | unsignedsmallint | float | double
 ","
 The data type of a numeric value is always the lowest possible for the given value.
 If the number contains a dot this is decimal; otherwise it is int, long, or decimal (depending on the value).
@@ -527,6 +526,66 @@ Mapped to ""java.lang.Long"". The binary representation is an 8 byte
 integer, matching the HBase.toBytes(long) method.
 ","
 UNSIGNED_LONG
+"
+,,,,
+Data Types,TINYINT Type,"
+TINYINT
+","
+Possible values: -128 to 127.
+Mapped to ""java.lang.Byte"". The binary representation is an 1 byte
+integer, matching the HBase.toBytes(byte) method.
+","
+TINYINT
+"
+,,,,
+Data Types,UNSIGNED_TINYINT Type,"
+UNSIGNED_TINYINT 
+","
+Possible values: 0 to 255.
+Mapped to ""java.lang.Byte"". The binary representation is an 1 byte
+integer, matching the HBase.toBytes(byte) method.
+","
+UNSIGNED_TINYINT 
+"
+,,,,
+Data Types,SMALLINT Type,"
+SMALLINT
+","
+Possible values: -32768 to 32767.
+Mapped to ""java.lang.Short"". The binary representation is an 2 byte
+integer, matching the HBase.toBytes(short) method.
+","
+SMALLINT
+"
+,,,,
+Data Types,UNSIGNED_SMALLINT Type,"
+UNSIGNED_SMALLINT
+","
+Possible values: 0 to 65535.
+Mapped to ""java.lang.Short"". The binary representation is an 2 byte
+integer, matching the HBase.toBytes(short) method.
+","
+UNSIGNED_SMALLINT
+"
+,,,,
+Data Types,FLOAT Type,"
+FLOAT
+","
+Possible values: -3.402823466 E + 38 to 3.402823466 E + 38.
+Mapped to ""java.lang.Float"". The binary representation is an 4 byte
+integer, matching the HBase.toBytes(float) method.
+","
+FLOAT
+"
+,,,,
+Data Types,DOUBLE Type,"
+DOUBLE
+","
+Possible values: -1.7976931348623158 E + 308 to 1.7976931348623158 E + 308.
+Mapped to ""java.lang.Double"". The binary representation is an 8 byte
+integer, matching the HBase.toBytes(double) method.
+","
+DOUBLE
 "
 ,,,,
 Data Types,DECIMAL Type,"
@@ -701,14 +760,6 @@ Aggregates are only allowed in select statements.
 The returned value is of decimal data type.
 ","
 PERCENTILE_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)
-"
-,,,,
-Functions(Aggregate),PERCENTILE_DISC,"
-PERCENTILE_DIST( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } ASC | DESC)
-","
-PERCENTILE_DISC is an inverse distribution function that assumes a discrete distribution model. It takes a percentile value and a sort specification and returns an element from the set. Nulls are ignored in the calculation.
-","
-PERCENTILE_DISC( 0.9 ) WITHIN GROUP (ORDER BY X ASC)
 "
 ,,,,
 Functions (Aggregate),STDDEV_POP,"

@@ -63,15 +63,11 @@ public class LikeExpression extends BaseCompoundExpression {
     public final static char SINGLE_CHAR_LIKE = '_';
     public final static char MULTI_CHAR_WILDCARD = '*';
     public final static char SINGLE_CHAR_WILDCARD = '?';
-    private final static String[] LIKE_ESCAPE_SEQS = new String[]{"\\"+SINGLE_CHAR_LIKE, "\\"+MULTI_CHAR_LIKE};
-    private final static String[] LIKE_UNESCAPED_SEQS = new String[]{""+SINGLE_CHAR_LIKE, ""+MULTI_CHAR_LIKE};
+    public final static String[] LIKE_ESCAPE_SEQS = new String[]{"\\"+SINGLE_CHAR_LIKE, "\\"+MULTI_CHAR_LIKE};
+    public final static String[] LIKE_UNESCAPED_SEQS = new String[]{""+SINGLE_CHAR_LIKE, ""+MULTI_CHAR_LIKE};
     
     public static String unescapeLike(String s) {
         return StringUtil.replace(s, LIKE_ESCAPE_SEQS, LIKE_UNESCAPED_SEQS);
-    }
-
-    public static String escapeLike(String s) {
-        return StringUtil.replace(s, LIKE_UNESCAPED_SEQS, LIKE_ESCAPE_SEQS);
     }
 
     /**
@@ -100,7 +96,7 @@ public class LikeExpression extends BaseCompoundExpression {
      * @return replaced 
      */
     public static String wildCardToLike(String s) {
-        s = escapeLike(s);
+        s = StringUtil.escapeLike(s);
         StringBuilder buf = new StringBuilder();
         // Look for another unprotected * or ? in the middle
         int i = 0;

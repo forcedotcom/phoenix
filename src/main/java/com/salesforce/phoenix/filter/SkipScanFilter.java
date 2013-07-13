@@ -351,19 +351,23 @@ public class SkipScanFilter extends FilterBase {
                 if (!slots.get(i).get(position[i]).isSingleKey() && i < earliestRangeIndex) {
                     earliestRangeIndex = i;
                 }
-                i++;
                 // If we're past the last slot or we know we're seeking to the next (in
                 // which case the previously updated slot was verified to be within the
                 // range, so we don't need to check the rest of the slots. If we were
                 // to check the rest of the slots, we'd get into trouble because we may
                 // have a null byte that was incremented which screws up our schema.next call)
-                if (i >= nSlots || seek) {
+                if (i == nSlots-1 || seek) {
                     break;
                 }
-                // If we run out of slots in our key, it means we have a partial key. In this
-                // case, we seek to the next full key after this one.
-                // TODO: test for this
+                i++;
+                // If we run out of slots in our key, it means we have a partial key.
                 if (schema.next(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                    // If the rest of the slots are checking for IS NULL, then break because
+                    // that's the case (since we don't store trailing nulls).
+                    if (allTrailingNulls(i)) {
+                        break;
+                    }
+                    // Otherwise we seek to the next start key because we're before it now
                     setStartKey(ptr, offset, i);
                     return ReturnCode.SEEK_NEXT_USING_HINT;
                 }
@@ -376,10 +380,27 @@ public class SkipScanFilter extends FilterBase {
         // Else, we're in range for all slots and can include this row plus all rows 
         // up to the upper range of our last slot. We do this for ranges and single keys
         // since we potentially have multiple key values for the same row key.
-        setEndKey(ptr, offset, slots.size()-1);
+        setEndKey(ptr, offset, i);
         return ReturnCode.INCLUDE;
     }
 
+    private boolean allTrailingNulls(int i) {
+        for (; i < slots.size(); i++) {
+            List<KeyRange> keyRanges = slots.get(i);
+            if (keyRanges.size() != 1) {
+                return false;
+            }
+            KeyRange keyRange = keyRanges.get(0);
+            if (!keyRange.isSingleKey()) {
+                return false;
+            }
+            if (keyRange.getLowerRange().length != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
     private int nextPosition(int i) {
         while (i >= 0 && slots.get(i).get(position[i]).isSingleKey() && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
             i--;

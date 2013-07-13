@@ -131,13 +131,17 @@ public class IndexUtil {
                 for (KeyValue kv : entry.getValue()) {
                     byte[] cq = kv.getQualifier();
                     if (Bytes.compareTo(QueryConstants.EMPTY_COLUMN_BYTES, cq) != 0) {
-                        PColumn dataColumn = family.getColumn(cq);
-                        PColumn indexColumn = indexTable.getColumn(getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
-                        ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
-                        coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                        indexValues[indexColumn.getPosition()] = ptr.copyBytes();
-                        if (!SchemaUtil.isPKColumn(indexColumn)) {
-                            indexValuesSet.set(indexColumn.getPosition());
+                        try {
+                            PColumn dataColumn = family.getColumn(cq);
+                            PColumn indexColumn = indexTable.getColumn(getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
+                            ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
+                            coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
+                            indexValues[indexColumn.getPosition()] = ptr.copyBytes();
+                            if (!SchemaUtil.isPKColumn(indexColumn)) {
+                                indexValuesSet.set(indexColumn.getPosition()-nIndexColumns);
+                            }
+                        } catch (ColumnNotFoundException e) {
+                            // Ignore as this means that the data column isn't in the index
                         }
                     }
                 }

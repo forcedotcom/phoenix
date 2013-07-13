@@ -14,32 +14,20 @@ import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.util.QueryUtil;
-import com.salesforce.phoenix.util.TestUtil;
+import com.salesforce.phoenix.util.*;
 
 
 public class IndexTest extends BaseHBaseManagedTimeTest{
 
+    private enum Order {ASC, DESC};
+    
     // the normal db metadata interface is insufficient for all fields needed for an
     // index table test.
-    private static final String SELECT_INDEX_METADATA = "SELECT "
-            + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + TABLE_TYPE_NAME + "," + INDEX_STATE + "," + COLUMN_COUNT
-            + " FROM "
-            + TYPE_SCHEMA + ".\"" + TYPE_TABLE 
-            + "\" WHERE "
-            + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=?";
     private static final String SELECT_DATA_INDEX_ROW = "SELECT " + TABLE_CAT_NAME
             + " FROM "
             + TYPE_SCHEMA + ".\"" + TYPE_TABLE
             + "\" WHERE "
             + TABLE_SCHEM_NAME + "=? AND " + TABLE_NAME_NAME + "=? AND " + COLUMN_NAME + " IS NULL AND " + TABLE_CAT_NAME + "=?";
-
-    private static ResultSet readIndexMetaData(Connection conn, String schemName, String indexName) throws SQLException {
-        PreparedStatement stmt = conn.prepareStatement(SELECT_INDEX_METADATA);
-        stmt.setString(1, schemName);
-        stmt.setString(2, indexName);
-        return stmt.executeQuery();
-    }
 
     private static ResultSet readDataTableIndexRow(Connection conn, String schemaName, String tableName, String indexName) throws SQLException {
         PreparedStatement stmt = conn.prepareStatement(SELECT_DATA_INDEX_ROW);
@@ -129,18 +117,18 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             stmt.execute();
             
             // Verify the metadata for index is correct.
-            ResultSet rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX");
-            assertTrue(rs.next());
-            assertEquals(INDEX_DATA_SCHEMA, rs.getString(1));
-            assertEquals("IDX", rs.getString(2));
-            assertEquals(PTableType.INDEX.getSerializedValue(), rs.getString(3));
-            assertEquals(PIndexState.ACTIVE.getSerializedValue(), rs.getString(4));
-            int columnCount = rs.getInt(5);
-            assertEquals(9, columnCount);
-            for (int i=0; i<columnCount; i++) { // One row per column.
-                assertTrue(rs.next());
-            }
+            ResultSet rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 1, "A:VARCHAR_COL1", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 2, "B:VARCHAR_COL2", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 3, "INT_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 4, "VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 5, "CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 6, "LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 7, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 8, "A:INT_COL1", null);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 9, "B:INT_COL2", null);
             assertFalse(rs.next());
+            
             // Verify that there is a row inserted into the data table for the index table.
             rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX");
             assertTrue(rs.next());
@@ -150,17 +138,18 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             ddl = "ALTER INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " DISABLE";
             conn.createStatement().execute(ddl);
             // Verify the metadata for index is correct.
-            rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX");
+            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.getSerializedValue()});
             assertTrue(rs.next());
-            assertEquals("IDX", rs.getString(2));
-            assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString(4));
+            assertEquals("IDX", rs.getString(3));
+            assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
+            assertFalse(rs.next());
             
             ddl = "DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
             stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
             // Assert the rows for index table is completely removed.
-            rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX");
+            rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
             assertFalse(rs.next());
             
             // Assert the row in the original data table is removed.
@@ -177,26 +166,35 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             
             ddl = "CREATE INDEX IDX2 ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
                     + " (varchar_col1 ASC, varchar_col2 ASC, int_pk DESC)"
-                    + " INCLUDE (int_col1, int_col2)";
+                    + " INCLUDE (long_pk, int_col2)";
             stmt = conn.prepareStatement(ddl);
             stmt.execute();
-            
-            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1");
-            assertTrue(rs.next());
-            assertEquals("IDX1", rs.getString(1));
-            assertFalse(rs.next());
-            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2");
-            assertTrue(rs.next());
-            assertEquals("IDX2", rs.getString(1));
+            rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 1, "A:VARCHAR_COL1", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 2, "B:VARCHAR_COL2", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 3, "INT_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 4, "VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 5, "CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 6, "LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 7, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 8, "A:INT_COL1", null);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 9, "B:INT_COL2", null);
+
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 1, "A:VARCHAR_COL1", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 2, "B:VARCHAR_COL2", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 3, "INT_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 4, "VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 5, "CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 6, "LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 7, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 8, "B:INT_COL2", null);
             assertFalse(rs.next());
             
             ddl = "DROP TABLE " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
             stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
-            rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX1");
-            assertFalse(rs.next());
-            rs = readIndexMetaData(conn, INDEX_DATA_SCHEMA, "IDX2");
+            rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
             assertFalse(rs.next());
             rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1");
             assertFalse(rs.next());
@@ -207,6 +205,25 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         }
     }
 
+    private static void assertIndexInfoMetadata(ResultSet rs, String schemaName, String dataTableName, String indexName, int colPos, String colName, Order order) throws SQLException {
+        assertTrue(rs.next());
+        assertEquals(null,rs.getString(1));
+        assertEquals(schemaName, rs.getString(2));
+        assertEquals(dataTableName, rs.getString(3));
+        assertEquals(Boolean.TRUE, rs.getBoolean(4));
+        assertEquals(null,rs.getString(5));
+        assertEquals(indexName, rs.getString(6));
+        assertEquals(DatabaseMetaData.tableIndexOther, rs.getShort(7));
+        assertEquals(colPos, rs.getShort(8));
+        assertEquals(colName, rs.getString(9));
+        assertEquals(order == Order.ASC ? "A" : order == Order.DESC ? "D" : null, rs.getString(10));
+        assertEquals(0,rs.getInt(11));
+        assertTrue(rs.wasNull());
+        assertEquals(0,rs.getInt(12));
+        assertTrue(rs.wasNull());
+        assertEquals(null,rs.getString(13));
+    }
+    
     @Test
     public void testImmutableTableIndexMaintanence() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);

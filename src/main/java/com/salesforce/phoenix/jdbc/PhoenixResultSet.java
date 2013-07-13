@@ -241,6 +241,8 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
             return false;
         }
         switch(type) {
+        case BOOLEAN:
+            return Boolean.TRUE.equals(value);
         case VARCHAR:
             return !STRING_FALSE.equals(value);
         case INTEGER:

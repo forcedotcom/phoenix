@@ -112,7 +112,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             NULLABLE_KV,
             DATA_TYPE_KV,
             ORDINAL_POSITION_KV,
-            COLUMN_MODIFIER_KV
+            COLUMN_MODIFIER_KV,
+            DATA_TABLE_NAME_KV // included in both column and table row for metadata APIs
             );
     static {
         Collections.sort(COLUMN_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -513,7 +514,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 if (isTableDeleted(table)) {
                     return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
-                if ( tableType != table.getType())  {
+                if ( tableType.getRootType() != table.getType().getRootType())  {
                     // We said to drop a table, but found a view or visa versa
                     return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }

@@ -31,6 +31,7 @@ import java.io.UnsupportedEncodingException;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.phoenix.expression.LikeExpression;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 
@@ -210,5 +211,9 @@ public class StringUtil {
             return ByteUtil.EMPTY_BYTE_ARRAY;
         }
         return Bytes.toBytes(input);
+    }
+
+    public static String escapeLike(String s) {
+        return replace(s, LikeExpression.LIKE_UNESCAPED_SEQS, LikeExpression.LIKE_ESCAPE_SEQS);
     }
 }
