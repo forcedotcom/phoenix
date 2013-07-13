@@ -41,6 +41,12 @@ The top level commands, SQL syntax, built-in functions, and supported data types
 
     <a href="#alter_table">ALTER TABLE</a><br />
 
+    <a href="#create_index">CREATE INDEX</a><br />
+
+    <a href="#drop_index">DROP INDEX</a><br />
+
+    <a href="#alter_index">ALTER INDEX</a><br />
+
     <a href="#explain">EXPLAIN</a><br />
 </p>
 syntax-end -->
@@ -54,16 +60,22 @@ syntax-end -->
                 <a href="#upsert_values" >UPSERT VALUES</a><br />
             
                 <a href="#upsert_select" >UPSERT SELECT</a><br />
-                    </td><td class="index">
             
                 <a href="#delete" >DELETE</a><br />
+                    </td><td class="index">
             
                 <a href="#create" >CREATE</a><br />
             
                 <a href="#drop" >DROP</a><br />
-                    </td><td class="index">
             
                 <a href="#alter_table" >ALTER TABLE</a><br />
+            
+                <a href="#create_index" >CREATE INDEX</a><br />
+                    </td><td class="index">
+            
+                <a href="#drop_index" >DROP INDEX</a><br />
+            
+                <a href="#alter_index" >ALTER INDEX</a><br />
             
                 <a href="#explain" >EXPLAIN</a><br />
                     </td>
@@ -77,13 +89,15 @@ syntax-end -->
 
     <a href="#constraint" >Constraint</a><br />
 
-    <a href="#table_options" >Table Options</a><br />
-
     <a href="#options" >Options</a><br />
 
     <a href="#hint" >Hint</a><br />
 
-    <a href="#column" >Column</a><br />
+    <a href="#column_def" >Column Def</a><br />
+
+    <a href="#table_ref" >Table Ref</a><br />
+
+    <a href="#column_ref" >Column Ref</a><br />
 
     <a href="#select_expression" >Select Expression</a><br />
 
@@ -151,13 +165,15 @@ syntax-end -->
             
                 <a href="#constraint" >Constraint</a><br />
             
-                <a href="#table_options" >Table Options</a><br />
-            
                 <a href="#options" >Options</a><br />
             
                 <a href="#hint" >Hint</a><br />
             
-                <a href="#column" >Column</a><br />
+                <a href="#column_def" >Column Def</a><br />
+            
+                <a href="#table_ref" >Table Ref</a><br />
+            
+                <a href="#column_ref" >Column Ref</a><br />
             
                 <a href="#select_expression" >Select Expression</a><br />
             
@@ -170,9 +186,9 @@ syntax-end -->
                 <a href="#expression" >Expression</a><br />
             
                 <a href="#and_condition" >And Condition</a><br />
+                    </td><td class="index">
             
                 <a href="#condition" >Condition</a><br />
-                    </td><td class="index">
             
                 <a href="#compare" >Compare</a><br />
             
@@ -195,9 +211,9 @@ syntax-end -->
                 <a href="#name" >Name</a><br />
             
                 <a href="#quoted_name" >Quoted Name</a><br />
+                    </td><td class="index">
             
                 <a href="#alias" >Alias</a><br />
-                    </td><td class="index">
             
                 <a href="#null" >Null</a><br />
             
@@ -228,18 +244,18 @@ syntax-end -->
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
 SELECT [/*+ <a href="index.html#hint">hint</a> */] [DISTINCT | ALL] <a href="index.html#select_expression">selectExpression</a> [,...]
-FROM <a href="index.html#table_expression">tableExpression</a> [( <a href="index.html#column">column</a> [,...] )] [ WHERE <a href="index.html#expression">expression</a> ]
+FROM <a href="index.html#table_expression">tableExpression</a> [( <a href="index.html#column_def">columnDef</a> [,...] )] [ WHERE <a href="index.html#expression">expression</a> ]
 [ GROUP BY <a href="index.html#expression">expression</a> [,...] ] [ HAVING <a href="index.html#expression">expression</a> ]
 [ ORDER BY <a href="index.html#order">order</a> [,...] ] [ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SELECT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">/ * + <a href="index.html#hint">hint</a> * /</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">DISTINCT</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">ALL</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#select_expression">selectExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><code class="c">FROM <a href="index.html#table_expression">tableExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#column">column</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">WHERE <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">GROUP BY <a href="index.html#expression">expression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">HAVING <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ORDER BY <a href="index.html#order">order</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">LIMIT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#number">number</a></code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SELECT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">/ * + <a href="index.html#hint">hint</a> * /</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">DISTINCT</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">ALL</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#select_expression">selectExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><code class="c">FROM <a href="index.html#table_expression">tableExpression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#column_def">columnDef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">WHERE <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">GROUP BY <a href="index.html#expression">expression</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">HAVING <a href="index.html#expression">expression</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ORDER BY <a href="index.html#order">order</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">LIMIT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#number">number</a></code></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
 SELECT [/*+ <a href="index.html#hint">hint</a> */] [DISTINCT | ALL] <a href="index.html#select_expression">selectExpression</a> [,...]
-FROM <a href="index.html#table_expression">tableExpression</a> [( <a href="index.html#column">column</a> [,...] )] [ WHERE <a href="index.html#expression">expression</a> ]
+FROM <a href="index.html#table_expression">tableExpression</a> [( <a href="index.html#column_def">columnDef</a> [,...] )] [ WHERE <a href="index.html#expression">expression</a> ]
 [ GROUP BY <a href="index.html#expression">expression</a> [,...] ] [ HAVING <a href="index.html#expression">expression</a> ]
 [ ORDER BY <a href="index.html#order">order</a> [,...] ] [ LIMIT {<a href="index.html#bind_parameter">bindParameter</a> | <a href="index.html#number">number</a>} ]
 </pre>
@@ -252,15 +268,15 @@ SELECT * FROM TEST;<br />SELECT a.* FROM TEST;<br />SELECT DISTINCT NAME FROM TE
 <h3 id="upsert_values" class="notranslate">UPSERT VALUES</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-UPSERT INTO <a href="index.html#name">tableName</a> [( <a href="index.html#name">columnName</a> [,...] )] VALUES ( <a href="index.html#term">constantTerm</a> [,...] )
+UPSERT INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] VALUES ( <a href="index.html#term">constantTerm</a> [,...] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPSERT INTO <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#name">columnName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">VALUES ( <a href="index.html#term">constantTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPSERT INTO <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">(</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#column_def">columnDef</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">VALUES ( <a href="index.html#term">constantTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-UPSERT INTO <a href="index.html#name">tableName</a> [( <a href="index.html#name">columnName</a> [,...] )] VALUES ( <a href="index.html#term">constantTerm</a> [,...] )
+UPSERT INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] VALUES ( <a href="index.html#term">constantTerm</a> [,...] )
 </pre>
 syntax-end -->
 <p>Inserts if not present and updates otherwise the value in the table. The list of columns is optional and if not present, the values will map to the column in the order they are declared in the schema. The values must evaluate to constants.</p>
@@ -271,15 +287,15 @@ UPSERT INTO TEST VALUES(&#39;foo&#39;,&#39;bar&#39;,3);<br />UPSERT INTO TEST(NA
 <h3 id="upsert_select" class="notranslate">UPSERT SELECT</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-UPSERT INTO <a href="index.html#name">tableName</a> [( <a href="index.html#name">columnName</a> [,...] )] <a href="index.html#select">select</a>
+UPSERT INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] <a href="index.html#select">select</a>
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPSERT INTO <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#name">columnName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#select">select</a></code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPSERT INTO <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">(</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#column_def">columnDef</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#select">select</a></code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-UPSERT INTO <a href="index.html#name">tableName</a> [( <a href="index.html#name">columnName</a> [,...] )] <a href="index.html#select">select</a>
+UPSERT INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] <a href="index.html#select">select</a>
 </pre>
 syntax-end -->
 <p>Inserts if not present and updates otherwise rows in the table based on the results of running another query. The values are set based on their matching position between the source and target tables. The list of columns is optional and if not present will map to the column in the order they are declared in the schema. If auto commit is on, and both a) the target table matches the source table, and b) the select performs no aggregation, then the population of the target table will be done completely on the server-side (with constraint violations logged, but otherwise ignored). Otherwise, data is buffered on the client and, if auto commit is on, committed in row batches as specified by the UpsertBatchSize connection property (or the phoenix.mutate.upsertBatchSize <code>HBase</code> config property which defaults to 10000 rows)</p>
@@ -311,38 +327,38 @@ DELETE FROM TEST;<br />DELETE FROM TEST WHERE ID=123;<br />DELETE FROM TEST WHER
 <h3 id="create" class="notranslate">CREATE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-CREATE { TABLE | VIEW } [IF NOT EXISTS] <a href="index.html#name">tableName</a>
-( <a href="index.html#column">column</a> [,...] [<a href="index.html#constraint">constraint</a>] )
-[<a href="index.html#table_options">tableOptions</a>] [ SPLIT ON ( <a href="index.html#split_point">splitPoint</a> [,...] ) ]
+CREATE { TABLE | VIEW } [IF NOT EXISTS] <a href="index.html#table_ref">tableRef</a>
+( <a href="index.html#column_def">columnDef</a> [,...] [<a href="index.html#constraint">constraint</a>] )
+[<a href="index.html#options">tableOptions</a>] [ SPLIT ON ( <a href="index.html#split_point">splitPoint</a> [,...] ) ]
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CREATE</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">TABLE</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">VIEW</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF NOT EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">tableName</a></code></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#column">column</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#constraint">constraint</a></code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#table_options">tableOptions</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">SPLIT ON ( <a href="index.html#split_point">splitPoint</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CREATE</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">TABLE</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">VIEW</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF NOT EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#table_ref">tableRef</a></code></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#column_def">columnDef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#constraint">constraint</a></code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#options">tableOptions</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">SPLIT ON ( <a href="index.html#split_point">splitPoint</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-CREATE { TABLE | VIEW } [IF NOT EXISTS] <a href="index.html#name">tableName</a>
-( <a href="index.html#column">column</a> [,...] [<a href="index.html#constraint">constraint</a>] )
-[<a href="index.html#table_options">tableOptions</a>] [ SPLIT ON ( <a href="index.html#split_point">splitPoint</a> [,...] ) ]
+CREATE { TABLE | VIEW } [IF NOT EXISTS] <a href="index.html#table_ref">tableRef</a>
+( <a href="index.html#column_def">columnDef</a> [,...] [<a href="index.html#constraint">constraint</a>] )
+[<a href="index.html#options">tableOptions</a>] [ SPLIT ON ( <a href="index.html#split_point">splitPoint</a> [,...] ) ]
 </pre>
 syntax-end -->
 <p>Creates a new table or view. For the creation of a table, the <code>HBase</code> table and any column families referenced are created if they don&#39;t already exist (using uppercase names unless they are double quoted in which case they are case sensitive). Column families outside of the ones listed are not affected. At create time, an empty key value is added to the first column family of any existing rows. Upserts will also add this empty key value. This is done to improve query performance by having a key value column we can guarantee always being there (minimizing the amount of data that must be projected). Alternately, if a view is created, the <code>HBase</code> table and column families must already exist. No empty key value is added to existing rows and no data mutations are allowed - the view is read-only. Query performance for a view will not be as good as performance for a table. For a table only, <code>HBase</code> table and column configuration options may be passed through as key/value pairs to setup the <code>HBase</code> table as needed.</p>
 <p>Example:</p>
 <p class="notranslate">
-CREATE TABLE my_table ( id BIGINT not null primary key, date DATE not null)<br />CREATE TABLE my_table ( id INTEGER not null primary key desc, date DATE not null,<br />&nbsp;&nbsp;&nbsp;&nbsp;m.db_utilization DECIMAL, i.db_utilization)<br />&nbsp;&nbsp;&nbsp;&nbsp;m.DATA_BLOCK_ENCODING=&#39;DIFF&#39;<br />CREATE TABLE prod_metrics ( host char(50) not null, created_date date not null,<br />&nbsp;&nbsp;&nbsp;&nbsp;txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )<br />CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer)<br />&nbsp;&nbsp;&nbsp;&nbsp;DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)</p>
+CREATE TABLE my_schema.my_table ( id BIGINT not null primary key, date DATE not null)<br />CREATE TABLE my_table ( id INTEGER not null primary key desc, date DATE not null,<br />&nbsp;&nbsp;&nbsp;&nbsp;m.db_utilization DECIMAL, i.db_utilization)<br />&nbsp;&nbsp;&nbsp;&nbsp;m.DATA_BLOCK_ENCODING=&#39;DIFF&#39;<br />CREATE TABLE stats.prod_metrics ( host char(50) not null, created_date date not null,<br />&nbsp;&nbsp;&nbsp;&nbsp;txn_count bigint CONSTRAINT pk PRIMARY KEY (host, created_date) )<br />CREATE TABLE IF NOT EXISTS my_table ( id char(10) not null primary key, value integer)<br />&nbsp;&nbsp;&nbsp;&nbsp;DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)</p>
 
 <h3 id="drop" class="notranslate">DROP</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-DROP {TABLE | VIEW} [IF EXISTS] <a href="index.html#name">tableName</a>
+DROP {TABLE | VIEW} [IF EXISTS] <a href="index.html#table_ref">tableRef</a>
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">DROP</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">TABLE</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">VIEW</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">tableName</a></code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">DROP</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">TABLE</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">VIEW</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#table_ref">tableRef</a></code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-DROP {TABLE | VIEW} [IF EXISTS] <a href="index.html#name">tableName</a>
+DROP {TABLE | VIEW} [IF EXISTS] <a href="index.html#table_ref">tableRef</a>
 </pre>
 syntax-end -->
 <p>Drops a table or view. When dropping a table, the data in the table is deleted. For a view, on the other hand, the data is not affected. Note that the schema is versioned, such that snapshot queries connecting at an earlier time stamp may still query against the dropped table, as the <code>HBase</code> table itself is not deleted.</p>
@@ -353,21 +369,84 @@ DROP TABLE my_schema.my_table<br />DROP VIEW my_view</p>
 <h3 id="alter_table" class="notranslate">ALTER TABLE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-ALTER TABLE <a href="index.html#name">tableName</a> { { ADD [IF NOT EXISTS] <a href="index.html#column">column</a> [<a href="index.html#options">options</a>] } | { DROP COLUMN [IF EXISTS] [ <a href="index.html#name">familyName</a>. ] <a href="index.html#name">columnName</a> } }
+ALTER TABLE <a href="index.html#table_ref">tableRef</a> { { ADD [IF NOT EXISTS] <a href="index.html#column_def">columnDef</a> [<a href="index.html#options">options</a>] } | { DROP COLUMN [IF EXISTS] <a href="index.html#column_ref">columnRef</a> } }
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ALTER TABLE <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ADD</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF NOT EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#column">column</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#options">options</a></code></td><td class="le"></td></tr></table></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">DROP COLUMN</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">familyName</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">columnName</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ALTER TABLE <a href="index.html#table_ref">tableRef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ADD</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF NOT EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#column_def">columnDef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#options">options</a></code></td><td class="le"></td></tr></table></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">DROP COLUMN</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-ALTER TABLE <a href="index.html#name">tableName</a> { { ADD [IF NOT EXISTS] <a href="index.html#column">column</a> [<a href="index.html#options">options</a>] } | { DROP COLUMN [IF EXISTS] [ <a href="index.html#name">familyName</a>. ] <a href="index.html#name">columnName</a> } }
+ALTER TABLE <a href="index.html#table_ref">tableRef</a> { { ADD [IF NOT EXISTS] <a href="index.html#column_def">columnDef</a> [<a href="index.html#options">options</a>] } | { DROP COLUMN [IF EXISTS] <a href="index.html#column_ref">columnRef</a> } }
 </pre>
 syntax-end -->
 <p>Adds or removes a column from an existing table or view. When a column is dropped from a table, the data in that column is deleted as well. <code>PK</code> columns may not be dropped, and only nullable <code>PK</code> columns may be added. For a view, the data is not affected when a column is dropped. Note that creating or dropping columns only affects subsequent queries and data modifications. Snapshot queries that are connected at an earlier timestamp will still use the prior schema that was in place when the data was written.</p>
 <p>Example:</p>
 <p class="notranslate">
 ALTER TABLE my_schema.my_table ADD d.dept_id char(10) VERSIONS=10<br />ALTER TABLE my_table ADD dept_name char(50)<br />ALTER TABLE my_table ADD parent_id char(15) null primary key<br />ALTER TABLE my_table DROP COLUMN d.dept_id<br />ALTER TABLE my_table DROP COLUMN dept_name<br />ALTER TABLE my_table DROP COLUMN parent_id</p>
+
+<h3 id="create_index" class="notranslate">CREATE INDEX</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+CREATE INDEX [IF NOT EXISTS] <a href="index.html#name">indexName</a>
+ON <a href="index.html#table_ref">tableRef</a> ( <a href="index.html#column_ref">columnRef</a> [ASC | DESC] [,...] )
+[ INCLUDE ( <a href="index.html#column_ref">columnRef</a> [,...] ) ]
+[<a href="index.html#options">indexOptions</a>] [ SPLIT ON ( <a href="index.html#split_point">splitPoint</a> [,...] ) ]
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CREATE INDEX</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF NOT EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">indexName</a></code></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><code class="c">ON <a href="index.html#table_ref">tableRef</a> ( <a href="index.html#column_ref">columnRef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">INCLUDE ( <a href="index.html#column_ref">columnRef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table><br /><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#options">indexOptions</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">SPLIT ON ( <a href="index.html#split_point">splitPoint</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+CREATE INDEX [IF NOT EXISTS] <a href="index.html#name">indexName</a>
+ON <a href="index.html#table_ref">tableRef</a> ( <a href="index.html#column_ref">columnRef</a> [ASC | DESC] [,...] )
+[ INCLUDE ( <a href="index.html#column_ref">columnRef</a> [,...] ) ]
+[<a href="index.html#options">indexOptions</a>] [ SPLIT ON ( <a href="index.html#split_point">splitPoint</a> [,...] ) ]
+</pre>
+syntax-end -->
+<p>Creates a new secondary index on a table. Currently indexes may only be added to tables that are declared as having immutable rows (i.e. by specifying the <code>IMMUTABLE_ROWS</code>=true property when the table is created). Immutable rows are expected to be inserted once in their entirety and then never updated. This limitation will be removed once incremental index maintenance has been implemented. The current implementation inserts the index rows when the data row is inserted.</p>
+<p>Example:</p>
+<p class="notranslate">
+CREATE INDEX my_idx ON sales.opportunity(last_updated_date DESC)<br />CREATE INDEX my_idx ON log.event(created_date DESC) INCLUDE (name, payload) SALT_BUCKETS=10<br />CREATE INDEX IF NOT EXISTS my_comp_idx ON server_metrics ( gc_time DESC, created_date DESC )<br />&nbsp;&nbsp;&nbsp;&nbsp;DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)</p>
+
+<h3 id="drop_index" class="notranslate">DROP INDEX</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+DROP INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a>
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">DROP INDEX</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a></code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+DROP INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a>
+</pre>
+syntax-end -->
+<p>Drops an index from a table. When dropping an index, the data in the index is deleted. Note that since metadata is versioned, snapshot queries connecting at an earlier time stamp may still use the index, as the <code>HBase</code> table backing the index is not deleted.</p>
+<p>Example:</p>
+<p class="notranslate">
+DROP INDEX my_idx ON sales.opportunity<br />DROP INDEX IF EXISTS my_idx ON server_metrics</p>
+
+<h3 id="alter_index" class="notranslate">ALTER INDEX</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+ALTER INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a> { ENABLE | DISABLE }
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ALTER INDEX</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ENABLE</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DISABLE</code></td><td class="le"></td></tr></table></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+ALTER INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a> { ENABLE | DISABLE }
+</pre>
+syntax-end -->
+<p>Disables or enables an index. An index that is disabled will not be used at query time. This has no affect on index maintenance - an index that is disabled will continue to be maintained.</p>
+<p>Example:</p>
+<p class="notranslate">
+ALTER INDEX my_idx ON sales.opportunity DISABLE<br />ALTER INDEX IF EXISTS my_idx ON server_metrics ENABLE</p>
 
 <h3 id="explain" class="notranslate">EXPLAIN</h3>
 <!-- railroad-start -->
@@ -402,7 +481,7 @@ syntax-end -->
 <p>Example:</p>
 <p class="notranslate">CONSTRAINT my_pk PRIMARY KEY (host,created_date)<br />CONSTRAINT my_pk PRIMARY KEY (host ASC,created_date DESC)</p>
 
-<h3 id="table_options" class="notranslate">Table Options</h3>
+<h3 id="options" class="notranslate">Options</h3>
 <!-- railroad-start -->
 <table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">familyName</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">name</a> =</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#value">value</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table>
 <!-- railroad-end -->
@@ -411,22 +490,9 @@ syntax-end -->
 { [<a href="index.html#name">familyName</a> .] <a href="index.html#name">name</a>= {<a href="index.html#value">value</a> | <a href="index.html#bind_parameter">bindParameter</a>}} [,...]
 </pre>
 syntax-end -->
-<p>Sets an option on an <code>HBase</code> table or column by modifying the respective <code>HBase</code> metadata. The option applies to the named family or if omitted to all families if the name references an <code>HColumnDescriptor</code> property. Otherwise, the option applies to the <code>HTableDescriptor</code>.</p><p>One built-in option is <code>SALT_BUCKETS</code>. This option causes an extra byte to be transparently prepended to every row key to ensure an even distribution of write load across all your region servers. This is useful when your row key is always monotonically increasing causing hot spotting on a single region server. The byte is determined by hashing the row key and modding it with the <code>SALT_BUCKETS</code> value. The value may be from 1 to 256. If not split points are defined for the table, it will automatically be pre-split at each possible salt bucket value. For an excellent write-up of this technique, see http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/</p>
+<p>Sets an option on an <code>HBase</code> table or column by modifying the respective <code>HBase</code> metadata. The option applies to the named family or if omitted to all families if the name references an <code>HColumnDescriptor</code> property. Otherwise, the option applies to the <code>HTableDescriptor</code>.</p><p>One built-in option is <code>SALT_BUCKETS</code>. This option causes an extra byte to be transparently prepended to every row key to ensure an even distribution of write load across all your region servers. This is useful when your row key is always monotonically increasing causing hot spotting on a single region server. The byte is determined by hashing the row key and modding it with the <code>SALT_BUCKETS</code> value. The value may be from 1 to 256. If not split points are defined for the table, it will automatically be pre-split at each possible salt bucket value. For an excellent write-up of this technique, see http://blog.sematext.com/2012/04/09/hbasewd-avoid-regionserver-hotspotting-despite-writing-records-with-sequential-keys/</p><p>Another built-in options is <code>IMMUTABLE_ROWS</code>. Only tables with immutable rows are allowed to have indexes. Immutable rows are expected to be inserted once in their entirety and then never updated. This limitation will be removed once incremental index maintenance has been implemented. The current implementation inserts the index rows when the data row is inserted.</p>
 <p>Example:</p>
-<p class="notranslate">SALT_BUCKETS=10<br />DATA_BLOCK_ENCODING=&#39;NONE&#39;,a.VERSIONS=10<br />MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000</p>
-
-<h3 id="options" class="notranslate">Options</h3>
-<!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">name</a> =</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#value">value</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td></tr></table>
-<!-- railroad-end -->
-<!-- syntax-start
-<pre>
-{<a href="index.html#name">name</a>= {<a href="index.html#value">value</a> | <a href="index.html#bind_parameter">bindParameter</a>}} [,...]
-</pre>
-syntax-end -->
-<p>Sets an option on an <code>HBase</code> column by modifying the <code>HColumnDescriptor</code>.</p>
-<p>Example:</p>
-<p class="notranslate">DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=10<br />MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000</p>
+<p class="notranslate">IMMUTABLE_ROWS=true<br />SALT_BUCKETS=10<br />DATA_BLOCK_ENCODING=&#39;NONE&#39;,a.VERSIONS=10<br />MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000</p>
 
 <h3 id="hint" class="notranslate">Hint</h3>
 <!-- railroad-start -->
@@ -441,18 +507,44 @@ syntax-end -->
 <p>Example:</p>
 <p class="notranslate">/*+ SKIP_SCAN */<br />/*+ RANGE_SCAN */<br />/*+ NO_INTRA_REGION_PARALLELIZATION */</p>
 
-<h3 id="column" class="notranslate">Column</h3>
+<h3 id="column_def" class="notranslate">Column Def</h3>
 <!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">familyName</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">columnName</a> <a href="index.html#data_type">dataType</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">NOT</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">NULL</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">PRIMARY KEY</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a> <a href="index.html#data_type">dataType</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">NOT</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">NULL</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">PRIMARY KEY</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="le"></td></tr></table></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-[<a href="index.html#name">familyName</a> .] <a href="index.html#name">columnName</a> <a href="index.html#data_type">dataType</a> [[NOT] NULL] [PRIMARY KEY [ASC | DESC] ]
+<a href="index.html#column_ref">columnRef</a> <a href="index.html#data_type">dataType</a> [[NOT] NULL] [PRIMARY KEY [ASC | DESC] ]
 </pre>
 syntax-end -->
 <p>Define a new primary key column. The column name is case insensitive by default and case sensitive if double quoted. The sort order of a primary key may be ascending (<code>ASC</code>) or descending. The default is ascending.</p>
 <p>Example:</p>
 <p class="notranslate">id char(15) not null primary key<br />key integer null<br />m.response_time bigint</p>
+
+<h3 id="table_ref" class="notranslate">Table Ref</h3>
+<!-- railroad-start -->
+<table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">schemaName</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">tableName</a></code></td></tr></table>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+[<a href="index.html#name">schemaName</a> .] <a href="index.html#name">tableName</a>
+</pre>
+syntax-end -->
+<p>References a table with an optional schema name qualifier</p>
+<p>Example:</p>
+<p class="notranslate">Sales.Contact<br />HR.Employee<br />Department</p>
+
+<h3 id="column_ref" class="notranslate">Column Ref</h3>
+<!-- railroad-start -->
+<table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#name">familyName</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">columnName</a></code></td></tr></table>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+[<a href="index.html#name">familyName</a> .] <a href="index.html#name">columnName</a>
+</pre>
+syntax-end -->
+<p>References a column with an optional family name qualifier</p>
+<p>Example:</p>
+<p class="notranslate">e.salary<br />dept_name</p>
 
 <h3 id="select_expression" class="notranslate">Select Expression</h3>
 <!-- railroad-start -->
@@ -604,7 +696,7 @@ syntax-end -->
 
 <h3 id="term" class="notranslate">Term</h3>
 <!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#value">value</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="functions.html">Function</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case">case</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case_when">caseWhen</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#operand">operand</a> )</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#alias">tableAlias</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">columnName</a></code></td></tr></table></td><td class="le"></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#value">value</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="functions.html">Function</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case">case</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case_when">caseWhen</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#operand">operand</a> )</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#alias">tableAlias</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td></tr></table></td><td class="le"></td></tr></table>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
@@ -614,7 +706,7 @@ syntax-end -->
 | <a href="index.html#case">case</a>
 | <a href="index.html#case_when">caseWhen</a>
 | ( <a href="index.html#operand">operand</a> )
-| [ <a href="index.html#alias">tableAlias</a>. ] <a href="index.html#name">columnName</a>
+| [ <a href="index.html#alias">tableAlias</a>. ] <a href="index.html#column_ref">columnRef</a>
 </pre>
 syntax-end -->
 <p>A value.</p>

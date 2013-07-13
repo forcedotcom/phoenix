@@ -34,6 +34,18 @@ The top level commands, SQL syntax, built-in functions, and supported data types
 
     <a href="#unsigned_long_type" >UNSIGNED_LONG Type</a><br />
 
+    <a href="#tinyint_type" >TINYINT Type</a><br />
+
+    <a href="#unsigned_tinyint_type" >UNSIGNED_TINYINT Type</a><br />
+
+    <a href="#smallint_type" >SMALLINT Type</a><br />
+
+    <a href="#unsigned_smallint_type" >UNSIGNED_SMALLINT Type</a><br />
+
+    <a href="#float_type" >FLOAT Type</a><br />
+
+    <a href="#double_type" >DOUBLE Type</a><br />
+
     <a href="#decimal_type" >DECIMAL Type</a><br />
 
     <a href="#boolean_type" >BOOLEAN Type</a><br />
@@ -66,19 +78,31 @@ syntax-end -->
             
                 <a href="#unsigned_long_type" >UNSIGNED_LONG Type</a><br />
             
-                <a href="#decimal_type" >DECIMAL Type</a><br />
+                <a href="#tinyint_type" >TINYINT Type</a><br />
+            
+                <a href="#unsigned_tinyint_type" >UNSIGNED_TINYINT Type</a><br />
+            
+                <a href="#smallint_type" >SMALLINT Type</a><br />
                     </td><td class="index">
+            
+                <a href="#unsigned_smallint_type" >UNSIGNED_SMALLINT Type</a><br />
+            
+                <a href="#float_type" >FLOAT Type</a><br />
+            
+                <a href="#double_type" >DOUBLE Type</a><br />
+            
+                <a href="#decimal_type" >DECIMAL Type</a><br />
             
                 <a href="#boolean_type" >BOOLEAN Type</a><br />
             
                 <a href="#time_type" >TIME Type</a><br />
             
                 <a href="#date_type" >DATE Type</a><br />
+                    </td><td class="index">
             
                 <a href="#timestamp_type" >TIMESTAMP Type</a><br />
             
                 <a href="#varchar_type" >VARCHAR Type</a><br />
-                    </td><td class="index">
             
                 <a href="#char_type" >CHAR Type</a><br />
             
@@ -162,6 +186,114 @@ syntax-end -->
 <p>Possible values: 0 to 9223372036854775807. Mapped to <code>java.lang.Long</code>. The binary representation is an 8 byte integer, matching the <code>HBase.toBytes</code>(long) method.</p>
 <p>Example:</p>
 <p class="notranslate">UNSIGNED_LONG</p>
+
+<h3 id="tinyint_type" class="notranslate">TINYINT Type</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+TINYINT
+</pre>
+<div name="railroad">
+<code class="c">TINYINT</code>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+TINYINT
+</pre>
+syntax-end -->
+<p>Possible values: -128 to 127. Mapped to <code>java.lang.Byte</code>. The binary representation is an 1 byte integer, matching the <code>HBase.toBytes</code>(byte) method with the sign bit flipped so that a negative Byte sorts before a positive Byte.</p>
+<p>Example:</p>
+<p class="notranslate">TINYINT</p>
+
+<h3 id="unsigned_tinyint_type" class="notranslate">UNSIGNED_TINYINT Type</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+UNSIGNED_TINYINT
+</pre>
+<div name="railroad">
+<code class="c">UNSIGNED_TINYINT</code>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+UNSIGNED_TINYINT
+</pre>
+syntax-end -->
+<p>Possible values: 0 to 127. Mapped to <code>java.lang.Byte</code>. The binary representation is an 1 byte integer, matching the <code>HBase.toBytes</code>(byte) method.</p>
+<p>Example:</p>
+<p class="notranslate">UNSIGNED_TINYINT</p>
+
+<h3 id="smallint_type" class="notranslate">SMALLINT Type</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+SMALLINT
+</pre>
+<div name="railroad">
+<code class="c">SMALLINT</code>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+SMALLINT
+</pre>
+syntax-end -->
+<p>Possible values: -32768 to 32767. Mapped to <code>java.lang.Short</code>. The binary representation is an 2 byte integer, matching the <code>HBase.toBytes</code>(short) method with the sign bit flipped so that a negative Short sorts before a positive Short.</p>
+<p>Example:</p>
+<p class="notranslate">SMALLINT</p>
+
+<h3 id="unsigned_smallint_type" class="notranslate">UNSIGNED_SMALLINT Type</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+UNSIGNED_SMALLINT
+</pre>
+<div name="railroad">
+<code class="c">UNSIGNED_SMALLINT</code>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+UNSIGNED_SMALLINT
+</pre>
+syntax-end -->
+<p>Possible values: 0 to 32767. Mapped to <code>java.lang.Short</code>. The binary representation is an 2 byte integer, matching the <code>HBase.toBytes</code>(short) method.</p>
+<p>Example:</p>
+<p class="notranslate">UNSIGNED_SMALLINT</p>
+
+<h3 id="float_type" class="notranslate">FLOAT Type</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+FLOAT
+</pre>
+<div name="railroad">
+<code class="c">FLOAT</code>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+FLOAT
+</pre>
+syntax-end -->
+<p>Possible values: -3.402823466 E + 38 to 3.402823466 E + 38. Mapped to <code>java.lang.Float</code>. The binary representation is an 4 byte integer, matching the <code>HBase.toBytes</code>(float) method with the sign bit flipped so that a negative Float sorts before a positive Float.</p>
+<p>Example:</p>
+<p class="notranslate">FLOAT</p>
+
+<h3 id="double_type" class="notranslate">DOUBLE Type</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+DOUBLE
+</pre>
+<div name="railroad">
+<code class="c">DOUBLE</code>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+DOUBLE
+</pre>
+syntax-end -->
+<p>Possible values: -1.7976931348623158 E + 308 to 1.7976931348623158 E + 308. Mapped to <code>java.lang.Double</code>. The binary representation is an 8 byte integer, matching the <code>HBase.toBytes</code>(double) method with the sign bit flipped so that a negative Double sorts before a positive Double</p>
+<p>Example:</p>
+<p class="notranslate">DOUBLE</p>
 
 <h3 id="decimal_type" class="notranslate">DECIMAL Type</h3>
 <!-- railroad-start -->

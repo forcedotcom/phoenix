@@ -35,6 +35,16 @@ The top level commands, SQL syntax, built-in functions, and supported data types
     <a href="#min" >MIN</a><br />
 
     <a href="#sum" >SUM</a><br />
+
+    <a href="#percentile_cont" >PERCENTILE_CONT</a><br />
+
+    <a href="#percentile_disc" >PERCENTILE_DISC</a><br />
+
+    <a href="#percentile_rank" >PERCENTILE_RANK</a><br />
+
+    <a href="#stddev_pop" >STDDEV_POP</a><br />
+
+    <a href="#stddev_samp" >STDDEV_SAMP</a><br />
 </p>
 syntax-end -->
 <!-- railroad-start -->
@@ -45,7 +55,6 @@ syntax-end -->
                 <a href="#avg" >AVG</a><br />
             
                 <a href="#count" >COUNT</a><br />
-                    </td><td class="index">
             
                 <a href="#max" >MAX</a><br />
             
@@ -53,6 +62,17 @@ syntax-end -->
                     </td><td class="index">
             
                 <a href="#sum" >SUM</a><br />
+            
+                <a href="#percentile_cont" >PERCENTILE_CONT</a><br />
+            
+                <a href="#percentile_disc" >PERCENTILE_DISC</a><br />
+            
+                <a href="#percentile_rank" >PERCENTILE_RANK</a><br />
+                    </td><td class="index">
+            
+                <a href="#stddev_pop" >STDDEV_POP</a><br />
+            
+                <a href="#stddev_samp" >STDDEV_SAMP</a><br />
                     </td>
     </tr>
 </table>
@@ -197,18 +217,18 @@ syntax-end -->
 <h3 id="count" class="notranslate">COUNT</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-COUNT( { * | { <a href="index.html#term">term</a> } } )
+COUNT( [ DISTINCT ] { * | { <a href="index.html#term">term</a> } } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COUNT (</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">*</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#term">term</a></code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COUNT (</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DISTINCT</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">*</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#term">term</a></code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-COUNT( { * | { <a href="index.html#term">term</a> } } )
+COUNT( [ DISTINCT ] { * | { <a href="index.html#term">term</a> } } )
 </pre>
 syntax-end -->
-<p>The count of all row, or of the non-null values. This method returns a long. If no rows are selected, the result is 0. Aggregates are only allowed in select statements.</p>
+<p>The count of all row, or of the non-null values. This method returns a long. When <code>DISTINCT</code> is used, it counts only distinct values. If no rows are selected, the result is 0. Aggregates are only allowed in select statements.</p>
 <p>Example:</p>
 <p class="notranslate">COUNT(*)</p>
 
@@ -265,6 +285,96 @@ syntax-end -->
 <p>The sum of all values. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
 <p>Example:</p>
 <p class="notranslate">SUM(X)</p>
+
+<h3 id="percentile_cont" class="notranslate">PERCENTILE_CONT</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+PERCENTILE_CONT( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_CONT ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+PERCENTILE_CONT( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+</pre>
+syntax-end -->
+<p>The nth percentile of values in the column. The percentile value can be between 0 and 1 inclusive. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
+<p>Example:</p>
+<p class="notranslate">PERCENTILE_CONT( 0.9 ) WITHIN GROUP (ORDER BY X ASC)</p>
+
+<h3 id="percentile_disc" class="notranslate">PERCENTILE_DISC</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+PERCENTILE_DIST( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_DIST ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+PERCENTILE_DIST( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+</pre>
+syntax-end -->
+<p><code>PERCENTILE_DISC</code> is an inverse distribution function that assumes a discrete distribution model. It takes a percentile value and a sort specification and returns an element from the set. Nulls are ignored in the calculation.</p>
+<p>Example:</p>
+<p class="notranslate">PERCENTILE_DISC( 0.9 ) WITHIN GROUP (ORDER BY X DESC)</p>
+
+<h3 id="percentile_rank" class="notranslate">PERCENTILE_RANK</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+PERCENTILE_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_RANK ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+PERCENTILE_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+</pre>
+syntax-end -->
+<p>The percentile rank for a hypothetical value, if inserted into the column. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
+<p>Example:</p>
+<p class="notranslate">PERCENTILE_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)</p>
+
+<h3 id="stddev_pop" class="notranslate">STDDEV_POP</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+STDDEV_POP( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">STDDEV_POP ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+STDDEV_POP( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+syntax-end -->
+<p>The population standard deviation of all values. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
+<p>Example:</p>
+<p class="notranslate">STDDEV_POP( X )</p>
+
+<h3 id="stddev_samp" class="notranslate">STDDEV_SAMP</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+STDDEV_SAMP( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">STDDEV_SAMP ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+STDDEV_SAMP( { <a href="index.html#term">numericTerm</a> } )
+</pre>
+syntax-end -->
+<p>The sample standard deviation of all values. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
+<p>Example:</p>
+<p class="notranslate">STDDEV_SAMP( X )</p>
 
 <h3 id="coalesce" class="notranslate">COALESCE</h3>
 <!-- railroad-start -->
