@@ -29,36 +29,10 @@ package com.salesforce.phoenix.schema;
 
 
 public enum PTableType {
-    SYSTEM("s") {
-        @Override
-        public PTableType getRootType() {
-            return SYSTEM;
-        }
-    }, 
-    USER("u") {
-        @Override
-        public PTableType getRootType() {
-            return USER;
-        }
-    },
-    VIEW("v") {
-        @Override
-        public PTableType getRootType() {
-            return VIEW;
-        }
-    },
-    INDEX("i") {
-        @Override
-        public PTableType getRootType() {
-            return INDEX;
-        }
-    },
-    IMMUTABLE("m") {
-        @Override
-        public PTableType getRootType() {
-            return USER;
-        }
-    }; 
+    SYSTEM("s"), 
+    USER("u"),
+    VIEW("v"),
+    INDEX("i"); 
 
     private final String serializedValue;
     
@@ -69,8 +43,6 @@ public enum PTableType {
     public String getSerializedValue() {
         return serializedValue;
     }
-    
-    abstract public PTableType getRootType();
     
     private static final PTableType[] FROM_VALUE;
     private static final int FROM_VALUE_OFFSET;

@@ -11,6 +11,7 @@ import java.util.Properties;
 import org.junit.Test;
 
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
@@ -361,5 +362,21 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         } finally {
             conn.close();
         }
+    }
+    
+    @Test
+    public void testSetImmutableRowsOnExistingTable() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)");
+        try {
+            conn.createStatement().execute("CREATE INDEX i ON t (v DESC)");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.INDEX_ONLY_ON_IMMUTABLE_TABLE.getErrorCode(), e.getErrorCode());
+        }
+        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("CREATE INDEX i ON t (v DESC)");
     }
 }

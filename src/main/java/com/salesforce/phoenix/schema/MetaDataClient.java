@@ -126,8 +126,9 @@ public class MetaDataClient {
             SALT_BUCKETS + "," +
             PK_NAME + "," +
             DATA_TABLE_NAME + "," +
-            INDEX_STATE +
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            INDEX_STATE + "," +
+            IMMUTABLE_ROWS +
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String CREATE_INDEX_LINK =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
             TABLE_SCHEM_NAME + "," +
@@ -146,8 +147,9 @@ public class MetaDataClient {
         TABLE_NAME_NAME + "," +
         TABLE_TYPE_NAME + "," +
         TABLE_SEQ_NUM + "," +
-        COLUMN_COUNT +
-        ") VALUES (?, ?, ?, ?, ?)";
+        COLUMN_COUNT + "," +
+        IMMUTABLE_ROWS +
+        ") VALUES (?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_INDEX_STATE =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
             TABLE_SCHEM_NAME + "," +
@@ -271,7 +273,7 @@ public class MetaDataClient {
         List<ColumnName> includedColumns = statement.getIncludeColumns();
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         TableRef tableRef = resolver.getTables().get(0);
-        if (tableRef.getTable().getType() != PTableType.IMMUTABLE) {
+        if (!tableRef.getTable().isImmutableRows()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_ONLY_ON_IMMUTABLE_TABLE).setSchemaName(tableRef.getSchema().getName())
             .setTableName(tableRef.getTable().getName().getString()).build().buildException();
         }
@@ -414,24 +416,17 @@ public class MetaDataClient {
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
             
-            // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
-            if (tableType == PTableType.SYSTEM) {
-                PTable table = PTableImpl.makePTable(new PNameImpl(tableName), tableType, MetaDataProtocol.MIN_TABLE_TIMESTAMP, 0, QueryConstants.SYSTEM_TABLE_PK_NAME, null, columns);
-                connection.addTable(schemaName, table, null);
-            }
-            
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());
             Map<String,Object> commonFamilyProps = Collections.emptyMap();
             Map<String,Object> tableProps = Collections.emptyMap();
             if (!statement.getProps().isEmpty()) {
-                if (statement.getTableType() == PTableType.VIEW) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
-                }
                 for (String familyName : statement.getProps().keySet()) {
                     if (!familyName.equals(QueryConstants.ALL_FAMILY_PROPERTIES_KEY)) {
                         if (familyNames.get(familyName) == null) {
                             throw new SQLExceptionInfo.Builder(SQLExceptionCode.PROPERTIES_FOR_FAMILY)
                                 .setFamilyName(familyName).build().buildException();
+                        } else if (statement.getTableType() == PTableType.VIEW) {
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
                         }
                     }
                 }
@@ -450,6 +445,22 @@ public class MetaDataClient {
                 }
             }
             
+            Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
+            if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
+            }
+            boolean isImmutableRows;
+            Boolean isImmutableRowsProp = (Boolean) tableProps.remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME);
+            if (isImmutableRowsProp == null) {
+                isImmutableRows = connection.getQueryServices().getProps().getBoolean(QueryServices.IMMUTABLE_ROWS_ATTRIB, QueryServicesOptions.DEFAULT_IMMUTABLE_ROWS);
+            } else {
+                isImmutableRows = isImmutableRowsProp;
+            }
+
+            // Delay this check as it is supported to have IMMUTABLE_ROWS and SALT_BUCKETS defined on views
+            if (statement.getTableType() == PTableType.VIEW && !tableProps.isEmpty()) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
+            }
             for (PName familyName : familyNames.values()) {
                 Collection<Pair<String,Object>> props = statement.getProps().get(familyName.getString());
                 if (props.isEmpty()) {
@@ -464,14 +475,16 @@ public class MetaDataClient {
                 }
             }
             
+            // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
+            if (tableType == PTableType.SYSTEM) {
+                PTable table = PTableImpl.makePTable(new PNameImpl(tableName), tableType, null, MetaDataProtocol.MIN_TABLE_TIMESTAMP, PTable.INITIAL_SEQ_NUM, QueryConstants.SYSTEM_TABLE_PK_NAME, null, columns, null, Collections.<PTable>emptyList(), isImmutableRows);
+                connection.addTable(schemaName, table, null);
+            }
+            
             for (PColumn column : columns) {
                 addColumnMutation(schemaName, tableName, column, colUpsert, parentTableName);
             }
             
-            Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
-            }
             if (saltBucketNum != null) {
                 ((LinkedList<PColumn>) pkColumns).addFirst(SaltingUtil.SALTING_COLUMN);
             }
@@ -481,16 +494,6 @@ public class MetaDataClient {
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
             connection.rollback();
             
-            boolean isImmutableRows;
-            Boolean isImmutableRowsProp = (Boolean) tableProps.remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME);
-            if (isImmutableRowsProp == null) {
-                isImmutableRows = connection.getQueryServices().getProps().getBoolean(QueryServices.IMMUTABLE_ROWS_ATTRIB, QueryServicesOptions.DEFAULT_IMMUTABLE_ROWS);
-            } else {
-                isImmutableRows = isImmutableRowsProp;
-            }
-            if (isImmutableRows) {
-                tableType = PTableType.IMMUTABLE;
-            }
             String dataTableName = parent == null ? null : parent.getName().getString();
             PIndexState indexState = parent == null ? null : PIndexState.BUILDING;
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
@@ -507,6 +510,7 @@ public class MetaDataClient {
             tableUpsert.setString(7, pkName);
             tableUpsert.setString(8, dataTableName);
             tableUpsert.setString(9, indexState == null ? null : indexState.getSerializedValue());
+            tableUpsert.setBoolean(10, isImmutableRows);
             tableUpsert.execute();
             
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
@@ -542,7 +546,7 @@ public class MetaDataClient {
             default:
                 PTable table =  PTableImpl.makePTable(
                         new PNameImpl(tableName), tableType, indexState, result.getMutationTime(), PTable.INITIAL_SEQ_NUM, 
-                        pkName == null ? null : new PNameImpl(pkName), saltBucketNum, columns, dataTableName == null ? null : new PNameImpl(dataTableName), Collections.<PTable>emptyList());
+                        pkName == null ? null : new PNameImpl(pkName), saltBucketNum, columns, dataTableName == null ? null : new PNameImpl(dataTableName), Collections.<PTable>emptyList(), isImmutableRows);
                 connection.addTable(schemaName, table, parentTableName);
                 if (tableType != PTableType.VIEW) {
                     connection.setAutoCommit(true);
@@ -699,7 +703,7 @@ public class MetaDataClient {
                 
                 List<PColumn> columns = Lists.newArrayListWithExpectedSize(1);
                 ColumnDef colDef = statement.getColumnDef();
-                if (!colDef.isNull() && colDef.isPK()) {
+                if (colDef != null && !colDef.isNull() && colDef.isPK()) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
                         .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
                 }
@@ -708,21 +712,31 @@ public class MetaDataClient {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.SALT_ONLY_ON_CREATE_TABLE).setSchemaName(schema.getName())
                     .setTableName(table.getName().getString()).build().buildException();
                 }
-                if (statement.getProps().remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME) != null) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.IMMUTABLE_ROWS_ONLY_ON_CREATE_TABLE).setSchemaName(schema.getName())
-                    .setTableName(table.getName().getString()).build().buildException();
+                boolean isImmutableRows = table.isImmutableRows();
+                Boolean isImmutableRowsProp = (Boolean)statement.getProps().remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME);
+                if (isImmutableRowsProp != null) {
+                    isImmutableRows = isImmutableRowsProp;
                 }
                 
                 PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
                 Pair<byte[],Map<String,Object>> family = null;
-                PColumn column = newColumn(ordinalPosition++, colDef, PrimaryKeyConstraint.EMPTY);
-                addColumnMutation(schemaName, tableName, column, colUpsert, null);
-                columns.add(column);
-                if (column.getFamilyName() != null) {
-                    family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
+                if (colDef != null) {
+                    PColumn column = newColumn(ordinalPosition++, colDef, PrimaryKeyConstraint.EMPTY);
+                    addColumnMutation(schemaName, tableName, column, colUpsert, null);
+                    columns.add(column);
+                    // TODO: support setting properties on other families?
+                    if (column.getFamilyName() != null) {
+                        family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
+                    }
+                    tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
+                    connection.rollback();
+                } else {
+                    // Only support setting IMMUTABLE_ROWS=true on ALTER TABLE SET command
+                    if (!statement.getProps().isEmpty()) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.SET_UNSUPPORTED_PROP_ON_ALTER_TABLE).setSchemaName(schema.getName())
+                        .setTableName(table.getName().getString()).build().buildException();
+                    }
                 }
-                tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
-                connection.rollback();
                 
                 final long seqNum = table.getSequenceNumber() + 1;
                 PreparedStatement tableUpsert = connection.prepareStatement(MUTATE_TABLE);
@@ -731,6 +745,7 @@ public class MetaDataClient {
                 tableUpsert.setString(3, table.getType().getSerializedValue());
                 tableUpsert.setLong(4, seqNum);
                 tableUpsert.setInt(5, ordinalPosition);
+                tableUpsert.setBoolean(6, isImmutableRows);
                 tableUpsert.execute();
                 
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
@@ -752,7 +767,7 @@ public class MetaDataClient {
                         }
                         return new MutationState(0,connection);
                     }
-                    connection.addColumn(schemaName, tableName, columns, seqNum, result.getMutationTime());
+                    connection.addColumn(schemaName, tableName, columns, result.getMutationTime(), seqNum, isImmutableRows);
                     if (emptyCF != null) {
                         Long scn = connection.getSCN();
                         connection.setAutoCommit(true);
@@ -848,6 +863,7 @@ public class MetaDataClient {
                 tableUpsert.setString(3, table.getType().getSerializedValue());
                 tableUpsert.setLong(4, seqNum);
                 tableUpsert.setInt(5, columnCount);
+                tableUpsert.setBoolean(6, table.isImmutableRows());
                 tableUpsert.execute();
                 
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
@@ -871,7 +887,7 @@ public class MetaDataClient {
                         }
                         return new MutationState(0, connection);
                     }
-                    connection.removeColumn(schemaName, tableName, familyName, columnToDrop.getName().getString(), seqNum, result.getMutationTime());
+                    connection.removeColumn(schemaName, tableName, familyName, columnToDrop.getName().getString(), result.getMutationTime(), seqNum);
                     // If we have a VIEW, then only delete the metadata, and leave the table data alone
                     if (table.getType() != PTableType.VIEW) {
                         connection.setAutoCommit(true);

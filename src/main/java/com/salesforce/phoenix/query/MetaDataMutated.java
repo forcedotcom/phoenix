@@ -43,6 +43,6 @@ import com.salesforce.phoenix.schema.*;
 public interface MetaDataMutated {
     PMetaData addTable(String schemaName, PTable table, String parentTableName) throws SQLException;
     PMetaData removeTable(String schemaName, String tableName) throws SQLException;
-    PMetaData addColumn(String schemaName, String tableName, List<PColumn> columns, long tableSeqNum, long tableTimeStamp) throws SQLException;
-    PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName, long tableSeqNum, long tableTimeStamp) throws SQLException;
+    PMetaData addColumn(String schemaName, String tableName, List<PColumn> columns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException;
+    PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName, long tableTimeStamp, long tableSeqNum) throws SQLException;
 }

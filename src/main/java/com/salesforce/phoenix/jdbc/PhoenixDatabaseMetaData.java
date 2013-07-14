@@ -123,6 +123,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String SOURCE_DATA_TYPE = "SOURCE_DATA_TYPE";
     public static final String IS_AUTOINCREMENT = "IS_AUTOINCREMENT";
     public static final String COLUMN_MODIFIER = "COLUMN_MODIFIER";
+    public static final String IMMUTABLE_ROWS = "IMMUTABLE_ROWS";
+    public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getString();
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getBytes();
@@ -792,7 +794,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 TYPE_NAME + "," +
                 SELF_REFERENCING_COL_NAME_NAME + "," +
                 REF_GENERATION_NAME + "," +
-                INDEX_STATE +
+                INDEX_STATE + "," +
+                IMMUTABLE_ROWS +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");

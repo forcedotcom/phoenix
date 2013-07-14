@@ -93,6 +93,7 @@ tokens
     WITHIN='within';
     ENABLE='enable';
     DISABLE='disable';
+    SET='set';
 }
 
 
@@ -444,7 +445,7 @@ alter_index_node returns [AlterIndexStatement ret]
 // Parse an alter table statement.
 alter_table_node returns [AlterTableStatement ret]
     :   ALTER TABLE t=from_table_name
-        ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) )
+        ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) | (SET (p=properties)) )
         {ret = ( c == null ? factory.addColumn(factory.namedTable(null,t), d, ex!=null, p) : factory.dropColumn(factory.namedTable(null,t), c, ex!=null) ); }
     ;
 

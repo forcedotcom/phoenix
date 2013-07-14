@@ -182,8 +182,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
-        // TODO: need type info for parameters to support this
-        throw new SQLFeatureNotSupportedException();
+        parameters.set(parameterIndex - 1, x);
     }
 
     @Override

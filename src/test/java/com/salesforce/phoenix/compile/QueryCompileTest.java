@@ -929,21 +929,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testSetImmutableOnAlterTable() throws Exception {
-        long ts = nextTimestamp();
-        String query = "ALTER TABLE atable ADD xyz INTEGER IMMUTABLE_ROWS=true";
-        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
-        Connection conn = DriverManager.getConnection(url);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            statement.execute();
-            fail();
-        } catch (SQLException e) { // expected
-            assertTrue(e.getErrorCode() == SQLExceptionCode.IMMUTABLE_ROWS_ONLY_ON_CREATE_TABLE.getErrorCode());
-        }
-    }
-
-    @Test
     public void testSetSaltBucketOnAlterTable() throws Exception {
         long ts = nextTimestamp();
         String query = "ALTER TABLE atable ADD xyz INTEGER SALT_BUCKETS=4";

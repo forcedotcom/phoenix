@@ -90,9 +90,9 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> columns, long tableSeqNum,
-            long tableTimeStamp) throws SQLException {
-        return metaData = metaData.addColumn(schemaName, tableName, columns, tableSeqNum, tableTimeStamp);
+    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> columns, long tableTimeStamp,
+            long tableSeqNum, boolean isImmutableRows) throws SQLException {
+        return metaData = metaData.addColumn(schemaName, tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
     }
 
     @Override
@@ -103,8 +103,8 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName,
-            long tableSeqNum, long tableTimeStamp) throws SQLException {
-        return metaData = metaData.removeColumn(schemaName, tableName, familyName, columnName, tableSeqNum, tableTimeStamp);
+            long tableTimeStamp, long tableSeqNum) throws SQLException {
+        return metaData = metaData.removeColumn(schemaName, tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
     }
 
     

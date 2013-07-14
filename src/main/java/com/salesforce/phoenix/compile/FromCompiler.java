@@ -172,8 +172,7 @@ public class FromCompiler {
                             dynColumn.getScale(), dynColumn.isNull(), position, dynColumn.getColumnModifier()));
                     position++;
                 }
-                theTable = PTableImpl.makePTable(theTable.getName(), theTable.getType(), theTable.getTimeStamp(),
-                        theTable.getSequenceNumber(), theTable.getPKName(), theTable.getBucketNum(), allcolumns);
+                theTable = PTableImpl.makePTable(theTable, allcolumns);
             }
             return theTable;
         }

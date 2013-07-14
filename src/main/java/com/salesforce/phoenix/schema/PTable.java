@@ -177,4 +177,5 @@ public interface PTable extends Writable {
      * @return the name of the data table that this index is on.
      */
     PName getDataTableName();
+    boolean isImmutableRows();
 }

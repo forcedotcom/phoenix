@@ -150,7 +150,7 @@ public class MutationState implements SQLCloseable {
         }
         final byte[] schemaName = Bytes.toBytes(tableRef.getSchema().getName());
         final Iterator<PTable> indexes = // Only maintain tables with immutable rows through this client-side mechanism
-                tableRef.getTable().getType() == PTableType.IMMUTABLE ? 
+                tableRef.getTable().isImmutableRows() ? 
                         tableRef.getTable().getIndexes().iterator() : 
                         Iterators.<PTable>emptyIterator();
         return new Iterator<Pair<byte[],List<Mutation>>>() {

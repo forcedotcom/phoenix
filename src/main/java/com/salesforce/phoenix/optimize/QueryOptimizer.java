@@ -38,7 +38,7 @@ public class QueryOptimizer {
          * Only indexes on tables with immutable rows may be used until we hook up
          * incremental index maintenance. 
          */
-        if (dataTable.getType() != PTableType.IMMUTABLE || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols()) {
+        if (!dataTable.isImmutableRows() || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols()) {
             return dataPlan;
         }
         

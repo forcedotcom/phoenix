@@ -127,7 +127,8 @@ public interface QueryConstants {
             SOURCE_DATA_TYPE + " INTEGER," + // supposed to be SHORT
             IS_AUTOINCREMENT + " VARCHAR," +
             COLUMN_MODIFIER + " INTEGER," +
-            INDEX_STATE + " CHAR(1)\n" +
+            INDEX_STATE + " CHAR(1)\n," +
+            IMMUTABLE_ROWS + " BOOLEAN\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
             + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +

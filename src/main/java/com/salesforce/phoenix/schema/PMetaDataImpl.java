@@ -95,7 +95,7 @@ public class PMetaDataImpl implements PMetaData {
     }
 
     @Override
-    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> newColumns, long tableSeqNum, long tableTimeStamp) throws SQLException {
+    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> newColumns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException {
         Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
         PSchema schema = getSchema(schemaName);
         PTable table = schema.getTable(tableName);
@@ -103,7 +103,7 @@ public class PMetaDataImpl implements PMetaData {
         columns.addAll(table.getColumns());
         columns.addAll(newColumns);
         Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
-        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns);
+        PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns, isImmutableRows);
         tables.put(tableName, newTable);
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schema.getName(), schema);
@@ -137,7 +137,7 @@ public class PMetaDataImpl implements PMetaData {
     }
     
     @Override
-    public PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName, long tableSeqNum, long tableTimeStamp) throws SQLException {
+    public PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName, long tableTimeStamp, long tableSeqNum) throws SQLException {
         PSchema schema = getSchema(schemaName);
         Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
         PTable table = schema.getTable(tableName);
@@ -159,7 +159,7 @@ public class PMetaDataImpl implements PMetaData {
         }
         
         Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
-        PTable newTable = PTableImpl.makePTable(table.getName(), table.getType(), tableSeqNum, tableTimeStamp, table.getPKName(), table.getBucketNum(), columns);
+        PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns);
         tables.put(tableName, newTable);
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schema.getName(), schema);
