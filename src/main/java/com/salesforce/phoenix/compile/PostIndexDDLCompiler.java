@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.*;
-import java.util.List;
 
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -41,18 +40,16 @@ import com.salesforce.phoenix.util.IndexUtil;
  * Class that compiles plan to generate initial data values after a DDL command for
  * index table.
  */
-public class PostIndexDDLCompiler implements PostOpCompiler {
+public class PostIndexDDLCompiler {
     private final PhoenixConnection connection;
-    private final PTable dataTable;
+    private final TableRef dataTableRef;
 
-    public PostIndexDDLCompiler(PhoenixConnection connection, PTable dataTable) {
+    public PostIndexDDLCompiler(PhoenixConnection connection, TableRef dataTableRef) {
         this.connection = connection;
-        this.dataTable = dataTable;
+        this.dataTableRef = dataTableRef;
     }
 
-    @Override
-    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList,
-            final long timestamp) throws SQLException {
+    public MutationPlan compile(final PTable indexTable) throws SQLException {
         return new MutationPlan() {
 
             @Override
@@ -72,53 +69,52 @@ public class PostIndexDDLCompiler implements PostOpCompiler {
 
             @Override
             public MutationState execute() throws SQLException {
-                /*
-                 * Handles:
-                 * 1) Populate a newly created table with contents.
-                 * 2) Activate the index by setting the INDEX_STATE to 
-                 */
-                // NOTE: For first version, we would use a upsert/select to populate the new index table and
-                //   returns synchronously. Creating an index on an existing table with large amount of data
-                //   will as a result take a very very long time.
-                //   In the long term, we should change this to an asynchronous process to populate the index
-                //   that would allow the user to easily monitor the process of index creation.
-                StringBuilder indexColumns = new StringBuilder();
-                StringBuilder dataColumns = new StringBuilder();
-                PTable indexTable = tableRef.getTable();
-                for (PColumn col: dataTable.getColumns()) {
-                    String indexColName = IndexUtil.getIndexColumnName(col);
-                    try {
-                        indexTable.getColumn(indexColName);
-                        if (col.getFamilyName() != null) {
-                            dataColumns.append('"').append(col.getFamilyName()).append("\".");
-                        }
-                        dataColumns.append('"').append(col.getName()).append("\",");
-                        indexColumns.append('"').append(indexColName).append("\",");
-                    } catch (ColumnNotFoundException e) {
-                        // Catch and ignore - means that this data column is not in the index
-                    }
-                }
-                dataColumns.setLength(dataColumns.length()-1);
-                indexColumns.setLength(indexColumns.length()-1);
-                String schemaName = tableRef.getSchema().getName();
-                String tableName = tableRef.getTable().getName().getString();
-                
-                StringBuilder updateStmtStr = new StringBuilder();
-                updateStmtStr.append("UPSERT INTO ").append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(tableName).append("\"(")
-                    .append(indexColumns).append(") SELECT ").append(dataColumns).append(" FROM ")
-                    .append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(dataTable.getName().getString()).append('"');
-                PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
                 boolean wasAutoCommit = connection.getAutoCommit();
-                int rowsUpdated = 0;
                 try {
                     connection.setAutoCommit(true);
+                    /*
+                     * Handles:
+                     * 1) Populate a newly created table with contents.
+                     * 2) Activate the index by setting the INDEX_STATE to 
+                     */
+                    // NOTE: For first version, we would use a upsert/select to populate the new index table and
+                    //   returns synchronously. Creating an index on an existing table with large amount of data
+                    //   will as a result take a very very long time.
+                    //   In the long term, we should change this to an asynchronous process to populate the index
+                    //   that would allow the user to easily monitor the process of index creation.
+                    StringBuilder indexColumns = new StringBuilder();
+                    StringBuilder dataColumns = new StringBuilder();
+                    for (PColumn col: dataTableRef.getTable().getColumns()) {
+                        String indexColName = IndexUtil.getIndexColumnName(col);
+                        try {
+                            indexTable.getColumn(indexColName);
+                            if (col.getFamilyName() != null) {
+                                dataColumns.append('"').append(col.getFamilyName()).append("\".");
+                            }
+                            dataColumns.append('"').append(col.getName()).append("\",");
+                            indexColumns.append('"').append(indexColName).append("\",");
+                        } catch (ColumnNotFoundException e) {
+                            // Catch and ignore - means that this data column is not in the index
+                        }
+                    }
+                    dataColumns.setLength(dataColumns.length()-1);
+                    indexColumns.setLength(indexColumns.length()-1);
+                    String schemaName = dataTableRef.getSchema().getName();
+                    String tableName = indexTable.getName().getString();
+                    
+                    StringBuilder updateStmtStr = new StringBuilder();
+                    updateStmtStr.append("UPSERT INTO ").append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(tableName).append("\"(")
+                        .append(indexColumns).append(") SELECT ").append(dataColumns).append(" FROM ")
+                        .append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(dataTableRef.getTable().getName().getString()).append('"');
+                    PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
+                    int rowsUpdated = 0;
                     updateStmt.execute();
                     rowsUpdated = updateStmt.getUpdateCount();
+                    // Return number of rows built for index
+                    return new MutationState(rowsUpdated, connection);
                 } finally {
                     if (!wasAutoCommit) connection.setAutoCommit(false);
                 }
-                // Return number of rows built for index
-                return new MutationState(rowsUpdated, connection);
             }
         };
     }

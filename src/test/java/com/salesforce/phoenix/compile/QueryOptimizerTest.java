@@ -1,7 +1,7 @@
 package com.salesforce.phoenix.compile;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -18,11 +18,20 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testOrderByDropped() throws Exception {
+    public void testOrderByOptimizedOut() throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         conn.createStatement().execute("CREATE TABLE foo (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true");
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         QueryPlan plan = stmt.compileQuery("SELECT * FROM foo ORDER BY k");
+        assertEquals(OrderBy.ROW_KEY_ORDER_BY,plan.getOrderBy());
+    }
+
+    @Test
+    public void testOrderByDropped() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE foo (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true");
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        QueryPlan plan = stmt.compileQuery("SELECT * FROM foo ORDER BY 1,2,3");
         assertEquals(OrderBy.EMPTY_ORDER_BY,plan.getOrderBy());
     }
 
@@ -32,7 +41,7 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         conn.createStatement().execute("CREATE TABLE foo (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true");
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         QueryPlan plan = stmt.compileQuery("SELECT * FROM foo ORDER BY v");
-        assertTrue(OrderBy.EMPTY_ORDER_BY != plan.getOrderBy());
+        assertFalse(plan.getOrderBy().getOrderByExpressions().isEmpty());
     }
     
     @Test
@@ -41,7 +50,7 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         conn.createStatement().execute("CREATE TABLE foo (j INTEGER NOT NULL, k BIGINT NOT NULL, v VARCHAR CONSTRAINT pk PRIMARY KEY (j,k)) IMMUTABLE_ROWS=true");
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         QueryPlan plan = stmt.compileQuery("SELECT * FROM foo ORDER BY j,k");
-        assertEquals(OrderBy.EMPTY_ORDER_BY,plan.getOrderBy());
+        assertEquals(OrderBy.ROW_KEY_ORDER_BY,plan.getOrderBy());
     }
 
     @Test
@@ -50,7 +59,7 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         conn.createStatement().execute("CREATE TABLE foo (j INTEGER NOT NULL, k BIGINT NOT NULL, v VARCHAR CONSTRAINT pk PRIMARY KEY (j,k)) IMMUTABLE_ROWS=true");
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         QueryPlan plan = stmt.compileQuery("SELECT * FROM foo ORDER BY k,j");
-        assertTrue(OrderBy.EMPTY_ORDER_BY != plan.getOrderBy());
+        assertFalse(plan.getOrderBy().getOrderByExpressions().isEmpty());
     }
 
     @Test

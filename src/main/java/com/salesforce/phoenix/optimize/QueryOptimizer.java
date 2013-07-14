@@ -5,7 +5,6 @@ import java.util.*;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.*;
-import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.*;
@@ -102,7 +101,7 @@ public class QueryOptimizer {
         } else {
             for (QueryPlan plan : plans) {
                 // If ORDER BY optimized out (or not present at all)
-                if (plan.getOrderBy() == OrderBy.EMPTY_ORDER_BY) {
+                if (plan.getOrderBy().getOrderByExpressions().isEmpty()) {
                     candidates.add(plan);
                 }
             }

@@ -29,9 +29,7 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -61,7 +59,7 @@ import com.salesforce.phoenix.util.ScanUtil;
  * @author jtaylor
  * @since 0.1
  */
-public class PostDDLCompiler implements PostOpCompiler {
+public class PostDDLCompiler {
     private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
     private final PhoenixConnection connection;
 
@@ -69,7 +67,6 @@ public class PostDDLCompiler implements PostOpCompiler {
         this.connection = connection;
     }
 
-    @Override
     public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList,
             final long timestamp) throws SQLException {
         
@@ -92,91 +89,97 @@ public class PostDDLCompiler implements PostOpCompiler {
             
             @Override
             public MutationState execute() throws SQLException {
-                SQLException sqlE = null;
-                if (deleteList == null && emptyCF == null) {
-                    return new MutationState(0, connection);
-                }
-                /*
-                 * Handles:
-                 * 1) deletion of all rows for a DROP TABLE and subsequently deletion of all rows for a DROP INDEX;
-                 * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
-                 * 3) updating the necessary rows to have an empty KV
-                 */
-                List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                        NODE_FACTORY.aliasedNode(null, 
-                                NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-                Scan scan = new Scan();
-                scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
-                final List<TableRef> tableRefs = new ArrayList<TableRef>();
-                tableRefs.add(tableRef);
-                if (tableRef.getTable().getType() == PTableType.INDEX) {
-                    PTable table = tableRef.getTable();
-                    for (PTable index: table.getIndexes()) {
-                        tableRefs.add(new TableRef(null, index, tableRef.getSchema(), timestamp, false));
+                boolean wasAutoCommit = connection.getAutoCommit();
+                try {
+                    connection.setAutoCommit(true);
+                    SQLException sqlE = null;
+                    if (deleteList == null && emptyCF == null) {
+                        return new MutationState(0, connection);
                     }
-                }
-                ColumnResolver resolver = new ColumnResolver() {
-                    @Override
-                    public List<TableRef> getTables() {
-                        return tableRefs;
-                    }
-                    @Override
-                    public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
-                        throw new UnsupportedOperationException();
-                    }
-                };
-                StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
-                ScanUtil.setTimeRange(scan, timestamp);
-                if (emptyCF != null) {
-                    scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
-                }
-                if (deleteList != null) {
-                    if (deleteList.isEmpty()) {
-                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
-                    } else {
-                        PColumn column = deleteList.get(0);
-                        if (emptyCF == null) {
-                            scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
+                    /*
+                     * Handles:
+                     * 1) deletion of all rows for a DROP TABLE and subsequently deletion of all rows for a DROP INDEX;
+                     * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
+                     * 3) updating the necessary rows to have an empty KV
+                     */
+                    List<AliasedNode> select = Collections.<AliasedNode>singletonList(
+                            NODE_FACTORY.aliasedNode(null, 
+                                    NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
+                    Scan scan = new Scan();
+                    scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
+                    final List<TableRef> tableRefs = new ArrayList<TableRef>();
+                    tableRefs.add(tableRef);
+                    if (tableRef.getTable().getType() == PTableType.INDEX) {
+                        PTable table = tableRef.getTable();
+                        for (PTable index: table.getIndexes()) {
+                            tableRefs.add(new TableRef(null, index, tableRef.getSchema(), timestamp, false));
                         }
-                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
-                        scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
                     }
-                }
-                RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
-                long totalMutationCount = 0;
-                for (TableRef tableRef: tableRefs) {
-                    QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
-                    Scanner scanner = plan.getScanner();
-                    ResultIterator iterator = scanner.iterator();
-                    try {
-                        Tuple row = iterator.next();
-                        ImmutableBytesWritable ptr = context.getTempPtr();
-                        totalMutationCount += (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
-                    } catch (SQLException e) {
-                        sqlE = e;
-                    } finally {
+                    ColumnResolver resolver = new ColumnResolver() {
+                        @Override
+                        public List<TableRef> getTables() {
+                            return tableRefs;
+                        }
+                        @Override
+                        public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
+                            throw new UnsupportedOperationException();
+                        }
+                    };
+                    StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
+                    ScanUtil.setTimeRange(scan, timestamp);
+                    if (emptyCF != null) {
+                        scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
+                    }
+                    if (deleteList != null) {
+                        if (deleteList.isEmpty()) {
+                            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
+                        } else {
+                            PColumn column = deleteList.get(0);
+                            if (emptyCF == null) {
+                                scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
+                            }
+                            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
+                            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
+                        }
+                    }
+                    RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
+                    long totalMutationCount = 0;
+                    for (TableRef tableRef: tableRefs) {
+                        QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
+                        Scanner scanner = plan.getScanner();
+                        ResultIterator iterator = scanner.iterator();
                         try {
-                            iterator.close();
+                            Tuple row = iterator.next();
+                            ImmutableBytesWritable ptr = context.getTempPtr();
+                            totalMutationCount += (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
                         } catch (SQLException e) {
-                            if (sqlE == null) {
-                                sqlE = e;
-                            } else {
-                                sqlE.setNextException(e);
-                            }
+                            sqlE = e;
                         } finally {
-                            if (sqlE != null) {
-                                throw sqlE;
+                            try {
+                                iterator.close();
+                            } catch (SQLException e) {
+                                if (sqlE == null) {
+                                    sqlE = e;
+                                } else {
+                                    sqlE.setNextException(e);
+                                }
+                            } finally {
+                                if (sqlE != null) {
+                                    throw sqlE;
+                                }
                             }
                         }
                     }
+                    final long count = totalMutationCount;
+                    return new MutationState(1, connection) {
+                        @Override
+                        public long getUpdateCount() {
+                            return count;
+                        }
+                    };
+                } finally {
+                    if (!wasAutoCommit) connection.setAutoCommit(wasAutoCommit);
                 }
-                final long count = totalMutationCount;
-                return new MutationState(1, connection) {
-                    @Override
-                    public long getUpdateCount() {
-                        return count;
-                    }
-                };
             }
         };
     }

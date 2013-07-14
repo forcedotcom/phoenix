@@ -51,6 +51,10 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 public class OrderByCompiler {
     public static class OrderBy {
         public static final OrderBy EMPTY_ORDER_BY = new OrderBy(false, Collections.<OrderByExpression>emptyList());
+        /**
+         * Used to indicate that there was an ORDER BY, but it was optimized out because 
+         */
+        public static final OrderBy ROW_KEY_ORDER_BY = new OrderBy(false, Collections.<OrderByExpression>emptyList());
         
         private final boolean isAggregate;
         private final List<OrderByExpression> orderByExpressions;
@@ -120,10 +124,13 @@ public class OrderByCompiler {
             }
             visitor.reset();
         }
-        
+       
+        if (orderByExpressions.isEmpty()) {
+            return OrderBy.EMPTY_ORDER_BY;
+        }
         // If we're ordering by the order returned by the scan, we don't need an order by
         if (visitor.isOrderPreserving()) {
-            return OrderBy.EMPTY_ORDER_BY;
+            return OrderBy.ROW_KEY_ORDER_BY;
         }
 
         return new OrderBy(context.isAggregate(), Lists.newArrayList(orderByExpressions.iterator()));

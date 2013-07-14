@@ -76,7 +76,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
             DatabaseMetaData dbmd = conn.getMetaData();
-            ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.getSerializedValue()});
+            ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.getSerializedValue(), PTableType.VIEW.getSerializedValue()});
             while (rs.next()) {
                 String fullTableName = SchemaUtil.getTableDisplayName(
                         rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),

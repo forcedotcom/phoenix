@@ -850,7 +850,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 get.setTimeRange(PTable.INITIAL_SEQ_NUM, timeStamp);
                 get.addColumn(TABLE_FAMILY_BYTES, INDEX_STATE_BYTES);
                 Result currentResult = region.get(get);
-                if (currentResult == null) {
+                if (currentResult.raw().length == 0) {
                     return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 KeyValue currentStateKV = currentResult.raw()[0];

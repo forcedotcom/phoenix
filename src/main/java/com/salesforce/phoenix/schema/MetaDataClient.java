@@ -244,7 +244,28 @@ public class MetaDataClient {
     }
 
     public MutationState createTable(CreateTableStatement statement, byte[][] splits) throws SQLException {
-        return createTable(statement, splits, new PostDDLCompiler(connection), null);
+        
+        PTable table = createTable(statement, splits, null);
+        if (table == null || table.getType() == PTableType.VIEW) {
+            return new MutationState(0,connection);
+        }
+        
+        // Hack to get around the case when an SCN is specified on the connection.
+        // In this case, we won't see the table we just created yet, so we hack
+        // around it by forcing the compiler to not resolve anything.
+        PostDDLCompiler compiler = new PostDDLCompiler(connection);
+        //connection.setAutoCommit(true);
+        // Execute any necessary data updates
+        Long scn = connection.getSCN();
+        long ts = (scn == null ? table.getTimeStamp() : scn);
+        // Getting the schema through the current connection doesn't work when the connection has an scn specified
+        // Since the table won't be added to the current connection.
+        String schemaName = statement.getTableName().getSchemaName();
+        PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
+        TableRef tableRef = new TableRef(null, table, schema, ts, false);
+        byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
+        MutationPlan plan = compiler.compile(tableRef, emptyCF, null, tableRef.getTimeStamp());
+        return connection.getQueryServices().updateData(plan);
     }
 
 
@@ -322,18 +343,53 @@ public class MetaDataClient {
         TableName indexTableName = statement.getIndexTableName();
         CreateTableStatement tableStatement = FACTORY.createTable(indexTableName, statement.getProps(), columnDefs, pk, statement.getSplitNodes(), PTableType.INDEX, statement.ifNotExists(), statement.getBindCount());
         
-        MutationState state = createTable(tableStatement, splits, new PostIndexDDLCompiler(connection, tableRef.getTable()), tableRef.getTable());
-        AlterIndexStatement indexStatement = FACTORY.alterIndex(FACTORY.namedTable(null, indexTableName), dataTableName, false, PIndexState.ACTIVE);
-        alterIndex(indexStatement);
-        return state;
-     }
-
-    private MutationState createTable(CreateTableStatement statement, byte[][] splits, PostOpCompiler compiler, PTable parent) throws SQLException {
-        PTableType tableType = statement.getTableType();
-        boolean isView = tableType == PTableType.VIEW;
-        if (isView && !statement.getProps().isEmpty()) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_TABLE_CONFIG).build().buildException();
+        PTable table = createTable(tableStatement, splits, tableRef.getTable());
+        if (table == null) {
+            return new MutationState(0,connection);
         }
+        boolean success = false;
+        MetaDataClient client = this;
+        SQLException sqlException = null;
+        try {
+            // If our connection is at a fixed point-in-time, we need to open a new
+            // connection so that our new index table is visible.
+            if (connection.getSCN() != null) {
+                Properties props = new Properties(connection.getClientInfo());
+                props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(connection.getSCN()+1));
+                client = new MetaDataClient(DriverManager.getConnection(connection.getURL(), props).unwrap(PhoenixConnection.class));
+            }
+            PostIndexDDLCompiler compiler = new PostIndexDDLCompiler(client.connection, tableRef);
+            //connection.setAutoCommit(true);
+            MutationPlan plan = compiler.compile(table);
+            MutationState state = client.connection.getQueryServices().updateData(plan);
+            AlterIndexStatement indexStatement = FACTORY.alterIndex(FACTORY.namedTable(null, indexTableName), dataTableName, false, PIndexState.ACTIVE);
+            client.alterIndex(indexStatement);
+            success = true;
+            return state;
+        } catch (SQLException e) {
+            sqlException = e;
+        } finally {
+            // If we had to open another connection, then close it here
+            if (client != this) {
+                try {
+                    client.connection.close();
+                } catch (SQLException e) {
+                    if (sqlException == null) {
+                        // If we're not in the middle of throwing another exception
+                        // then throw the exception we got on close.
+                        if (success) throw e;
+                    } else {
+                        sqlException.setNextException(e);
+                        throw sqlException;
+                    }
+                }
+            }
+        }
+        return null; // impossible
+    }
+
+    private PTable createTable(CreateTableStatement statement, byte[][] splits, PTable parent) throws SQLException {
+        PTableType tableType = statement.getTableType();
         boolean wasAutoCommit = connection.getAutoCommit();
         connection.rollback();
         try {
@@ -534,7 +590,7 @@ public class MetaDataClient {
                 if (!statement.ifNotExists()) {
                     throw new TableAlreadyExistsException(schemaName, tableName);
                 }
-                break;
+                return null;
             case PARENT_TABLE_NOT_FOUND:
                 throw new TableNotFoundException(schemaName, parent.getName().getString());
             case NEWER_TABLE_FOUND:
@@ -548,22 +604,8 @@ public class MetaDataClient {
                         new PNameImpl(tableName), tableType, indexState, result.getMutationTime(), PTable.INITIAL_SEQ_NUM, 
                         pkName == null ? null : new PNameImpl(pkName), saltBucketNum, columns, dataTableName == null ? null : new PNameImpl(dataTableName), Collections.<PTable>emptyList(), isImmutableRows);
                 connection.addTable(schemaName, table, parentTableName);
-                if (tableType != PTableType.VIEW) {
-                    connection.setAutoCommit(true);
-                    // Execute any necessary data updates
-                    Long scn = connection.getSCN();
-                    long ts = (scn == null ? result.getMutationTime() : scn);
-                    // Getting the schema through the current connection doesn't work when the connection has an scn specified
-                    // Since the table won't be added to the current connection.
-                    PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
-                    TableRef tableRef = new TableRef(null, table, schema, ts, false);
-                    byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
-                    MutationPlan plan = compiler.compile(tableRef, emptyCF, null, tableRef.getTimeStamp());
-                    return connection.getQueryServices().updateData(plan);
-                }
-                break;
+                return table;
             }
-            return new MutationState(0,connection);
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }
