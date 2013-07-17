@@ -72,8 +72,13 @@
   </repositories>
 
   <properties>
-    <!-- Default HBase version -->
-    <hbase.version>0.94.9</hbase.version>
+    <!-- Currently an unreleased HBase version  - needed for correct maintenance behavior.
+		You can get away running HBase 0.94.9 if you write your own maintainer and don't care about
+		cleaning the index for 'back in time' updates. However, if you get out of order updates to 
+		a row that goes outside the max versions, raw scanning will not return the correct results
+		for the current row, leading to incorrect index maintenance.... you've been warned.
+	-->
+    <hbase.version>0.94.10-SNAPSHOT</hbase.version>
     <hadoop.version>1.0.4</hadoop.version>
     <jackson.version>1.8.8</jackson.version>
     <guava.version>12.0.1</guava.version>
@@ -306,25 +311,23 @@
     </plugins>
   </build>
 
+  <!-- Use this template when we need to support custom code for different HBase versions
   <profiles>
-    <!-- Support hbase-0.94.9 and WAL Compression -->
     <profile>
-      <id>hbase-0.94.9</id>
+      <id>hbase-{version}</id>
       <activation>
         <property>
-          <name>hbase</name>
-          <value>0.94.9</value>
+          <name>hbase.version</name>
+          <value>{version}</value>
         </property>
       </activation>
       <properties>
-        <!-- TODO: Move to 0.94.9 when released -->
-        <hbase.version>0.94.9-SNAPSHOT</hbase.version>
+        <hbase.version>${custom-hbase.version}</hbase.version>
       </properties>
-      <!-- Bring in the custom module -->
       <modules>
-      <!-- TODO: Move 0.94.9 to ${hbase.version} when HBase 0.94.9 released -->
-        <module>hbase-index-0.94.9-compat</module>
+        <module>hbase-version-compat</module>
       </modules>
     </profile>
   </profiles>
+  -->
 </project>

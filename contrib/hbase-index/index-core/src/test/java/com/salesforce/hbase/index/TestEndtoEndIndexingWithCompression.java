@@ -15,14 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.salesforce.hbase;
+package com.salesforce.hbase.index;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
 import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 import org.junit.BeforeClass;
 
-import com.salesforce.hbase.index.TestEndtoEndIndexing;
 
 /**
  * Test secondary indexing from an end-to-end perspective (client to server to index table).
