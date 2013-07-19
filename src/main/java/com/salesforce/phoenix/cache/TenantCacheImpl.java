@@ -179,7 +179,7 @@ public class TenantCacheImpl implements TenantCache {
 
         @Immutable
         private class AgeOutHashCache implements HashCache {
-            private final Map<ImmutableBytesPtr,Tuple> hashCache;
+            private final Map<ImmutableBytesPtr,List<Tuple>> hashCache;
             private final MemoryChunk memoryChunk;
             private final byte[][] cfs;
             private final byte[] tableName;
@@ -203,7 +203,7 @@ public class TenantCacheImpl implements TenantCache {
                     int nRows = dataInput.readInt();
                     int estimatedSize = SizedUtil.sizeOfMap(nRows, SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE, SizedUtil.RESULT_SIZE) + hashCacheBytes.getLength();
                     this.memoryChunk = memoryManager.allocate(estimatedSize);
-                    HashMap<ImmutableBytesPtr,Tuple> hashCacheMap = new HashMap<ImmutableBytesPtr,Tuple>(nRows * 5 / 4);
+                    HashMap<ImmutableBytesPtr,List<Tuple>> hashCacheMap = new HashMap<ImmutableBytesPtr,List<Tuple>>(nRows * 5 / 4);
                     offset += Bytes.SIZEOF_INT;
                     // Build Map with evaluated hash key as key and row as value
                     for (int i = 0; i < nRows; i++) {
@@ -212,7 +212,12 @@ public class TenantCacheImpl implements TenantCache {
                         ImmutableBytesWritable value = new ImmutableBytesWritable(hashCacheByteArray,offset,resultSize);
                         Tuple result = new ResultTuple(new Result(value));
                         ImmutableBytesPtr key = new ImmutableBytesPtr(TupleUtil.getConcatenatedValue(result, onExpressions));
-                        hashCacheMap.put(key, result);
+                        List<Tuple> tuples = hashCacheMap.get(key);
+                        if (tuples == null) {
+                            tuples = new ArrayList<Tuple>(1);
+                            hashCacheMap.put(key, tuples);
+                        }
+                        tuples.add(result);
                         offset += resultSize;
                     }
                     int cfCount = (int)Bytes.readVLong(hashCacheByteArray, offset);
@@ -250,7 +255,7 @@ public class TenantCacheImpl implements TenantCache {
             }
             
             @Override
-            public Tuple get(ImmutableBytesWritable hashKey) {
+            public List<Tuple> get(ImmutableBytesWritable hashKey) {
                 lastAccessTime = System.currentTimeMillis();
                 return hashCache.get(new ImmutableBytesPtr(hashKey));
             }
