@@ -52,6 +52,7 @@ import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.*;
@@ -117,6 +118,12 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 }
             };
         }
+        
+        final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
+        final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);        
+        final RegionScanner innerScanner = (p != null || j != null) ? 
+                s : new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment().getConfiguration());
+        
         PTable projectedTable = null;
         List<Expression> selectExpressions = null;
         byte[] upsertSelectTable = scan.getAttribute(UPSERT_SELECT_TABLE);
@@ -161,7 +168,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         	logger.info("Starting ungrouped coprocessor scan " + scan);
         }
         long rowCount = 0;
-        MultiVersionConsistencyControl.setThreadReadPoint(s.getMvccReadPoint());
+        MultiVersionConsistencyControl.setThreadReadPoint(innerScanner.getMvccReadPoint());
         region.startRegionOperation();
         try {
             do {
@@ -169,7 +176,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 // Results are potentially returned even when the return value of s.next is false
                 // since this is an indication of whether or not there are more values after the
                 // ones returned
-                hasMore = s.nextRaw(results, null) && !s.isFilterDone();
+                hasMore = innerScanner.nextRaw(results, null) && !innerScanner.isFilterDone();
                 if (!results.isEmpty()) {
                 	rowCount++;
                     result.setKeyValues(results);
@@ -278,7 +285,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
 
             @Override
             public HRegionInfo getRegionInfo() {
-                return s.getRegionInfo();
+                return innerScanner.getRegionInfo();
             }
 
             @Override
@@ -288,7 +295,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
 
             @Override
             public void close() throws IOException {
-                s.close();
+                innerScanner.close();
             }
 
             @Override

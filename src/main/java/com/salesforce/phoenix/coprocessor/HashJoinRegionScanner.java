@@ -156,7 +156,7 @@ public class HashJoinRegionScanner implements RegionScanner {
 
     @Override
     public boolean isFilterDone() {
-        return scanner.isFilterDone();
+        return scanner.isFilterDone() && resultQueue.isEmpty();
     }
 
     @Override
