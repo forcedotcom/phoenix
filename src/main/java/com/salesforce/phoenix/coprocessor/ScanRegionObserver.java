@@ -134,18 +134,17 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);
         final OrderedResultIterator iterator = deserializeFromScan(scan,s);
         final ImmutableBytesWritable tenantId = ScanUtil.getTenantId(scan);
+        
+        RegionScanner innerScanner = s;
+        if (p != null || j != null) {
+            innerScanner = new HashJoinRegionScanner(s, p, j, tenantId, c.getEnvironment().getConfiguration());
+        }
+        
         if (iterator == null) {
-            if (p == null && j == null) {
-                return getWrappedScanner(c, s);
-            }
-            return new HashJoinRegionScanner(getWrappedScanner(c, s), p, j, tenantId, c.getEnvironment().getConfiguration());
+            return getWrappedScanner(c, innerScanner);
         }
         
-        if (p == null && j == null) {
-            return getTopNScanner(c,s, iterator, tenantId);
-        }
-        
-        return getTopNScanner(c, new HashJoinRegionScanner(s, p, j, tenantId, c.getEnvironment().getConfiguration()), iterator, tenantId);
+        return getTopNScanner(c, innerScanner, iterator, tenantId);
     }
     
     /**

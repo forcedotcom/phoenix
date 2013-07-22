@@ -49,6 +49,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
@@ -106,10 +107,18 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         List<Expression> expressions = deserializeGroupByExpressions(expressionBytes);
         
         ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
+
+        final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
+        final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);        
+        RegionScanner innerScanner = s;
+        if (p != null || j != null) {
+            innerScanner = new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment().getConfiguration());
+        }
+        
         if (keyOrdered) { // Optimize by taking advantage that the rows are already in the required group by key order
-            return scanOrdered(c, scan, s, expressions, aggregators);
+            return scanOrdered(c, scan, innerScanner, expressions, aggregators);
         } else { // Otherwse, collect them all up and sort them at the end
-            return scanUnordered(c, scan, s, expressions, aggregators);
+            return scanUnordered(c, scan, innerScanner, expressions, aggregators);
         }
     }
 
