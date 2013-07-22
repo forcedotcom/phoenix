@@ -46,42 +46,42 @@ import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 public class HashJoinInfo {
     private static final String HASH_JOIN = "HashJoin";
     
-    private ImmutableBytesWritable joinId;
-    private List<Expression> joinExpressions;
-    private JoinType joinType;
+    private ImmutableBytesWritable[] joinIds;
+    private List<Expression>[] joinExpressions;
+    private JoinType[] joinTypes;
     
-    private HashJoinInfo(ImmutableBytesWritable joinId, List<Expression> joinExpressions, JoinType joinType) {
-        this.joinId = joinId;
+    private HashJoinInfo(ImmutableBytesWritable[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes) {
+        this.joinIds = joinIds;
         this.joinExpressions = joinExpressions;
-        this.joinType = joinType;
+        this.joinTypes = joinTypes;
     }
     
-    public ImmutableBytesWritable getJoinId() {
-        return joinId;
+    public ImmutableBytesWritable[] getJoinIds() {
+        return joinIds;
     }
     
-    public List<Expression> getJoinExpressions() {
+    public List<Expression>[] getJoinExpressions() {
         return joinExpressions;
     }
     
-    public JoinType getJoinType() {
-        return joinType;
+    public JoinType[] getJoinTypes() {
+        return joinTypes;
     }
     
-    public static void serializeHashJoinIntoScan(Scan scan, HashJoinInfo[] joins) {
+    public static void serializeHashJoinIntoScan(Scan scan, HashJoinInfo joinInfo) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             DataOutputStream output = new DataOutputStream(stream);
-            WritableUtils.writeVInt(output, joins.length);
-            for (int i = 0; i < joins.length; i++) {
-                HashJoinInfo join = joins[i];
-                join.joinId.write(output);
-                WritableUtils.writeVInt(output, join.joinExpressions.size());
-                for (Expression expr : join.joinExpressions) {
+            int count = joinInfo.joinIds.length;
+            WritableUtils.writeVInt(output, count);
+            for (int i = 0; i < count; i++) {
+                joinInfo.joinIds[i].write(output);
+                WritableUtils.writeVInt(output, joinInfo.joinExpressions[i].size());
+                for (Expression expr : joinInfo.joinExpressions[i]) {
                     WritableUtils.writeVInt(output, ExpressionType.valueOf(expr).ordinal());
                     expr.write(output);
                 }
-                WritableUtils.writeVInt(output, join.joinType.ordinal());
+                WritableUtils.writeVInt(output, joinInfo.joinTypes[i].ordinal());
             }
             scan.setAttribute(HASH_JOIN, stream.toByteArray());
         } catch (IOException e) {
@@ -96,7 +96,8 @@ public class HashJoinInfo {
         
     }
     
-    public static HashJoinInfo[] deserializeHashJoinFromScan(Scan scan) {
+    @SuppressWarnings("unchecked")
+    public static HashJoinInfo deserializeHashJoinFromScan(Scan scan) {
         byte[] join = scan.getAttribute(HASH_JOIN);
         if (join == null) {
             return null;
@@ -105,22 +106,24 @@ public class HashJoinInfo {
         try {
             DataInputStream input = new DataInputStream(stream);
             int count = WritableUtils.readVInt(input);
-            HashJoinInfo[] joinInfos = new HashJoinInfo[count];           
+            ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[count];
+            List<Expression>[] joinExpressions = (List<Expression>[]) new List[count];
+            JoinType[] joinTypes = new JoinType[count];
             for (int i = 0; i < count; i++) {
-                ImmutableBytesWritable joinId = new ImmutableBytesWritable();
-                joinId.readFields(input);
+                joinIds[i] = new ImmutableBytesWritable();
+                joinIds[i].readFields(input);
                 int nExprs = WritableUtils.readVInt(input);
-                List<Expression> joinExpressions = new ArrayList<Expression>(nExprs);
+                joinExpressions[i] = new ArrayList<Expression>(nExprs);
                 for (int j = 0; j < nExprs; j++) {
                     int expressionOrdinal = WritableUtils.readVInt(input);
                     Expression expression = ExpressionType.values()[expressionOrdinal].newInstance();
                     expression.readFields(input);
-                    joinExpressions.add(expression);                    
+                    joinExpressions[i].add(expression);                    
                 }
                 int type = WritableUtils.readVInt(input);
-                joinInfos[i] = new HashJoinInfo(joinId, joinExpressions, JoinType.values()[type]);
+                joinTypes[i] = JoinType.values()[type];
             }
-            return joinInfos;
+            return new HashJoinInfo(joinIds, joinExpressions, joinTypes);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {

@@ -43,6 +43,10 @@ public class ResultTuple implements Tuple {
     
     public ResultTuple() {
     }
+    
+    public Result getResult() {
+        return this.result;
+    }
 
     public void setResult(Result result) {
         this.result = result;
