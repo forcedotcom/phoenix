@@ -224,6 +224,26 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         assertTrue(rs.wasNull());
         assertEquals(null,rs.getString(13));
     }
+
+    private static void assertIndexInfoMetadata(ResultSet rs, String schemaName, String dataTableName, String indexName, int colPos, String colName, Order order, int type) throws SQLException {
+        assertTrue(rs.next());
+        assertEquals(null,rs.getString(1));
+        assertEquals(schemaName, rs.getString(2));
+        assertEquals(dataTableName, rs.getString(3));
+        assertEquals(Boolean.TRUE, rs.getBoolean(4));
+        assertEquals(null,rs.getString(5));
+        assertEquals(indexName, rs.getString(6));
+        assertEquals(DatabaseMetaData.tableIndexOther, rs.getShort(7));
+        assertEquals(colPos, rs.getShort(8));
+        assertEquals(colName, rs.getString(9));
+        assertEquals(order == Order.ASC ? "A" : order == Order.DESC ? "D" : null, rs.getString(10));
+        assertEquals(0,rs.getInt(11));
+        assertTrue(rs.wasNull());
+        assertEquals(0,rs.getInt(12));
+        assertTrue(rs.wasNull());
+        assertEquals(null,rs.getString(13));
+        assertEquals(type,rs.getInt(14));
+    }
     
     @Test
     public void testImmutableTableIndexMaintanence() throws Exception {
@@ -310,19 +330,60 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
     
     @Test
     public void testIndexDefinitionWithNullableFixedWidthColInPK() throws Exception {
+    	// If we have nullable fixed width column in the PK, we convert those types into a compatible variable type
+    	// column. The definition is defined in IndexUtil.getIndexColumnDataType.
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         try {
             ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+            populateTestTable();
+            
             String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
                     + " (char_col1 ASC, int_col2 ASC, long_col2 DESC)"
                     + " INCLUDE (int_col1)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
+            // Verify the CHAR, INT and LONG are converted to right type.
+            ResultSet rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 1, "A:CHAR_COL1", Order.ASC, Types.VARCHAR);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 2, "B:INT_COL2", Order.ASC, Types.DECIMAL);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 3, "B:LONG_COL2", Order.DESC, Types.DECIMAL);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 4, "VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 5, "CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 6, "INT_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 7, "LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 8, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 9, "A:INT_COL1", null);
+            assertFalse(rs.next());
             
+            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX");
+            assertTrue(rs.next());
+            assertEquals("IDX", rs.getString(1));
+            assertFalse(rs.next());
             
+            ddl = "ALTER INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " DISABLE";
+            conn.createStatement().execute(ddl);
+            // Verify the metadata for index is correct.
+            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.getSerializedValue()});
+            assertTrue(rs.next());
+            assertEquals("IDX", rs.getString(3));
+            assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
+            assertFalse(rs.next());
+            
+            ddl = "DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+            stmt = conn.prepareStatement(ddl);
+            stmt.execute();
+            
+            // Assert the rows for index table is completely removed.
+            rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
+            assertFalse(rs.next());
+            
+            // Assert the row in the original data table is removed.
+            // Verify that there is a row inserted into the data table for the index table.
+            rs = readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX");
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }
@@ -330,11 +391,15 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
 
     @Test
     public void testIndexDefinitionWithRepeatedColumns() throws Exception {
+    	// Test index creation when the columns is included in both the PRIMARY and INCLUDE section. 
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         try {
             ensureTableCreated(getUrl(), TestUtil.INDEX_DATA_TABLE);
+            populateTestTable();
+
+            
         } finally {
             conn.close();
         }
