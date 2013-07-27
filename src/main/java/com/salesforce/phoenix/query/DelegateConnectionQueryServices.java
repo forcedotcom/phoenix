@@ -75,8 +75,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table, String parentTableName) throws SQLException {
-        return getDelegate().addTable(schemaName, table, parentTableName);
+    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+        return getDelegate().addTable(schemaName, table);
     }
 
     @Override

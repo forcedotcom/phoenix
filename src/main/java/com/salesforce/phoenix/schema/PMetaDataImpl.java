@@ -67,7 +67,7 @@ public class PMetaDataImpl implements PMetaData {
 
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table, String parentTableName) throws SQLException {
+    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
         Map<String,PTable> tables;
         Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
         schemaName = schemaName == null ? QueryConstants.NULL_SCHEMA_NAME : schemaName;
@@ -78,7 +78,8 @@ public class PMetaDataImpl implements PMetaData {
             tables = Maps.newHashMap(schema.getTables());
         }
         PTable oldTable = tables.put(table.getName().getString(), table);
-        if (parentTableName != null) {
+        if (table.getDataTableName() != null) { // Upsert new index table into parent data table list
+            String parentTableName = table.getDataTableName().getString();
             PTable parentTable = tables.get(parentTableName);
             List<PTable> oldIndexes = parentTable.getIndexes();
             List<PTable> newIndexes = Lists.newArrayListWithExpectedSize(oldIndexes.size() + 1);
@@ -88,6 +89,9 @@ public class PMetaDataImpl implements PMetaData {
             }
             newIndexes.add(table);
             tables.put(parentTableName, PTableImpl.makePTable(parentTable, table.getTimeStamp(), newIndexes));
+        }
+        for (PTable index : table.getIndexes()) {
+            tables.put(index.getName().getString(), index);
         }
         schema = new PSchemaImpl(schemaName, tables);
         schemas.put(schemaName, schema);

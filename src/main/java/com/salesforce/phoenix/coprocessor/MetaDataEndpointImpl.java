@@ -392,7 +392,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                         return new MetaDataMutationResult(MutationCode.PARENT_TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), parentTable);
                     }
                     // If parent table isn't at the expected sequence number, then return
-                    if (parentTable.getSequenceNumber()+1 != MetaDataUtil.getParentSequenceNumber(tableMetadata)) {
+                    if (parentTable.getSequenceNumber() != MetaDataUtil.getParentSequenceNumber(tableMetadata)) {
                         return new MetaDataMutationResult(MutationCode.CONCURRENT_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), parentTable);
                     }
                 }
