@@ -148,7 +148,7 @@ public class MemoryManagerTest {
         };
         t1.start();
         t2.start();
-        sleepFor(1000);
+        sleepFor(2000);
         // Main thread competes with others to get all memory, but should wait
         // until both threads are complete (since that's when the memory will
         // again be all available.
