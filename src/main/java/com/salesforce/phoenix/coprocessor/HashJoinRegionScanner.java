@@ -28,10 +28,7 @@
 package com.salesforce.phoenix.coprocessor;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
@@ -96,7 +93,7 @@ public class HashJoinRegionScanner implements RegionScanner {
                 throw new UnsupportedOperationException("Cannot support join operations in scans with limit");
             
             int count = joinInfo.getJoinIds().length;
-            List<Tuple>[] tuples = (List<Tuple>[]) new List[count];
+            List<Tuple>[] tuples = new List[count];
             Tuple tuple = new ResultTuple(new Result(result));
             boolean cont = true;
             for (int i = 0; i < count; i++) {

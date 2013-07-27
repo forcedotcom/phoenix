@@ -27,11 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.join;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -107,7 +103,7 @@ public class HashJoinInfo {
             DataInputStream input = new DataInputStream(stream);
             int count = WritableUtils.readVInt(input);
             ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[count];
-            List<Expression>[] joinExpressions = (List<Expression>[]) new List[count];
+            List<Expression>[] joinExpressions = new List[count];
             JoinType[] joinTypes = new JoinType[count];
             for (int i = 0; i < count; i++) {
                 joinIds[i] = new ImmutableBytesWritable();

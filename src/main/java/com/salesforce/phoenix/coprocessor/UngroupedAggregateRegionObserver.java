@@ -120,9 +120,12 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         }
         
         final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
-        final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);        
-        final RegionScanner innerScanner = (p != null || j != null) ? 
-                s : new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment().getConfiguration());
+        final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);
+        RegionScanner theScanner = s;
+        if (p != null && j != null)  {
+            theScanner = new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment().getConfiguration());
+        }
+        final RegionScanner innerScanner = theScanner;
         
         PTable projectedTable = null;
         List<Expression> selectExpressions = null;
@@ -275,6 +278,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 }
             } while (hasMore);
         } finally {
+            innerScanner.close();
             region.closeRegionOperation();
         }
         
