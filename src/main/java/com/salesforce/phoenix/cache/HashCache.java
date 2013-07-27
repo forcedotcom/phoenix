@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.cache;
 
+import java.util.List;
+
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.http.annotation.Immutable;
 
@@ -44,5 +46,5 @@ import com.salesforce.phoenix.util.SQLCloseable;
 public interface HashCache extends SQLCloseable {
     public byte[] getTableName();
     public byte[][] getColumnFamilies();
-    public Tuple get(ImmutableBytesWritable hashKey);
+    public List<Tuple> get(ImmutableBytesWritable hashKey);
 }
