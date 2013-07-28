@@ -94,6 +94,10 @@ public class StatementContext {
         return hintNode == null ? false : hintNode.hasHint(hint);
     }
 
+    public String getHint(Hint hint) {
+        return hintNode == null ? null : hintNode.getHint(hint);
+    }
+
     public String getDateFormat() {
         return dateFormat;
     }

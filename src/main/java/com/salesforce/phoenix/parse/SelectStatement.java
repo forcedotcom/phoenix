@@ -49,7 +49,7 @@ public class SelectStatement implements SQLStatement {
     private final LimitNode limit;
     private final int bindCount;
     
-    protected SelectStatement(List<TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+    protected SelectStatement(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
         this.fromTable = Collections.unmodifiableList(from);
         this.hint = hint;
         this.isDistinct = isDistinct;

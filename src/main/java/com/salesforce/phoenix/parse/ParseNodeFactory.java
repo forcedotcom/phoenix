@@ -490,7 +490,7 @@ public class ParseNodeFactory {
         return new OuterJoinParseNode(node);
     }
 
-    public SelectStatement select(List<TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where,
+    public SelectStatement select(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where,
             List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
 
         return new SelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
@@ -508,7 +508,7 @@ public class ParseNodeFactory {
         return select(statement.getFrom(), statement.getHint(), statement.isDistinct(), statement.getSelect(), where, statement.getGroupBy(), having, statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
 
-    public SelectStatement select(SelectStatement statement, List<TableNode> tables) {
+    public SelectStatement select(SelectStatement statement, List<? extends TableNode> tables) {
         return select(tables, statement.getHint(), statement.isDistinct(), statement.getSelect(), statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
 
