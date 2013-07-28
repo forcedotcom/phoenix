@@ -38,52 +38,47 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 public class HintNode {
     public static final char SEPARATOR = ' ';
-    public static final char TERMINATOR = ';';
+    public static final String PREFIX = "(";
+    public static final String SUFFIX = ")";
+    // Split on whitespace and parenthesis, keeping the parenthesis in the token array
+    private static final String SPLIT_REGEXP = "\\s+|((?<=\\" + PREFIX + ")|(?=\\" + PREFIX + "))|((?<=\\" + SUFFIX + ")|(?=\\" + SUFFIX + "))";
     
     public enum Hint {
         /**
-         * Forces a range scan to be used to process the query
+         * Forces a range scan to be used to process the query.
          */
-        RANGE_SCAN(0),
+        RANGE_SCAN,
         /**
-         * Forces a skip scan to be used to process the query
+         * Forces a skip scan to be used to process the query.
          */
-        SKIP_SCAN(0),
+        SKIP_SCAN,
         /**
          * Prevents the spawning of multiple threads during
-         * query processing
+         * query processing.
          */
-        NO_INTRA_REGION_PARALLELIZATION(0),
+        NO_INTRA_REGION_PARALLELIZATION,
         /**
         * Prevents the usage of indexes, forcing usage
-        * of the data table for a query
+        * of the data table for a query.
         */
-       NO_INDEX(0),
+       NO_INDEX,
        /**
-       * Hint of the form INDEX(<table_name> <index_name>)
-       * to suggest usage of the index if possible.
+       * Hint of the form INDEX(<table_name> <index_name>...)
+       * to suggest usage of the index if possible. The first
+       * usable index in the list of indexes will be choosen.
+       * Table and index names may be surrounded by double quotes
+       * if they are case sensitive.
        */
-       INDEX(2);
-       
-       private final int takeTokens;
-       
-       private Hint(int takeTokens) {
-           this.takeTokens = takeTokens;
-       }
-       
-       public int getTakeTokenCount() {
-           return takeTokens;
-       }
+       INDEX;
     };
 
     private final Map<Hint,String> hints = new HashMap<Hint,String>();
 
     public HintNode(String hint) {
-        // Split on whitespace or parenthesis. We do not handle escaped characters or
-        // embedded whitespace or parenthesis, but since only HBase table names will
-        // occur in these tokens in which these are invalid characters anyway, we
-        // don't need to worry about it.
-        String[] hintWords = hint.split("\\s+|\\(|\\)");
+        // Split on whitespace or parenthesis. We do not need to handle escaped or
+        // embedded whitespace/parenthesis, since we are parsing what will be HBase
+        // table names which are not allowed to contain whitespace or parenthesis.
+        String[] hintWords = hint.split(SPLIT_REGEXP);
         for (int i = 0; i < hintWords.length; i++) {
             String hintWord = hintWords[i];
             if (hintWord.isEmpty()) {
@@ -92,18 +87,20 @@ public class HintNode {
             try {
                 Hint key = Hint.valueOf(hintWord.toUpperCase());
                 String hintValue = "";
-                if (key.getTakeTokenCount() > 0) {
+                if (i+1 < hintWords.length && PREFIX.equals(hintWords[i+1])) {
                     StringBuffer hintValueBuf = new StringBuffer(hint.length());
-                    int stop = Math.min(i + key.getTakeTokenCount() + 1, hintWords.length);
-                    while ( ++i < stop) {
-                        hintValueBuf.append(SchemaUtil.normalizeIdentifier(hintWords[i]));
+                    hintValueBuf.append(PREFIX);
+                    i+=2;
+                    while (i < hintWords.length && !SUFFIX.equals(hintWords[i])) {
+                        hintValueBuf.append(SchemaUtil.normalizeIdentifier(hintWords[i++]));
                         hintValueBuf.append(SEPARATOR);
                     }
-                    // Replace trailing separator with terminator
-                    hintValueBuf.setCharAt(hintValueBuf.length()-1, TERMINATOR);
+                    // Replace trailing separator with suffix
+                    hintValueBuf.replace(hintValueBuf.length()-1, hintValueBuf.length(), SUFFIX);
                     hintValue = hintValueBuf.toString();
                 }
                 String oldValue = hints.put(key, hintValue);
+                // Concatenate together any old value with the new value
                 if (oldValue != null) {
                     hints.put(key, oldValue + hintValue);
                 }

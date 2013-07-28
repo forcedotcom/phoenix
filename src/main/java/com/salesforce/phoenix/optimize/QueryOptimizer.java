@@ -34,7 +34,7 @@ public class QueryOptimizer {
         }
         
         PTable dataTable = dataPlan.getTableRef().getTable();
-        List<PTable>indexes = dataTable.getIndexes();
+        List<PTable>indexes = Lists.newArrayList(dataTable.getIndexes());
         /*
          * Only indexes on tables with immutable rows may be used until we hook up
          * incremental index maintenance. 
@@ -47,32 +47,70 @@ public class QueryOptimizer {
         plans.add(dataPlan);
         ColumnResolver resolver = FromCompiler.getResolver(select, connection);
         SelectStatement translatedSelect = IndexStatementRewriter.translate(select, resolver);
-        PTable hintedIndex = findHintedIndex(dataPlan);
-        if (hintedIndex != null && addPlan(statement, translatedSelect, hintedIndex, plans)) {
-            return plans.get(1);
+        QueryPlan hintedPlan = getHintedQueryPlan(statement, translatedSelect, indexes, plans);
+        if (hintedPlan != null) {
+            return hintedPlan;
         }
         for (PTable index : indexes) {
-            if (hintedIndex != index) { // skip hinted index if we didn't chose it above
-                addPlan(statement, translatedSelect, index, plans);
-            }
+            addPlan(statement, translatedSelect, index, plans);
         }
         
         return chooseBestPlan(select, plans);
     }
     
-    private static PTable findHintedIndex(QueryPlan dataPlan) {
+    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement translatedSelect, List<PTable> indexes, List<QueryPlan> plans) throws SQLException {
+        QueryPlan dataPlan = plans.get(0);
         String indexHint = dataPlan.getContext().getHint(Hint.INDEX);
         if (indexHint == null) {
             return null;
         }
+        int startIndex = 0;
         String alias = dataPlan.getTableRef().getTableAlias();
-        String prefix = (alias == null ? dataPlan.getTableRef().getTable().getName().getString() : alias) + HintNode.SEPARATOR;
-        for (PTable index : dataPlan.getTableRef().getTable().getIndexes()) {
-            if (indexHint.contains(prefix + index.getName().getString() + HintNode.TERMINATOR)) {
-                return index;
+        String prefix = HintNode.PREFIX + (alias == null ? dataPlan.getTableRef().getTable().getName().getString() : alias) + HintNode.SEPARATOR;
+        while (startIndex < indexHint.length()) {
+            startIndex = indexHint.indexOf(prefix, startIndex);
+            if (startIndex < 0) {
+                return null;
+            }
+            startIndex += prefix.length();
+            boolean done = false; // true when SUFFIX found
+            while (startIndex < indexHint.length() && !done) {
+                int endIndex;
+                int endIndex1 = indexHint.indexOf(HintNode.SEPARATOR, startIndex);
+                int endIndex2 = indexHint.indexOf(HintNode.SUFFIX, startIndex);
+                if (endIndex1 < 0 && endIndex2 < 0) { // Missing SUFFIX shouldn't happen
+                    endIndex = indexHint.length();
+                } else if (endIndex1 < 0) {
+                    done = true;
+                    endIndex = endIndex2;
+                } else if (endIndex2 < 0) {
+                    endIndex = endIndex1;
+                } else {
+                    endIndex = Math.min(endIndex1, endIndex2);
+                    done = endIndex2 == endIndex;
+                }
+                String indexName = indexHint.substring(startIndex, endIndex);
+                int indexPos = getIndexPosition(indexes, indexName);
+                if (indexPos >= 0) {
+                    // Hinted index is applicable, so return it. It'll be the plan at position 1, after the data plan
+                    if (addPlan(statement, translatedSelect, indexes.get(indexPos), plans)) {
+                        return plans.get(1);
+                    }
+                    indexes.remove(indexPos);
+                }
+                startIndex = endIndex + 1;
             }
         }
         return null;
+    }
+    
+    private static int getIndexPosition(List<PTable> indexes, String indexName) {
+        for (int i = 0; i < indexes.size(); i++) {
+            if (indexName.equals(indexes.get(i).getName().getString())) {
+                return i;
+            }
+        }
+        return -1;
     }
     
     private static boolean addPlan(PhoenixStatement statement, SelectStatement translatedSelect, PTable index, List<QueryPlan> plans) throws SQLException {
