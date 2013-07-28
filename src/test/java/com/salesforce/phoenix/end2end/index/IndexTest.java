@@ -16,8 +16,6 @@ import com.salesforce.phoenix.util.*;
 
 public class IndexTest extends BaseHBaseManagedTimeTest{
 
-    private enum Order {ASC, DESC};
-    
     // Populate the test table with data.
     private static void populateTestTable() throws SQLException {
         Properties props = new Properties(TEST_PROPERTIES);
@@ -166,4 +164,37 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
                 QueryUtil.getExplainPlan(rs));
     }
 
+    @Test
+    public void testIndexWithNullableFixedWithCols() throws Exception {
+    	Properties props = new Properties(TEST_PROPERTIES);
+    	Connection conn = DriverManager.getConnection(getUrl(), props);
+    	conn.setAutoCommit(false);
+    	try {
+            ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+            String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                    + " (char_col1 ASC, int_col1 ASC)"
+                    + " INCLUDE (long_col1, long_col2)";
+            PreparedStatement stmt = conn.prepareStatement(ddl);
+            stmt.execute();
+            populateTestTable();
+            
+            String query = "SELECT char_col1, int_col1 from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+            ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER INDEX_TEST.INDEX_DATA_TABLE", QueryUtil.getExplainPlan(rs));
+            
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(2, rs.getInt(2));
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(3, rs.getInt(2));
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(4, rs.getInt(2));
+            assertFalse(rs.next());
+    	} finally {
+    		conn.close();
+    	}
+    }
 }
