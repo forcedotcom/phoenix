@@ -6,8 +6,7 @@ For example, the following snippet demonstrates how to query a table:
 
 <pre>
         Properties props = new Properties();
-        // Ensure the driver is registered
-        Class.forName("phoenix.jdbc.PhoenixProdEmbeddedDriver");
+        // Ensure the driver is on classpath
         // Connect through Phoenix to the zookeeper quorum with a host name of myServer
         Connection conn = DriverManager.getConnection("jdbc:phoenix:myServer", props);
         try {

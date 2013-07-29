@@ -13,9 +13,8 @@ The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.c
 
 Tables are created and altered through [DDL statements](http://forcedotcom.github.com/phoenix/#create), and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (see the [wiki](https://github.com/forcedotcom/phoenix/wiki) for more details).
 
-Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, and the [connection url](https://github.com/forcedotcom/phoenix/wiki#wiki-connStr) is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification plus optionally the port number and/or root node. For example:
+Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, JDK 1.5+ automatically registers JDBC driver on classpath, and the [connection url](https://github.com/forcedotcom/phoenix/wiki#wiki-connStr) is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification plus optionally the port number and/or root node. For example:
 
-        Class.forName("com.salesforce.phoenix.jdbc.PhoenixDriver");
         Connection conn = DriverManager.getConnection("jdbc:phoenix:localhost");
 
 For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/phoenix/wiki).

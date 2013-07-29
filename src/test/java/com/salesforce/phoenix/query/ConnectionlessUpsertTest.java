@@ -49,19 +49,8 @@ public class ConnectionlessUpsertTest {
     }
     
     @BeforeClass
-    public static void registerDriver() throws ClassNotFoundException, SQLException {
-        Class.forName(PhoenixDriver.class.getName());
-        DriverManager.registerDriver(PhoenixDriver.INSTANCE);
+    public static void verifyDriverRegistered() throws SQLException {
         assertTrue(DriverManager.getDriver(getUrl()) == PhoenixDriver.INSTANCE);
-    }
-    
-    @AfterClass
-    public static void deregisterDriver() throws SQLException {
-        try {
-            PhoenixDriver.INSTANCE.close();
-        } finally {
-            DriverManager.deregisterDriver(PhoenixDriver.INSTANCE);
-        }
     }
     
     @Test
