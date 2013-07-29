@@ -271,7 +271,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             stmt.execute();
             fail("Should have caught exception.");
         } catch (SQLException e) {
-        	assertTrue(e.getMessage(), e.getMessage().contains("java.sql.SQLException: ERROR 1023 (42Y82): Index may only be created on a table with immutable rows."));
+        	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1023 (42Y82): Index may only be created on a table with immutable rows."));
         } finally {
             conn.close();
         }
