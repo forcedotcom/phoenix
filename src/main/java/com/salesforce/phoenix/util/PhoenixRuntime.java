@@ -171,7 +171,6 @@ public class PhoenixRuntime {
             if (isUpgrade) {
                 props.setProperty(SchemaUtil.UPGRADE_TO_2_0, Integer.toString(SchemaUtil.SYSTEM_TABLE_NULLABLE_VAR_LENGTH_COLUMNS));
             }
-            Class.forName(PhoenixDriver.class.getName());
             String connectionUrl = JDBC_PROTOCOL + JDBC_PROTOCOL_SEPARATOR + args[i++];
             PhoenixConnection conn = DriverManager.getConnection(connectionUrl, props).unwrap(PhoenixConnection.class);
             

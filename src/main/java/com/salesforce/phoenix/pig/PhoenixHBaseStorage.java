@@ -156,7 +156,6 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	@Override
 	public void prepareToWrite(RecordWriter writer) throws IOException {
 		try {
-			registerDriver();
 			Properties props = new Properties();
 			conn = DriverManager.getConnection(QueryUtil.getUrl(server), props).unwrap(PhoenixConnection.class);
 			// Default to config defined upsert batch size if user did not specify it.
@@ -174,9 +173,6 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 
 		} catch (SQLException e) {
 			LOG.error("Error in constructing PreparedStatement: " + e);
-			throw new RuntimeException(e);
-		} catch (ClassNotFoundException e) {
-			LOG.error(e);
 			throw new RuntimeException(e);
 		}
 	}
@@ -228,46 +224,20 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 
 	@Override
 	public void cleanupOnFailure(String location, Job job) throws IOException {
-		try {
-			deregisterDriver();
-		} catch (SQLException e) {
-			LOG.error("Error in while deregistering driver ", e);
-		}
 	}
 
     @Override
     public void cleanupOnSuccess(String location, Job job) throws IOException {
-        try {
-            // Commit the remaining executes after the last commit in putNext()
-            if (rowCount % batchSize != 0) {
-                try {
-                    conn.commit();
-                    LOG.info("Rows upserted: " + rowCount);
-                } catch (SQLException e) {
-                    LOG.error("Error during upserting to HBase table " + tableName, e);
-                }
-            }
-        } finally {
+        // Commit the remaining executes after the last commit in putNext()
+        if (rowCount % batchSize != 0) {
             try {
-                deregisterDriver();
+                conn.commit();
+                LOG.info("Rows upserted: " + rowCount);
             } catch (SQLException e) {
-                LOG.error("Error while deregistering driver ", e);
+                LOG.error("Error during upserting to HBase table " + tableName, e);
             }
         }
     }
-
-	public void registerDriver() throws ClassNotFoundException, SQLException {
-		Class.forName(PhoenixDriver.class.getName());
-		DriverManager.registerDriver(PhoenixDriver.INSTANCE);
-	}
-
-	public void deregisterDriver() throws SQLException {
-		try {
-			PhoenixDriver.INSTANCE.close();
-		} finally {
-			DriverManager.deregisterDriver(PhoenixDriver.INSTANCE);
-		}
-	}
 
 	@Override
 	public String relToAbsPathForStoreLocation(String location, Path curDir)
