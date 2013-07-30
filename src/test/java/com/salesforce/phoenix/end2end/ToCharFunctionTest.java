@@ -71,7 +71,7 @@ public class ToCharFunctionTest extends BaseClientMangedTimeTest {
         "col_time date not null, \n" +
         "col_timestamp timestamp not null, \n" +
         "col_integer integer not null, \n" + 
-        "col_decimal decimal not null \n" + 
+        "col_decimal decimal(30, 3) not null \n" + 
         "CONSTRAINT my_pk PRIMARY KEY (pk))";
 
     @Before
