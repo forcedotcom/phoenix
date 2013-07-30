@@ -47,26 +47,28 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
         try {
             String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmetic" + 
                     "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
-                    "col1 DECIMAL(31,0), col2 DECIMAL(5), col3 DECIMAL(5,2))";
+                    "col1 DECIMAL(31,0), col2 DECIMAL(5), col3 DECIMAL(5,2), col4 DECIMAL)";
             createTestTable(getUrl(), ddl);
             
             // Test upsert correct values 
-            String query = "UPSERT INTO testDecimalArithmetic(pk, col1, col2, col3) VALUES(?,?,?,?)";
+            String query = "UPSERT INTO testDecimalArithmetic(pk, col1, col2, col3, col4) VALUES(?,?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, "valueOne");
             stmt.setBigDecimal(2, new BigDecimal("123456789123456789"));
             stmt.setBigDecimal(3, new BigDecimal("12345"));
             stmt.setBigDecimal(4, new BigDecimal("12.34"));
+            stmt.setBigDecimal(5, new BigDecimal("12345.6789"));
             stmt.execute();
             conn.commit();
             
-            query = "SELECT col1, col2, col3 FROM testDecimalArithmetic WHERE pk = 'valueOne'";
+            query = "SELECT col1, col2, col3, col4 FROM testDecimalArithmetic WHERE pk = 'valueOne'";
             stmt = conn.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
             assertEquals(new BigDecimal("123456789123456789"), rs.getBigDecimal(1));
             assertEquals(new BigDecimal("12345"), rs.getBigDecimal(2));
             assertEquals(new BigDecimal("12.34"), rs.getBigDecimal(3));
+            assertEquals(new BigDecimal("12345.6789"), rs.getBigDecimal(4));
             assertFalse(rs.next());
             
             query = "UPSERT INTO testDecimalArithmetic(pk, col1, col2, col3) VALUES(?,?,?,?)";
@@ -297,16 +299,17 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
         try {
             String ddl = "CREATE TABLE IF NOT EXISTS testDecimalArithmatic" + 
                     "  (pk VARCHAR NOT NULL PRIMARY KEY, " +
-                    "col1 DECIMAL, col2 DECIMAL(5, 2), col3 INTEGER, col4 BIGINT)";
+                    "col1 DECIMAL(38,0), col2 DECIMAL(5, 2), col3 INTEGER, col4 BIGINT, col5 DECIMAL)";
             createTestTable(getUrl(), ddl);
             
-            String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3, col4) VALUES(?,?,?,?,?)";
+            String query = "UPSERT INTO testDecimalArithmatic(pk, col1, col2, col3, col4, col5) VALUES(?,?,?,?,?,?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, "testValueOne");
             stmt.setBigDecimal(2, new BigDecimal("1234567890123456789012345678901"));
             stmt.setBigDecimal(3, new BigDecimal("123.45"));
             stmt.setInt(4, 10);
             stmt.setLong(5, 10L);
+            stmt.setBigDecimal(6, new BigDecimal("111.111"));
             stmt.execute();
             conn.commit();
 
@@ -315,6 +318,7 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             stmt.setBigDecimal(3, new BigDecimal("123.45"));
             stmt.setInt(4, 10);
             stmt.setLong(5, 10L);
+            stmt.setBigDecimal(6, new BigDecimal("123456789.0123456789"));
             stmt.execute();
             conn.commit();
             
@@ -418,6 +422,13 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             } catch (Exception e) {
             	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 206 (22003): The value is outside the range for the data type. DECIMAL(38,0)"));
             }
+            
+            query = "SELECT col4 * col5 FROM testDecimalArithmatic WHERE pk='testValueTwo'";
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            result = rs.getBigDecimal(1);
+            assertEquals(0, result.compareTo(new BigDecimal("1234567890")));
             
             query = "SELECT col2 * col4 FROM testDecimalArithmatic WHERE pk='testValueOne'";
             stmt = conn.prepareStatement(query);
