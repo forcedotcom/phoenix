@@ -11,7 +11,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.QueryUtil;
 
 
 public class IndexTest extends BaseHBaseManagedTimeTest{
@@ -82,12 +82,32 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
     }
     
     @Test
-    public void testImmutableTableIndexMaintanence() throws Exception {
+    public void testImmutableTableIndexMaintanenceSalted() throws Exception {
+        testImmutableTableIndexMaintanence(4);
+    }
+
+    @Test
+    public void testImmutableTableIndexMaintanenceUnsalted() throws Exception {
+        testImmutableTableIndexMaintanence(null);
+    }
+
+    private void testImmutableTableIndexMaintanence(Integer saltBuckets) throws Exception {
+        String query;
+        ResultSet rs;
+        
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true");
-        conn.createStatement().execute("CREATE INDEX i ON t (v DESC)");
+        query = "SELECT * FROM t";
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+        
+        conn.createStatement().execute("CREATE INDEX i ON t (v DESC)" + (saltBuckets == null ? "" : " SALT_BUCKETS=" + saltBuckets));
+        query = "SELECT * FROM i";
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+
         PreparedStatement stmt = conn.prepareStatement("UPSERT INTO t VALUES(?,?)");
         stmt.setString(1,"a");
         stmt.setString(2, "x");
@@ -97,17 +117,30 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         stmt.execute();
         conn.commit();
         
-        String query;
-        ResultSet rs;
-        
+        query = "SELECT * FROM i";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("y",rs.getString(1));
+        assertEquals("b",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("x",rs.getString(1));
+        assertEquals("a",rs.getString(2));
+        assertFalse(rs.next());
+
         query = "SELECT k,v FROM t WHERE v = 'y'";
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
         assertEquals("b",rs.getString(1));
         assertEquals("y",rs.getString(2));
         assertFalse(rs.next());
+        
+        String expectedPlan;
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'",QueryUtil.getExplainPlan(rs));
+        expectedPlan = saltBuckets == null ? 
+             "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'" : 
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 KEYS OVER I 0...3,'y'\n" + 
+             "CLIENT MERGE SORT");
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
 
         // Will use index, so rows returned in DESC order.
         // This is not a bug, though, because we can
@@ -122,7 +155,11 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         assertEquals("x",rs.getString(2));
         assertFalse(rs.next());
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']",QueryUtil.getExplainPlan(rs));
+        expectedPlan = saltBuckets == null ? 
+            "CLIENT PARALLEL 4-WAY RANGE SCAN OVER I (*-'x']" :
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
+             "CLIENT MERGE SORT");
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         
         // Will still use index, since there's no LIMIT clause
         query = "SELECT k,v FROM t WHERE v >= 'x' ORDER BY k";
@@ -138,11 +175,14 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         // Turns into an ORDER BY, which could be bad if lots of data is
         // being returned. Without stats we don't know. The alternative
         // would be a full table scan.
-        assertEquals(
-                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']\n" + 
-        		"    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
-        		"CLIENT MERGE SORT",
-        		QueryUtil.getExplainPlan(rs));
+        expectedPlan = saltBuckets == null ? 
+            ("CLIENT PARALLEL 4-WAY RANGE SCAN OVER I (*-'x']\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
+             "CLIENT MERGE SORT") :
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
+             "CLIENT MERGE SORT");
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         
         // Will use data table now, since there's a LIMIT clause and
         // we're able to optimize out the ORDER BY
@@ -156,12 +196,12 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
         assertEquals("y",rs.getString(2));
         assertFalse(rs.next());
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals(
-                "CLIENT PARALLEL 1-WAY FULL SCAN OVER T\n" + 
-                "    SERVER FILTER BY V >= 'x'\n" + 
-                "    SERVER 2 ROW LIMIT\n" + 
-                "CLIENT 2 ROW LIMIT",
-                QueryUtil.getExplainPlan(rs));
+        expectedPlan = 
+             "CLIENT PARALLEL 1-WAY FULL SCAN OVER T\n" + 
+             "    SERVER FILTER BY V >= 'x'\n" + 
+             "    SERVER 2 ROW LIMIT\n" + 
+             "CLIENT 2 ROW LIMIT";
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
     }
 
     @Test

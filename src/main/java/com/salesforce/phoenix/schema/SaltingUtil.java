@@ -43,7 +43,7 @@ import com.salesforce.phoenix.util.ScanUtil;
  * Utility methods related to transparent salting of row keys.
  */
 public class SaltingUtil {
-    public static RowKeySchema BINARY_SCHEMA = new RowKeySchemaBuilder().setMinNullable(1).addField(new PDatum() {
+    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder().setMinNullable(1).addField(new PDatum() {
 
         @Override
         public boolean isNullable() {
@@ -82,7 +82,7 @@ public class SaltingUtil {
     public static final String SALTING_COLUMN_NAME = "_SALT";
     public static final String SALTED_ROW_KEY_NAME = "_SALTED_KEY";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
-            new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.CHAR, 1, 0, false, 0, null);
+            new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.BINARY, 1, 0, false, 0, null);
 
     public static List<KeyRange> generateAllSaltingRanges(int bucketNum) {
         List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(bucketNum);

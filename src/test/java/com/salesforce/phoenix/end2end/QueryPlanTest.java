@@ -31,13 +31,28 @@ import static com.salesforce.phoenix.util.TestUtil.*;
 import static org.junit.Assert.assertEquals;
 
 import java.sql.*;
+import java.util.Map;
 import java.util.Properties;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.Maps;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.QueryUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 public class QueryPlanTest extends BaseConnectedQueryTest {
+    
+    @BeforeClass
+    public static void doSetup() throws Exception {
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
+        // Override date format so we don't have a bunch of zeros
+        props.put(QueryServices.DATE_FORMAT_ATTRIB, "yyyy-MM-dd");
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
+    }
+    
     @Test
     public void testExplainPlan() throws Exception {
         ensureTableCreated(getUrl(), ATABLE_NAME, getDefaultSplits(getOrganizationId()));
@@ -51,11 +66,11 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
                 "CLIENT PARALLEL 1-WAY SKIP SCAN ON 3 RANGES OVER PTSDB ['na1'-'na2')...['na3'-'na4')\n" + 
                 "    SERVER FILTER BY REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')",
 
-                "SELECT inst,host FROM PTSDB WHERE inst IN ('na1', 'na2','na3') AND host IN ('a','b') AND date >= to_date('2013-01-01 00:00:00') AND date < to_date('2013-01-02 00:00:00')",
-                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 6 RANGES OVER PTSDB 'na1'...'na3','a'...'b',['2013-01-01 00:00:00'-'2013-01-02 00:00:00')",
+                "SELECT inst,host FROM PTSDB WHERE inst IN ('na1', 'na2','na3') AND host IN ('a','b') AND date >= to_date('2013-01-01') AND date < to_date('2013-01-02')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 6 RANGES OVER PTSDB 'na1'...'na3','a'...'b',['2013-01-01'-'2013-01-02')",
 
-                "SELECT inst,host FROM PTSDB WHERE inst LIKE 'na%' AND host IN ('a','b') AND date >= to_date('2013-01-01 00:00:00') AND date < to_date('2013-01-02 00:00:00')",
-                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 RANGES OVER PTSDB ['na'-'nb'),'a'...'b',['2013-01-01 00:00:00'-'2013-01-02 00:00:00')",
+                "SELECT inst,host FROM PTSDB WHERE inst LIKE 'na%' AND host IN ('a','b') AND date >= to_date('2013-01-01') AND date < to_date('2013-01-02')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 RANGES OVER PTSDB ['na'-'nb'),'a'...'b',['2013-01-01'-'2013-01-02')",
 
                 "SELECT host FROM PTSDB3 WHERE host IN ('na1', 'na2','na3')",
                 "CLIENT PARALLEL 1-WAY SKIP SCAN ON 3 KEYS OVER PTSDB3 'na3'...'na1'",

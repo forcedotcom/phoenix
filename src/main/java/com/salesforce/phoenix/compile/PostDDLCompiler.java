@@ -29,7 +29,8 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -67,7 +68,7 @@ public class PostDDLCompiler {
         this.connection = connection;
     }
 
-    public MutationPlan compile(final TableRef tableRef, final byte[] emptyCF, final List<PColumn> deleteList,
+    public MutationPlan compile(final List<TableRef> tableRefs, final byte[] emptyCF, final List<PColumn> deleteList,
             final long timestamp) throws SQLException {
         
         return new MutationPlan() {
@@ -105,46 +106,39 @@ public class PostDDLCompiler {
                     List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                             NODE_FACTORY.aliasedNode(null, 
                                     NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-                    Scan scan = new Scan();
-                    scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
-                    final List<TableRef> tableRefs = new ArrayList<TableRef>();
-                    tableRefs.add(tableRef);
-                    if (tableRef.getTable().getType() == PTableType.INDEX) {
-                        PTable table = tableRef.getTable();
-                        for (PTable index: table.getIndexes()) {
-                            tableRefs.add(new TableRef(null, index, tableRef.getSchema(), timestamp, false));
-                        }
-                    }
-                    ColumnResolver resolver = new ColumnResolver() {
-                        @Override
-                        public List<TableRef> getTables() {
-                            return tableRefs;
-                        }
-                        @Override
-                        public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
-                            throw new UnsupportedOperationException();
-                        }
-                    };
-                    StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
-                    ScanUtil.setTimeRange(scan, timestamp);
-                    if (emptyCF != null) {
-                        scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
-                    }
-                    if (deleteList != null) {
-                        if (deleteList.isEmpty()) {
-                            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
-                        } else {
-                            PColumn column = deleteList.get(0);
-                            if (emptyCF == null) {
-                                scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
-                            }
-                            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
-                            scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
-                        }
-                    }
-                    RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
                     long totalMutationCount = 0;
-                    for (TableRef tableRef: tableRefs) {
+                    for (final TableRef tableRef: tableRefs) {
+                        Scan scan = new Scan();
+                        scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
+                        ColumnResolver resolver = new ColumnResolver() {
+                            @Override
+                            public List<TableRef> getTables() {
+                                return Collections.singletonList(tableRef);
+                            }
+                            @Override
+                            public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
+                                throw new UnsupportedOperationException();
+                            }
+                        };
+                        StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
+                        ScanUtil.setTimeRange(scan, timestamp);
+                        if (emptyCF != null) {
+                            scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
+                        }
+                        // TODO: handle table with indexes for deletion of column
+                        if (deleteList != null) {
+                            if (deleteList.isEmpty()) {
+                                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
+                            } else {
+                                PColumn column = deleteList.get(0);
+                                if (emptyCF == null) {
+                                    scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
+                                }
+                                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
+                                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
+                            }
+                        }
+                        RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
                         QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
                         Scanner scanner = plan.getScanner();
                         ResultIterator iterator = scanner.iterator();

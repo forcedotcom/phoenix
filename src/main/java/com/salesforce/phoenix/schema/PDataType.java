@@ -29,6 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import java.math.*;
 import java.sql.*;
+import java.text.Format;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -150,6 +151,17 @@ public enum PDataType {
             return this == otherType || this == CHAR;
         }
 
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            while (b[length-1] == 0) {
+                length--;
+            }
+            if (formatter != null) {
+                Object o = toObject(b,offset,length);
+                return "'" + formatter.format(o) + "'";
+            }
+            return "'" + Bytes.toStringBinary(b, offset, length) + "'";
+        }
     },
     /**
      * Fixed length single byte characters
@@ -260,6 +272,11 @@ public enum PDataType {
         @Override
         public boolean isBytesComparableWith(PDataType otherType) {
             return this == otherType || this == VARCHAR;
+        }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            return VARCHAR.toStringLiteral(b, offset, length, formatter);
         }
     },
     LONG("BIGINT", Types.BIGINT, Long.class, new LongCodec()) {
@@ -1499,6 +1516,17 @@ public enum PDataType {
             }
             return DateUtil.parseTimestamp(value);
         }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            Timestamp value = (Timestamp)toObject(b,offset,length);
+            if (formatter == null || formatter == DateUtil.DEFAULT_DATE_FORMATTER) {
+                // If default formatter has not been overridden,
+                // use one that displays milliseconds.
+                formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
+            }
+            return "'" + super.toStringLiteral(b, offset, length, formatter) + "." + value.getNanos() + "'";
+        }
     },
     TIME("TIME", Types.TIME, Time.class, new DateCodec()) {
 
@@ -1587,6 +1615,16 @@ public enum PDataType {
         public boolean isBytesComparableWith(PDataType otherType) {
             return this == otherType || this == DATE;
         }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            if (formatter == null || formatter == DateUtil.DEFAULT_DATE_FORMATTER) {
+                // If default formatter has not been overridden,
+                // use one that displays milliseconds.
+                formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
+            }
+            return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
+        }
     },
     DATE("DATE", Types.DATE, Date.class, new DateCodec()) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
 
@@ -1671,6 +1709,11 @@ public enum PDataType {
         @Override
         public boolean isBytesComparableWith(PDataType otherType) {
             return this == otherType || this == TIME;
+        }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            return TIME.toStringLiteral(b, offset, length, formatter);
         }
     },
     /**
@@ -2343,6 +2386,21 @@ public enum PDataType {
             }
             return Base64.decode(value);
         }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int o, int length, Format formatter) {
+            if (formatter != null) {
+                return formatter.format(b);
+            }
+            StringBuilder buf = new StringBuilder();
+            buf.append('[');
+            for (int i = 0; i < b.length; i++) {
+                buf.append(0xFF & b[i]);
+                buf.append(',');
+            }
+            buf.setCharAt(buf.length()-1, ']');
+            return buf.toString();
+        }
     },
     BINARY("BINARY", Types.BINARY, byte[].class, null) {
         @Override
@@ -2443,6 +2501,14 @@ public enum PDataType {
                 return null;
             }
             return Base64.decode(value);
+        }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            if (formatter == null && b.length == 1) {
+                return Integer.toString(0xFF & b[0]);
+            }
+            return VARBINARY.toStringLiteral(b, offset, length, formatter);
         }
     },
     ;
@@ -3937,6 +4003,20 @@ public enum PDataType {
 
     public KeyRange getKeyRange(byte[] point) {
         return getKeyRange(point, true, point, true);
+    }
+    
+    public String toStringLiteral(ImmutableBytesWritable ptr, Format formatter) {
+        return toStringLiteral(ptr.get(),ptr.getOffset(),ptr.getLength(),formatter);
+    }
+    public String toStringLiteral(byte[] b, Format formatter) {
+        return toStringLiteral(b,0,b.length,formatter);
+    }
+    public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+        Object o = toObject(b,offset,length);
+        if (formatter != null) {
+            return formatter.format(o);
+        }
+        return o.toString();
     }
     
     public KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {

@@ -122,7 +122,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
             assertEquals("a",rs.getString(1));
-            assertEquals(5,rs.getInt(2));
+            assertEquals(5,rs.getInt(2)); // TODO: figure out why this flaps
             assertFalse(rs.next());
             
         } finally {

@@ -268,6 +268,9 @@ public class ArithmeticQueryTest extends BaseHBaseManagedTimeTest {
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
             BigDecimal result = rs.getBigDecimal(1);
+            /* Flapped here once:
+             * expected:<33333333333333333333.03333333333> but was:<49999999999999999999.55>
+             */
             assertEquals(new BigDecimal("33333333333333333333.03333333333"), result);
             
             query = "SELECT avg(col2) FROM testDecimalArithmatic";

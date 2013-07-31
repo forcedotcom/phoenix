@@ -46,7 +46,6 @@ import org.apache.pig.impl.util.ObjectSerializer;
 import org.apache.pig.impl.util.UDFContext;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.jdbc.PhoenixDriver;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ColumnInfo;
 import com.salesforce.phoenix.util.QueryUtil;
