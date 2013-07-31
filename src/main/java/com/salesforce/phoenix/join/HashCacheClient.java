@@ -144,7 +144,7 @@ public class HashCacheClient {
      * @throws MaxHashCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
-    public HashCache addHashCache(Scanner scanner, List<Expression> onExpressions, byte[] tableName, byte[][] cfs) throws SQLException {
+    public HashCache addHashCache(Scanner scanner, List<Expression> onExpressions) throws SQLException {
         final byte[] joinId = nextJoinId();
         
         /**
@@ -160,7 +160,7 @@ public class HashCacheClient {
         closeables.add(chunk);
         try {
             iterator = scanner.iterator();        
-            hashCache = serialize(iterator, onExpressions, tableName, cfs, chunk);
+            hashCache = serialize(iterator, onExpressions, chunk);
         } finally {
             if (iterator != null) {
                 iterator.close();
@@ -287,7 +287,7 @@ public class HashCacheClient {
     }
  
     // package private for testing
-    ImmutableBytesWritable serialize(ResultIterator scanner, List<Expression> onExpressions, byte[] tableName, byte[][] cfs, MemoryChunk chunk) throws SQLException {
+    ImmutableBytesWritable serialize(ResultIterator scanner, List<Expression> onExpressions, MemoryChunk chunk) throws SQLException {
         try {
             long maxSize = services.getConfig().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE);
             long estimatedSize = Math.min(chunk.getSize(), maxSize);
@@ -316,13 +316,6 @@ public class HashCacheClient {
                     chunk.resize(estimatedSize);
                 }
                 nRows++;
-            }
-            if (cfs == null) {
-                WritableUtils.writeVInt(out, 0);
-            } else {
-                WritableUtils.writeVInt(out, cfs.length + 1);
-                Bytes.writeByteArray(out, tableName);
-                out.write(ByteUtil.toBytes(cfs));
             }
             TrustedByteArrayOutputStream sizeOut = new TrustedByteArrayOutputStream(Bytes.SIZEOF_INT);
             DataOutputStream dataOut = new DataOutputStream(sizeOut);
