@@ -29,7 +29,6 @@ package com.salesforce.phoenix.expression.function;
 
 import java.io.*;
 import java.sql.SQLException;
-import java.text.DecimalFormat;
 import java.text.Format;
 import java.util.List;
 
@@ -43,7 +42,6 @@ import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.DateUtil;
 
 
 /**
@@ -58,32 +56,15 @@ import com.salesforce.phoenix.util.DateUtil;
     @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
     @Argument(allowedTypes={PDataType.VARCHAR},isConstant=true,defaultValue="null") } )
 public class ToCharFunction extends ScalarFunction {
-
-    public enum Type {
-        TEMPORAL {
-            @Override
-            public Format getFormatter(String format) {
-                return DateUtil.getDateFormatter(format);
-            }
-        }, 
-        NUMERIC {
-            @Override
-            public Format getFormatter(String format) {
-                return new DecimalFormat(format);
-            }
-        };        
-        public abstract Format getFormatter(String format);
-    };
-    
     public static final String NAME = "TO_CHAR";
     private String formatString;
     private Format formatter;
-    private Type type;
+    private FunctionArgumentType type;
     
     public ToCharFunction() {
     }
 
-    public ToCharFunction(List<Expression> children, Type type, String formatString, Format formatter) throws SQLException {
+    public ToCharFunction(List<Expression> children, FunctionArgumentType type, String formatString, Format formatter) throws SQLException {
         super(children.subList(0, 1));
         Preconditions.checkNotNull(formatString);
         Preconditions.checkNotNull(formatter);
@@ -140,7 +121,7 @@ public class ToCharFunction extends ScalarFunction {
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
         formatString = WritableUtils.readString(input);
-        type = WritableUtils.readEnum(input, Type.class);
+        type = WritableUtils.readEnum(input, FunctionArgumentType.class);
         formatter = type.getFormatter(formatString);
     }
 

@@ -32,55 +32,49 @@ import static com.salesforce.phoenix.util.ByteUtil.EMPTY_BYTE_ARRAY;
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
-import java.text.DecimalFormat;
-import java.text.ParsePosition;
+import java.text.*;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.base.Preconditions;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
  * 
- * Implementation of TO_NUMBER(&lt;string&gt;, [&lt;pattern-string&gt;]) built-in function.  The format for the optional
+ * Implementation of TO_NUMBER(&lt;string&gt;/&lt;date&gt;/&lt;timestamp&gt;, [&lt;pattern-string&gt;]) built-in function.  The format for the optional
  * <code>pattern_string</code> param is specified in {@link DecimalFormat}.
  *
  * @author elevine
  * @since 0.1
  */
-@BuiltInFunction(name=ToNumberFunction.NAME, args= {
-        @Argument(allowedTypes={PDataType.VARCHAR}),
+@BuiltInFunction(name=ToNumberFunction.NAME,  nodeClass=ToNumberParseNode.class, args= {
+        @Argument(allowedTypes={PDataType.VARCHAR, PDataType.TIMESTAMP}),
         @Argument(allowedTypes={PDataType.VARCHAR}, isConstant=true, defaultValue="null")} )
 public class ToNumberFunction extends ScalarFunction {
-    public static final String NAME = "TO_NUMBER";
+	public static final String NAME = "TO_NUMBER";
     
     private String formatString = null;
-    private DecimalFormat format = null;
+    private Format format = null;
+	private FunctionArgumentType type;
     
     public ToNumberFunction() {}
 
-    public ToNumberFunction(List<Expression> children) throws SQLException {
+    public ToNumberFunction(List<Expression> children, FunctionArgumentType type, String formatString, Format formatter) throws SQLException {
         super(children.subList(0, 1));
-        if (children.size() > 1) {
-            formatString = (String)((LiteralExpression)children.get(1)).getValue();
-            if (formatString != null) {
-                format = getDecimalFormat(formatString);
-            }
-        }
+        Preconditions.checkNotNull(type);
+        this.type = type;
+        this.formatString = formatString;
+        this.format = formatter;
     }
-    
-    private DecimalFormat getDecimalFormat(String formatString) {
-        DecimalFormat result = new DecimalFormat(formatString);
-        result.setParseBigDecimal(true);
-        return result;
-    }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         Expression expression = getExpression();
@@ -91,6 +85,14 @@ public class ToNumberFunction extends ScalarFunction {
         }
 
         PDataType type = expression.getDataType();
+        if (type.isCoercibleTo(PDataType.TIMESTAMP)) {
+        	Date date = (Date) type.toObject(ptr, expression.getColumnModifier());
+        	BigDecimal time = new BigDecimal(date.getTime());
+            byte[] byteValue = getDataType().toBytes(time);
+            ptr.set(byteValue);
+            return true;
+        }
+        
         String stringValue = (String)type.toObject(ptr, expression.getColumnModifier());
         if (stringValue == null) {
             ptr.set(EMPTY_BYTE_ARRAY);
@@ -102,7 +104,7 @@ public class ToNumberFunction extends ScalarFunction {
             decimalValue = (BigDecimal) getDataType().toObject(stringValue);
         } else {
             ParsePosition parsePosition = new ParsePosition(0);
-            Number number = format.parse(stringValue, parsePosition);
+            Number number = ((DecimalFormat) format).parse(stringValue, parsePosition);
             if (parsePosition.getErrorIndex() > -1) {
                 ptr.set(EMPTY_BYTE_ARRAY);
                 return true;
@@ -124,9 +126,9 @@ public class ToNumberFunction extends ScalarFunction {
 
     @Override
     public PDataType getDataType() {
-        return PDataType.DECIMAL;
+    	return PDataType.DECIMAL;
     }
-
+    
     @Override
     public boolean isNullable() {
         return getExpression().isNullable();
@@ -145,8 +147,9 @@ public class ToNumberFunction extends ScalarFunction {
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
         formatString = WritableUtils.readString(input);
+        type = WritableUtils.readEnum(input, FunctionArgumentType.class);
         if (formatString != null) {
-            format = getDecimalFormat(formatString);
+        	format = type.getFormatter(formatString);
         }
     }
 
@@ -154,6 +157,7 @@ public class ToNumberFunction extends ScalarFunction {
     public void write(DataOutput output) throws IOException {
         super.write(output);
         WritableUtils.writeString(output, formatString);
+        WritableUtils.writeEnum(output, type);
     }
 
     @Override
