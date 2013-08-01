@@ -153,6 +153,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
     
     @Override
+    public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
+        try {
+            return getTable(tableName).getTableDescriptor();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public ReadOnlyProps getProps() {
         return props;
     }

@@ -32,8 +32,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 import java.sql.*;
 import java.util.*;
 
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -463,12 +462,11 @@ public class MetaDataClient {
             Map<String, PName> familyNames = Maps.newLinkedHashMap();
             boolean isPK = false;
             
-            Map<String,Object> tableProps = Collections.emptyMap();
+            Map<String,Object> tableProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
             Map<String,Object> commonFamilyProps = Collections.emptyMap();
             // Somewhat hacky way of determining if property is for HColumnDescriptor or HTableDescriptor
             HColumnDescriptor defaultDescriptor = new HColumnDescriptor(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES);
             if (!statement.getProps().isEmpty()) {
-                tableProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
                 commonFamilyProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
                 
                 Collection<Pair<String,Object>> props = statement.getProps().get(QueryConstants.ALL_FAMILY_PROPERTIES_KEY);
@@ -484,6 +482,10 @@ public class MetaDataClient {
             Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
             if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
+            }
+            // Salt the index table if the data table is salted
+            if (saltBucketNum == null && parent != null) {
+                saltBucketNum = parent.getBucketNum();
             }
             boolean isSalted = (saltBucketNum != null);
             
@@ -568,10 +570,33 @@ public class MetaDataClient {
                 }
             }
             
+            
             // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
             if (tableType == PTableType.SYSTEM) {
                 PTable table = PTableImpl.makePTable(new PNameImpl(tableName), tableType, null, MetaDataProtocol.MIN_TABLE_TIMESTAMP, PTable.INITIAL_SEQ_NUM, QueryConstants.SYSTEM_TABLE_PK_NAME, null, columns, null, Collections.<PTable>emptyList(), isImmutableRows);
                 connection.addTable(schemaName, table);
+            } else if (tableType == PTableType.INDEX) {
+                if (tableProps.get(HTableDescriptor.MAX_FILESIZE) == null) {
+                    int nIndexRowKeyColumns = isPK ? 1 : pkColumnsNames.size();
+                    int nIndexKeyValueColumns = columns.size() - nIndexRowKeyColumns;
+                    int nBaseRowKeyColumns = parent.getPKColumns().size() - (parent.getBucketNum() == null ? 0 : 1);
+                    int nBaseKeyValueColumns = parent.getColumns().size() - parent.getPKColumns().size();
+                    /* 
+                     * Approximate ratio between index table size and data table size:
+                     * More or less equal to the ratio between the number of key value columns in each. We add one to
+                     * the key value column count to take into account our empty key value. We add 1/4 for any key
+                     * value data table column that was moved into the index table row key.
+                     */
+                    double ratio = (1+nIndexKeyValueColumns + (nIndexRowKeyColumns - nBaseRowKeyColumns)/4d)/(1+nBaseKeyValueColumns);
+                    HTableDescriptor descriptor = connection.getQueryServices().getTableDescriptor(SchemaUtil.getTableName(schemaName, parent.getName().getString()));
+                    if (descriptor != null) { // Is null for connectionless
+                        long maxFileSize = descriptor.getMaxFileSize();
+                        if (maxFileSize == -1) { // If unset, use default
+                            maxFileSize = HConstants.DEFAULT_MAX_FILE_SIZE;
+                        }
+                        tableProps.put(HTableDescriptor.MAX_FILESIZE, (long)(maxFileSize * ratio));
+                    }
+                }
             }
             
             for (PColumn column : columns) {
