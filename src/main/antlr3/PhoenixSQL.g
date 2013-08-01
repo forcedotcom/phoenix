@@ -530,7 +530,7 @@ join_specs returns [List<TableNode> ret]
     ;
 
 join_spec returns [JoinTableNode ret]
-    :   j=join_type JOIN t=named_table ON e=condition { $ret = factory.join(null, t, e, j); }
+    :   j=join_type JOIN t=named_table ON e=condition { $ret = factory.join(null, j, e, t); }
     ;
 
 join_type returns [JoinTableNode.JoinType ret]

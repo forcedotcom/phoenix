@@ -67,8 +67,8 @@ public class HashJoinRegionScanner implements RegionScanner {
             if (tenantId == null)
                 throw new IOException("Could not find tenant id for hash cache.");
             for (JoinType type : joinInfo.getJoinTypes()) {
-                if (type == JoinType.Right)
-                    throw new IOException("The hashed table should not be LHS.");
+                if (type != JoinType.Inner && type != JoinType.Left)
+                    throw new IOException("Got join type '" + type + "'. Expect only INNER or LEFT with hash-joins.");
             }
             this.cache = GlobalCache.getTenantCache(conf, tenantId);
         }
