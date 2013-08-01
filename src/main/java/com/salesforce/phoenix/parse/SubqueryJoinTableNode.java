@@ -2,6 +2,14 @@ package com.salesforce.phoenix.parse;
 
 import java.sql.SQLException;
 
+/**
+ * TableNode representing a subquery used as a join table.
+ * Sub-joins like join (B join C on ...) on ... is be considered a shorthand
+ * for subqueries, thus will also be represented by this node.
+ * 
+ * @author wxue3
+ *
+ */
 public class SubqueryJoinTableNode extends JoinTableNode {
     
     private final SelectStatement select;
