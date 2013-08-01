@@ -25,42 +25,8 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
-
-import java.sql.SQLException;
+package com.salesforce.phoenix.compile;
 
 
-
-/**
- * 
- * Node representing the join specified in the FROM clause of SQL
- *
- * @author jtaylor
- * @since 0.1
- */
-public abstract class JoinTableNode extends TableNode {
-    public enum JoinType {Inner, Left, Right, Full};
-    
-    private final JoinType type;
-    private final ParseNode on;
-    
-    JoinTableNode(String alias, JoinType type, ParseNode on) {
-        super(alias);
-        this.type = type;
-        this.on = on;
-    }
-
-    public JoinType getType() {
-        return type;
-    }
-
-    public ParseNode getOnNode() {
-        return on;
-    }
-
-    @Override
-    public void accept(TableNodeVisitor visitor) throws SQLException {
-        visitor.visit(this);
-    }
-
+public class JoinCompiler {
 }

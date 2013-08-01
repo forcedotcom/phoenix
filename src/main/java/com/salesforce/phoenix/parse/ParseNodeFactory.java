@@ -343,8 +343,12 @@ public class ParseNodeFactory {
         return new IsNullParseNode(child, negate);
     }
 
-    public JoinTableNode join (String alias, NamedTableNode table, ParseNode on, JoinType type) {
-        return new JoinTableNode(alias, table, on, type);
+    public SimpleJoinTableNode join (String alias, JoinType type, ParseNode on, NamedTableNode table) {
+        return new SimpleJoinTableNode(alias, type, on, table);
+    }
+
+    public SubqueryJoinTableNode join (String alias, JoinType type, ParseNode on, SelectStatement select) {
+        return new SubqueryJoinTableNode(alias, type, on, select);
     }
 
     public DerivedTableNode subselect (String alias, SelectStatement select) {

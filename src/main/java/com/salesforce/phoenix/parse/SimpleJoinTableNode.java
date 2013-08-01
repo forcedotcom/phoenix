@@ -29,33 +29,18 @@ package com.salesforce.phoenix.parse;
 
 import java.sql.SQLException;
 
-
-
-/**
- * 
- * Node representing the join specified in the FROM clause of SQL
- *
- * @author jtaylor
- * @since 0.1
- */
-public abstract class JoinTableNode extends TableNode {
-    public enum JoinType {Inner, Left, Right, Full};
+public class SimpleJoinTableNode extends JoinTableNode {
     
-    private final JoinType type;
-    private final ParseNode on;
+    private final NamedTableNode table;
+
+    SimpleJoinTableNode(String alias, JoinType type, ParseNode on, 
+            NamedTableNode table) {
+        super(alias, type, on);
+        this.table = table;
+    }
     
-    JoinTableNode(String alias, JoinType type, ParseNode on) {
-        super(alias);
-        this.type = type;
-        this.on = on;
-    }
-
-    public JoinType getType() {
-        return type;
-    }
-
-    public ParseNode getOnNode() {
-        return on;
+    public NamedTableNode getTable() {
+        return table;
     }
 
     @Override
