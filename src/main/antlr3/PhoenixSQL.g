@@ -502,21 +502,14 @@ parseOrderByField returns [OrderByNode ret]
     ;
 
 parseFrom returns [List<TableNode> ret]
-    :   l=table_refs { $ret = l; }
-    |   l=join_specs { $ret = l; }   
-    ;
-
-table_refs returns [List<TableNode> ret]
 @init{ret = new ArrayList<TableNode>(4); }
-    :   t=table_ref {$ret.add(t);}
-        (COMMA t=table_ref {$ret.add(t);} )*
+    :   t=table_ref {$ret.add(t);} (s=sub_table_ref { $ret.add(s); })*
     ;
-
-// parse a field, if it might be a bind name.
-named_table returns [NamedTableNode ret]
-    :   t=from_table_name { $ret = factory.namedTable(null,t,null); }
+    
+sub_table_ref returns [TableNode ret]
+    :   COMMA t=table_ref { $ret = t; }
+    |   t=join_spec { $ret = t; }
     ;
-
 
 table_ref returns [TableNode ret]
     :   n=bind_name ((AS)? alias=identifier)? { $ret = factory.bindTable(alias, factory.table(null,n)); } // TODO: review
@@ -525,12 +518,8 @@ table_ref returns [TableNode ret]
     ;
 catch[SQLException e]{throw  new RecognitionException();}
 
-join_specs returns [List<TableNode> ret]
-    :   t=named_table {$ret.add(t);} (s=join_spec { $ret.add(s); })+
-    ;
-
-join_spec returns [JoinTableNode ret]
-    :   j=join_type JOIN t=named_table ON e=condition { $ret = factory.join(null, j, e, t); }
+join_spec returns [TableNode ret]
+    :   j=join_type JOIN t=table_ref ON e=condition { $ret = factory.join(j, e, t); }
     ;
 
 join_type returns [JoinTableNode.JoinType ret]
