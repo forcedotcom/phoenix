@@ -132,7 +132,7 @@ public class ProjectionCompiler {
                 isWildcard = true;
                 // Project everything for SELECT *
                 projectAllColumnFamilies(table,scan);
-                for (int i = 0; i < table.getColumns().size(); i++) {
+                for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getColumns().size(); i++) {
                     ColumnRef ref = new ColumnRef(tableRef,i);
                     Expression expression = ref.newColumnExpression();
                     projectedExpressions.add(expression);

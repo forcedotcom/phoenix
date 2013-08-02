@@ -46,6 +46,7 @@ import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -128,12 +129,22 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         if (isScanQuery == null || Bytes.compareTo(PDataType.FALSE_BYTES, isScanQuery) == 0) {
             return s;
         }
+        
+        final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
+        final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);
         final OrderedResultIterator iterator = deserializeFromScan(scan,s);
-        if (iterator == null) {
-            return getWrappedScanner(c, s);
+        final ImmutableBytesWritable tenantId = ScanUtil.getTenantId(scan);
+        
+        RegionScanner innerScanner = s;
+        if (p != null || j != null) {
+            innerScanner = new HashJoinRegionScanner(s, p, j, tenantId, c.getEnvironment().getConfiguration());
         }
         
-        return getTopNScanner(c,s, iterator, ScanUtil.getTenantId(scan));
+        if (iterator == null) {
+            return getWrappedScanner(c, innerScanner);
+        }
+        
+        return getTopNScanner(c, innerScanner, iterator, tenantId);
     }
     
     /**

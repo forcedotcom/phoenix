@@ -1068,10 +1068,11 @@ EOL
     { skip(); }
     ;
 
+// Keep everything in comment in a case sensitive manner
 ML_HINT
 @init{ StringBuilder sb = new StringBuilder(); }
-    : HINT_START ( options {greedy=false;} : t=. { sb.append((char)t); } )* COMMENT_AND_HINT_END
-    { setText(sb.toString()); }
+    : h=HINT_START ( options {greedy=false;} : t=.)*  { sb.append($text); }  COMMENT_AND_HINT_END
+    { setText(sb.substring(h.getText().length())); } // Get rid of the HINT_START text
     ;
 
 ML_COMMENT

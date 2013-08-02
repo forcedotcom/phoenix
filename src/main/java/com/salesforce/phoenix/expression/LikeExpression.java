@@ -59,15 +59,9 @@ public class LikeExpression extends BaseCompoundExpression {
     
     private static final String ZERO_OR_MORE = "\\E.*\\Q";
     private static final String ANY_ONE = "\\E.\\Q";
-    public final static char MULTI_CHAR_LIKE = '%';
-    public final static char SINGLE_CHAR_LIKE = '_';
-    public final static char MULTI_CHAR_WILDCARD = '*';
-    public final static char SINGLE_CHAR_WILDCARD = '?';
-    public final static String[] LIKE_ESCAPE_SEQS = new String[]{"\\"+SINGLE_CHAR_LIKE, "\\"+MULTI_CHAR_LIKE};
-    public final static String[] LIKE_UNESCAPED_SEQS = new String[]{""+SINGLE_CHAR_LIKE, ""+MULTI_CHAR_LIKE};
     
     public static String unescapeLike(String s) {
-        return StringUtil.replace(s, LIKE_ESCAPE_SEQS, LIKE_UNESCAPED_SEQS);
+        return StringUtil.replace(s, StringUtil.LIKE_ESCAPE_SEQS, StringUtil.LIKE_UNESCAPED_SEQS);
     }
 
     /**
@@ -102,8 +96,8 @@ public class LikeExpression extends BaseCompoundExpression {
         int i = 0;
         int j = 0;
         while (true) {
-            int pctPos = s.indexOf(MULTI_CHAR_WILDCARD, i);
-            int underPos = s.indexOf(SINGLE_CHAR_WILDCARD, i);
+            int pctPos = s.indexOf(StringUtil.MULTI_CHAR_WILDCARD, i);
+            int underPos = s.indexOf(StringUtil.SINGLE_CHAR_WILDCARD, i);
             if (pctPos == -1 && underPos == -1) {
                 return i == 0 ? s : buf.append(s.substring(i)).toString();
             }
@@ -119,7 +113,7 @@ public class LikeExpression extends BaseCompoundExpression {
             } else {
                 // We found an unprotected % or _ in the middle
                 buf.append(s.substring(j,i));
-                buf.append(s.charAt(i) == MULTI_CHAR_WILDCARD ? MULTI_CHAR_LIKE : SINGLE_CHAR_LIKE);
+                buf.append(s.charAt(i) == StringUtil.MULTI_CHAR_WILDCARD ? StringUtil.MULTI_CHAR_LIKE : StringUtil.SINGLE_CHAR_LIKE);
             }
             j = ++i;
         }
@@ -132,8 +126,8 @@ public class LikeExpression extends BaseCompoundExpression {
         }
         int i = 0;
         while (true) {
-            int pctPos = s.indexOf(MULTI_CHAR_LIKE, i);
-            int underPos = s.indexOf(SINGLE_CHAR_LIKE, i);
+            int pctPos = s.indexOf(StringUtil.MULTI_CHAR_LIKE, i);
+            int underPos = s.indexOf(StringUtil.SINGLE_CHAR_LIKE, i);
             if (pctPos == -1 && underPos == -1) {
                 return -1;
             }
@@ -163,9 +157,9 @@ public class LikeExpression extends BaseCompoundExpression {
             if (wasSlash) {
                 sb.append(c);
                 wasSlash = false;
-            } else if (c == SINGLE_CHAR_LIKE) {
+            } else if (c == StringUtil.SINGLE_CHAR_LIKE) {
                 sb.append(ANY_ONE);
-            } else if (c == MULTI_CHAR_LIKE) {
+            } else if (c == StringUtil.MULTI_CHAR_LIKE) {
                 sb.append(ZERO_OR_MORE);
             } else if (c == '\\') {
                 wasSlash = true;

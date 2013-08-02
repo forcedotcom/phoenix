@@ -163,14 +163,16 @@ public class PTableImpl implements PTable {
 
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
-        allColumns = new PColumn[columns.size()];
         if (bucketNum != null) {
-            pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
+            allColumns = new PColumn[columns.size()+1];
+            allColumns[SALTING_COLUMN.getPosition()] = SALTING_COLUMN;
+            pkColumns = Lists.newArrayListWithExpectedSize(columns.size()+1);
             pkColumns.add(SALTING_COLUMN);
             builder.addField(SALTING_COLUMN);
             columnsByName.put(SALTING_COLUMN.getName().getString(), SALTING_COLUMN);
         } else {
-            pkColumns = Lists.newArrayListWithExpectedSize(columns.size()-1);
+            allColumns = new PColumn[columns.size()];
+            pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
         }
         for (int i = 0; i < columns.size(); i++) {
             PColumn column = columns.get(i);
@@ -588,13 +590,16 @@ public class PTableImpl implements PTable {
         WritableUtils.writeVLong(output, sequenceNumber);
         output.writeLong(timeStamp);
         Bytes.writeByteArray(output, pkName == null ? ByteUtil.EMPTY_BYTE_ARRAY : pkName.getBytes());
-        if (bucketNum != null) {
-            WritableUtils.writeVInt(output, bucketNum);
-        } else {
+        int offset = 0, nColumns = allColumns.size();
+        if (bucketNum == null) {
             WritableUtils.writeVInt(output, NO_SALTING);
+        } else {
+            offset = 1;
+            nColumns--;
+            WritableUtils.writeVInt(output, bucketNum);
         }
-        WritableUtils.writeVInt(output, allColumns.size());
-        for (int i = 0; i < allColumns.size(); i++) {
+        WritableUtils.writeVInt(output, nColumns);
+        for (int i = offset; i < allColumns.size(); i++) {
             PColumn column = allColumns.get(i);
             column.write(output);
         }

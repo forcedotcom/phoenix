@@ -43,35 +43,37 @@ import com.salesforce.phoenix.util.TestUtil;
 
 
 public class PDataTypeTest {
-    public static int compareDoubleToLong(double d, long l) {
-        if (d > Long.MAX_VALUE) {
-            return 1;
-        }
-        if (d < Long.MIN_VALUE) {
-            return -1;
-        }
-        long diff = (long)d - l;
-        return Long.signum(diff);
-    }
-    
-    public static int compareFloatToLong(float f, long l) {
-        if (f > Integer.MAX_VALUE || f < Integer.MIN_VALUE) {
-            return f < l ? -1 : f > l ? 1 : 0;
-        }
-        long diff = (long)f - l;
-        return Long.signum(diff);
-    }
-    
     @Test
     public void testFloatToLongComparison() {
-        assertTrue(compareFloatToLong(Integer.MAX_VALUE, Integer.MAX_VALUE-1) > 0);
-        assertTrue(compareFloatToLong(Integer.MIN_VALUE, Integer.MIN_VALUE+1) < 0);
-        assertTrue(compareFloatToLong(Integer.MIN_VALUE, Integer.MIN_VALUE) == 0);
-        assertTrue(compareFloatToLong(Integer.MAX_VALUE + 1.0F, Integer.MAX_VALUE) > 0); // Passes due to rounding
-        assertTrue(compareFloatToLong(Integer.MAX_VALUE + 129.0F, Integer.MAX_VALUE) > 0);
-        assertTrue(compareFloatToLong(Integer.MIN_VALUE - 128.0F, Integer.MIN_VALUE) == 0);
-        assertTrue(compareFloatToLong(Integer.MIN_VALUE - 129.0F, Integer.MIN_VALUE) < 0);
-        
+        // Basic tests
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(1e100), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null, PDataType.LONG) > 0);
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(0.001), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null, PDataType.LONG) < 0);
+
+        // Edge tests
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(Integer.MAX_VALUE), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.LONG.toBytes(Integer.MAX_VALUE - 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) > 0);
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(Integer.MIN_VALUE), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.LONG.toBytes(Integer.MIN_VALUE + 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) < 0);
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(Integer.MIN_VALUE), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.LONG.toBytes(Integer.MIN_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) == 0);
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(Integer.MAX_VALUE + 1.0F), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.LONG.toBytes(Integer.MAX_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) > 0); // Passes due to rounding
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(Integer.MAX_VALUE + 129.0F), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.LONG.toBytes(Integer.MAX_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) > 0);
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(Integer.MIN_VALUE - 128.0F), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.LONG.toBytes(Integer.MIN_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) == 0);
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(Integer.MIN_VALUE - 129.0F), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.LONG.toBytes(Integer.MIN_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) < 0);
+
         float f1 = 9111111111111111.0F;
         float f2 = 9111111111111112.0F;
         assertTrue(f1 == f2);
@@ -79,38 +81,118 @@ public class PDataTypeTest {
         assertTrue(f1 > Integer.MAX_VALUE);
         assertTrue(la == f1);
         assertTrue(la == f2);
-//        assertEquals(BigDecimal.valueOf(9111111111111111.0F),BigDecimal.valueOf(9111111111111111L));
-//        assertTrue(BigDecimal.valueOf(9111111111111112.0F).compareTo(BigDecimal.valueOf(9111111111111111L)) > 0);
-        assertTrue(compareFloatToLong(f1, la) == 0);
-        assertTrue(compareFloatToLong(f2, la) == 0);
-    }
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(f1), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.LONG.toBytes(la), 0, PDataType.LONG.getByteSize(), null, PDataType.LONG) == 0);
+        assertTrue(PDataType.FLOAT.compareTo(PDataType.FLOAT.toBytes(f2), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.LONG.toBytes(la), 0, PDataType.LONG.getByteSize(), null, PDataType.LONG) == 0);
+
+        // Same as above, but reversing LHS and RHS
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null,
+                PDataType.FLOAT.toBytes(1e100), 0, PDataType.FLOAT.getByteSize(), null, PDataType.FLOAT) < 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null,
+                PDataType.FLOAT.toBytes(0.001), 0, PDataType.FLOAT.getByteSize(), null, PDataType.FLOAT) > 0);
+
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Integer.MAX_VALUE - 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.FLOAT.toBytes(Integer.MAX_VALUE), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.FLOAT) < 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Integer.MIN_VALUE + 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.FLOAT.toBytes(Integer.MIN_VALUE), 0,
+                PDataType.FLOAT.getByteSize(), null, PDataType.FLOAT) > 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Integer.MIN_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.FLOAT.toBytes(Integer.MIN_VALUE), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.FLOAT) == 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Integer.MAX_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.FLOAT.toBytes(Integer.MAX_VALUE + 1.0F), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.FLOAT) < 0); // Passes due to rounding
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Integer.MAX_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.FLOAT.toBytes(Integer.MAX_VALUE + 129.0F), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.FLOAT) < 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Integer.MIN_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.FLOAT.toBytes(Integer.MIN_VALUE - 128.0F), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.FLOAT) == 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Integer.MIN_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.FLOAT.toBytes(Integer.MIN_VALUE - 129.0F), 0, PDataType.FLOAT.getByteSize(), null,
+                PDataType.FLOAT) > 0);
+
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(la), 0, PDataType.LONG.getByteSize(), null,
+                PDataType.FLOAT.toBytes(f1), 0, PDataType.FLOAT.getByteSize(), null, PDataType.FLOAT) == 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(la), 0, PDataType.LONG.getByteSize(), null,
+                PDataType.FLOAT.toBytes(f2), 0, PDataType.FLOAT.getByteSize(), null, PDataType.FLOAT) == 0);
+    }        
+        
         
     @Test
     public void testDoubleToLongComparison() {
-        assertTrue(compareDoubleToLong(Long.MAX_VALUE, Long.MAX_VALUE-1) > 0);
-        assertTrue(compareDoubleToLong(Long.MIN_VALUE, Long.MIN_VALUE+1) < 0);
-        assertTrue(compareDoubleToLong(Long.MIN_VALUE, Long.MIN_VALUE) == 0);
-        assertTrue(compareDoubleToLong(Long.MAX_VALUE + 1024.0, Long.MAX_VALUE) == 0);
-        assertTrue(compareDoubleToLong(Long.MAX_VALUE + 1025.0, Long.MAX_VALUE) > 0);
-        assertTrue(compareDoubleToLong(Long.MIN_VALUE - 1024.0, Long.MIN_VALUE) == 0);
-        assertTrue(compareDoubleToLong(Long.MIN_VALUE - 1025.0, Long.MIN_VALUE) < 0);
-        
+        // Basic tests
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(-1e100), 0, PDataType.DOUBLE.getByteSize(), null,
+                PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null, PDataType.LONG) < 0);
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(0.001), 0, PDataType.DOUBLE.getByteSize(), null,
+                PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null, PDataType.LONG) < 0);
+
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(Long.MAX_VALUE), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.LONG.toBytes(Long.MAX_VALUE - 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) > 0);
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(Long.MIN_VALUE), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.LONG.toBytes(Long.MIN_VALUE + 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) < 0);
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(Long.MIN_VALUE), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.LONG.toBytes(Long.MIN_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) == 0);
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(Long.MAX_VALUE + 1024.0), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.LONG.toBytes(Long.MAX_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) == 0);
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(Long.MAX_VALUE + 1025.0), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.LONG.toBytes(Long.MAX_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) > 0);
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(Long.MIN_VALUE - 1024.0), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.LONG.toBytes(Long.MIN_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) == 0);
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(Long.MIN_VALUE - 1025.0), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.LONG.toBytes(Long.MIN_VALUE), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.LONG) < 0);
+
+        // Same as above, but reversing LHS and RHS
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null,
+                PDataType.DOUBLE.toBytes(-1e100), 0, PDataType.DOUBLE.getByteSize(), null, PDataType.DOUBLE) > 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(1), 0, PDataType.LONG.getByteSize(), null,
+                PDataType.DOUBLE.toBytes(0.001), 0, PDataType.DOUBLE.getByteSize(), null, PDataType.DOUBLE) > 0);
+
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Long.MAX_VALUE - 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.DOUBLE.toBytes(Long.MAX_VALUE), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.DOUBLE) < 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Long.MIN_VALUE + 1), 0,
+                PDataType.LONG.getByteSize(), null, PDataType.DOUBLE.toBytes(Long.MIN_VALUE), 0,
+                PDataType.DOUBLE.getByteSize(), null, PDataType.DOUBLE) > 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Long.MIN_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.DOUBLE.toBytes(Long.MIN_VALUE), 0, PDataType.DOUBLE.getByteSize(), null,
+                PDataType.DOUBLE) == 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Long.MAX_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.DOUBLE.toBytes(Long.MAX_VALUE + 1024.0), 0, PDataType.DOUBLE.getByteSize(), null,
+                PDataType.DOUBLE) == 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Long.MAX_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.DOUBLE.toBytes(Long.MAX_VALUE + 1025.0), 0, PDataType.DOUBLE.getByteSize(), null,
+                PDataType.DOUBLE) < 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Long.MIN_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.DOUBLE.toBytes(Long.MIN_VALUE - 1024.0), 0, PDataType.DOUBLE.getByteSize(), null,
+                PDataType.DOUBLE) == 0);
+        assertTrue(PDataType.LONG.compareTo(PDataType.LONG.toBytes(Long.MIN_VALUE), 0, PDataType.LONG.getByteSize(),
+                null, PDataType.DOUBLE.toBytes(Long.MIN_VALUE - 1025.0), 0, PDataType.DOUBLE.getByteSize(), null,
+                PDataType.DOUBLE) > 0);
+
         long i = 10;
-        long maxl = (1L<<62);
-        System.out.println("maxl = " + maxl);
+        long maxl = (1L << 62);
         try {
             for (; i < 100; i++) {
                 double d = Math.pow(2, i);
                 if ((long)d > maxl) {
-                    assertTrue(i>62);
+                    assertTrue(i > 62);
                     continue;
                 }
-                long l = (1L<<i) - 1;
+                long l = (1L << i) - 1;
                 assertTrue(l + 1L == (long)d);
                 assertTrue(l < (long)d);
             }
         } catch (AssertionError t) {
-            System.out.println("Failed at i = " + i);
             throw t;
         }
         double d = 0.0;
@@ -122,7 +204,6 @@ public class PDataTypeTest {
                 d++;
             }
         } catch (AssertionError t) {
-            System.out.println("Failed at d = " + d);
             throw t;
         }
         d = 0.0;
@@ -134,7 +215,6 @@ public class PDataTypeTest {
                 d--;
             }
         } catch (AssertionError t) {
-            System.out.println("Failed at d = " + d);
             throw t;
         }
         double d1 = Long.MAX_VALUE;
@@ -145,7 +225,7 @@ public class PDataTypeTest {
         long l1 = Long.MAX_VALUE - 1;
         assertTrue((long)d1 > l1);
     }
-    
+        
     public void testLong() {
         Long la = 4L;
         byte[] b = PDataType.LONG.toBytes(la);

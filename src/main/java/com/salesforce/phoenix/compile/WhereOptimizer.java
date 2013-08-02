@@ -155,7 +155,7 @@ public class WhereOptimizer {
                 if (ScanUtil.isAllSingleRowScan(cnf, table.getRowKeySchema())) {
                     cnf.addFirst(SALT_PLACEHOLDER);
                     ranges = SaltingUtil.flattenRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
-                    schema = SaltingUtil.BINARY_SCHEMA;
+                    schema = SaltingUtil.VAR_BINARY_SCHEMA;
                 } else {
                     cnf.addFirst(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
                 }

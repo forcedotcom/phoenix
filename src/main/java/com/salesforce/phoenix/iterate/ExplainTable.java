@@ -135,22 +135,7 @@ public abstract class ExplainTable {
             range = modifier.apply(range, new byte[range.length], 0, range.length);
         }
         Format formatter = context.getConnection().getFormatter(type);
-        //Object value = type.toObject(ptr);
-        boolean isString = type.isCoercibleTo(PDataType.VARCHAR);
-        if (isString) buf.append('\''); // TODO: PDataType.toString(Object, Format) method?
-        Object o = type.toObject(range);
-        if (isString) {
-            String s = (String) o;
-            for (int i = 0; i < s.length() && s.charAt(i) != '\0'; i++) {
-                buf.append(s.charAt(i));
-            }
-        } else {
-            boolean isTime = type.isCoercibleTo(PDataType.DATE);
-            if (isTime) buf.append('\'');
-            buf.append(formatter == null ? o : formatter.format(o));
-            if (isTime) buf.append('\'');
-        }
-        if (isString) buf.append('\'');
+        buf.append(type.toStringLiteral(range, formatter));
     }
     
     private void appendKeyRange(StringBuilder buf, KeyRange range, int i) {

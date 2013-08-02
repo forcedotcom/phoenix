@@ -104,17 +104,19 @@ public class UpsertCompiler {
         int[] columnIndexesToBe;
         int[] pkSlotIndexesToBe;
         PColumn[] targetColumns;
+        boolean isSalted = table.getBucketNum() != null;
+        int posOffset = isSalted ? 1 : 0;
         // Allow full row upsert if no columns or only dynamic one are specified and values count match
         if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
-            columnIndexesToBe = new int[allColumns.size()];
+            columnIndexesToBe = new int[allColumns.size() - posOffset];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = new PColumn[columnIndexesToBe.length];
-            int j = table.getBucketNum() == null ? 0 : 1; // Skip over the salting byte.
-            for (int i = 0; i < allColumns.size(); i++) {
-                columnIndexesToBe[i] = i;
-                targetColumns[i] = allColumns.get(i);
-                if (SchemaUtil.isPKColumn(allColumns.get(i))) {
-                    pkSlotIndexesToBe[i] = j++;
+            for (int i = posOffset, j = posOffset; i < allColumns.size(); i++) {
+                PColumn column = allColumns.get(i);
+                columnIndexesToBe[i-posOffset] = i;
+                targetColumns[i-posOffset] = column;
+                if (SchemaUtil.isPKColumn(column)) {
+                    pkSlotIndexesToBe[i-posOffset] = j++;
                 }
             }
         } else {
@@ -133,7 +135,7 @@ public class UpsertCompiler {
                     pkColumnsSet.set(pkSlotIndexesToBe[i] = ref.getPKSlotPosition());
                 }
             }
-            int i = table.getBucketNum() == null ? 0 : 1;
+            int i = posOffset;
             for ( ; i < table.getPKColumns().size(); i++) {
                 PColumn pkCol = table.getPKColumns().get(i);
                 if (!pkColumnsSet.get(i)) {

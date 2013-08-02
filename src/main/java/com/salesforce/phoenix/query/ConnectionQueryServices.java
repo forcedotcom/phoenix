@@ -30,8 +30,7 @@ package com.salesforce.phoenix.query;
 import java.sql.SQLException;
 import java.util.*;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
@@ -61,6 +60,8 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
      * @throws SQLException 
      */
     public HTableInterface getTable(byte[] tableName) throws SQLException;
+
+    public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException;
 
     public StatsManager getStatsManager();
 

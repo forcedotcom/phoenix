@@ -153,6 +153,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
     
     @Override
+    public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
+        try {
+            return getTable(tableName).getTableDescriptor();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public ReadOnlyProps getProps() {
         return props;
     }
@@ -220,7 +229,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table, String parentTableName) throws SQLException {
+    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
         try {
             // If existing table isn't older than new table, don't replace
             // If a client opens a connection at an earlier timestamp, this can happen
@@ -232,7 +241,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         } catch (SchemaNotFoundException e) {
         }
         synchronized(latestMetaDataLock) {
-            latestMetaData = latestMetaData.addTable(schemaName, table, parentTableName);
+            latestMetaData = latestMetaData.addTable(schemaName, table);
             latestMetaDataLock.notifyAll();
             return latestMetaData;
         }

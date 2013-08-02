@@ -30,8 +30,7 @@ package com.salesforce.phoenix.query;
 import java.sql.SQLException;
 import java.util.*;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
@@ -75,8 +74,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table, String parentTableName) throws SQLException {
-        return getDelegate().addTable(schemaName, table, parentTableName);
+    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+        return getDelegate().addTable(schemaName, table);
     }
 
     @Override
@@ -158,5 +157,10 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public Long incrementSequence(byte[] schemaName, byte[] tableName) {
         // TODO Auto-generated method stub
         return null;
+    }
+    
+    @Override
+    public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
+        return getDelegate().getTableDescriptor(tableName);
     }
 }

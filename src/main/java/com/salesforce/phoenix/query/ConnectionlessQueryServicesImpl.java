@@ -85,8 +85,8 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table, String parentTableName) throws SQLException {
-        return metaData = metaData.addTable(schemaName, table, parentTableName);
+    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+        return metaData = metaData.addTable(schemaName, table);
     }
 
     @Override
@@ -177,6 +177,11 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     @Override
     public Long incrementSequence(byte[] schemaName, byte[] tableName) {
         // TODO Auto-generated method stub
+        return null;
+    }
+    
+    @Override
+    public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return null;
     }
 }
