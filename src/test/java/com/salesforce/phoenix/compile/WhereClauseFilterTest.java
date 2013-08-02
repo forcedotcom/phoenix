@@ -51,7 +51,8 @@ import com.salesforce.phoenix.expression.function.SubstrFunction;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
@@ -785,5 +786,57 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId3),PDataType.VARCHAR.toBytes(entityId2));
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
         // TODO: validate scan ranges
+    }
+    
+    @Test
+    public void testBetweenFilter() throws SQLException {
+        String tenantId = "000000000000001";
+        String query = "select * from atable where organization_id='" + tenantId + "' and a_integer between 0 and 10";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        Scan scan = new Scan();
+        List<Object> binds = Collections.emptyList();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        Filter filter = scan.getFilter();
+        assertEquals(
+                singleKVFilter(and(
+                    constantComparison(
+                        CompareOp.GREATER_OR_EQUAL,
+                        BaseConnectionlessQueryTest.A_INTEGER,
+                        0),
+                    constantComparison(
+                        CompareOp.LESS_OR_EQUAL,
+                        BaseConnectionlessQueryTest.A_INTEGER,
+                        10))),
+                filter);
+    }
+    
+    @Test
+    public void testNotBetweenFilter() throws SQLException {
+        String tenantId = "000000000000001";
+        String query = "select * from atable where organization_id='" + tenantId + "' and a_integer not between 0 and 10";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        Scan scan = new Scan();
+        List<Object> binds = Collections.emptyList();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        Filter filter = scan.getFilter();
+        assertEquals(
+                singleKVFilter(not(and(
+                    constantComparison(
+                        CompareOp.GREATER_OR_EQUAL,
+                        BaseConnectionlessQueryTest.A_INTEGER,
+                        0),
+                    constantComparison(
+                        CompareOp.LESS_OR_EQUAL,
+                        BaseConnectionlessQueryTest.A_INTEGER,
+                        10)))).toString(),
+                filter.toString());
     }
 }
