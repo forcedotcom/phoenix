@@ -133,6 +133,15 @@ public class QueryParserTest {
             ));
         parser.parseStatement();
     }
+    
+	@Test
+	public void testCreateSequence() throws Exception {
+		SQLParser parser = new SQLParser(new StringReader(
+				"create sequence foo.bar\n" + 
+						"start with 0\n"	+ 
+						"increment by 1\n"));
+		parser.parseStatement();
+	}
 
     @Test
     public void testParseJoin1() throws Exception {

@@ -93,7 +93,11 @@ tokens
     WITHIN='within';
     ENABLE='enable';
     DISABLE='disable';
-    SET='set';
+    SET='set';    
+    SEQUENCE='sequence';
+    START='start';
+    WITH='with';
+    INCREMENT='increment';
 }
 
 
@@ -336,6 +340,7 @@ oneStatement returns [SQLStatement ret]
     |    u=upsert_node {$ret=u;}
     |    d=delete_node {$ret=d;}
     |    ct=create_table_node {$ret=ct;}
+    |	 cs=create_sequence_node {$ret=cs;}
     |    ci=create_index_node {$ret=ci;}
     |    dt=drop_table_node {$ret=dt;}
     |    di=drop_index_node {$ret=di;}
@@ -361,6 +366,14 @@ create_table_node returns [CreateTableStatement ret]
         (p=fam_properties)?
         (SPLIT ON v=values)?
         {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
+    ;
+    
+// Parse a create sequence statement.
+create_sequence_node returns [CreateSequenceStatement ret]
+    :   CREATE SEQUENCE t=from_table_name ?
+    	START WITH s=int_literal	?
+    	INCREMENT BY i=int_literal 
+        {ret = factory.createSequence(t, s, i, getBindCount()); }
     ;
 
 // Parse a create index statement.

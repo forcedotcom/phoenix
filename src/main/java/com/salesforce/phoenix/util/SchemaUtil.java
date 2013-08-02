@@ -344,6 +344,7 @@ public class SchemaUtil {
         try {
             Statement metaStatement = metaConnection.createStatement();
             metaStatement.executeUpdate(QueryConstants.CREATE_METADATA);
+            metaStatement.executeUpdate(QueryConstants.CREATE_SEQUENCE);
         } catch (TableAlreadyExistsException e) {
         } finally {
             metaConnection.close();

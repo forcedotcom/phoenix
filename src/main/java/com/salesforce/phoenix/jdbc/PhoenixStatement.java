@@ -295,6 +295,60 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             return compiler.compile(this, binds);
         }
     }
+    
+	private class ExecutableCreateSequenceStatement extends
+			CreateSequenceStatement implements ExecutableStatement {
+
+		public ExecutableCreateSequenceStatement(TableName sequenceName,
+				LiteralParseNode startWith, LiteralParseNode incrementBy,
+				int bindCount) {
+			super(sequenceName, startWith, incrementBy, bindCount);
+		}
+
+		@Override
+		public PhoenixResultSet executeQuery() throws SQLException {
+			throw new ExecuteQueryNotApplicableException("CREATE SEQUENCE",
+					this.toString());
+		}
+
+		@Override
+		public boolean execute() throws SQLException {
+			try {
+				final String schemaName = getTableName().getSchemaName();
+				final String sequenceName = getTableName().getTableName();
+				final int startWith = ((Integer) getStartWith().getValue()).intValue();
+				final int incrementBy = ((Integer) getIncrementBy().getValue()).intValue();
+
+				String statement = "UPSERT INTO SYSTEM.\"SEQUENCE\" (SEQUENCE_SCHEMA, SEQUENCE_NAME, CURRENT_VALUE, INCREMENT_BY) VALUES(?,?,?,?)";
+				PreparedStatement upsertStatement = connection
+						.prepareStatement(statement);
+				upsertStatement.setString(1, schemaName);
+				upsertStatement.setString(2, sequenceName);
+				upsertStatement.setInt(3, startWith);
+				upsertStatement.setInt(4, incrementBy);				
+				upsertStatement.execute();
+			} finally {
+				connection.commit();
+			}
+			return false;
+		}
+
+		@Override
+		public int executeUpdate() throws SQLException {
+			return 0;
+		}
+
+		@Override
+		public ResultSetMetaData getResultSetMetaData() throws SQLException {
+			return null;
+		}
+
+		@Override
+		public StatementPlan compilePlan(List<Object> binds)
+				throws SQLException {
+			return null;
+		}
+	}
 
     private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
 
@@ -748,6 +802,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, PTableType tableType, boolean ifNotExists, int bindCount) {
             return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
+        }
+        
+        @Override
+        public CreateSequenceStatement createSequence(TableName tableName, LiteralParseNode startsWith, LiteralParseNode incrementBy, int bindCount){
+        	return new ExecutableCreateSequenceStatement(tableName, startsWith, incrementBy, bindCount);
         }
         
         @Override

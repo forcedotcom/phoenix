@@ -133,4 +133,10 @@ public interface QueryConstants {
             + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
-}
+    
+    public static final String CREATE_SEQUENCE = "CREATE TABLE SYSTEM.\"SEQUENCE\" (" + 
+    							"SEQUENCE_SCHEMA VARCHAR NULL, SEQUENCE_NAME VARCHAR NOT NULL, CURRENT_VALUE BIGINT NOT NULL, INCREMENT_BY BIGINT NOT NULL" + 
+    							" CONSTRAINT pk PRIMARY KEY (SEQUENCE_SCHEMA, SEQUENCE_NAME))" + 
+    							" VERSIONS=1000," + 
+    							" SPLIT_POLICY='com.salesforce.phoenix.schema.MetaDataSplitPolicy'";
+	}

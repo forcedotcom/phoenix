@@ -936,4 +936,18 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         conn5.createStatement().executeUpdate("SHOW TABLES");
         conn5.close();
     }
+    
+	@Test
+	public void testSequenceTable() throws Exception {
+		long ts = nextTimestamp();
+		Properties props = new Properties();
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
+		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+		DatabaseMetaData dbmd = conn.getMetaData();
+		String schemaName = "SYSTEM";
+		String tableName = StringUtil.escapeLike("SEQUENCE");		
+		ResultSet rs = dbmd.getTables(null, schemaName, tableName, null);
+		assertTrue(rs.next());
+		assertEquals(rs.getString("TABLE_NAME"), tableName);
+	}
 }
