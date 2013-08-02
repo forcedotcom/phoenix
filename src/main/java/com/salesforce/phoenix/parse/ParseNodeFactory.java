@@ -383,6 +383,10 @@ public class ParseNodeFactory {
     public JoinTableNode join (String alias, NamedTableNode table, ParseNode on, JoinType type) {
         return new JoinTableNode(alias, table, on, type);
     }
+    
+    public NextSequenceValueParseNode nextValueFor(TableName tableName){
+    	return new NextSequenceValueParseNode(tableName);
+    }
 
     public DerivedTableNode subselect (String alias, SelectStatement select) {
         return new DerivedTableNode(alias, select);

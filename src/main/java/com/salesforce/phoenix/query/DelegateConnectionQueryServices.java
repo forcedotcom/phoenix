@@ -153,4 +153,10 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public HBaseAdmin getAdmin() throws SQLException {
         return getDelegate().getAdmin();
     }
+
+    @Override
+    public Long incrementSequence(byte[] schemaName, byte[] tableName) {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }

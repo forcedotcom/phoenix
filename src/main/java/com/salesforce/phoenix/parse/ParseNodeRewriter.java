@@ -317,4 +317,9 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             l.add(element);
         }
     }
+
+	@Override
+	public ParseNode visit(NextSequenceValueParseNode node) throws SQLException {		
+		return node;
+	}
 }

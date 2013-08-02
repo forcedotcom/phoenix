@@ -93,6 +93,7 @@ public interface ParseNodeVisitor<E> {
     
     public E visit(ColumnParseNode node) throws SQLException;
     public E visit(LiteralParseNode node) throws SQLException;
+    public E visit(NextSequenceValueParseNode node) throws SQLException;
     public E visit(BindParseNode node) throws SQLException;
     public E visit(WildcardParseNode node) throws SQLException;  
     public E visit(FamilyParseNode node) throws SQLException;  

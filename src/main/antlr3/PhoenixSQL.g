@@ -98,6 +98,9 @@ tokens
     START='start';
     WITH='with';
     INCREMENT='increment';
+    NEXT='next';
+    VALUE='value';
+    FOR='for';
 }
 
 
@@ -572,7 +575,8 @@ select_list returns [List<AliasedNode> ret]
 selectable returns [AliasedNode ret]
     :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
       | familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
-      | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'    
+      | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'
+      | NEXT VALUE FOR t=from_table_name { $ret = factory.aliasedNode(null, factory.nextValueFor(t));}   
     ;
 
 
@@ -581,7 +585,7 @@ group_by returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>();}
     :   expr=expression { ret.add(expr); }
         (COMMA expr = expression {ret.add(expr); })*
-    ;
+    ;    
 
 // Parse an order by statement
 order_by returns [List<OrderByNode> ret]
@@ -589,7 +593,7 @@ order_by returns [List<OrderByNode> ret]
     :   field=parseOrderByField { ret.add(field); }
         (COMMA field = parseOrderByField {ret.add(field); })*
     ;
-
+    
 //parse the individual field for an order by clause
 parseOrderByField returns [OrderByNode ret]
 @init{boolean isAscending = true; boolean nullsLast = false;}

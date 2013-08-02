@@ -29,7 +29,9 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.text.Format;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -37,6 +39,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
@@ -66,6 +69,7 @@ public class StatementContext {
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
     private final HintNode hintNode;
+    private final Map<TableName, Long> sequenceMap;
 
     private boolean isAggregate;
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
@@ -88,6 +92,7 @@ public class StatementContext {
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
         this.hintNode = hintNode;
+        this.sequenceMap = new HashMap<TableName, Long>();
     }
 
     public boolean hasHint(Hint hint) {
@@ -178,4 +183,11 @@ public class StatementContext {
         return isAggregate;
     }
 
+    public void setNextSequenceValue(TableName tableName, Long value){
+    	sequenceMap.put(tableName, value);
+    }
+    
+    public Long getNextSequenceValue(TableName tableName){
+    	return sequenceMap.get(tableName);
+    }
 }

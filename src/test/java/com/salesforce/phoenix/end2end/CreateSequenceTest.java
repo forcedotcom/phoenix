@@ -1,12 +1,8 @@
 package com.salesforce.phoenix.end2end;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -28,13 +24,40 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 		props = new Properties();
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
 		conn = DriverManager.getConnection(getUrl(), props);
-		String query = "SELECT sequence_schema, sequence_name, value, increment_by FROM SYSTEM.\"SEQUENCE\"";
+		String query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
 		assertEquals("FOO", rs.getString("sequence_schema"));
 		assertEquals("BAR", rs.getString("sequence_name"));
-		assertEquals(2, rs.getInt("value"));
+		assertEquals(2, rs.getInt("current_value"));
 		assertEquals(4, rs.getInt("increment_by"));
 		assertFalse(rs.next());
+
+		ts = nextTimestamp();
+		props = new Properties();
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+		conn = DriverManager.getConnection(getUrl(), props);
+		query = "SELECT NEXT VALUE FOR foo.bar, sequence_name FROM SYSTEM.\"SEQUENCE\"";
+		rs = conn.prepareStatement(query).executeQuery();
+		assertTrue(rs.next());
+		assertEquals(2, rs.getInt(1));	
+		
+		ts = nextTimestamp();
+        props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        conn = DriverManager.getConnection(getUrl(), props);
+        query = "SELECT NEXT VALUE FOR foo.bar, sequence_name FROM SYSTEM.\"SEQUENCE\"";
+        rs = conn.prepareStatement(query).executeQuery();
+        assertTrue(rs.next());
+        assertEquals(6, rs.getInt(1));
+        
+        ts = nextTimestamp();
+        props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        conn = DriverManager.getConnection(getUrl(), props);
+        query = "SELECT NEXT VALUE FOR foo.bar, sequence_name FROM SYSTEM.\"SEQUENCE\"";
+        rs = conn.prepareStatement(query).executeQuery();
+        assertTrue(rs.next());
+        assertEquals(10, rs.getInt(1));
 	}
 }

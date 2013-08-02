@@ -954,4 +954,27 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     }
                 });
     }
+
+    @Override
+    public Long incrementSequence(byte[] schemaName, byte[] tableName) {
+        try {
+            HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));                        
+            byte[] row = SchemaUtil.getTableKey(schemaName, tableName);
+            Get get = new Get(row);
+            Result result = hTable.get(get);
+            KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
+            KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+            long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
+            long increment = ((Long)PDataType.LONG.toObject(incrementKV.getBuffer(), incrementKV.getValueOffset(), incrementKV.getValueLength())).longValue();
+            Increment inc = new Increment(row);
+            inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), increment);            
+            Result newResult = hTable.increment(inc);
+            KeyValue latest = newResult.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+            Long retValue = (Long)PDataType.LONG.toObject(latest.getBuffer(), latest.getValueOffset(), latest.getValueLength());
+            return current;
+        } catch (Exception e) {
+            e.getCause();
+        }
+        return null;
+    }
 }

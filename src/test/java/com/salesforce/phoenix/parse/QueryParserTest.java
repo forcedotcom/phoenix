@@ -142,6 +142,14 @@ public class QueryParserTest {
 						"increment by 1\n"));
 		parser.parseStatement();
 	}
+	
+	@Test
+	public void testNextValueFor() throws Exception {
+		SQLParser parser = new SQLParser(new StringReader(
+				"select next value for foo.bar \n" + 
+						"from core.custom_entity_data\n"));						
+		parser.parseStatement();
+	}
 
     @Test
     public void testParseJoin1() throws Exception {

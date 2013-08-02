@@ -51,4 +51,15 @@ public class TableName {
     public String toString() {
         return (schemaName == null ? "" : schemaName + QueryConstants.NAME_SEPARATOR)  + tableName;
     }
+    
+    @Override
+    public boolean equals(Object object) {
+    	boolean result = false;
+    	if (object instanceof TableName){
+        TableName that = (TableName) object;
+    	result = (that.getSchemaName().equals(this.schemaName)) &&
+    			(that.getTableName().equals(this.getTableName()));
+    	}
+    	return result;    			
+    }
 }

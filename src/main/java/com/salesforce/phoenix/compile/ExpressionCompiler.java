@@ -1111,4 +1111,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     public boolean visitEnter(StringConcatParseNode node) throws SQLException {
         return true;
     }
+    
+    @Override
+	public Expression visit(NextSequenceValueParseNode node) throws SQLException {
+		Long value = context.getNextSequenceValue(node.getTableName());
+		return LiteralExpression.newConstant(value);
+	}
 }
