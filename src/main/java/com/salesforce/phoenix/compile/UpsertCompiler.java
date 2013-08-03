@@ -87,55 +87,59 @@ public class UpsertCompiler {
     private static MutationState upsertSelect(PhoenixStatement statement, 
             TableRef tableRef, RowProjector projector, ResultIterator iterator, int[] columnIndexes,
             int[] pkSlotIndexes) throws SQLException {
-        PhoenixConnection connection = statement.getConnection();
-        ConnectionQueryServices services = connection.getQueryServices();
-        int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
-        int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
-        boolean isAutoCommit = connection.getAutoCommit();
-        byte[][] values = new byte[columnIndexes.length][];
-        int rowCount = 0;
-        Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(batchSize);
-        PTable table = tableRef.getTable();
-        ResultSet rs = new PhoenixResultSet(iterator, projector, statement);
-        while (rs.next()) {
-            for (int i = 0; i < values.length; i++) {
-                PColumn column = table.getColumns().get(columnIndexes[i]);
-                byte[] byteValue = rs.getBytes(i+1);
-                Object value = rs.getObject(i+1);
-                int rsPrecision = rs.getMetaData().getPrecision(i+1);
-                Integer precision = rsPrecision == 0 ? null : rsPrecision;
-                int rsScale = rs.getMetaData().getScale(i+1);
-                Integer scale = rsScale == 0 ? null : rsScale;
-                // If ColumnModifier from expression in SELECT doesn't match the
-                // column being projected into then invert the bits.
-                if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
-                    byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
-                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+        try {
+            PhoenixConnection connection = statement.getConnection();
+            ConnectionQueryServices services = connection.getQueryServices();
+            int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
+            int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
+            boolean isAutoCommit = connection.getAutoCommit();
+            byte[][] values = new byte[columnIndexes.length][];
+            int rowCount = 0;
+            Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(batchSize);
+            PTable table = tableRef.getTable();
+            ResultSet rs = new PhoenixResultSet(iterator, projector, statement);
+            while (rs.next()) {
+                for (int i = 0; i < values.length; i++) {
+                    PColumn column = table.getColumns().get(columnIndexes[i]);
+                    byte[] byteValue = rs.getBytes(i+1);
+                    Object value = rs.getObject(i+1);
+                    int rsPrecision = rs.getMetaData().getPrecision(i+1);
+                    Integer precision = rsPrecision == 0 ? null : rsPrecision;
+                    int rsScale = rs.getMetaData().getScale(i+1);
+                    Integer scale = rsScale == 0 ? null : rsScale;
+                    // If ColumnModifier from expression in SELECT doesn't match the
+                    // column being projected into then invert the bits.
+                    if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
+                        byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
+                        byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                    }
+                    // We are guaranteed that the two column will have compatible types,
+                    // as we checked that before.
+                    if (!column.getDataType().isSizeCompatible(column.getDataType(),
+                            value, byteValue,
+                            precision, column.getMaxLength(), 
+                            scale, column.getScale())) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
+                            .setColumnName(column.getName().getString()).build().buildException();
+                    }
+                    values[i] = column.getDataType().coerceBytes(byteValue, value, column.getDataType(),
+                            precision, scale, column.getMaxLength(), column.getScale());
                 }
-                // We are guaranteed that the two column will have compatible types,
-                // as we checked that before.
-                if (!column.getDataType().isSizeCompatible(column.getDataType(),
-                        value, byteValue,
-                        precision, column.getMaxLength(), 
-                        scale, column.getScale())) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
-                        .setColumnName(column.getName().getString()).build().buildException();
+                setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
+                rowCount++;
+                // Commit a batch if auto commit is true and we're at our batch size
+                if (isAutoCommit && rowCount % batchSize == 0) {
+                    MutationState state = new MutationState(tableRef, mutation, 0, maxSize, connection);
+                    connection.getMutationState().join(state);
+                    connection.commit();
+                    mutation.clear();
                 }
-                values[i] = column.getDataType().coerceBytes(byteValue, value, column.getDataType(),
-                        precision, scale, column.getMaxLength(), column.getScale());
             }
-            setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
-            rowCount++;
-            // Commit a batch if auto commit is true and we're at our batch size
-            if (isAutoCommit && rowCount % batchSize == 0) {
-                MutationState state = new MutationState(tableRef, mutation, 0, maxSize, connection);
-                connection.getMutationState().join(state);
-                connection.commit();
-                mutation.clear();
-            }
+            // If auto commit is true, this last batch will be committed upon return
+            return new MutationState(tableRef, mutation, rowCount / batchSize * batchSize, maxSize, connection);
+        } finally {
+            iterator.close();
         }
-        // If auto commit is true, this last batch will be committed upon return
-        return new MutationState(tableRef, mutation, rowCount / batchSize * batchSize, maxSize, connection);
     }
 
     private static class UpsertParallelIteratorFactory implements ParallelIteratorFactory {
@@ -498,13 +502,13 @@ public class UpsertCompiler {
                 @Override
                 public MutationState execute() throws SQLException {
                     Scanner scanner = queryPlan.getScanner();
+                    ResultIterator iterator = scanner.iterator();
                     if (upsertParallelIteratorFactory == null) {
-                        return upsertSelect(statement, tableRef, projector, scanner.iterator(), columnIndexes, pkSlotIndexes);
+                        return upsertSelect(statement, tableRef, projector, iterator, columnIndexes, pkSlotIndexes);
                     }
                     upsertParallelIteratorFactory.setRowProjector(projector);
                     upsertParallelIteratorFactory.setColumnIndexes(columnIndexes);
                     upsertParallelIteratorFactory.setPkSlotIndexes(pkSlotIndexes);
-                    ResultIterator iterator = scanner.iterator();
                     Tuple tuple;
                     long totalRowCount = 0;
                     while ((tuple=iterator.next()) != null) {// Runs query

@@ -113,6 +113,8 @@ public class QueryCompiler {
          * Probably need intermediate interface like TopNStatement that defines getWhere, getOrderBy, getLimit, isDistinct
          *     so that DeleteStatement can reuse.
          * Always use parallelIteratorFactory so that it's more general purpose potentially.
+         * 
+         * Ensure that scanner is closed in UpsertSelectParallelIterator
          */
         assert(binds.size() == statement.getBindCount());
         
