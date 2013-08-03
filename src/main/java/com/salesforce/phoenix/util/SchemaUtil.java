@@ -345,6 +345,10 @@ public class SchemaUtil {
             Statement metaStatement = metaConnection.createStatement();
             metaStatement.executeUpdate(QueryConstants.CREATE_METADATA);
         } catch (TableAlreadyExistsException e) {
+            // Add alter table statement of each column that was added
+            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + DATA_TABLE_NAME + " VARCHAR NULL");        
+            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + INDEX_STATE + " VARCHAR NULL");        
+            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + IMMUTABLE_ROWS + " BOOLEAN NULL");        
         } finally {
             metaConnection.close();
         }
