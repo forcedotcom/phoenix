@@ -27,9 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import static com.salesforce.phoenix.query.QueryConstants.*;
+
 import java.sql.*;
 import java.util.*;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
@@ -45,28 +48,24 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
-import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
+import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.jdbc.*;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.*;
 
 public class UpsertCompiler {
     private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
 
-    private final PhoenixStatement statement;
-    
-    public UpsertCompiler(PhoenixStatement statement) {
-        this.statement = statement;
-    }
-    
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
         Map<PColumn,byte[]> columnValues = Maps.newHashMapWithExpectedSize(columnIndexes.length);
         byte[][] pkValues = new byte[table.getPKColumns().size()][];
-        // If the table uses salting, the first byte is the salting byte, set to an empty arrary
+        // If the table uses salting, the first byte is the salting byte, set to an empty array
         // here and we will fill in the byte later in PRowImpl.
         if (table.getBucketNum() != null) {
             pkValues[0] = new byte[] {0};
@@ -83,6 +82,147 @@ public class UpsertCompiler {
         ImmutableBytesPtr ptr = new ImmutableBytesPtr();
         table.newKey(ptr, pkValues);
         mutation.put(ptr, columnValues);
+    }
+
+    private static MutationState upsertSelect(PhoenixStatement statement, 
+            TableRef tableRef, RowProjector projector, ResultIterator iterator, int[] columnIndexes,
+            int[] pkSlotIndexes) throws SQLException {
+        PhoenixConnection connection = statement.getConnection();
+        ConnectionQueryServices services = connection.getQueryServices();
+        int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
+        int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
+        boolean isAutoCommit = connection.getAutoCommit();
+        byte[][] values = new byte[columnIndexes.length][];
+        int rowCount = 0;
+        Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(batchSize);
+        PTable table = tableRef.getTable();
+        ResultSet rs = new PhoenixResultSet(iterator, projector, statement);
+        while (rs.next()) {
+            for (int i = 0; i < values.length; i++) {
+                PColumn column = table.getColumns().get(columnIndexes[i]);
+                byte[] byteValue = rs.getBytes(i+1);
+                Object value = rs.getObject(i+1);
+                int rsPrecision = rs.getMetaData().getPrecision(i+1);
+                Integer precision = rsPrecision == 0 ? null : rsPrecision;
+                int rsScale = rs.getMetaData().getScale(i+1);
+                Integer scale = rsScale == 0 ? null : rsScale;
+                // If ColumnModifier from expression in SELECT doesn't match the
+                // column being projected into then invert the bits.
+                if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
+                    byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
+                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                }
+                // We are guaranteed that the two column will have compatible types,
+                // as we checked that before.
+                if (!column.getDataType().isSizeCompatible(column.getDataType(),
+                        value, byteValue,
+                        precision, column.getMaxLength(), 
+                        scale, column.getScale())) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
+                        .setColumnName(column.getName().getString()).build().buildException();
+                }
+                values[i] = column.getDataType().coerceBytes(byteValue, value, column.getDataType(),
+                        precision, scale, column.getMaxLength(), column.getScale());
+            }
+            setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
+            rowCount++;
+            // Commit a batch if auto commit is true and we're at our batch size
+            if (isAutoCommit && rowCount % batchSize == 0) {
+                MutationState state = new MutationState(tableRef, mutation, 0, maxSize, connection);
+                connection.getMutationState().join(state);
+                connection.commit();
+                mutation.clear();
+            }
+        }
+        // If auto commit is true, this last batch will be committed upon return
+        return new MutationState(tableRef, mutation, rowCount / batchSize * batchSize, maxSize, connection);
+    }
+
+    private static class UpsertParallelIteratorFactory implements ParallelIteratorFactory {
+        private final PhoenixStatement statement;
+        private final TableRef tableRef;
+        private RowProjector projector;
+        private int[] columnIndexes;
+        private int[] pkSlotIndexes;
+
+        private UpsertParallelIteratorFactory (PhoenixStatement statement, TableRef tableRef) {
+            this.statement = statement;
+            this.tableRef = tableRef;
+            
+            // If aggregate or limit, use SpoolingParallelIteratorFactory
+            // TODO: Have a method on SelectStatement for determining if isAggregate
+            // Need Stack with ParseContext to track per SelectStatement (since they can be nested)
+            // Track any usage of aggregate function (or group by or limit)
+            // Otherwise, I think we can use the optimized parallel iterator factory, since there's
+            // no post processing necessary
+        }
+        @Override
+        public PeekingResultIterator newIterator(ResultIterator scanner) throws SQLException {
+            // Clone statement and connection as they're not thread safe
+            // (and these will be operating in parallel)
+            final PhoenixConnection connection = new PhoenixConnection(statement.getConnection());
+            PhoenixStatement statement = new PhoenixStatement(connection);
+            final MutationState state = upsertSelect(statement, tableRef, projector, scanner, columnIndexes, pkSlotIndexes);
+            long totalRowCount = state.getUpdateCount();
+            if (connection.getAutoCommit()) {
+                connection.getMutationState().join(state);
+                connection.commit();
+            }
+            byte[] value = PDataType.LONG.toBytes(totalRowCount);
+            KeyValue keyValue = KeyValueUtil.newKeyValue(UNGROUPED_AGG_ROW_KEY, SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value, 0, value.length);
+            final Tuple tuple = new SingleKeyValueTuple(keyValue);
+            return new PeekingResultIterator() {
+                private boolean done = false;
+                
+                @Override
+                public Tuple next() throws SQLException {
+                    if (done) {
+                        return null;
+                    }
+                    done = true;
+                    return tuple;
+                }
+
+                @Override
+                public void explain(List<String> planSteps) {
+                }
+
+                @Override
+                public void close() throws SQLException {
+                    try {
+                        // Join the child mutation states in close, since this is called in a single threaded manner
+                        // after the parallel results have been processed.
+                        if (!connection.getAutoCommit()) {
+                            UpsertParallelIteratorFactory.this.statement.getConnection().getMutationState().join(state);
+                        }
+                    } finally {
+                        connection.close();
+                    }
+                }
+
+                @Override
+                public Tuple peek() throws SQLException {
+                    return done ? null : tuple;
+                }
+                
+            };
+        }
+        
+        public void setRowProjector(RowProjector projector) {
+            this.projector = projector;
+        }
+        public void setColumnIndexes(int[] columnIndexes) {
+            this.columnIndexes = columnIndexes;
+        }
+        public void setPkSlotIndexes(int[] pkSlotIndexes) {
+            this.pkSlotIndexes = pkSlotIndexes;
+        }
+    }
+    
+    private final PhoenixStatement statement;
+    
+    public UpsertCompiler(PhoenixStatement statement) {
+        this.statement = statement;
     }
     
     public MutationPlan compile(UpsertStatement upsert, List<Object> binds) throws SQLException {
@@ -148,25 +288,46 @@ public class UpsertCompiler {
         
         List<ParseNode> valueNodes = upsert.getValues();
         QueryPlan plan = null;
-        RowProjector projector = null;
+        RowProjector rowProjectorToBe = null;
         int nValuesToSet;
         boolean runOnServer = false;
+        UpsertParallelIteratorFactory upsertParallelIteratorFactoryToBe = null;
+        final boolean isAutoCommit = connection.getAutoCommit();
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
             boolean sameTable = tableRef.equals(selectTableRef);
+            /* We can run the upsert in a coprocessor if:
+             * 1) the into table matches from table
+             * 2) the select query isn't doing aggregation
+             * 3) autoCommit is on
+             * 4) no limit clause
+             * Otherwise, run the query to pull the data from the server
+             * and populate the MutationState (upto a limit).
+            */            
+            runOnServer = sameTable && isAutoCommit && !select.isAggregate() && !select.isDistinct() && select.getLimit() == null && table.getBucketNum() == null;
+            ParallelIteratorFactory parallelIteratorFactory;
+            // TODO: once MutationState is thread safe, then when auto commit is off, we can still run in parallel
+            if (select.isAggregate() || select.isDistinct() || select.getLimit() != null) {
+                parallelIteratorFactory = new SpoolingResultIterator.SpoolingResultIteratorFactory(services);
+            } else {
+                // We can pipeline the upsert select instead of spooling everything to disk first,
+                // if we don't have any post processing that's required.
+                parallelIteratorFactory = upsertParallelIteratorFactoryToBe = new UpsertParallelIteratorFactory(statement, tableRef);
+            }
             // Pass scan through if same table in upsert and select so that projection is computed correctly
-            QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns);
+            QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns, parallelIteratorFactory);
             plan = compiler.compile(select, binds);
-            projector = plan.getProjector();
-            nValuesToSet = projector.getColumnCount();
+            rowProjectorToBe = plan.getProjector();
+            nValuesToSet = rowProjectorToBe.getColumnCount();
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
-            runOnServer = plan.getGroupBy()==null && sameTable && select.getOrderBy().isEmpty() && table.getBucketNum() == null;
         } else {
             nValuesToSet = valueNodes.size();
         }
+        final RowProjector projector = rowProjectorToBe;
+        final UpsertParallelIteratorFactory upsertParallelIteratorFactory = upsertParallelIteratorFactoryToBe;
         final QueryPlan queryPlan = plan;
         // Resize down to allow a subset of columns to be specifiable
         if (columnNodes.isEmpty()) {
@@ -188,17 +349,6 @@ public class UpsertCompiler {
         // UPSERT SELECT
         /////////////////////////////////////////////////////////////////////
         if (valueNodes == null) {
-            /* We can run the upsert in a coprocessor if:
-             * 1) the into table matches from table
-             * 2) the select query isn't doing aggregation
-             * 3) autoCommit is on
-             * 4) not topN
-             * Otherwise, run the query to pull the data from the server
-             * and populate the MutationState (upto a limit).
-            */
-            final boolean isAutoCommit = connection.getAutoCommit();
-            runOnServer &= isAutoCommit;
-            
             ////////////////////////////////////////////////////////////////////
             // UPSERT SELECT run server-side (maybe)
             /////////////////////////////////////////////////////////////////////
@@ -333,7 +483,6 @@ public class UpsertCompiler {
             ////////////////////////////////////////////////////////////////////
             // UPSERT SELECT run client-side
             /////////////////////////////////////////////////////////////////////
-            final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
             return new MutationPlan() {
 
                 @Override
@@ -348,53 +497,23 @@ public class UpsertCompiler {
 
                 @Override
                 public MutationState execute() throws SQLException {
-                    byte[][] values = new byte[columnIndexes.length][];
                     Scanner scanner = queryPlan.getScanner();
-                    int estSize = scanner.getEstimatedSize();
-                    int rowCount = 0;
-                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(estSize);
-                    ResultSet rs = new PhoenixResultSet(scanner, statement);
-                    PTable table = tableRef.getTable();
-                    PColumn column;
-                    while (rs.next()) {
-                        for (int i = 0; i < values.length; i++) {
-                            column = table.getColumns().get(columnIndexes[i]);
-                            byte[] byteValue = rs.getBytes(i+1);
-                            Object value = rs.getObject(i+1);
-                            int rsPrecision = rs.getMetaData().getPrecision(i+1);
-                            Integer precision = rsPrecision == 0 ? null : rsPrecision;
-                            int rsScale = rs.getMetaData().getScale(i+1);
-                            Integer scale = rsScale == 0 ? null : rsScale;
-                            // If ColumnModifier from expression in SELECT doesn't match the
-                            // column being projected into then invert the bits.
-                            if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
-                                byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
-                                byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
-                            }
-                            // We are guaranteed that the two column will have compatible types,
-                            // as we checked that before.
-                            if (!column.getDataType().isSizeCompatible(column.getDataType(),
-                                    value, byteValue,
-                                    precision, column.getMaxLength(), 
-                                    scale, column.getScale())) {
-                                throw new SQLExceptionInfo.Builder(SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE)
-                                    .setColumnName(column.getName().getString()).build().buildException();
-                            }
-                            values[i] = column.getDataType().coerceBytes(byteValue, value, column.getDataType(),
-                                    precision, scale, column.getMaxLength(), column.getScale());
-                        }
-                        setValues(values, pkSlotIndexes, columnIndexes, table, mutation);
-                        rowCount++;
-                        // Commit a batch if auto commit is true and we're at our batch size
-                        if (isAutoCommit && rowCount % batchSize == 0) {
-                            MutationState state = new MutationState(tableRef, mutation, 0, maxSize, connection);
-                            connection.getMutationState().join(state);
-                            connection.commit();
-                            mutation.clear();
-                        }
+                    if (upsertParallelIteratorFactory == null) {
+                        return upsertSelect(statement, tableRef, projector, scanner.iterator(), columnIndexes, pkSlotIndexes);
                     }
-                    // If auto commit is true, this last batch will be committed upon return
-                    return new MutationState(tableRef, mutation, rowCount / batchSize * batchSize, maxSize, connection);
+                    upsertParallelIteratorFactory.setRowProjector(projector);
+                    upsertParallelIteratorFactory.setColumnIndexes(columnIndexes);
+                    upsertParallelIteratorFactory.setPkSlotIndexes(pkSlotIndexes);
+                    ResultIterator iterator = scanner.iterator();
+                    Tuple tuple;
+                    long totalRowCount = 0;
+                    while ((tuple=iterator.next()) != null) {// Runs query
+                        KeyValue kv = tuple.getValue(0);
+                        totalRowCount += PDataType.LONG.getCodec().decodeLong(kv.getBuffer(), kv.getValueOffset(), null);
+                    }
+                    // Return total number of rows that have been updated. In the case of auto commit being off
+                    // the mutations will all be in the mutation state of the current connection.
+                    return new MutationState(maxSize, statement.getConnection(), totalRowCount);
                 }
 
                 @Override

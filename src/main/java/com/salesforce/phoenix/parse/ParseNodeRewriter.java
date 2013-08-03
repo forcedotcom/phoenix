@@ -128,7 +128,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
         }
         return NODE_FACTORY.select(statement.getFrom(), statement.getHint(), statement.isDistinct(),
                 normSelectNodes, normWhere, normGroupByNodes, normHaving, normOrderByNodes,
-                statement.getLimit(), statement.getBindCount());
+                statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
     
     protected void reset() {

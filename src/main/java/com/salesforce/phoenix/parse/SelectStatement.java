@@ -30,6 +30,8 @@ package com.salesforce.phoenix.parse;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.collect.Lists;
+
 /**
  * 
  * Top level node representing a SQL statement
@@ -48,18 +50,54 @@ public class SelectStatement implements SQLStatement {
     private final List<OrderByNode> orderBy;
     private final LimitNode limit;
     private final int bindCount;
+    private final boolean isAggregate;
     
-    protected SelectStatement(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
+    // Filter out constants from GROUP BY as they're useless
+    private static List<ParseNode> filterGroupByConstants(List<ParseNode> nodes) {
+        List<ParseNode> filteredNodes = nodes;
+        for (int i = 0; i < nodes.size(); i++) {
+            ParseNode node = nodes.get(i);
+            if (node.isConstant()) {
+                if (filteredNodes == nodes) {
+                    filteredNodes = Lists.newArrayListWithExpectedSize(nodes.size());
+                    filteredNodes.addAll(nodes.subList(0, i));
+                }
+            } else if (filteredNodes != nodes) {
+                filteredNodes.add(node);
+            }
+        }
+        return filteredNodes;
+    }
+    
+    // Filter out constants from ORDER BY as they're useless
+    private static List<OrderByNode> filterOrderByConstants(List<OrderByNode> nodes) {
+        List<OrderByNode> filteredNodes = nodes;
+        for (int i = 0; i < nodes.size(); i++) {
+            ParseNode node = nodes.get(i).getNode();
+            if (node.isConstant()) {
+                if (filteredNodes == nodes) {
+                    filteredNodes = Lists.newArrayListWithExpectedSize(nodes.size());
+                    filteredNodes.addAll(nodes.subList(0, i));
+                }
+            } else if (filteredNodes != nodes) {
+                filteredNodes.add(nodes.get(i));
+            }
+        }
+        return filteredNodes;
+    }
+    
+    protected SelectStatement(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount, boolean isAggregate) {
         this.fromTable = Collections.unmodifiableList(from);
         this.hint = hint;
         this.isDistinct = isDistinct;
         this.select = Collections.unmodifiableList(select);
         this.where = where;
-        this.groupBy = Collections.unmodifiableList(groupBy);
+        this.groupBy = Collections.unmodifiableList(filterGroupByConstants(groupBy));
         this.having = having;
-        this.orderBy = Collections.unmodifiableList(orderBy);
+        this.orderBy = Collections.unmodifiableList(filterOrderByConstants(orderBy));
         this.limit = limit;
         this.bindCount = bindCount;
+        this.isAggregate = isAggregate || !this.groupBy.isEmpty() || this.having != null;
     }
     
     public boolean isDistinct() {
@@ -109,5 +147,9 @@ public class SelectStatement implements SQLStatement {
      */
     public List<OrderByNode> getOrderBy() {
         return orderBy;
+    }
+
+    public boolean isAggregate() {
+        return isAggregate;
     }
 }

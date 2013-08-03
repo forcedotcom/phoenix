@@ -36,6 +36,7 @@ import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
 import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.*;
@@ -51,9 +52,11 @@ import com.salesforce.phoenix.schema.*;
  */
 public class ScanPlan extends BasicQueryPlan {
     private List<KeyRange> splits;
+    private ParallelIteratorFactory parallelIteratorFactory;
     
-    public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy) {
+    public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy, ParallelIteratorFactory parallelIteratorFactory) {
         super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null);
+        this.parallelIteratorFactory = parallelIteratorFactory;
         if (!orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
             int thresholdBytes = context.getConnection().getQueryServices().getProps().getInt(
                     QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
@@ -78,7 +81,7 @@ public class ScanPlan extends BasicQueryPlan {
          * limit is provided, run query serially.
          */
         boolean isOrdered = !orderBy.getOrderByExpressions().isEmpty();
-        ParallelIterators iterators = new ParallelIterators(context, tableRef, GroupBy.EMPTY_GROUP_BY, isOrdered ? null : limit);
+        ParallelIterators iterators = new ParallelIterators(context, tableRef, GroupBy.EMPTY_GROUP_BY, isOrdered ? null : limit, parallelIteratorFactory);
         splits = iterators.getSplits();
         if (isOrdered) {
             // If we expect to have a small amount of data in a single region then do the sort on the client side

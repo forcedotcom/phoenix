@@ -74,7 +74,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         statement = RHSLiteralStatementRewriter.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
 
         Integer actualLimit = LimitCompiler.getLimit(context, statement.getLimit());

@@ -35,7 +35,6 @@ import java.util.*;
 
 import org.apache.http.annotation.Immutable;
 
-
 import com.google.common.collect.ImmutableSet;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
@@ -108,7 +107,7 @@ public class FunctionParseNode extends CompoundParseNode {
     }
 
     public boolean isAggregate() {
-        return false;
+        return getInfo().isAggregate();
     }
     
     /**

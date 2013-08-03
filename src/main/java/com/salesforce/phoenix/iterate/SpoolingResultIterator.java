@@ -36,8 +36,11 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.*;
@@ -55,16 +58,33 @@ import com.salesforce.phoenix.util.*;
 public class SpoolingResultIterator implements PeekingResultIterator {
     private final PeekingResultIterator spoolFrom;
     
+    public static class SpoolingResultIteratorFactory implements ParallelIteratorFactory {
+        private final QueryServices services;
+        
+        public SpoolingResultIteratorFactory(QueryServices services) {
+            this.services = services;
+        }
+        @Override
+        public PeekingResultIterator newIterator(ResultIterator scanner) throws SQLException {
+            return new SpoolingResultIterator(scanner, services);
+        }
+        
+    }
+
+    public SpoolingResultIterator(ResultIterator scanner, QueryServices services) throws SQLException {
+        this (scanner, services.getMemoryManager(), services.getProps().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES));
+    }
+    
     /**
-     * Create a result iterator by iterating through the results of a scan, spooling them to disk once
-     * a threshold has been reached. The scanner passed in is closed prior to returning.
-     * @param scanner the results of a table scan
-     * @param mm memory manager tracking memory usage across threads.
-     * @param thresholdBytes the requested threshold.  Will be dialed down if memory usage (as determined by
-     *  the memory manager) is exceeded.
-     * @throws SQLException
-     */
-    public SpoolingResultIterator(ResultIterator scanner, MemoryManager mm, int thresholdBytes) throws SQLException {
+    * Create a result iterator by iterating through the results of a scan, spooling them to disk once
+    * a threshold has been reached. The scanner passed in is closed prior to returning.
+    * @param scanner the results of a table scan
+    * @param mm memory manager tracking memory usage across threads.
+    * @param thresholdBytes the requested threshold.  Will be dialed down if memory usage (as determined by
+    *  the memory manager) is exceeded.
+    * @throws SQLException
+    */
+    SpoolingResultIterator(ResultIterator scanner, MemoryManager mm, int thresholdBytes) throws SQLException {
         boolean success = false;
         boolean usedOnDiskIterator = false;
         final MemoryChunk chunk = mm.allocate(0, thresholdBytes);

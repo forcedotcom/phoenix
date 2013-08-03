@@ -134,6 +134,7 @@ import com.google.common.collect.ListMultimap;
 import org.apache.hadoop.hbase.util.Pair;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Stack;
 import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -188,6 +189,7 @@ package com.salesforce.phoenix.parse;
      */
     private int anonBindNum;
     private ParseNodeFactory factory;
+    private ParseContext.Stack contextStack = new ParseContext.Stack();
 
     public void setParseNodeFactory(ParseNodeFactory factory) {
         this.factory = factory;
@@ -333,19 +335,24 @@ query returns [SelectStatement ret]
 // Parses a single SQL statement (expects an EOF after the select statement).
 oneStatement returns [SQLStatement ret]
     :   (q=select_node {$ret=q;} 
-    |    u=upsert_node {$ret=u;}
-    |    d=delete_node {$ret=d;}
-    |    ct=create_table_node {$ret=ct;}
-    |    ci=create_index_node {$ret=ci;}
-    |    dt=drop_table_node {$ret=dt;}
-    |    di=drop_index_node {$ret=di;}
-    |    ai=alter_index_node {$ret=ai;}
-    |    at=alter_table_node {$ret=at;}
-    |    e=explain_node {$ret=e;}
-    |    st=show_tables_node {$ret=st;}
+    |    ns=non_select_node {$ret=ns;}
         )
     ;
 
+non_select_node returns [SQLStatement ret]
+@init{ contextStack.push(new ParseContext()); }
+    :  (s=upsert_node
+    |   s=delete_node
+    |   s=create_table_node
+    |   s=create_index_node
+    |   s=drop_table_node
+    |   s=drop_index_node
+    |   s=alter_index_node
+    |   s=alter_table_node
+    |   s=explain_node
+    |   s=show_tables_node) { contextStack.pop();  $ret = s; }
+    ;
+    
 show_tables_node returns [SQLStatement ret]
     :   SHOW TABLES {$ret=factory.showTables();}
     ;
@@ -502,6 +509,7 @@ select_expression returns [ParseNode ret]
     
 // Parse a full select expression structure.
 select_node returns [SelectStatement ret]
+@init{ contextStack.push(new ParseContext()); }
     :   SELECT (hint=hintClause)? (d=DISTINCT | ALL)? sel=select_list
         FROM from=parseFrom
         (WHERE where=condition)?
@@ -509,7 +517,7 @@ select_node returns [SelectStatement ret]
         (HAVING having=condition)?
         (ORDER BY order=order_by)?
         (LIMIT l=limit)?
-        {$ret = factory.select(from, hint, d!=null, sel, where, group, having, order, l, getBindCount()); }
+        { ParseContext context = contextStack.pop(); $ret = factory.select(from, hint, d!=null, sel, where, group, having, order, l, getBindCount(), context.isAggregate()); }
     ;
 
 // Parse a full upsert expression structure.
@@ -711,9 +719,27 @@ expression_term returns [ParseNode ret]
 @init{ParseNode n;boolean isAscending=true;}
     :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
     |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
-    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_list (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?{ $ret = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);} 
-    |   field=identifier LPAREN t=ASTERISK RPAREN { if (!isCountFunction(field)) { throwRecognitionException(t); } $ret = factory.function(field, LiteralParseNode.STAR);} 
-    |   field=identifier LPAREN t=DISTINCT l=expression_list RPAREN { $ret = factory.functionDistinct(field, l);}
+    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_list (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
+        {
+            FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);
+            contextStack.peek().setAggregate(f.isAggregate());
+            $ret = f;
+        } 
+    |   field=identifier LPAREN t=ASTERISK RPAREN 
+        {
+            if (!isCountFunction(field)) {
+                throwRecognitionException(t); 
+            }
+            FunctionParseNode f = factory.function(field, LiteralParseNode.STAR);
+            contextStack.peek().setAggregate(f.isAggregate()); 
+            $ret = f;
+        } 
+    |   field=identifier LPAREN t=DISTINCT l=expression_list RPAREN 
+        {
+            FunctionParseNode f = factory.functionDistinct(field, l);
+            contextStack.peek().setAggregate(f.isAggregate());
+            $ret = f;
+        }
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }

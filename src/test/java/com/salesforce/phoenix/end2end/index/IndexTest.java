@@ -211,12 +211,12 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
     	conn.setAutoCommit(false);
     	try {
             ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+            populateTestTable();
             String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
                     + " (char_col1 ASC, int_col1 ASC)"
                     + " INCLUDE (long_col1, long_col2)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
-            populateTestTable();
             
             String query = "SELECT char_col1, int_col1 from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);

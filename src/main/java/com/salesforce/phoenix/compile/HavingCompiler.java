@@ -60,7 +60,6 @@ public class HavingCompiler {
         if (!expressionBuilder.isAggregate()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.ONLY_AGGREGATE_IN_HAVING_CLAUSE).build().buildException();
         }
-        context.setAggregate(true);
         return expression;
     }
 

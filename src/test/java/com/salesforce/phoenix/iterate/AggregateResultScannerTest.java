@@ -31,7 +31,8 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 
 import java.io.*;
-import java.sql.*;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -86,7 +87,7 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             };
 
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        StatementContext context = new StatementContext(pconn, null, Collections.emptyList(), 0, new Scan());
+        StatementContext context = new StatementContext(pconn, null, Collections.emptyList(), 0, new Scan(), null, true);
         AggregationManager aggregationManager = context.getAggregationManager();
         SumAggregateFunction func = new SumAggregateFunction(Arrays.<Expression>asList(new KeyValueColumnExpression(new PLongColumn() {
             @Override

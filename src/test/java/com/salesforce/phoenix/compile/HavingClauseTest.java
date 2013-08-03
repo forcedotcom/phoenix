@@ -69,7 +69,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
 
         GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
         // Optimize the HAVING clause by finding any group by expressions that can be moved

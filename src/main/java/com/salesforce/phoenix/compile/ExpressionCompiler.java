@@ -285,7 +285,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             }
             this.aggregateFunction = node;
             this.isAggregate = true;
-            this.context.setAggregate(true);
             
         }
         return true;

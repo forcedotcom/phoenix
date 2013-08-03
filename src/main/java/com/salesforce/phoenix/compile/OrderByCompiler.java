@@ -50,22 +50,17 @@ import com.salesforce.phoenix.schema.ColumnModifier;
  */
 public class OrderByCompiler {
     public static class OrderBy {
-        public static final OrderBy EMPTY_ORDER_BY = new OrderBy(false, Collections.<OrderByExpression>emptyList());
+        public static final OrderBy EMPTY_ORDER_BY = new OrderBy(Collections.<OrderByExpression>emptyList());
         /**
-         * Used to indicate that there was an ORDER BY, but it was optimized out because 
+         * Used to indicate that there was an ORDER BY, but it was optimized out because
+         * rows are already returned in this order. 
          */
-        public static final OrderBy ROW_KEY_ORDER_BY = new OrderBy(false, Collections.<OrderByExpression>emptyList());
+        public static final OrderBy ROW_KEY_ORDER_BY = new OrderBy(Collections.<OrderByExpression>emptyList());
         
-        private final boolean isAggregate;
         private final List<OrderByExpression> orderByExpressions;
         
-        private OrderBy(boolean isAggregate, List<OrderByExpression> orderByExpressions) {
-            this.isAggregate = isAggregate;
+        private OrderBy(List<OrderByExpression> orderByExpressions) {
             this.orderByExpressions = ImmutableList.copyOf(orderByExpressions);
-        }
-
-        public boolean isAggregate() {
-            return isAggregate;
         }
 
         public List<OrderByExpression> getOrderByExpressions() {
@@ -133,7 +128,7 @@ public class OrderByCompiler {
             return OrderBy.ROW_KEY_ORDER_BY;
         }
 
-        return new OrderBy(context.isAggregate(), Lists.newArrayList(orderByExpressions.iterator()));
+        return new OrderBy(Lists.newArrayList(orderByExpressions.iterator()));
     }
 
 

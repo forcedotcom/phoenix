@@ -29,19 +29,40 @@ package com.salesforce.phoenix.parse;
 
 import java.util.List;
 
+import com.google.common.collect.Lists;
 
-public class AggregateFunctionParseNode extends FunctionParseNode {
+public class ParseContext {
+    private boolean isAggregate;
+    
+    public ParseContext() {
+    }
 
-    public AggregateFunctionParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
-        super(name, children, info);
+    public boolean isAggregate() {
+        return isAggregate;
+    }
+
+    public void setAggregate(boolean isAggregate) {
+        this.isAggregate |= isAggregate;
+    }
+
+    public static class Stack {
+        private final List<ParseContext> stack = Lists.newArrayListWithExpectedSize(5);
+        
+        public void push(ParseContext context) {
+            stack.add(context);
+        }
+        
+        public ParseContext pop() {
+            return stack.remove(stack.size()-1);
+        }
+        
+        public ParseContext peek() {
+            return stack.get(stack.size()-1);
+        }
+        
+        public boolean isEmpty() {
+            return stack.isEmpty();
+        }
     }
     
-    /**
-     * Aggregate function are not constant, even though all the args may be constants,
-     * for example, COUNT(1)
-     */
-    @Override
-    public boolean isConstant() {
-        return false;
-    }
 }

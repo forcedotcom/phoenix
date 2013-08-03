@@ -44,6 +44,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.*;
@@ -71,7 +72,7 @@ public class DeleteCompiler {
         }
         Scan scan = new Scan();
         ParseNode where = statement.getWhere();
-        final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
+        final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint(), false);
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
         OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, false, limit, Collections.<String,ParseNode>emptyMap()); 
         Expression whereClause = WhereCompiler.getWhereClause(context, where);
@@ -159,7 +160,7 @@ public class DeleteCompiler {
                     NODE_FACTORY.aliasedNode(null,
                         NODE_FACTORY.literal(1)));
             final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
-            final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy);
+            final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy, new SpoolingResultIteratorFactory(services));
             return new MutationPlan() {
 
                 @Override

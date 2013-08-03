@@ -120,12 +120,11 @@ public class PostDDLCompiler {
                                 throw new UnsupportedOperationException();
                             }
                         };
-                        StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
+                        StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan, null, true);
                         ScanUtil.setTimeRange(scan, timestamp);
                         if (emptyCF != null) {
                             scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
                         }
-                        // TODO: handle table with indexes for deletion of column
                         if (deleteList != null) {
                             if (deleteList.isEmpty()) {
                                 scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);

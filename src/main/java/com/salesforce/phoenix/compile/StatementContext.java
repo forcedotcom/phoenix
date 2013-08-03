@@ -66,16 +66,16 @@ public class StatementContext {
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
     private final HintNode hintNode;
-
-    private boolean isAggregate;
+    private final boolean isAggregate;
+    
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
     public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
-        this(connection, resolver, binds, bindCount, scan, null);
+        this(connection, resolver, binds, bindCount, scan, null, false);
     }
     
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode) {
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode, boolean isAggregate) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -88,6 +88,7 @@ public class StatementContext {
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
         this.hintNode = hintNode;
+        this.isAggregate = isAggregate;
     }
 
     public boolean hasHint(Hint hint) {
@@ -171,12 +172,6 @@ public class StatementContext {
         currentTime = Math.abs(client.updateCache(table.getSchema().getName(), table.getTable().getName().getString()));
         return currentTime;
     }
-
-
-    public void setAggregate(boolean isAggregate) {
-        this.isAggregate = isAggregate;
-    }
-
 
     public boolean isAggregate() {
         return isAggregate;

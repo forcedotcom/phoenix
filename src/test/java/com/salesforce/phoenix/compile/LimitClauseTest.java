@@ -54,7 +54,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         statement = RHSLiteralStatementRewriter.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
 
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
@@ -114,7 +114,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList("foo");
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
         try {
             LimitCompiler.getLimit(context, statement.getLimit());
             fail();
@@ -132,7 +132,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(-1);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
         assertNull(LimitCompiler.getLimit(context, statement.getLimit()));
     }
 
@@ -147,7 +147,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
         try {
             WhereCompiler.getWhereClause(context, statement.getWhere());
             fail();

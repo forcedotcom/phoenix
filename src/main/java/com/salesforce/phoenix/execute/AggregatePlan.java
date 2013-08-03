@@ -40,6 +40,7 @@ import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -82,7 +83,7 @@ public class AggregatePlan extends BasicQueryPlan {
         if (groupBy.isEmpty()) {
             UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
         }
-        ParallelIterators parallelIterators = new ParallelIterators(context, table, groupBy, null);
+        ParallelIterators parallelIterators = new ParallelIterators(context, table, groupBy, null, new SpoolingResultIteratorFactory(services));
         splits = parallelIterators.getSplits();
 
         AggregatingResultIterator aggResultIterator;
