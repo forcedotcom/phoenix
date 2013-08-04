@@ -92,7 +92,7 @@ public class ColumnDef {
                 // When neither a precision nor a scale is specified, the precision and scale is
                 // ignored. All decimal are stored with as much decimal points as possible.
                 scale = scale == null ? 
-                		maxLength == null ? PDataType.NO_SCALE : PDataType.DEFAULT_SCALE : 
+                		maxLength == null ? null : PDataType.DEFAULT_SCALE : 
                 		scale > maxLength ? maxLength : scale; 
             } else if (this.dataType == PDataType.BINARY) {
                 if (maxLength == null) {

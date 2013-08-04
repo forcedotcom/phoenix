@@ -93,16 +93,19 @@ public class DecimalDivideExpression extends DivideExpression {
         return true;
     }
 
-    private static int getPrecision(int lp, int rp, int ls, int rs) {
+    private static Integer getPrecision(Integer lp, Integer rp, Integer ls, Integer rs) {
+    	if (ls == null || rs == null) {
+    		return PDataType.MAX_PRECISION;
+    	}
         int val = getScale(lp, rp, ls, rs) + lp - ls + rp;
         return Math.min(PDataType.MAX_PRECISION, val);
     }
 
-    private static int getScale(int lp, int rp, int ls, int rs) {
+    private static Integer getScale(Integer lp, Integer rp, Integer ls, Integer rs) {
     	// If we are adding a decimal with scale and precision to a decimal
     	// with no precision nor scale, the scale system does not apply.
-    	if (ls == PDataType.NO_SCALE || rs == PDataType.NO_SCALE) {
-    		return PDataType.NO_SCALE;
+    	if (ls == null || rs == null) {
+    		return null;
     	}
         int val = Math.max(PDataType.MAX_PRECISION - lp + ls - rs, 0);
         return Math.min(PDataType.MAX_PRECISION, val);
