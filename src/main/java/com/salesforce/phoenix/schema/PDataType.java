@@ -1363,7 +1363,7 @@ public enum PDataType {
                 }
             }
             if (desiredMaxLength != null && desiredScale != null && maxLength != null && scale != null &&
-            		((desiredScale == PDataType.NO_SCALE && desiredMaxLength < maxLength) || 
+            		((desiredScale == null && desiredMaxLength < maxLength) || 
             				(desiredMaxLength - desiredScale) < (maxLength - scale))) {
                 return false;
             }
@@ -1373,7 +1373,7 @@ public enum PDataType {
         @Override
         public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
                 Integer desiredMaxLength, Integer desiredScale) {
-            if (desiredScale == null || desiredScale == PDataType.NO_SCALE) {
+            if (desiredScale == null || desiredScale == null) {
                 // deiredScale not available, or we do not have scale requirement, delegate to parents.
                 return super.coerceBytes(b, object, actualType);
             }
@@ -3529,7 +3529,6 @@ public enum PDataType {
     public static final int MAX_PRECISION = 38; // Max precision guaranteed to fit into a long (and this should be plenty)
     public static final int MIN_DECIMAL_AVG_SCALE = 4;
     public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
-    public static final int NO_SCALE = Integer.MIN_VALUE; // Oracle allows negative scale, so use the smallest value for this purpose.
     public static final int DEFAULT_SCALE = 0;
 
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;
