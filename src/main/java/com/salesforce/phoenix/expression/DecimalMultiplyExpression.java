@@ -40,25 +40,12 @@ import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class DecimalMultiplyExpression extends MultiplyExpression {
-    private Integer maxLength;
-    private Integer scale;
 
     public DecimalMultiplyExpression() {
     }
 
     public DecimalMultiplyExpression(List<Expression> children) {
         super(children);
-        for (int i=0; i<children.size(); i++) {
-            Expression childExpr = children.get(i);
-            if (i == 0) {
-                maxLength = childExpr.getMaxLength();
-                scale = childExpr.getScale();
-            } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
-                    && childExpr.getScale() != null) {
-                maxLength = getPrecision(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
-                scale = getScale(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
-            }
-        }
     }
 
     @Override
@@ -83,46 +70,18 @@ public class DecimalMultiplyExpression extends MultiplyExpression {
                 result = result.multiply(bd);
             }
         }
-        if (maxLength != null && scale != null) {
-            result = NumberUtil.setDecimalWidthAndScale(result, maxLength, scale);
+        if (getMaxLength() != null && getScale() != null) {
+            result = NumberUtil.setDecimalWidthAndScale(result, getMaxLength(), getScale());
         }
         if (result == null) {
-            throw new ValueTypeIncompatibleException(PDataType.DECIMAL, maxLength, scale);
+            throw new ValueTypeIncompatibleException(PDataType.DECIMAL, getMaxLength(), getScale());
         }
         ptr.set(PDataType.DECIMAL.toBytes(result));
         return true;
     }
 
-    private static Integer getPrecision(Integer lp, Integer rp, Integer ls, Integer rs) {
-    	if (ls == null || rs == null) {
-    		return PDataType.MAX_PRECISION;
-    	}
-        int val = lp + rp;
-        return Math.min(PDataType.MAX_PRECISION, val);
-    }
-
-    private static Integer getScale(Integer lp, Integer rp, Integer ls, Integer rs) {
-    	// If we are adding a decimal with scale and precision to a decimal
-    	// with no precision nor scale, the scale system does not apply.
-    	if (ls == null || rs == null) {
-    		return null;
-    	}
-        int val = ls + rs;
-        return Math.min(PDataType.MAX_PRECISION, val);
-    }
-
     @Override
     public PDataType getDataType() {
         return PDataType.DECIMAL;
-    }
-
-    @Override
-    public Integer getScale() {
-        return scale;
-    }
-
-    @Override
-    public Integer getMaxLength() {
-        return maxLength;
     }
 }
