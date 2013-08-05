@@ -3526,7 +3526,7 @@ public enum PDataType {
         }
     }
 
-    public static final int MAX_PRECISION = 38; // Max precision guaranteed to fit into a long (and this should be plenty)
+    public static final int MAX_PRECISION = 38;
     public static final int MIN_DECIMAL_AVG_SCALE = 4;
     public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
     public static final int NO_SCALE = Integer.MIN_VALUE; // Oracle allows negative scale, so use the smallest value for this purpose.
