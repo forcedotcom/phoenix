@@ -575,8 +575,7 @@ select_list returns [List<AliasedNode> ret]
 selectable returns [AliasedNode ret]
     :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
       | familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
-      | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'
-      | NEXT VALUE FOR t=from_table_name { $ret = factory.aliasedNode(null, factory.nextValueFor(t));}   
+      | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'         
     ;
 
 
@@ -734,6 +733,7 @@ expression_term returns [ParseNode ret]
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }
+    |   NEXT VALUE FOR s=from_table_name { $ret = factory.nextValueFor(s);}
     ;
     
 expression_terms returns [List<ParseNode> ret]
