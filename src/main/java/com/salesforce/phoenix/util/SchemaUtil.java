@@ -337,14 +337,17 @@ public class SchemaUtil {
     }
 
     public static void initMetaData(ConnectionQueryServices services, String url, Properties props) throws SQLException {
+        // Create both SYSTEM.TABLE and SYSTEM.SEQUENCE
+        final String[] CREATE_METADATA = new String[] {QueryConstants.CREATE_TABLE, QueryConstants.CREATE_SEQUENCE};
         // Use new connection with minimum SCN value
         props = new Properties(props);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_TABLE_TIMESTAMP+1));
         PhoenixConnection metaConnection = new PhoenixConnection(services, url, props, PMetaDataImpl.EMPTY_META_DATA);
         try {
             Statement metaStatement = metaConnection.createStatement();
-            metaStatement.executeUpdate(QueryConstants.CREATE_METADATA);
-            metaStatement.executeUpdate(QueryConstants.CREATE_SEQUENCE);
+            for (String createStatement: CREATE_METADATA){
+                metaStatement.executeUpdate(createStatement);
+            }
         } catch (TableAlreadyExistsException e) {
         } finally {
             metaConnection.close();

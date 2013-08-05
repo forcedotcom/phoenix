@@ -87,9 +87,9 @@ public interface QueryConstants {
     public static final PName DEFAULT_COLUMN_FAMILY_NAME = new PNameImpl(DEFAULT_COLUMN_FAMILY);
     public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = DEFAULT_COLUMN_FAMILY_NAME.getBytes();
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
-    public static final PName SYSTEM_TABLE_PK_NAME = new PNameImpl("pk");
-
-    public static final String CREATE_METADATA =
+    public static final PName SYSTEM_TABLE_PK_NAME = new PNameImpl("pk");    
+    
+    public static final String CREATE_TABLE =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
@@ -134,9 +134,14 @@ public interface QueryConstants {
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
     
-    public static final String CREATE_SEQUENCE = "CREATE TABLE SYSTEM.\"SEQUENCE\" (" + 
-    							"SEQUENCE_SCHEMA VARCHAR NULL, SEQUENCE_NAME VARCHAR NOT NULL, CURRENT_VALUE BIGINT NOT NULL, INCREMENT_BY BIGINT NOT NULL" + 
-    							" CONSTRAINT pk PRIMARY KEY (SEQUENCE_SCHEMA, SEQUENCE_NAME))" + 
-    							" VERSIONS=1000," + 
-    							" SPLIT_POLICY='com.salesforce.phoenix.schema.MetaDataSplitPolicy'";
+    // Create a SYSTEM.SEQUENCE table to store metadata related to sequence values
+    public static final String CREATE_SEQUENCE =
+            "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_SEQUENCE + "\"(\n" +                                    
+    		SEQUENCE_SCHEMA_COLUMN + " VARCHAR NULL, \n" + 
+            SEQUENCE_NAME_COLUMN +  " VARCHAR NOT NULL, \n" +
+    		CURRENT_VALUE_COLUMN + " BIGINT NOT NULL, \n" + 
+            INCREMENT_BY_COLUMN  + " BIGINT NOT NULL \n" + 
+    		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + SEQUENCE_SCHEMA_COLUMN + "," + SEQUENCE_NAME_COLUMN+ "))\n" + 
+    		HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
+            HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
 	}
