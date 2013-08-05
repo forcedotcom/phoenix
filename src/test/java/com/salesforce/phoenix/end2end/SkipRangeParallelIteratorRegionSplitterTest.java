@@ -66,7 +66,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMangedTimeTest {
 
     private static final String TABLE_NAME = "TEST_SKIP_RANGE_PARALLEL_ITERATOR";
-    private static final String DDL = "CREATE TABLE " + TABLE_NAME + " (id char(3) NOT NULL PRIMARY KEY, value integer)";
+    private static final String DDL = "CREATE TABLE " + TABLE_NAME + " (id char(3) NOT NULL PRIMARY KEY, \"value\" integer)";
     private static final byte[] Ka1A = Bytes.toBytes("a1A");
     private static final byte[] Ka1B = Bytes.toBytes("a1B");
     private static final byte[] Ka1C = Bytes.toBytes("a1C");
