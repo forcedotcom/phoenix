@@ -69,9 +69,9 @@ public class HashCacheClient {
     
     private static final Log LOG = LogFactory.getLog(HashCacheClient.class);
     private static final String JOIN_KEY_PREFIX = "joinKey";
-    private final byte[] iterateOverTableName;
     private final byte[] tenantId;
     private final ConnectionQueryServices services;
+    private final Map<Integer, byte[]> tableNameMap = new HashMap<Integer, byte[]>();
 
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
@@ -80,9 +80,8 @@ public class HashCacheClient {
      * @param iterateOverTableName table name
      * @param tenantId the tenantId or null if not applicable
      */
-    public HashCacheClient(ConnectionQueryServices services, byte[] iterateOverTableName, byte[] tenantId) {
+    public HashCacheClient(ConnectionQueryServices services, byte[] tenantId) {
         this.services = services;
-        this.iterateOverTableName = iterateOverTableName;
         this.tenantId = tenantId;
     }
 
@@ -144,9 +143,8 @@ public class HashCacheClient {
      * @throws MaxHashCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
-    public HashCache addHashCache(Scanner scanner, List<Expression> onExpressions) throws SQLException {
-        final byte[] joinId = nextJoinId();
-        
+    public HashCache addHashCache(final byte[] joinId, Scanner scanner, List<Expression> onExpressions, byte[] iterateOverTableName) throws SQLException {
+        tableNameMap.put(Bytes.mapKey(joinId), iterateOverTableName);
         /**
          * Serialize and compress hashCacheTable
          */
@@ -253,6 +251,11 @@ public class HashCacheClient {
      */
     private void removeHashCache(byte[] joinId, Set<ServerName> servers) throws SQLException {
         Throwable lastThrowable = null;
+        byte[] iterateOverTableName = tableNameMap.get(Bytes.mapKey(joinId));
+        if (iterateOverTableName == null) {
+            LOG.warn("The joinId '" + Bytes.toString(joinId) + "' does not exist. Can't remove hash cache.");
+            return;
+        }
         HTableInterface iterateOverTable = services.getTable(iterateOverTableName);
         NavigableMap<HRegionInfo, ServerName> locations;
         try {
@@ -277,12 +280,13 @@ public class HashCacheClient {
         if (!remainingOnServers.isEmpty()) {
             LOG.warn("Unable to remove hash cache for " + remainingOnServers, lastThrowable);
         }
+        tableNameMap.remove(Bytes.mapKey(joinId));
     }
 
     /**
      * Create a join ID to keep the cached information across other joins independent.
      */
-    private static synchronized byte[] nextJoinId() {
+    public static synchronized byte[] nextJoinId() {
         return Bytes.toBytes(JOIN_KEY_PREFIX + UUID.randomUUID().toString());
     }
  

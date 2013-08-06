@@ -35,12 +35,17 @@ import java.util.Map;
 import org.apache.hadoop.hbase.client.Scan;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
+import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
+import com.salesforce.phoenix.compile.JoinCompiler.JoinTable;
+import com.salesforce.phoenix.compile.JoinCompiler.JoinedColumnResolver;
+import com.salesforce.phoenix.compile.JoinCompiler.StarJoinType;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
@@ -106,8 +111,29 @@ public class QueryCompiler {
         assert(binds.size() == statement.getBindCount());
         
         statement = RHSLiteralStatementRewriter.normalize(statement);
-        ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
-        StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
+        
+        List<TableNode> fromNodes = statement.getFrom();
+        if (fromNodes.size() == 1) {
+            ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+            StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
+            return compile(context, statement, binds);
+        }
+        
+        JoinedColumnResolver resolver = JoinCompiler.getResolver(statement, connection);
+        StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
+        return compile(context, statement, binds);
+    }
+    
+    protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) {
+        StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
+        if (starJoin == StarJoinType.BASIC || starJoin == StarJoinType.EXTENDED) {
+            for (JoinTable joinTable : join.getJoinTables()) {
+            }
+        }
+    }
+    
+    protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
+        ColumnResolver resolver = context.getResolver();
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
 

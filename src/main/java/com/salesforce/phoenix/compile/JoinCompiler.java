@@ -27,6 +27,73 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import java.sql.SQLException;
+import java.util.List;
+
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.AliasedNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.schema.TableRef;
+
 
 public class JoinCompiler {
+    
+    public enum StarJoinType {
+        BASIC,
+        EXTENDED,
+        NONE,
+    }
+    
+    public static class JoinSpec {
+        private TableRef table;
+        private List<AliasedNode> select;
+        private List<Expression> filters;
+        private List<Expression> postFilters;
+        private List<JoinTable> joinTables;
+        private boolean isPostAggregate;
+        
+        private JoinSpec(TableRef table, List<AliasedNode> select, List<Expression> filters, 
+                List<Expression> postFilters, List<JoinTable> joinTables, boolean isPostAggregate) {
+            this.table = table;
+            this.select = select;
+            this.filters = filters;
+            this.postFilters = postFilters;
+            this.joinTables = joinTables;
+            this.isPostAggregate = isPostAggregate;
+        }
+                
+        public List<JoinTable> getJoinTables() {
+            return joinTables;
+        }
+    }
+    
+    public static JoinSpec getSubJoinSpec(JoinSpec join) {
+        return new JoinSpec(join.table, join.select, join.filters, join.postFilters, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregate);
+    }
+    
+    public static class JoinTable {
+        private JoinType type;
+        private List<Expression> conditions;
+        private List<AliasedNode> select;
+        private List<Expression> filters;
+        private List<Expression> postJoinFilters; // will be pushed to postFilters in case of star join
+        private TableRef table;
+        private SelectStatement subquery;
+    }
+    
+    public interface JoinedColumnResolver extends ColumnResolver {
+        public JoinSpec getJoinTables();
+    }
+    
+    public static JoinedColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection) throws SQLException {
+        //TODO
+        return null;
+    }
+    
+    public static StarJoinType getStarJoinType(JoinSpec join) {
+        // TODO
+        return StarJoinType.NONE;
+    }
 }
