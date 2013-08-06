@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
@@ -41,12 +43,16 @@ import com.salesforce.phoenix.compile.JoinCompiler.JoinedColumnResolver;
 import com.salesforce.phoenix.compile.JoinCompiler.StarJoinType;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.execute.AggregatePlan;
+import com.salesforce.phoenix.execute.BasicQueryPlan;
+import com.salesforce.phoenix.execute.HashJoinPlan;
 import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.join.HashCacheClient;
+import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
 
@@ -124,15 +130,34 @@ public class QueryCompiler {
         return compile(context, statement, binds);
     }
     
-    protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) {
+    @SuppressWarnings("unchecked")
+    protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
         StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
         if (starJoin == StarJoinType.BASIC || starJoin == StarJoinType.EXTENDED) {
-            for (JoinTable joinTable : join.getJoinTables()) {
+            List<JoinTable> joinTables = join.getJoinTables();
+            int count = joinTables.size();
+            ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[count];
+            List<Expression>[] joinExpressions = (List<Expression>[]) new List[count];
+            List<Expression>[] hashExpressions = (List<Expression>[]) new List[count];
+            JoinType[] joinTypes = new JoinType[count];
+            QueryPlan[] joinPlans = new QueryPlan[count];
+            for (int i = 0; i < count; i++) {
+                joinIds[i] = new ImmutableBytesWritable(HashCacheClient.nextJoinId());
+                Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(joinTables.get(i));
+                joinExpressions[i] = splittedExpressions.getFirst();
+                hashExpressions[i] = splittedExpressions.getSecond();
+                joinTypes[i] = joinTables.get(i).getType();
             }
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes);
+            HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
+            BasicQueryPlan plan = compile(context, JoinCompiler.newSelectWithoutJoin(statement), binds);
+            return new HashJoinPlan(plan, joinIds, hashExpressions, joinPlans);
         }
+        
+        return null;
     }
     
-    protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
+    protected BasicQueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
         ColumnResolver resolver = context.getResolver();
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());

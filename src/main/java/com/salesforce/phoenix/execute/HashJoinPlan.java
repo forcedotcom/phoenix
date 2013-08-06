@@ -12,7 +12,6 @@ import com.salesforce.phoenix.compile.RowProjector;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashCacheClient;
-import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
@@ -20,8 +19,17 @@ import com.salesforce.phoenix.schema.TableRef;
 public class HashJoinPlan implements QueryPlan {
     
     private BasicQueryPlan plan;
-    private HashJoinInfo joinInfo;
-    private List<QueryPlan> hashPlans;
+    private ImmutableBytesWritable[] joinIds;
+    private List<Expression>[] hashExpressions;
+    private QueryPlan[] hashPlans;
+    
+    public HashJoinPlan(BasicQueryPlan plan, ImmutableBytesWritable[] joinIds,
+            List<Expression>[] hashExpressions, QueryPlan[] hashPlans) {
+        this.plan = plan;
+        this.joinIds = joinIds;
+        this.hashExpressions = hashExpressions;
+        this.hashPlans = hashPlans;
+    }
 
     @Override
     public Integer getLimit() {
@@ -40,15 +48,12 @@ public class HashJoinPlan implements QueryPlan {
 
     @Override
     public Scanner getScanner() throws SQLException {
-        ImmutableBytesWritable[] joinIds = joinInfo.getJoinIds();
-        List<Expression>[] joinExpressions = joinInfo.getJoinExpressions();
-        
-        assert (joinIds.length == joinExpressions.length && joinIds.length == hashPlans.size());
+        assert (joinIds.length == hashExpressions.length && joinIds.length == hashPlans.length);
         
         HashCacheClient hashClient = plan.getContext().getHashClient();
         // TODO replace with Future execution
         for (int i = 0; i < joinIds.length; i++) {
-            hashClient.addHashCache(joinIds[i].get(), hashPlans.get(i).getScanner(), joinExpressions[i], plan.getTable().getTableName());
+            hashClient.addHashCache(joinIds[i].get(), hashPlans[i].getScanner(), hashExpressions[i], plan.getTable().getTableName());
         }
         return plan.getScanner();
     }

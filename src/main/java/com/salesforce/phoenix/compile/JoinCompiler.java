@@ -30,6 +30,8 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.util.List;
 
+import org.apache.hadoop.hbase.util.Pair;
+
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.AliasedNode;
@@ -81,6 +83,10 @@ public class JoinCompiler {
         private List<Expression> postJoinFilters; // will be pushed to postFilters in case of star join
         private TableRef table;
         private SelectStatement subquery;
+        
+        public JoinType getType() {
+            return type;
+        }
     }
     
     public interface JoinedColumnResolver extends ColumnResolver {
@@ -88,12 +94,23 @@ public class JoinCompiler {
     }
     
     public static JoinedColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection) throws SQLException {
-        //TODO
+        // TODO
         return null;
     }
     
     public static StarJoinType getStarJoinType(JoinSpec join) {
         // TODO
         return StarJoinType.NONE;
+    }
+    
+    // Left: other table expressions; Right: this table expressions.
+    public static Pair<List<Expression>, List<Expression>> splitEquiJoinConditions(JoinTable joinTable) {
+        // TODO
+        return null;
+    }
+    
+    public static SelectStatement newSelectWithoutJoin(SelectStatement statement) {
+        // TODO
+        return null;
     }
 }

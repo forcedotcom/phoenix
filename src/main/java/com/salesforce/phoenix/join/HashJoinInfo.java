@@ -50,7 +50,7 @@ public class HashJoinInfo {
     private List<Expression>[] joinExpressions;
     private JoinType[] joinTypes;
     
-    private HashJoinInfo(ImmutableBytesWritable[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes) {
+    public HashJoinInfo(ImmutableBytesWritable[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes) {
         this.joinIds = joinIds;
         this.joinExpressions = joinExpressions;
         this.joinTypes = joinTypes;
