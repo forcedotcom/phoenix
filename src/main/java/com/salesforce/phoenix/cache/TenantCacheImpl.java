@@ -55,7 +55,6 @@ import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.ServerUtil;
@@ -181,8 +180,6 @@ public class TenantCacheImpl implements TenantCache {
         private class AgeOutHashCache implements HashCache {
             private final Map<ImmutableBytesPtr,List<Tuple>> hashCache;
             private final MemoryChunk memoryChunk;
-            private final byte[][] cfs;
-            private final byte[] tableName;
             
             private AgeOutHashCache(ImmutableBytesWritable hashCacheBytes) {
                 try {
@@ -220,19 +217,6 @@ public class TenantCacheImpl implements TenantCache {
                         tuples.add(result);
                         offset += resultSize;
                     }
-                    int cfCount = (int)Bytes.readVLong(hashCacheByteArray, offset);
-                    if (cfCount == 0) {
-                        cfs = null;
-                        tableName = null;
-                    } else {
-                        offset += WritableUtils.decodeVIntSize(hashCacheByteArray[offset]);
-                        byte[][] tableInfo = ByteUtil.toByteArrays(hashCacheByteArray, offset, cfCount);
-                        tableName = tableInfo[0];
-                        cfs = new byte[cfCount - 1][];
-                        for (int i = 1; i < cfCount; i++) {
-                            cfs[i-1] = tableInfo[i];
-                        }
-                    }
                     this.hashCache = Collections.unmodifiableMap(hashCacheMap);
                 } catch (IOException e) { // Not possible with ByteArrayInputStream
                     throw new RuntimeException(e);
@@ -242,16 +226,6 @@ public class TenantCacheImpl implements TenantCache {
             @Override
             public void close() {
                 memoryChunk.close();
-            }
-    
-            @Override
-            public byte[] getTableName() {
-                return tableName;
-            }
-            
-            @Override
-            public byte[][] getColumnFamilies() {
-                return cfs;
             }
             
             @Override

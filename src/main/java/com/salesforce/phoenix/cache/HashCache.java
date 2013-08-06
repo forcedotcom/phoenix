@@ -44,7 +44,5 @@ import com.salesforce.phoenix.util.SQLCloseable;
  */
 @Immutable
 public interface HashCache extends SQLCloseable {
-    public byte[] getTableName();
-    public byte[][] getColumnFamilies();
     public List<Tuple> get(ImmutableBytesWritable hashKey);
 }

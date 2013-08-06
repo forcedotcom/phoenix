@@ -68,9 +68,9 @@ public class HashCacheClient {
     
     private static final Log LOG = LogFactory.getLog(HashCacheClient.class);
     private static final String JOIN_KEY_PREFIX = "joinKey";
-    private final TableRef iterateOverTableName;
     private final byte[] tenantId;
     private final ConnectionQueryServices services;
+    private final Map<Integer, TableRef> iterateOverTableMap = new HashMap<Integer, TableRef>();
 
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
@@ -79,9 +79,8 @@ public class HashCacheClient {
      * @param iterateOverTableName table name
      * @param tenantId the tenantId or null if not applicable
      */
-    public HashCacheClient(ConnectionQueryServices services, TableRef iterateOverTableName, byte[] tenantId) {
+    public HashCacheClient(ConnectionQueryServices services, byte[] tenantId) {
         this.services = services;
-        this.iterateOverTableName = iterateOverTableName;
         this.tenantId = tenantId;
     }
 
@@ -143,9 +142,8 @@ public class HashCacheClient {
      * @throws MaxHashCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
-    public HashCache addHashCache(Scanner scanner, List<Expression> onExpressions, byte[] tableName, byte[][] cfs) throws SQLException {
-        final byte[] joinId = nextJoinId();
-        
+    public HashCache addHashCache(final byte[] joinId, Scanner scanner, List<Expression> onExpressions, TableRef iterateOverTableName) throws SQLException {
+        iterateOverTableMap.put(Bytes.mapKey(joinId), iterateOverTableName);
         /**
          * Serialize and compress hashCacheTable
          */
@@ -158,7 +156,7 @@ public class HashCacheClient {
         closeables.add(chunk);
         try {
             iterator = scanner.iterator();        
-            hashCache = serialize(iterator, onExpressions, tableName, cfs, chunk);
+            hashCache = serialize(iterator, onExpressions, chunk);
         } finally {
             if (iterator != null) {
                 iterator.close();
@@ -251,6 +249,11 @@ public class HashCacheClient {
      */
     private void removeHashCache(byte[] joinId, Set<ServerName> servers) throws SQLException {
         Throwable lastThrowable = null;
+        TableRef iterateOverTableName = iterateOverTableMap.get(Bytes.mapKey(joinId));
+        if (iterateOverTableName == null) {
+            LOG.warn("The joinId '" + Bytes.toString(joinId) + "' does not exist. Can't remove hash cache.");
+            return;
+        }
         HTableInterface iterateOverTable = services.getTable(iterateOverTableName.getTableName());
         NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(iterateOverTableName);
         Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
@@ -270,17 +273,18 @@ public class HashCacheClient {
         if (!remainingOnServers.isEmpty()) {
             LOG.warn("Unable to remove hash cache for " + remainingOnServers, lastThrowable);
         }
+        iterateOverTableMap.remove(Bytes.mapKey(joinId));
     }
 
     /**
      * Create a join ID to keep the cached information across other joins independent.
      */
-    private static synchronized byte[] nextJoinId() {
+    public static synchronized byte[] nextJoinId() {
         return Bytes.toBytes(JOIN_KEY_PREFIX + UUID.randomUUID().toString());
     }
  
     // package private for testing
-    ImmutableBytesWritable serialize(ResultIterator scanner, List<Expression> onExpressions, byte[] tableName, byte[][] cfs, MemoryChunk chunk) throws SQLException {
+    ImmutableBytesWritable serialize(ResultIterator scanner, List<Expression> onExpressions, MemoryChunk chunk) throws SQLException {
         try {
             long maxSize = services.getProps().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE);
             long estimatedSize = Math.min(chunk.getSize(), maxSize);
@@ -309,13 +313,6 @@ public class HashCacheClient {
                     chunk.resize(estimatedSize);
                 }
                 nRows++;
-            }
-            if (cfs == null) {
-                WritableUtils.writeVInt(out, 0);
-            } else {
-                WritableUtils.writeVInt(out, cfs.length + 1);
-                Bytes.writeByteArray(out, tableName);
-                out.write(ByteUtil.toBytes(cfs));
             }
             TrustedByteArrayOutputStream sizeOut = new TrustedByteArrayOutputStream(Bytes.SIZEOF_INT);
             DataOutputStream dataOut = new DataOutputStream(sizeOut);

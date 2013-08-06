@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.text.Format;
 import java.util.List;
@@ -35,6 +36,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -66,19 +68,28 @@ public class StatementContext {
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
     private final HintNode hintNode;
+    private final HashCacheClient hashClient;
 
     private boolean isAggregate;
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) throws SQLException {
         this(connection, resolver, binds, bindCount, scan, null);
     }
     
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode) {
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode) throws SQLException {
+        this(connection, resolver, binds, bindCount, scan, hintNode, null);
+    }
+    
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode, HashCacheClient hashClient) throws SQLException {
         this.connection = connection;
         this.resolver = resolver;
-        this.scan = scan;
+        try {
+            this.scan = new Scan(scan); // scan cannot be reused for nested query plans
+        } catch (IOException e) {
+            throw new SQLException(e);
+        }
         this.binds = new BindManager(binds, bindCount);
         this.aggregates = new AggregationManager();
         this.expressions = new ExpressionManager();
@@ -88,6 +99,7 @@ public class StatementContext {
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
         this.hintNode = hintNode;
+        this.hashClient = hashClient;
     }
 
     public boolean hasHint(Hint hint) {
@@ -120,6 +132,10 @@ public class StatementContext {
 
     public BindManager getBindManager() {
         return binds;
+    }
+    
+    public HashCacheClient getHashClient() {
+        return hashClient;
     }
 
     public AggregationManager getAggregationManager() {
