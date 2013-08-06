@@ -119,12 +119,7 @@ public class QueryCompiler {
         List<TableNode> fromNodes = statement.getFrom();
         if (fromNodes.size() == 1) {
             ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
-            TableRef tableRef = resolver.getTables().get(0);
-            PTable table = tableRef.getTable();
             StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
-            if (table.getType() == PTableType.INDEX && table.getIndexState() != PIndexState.ACTIVE) {
-                return new DegenerateQueryPlan(context, tableRef);
-            }
             return compile(context, statement, binds);
         }
         
@@ -163,6 +158,11 @@ public class QueryCompiler {
     protected BasicQueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
         ColumnResolver resolver = context.getResolver();
         TableRef tableRef = resolver.getTables().get(0);
+        PTable table = tableRef.getTable();
+        if (table.getType() == PTableType.INDEX && table.getIndexState() != PIndexState.ACTIVE) {
+            return new DegenerateQueryPlan(context, tableRef);
+        }
+        
         Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
         Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
 
