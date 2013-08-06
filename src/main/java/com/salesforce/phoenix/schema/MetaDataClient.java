@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.schema;
 
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
 import java.sql.*;
 import java.util.*;
@@ -116,7 +117,8 @@ public class MetaDataClient {
     }
 
     private static final String CREATE_TABLE =
-            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
+            TENANT_ID + "," +
             TABLE_SCHEM_NAME + "," +
             TABLE_NAME_NAME + "," +
             TABLE_TYPE_NAME + "," +
@@ -127,7 +129,7 @@ public class MetaDataClient {
             DATA_TABLE_NAME + "," +
             INDEX_STATE + "," +
             IMMUTABLE_ROWS +
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String CREATE_INDEX_LINK =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
             TABLE_SCHEM_NAME + "," +
@@ -606,23 +608,33 @@ public class MetaDataClient {
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
             connection.rollback();
             
-            String dataTableName = parent == null ? null : parent.getName().getString();
+            String tenantId = Bytes.toString(connection.getTenantId());
+            String baseTable = (String)tableProps.remove(BASE_TABLE_PROP_NAME);
+            
+            if ((tenantId == null && baseTable != null) || (tenantId != null && baseTable == null)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                    .setSchemaName(schemaName).setTableName(tableName).setMessage("When creating tenant-specific table, both " +
+                    "TenantId connection property and " + BASE_TABLE_PROP_NAME + " DDL option must be set.").build().buildException();
+            }
+            
+            String dataTableName = parent == null ? baseTable : parent.getName().getString();
             PIndexState indexState = parent == null ? null : PIndexState.BUILDING;
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
-            tableUpsert.setString(1, schemaName);
-            tableUpsert.setString(2, tableName);
-            tableUpsert.setString(3, tableType.getSerializedValue());
-            tableUpsert.setLong(4, PTable.INITIAL_SEQ_NUM);
-            tableUpsert.setInt(5, position);
+            tableUpsert.setString(1, tenantId);
+            tableUpsert.setString(2, schemaName);
+            tableUpsert.setString(3, tableName);
+            tableUpsert.setString(4, tableType.getSerializedValue());
+            tableUpsert.setLong(5, PTable.INITIAL_SEQ_NUM);
+            tableUpsert.setInt(6, position);
             if (saltBucketNum != null) {
-                tableUpsert.setInt(6, saltBucketNum);
+                tableUpsert.setInt(7, saltBucketNum);
             } else {
-                tableUpsert.setNull(6, Types.INTEGER);
+                tableUpsert.setNull(7, Types.INTEGER);
             }
-            tableUpsert.setString(7, pkName);
-            tableUpsert.setString(8, dataTableName);
-            tableUpsert.setString(9, indexState == null ? null : indexState.getSerializedValue());
-            tableUpsert.setBoolean(10, isImmutableRows);
+            tableUpsert.setString(8, pkName);
+            tableUpsert.setString(9, dataTableName);
+            tableUpsert.setString(10, indexState == null ? null : indexState.getSerializedValue());
+            tableUpsert.setBoolean(11, isImmutableRows);
             tableUpsert.execute();
             
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
@@ -687,7 +699,8 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
+            byte[] tenantIdBytes = connection.getTenantId();
+            byte[] key = SchemaUtil.getTableKey(schemaName, tableName, tenantIdBytes == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantIdBytes);
             Long scn = connection.getSCN();
             long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
             List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);

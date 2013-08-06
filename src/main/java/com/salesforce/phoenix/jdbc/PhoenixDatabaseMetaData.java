@@ -63,11 +63,12 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce.phoenix.jdbc.Jdbc7Shim.DatabaseMetaData {
-    public static final int INDEX_NAME_INDEX = 3; // Shared with FAMILY_NAME_INDEX
-    public static final int FAMILY_NAME_INDEX = 3;
-    public static final int COLUMN_NAME_INDEX = 2;
-    public static final int TABLE_NAME_INDEX = 1;
-    public static final int SCHEMA_NAME_INDEX = 0;
+    public static final int INDEX_NAME_INDEX = 4; // Shared with FAMILY_NAME_INDEX
+    public static final int FAMILY_NAME_INDEX = 4;
+    public static final int COLUMN_NAME_INDEX = 3;
+    public static final int TABLE_NAME_INDEX = 2;
+    public static final int SCHEMA_NAME_INDEX = 1;
+    public static final int TENANT_ID_INDEX = 0;
 
     public static final String TYPE_SCHEMA = "SYSTEM";
     public static final String TYPE_TABLE = "TABLE";
@@ -97,6 +98,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] COLUMN_COUNT_BYTES = Bytes.toBytes(COLUMN_COUNT);
     public static final String SALT_BUCKETS = "SALT_BUCKETS";
     public static final byte[] SALT_BUCKETS_BYTES = Bytes.toBytes(SALT_BUCKETS);
+    public static final String TENANT_ID = "TENANT_ID";
+    public static final byte[] TENANT_ID_BYTES = Bytes.toBytes(TENANT_ID);
     
     public static final String DATA_TABLE_NAME = "DATA_TABLE_NAME";
     public static final byte[] DATA_TABLE_NAME_BYTES = Bytes.toBytes(DATA_TABLE_NAME);
@@ -125,6 +128,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String COLUMN_MODIFIER = "COLUMN_MODIFIER";
     public static final String IMMUTABLE_ROWS = "IMMUTABLE_ROWS";
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
+    public static final String BASE_TABLE = "BASE_TABLE";
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getString();
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getBytes();

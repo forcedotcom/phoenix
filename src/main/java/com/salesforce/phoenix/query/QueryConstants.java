@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.*;
 
 
@@ -92,6 +93,7 @@ public interface QueryConstants {
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
+            TENANT_ID + " VARCHAR NULL," +
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
             TABLE_NAME_NAME + " VARCHAR NOT NULL," +
             COLUMN_NAME + " VARCHAR NULL," + // null only for table row
@@ -129,8 +131,8 @@ public interface QueryConstants {
             COLUMN_MODIFIER + " INTEGER," +
             INDEX_STATE + " CHAR(1)\n," +
             IMMUTABLE_ROWS + " BOOLEAN\n" +
-            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
-            + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
+            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","
+            + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
 }

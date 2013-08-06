@@ -203,12 +203,12 @@ public class SchemaUtil {
      * @param schemaName
      * @param tableName
      */
-    public static byte[] getTableKey(byte[] schemaName, byte[] tableName) {
-        return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+    public static byte[] getTableKey(byte[] schemaName, byte[] tableName, byte[] tenantId) {
+        return ByteUtil.concat(tenantId, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
     }
 
-    public static byte[] getTableKey(String schemaName, String tableName) {
-        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName));
+    public static byte[] getTableKey(String schemaName, String tableName, byte[] tenantIdBytes) {
+        return ByteUtil.concat(tenantIdBytes, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName));
     }
 
     public static String getTableDisplayName(String schemaName, String tableName) {

@@ -171,7 +171,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     private void addIndexToTable(PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException, SQLException {
-        byte[] key = SchemaUtil.getTableKey(schemaName.getBytes(), indexName.getBytes());
+        byte[] key = SchemaUtil.getTableKey(schemaName.getBytes(), indexName.getBytes(), ByteUtil.EMPTY_BYTE_ARRAY);
         PTable indexTable = doGetTable(key, clientTimeStamp);
         if (indexTable == null) {
             ServerUtil.throwIOException("Invalid meta data state", new TableNotFoundException(schemaName.getString(), tableName.getString()));
@@ -359,15 +359,17 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     
     @Override
     public MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException {
-        byte[][] rowKeyMetaData = new byte[2][];
+        byte[][] rowKeyMetaData = new byte[3][];
         MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
-            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName);
-            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName);
+            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName, tenantIdBytes);
+            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName, tenantIdBytes);
             byte[] parentKey = parentTableName == null ? null : lockKey;
             
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
@@ -451,8 +453,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     
     @Override
     public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, String tableType) throws IOException {
-        byte[][] rowKeyMetaData = new byte[2][];
+        byte[][] rowKeyMetaData = new byte[3][];
         MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         // Disallow deletion of a system table
@@ -462,8 +465,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
-            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName);
-            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName);
+            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName, tenantIdBytes);
+            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName, tenantIdBytes);
             
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
             HRegion region = env.getRegion();
@@ -568,7 +571,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         
         // Recursively delete indexes
         for (byte[] indexName : indexNames) {
-            byte[] indexKey = SchemaUtil.getTableKey(schemaName, indexName);
+            byte[] indexKey = SchemaUtil.getTableKey(schemaName, indexName, ByteUtil.EMPTY_BYTE_ARRAY);
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
             // FIXME: the version of the Delete constructor without the lock args was introduced
             // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
@@ -596,7 +599,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(schemaName,tableName);
+            byte[] key = SchemaUtil.getTableKey(schemaName,tableName, ByteUtil.EMPTY_BYTE_ARRAY);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {
@@ -732,7 +735,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     @Override
     public MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
         try {
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
+            byte[] key = SchemaUtil.getTableKey(schemaName, tableName, ByteUtil.EMPTY_BYTE_ARRAY);
             
             // get the co-processor environment
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
@@ -825,13 +828,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     @Override
     public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws IOException {
-        byte[][] rowKeyMetaData = new byte[2][];
+        byte[][] rowKeyMetaData = new byte[3][];
         MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(schemaName,tableName);
+            byte[] key = SchemaUtil.getTableKey(schemaName, tableName, ByteUtil.EMPTY_BYTE_ARRAY);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {

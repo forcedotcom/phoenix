@@ -45,6 +45,7 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
 public interface PTable extends Writable {
     public static final long INITIAL_SEQ_NUM = 0;
     public static final String IS_IMMUTABLE_ROWS_PROP_NAME = "IMMUTABLE_ROWS";
+    public static final String BASE_TABLE_PROP_NAME = "BASE_TABLE"; // specifies the base table when creating tenant-specific tables
 
     long getTimeStamp();
     long getSequenceNumber();

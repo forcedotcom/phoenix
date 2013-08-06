@@ -795,16 +795,18 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps,
             final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         Mutation m = tableMetaData.get(0);
         byte[] key = m.getRow();
         SchemaUtil.getVarChars(key, rowKeyMetadata);
+        byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
+        
         ensureTableCreated(tableName, tableType == PTableType.VIEW, tableProps, families, splits);
 
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, tenantIdBytes);
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -818,7 +820,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public MetaDataMutationResult getTable(final byte[] schemaBytes, final byte[] tableBytes,
             final long tableTimestamp, final long clientTimestamp) throws SQLException {
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, ByteUtil.EMPTY_BYTE_ARRAY);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
@@ -830,9 +832,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public MetaDataMutationResult dropTable(final List<Mutation> tableMetaData, final PTableType tableType) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
-        byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+        byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
+        byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
+        byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, tenantIdBytes == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantIdBytes);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
@@ -844,12 +849,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, boolean readOnly, Pair<byte[],Map<String,Object>> family) throws SQLException {
-        byte[][] rowKeyMetaData = new byte[2][];
+        byte[][] rowKeyMetaData = new byte[3][];
         byte[] rowKey = tableMetaData.get(0).getRow();
         SchemaUtil.getVarChars(rowKey, rowKeyMetaData);
         byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, ByteUtil.EMPTY_BYTE_ARRAY);
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
         if (family != null) {
             ensureFamilyCreated(tableName, readOnly, family);
@@ -866,12 +871,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, byte[] emptyCF) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, ByteUtil.EMPTY_BYTE_ARRAY);
         if (emptyCF != null) {
             this.ensureFamilyCreated(tableName, false, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
         }
@@ -952,9 +957,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public MetaDataMutationResult updateIndexState(final List<Mutation> tableMetaData, String parentTableName) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
-        byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+        byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX],
+                ByteUtil.EMPTY_BYTE_ARRAY);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override

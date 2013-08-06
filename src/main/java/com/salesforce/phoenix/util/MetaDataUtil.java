@@ -85,18 +85,18 @@ public class MetaDataUtil {
 
     public static void getSchemaAndTableName(List<Mutation> tableMetadata, byte[][] rowKeyMetaData) {
         Mutation m = getTableHeaderRow(tableMetadata);
-        getVarChars(m.getRow(), 2, rowKeyMetaData);
+        getVarChars(m.getRow(), 3, rowKeyMetaData);
     }
     
     public static byte[] getParentTableName(List<Mutation> tableMetadata) {
         if (tableMetadata.size() == 1) {
             return null;
         }
-        byte[][] rowKeyMetaData = new byte[2][];
+        byte[][] rowKeyMetaData = new byte[3][];
         getSchemaAndTableName(tableMetadata, rowKeyMetaData);
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         Mutation m = getParentTableHeaderRow(tableMetadata);
-        getVarChars(m.getRow(), 2, rowKeyMetaData);
+        getVarChars(m.getRow(), 3, rowKeyMetaData);
         if (Bytes.compareTo(tableName, rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]) == 0) {
             return null;
         }
