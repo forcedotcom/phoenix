@@ -804,7 +804,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
         
-        ensureTableCreated(tableName, tableType == PTableType.VIEW, tableProps, families, splits);
+        if (tenantIdBytes.length == 0)
+            ensureTableCreated(tableName, tableType == PTableType.VIEW, tableProps, families, splits);
 
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, tenantIdBytes);
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
