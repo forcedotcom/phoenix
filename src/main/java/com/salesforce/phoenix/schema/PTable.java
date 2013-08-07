@@ -179,4 +179,6 @@ public interface PTable extends Writable {
      */
     PName getDataTableName();
     boolean isImmutableRows();
+    
+    PName getTenantId();
 }

@@ -231,9 +231,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] keyBuffer = keyValue.getBuffer();
         int keyLength = keyValue.getRowLength();
         int keyOffset = keyValue.getRowOffset();
-        PName schemaName = newPName(keyBuffer, keyOffset, keyLength);
+        PName tenantId = newPName(keyBuffer, keyOffset, keyLength);
         int offset = getVarCharLength(keyBuffer, keyOffset, keyLength) + 1;
-        PName tableName = newPName(keyBuffer, keyOffset + offset, keyLength-offset);
+        PName schemaName = newPName(keyBuffer, keyOffset + offset, keyLength-offset);
+        offset += getVarCharLength(keyBuffer, keyOffset + offset, keyLength-offset) + 1;
+        PName tableName = newPName(keyBuffer, keyOffset + offset, keyLength-offset );
         
         offset += tableName.getBytes().length + 1;
         // This will prevent the client from continually looking for the current
@@ -307,7 +309,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
         }
         
-        return PTableImpl.makePTable(tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows);
+        return PTableImpl.makePTable(tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows, tenantId);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
