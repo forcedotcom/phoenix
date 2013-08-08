@@ -55,24 +55,35 @@ public class JoinCompiler {
         private List<Expression> postFilters;
         private List<JoinTable> joinTables;
         private boolean isPostAggregate;
+        private ColumnResolver resolver;
         
         private JoinSpec(TableRef table, List<AliasedNode> select, List<Expression> filters, 
-                List<Expression> postFilters, List<JoinTable> joinTables, boolean isPostAggregate) {
+                List<Expression> postFilters, List<JoinTable> joinTables, boolean isPostAggregate,
+                ColumnResolver resolver) {
             this.table = table;
             this.select = select;
             this.filters = filters;
             this.postFilters = postFilters;
             this.joinTables = joinTables;
             this.isPostAggregate = isPostAggregate;
+            this.resolver = resolver;
         }
                 
         public List<JoinTable> getJoinTables() {
             return joinTables;
         }
+        
+        public boolean isPostAggregate() {
+            return isPostAggregate;
+        }
+        
+        public ColumnResolver getColumnResolver() {
+            return resolver;
+        }
     }
     
     public static JoinSpec getSubJoinSpec(JoinSpec join) {
-        return new JoinSpec(join.table, join.select, join.filters, join.postFilters, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregate);
+        return new JoinSpec(join.table, join.select, join.filters, join.postFilters, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregate, join.resolver);
     }
     
     public static class JoinTable {
@@ -87,13 +98,14 @@ public class JoinCompiler {
         public JoinType getType() {
             return type;
         }
+        
+        public SelectStatement getAsSubquery() {
+            // TODO
+            return subquery;
+        }
     }
     
-    public interface JoinedColumnResolver extends ColumnResolver {
-        public JoinSpec getJoinTables();
-    }
-    
-    public static JoinedColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection) throws SQLException {
+    public static JoinSpec getJoinSpec(SelectStatement statement, PhoenixConnection connection) throws SQLException {
         // TODO
         return null;
     }
@@ -110,6 +122,25 @@ public class JoinCompiler {
     }
     
     public static SelectStatement newSelectWithoutJoin(SelectStatement statement) {
+        // TODO
+        return null;
+    }
+    
+    // Get the last join table select statement with fixed-up select and where nodes.
+    // Currently does NOT support last join table as a subquery.
+    public static SelectStatement newSelectForLastJoin(SelectStatement statement, JoinSpec join) {
+        // TODO
+        return null;
+    }
+    
+    // Get subquery with fixed select and where nodes
+    public static SelectStatement getSubQuery(SelectStatement statement) {
+        // TODO
+        return null;
+    }
+    
+    // Get subquery with complete select and where nodes
+    public static SelectStatement getSubQueryForFinalPlan(SelectStatement statement) {
         // TODO
         return null;
     }

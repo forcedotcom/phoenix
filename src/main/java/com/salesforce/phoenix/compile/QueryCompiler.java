@@ -39,7 +39,6 @@ import org.apache.hadoop.hbase.util.Pair;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinTable;
-import com.salesforce.phoenix.compile.JoinCompiler.JoinedColumnResolver;
 import com.salesforce.phoenix.compile.JoinCompiler.StarJoinType;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.execute.*;
@@ -123,16 +122,20 @@ public class QueryCompiler {
             return compile(context, statement, binds);
         }
         
-        JoinedColumnResolver resolver = JoinCompiler.getResolver(statement, connection);
-        StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
-        return compile(context, statement, binds);
+        JoinSpec join = JoinCompiler.getJoinSpec(statement, connection);
+        StatementContext context = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
+        return compile(context, statement, binds, join);
     }
     
     @SuppressWarnings("unchecked")
     protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
+        List<JoinTable> joinTables = join.getJoinTables();
+        if (joinTables.isEmpty()) {
+            return compile(context, statement, binds);
+        }
+        
         StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
         if (starJoin == StarJoinType.BASIC || starJoin == StarJoinType.EXTENDED) {
-            List<JoinTable> joinTables = join.getJoinTables();
             int count = joinTables.size();
             ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[count];
             List<Expression>[] joinExpressions = (List<Expression>[]) new List[count];
@@ -140,16 +143,40 @@ public class QueryCompiler {
             JoinType[] joinTypes = new JoinType[count];
             QueryPlan[] joinPlans = new QueryPlan[count];
             for (int i = 0; i < count; i++) {
+                JoinTable joinTable = joinTables.get(i);
                 joinIds[i] = new ImmutableBytesWritable(HashCacheClient.nextJoinId());
-                Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(joinTables.get(i));
+                Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(joinTable);
                 joinExpressions[i] = splittedExpressions.getFirst();
                 hashExpressions[i] = splittedExpressions.getSecond();
-                joinTypes[i] = joinTables.get(i).getType();
+                joinTypes[i] = joinTable.getType();
+                joinPlans[i] = compile(joinTable.getAsSubquery(), binds);
             }
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
             BasicQueryPlan plan = compile(context, JoinCompiler.newSelectWithoutJoin(statement), binds);
             return new HashJoinPlan(plan, joinIds, hashExpressions, joinPlans);
+        }
+        
+        JoinTable lastJoinTable = joinTables.get(joinTables.size() - 1);
+        JoinType type = lastJoinTable.getType();
+        if (type == JoinType.Right) {
+            if (join.isPostAggregate()) {
+                throw new UnsupportedOperationException("Does not support aggregation functions on right join.");
+            }
+            SelectStatement lhs = JoinCompiler.getSubQuery(statement);
+            SelectStatement rhs = JoinCompiler.newSelectForLastJoin(statement, join);
+            JoinSpec lhsJoin = JoinCompiler.getSubJoinSpec(join);
+            StatementContext lhsCtx = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
+            QueryPlan lhsPlan = compile(lhsCtx, lhs, binds, lhsJoin);
+            byte[] joinId = HashCacheClient.nextJoinId();
+            ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[] {new ImmutableBytesWritable(joinId)};
+            Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
+            List<Expression> joinExpressions = splittedExpressions.getSecond();
+            List<Expression> hashExpressions = splittedExpressions.getFirst();
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left});
+            HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
+            BasicQueryPlan rhsPlan = compile(context, rhs, binds);
+            return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
         }
         
         return null;
