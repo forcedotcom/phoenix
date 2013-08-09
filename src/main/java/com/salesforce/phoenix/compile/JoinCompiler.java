@@ -49,7 +49,7 @@ public class JoinCompiler {
     }
     
     public static class JoinSpec {
-        private TableRef table;
+        private TableRef mainTable;
         private List<AliasedNode> select;
         private List<Expression> filters;
         private List<Expression> postFilters;
@@ -60,7 +60,7 @@ public class JoinCompiler {
         private JoinSpec(TableRef table, List<AliasedNode> select, List<Expression> filters, 
                 List<Expression> postFilters, List<JoinTable> joinTables, boolean isPostAggregate,
                 ColumnResolver resolver) {
-            this.table = table;
+            this.mainTable = table;
             this.select = select;
             this.filters = filters;
             this.postFilters = postFilters;
@@ -68,7 +68,23 @@ public class JoinCompiler {
             this.isPostAggregate = isPostAggregate;
             this.resolver = resolver;
         }
-                
+        
+        public TableRef getMainTable() {
+            return mainTable;
+        }
+        
+        public List<AliasedNode> getSelect() {
+            return select;
+        }
+        
+        public List<Expression> getFilters() {
+            return filters;
+        }
+        
+        public List<Expression> getPostFilters() {
+            return postFilters;
+        }
+        
         public List<JoinTable> getJoinTables() {
             return joinTables;
         }
@@ -83,7 +99,7 @@ public class JoinCompiler {
     }
     
     public static JoinSpec getSubJoinSpec(JoinSpec join) {
-        return new JoinSpec(join.table, join.select, join.filters, join.postFilters, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregate, join.resolver);
+        return new JoinSpec(join.mainTable, join.select, join.filters, join.postFilters, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregate, join.resolver);
     }
     
     public static class JoinTable {
@@ -95,8 +111,43 @@ public class JoinCompiler {
         private TableRef table;
         private SelectStatement subquery;
         
+        private JoinTable(JoinType type, List<Expression> conditions, List<AliasedNode> select,
+                List<Expression> filters, List<Expression> postJoinFilters, TableRef table, SelectStatement subquery) {
+            this.type = type;
+            this.conditions = conditions;
+            this.select = select;
+            this.filters = filters;
+            this.postJoinFilters = postJoinFilters;
+            this.table = table;
+            this.subquery = subquery;
+        }
+        
         public JoinType getType() {
             return type;
+        }
+        
+        public List<Expression> getJoinConditions() {
+            return conditions;
+        }
+        
+        public List<AliasedNode> getSelect() {
+            return select;
+        }
+        
+        public List<Expression> getFilters() {
+            return filters;
+        }
+        
+        public List<Expression> getPostJoinFilters() {
+            return postJoinFilters;
+        }
+        
+        public TableRef getTable() {
+            return table;
+        }
+        
+        public SelectStatement getSubquery() {
+            return subquery;
         }
         
         public SelectStatement getAsSubquery() {
@@ -140,6 +191,7 @@ public class JoinCompiler {
     }
     
     // Get subquery with complete select and where nodes
+    // Throws exception if the subquery contains joins.
     public static SelectStatement getSubQueryForFinalPlan(SelectStatement statement) {
         // TODO
         return null;

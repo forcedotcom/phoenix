@@ -130,9 +130,8 @@ public class QueryCompiler {
     @SuppressWarnings("unchecked")
     protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
         List<JoinTable> joinTables = join.getJoinTables();
-        if (joinTables.isEmpty()) {
+        if (joinTables.isEmpty())
             return compile(context, statement, binds);
-        }
         
         StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
         if (starJoin == StarJoinType.BASIC || starJoin == StarJoinType.EXTENDED) {
@@ -159,7 +158,11 @@ public class QueryCompiler {
         
         JoinTable lastJoinTable = joinTables.get(joinTables.size() - 1);
         JoinType type = lastJoinTable.getType();
-        if (type == JoinType.Right) {
+        if (type == JoinType.Full)
+            throw new UnsupportedOperationException("Does not support full join.");
+        
+        if (type == JoinType.Right
+                || (type == JoinType.Inner && joinTables.size() > 1)) {
             if (join.isPostAggregate()) {
                 throw new UnsupportedOperationException("Does not support aggregation functions on right join.");
             }
@@ -179,7 +182,18 @@ public class QueryCompiler {
             return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
         }
         
-        return null;
+        SelectStatement lhs = JoinCompiler.getSubQueryForFinalPlan(statement);
+        SelectStatement rhs = lastJoinTable.getAsSubquery();
+        QueryPlan rhsPlan = compile(rhs, binds);
+        byte[] joinId = HashCacheClient.nextJoinId();
+        ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[] {new ImmutableBytesWritable(joinId)};
+        Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
+        List<Expression> joinExpressions = splittedExpressions.getFirst();
+        List<Expression> hashExpressions = splittedExpressions.getSecond();
+        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left});
+        HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
+        BasicQueryPlan lhsPlan = compile(context, lhs, binds);
+        return new HashJoinPlan(lhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});
     }
     
     protected BasicQueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
