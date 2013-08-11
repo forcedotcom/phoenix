@@ -60,8 +60,7 @@ public class DecimalSubtractExpression extends SubtractExpression {
             if (i == 0) {
                 maxLength = childExpr.getMaxLength();
                 scale = childExpr.getScale();
-            } else if (maxLength != null && scale != null && childExpr.getMaxLength() != null
-                    && childExpr.getScale() != null) {
+            } else {
                 maxLength = getPrecision(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
                 scale = getScale(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
             }
