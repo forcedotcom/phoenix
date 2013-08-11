@@ -277,6 +277,20 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
     
     @Override
+    public ParseNode visitLeave(final BetweenParseNode node, List<ParseNode> nodes) throws SQLException {
+        return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                if(node.isNegate()) {
+                    return NODE_FACTORY.not(NODE_FACTORY.and(children));
+                } else {
+                    return NODE_FACTORY.and(children);
+                }
+            }
+        });
+    }
+    
+    @Override
     public ParseNode visit(ColumnParseNode node) throws SQLException {
         return node;
     }

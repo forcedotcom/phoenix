@@ -217,5 +217,10 @@ public class HavingCompiler {
         public boolean visitEnter(DivideParseNode node) throws SQLException {
             return true;
         }
+
+        @Override
+        public boolean visitEnter(BetweenParseNode node) throws SQLException {
+            return true;
+        }
     }
 }
