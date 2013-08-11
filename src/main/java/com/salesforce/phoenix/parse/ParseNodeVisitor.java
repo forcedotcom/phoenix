@@ -101,5 +101,6 @@ public interface ParseNodeVisitor<E> {
     public boolean visitEnter(StringConcatParseNode node) throws SQLException;
     public E visitLeave(StringConcatParseNode node, List<E> l) throws SQLException;
 	
-    
+    public boolean visitEnter(BetweenParseNode node) throws SQLException;
+    public E visitLeave(BetweenParseNode node, List<E> l) throws SQLException;
 }

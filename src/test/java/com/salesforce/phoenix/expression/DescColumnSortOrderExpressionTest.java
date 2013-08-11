@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import static com.salesforce.phoenix.expression.function.ToCharFunction.Type.TEMPORAL;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -123,7 +122,7 @@ public class DescColumnSortOrderExpressionTest {
     @Test
     public void toChar() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral(date(12, 11, 2001), PDataType.DATE));
-        evaluateAndAssertResult(new ToCharFunction(args, TEMPORAL, "", DateUtil.getDateFormatter("MM/dd/yy hh:mm a")), "12/11/01 12:00 AM");
+        evaluateAndAssertResult(new ToCharFunction(args, FunctionArgumentType.TEMPORAL, "", DateUtil.getDateFormatter("MM/dd/yy hh:mm a")), "12/11/01 12:00 AM");
     }
     
     @Test
@@ -135,7 +134,7 @@ public class DescColumnSortOrderExpressionTest {
     @Test
     public void toNumber() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral("10", PDataType.VARCHAR));
-        evaluateAndAssertResult(new ToNumberFunction(args), new BigDecimal(BigInteger.valueOf(1), -1));
+        evaluateAndAssertResult(new ToNumberFunction(args, FunctionArgumentType.CHAR, "", null), new BigDecimal(BigInteger.valueOf(1), -1));
     }
     
     @Test
