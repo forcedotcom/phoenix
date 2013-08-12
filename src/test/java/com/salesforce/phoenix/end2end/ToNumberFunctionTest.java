@@ -277,7 +277,7 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
             if (isIntegerColumn)
             	assertEquals(expectedIntValue.intValue(), rs.getInt(1));
             else
-            	assertEquals(expectedDecimalValue, rs.getBigDecimal(1));
+            	assertTrue(expectedDecimalValue == rs.getBigDecimal(1) || (expectedDecimalValue != null && expectedDecimalValue.compareTo(rs.getBigDecimal(1)) == 0));
             assertFalse(rs.next());
         }
         finally {
