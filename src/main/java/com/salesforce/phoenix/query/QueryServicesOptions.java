@@ -46,27 +46,27 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
  * @since 0.1
  */
 public class QueryServicesOptions {
-	public static final int DEFAULT_KEEP_ALIVE_MS = 1000;
-	public static final int DEFAULT_THREAD_POOL_SIZE = 20;
-	public static final int DEFAULT_QUEUE_SIZE = 250;
-	public static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
-	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 20; // 50m
+	public static final int DEFAULT_KEEP_ALIVE_MS = 60000;
+	public static final int DEFAULT_THREAD_POOL_SIZE = 128;
+	public static final int DEFAULT_QUEUE_SIZE = 500;
+	public static final int DEFAULT_THREAD_TIMEOUT_MS = 600000; // 10min
+	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 20; // 20m
 	public static final int DEFAULT_MAX_MEMORY_PERC = 50; // 50% of heap
-	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
+	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 10000;
 	public static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
 	public static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
-    public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 8;
-    public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 12;
+    public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 32;
+    public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 64;
     public static final String DEFAULT_DATE_FORMAT = DateUtil.DEFAULT_DATE_FORMAT;
     public static final int DEFAULT_STATS_UPDATE_FREQ_MS = 15 * 60000; // 15min
     public static final int DEFAULT_MAX_STATS_AGE_MS = 24 * 60 * 60000; // 1 day
     public static final boolean DEFAULT_CALL_QUEUE_ROUND_ROBIN = true; 
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
-    public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = false; // Merge sort on client to ensure salted tables are row key ordered
+    public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = true; // Merge sort on client to ensure salted tables are row key ordered
     public static final boolean DEFAULT_USE_INDEXES = true; // Use indexes
     public static final boolean DEFAULT_IMMUTABLE_ROWS = false; // Tables rows may be updated
     
-    public final static int DEFAULT_MUTATE_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT and DELETE
+    public final static int DEFAULT_MUTATE_BATCH_SIZE = 15000; // Batch size for UPSERT SELECT and DELETE
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
 	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 60000; // How long to cache region boundary info for parallelization calculation
     public static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 30000; // 30 sec (with no activity)
