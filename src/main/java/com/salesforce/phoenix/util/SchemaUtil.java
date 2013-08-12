@@ -542,7 +542,7 @@ public class SchemaUtil {
         return (upgradeStr == null ? 0 : Integer.parseInt(upgradeStr));
     }
 
-    public static void checkIfUpgradeNecessary(ConnectionQueryServices connectionQueryServices, String url,
+    public static boolean checkIfUpgradeTo2Necessary(ConnectionQueryServices connectionQueryServices, String url,
             Properties info) throws SQLException {
         boolean isUpgrade = upgradeColumnCount(url, info) > 0;
         boolean isUpgradeNecessary = isUpgradeTo2Necessary(connectionQueryServices);
@@ -551,7 +551,9 @@ public class SchemaUtil {
         }
         if (isUpgrade && !isUpgradeNecessary) {
             info.remove(SchemaUtil.UPGRADE_TO_2_0); // Remove this property and ignore, since upgrade has already been done
+            return false;
         }
+        return true;
     }
 
     public static String getEscapedTableName(String schemaName, String tableName) {
@@ -575,20 +577,35 @@ public class SchemaUtil {
         }
     }
     
-    public static void updateSystemTableTo2(PhoenixConnection metaConnection) throws SQLException {
+    public static boolean columnExists(PTable table, String columnName) {
+        try {
+            table.getColumn(columnName);
+            return true;
+        } catch (ColumnNotFoundException e) {
+            return false;
+        } catch (AmbiguousColumnException e) {
+            return true;
+        }
+    }
+    
+    public static void updateSystemTableTo2(PhoenixConnection metaConnection, PTable table) throws SQLException {
         PTable metaTable = metaConnection.getPMetaData().getSchema(PhoenixDatabaseMetaData.TYPE_SCHEMA).getTable(PhoenixDatabaseMetaData.TYPE_TABLE);
         // Execute alter table statement for each column that was added if not already added
         if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
             // Causes row key of system table to be upgraded
-            metaConnection.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE).next();
+            if (checkIfUpgradeTo2Necessary(metaConnection.getQueryServices(), metaConnection.getURL(), metaConnection.getClientInfo())) {
+                metaConnection.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE).next();
+            }
             
-            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3) {
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3 && !columnExists(table, DATA_TABLE_NAME)) {
                 metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3, DATA_TABLE_NAME + " VARCHAR NULL");
             }
-            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 2) {
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 2 && !columnExists(table, INDEX_STATE)) {
                 metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 2, INDEX_STATE + " VARCHAR NULL");
             }
-            addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1, IMMUTABLE_ROWS + " BOOLEAN NULL");
+            if (!columnExists(table, IMMUTABLE_ROWS)) {
+                addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1, IMMUTABLE_ROWS + " BOOLEAN NULL");
+            }
         }
     }
     

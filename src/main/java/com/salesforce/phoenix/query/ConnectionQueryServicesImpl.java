@@ -887,7 +887,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             // Do the compatibility check here so it only gets called once per cluster connection if table already exists
             // It will have already been called if the system table needed to be created
             checkClientServerCompatibility();
-            SchemaUtil.updateSystemTableTo2(metaConnection);
+            SchemaUtil.updateSystemTableTo2(metaConnection, e.getTable());
         } catch (SQLException e) {
             sqlE = e;
         } finally {
