@@ -191,14 +191,16 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             if (cmp == 0) {
                 colKeyValues[j++] = kv;
                 i++;
-            } else {
+            } else if (cmp > 0) {
                 colKeyValues[j++] = null;
+            } else {
+                i++; // shouldn't happen - means unexpected KV in system table column row
             }
         }
         // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
         if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
                 || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
-            throw new IllegalStateException("Didn't find all required key values in column metadata row");
+            throw new IllegalStateException("Didn't find all required key values in '" + colName.getString() + "' column metadata row");
         }
         KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
         Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), null);
@@ -261,7 +263,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 tableKeyValues[j++] = kv;
                 i++;
             } else if (cmp > 0) {
-                j++;
+                tableKeyValues[j++] = null;
+            } else {
+                i++; // shouldn't happen - means unexpected KV in system table header row
             }
         }
         // TABLE_TYPE, TABLE_SEQ_NUM and COLUMN_COUNT are required.
@@ -404,7 +408,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 PTable table = loadTable(env, key, cacheKey, clientTimeStamp, HConstants.LATEST_TIMESTAMP);
                 if (table != null) {
                     if (table.getTimeStamp() < clientTimeStamp) {
-                        // If the table is older than the client time stamp and its deleted, continue
+                        // If the table is older than the client time stamp and it's deleted, continue
                         if (!isTableDeleted(table)) {
                             return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table);
                         }
@@ -630,9 +634,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     return new MetaDataMutationResult(MutationCode.CONCURRENT_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), table);
                 }
                 
-                // Disallow mutation of a system or index table
+                // Disallow mutation of an index table
                 PTableType type = table.getType();
-                if (type == PTableType.SYSTEM || type == PTableType.INDEX) {
+                if (type == PTableType.INDEX) {
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 

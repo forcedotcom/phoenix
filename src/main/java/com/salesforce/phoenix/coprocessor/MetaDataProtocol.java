@@ -67,6 +67,11 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final int MINIMUM_PHOENIX_SERVER_VERSION = MetaDataUtil.encodeVersion("2.0.0");
     
     public static final long MIN_TABLE_TIMESTAMP = 0;
+    // Increase MIN_SYSTEM_TABLE_TIMESTAMP by one for each schema change SYSTEM.TABLE schema changes.
+    // For 1.0,1.1,1.2,and 1.2.1 we used MetaDataProtocol.MIN_TABLE_TIMESTAMP+1
+    // For 2.0 and above, we use MetaDataProtocol.MIN_TABLE_TIMESTAMP+5 so that we can add the three new
+    // columns to the existing system table and see all these changes
+    public static final long MIN_SYSTEM_TABLE_TIMESTAMP = MIN_TABLE_TIMESTAMP + 5;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
 
     public enum MutationCode {

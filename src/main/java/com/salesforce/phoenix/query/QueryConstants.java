@@ -107,8 +107,6 @@ public interface QueryConstants {
             TABLE_SEQ_NUM + " BIGINT," +
             COLUMN_COUNT + " INTEGER," +
             SALT_BUCKETS + " INTEGER," +
-            // Index metadata
-            DATA_TABLE_NAME + " VARCHAR NULL," +
             // Column metadata (will be null for table row)
             COLUMN_SIZE + " INTEGER," +
             BUFFER_LENGTH + " INTEGER," +
@@ -127,6 +125,8 @@ public interface QueryConstants {
             SOURCE_DATA_TYPE + " INTEGER," + // supposed to be SHORT
             IS_AUTOINCREMENT + " VARCHAR," +
             COLUMN_MODIFIER + " INTEGER," +
+            // Index metadata
+            DATA_TABLE_NAME + " VARCHAR NULL," +
             INDEX_STATE + " CHAR(1)\n," +
             IMMUTABLE_ROWS + " BOOLEAN\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
