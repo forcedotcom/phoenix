@@ -49,8 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.*;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
@@ -713,12 +712,14 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         int minHBaseVersion = Integer.MAX_VALUE;
         try {
             NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(config, TYPE_TABLE_NAME, false);
+            Set<ServerName> serverMap = Sets.newHashSetWithExpectedSize(regionInfoMap.size());
             TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
-            List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionMap.size());
+            List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionInfoMap.size());
             for (Map.Entry<HRegionInfo, ServerName> entry : regionInfoMap.entrySet()) {
-                if (!regionMap.containsKey(entry.getKey().getRegionName())) {
+                if (!serverMap.contains(entry.getValue())) {
                     regionKeys.add(entry.getKey().getStartKey());
                     regionMap.put(entry.getKey().getRegionName(), entry.getValue());
+                    serverMap.add(entry.getValue());
                 }
             }
             final TreeMap<byte[],Long> results = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
