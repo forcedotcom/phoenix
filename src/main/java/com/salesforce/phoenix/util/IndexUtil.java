@@ -100,24 +100,30 @@ public class IndexUtil {
     
     public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation, ImmutableBytesWritable ptr) throws SQLException {
         byte[] dataRowKey = dataMutation.getRow();
+        int maxOffset = dataRowKey.length;
         RowKeySchema dataRowKeySchema = dataTable.getRowKeySchema();
         List<PColumn> dataPKColumns = dataTable.getPKColumns();
+        int i = 0;
+        int indexOffset = 0;
+        ptr.set(dataRowKey);
+        Boolean hasValue = dataRowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+        if (dataTable.getBucketNum() != null) { // Skip salt column
+            hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
+        }
         List<PColumn> indexPKColumns = indexTable.getPKColumns();
         List<PColumn> indexColumns = indexTable.getColumns();
         int nIndexColumns = indexPKColumns.size();
-        int maxIndexValues = indexColumns.size() - nIndexColumns;
+        int maxIndexValues = indexColumns.size() - nIndexColumns - indexOffset;
         BitSet indexValuesSet = new BitSet(maxIndexValues);
-        byte[][] indexValues = new byte[indexTable.getColumns().size()][];
-        int i = 0;
-        int maxOffset = dataRowKey.length;
-        ptr.set(dataRowKey);
-        for (Boolean hasValue = dataRowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); hasValue != null; hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET)) {
+        byte[][] indexValues = new byte[indexColumns.size() - indexOffset][];
+        while (hasValue != null) {
             if (hasValue) {
                 PColumn dataColumn = dataPKColumns.get(i);
                 PColumn indexColumn = indexTable.getColumn(dataColumn.getName().getString());
                 coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                indexValues[indexColumn.getPosition()] = ptr.copyBytes();
+                indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
             }
+            hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
         }
         PRow row;
         long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
@@ -136,9 +142,9 @@ public class IndexUtil {
                             PColumn indexColumn = indexTable.getColumn(getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
                             ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
                             coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                            indexValues[indexColumn.getPosition()] = ptr.copyBytes();
+                            indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
                             if (!SchemaUtil.isPKColumn(indexColumn)) {
-                                indexValuesSet.set(indexColumn.getPosition()-nIndexColumns);
+                                indexValuesSet.set(indexColumn.getPosition()-nIndexColumns-indexOffset);
                             }
                         } catch (ColumnNotFoundException e) {
                             // Ignore as this means that the data column isn't in the index
@@ -150,7 +156,7 @@ public class IndexUtil {
             row = indexTable.newRow(ts, ptr);
             int pos = 0;
             while ((pos = indexValuesSet.nextSetBit(pos)) >= 0) {
-                int index = nIndexColumns + pos++;
+                int index = nIndexColumns + indexOffset + pos++;
                 PColumn indexColumn = indexColumns.get(index);
                 row.setValue(indexColumn, indexValues[index]);
             }

@@ -88,6 +88,10 @@ public class PTableImpl implements PTable {
     public PTableImpl() {
     }
 
+    public PTableImpl(PName name) { // For finding table ref
+        this.name = name;
+    }
+
     public PTableImpl(long timeStamp) { // For delete marker
         this(timeStamp, false);
     }
@@ -111,7 +115,7 @@ public class PTableImpl implements PTable {
     public static PTableImpl makePTable(PTable table, long timeStamp, List<PTable> indexes) throws SQLException {
         return new PTableImpl(
                 table.getName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
-                table.getPKName(), table.getBucketNum(), table.getColumns(), table.getDataTableName(), indexes, table.isImmutableRows());
+                table.getPKName(), table.getBucketNum(), table.getBucketNum() == null ? table.getColumns() : table.getColumns().subList(1, table.getColumns().size()), table.getDataTableName(), indexes, table.isImmutableRows());
     }
 
     public static PTableImpl makePTable(PTable table, List<PColumn> columns) throws SQLException {
@@ -164,12 +168,13 @@ public class PTableImpl implements PTable {
         RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
         if (bucketNum != null) {
+            // Add salt column to allColumns and pkColumns, but don't add to
+            // columnsByName, since it should not be addressable via name.
             allColumns = new PColumn[columns.size()+1];
             allColumns[SALTING_COLUMN.getPosition()] = SALTING_COLUMN;
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size()+1);
             pkColumns.add(SALTING_COLUMN);
             builder.addField(SALTING_COLUMN);
-            columnsByName.put(SALTING_COLUMN.getName().getString(), SALTING_COLUMN);
         } else {
             allColumns = new PColumn[columns.size()];
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size());

@@ -83,6 +83,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     /**
      * keep a cache of HRegionInfo objects
+     * TODO: if/when we delete HBase meta data for tables when we drop them, we'll need to invalidate
+     * this cache properly.
      */
     private final LoadingCache<TableRef, NavigableMap<HRegionInfo, ServerName>> tableRegionCache;
     
