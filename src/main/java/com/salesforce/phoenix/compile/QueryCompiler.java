@@ -74,28 +74,34 @@ public class QueryCompiler {
     private static final String LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR = "_ondemand_";
     private final PhoenixConnection connection;
     private final Scan scan;
+    private final Scan scanCopy;
     private final int maxRows;
     private final PColumn[] targetColumns;
 
-    public QueryCompiler(PhoenixConnection connection, int maxRows) {
+    public QueryCompiler(PhoenixConnection connection, int maxRows) throws SQLException {
         this(connection, maxRows, new Scan());
     }
     
-    public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan) {
+    public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan) throws SQLException {
         this(connection, maxRows, scan, null);
     }
     
-    public QueryCompiler(PhoenixConnection connection, int maxRows, PColumn[] targetDatums) {
+    public QueryCompiler(PhoenixConnection connection, int maxRows, PColumn[] targetDatums) throws SQLException {
         this(connection, maxRows, new Scan(), targetDatums);
     }
 
-    public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan, PColumn[] targetDatums) {
+    public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan, PColumn[] targetDatums) throws SQLException {
         this.connection = connection;
         this.maxRows = maxRows;
         this.scan = scan;
         this.targetColumns = targetDatums;
         if (connection.getQueryServices().getLowestClusterHBaseVersion() >= PhoenixDatabaseMetaData.ESSENTIAL_FAMILY_VERSION_THRESHOLD) {
             this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
+        }
+        try {
+            this.scanCopy = new Scan(scan);
+        } catch (IOException e) {
+            throw new SQLException(e);
         }
     }
 
@@ -112,26 +118,22 @@ public class QueryCompiler {
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
     public QueryPlan compile(SelectStatement statement, List<Object> binds) throws SQLException{
-        
+        return compile(statement, binds, scan);
+    }
+    
+    protected QueryPlan compile(SelectStatement statement, List<Object> binds, Scan scan) throws SQLException{        
         assert(binds.size() == statement.getBindCount());
-        
-        Scan s;
-        try {
-            s = new Scan(scan); // scan cannot be reused for nested query plans
-        } catch (IOException e) {
-            throw new SQLException(e);
-        }
         
         statement = RHSLiteralStatementRewriter.normalize(statement);
         List<TableNode> fromNodes = statement.getFrom();
         if (fromNodes.size() == 1) {
             ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
-            StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), s, statement.getHint());
+            StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
             return compileSingleQuery(context, statement, binds);
         }
         
         JoinSpec join = JoinCompiler.getJoinSpec(statement, connection);
-        StatementContext context = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), s, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
+        StatementContext context = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
         return compileJoinQuery(context, statement, binds, join);
     }
     
@@ -156,7 +158,11 @@ public class QueryCompiler {
                 joinExpressions[i] = splittedExpressions.getFirst();
                 hashExpressions[i] = splittedExpressions.getSecond();
                 joinTypes[i] = joinTable.getType();
-                joinPlans[i] = compile(joinTable.getAsSubquery(), binds);
+                try {
+                    joinPlans[i] = compile(joinTable.getAsSubquery(), binds, new Scan(scanCopy));
+                } catch (IOException e) {
+                    throw new SQLException(e);
+                }
             }
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
@@ -192,7 +198,12 @@ public class QueryCompiler {
         
         SelectStatement lhs = JoinCompiler.getSubQueryForFinalPlan(statement);
         SelectStatement rhs = lastJoinTable.getAsSubquery();
-        QueryPlan rhsPlan = compile(rhs, binds);
+        QueryPlan rhsPlan;
+        try {
+            rhsPlan = compile(rhs, binds, new Scan(scanCopy));
+        } catch (IOException e) {
+            throw new SQLException(e);
+        }
         byte[] joinId = HashCacheClient.nextJoinId();
         ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[] {new ImmutableBytesWritable(joinId)};
         Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
