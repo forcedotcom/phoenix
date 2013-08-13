@@ -60,11 +60,11 @@ import com.salesforce.phoenix.util.MetaDataUtil;
 public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final int PHOENIX_MAJOR_VERSION = 2;
     public static final int PHOENIX_MINOR_VERSION = 0;
-    public static final int PHOENIX_PATCH_NUMBER = 0;
+    public static final int PHOENIX_PATCH_NUMBER = 1;
     public static final int PHOENIX_VERSION = 
             MetaDataUtil.encodeVersion(PHOENIX_MAJOR_VERSION, PHOENIX_MINOR_VERSION, PHOENIX_PATCH_NUMBER);
     // Lowest acceptable Phoenix server jar version. Phoenix would work with this or higher version of server Phoenix.
-    public static final int MINIMUM_PHOENIX_SERVER_VERSION = MetaDataUtil.encodeVersion("2.0.0");
+    public static final int MINIMUM_PHOENIX_SERVER_VERSION = MetaDataUtil.encodeVersion("2.0.1");
     
     public static final long MIN_TABLE_TIMESTAMP = 0;
     // Increase MIN_SYSTEM_TABLE_TIMESTAMP by one for each schema change SYSTEM.TABLE schema changes.
