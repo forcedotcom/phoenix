@@ -581,6 +581,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             } else {
                 if (existingDesc.equals(newDesc)) {
                     // Table is already created. Note that the presplits are ignored in this case
+                    if (isMetaTable) {
+                        checkClientServerCompatibility();
+                    }
                     return false;
                 }
 
@@ -594,6 +597,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                      */
                     String value = existingDesc.getValue("coprocessor$1");
                     updateTo1_2 = (value != null && value.startsWith("phoenix.jar"));
+                    if (!updateTo1_2) {
+                        checkClientServerCompatibility();
+                    }
                 }
                 // Update metadata of table
                 // TODO: Take advantage of online schema change ability by setting "hbase.online.schema.update.enable" to true
@@ -608,6 +614,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                  */
                 if (updateTo1_2) {
                     upgradeTablesFrom0_94_2to0_94_4(admin);
+                    // Do the compatibility check here, now that the jar path has been corrected.
+                    // This will work with the new and the old jar, so do the compatibility check now.
+                    checkClientServerCompatibility();
                 }
                 return false;
             }
@@ -705,10 +714,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
             List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionMap.size());
             for (Map.Entry<HRegionInfo, ServerName> entry : regionInfoMap.entrySet()) {
-                regionKeys.add(entry.getKey().getStartKey());
-                regionMap.put(entry.getKey().getStartKey(), entry.getValue());
+                if (!regionMap.containsKey(entry.getKey().getRegionName())) {
+                    regionKeys.add(entry.getKey().getStartKey());
+                    regionMap.put(entry.getKey().getRegionName(), entry.getValue());
+                }
             }
-            final Map<byte[],Long> results = Maps.newHashMapWithExpectedSize(regionMap.size());
+            final TreeMap<byte[],Long> results = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
             connection.processExecs(MetaDataProtocol.class, regionKeys,
                     PhoenixDatabaseMetaData.TYPE_TABLE_NAME, this.getDelegate().getExecutor(), new Batch.Call<MetaDataProtocol,Long>() {
                         @Override
@@ -728,7 +739,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     isIncompatible = true;
                     ServerName name = regionMap.get(result.getKey());
                     buf.append(name);
-                    buf.append(',');
+                    buf.append(';');
                 }
                 if (minHBaseVersion > MetaDataUtil.decodeHBaseVersion(result.getValue())) {
                     minHBaseVersion = MetaDataUtil.decodeHBaseVersion(result.getValue());
@@ -884,9 +895,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_METADATA);
         } catch (TableAlreadyExistsException e) {
-            // Do the compatibility check here so it only gets called once per cluster connection if table already exists
-            // It will have already been called if the system table needed to be created
-            checkClientServerCompatibility();
             SchemaUtil.updateSystemTableTo2(metaConnection, e.getTable());
         } catch (SQLException e) {
             sqlE = e;
