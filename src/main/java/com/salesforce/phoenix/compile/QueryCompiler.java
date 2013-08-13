@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
@@ -114,24 +115,31 @@ public class QueryCompiler {
         
         assert(binds.size() == statement.getBindCount());
         
+        Scan s;
+        try {
+            s = new Scan(scan); // scan cannot be reused for nested query plans
+        } catch (IOException e) {
+            throw new SQLException(e);
+        }
+        
         statement = RHSLiteralStatementRewriter.normalize(statement);
         List<TableNode> fromNodes = statement.getFrom();
         if (fromNodes.size() == 1) {
             ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
-            StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint());
-            return compile(context, statement, binds);
+            StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), s, statement.getHint());
+            return compileSingleQuery(context, statement, binds);
         }
         
         JoinSpec join = JoinCompiler.getJoinSpec(statement, connection);
-        StatementContext context = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
-        return compile(context, statement, binds, join);
+        StatementContext context = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), s, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
+        return compileJoinQuery(context, statement, binds, join);
     }
     
     @SuppressWarnings("unchecked")
-    protected QueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
+    protected QueryPlan compileJoinQuery(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
         List<JoinTable> joinTables = join.getJoinTables();
         if (joinTables.isEmpty())
-            return compile(context, statement, binds);
+            return compileSingleQuery(context, statement, binds);
         
         StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
         if (starJoin == StarJoinType.BASIC || starJoin == StarJoinType.EXTENDED) {
@@ -152,7 +160,7 @@ public class QueryCompiler {
             }
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
-            BasicQueryPlan plan = compile(context, JoinCompiler.newSelectWithoutJoin(statement), binds);
+            BasicQueryPlan plan = compileSingleQuery(context, JoinCompiler.newSelectWithoutJoin(statement), binds);
             return new HashJoinPlan(plan, joinIds, hashExpressions, joinPlans);
         }
         
@@ -170,7 +178,7 @@ public class QueryCompiler {
             SelectStatement rhs = JoinCompiler.newSelectForLastJoin(statement, join);
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpec(join);
             StatementContext lhsCtx = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
-            QueryPlan lhsPlan = compile(lhsCtx, lhs, binds, lhsJoin);
+            QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
             byte[] joinId = HashCacheClient.nextJoinId();
             ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[] {new ImmutableBytesWritable(joinId)};
             Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
@@ -178,7 +186,7 @@ public class QueryCompiler {
             List<Expression> hashExpressions = splittedExpressions.getFirst();
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left});
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
-            BasicQueryPlan rhsPlan = compile(context, rhs, binds);
+            BasicQueryPlan rhsPlan = compileSingleQuery(context, rhs, binds);
             return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
         }
         
@@ -192,11 +200,11 @@ public class QueryCompiler {
         List<Expression> hashExpressions = splittedExpressions.getSecond();
         HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left});
         HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
-        BasicQueryPlan lhsPlan = compile(context, lhs, binds);
+        BasicQueryPlan lhsPlan = compileSingleQuery(context, lhs, binds);
         return new HashJoinPlan(lhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});
     }
     
-    protected BasicQueryPlan compile(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
+    protected BasicQueryPlan compileSingleQuery(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
         ColumnResolver resolver = context.getResolver();
         TableRef tableRef = resolver.getTables().get(0);
         PTable table = tableRef.getTable();

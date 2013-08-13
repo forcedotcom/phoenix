@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.text.Format;
 import java.util.List;
@@ -74,22 +73,18 @@ public class StatementContext {
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) throws SQLException {
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
         this(connection, resolver, binds, bindCount, scan, null);
     }
     
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode) throws SQLException {
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode) {
         this(connection, resolver, binds, bindCount, scan, hintNode, null);
     }
     
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode, HashCacheClient hashClient) throws SQLException {
+    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode, HashCacheClient hashClient) {
         this.connection = connection;
         this.resolver = resolver;
-        try {
-            this.scan = new Scan(scan); // scan cannot be reused for nested query plans
-        } catch (IOException e) {
-            throw new SQLException(e);
-        }
+        this.scan = scan;
         this.binds = new BindManager(binds, bindCount);
         this.aggregates = new AggregationManager();
         this.expressions = new ExpressionManager();
