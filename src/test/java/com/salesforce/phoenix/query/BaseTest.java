@@ -66,7 +66,9 @@ public abstract class BaseTest {
                 "    a_byte tinyint,\n" +
                 "    a_short smallint,\n" +
                 "    a_float float,\n" +
-                "    a_double double\n" +
+                "    a_double double,\n" +
+                "    a_unsigned_float unsigned_float,\n" +
+                "    a_unsigned_double unsigned_double\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
                 ")");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
@@ -239,7 +241,7 @@ public abstract class BaseTest {
                 "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk DESC, decimal_pk)) " +
                 "IMMUTABLE_ROWS=true");
         builder.put("SumDoubleTest","create table SumDoubleTest" +
-                "   (id varchar not null primary key, d DOUBLE, f FLOAT, i integer, de decimal)");
+                "   (id varchar not null primary key, d DOUBLE, f FLOAT, ud UNSIGNED_DOUBLE, uf UNSIGNED_FLOAT, i integer, de decimal)");
         tableDDLMap = builder.build();
     }
 

@@ -106,31 +106,43 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                     "SumDoubleTest(" +
                     "    id, " +
                     "    d, " +
-                    "    f) " +
-                    "VALUES (?, ?, ?)");
+                    "    f, " +
+                    "    ud, " +
+                    "    uf) " +
+                    "VALUES (?, ?, ?, ?, ?)");
             stmt.setString(1, "1");
             stmt.setDouble(2, 0.001);
             stmt.setFloat(3, 0.01f);
+            stmt.setDouble(4, 0.001);
+            stmt.setFloat(5, 0.01f);
             stmt.execute();
                 
             stmt.setString(1, "2");
             stmt.setDouble(2, 0.002);
             stmt.setFloat(3, 0.02f);
+            stmt.setDouble(4, 0.002);
+            stmt.setFloat(5, 0.02f);
             stmt.execute();
                 
             stmt.setString(1, "3");
             stmt.setDouble(2, 0.003);
             stmt.setFloat(3, 0.03f);
+            stmt.setDouble(4, 0.003);
+            stmt.setFloat(5, 0.03f);
             stmt.execute();
                 
             stmt.setString(1, "4");
             stmt.setDouble(2, 0.004);
             stmt.setFloat(3, 0.04f);
+            stmt.setDouble(4, 0.004);
+            stmt.setFloat(5, 0.04f);
             stmt.execute();
                 
             stmt.setString(1, "5");
             stmt.setDouble(2, 0.005);
             stmt.setFloat(3, 0.05f);
+            stmt.setDouble(4, 0.005);
+            stmt.setFloat(5, 0.05f);
             stmt.execute();
                 
             conn.commit();
@@ -177,8 +189,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                     "    A_BYTE," +
                     "    A_SHORT," +
                     "    A_FLOAT," +
-                    "    A_DOUBLE)" +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    "    A_DOUBLE," +
+                    "    A_UNSIGNED_FLOAT," +
+                    "    A_UNSIGNED_DOUBLE)" +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             stmt.setString(1, tenantId);
             stmt.setString(2, ROW1);
             stmt.setString(3, A_VALUE);
@@ -193,6 +207,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 128);
             stmt.setFloat(13, 0.01f);
             stmt.setDouble(14, 0.0001);
+            stmt.setFloat(15, 0.01f);
+            stmt.setDouble(16, 0.0001);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -209,6 +225,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 129);
             stmt.setFloat(13, 0.02f);
             stmt.setDouble(14, 0.0002);
+            stmt.setFloat(15, 0.02f);
+            stmt.setDouble(16, 0.0002);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -225,6 +243,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 130);
             stmt.setFloat(13, 0.03f);
             stmt.setDouble(14, 0.0003);
+            stmt.setFloat(15, 0.03f);
+            stmt.setDouble(16, 0.0003);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -241,6 +261,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 131);
             stmt.setFloat(13, 0.04f);
             stmt.setDouble(14, 0.0004);
+            stmt.setFloat(15, 0.04f);
+            stmt.setDouble(16, 0.0004);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -257,6 +279,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 132);
             stmt.setFloat(13, 0.05f);
             stmt.setDouble(14, 0.0005);
+            stmt.setFloat(15, 0.05f);
+            stmt.setDouble(16, 0.0005);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -273,6 +297,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 133);
             stmt.setFloat(13, 0.06f);
             stmt.setDouble(14, 0.0006);
+            stmt.setFloat(15, 0.06f);
+            stmt.setDouble(16, 0.0006);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -289,6 +315,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 134);
             stmt.setFloat(13, 0.07f);
             stmt.setDouble(14, 0.0007);
+            stmt.setFloat(15, 0.07f);
+            stmt.setDouble(16, 0.0007);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -307,6 +335,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 135);
             stmt.setFloat(13, 0.08f);
             stmt.setDouble(14, 0.0008);
+            stmt.setFloat(15, 0.08f);
+            stmt.setDouble(16, 0.0008);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -325,6 +355,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 0);
             stmt.setFloat(13, 0.09f);
             stmt.setDouble(14, 0.0009);
+            stmt.setFloat(15, 0.09f);
+            stmt.setDouble(16, 0.0009);
             stmt.execute();
                 
             conn.commit();
