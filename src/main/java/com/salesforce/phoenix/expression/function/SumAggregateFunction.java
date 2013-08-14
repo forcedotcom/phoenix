@@ -73,6 +73,8 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
         switch( type ) {
             case DECIMAL:
                 return new DecimalSumAggregator(columnModifier);
+            case UNSIGNED_DOUBLE:
+            case UNSIGNED_FLOAT:
             case DOUBLE:
             case FLOAT:
                 return new DoubleSumAggregator(columnModifier) {
@@ -134,6 +136,8 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
         switch(super.getDataType()) {
         case DECIMAL:
             return PDataType.DECIMAL;
+        case UNSIGNED_FLOAT:
+        case UNSIGNED_DOUBLE:
         case FLOAT:
         case DOUBLE:
             return PDataType.DOUBLE;
