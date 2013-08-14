@@ -38,6 +38,7 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
@@ -65,12 +66,16 @@ public abstract class MutatingParallelIteratorFactory implements ParallelIterato
     public PeekingResultIterator newIterator(ResultIterator iterator) throws SQLException {
         // Clone the connection as it's not thread safe and will be operated on in parallel
         final PhoenixConnection connection = new PhoenixConnection(this.connection);
-        final MutationState state = mutate(connection, iterator);
+        MutationState state = mutate(connection, iterator);
         long totalRowCount = state.getUpdateCount();
         if (connection.getAutoCommit()) {
             connection.getMutationState().join(state);
             connection.commit();
+            ConnectionQueryServices services = connection.getQueryServices();
+            int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
+            state = new MutationState(maxSize, connection, totalRowCount);
         }
+        final MutationState finalState = state;
         byte[] value = PDataType.LONG.toBytes(totalRowCount);
         KeyValue keyValue = KeyValueUtil.newKeyValue(UNGROUPED_AGG_ROW_KEY, SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value, 0, value.length);
         final Tuple tuple = new SingleKeyValueTuple(keyValue);
@@ -96,7 +101,7 @@ public abstract class MutatingParallelIteratorFactory implements ParallelIterato
                     // Join the child mutation states in close, since this is called in a single threaded manner
                     // after the parallel results have been processed.
                     if (!connection.getAutoCommit()) {
-                        MutatingParallelIteratorFactory.this.connection.getMutationState().join(state);
+                        MutatingParallelIteratorFactory.this.connection.getMutationState().join(finalState);
                     }
                 } finally {
                     connection.close();

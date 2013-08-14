@@ -317,13 +317,13 @@ package com.salesforce.phoenix.parse;
 
 // Used to incrementally parse a series of semicolon-terminated SQL statement
 // Note than unlike the rule below an EOF is not expected at the end.
-nextStatement returns [SQLStatement ret]
+nextStatement returns [BindableStatement ret]
     :  s=oneStatement {$ret = s;} SEMICOLON
     |  EOF
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-statement returns [SQLStatement ret]
+statement returns [BindableStatement ret]
     :   s=oneStatement {$ret = s;} EOF
     ;
 
@@ -333,13 +333,13 @@ query returns [SelectStatement ret]
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
-oneStatement returns [SQLStatement ret]
+oneStatement returns [BindableStatement ret]
     :   (q=select_node {$ret=q;} 
     |    ns=non_select_node {$ret=ns;}
         )
     ;
 
-non_select_node returns [SQLStatement ret]
+non_select_node returns [BindableStatement ret]
 @init{ contextStack.push(new ParseContext()); }
     :  (s=upsert_node
     |   s=delete_node
@@ -353,11 +353,11 @@ non_select_node returns [SQLStatement ret]
     |   s=show_tables_node) { contextStack.pop();  $ret = s; }
     ;
     
-show_tables_node returns [SQLStatement ret]
+show_tables_node returns [BindableStatement ret]
     :   SHOW TABLES {$ret=factory.showTables();}
     ;
 
-explain_node returns [SQLStatement ret]
+explain_node returns [BindableStatement ret]
     :   EXPLAIN q=oneStatement {$ret=factory.explain(q);}
     ;
 
