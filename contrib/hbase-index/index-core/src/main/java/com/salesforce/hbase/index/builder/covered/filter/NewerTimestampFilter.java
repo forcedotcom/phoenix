@@ -1,4 +1,4 @@
-package com.salesforce.hbase.index.builder.covered.util;
+package com.salesforce.hbase.index.builder.covered.filter;
 
 import java.io.DataInput;
 import java.io.DataOutput;

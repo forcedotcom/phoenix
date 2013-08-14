@@ -7,7 +7,7 @@ import org.apache.hadoop.hbase.filter.Filter.ReturnCode;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
-import com.salesforce.hbase.index.builder.covered.util.NewerTimestampFilter;
+import com.salesforce.hbase.index.builder.covered.filter.NewerTimestampFilter;
 
 public class TestNewerTimestampFilter {
   byte[] row = new byte[] { 'a' };

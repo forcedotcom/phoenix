@@ -38,7 +38,6 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import com.salesforce.hbase.index.builder.ColumnFamilyIndexer;
-import com.salesforce.hbase.index.builder.covered.CoveredColumnIndexer;
 
 /**
  * most of the underlying work (creating/splitting the WAL, etc) is from

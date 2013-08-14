@@ -2,6 +2,7 @@ package com.salesforce.hbase.index;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
@@ -30,6 +31,9 @@ public final class IndexUtil {
    */
   public static void enableIndexing(HTableDescriptor desc, Class<? extends IndexBuilder> builder,
       Map<String, String> properties) throws IOException {
+    if (properties == null) {
+      properties = new HashMap<String, String>();
+    }
     properties.put(INDEX_BUILDER_CONF_KEY, builder.getName());
     desc.addCoprocessor(Indexer.class.getName(), null, Coprocessor.PRIORITY_USER, properties);
   }

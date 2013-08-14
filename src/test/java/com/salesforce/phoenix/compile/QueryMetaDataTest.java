@@ -35,7 +35,7 @@ import java.sql.*;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.test.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.util.TestUtil;
 
 

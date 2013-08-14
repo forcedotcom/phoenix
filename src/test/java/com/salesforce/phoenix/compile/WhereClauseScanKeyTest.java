@@ -49,6 +49,7 @@ import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.test.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 

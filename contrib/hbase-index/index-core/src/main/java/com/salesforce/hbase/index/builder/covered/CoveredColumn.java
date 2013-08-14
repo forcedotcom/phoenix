@@ -1,23 +1,19 @@
 package com.salesforce.hbase.index.builder.covered;
 
-import java.util.Arrays;
-
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
  * A single Column (either a Column Family or a full Family:Qualifier pair) in a {@link ColumnGroup}
- * . If no column qualifier is specified, matches all known qualifiers of the family.
+ * . If no column qualifier is specified (null), matches all known qualifiers of the family.
  */
-public class CoveredColumn {
+public class CoveredColumn extends ColumnReference {
 
   public static final String SEPARATOR = ":";
-  String family;
-  byte[] qualifier;
+  String familyString;
 
   public CoveredColumn(String family, byte[] qualifier) {
-    this.family = family;
-    this.qualifier = qualifier;
+    super(Bytes.toBytes(family), qualifier == null ? ColumnReference.ALL_QUALIFIERS : qualifier);
+    this.familyString = family;
   }
 
   public static CoveredColumn parse(String spec) {
@@ -32,7 +28,7 @@ public class CoveredColumn {
   }
 
   public String serialize() {
-    return CoveredColumn.serialize(family, qualifier);
+    return CoveredColumn.serialize(familyString, qualifier);
   }
 
   public static String serialize(String first, byte[] second) {
@@ -48,29 +44,13 @@ public class CoveredColumn {
    * @return <tt>true</tt> if the passed family matches the family this column covers
    */
   public boolean matchesFamily(String family2) {
-    return this.family.equals(family2);
-  }
-
-  /**
-   * @param qual to check against
-   * @return <tt>true</tt> if this column covers the given qualifier.
-   */
-  public boolean matchesQualifier(byte[] qual) {
-    // empty qualifier matches all
-    return qualifier == null || Arrays.equals(qual, qualifier);
-  }
-
-  /**
-   * @return <tt>true</tt> if this should include all column qualifiers, <tt>false</tt> otherwise
-   */
-  public boolean allColumns() {
-    return this.qualifier == null;
+    return this.familyString.equals(family2);
   }
 
   @Override
   public boolean equals(Object o) {
     CoveredColumn other = (CoveredColumn) o;
-    if (this.family.equals(other.family)) {
+    if (this.familyString.equals(other.familyString)) {
       return Bytes.equals(qualifier, other.qualifier);
     }
     return false;
@@ -78,7 +58,7 @@ public class CoveredColumn {
 
   @Override
   public int hashCode() {
-    int hash = this.family.hashCode();
+    int hash = this.familyString.hashCode();
     if (this.qualifier != null) {
       hash += Bytes.hashCode(qualifier);
     }
@@ -89,6 +69,6 @@ public class CoveredColumn {
   @Override
   public String toString() {
     String qualString = qualifier == null ? "null" : Bytes.toString(qualifier);
-    return "CoveredColumn:[" + family + ":" + qualString + "]";
+    return "CoveredColumn:[" + familyString + ":" + qualString + "]";
   }
 }

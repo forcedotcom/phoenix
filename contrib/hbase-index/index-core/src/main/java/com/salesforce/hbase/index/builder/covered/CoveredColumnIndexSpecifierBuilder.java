@@ -11,6 +11,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HTableDescriptor;
 
 import com.salesforce.hbase.index.IndexUtil;
+import com.salesforce.phoenix.index.PhoenixIndexBuilder;
 
 /**
  * Helper to build the configuration for the {@link CoveredColumnIndexer}.
@@ -110,7 +111,10 @@ public class CoveredColumnIndexSpecifierBuilder {
   }
 
   public void build(HTableDescriptor desc) throws IOException {
-    IndexUtil.enableIndexing(desc, CoveredColumnIndexer.class, this.convertToMap());
+    // add the codec for the index to the map of options
+    Map<String, String> opts = this.convertToMap();
+    opts.put(PhoenixIndexBuilder.CODEC_CLASS_NAME_KEY, CoveredColumnIndexCodecV2.class.getName());
+    IndexUtil.enableIndexing(desc, CoveredColumnIndexerV2.class, opts);
   }
 
   static List<ColumnGroup> getColumns(Configuration conf) {

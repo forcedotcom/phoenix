@@ -56,6 +56,7 @@ import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
+import com.salesforce.phoenix.test.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.util.*;
 
 

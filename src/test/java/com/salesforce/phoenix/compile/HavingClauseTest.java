@@ -45,7 +45,7 @@ import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.expression.function.RoundFunction;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.test.BaseConnectionlessQueryTest;
 
 
 public class HavingClauseTest extends BaseConnectionlessQueryTest {

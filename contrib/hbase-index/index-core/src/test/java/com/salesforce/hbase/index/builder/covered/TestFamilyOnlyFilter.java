@@ -7,7 +7,7 @@ import org.apache.hadoop.hbase.filter.Filter.ReturnCode;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
-import com.salesforce.hbase.index.builder.covered.util.FamilyOnlyFilter;
+import com.salesforce.hbase.index.builder.covered.filter.FamilyOnlyFilter;
 
 /**
  * Test that the family only filter only allows a single family through

@@ -12,7 +12,6 @@ import org.apache.hadoop.hbase.codec.BaseDecoder;
 import org.apache.hadoop.hbase.codec.BaseEncoder;
 import org.apache.hadoop.hbase.codec.Decoder;
 import org.apache.hadoop.hbase.codec.Encoder;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
 import com.salesforce.hbase.index.wal.KeyValueCodec;

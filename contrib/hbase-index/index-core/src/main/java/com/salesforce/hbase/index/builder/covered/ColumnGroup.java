@@ -2,6 +2,7 @@
 package com.salesforce.hbase.index.builder.covered;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -86,5 +87,9 @@ public class ColumnGroup implements Iterable<CoveredColumn> {
   @Override
   public String toString() {
     return "ColumnGroup - table: " + table + ", columns: " + columns;
+  }
+
+  public List<CoveredColumn> getColumns() {
+    return this.columns;
   }
 }

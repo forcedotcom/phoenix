@@ -23,8 +23,8 @@ import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.salesforce.hbase.index.builder.covered.util.FamilyOnlyFilter;
-import com.salesforce.hbase.index.builder.covered.util.FilteredKeyValueScanner;
+import com.salesforce.hbase.index.builder.covered.filter.FamilyOnlyFilter;
+import com.salesforce.hbase.index.builder.covered.scanner.FilteredKeyValueScanner;
 
 /**
  * Handle serialization to/from a column-covered index.
@@ -121,7 +121,7 @@ public class CoveredColumnIndexCodec {
     long nextNewestTs = NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
     // go through each group,in order, to find the matching value (or none)
     for (CoveredColumn column : group) {
-      final byte[] family = Bytes.toBytes(column.family);
+      final byte[] family = Bytes.toBytes(column.familyString);
       // filter families that aren't what we are looking for
       FamilyOnlyFilter familyFilter = new FamilyOnlyFilter(new BinaryComparator(family));
       KeyValueScanner scanner = new FilteredKeyValueScanner(familyFilter, this.memstore);
@@ -177,7 +177,7 @@ public class CoveredColumnIndexCodec {
     Collection<ColumnEntry> entries = new ArrayList<ColumnEntry>();
     // key to seek. We can only seek to the family because we may have a family delete on top that
     // covers everything below it, which we would miss if we seek right to the family:qualifier
-    KeyValue first = KeyValue.createFirstOnRow(pk, Bytes.toBytes(column.family), null);
+    KeyValue first = KeyValue.createFirstOnRow(pk, Bytes.toBytes(column.familyString), null);
     ColumnEntry nextEntry = new ColumnEntry(column);
     try {
       // seek to right before the key in the scanner
@@ -367,7 +367,7 @@ public class CoveredColumnIndexCodec {
   }
 
   private static byte[] toIndexQualifier(CoveredColumn column) {
-    return ArrayUtils.addAll(Bytes.toBytes(column.family + CoveredColumn.SEPARATOR),
+    return ArrayUtils.addAll(Bytes.toBytes(column.familyString + CoveredColumn.SEPARATOR),
       column.qualifier);
   }
 

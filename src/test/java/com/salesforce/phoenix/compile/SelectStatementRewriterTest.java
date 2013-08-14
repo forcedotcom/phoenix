@@ -43,7 +43,7 @@ import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.test.BaseConnectionlessQueryTest;
 
 
 

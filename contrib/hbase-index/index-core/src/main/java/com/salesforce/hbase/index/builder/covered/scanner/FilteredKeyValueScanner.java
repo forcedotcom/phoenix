@@ -1,4 +1,4 @@
-package com.salesforce.hbase.index.builder.covered.util;
+package com.salesforce.hbase.index.builder.covered.scanner;
 
 import java.io.IOException;
 import java.util.SortedSet;

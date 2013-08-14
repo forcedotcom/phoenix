@@ -10,7 +10,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.test.BaseConnectionlessQueryTest;
 
 public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
 

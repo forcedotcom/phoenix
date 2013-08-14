@@ -38,8 +38,8 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.query.BaseTest;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.test.BaseTest;
 import com.salesforce.phoenix.util.*;
 
 

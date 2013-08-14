@@ -21,6 +21,7 @@ import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.InternalScanner;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
+import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
 import org.apache.hadoop.hbase.regionserver.ScanType;
 import org.apache.hadoop.hbase.regionserver.Store;
 import org.apache.hadoop.hbase.regionserver.wal.HLog;
@@ -156,6 +157,18 @@ public class Indexer extends BaseRegionObserver {
   }
 
   @Override
+  public void preBatchMutate(ObserverContext<RegionCoprocessorEnvironment> c,
+      MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
+    this.builder.batchStarted(miniBatchOp);
+  }
+
+  @Override
+  public void postBatchMutate(ObserverContext<RegionCoprocessorEnvironment> c,
+      MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
+    this.builder.batchCompleted(miniBatchOp);
+  }
+
+  @Override
   public void postPut(ObserverContext<RegionCoprocessorEnvironment> e, Put put, WALEdit edit,
       boolean writeToWAL) throws IOException {
     doPost(edit, writeToWAL);
@@ -232,6 +245,14 @@ public class Indexer extends BaseRegionObserver {
     // throw new RuntimeException("not yet implemented");
     // }
     return super.preCompactScannerOpen(c, store, scanners, scanType, earliestPutTs, s);
+  }
+
+  /**
+   * Exposed for testing!
+   * @return the currently instantiated index buidler
+   */
+  public IndexBuilder getBuilderForTesting() {
+    return this.builder;
   }
 
 }

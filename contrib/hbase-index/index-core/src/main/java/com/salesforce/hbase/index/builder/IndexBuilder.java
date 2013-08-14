@@ -9,6 +9,7 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.Indexer;
@@ -64,4 +65,20 @@ public interface IndexBuilder {
   public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
       Collection<KeyValue> filtered)
       throws IOException;
+
+  /**
+   * Notification that a batch of updates has successfully been written.
+   * @param miniBatchOp the full batch operation that was written
+   */
+  public void batchCompleted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp);
+
+  /**
+   * Notification that a batch has been started.
+   * <p>
+   * Unfortunately, the way HBase has the coprocessor hooks setup, this is actually called
+   * <i>after</i> the {@link #getIndexUpdate} methods. Therefore, you will likely need an attribute
+   * on your {@link Put}/{@link Delete} to indicate it is a batch operation.
+   * @param miniBatchOp the full batch operation to be written
+   */
+  public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp);
 }
