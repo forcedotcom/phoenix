@@ -139,7 +139,7 @@ public class GroupByCompiler {
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public static GroupBy getGroupBy(StatementContext context, SelectStatement statement, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
+    public static GroupBy compile(StatementContext context, SelectStatement statement, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
         List<ParseNode> groupByNodes = statement.getGroupBy();
         /**
          * Distinct can use an aggregate plan if there's no group by.

@@ -81,11 +81,11 @@ public class SQLParser {
      * Parses the input as a series of semicolon-terminated SQL statements.
      * @throws SQLException 
      */
-    public SQLStatement nextStatement(ParseNodeFactory factory) throws SQLException {
+    public BindableStatement nextStatement(ParseNodeFactory factory) throws SQLException {
         try {
             parser.resetBindCount();
             parser.setParseNodeFactory(factory);
-            SQLStatement statement = parser.nextStatement();
+            BindableStatement statement = parser.nextStatement();
             return statement;
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);
@@ -100,9 +100,9 @@ public class SQLParser {
      * Parses the input as a SQL select or upsert statement.
      * @throws SQLException 
      */
-    public SQLStatement parseStatement() throws SQLException {
+    public BindableStatement parseStatement() throws SQLException {
         try {
-            SQLStatement statement = parser.statement();
+            BindableStatement statement = parser.statement();
             return statement;
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);

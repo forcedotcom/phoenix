@@ -41,6 +41,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -57,16 +58,14 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class AggregatePlan extends BasicQueryPlan {
     private final Aggregators aggregators;
     private final Expression having;
-    private final boolean dedup;
     private List<KeyRange> splits;
 
     public AggregatePlan(
-            StatementContext context, TableRef table, RowProjector projector, Integer limit,
-            GroupBy groupBy, boolean dedup, Expression having, OrderBy orderBy,
-            ParallelIteratorFactory parallelIteratorFactory) {
-        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, groupBy, parallelIteratorFactory);
+            StatementContext context, FilterableStatement statement, TableRef table, RowProjector projector,
+            Integer limit, OrderBy orderBy, ParallelIteratorFactory parallelIteratorFactory, GroupBy groupBy,
+            Expression having) {
+        super(context, statement, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, groupBy, parallelIteratorFactory);
         this.having = having;
-        this.dedup = dedup;
         this.aggregators = context.getAggregationManager().getAggregators();
     }
 
@@ -85,7 +84,7 @@ public class AggregatePlan extends BasicQueryPlan {
         if (groupBy.isEmpty()) {
             UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
         }
-        ParallelIterators parallelIterators = new ParallelIterators(context, table, groupBy, null, parallelIteratorFactory);
+        ParallelIterators parallelIterators = new ParallelIterators(context, table, statement.getHint(), groupBy, null, parallelIteratorFactory);
         splits = parallelIterators.getSplits();
 
         AggregatingResultIterator aggResultIterator;
@@ -100,7 +99,7 @@ public class AggregatePlan extends BasicQueryPlan {
             aggResultIterator = new FilterAggregatingResultIterator(aggResultIterator, having);
         }
         
-        if (dedup) { // Dedup on client if group by and select distinct
+        if (statement.isDistinct() && statement.isAggregate()) { // Dedup on client if select distinct and aggregation
             aggResultIterator = new DistinctAggregatingResultIterator(aggResultIterator, getProjector());
         }
 

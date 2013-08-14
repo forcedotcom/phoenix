@@ -71,17 +71,17 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds, Integer limit, Set<Expression> extractedNodes) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
-        statement = RHSLiteralStatementRewriter.normalize(statement);
+        statement = StatementNormalizer.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasMap(context, statement);
 
-        Integer actualLimit = LimitCompiler.getLimit(context, statement.getLimit());
+        Integer actualLimit = LimitCompiler.compile(context, statement);
         assertEquals(limit, actualLimit);
-        GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
-        statement = HavingCompiler.moveToWhereClause(context, statement, groupBy);
-        WhereCompiler.compileWhereClause(context, statement.getWhere(), extractedNodes);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasParseNodeMap);
+        statement = HavingCompiler.rewrite(context, statement, groupBy);
+        WhereCompiler.compileWhereClause(context, statement, extractedNodes);
         return context;
     }
 

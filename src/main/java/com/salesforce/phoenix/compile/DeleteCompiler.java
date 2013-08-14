@@ -43,7 +43,6 @@ import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.execute.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
@@ -56,8 +55,6 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 public class DeleteCompiler {
-    private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
-    
     private final PhoenixConnection connection;
     
     public DeleteCompiler(PhoenixConnection connection) {
@@ -119,11 +116,10 @@ public class DeleteCompiler {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef.getTable() + ")");
         }
         Scan scan = new Scan();
-        ParseNode where = statement.getWhere();
-        final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint(), false);
-        final Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
-        final OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, false, limit, Collections.<String,ParseNode>emptyMap()); 
-        Expression whereClause = WhereCompiler.getWhereClause(context, where);
+        final StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
+        final Integer limit = LimitCompiler.compile(context, statement);
+        final OrderBy orderBy = OrderByCompiler.compile(context, statement, Collections.<String,ParseNode>emptyMap(), GroupBy.EMPTY_GROUP_BY, limit); 
+        Expression whereClause = WhereCompiler.compile(context, statement);
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         
         if (LiteralExpression.TRUE_EXPRESSION.equals(whereClause) && context.getScanRanges().isSingleRowScan()) {
@@ -157,12 +153,10 @@ public class DeleteCompiler {
             scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>
             // The coprocessor will delete each row returned from the scan
-            List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                    NODE_FACTORY.aliasedNode(null, 
-                            NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
             // Ignoring ORDER BY, since with auto commit on and no limit makes no difference
-            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
-            final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services));
+            SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, statement.getHint());
+            final RowProjector projector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
+            final QueryPlan plan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services), GroupBy.EMPTY_GROUP_BY, null);
             return new MutationPlan() {
 
                 @Override
@@ -204,14 +198,11 @@ public class DeleteCompiler {
                 }
             };
         } else {
-            List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                    NODE_FACTORY.aliasedNode(null,
-                        NODE_FACTORY.literal(1)));
-            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, orderBy);
+            final RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.SELECT_ONE, GroupBy.EMPTY_GROUP_BY);
             // If there's no post processing (i.e. no limit), then we can issue the deletes in parallel as we get results back for the scan
             // Otherwise, we need to buffer the results and process afterwards.
             ParallelIteratorFactory parallelIteratorFactory = limit == null ? new DeletingParallelIteratorFactory(connection, tableRef) : new SpoolingResultIteratorFactory(services);
-            final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy, parallelIteratorFactory);
+            final QueryPlan plan = new ScanPlan(context, statement, tableRef, projector, limit, orderBy, parallelIteratorFactory);
             return new MutationPlan() {
 
                 @Override

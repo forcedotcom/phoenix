@@ -38,6 +38,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -46,12 +47,12 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIteratorRegionSplitter {
 
-    public static SkipRangeParallelIteratorRegionSplitter getInstance(StatementContext context, TableRef table) {
-        return new SkipRangeParallelIteratorRegionSplitter(context, table);
+    public static SkipRangeParallelIteratorRegionSplitter getInstance(StatementContext context, TableRef table, HintNode hintNode) {
+        return new SkipRangeParallelIteratorRegionSplitter(context, table, hintNode);
     }
 
-    protected SkipRangeParallelIteratorRegionSplitter(StatementContext context, TableRef table) {
-        super(context, table);
+    protected SkipRangeParallelIteratorRegionSplitter(StatementContext context, TableRef table, HintNode hintNode) {
+        super(context, table, hintNode);
     }
 
     @Override

@@ -62,12 +62,12 @@ import com.salesforce.phoenix.util.*;
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
     private static SelectStatement compileStatement(StatementContext context, SelectStatement statement, ColumnResolver resolver, List<Object> binds, Scan scan, Integer expectedExtractedNodesSize, Integer expectedLimit) throws SQLException {
-        statement = RHSLiteralStatementRewriter.normalize(statement);
-        Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
+        statement = StatementNormalizer.normalize(statement);
+        Integer limit = LimitCompiler.compile(context, statement);
         assertEquals(expectedLimit, limit);
 
         Set<Expression> extractedNodes = Sets.newHashSet();
-        WhereCompiler.compileWhereClause(context, statement.getWhere(), extractedNodes);
+        WhereCompiler.compileWhereClause(context, statement, extractedNodes);
         if (expectedExtractedNodesSize != null) {
             assertEquals(expectedExtractedNodesSize.intValue(), extractedNodes.size());
         }
@@ -84,7 +84,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -105,7 +105,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -126,7 +126,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         // Nothing extracted, since the where clause becomes FALSE
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         Filter filter = scan.getFilter();
@@ -146,7 +146,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(tenantId);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         
@@ -173,7 +173,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -195,7 +195,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
 
@@ -218,7 +218,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, emptyList(), statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, emptyList(), scan);
         statement = compileStatement(context, statement, resolver, emptyList(), scan, 1, null);
         Filter filter = scan.getFilter();
 
@@ -278,7 +278,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         Filter filter = scan.getFilter();
 
@@ -305,7 +305,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         // Degenerate b/c "foobar" is more than 3 characters
         assertDegenerate(context);
@@ -323,7 +323,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -357,7 +357,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
 
         try {
-            StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+            StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
             compileStatement(context, statement, resolver, binds, scan, 1, null);
             fail();
         } catch (SQLException e) {
@@ -375,7 +375,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         assertDegenerate(context);
     }
@@ -390,7 +390,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         assertDegenerate(context);
     }
@@ -405,7 +405,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         assertNull(scan.getFilter());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
@@ -424,7 +424,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -450,7 +450,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -475,7 +475,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertNull(filter);
@@ -495,7 +495,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
         assertArrayEquals(startRow, scan.getStartRow());
@@ -526,7 +526,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
         assertArrayEquals(startRow, scan.getStartRow());
@@ -558,7 +558,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
 
         Filter filter = scan.getFilter();
@@ -591,7 +591,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId + entityId1);
         assertArrayEquals(startRow, scan.getStartRow());
@@ -627,7 +627,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 3, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -660,7 +660,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -689,7 +689,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1), PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
@@ -721,7 +721,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
 
         Filter filter = scan.getFilter();
@@ -753,7 +753,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
 
         assertNull(scan.getFilter());
@@ -779,7 +779,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1),PDataType.VARCHAR.toBytes(entityId1));
         assertArrayEquals(startRow, scan.getStartRow());
@@ -798,7 +798,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
@@ -824,7 +824,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan);
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(

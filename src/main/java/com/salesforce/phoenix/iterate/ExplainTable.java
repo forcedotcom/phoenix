@@ -132,7 +132,7 @@ public abstract class ExplainTable {
         PDataType type = scanRanges.getSchema().getField(slotIndex).getType();
         ColumnModifier modifier = table.getTable().getPKColumns().get(slotIndex).getColumnModifier();
         if (modifier != null) {
-            range = modifier.apply(range, new byte[range.length], 0, range.length);
+            range = modifier.apply(range, 0, new byte[range.length], 0, range.length);
         }
         Format formatter = context.getConnection().getFormatter(type);
         buf.append(type.toStringLiteral(range, formatter));

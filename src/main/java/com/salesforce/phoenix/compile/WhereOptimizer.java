@@ -37,6 +37,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.*;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -60,17 +61,18 @@ public class WhereOptimizer {
     /**
      * Pushes row key expressions from the where clause into the start/stop key of the scan.
      * @param context the shared context during query compilation
+     * @param statement TODO
      * @param whereClause the where clause expression
      * @return the new where clause with the key expressions removed
      */
-    public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause) {
-        return pushKeyExpressionsToScan(context, whereClause, null);
+    public static Expression pushKeyExpressionsToScan(StatementContext context, FilterableStatement statement, Expression whereClause) {
+        return pushKeyExpressionsToScan(context, statement, whereClause, null);
     }
 
     // For testing so that the extractedNodes can be verified
-    public static Expression pushKeyExpressionsToScan(StatementContext context, Expression whereClause,
-            Set<Expression> extractNodes) {
-        boolean forcedSkipScanFilter = context.hasHint(Hint.SKIP_SCAN);
+    public static Expression pushKeyExpressionsToScan(StatementContext context, FilterableStatement statement,
+            Expression whereClause, Set<Expression> extractNodes) {
+        boolean forcedSkipScanFilter = statement.getHint().hasHint(Hint.SKIP_SCAN);
         if (whereClause == null) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;

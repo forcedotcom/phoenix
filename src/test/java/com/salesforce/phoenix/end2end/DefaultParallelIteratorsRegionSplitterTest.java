@@ -43,6 +43,8 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.iterate.DefaultParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.StatsManagerImpl.TimeKeeper;
 import com.salesforce.phoenix.schema.*;
@@ -113,8 +115,8 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         TableRef table = getTableRef(conn, ts);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
         final NavigableMap<HRegionInfo, ServerName> regions =  pconn.getQueryServices().getAllTableRegions(table);
-        StatementContext context = new StatementContext(pconn, null, Collections.emptyList(), 0, scan);
-        DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, table) {
+        StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, pconn, null, Collections.emptyList(), scan);
+        DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, table, HintNode.EMPTY_HINT_NODE) {
             @Override
             protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
                 return DefaultParallelIteratorRegionSplitter.filterRegions(regions, scan.getStartRow(), scan.getStopRow());

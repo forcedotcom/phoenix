@@ -43,7 +43,7 @@ import com.salesforce.phoenix.parse.*;
  * @author jtaylor
  * @since 0.1
  */
-public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
+public class StatementNormalizer extends ParseNodeRewriter {
     
     /**
      * Rewrite the select statement by switching any constants to the right hand side
@@ -53,7 +53,7 @@ public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
      * @throws SQLException 
      */
     public static SelectStatement normalize(SelectStatement statement) throws SQLException {
-        return rewrite(statement, new RHSLiteralStatementRewriter());
+        return rewrite(statement, new StatementNormalizer());
     }
     
     @Override

@@ -27,51 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.Collections;
 import java.util.List;
 
-public class DeleteStatement extends SingleTableSQLStatement implements FilterableStatement {
-    private final ParseNode whereNode;
-    private final List<OrderByNode> orderBy;
-    private final LimitNode limit;
-    private final HintNode hint;
-    
-    public DeleteStatement(NamedTableNode table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-        super(table, bindCount);
-        this.whereNode = whereNode;
-        this.orderBy = orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy;
-        this.limit = limit;
-        this.hint = hint == null ? HintNode.EMPTY_HINT_NODE : hint;
-    }
-
-    @Override
-    public ParseNode getWhere() {
-        return whereNode;
-    }
-
-    @Override
-    public List<OrderByNode> getOrderBy() {
-        return orderBy;
-    }
-
-    @Override
-    public LimitNode getLimit() {
-        return limit;
-    }
-
-    @Override
-    public HintNode getHint() {
-        return hint;
-    }
-
-    @Override
-    public boolean isDistinct() {
-        return false;
-    }
-
-    @Override
-    public boolean isAggregate() {
-        return false;
-    }
-
+public interface FilterableStatement extends BindableStatement {
+    public HintNode getHint();
+    public ParseNode getWhere();
+    public boolean isDistinct();
+    public boolean isAggregate();
+    public List<OrderByNode> getOrderBy();
+    public LimitNode getLimit();
 }

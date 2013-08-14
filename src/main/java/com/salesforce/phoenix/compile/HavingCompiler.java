@@ -44,7 +44,7 @@ public class HavingCompiler {
     private HavingCompiler() {
     }
 
-    public static Expression getExpression(SelectStatement statement, StatementContext context, GroupBy groupBy) throws SQLException {
+    public static Expression compile(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException {
         ParseNode having = statement.getHaving();
         if (having == null) {
             return null;
@@ -63,7 +63,7 @@ public class HavingCompiler {
         return expression;
     }
 
-    public static SelectStatement moveToWhereClause(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException {
+    public static SelectStatement rewrite(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException {
         ParseNode having = statement.getHaving();
         if (having == null) {
             return statement;

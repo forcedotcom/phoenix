@@ -28,6 +28,6 @@
 package com.salesforce.phoenix.parse;
 
 
-public interface SQLStatement {
+public interface BindableStatement {
     public int getBindCount();
 }

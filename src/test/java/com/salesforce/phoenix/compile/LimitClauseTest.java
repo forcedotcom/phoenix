@@ -51,17 +51,17 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
     private static Integer compileStatement(String query, List<Object> binds, Scan scan) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
-        statement = RHSLiteralStatementRewriter.normalize(statement);
+        statement = StatementNormalizer.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasMap(context, statement);
 
-        Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
-        GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
-        statement = HavingCompiler.moveToWhereClause(context, statement, groupBy);
-        HavingCompiler.getExpression(statement, context, groupBy);
-        Expression where = WhereCompiler.getWhereClause(context, statement.getWhere());
+        Integer limit = LimitCompiler.compile(context, statement);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasParseNodeMap);
+        statement = HavingCompiler.rewrite(context, statement, groupBy);
+        HavingCompiler.compile(context, statement, groupBy);
+        Expression where = WhereCompiler.compile(context, statement);
         assertNull(where);
         return limit;
     }
@@ -114,9 +114,9 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList("foo");
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         try {
-            LimitCompiler.getLimit(context, statement.getLimit());
+            LimitCompiler.compile(context, statement);
             fail();
         } catch (SQLException e) {
             assertTrue(e.getMessage().contains("Type mismatch"));
@@ -132,8 +132,8 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(-1);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
-        assertNull(LimitCompiler.getLimit(context, statement.getLimit()));
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        assertNull(LimitCompiler.compile(context, statement));
     }
 
     @Test
@@ -147,9 +147,9 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         try {
-            WhereCompiler.getWhereClause(context, statement.getWhere());
+            WhereCompiler.compile(context, statement);
             fail();
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 203 (22005): Type mismatch."));

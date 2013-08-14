@@ -46,16 +46,11 @@ public enum ColumnModifier {
      */
     SORT_DESC() {
         @Override
-        public byte[] apply(byte[] src, byte[] dest, int offset, int length) {
+        public byte[] apply(byte[] src, int srcOffset, byte[] dest, int dstOffset, int length) {
             Preconditions.checkNotNull(src);            
             Preconditions.checkNotNull(dest);            
-            int maxIndex = length + offset;
-            for (int i = 0; i < src.length; i++) {
-                if (i >= offset && i < maxIndex) {
-                    dest[i] = (byte)(src[i] ^ 0xFF);
-                } else {
-                    dest[i] = src[i];
-                }
+            for (int i = 0; i < length; i++) {
+                dest[dstOffset+i] = (byte)(src[srcOffset+i] ^ 0xFF);
             }                       
             return dest;
         }
@@ -129,11 +124,12 @@ public enum ColumnModifier {
      * 
      * @param src  the src byte array to copy from, cannot be null
      * @param dest the byte array to copy into, if it is null, a new byte array with the same lenght as src is allocated
-     * @param offset  start applying the column modifier from this index
+     * @param dstOffset TODO
      * @param length  apply the column modifier for this many bytes 
+     * @param offset  start applying the column modifier from this index
      * @return  dest or a new byte array if dest is null
      */
-    public abstract byte[] apply(byte[] src, byte[] dest, int offset, int length);
+    public abstract byte[] apply(byte[] src, int srcOffset, byte[] dest, int dstOffset, int length);
     public abstract byte apply(byte b);
     
     public abstract CompareOp transform(CompareOp op);

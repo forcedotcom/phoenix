@@ -124,14 +124,24 @@ public class FunctionParseNode extends CompoundParseNode {
     }
     
 
-    private static Constructor<? extends FunctionParseNode> getParseNodeCtor(Class<? extends FunctionParseNode> clazz) throws Exception {
-        Constructor<? extends FunctionParseNode> ctor = clazz.getDeclaredConstructor(String.class, List.class, BuiltInFunctionInfo.class);
+    private static Constructor<? extends FunctionParseNode> getParseNodeCtor(Class<? extends FunctionParseNode> clazz) {
+        Constructor<? extends FunctionParseNode> ctor;
+        try {
+            ctor = clazz.getDeclaredConstructor(String.class, List.class, BuiltInFunctionInfo.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         ctor.setAccessible(true);
         return ctor;
     }
     
-    private static Constructor<? extends FunctionExpression> getExpressionCtor(Class<? extends FunctionExpression> clazz) throws Exception {
-        Constructor<? extends FunctionExpression> ctor = clazz.getDeclaredConstructor(List.class);
+    private static Constructor<? extends FunctionExpression> getExpressionCtor(Class<? extends FunctionExpression> clazz) {
+        Constructor<? extends FunctionExpression> ctor;
+        try {
+            ctor = clazz.getDeclaredConstructor(List.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         ctor.setAccessible(true);
         return ctor;
     }
@@ -285,7 +295,7 @@ public class FunctionParseNode extends CompoundParseNode {
         private final boolean isAggregate;
         private final int requiredArgCount;
 
-        BuiltInFunctionInfo(Class<? extends FunctionExpression> f, BuiltInFunction d) throws Exception {
+        BuiltInFunctionInfo(Class<? extends FunctionExpression> f, BuiltInFunction d) {
             this.name = SchemaUtil.normalizeIdentifier(d.name());
             this.funcCtor = d.nodeClass() == FunctionParseNode.class ? getExpressionCtor(f) : null;
             this.nodeCtor = d.nodeClass() == FunctionParseNode.class ? null : getParseNodeCtor(d.nodeClass());

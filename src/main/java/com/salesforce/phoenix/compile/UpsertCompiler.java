@@ -45,7 +45,6 @@ import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
@@ -58,8 +57,6 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.*;
 
 public class UpsertCompiler {
-    private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
-
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
         Map<PColumn,byte[]> columnValues = Maps.newHashMapWithExpectedSize(columnIndexes.length);
         byte[][] pkValues = new byte[table.getPKColumns().size()][];
@@ -109,7 +106,7 @@ public class UpsertCompiler {
                     // column being projected into then invert the bits.
                     if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
                         byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
-                        byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                        byteValue = ColumnModifier.SORT_DESC.apply(byteValue, 0, tempByteValue, 0, byteValue.length);
                     }
                     // We are guaranteed that the two column will have compatible types,
                     // as we checked that before.
@@ -183,7 +180,7 @@ public class UpsertCompiler {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef + ")");
         }
         Scan scan = new Scan();
-        final StatementContext context = new StatementContext(connection, resolver, binds, upsert.getBindCount(), scan);
+        final StatementContext context = new StatementContext(upsert, connection, resolver, binds, scan);
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
         List<PColumn> allColumns = table.getColumns();
@@ -369,11 +366,8 @@ public class UpsertCompiler {
                     // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
                     // prevent having to do this.
                     ScanUtil.removeEmptyColumnFamily(context.getScan(), table);
-                    List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                            NODE_FACTORY.aliasedNode(null, 
-                                    NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-                    // Ignore order by - it has no impact
-                    final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
+                    SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, upsert.getSelect().getHint());
+                    final RowProjector aggProjector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
                     /*
                      * Transfer over PTable representing subset of columns selected, but all PK columns.
                      * Move columns setting PK first in pkSlot order, adding LiteralExpression of null for any missing ones.
@@ -383,7 +377,8 @@ public class UpsertCompiler {
                      */
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
-                    final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services));
+                    // Ignore order by - it has no impact
+                    final QueryPlan aggPlan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services), GroupBy.EMPTY_GROUP_BY, null);
                     return new MutationPlan() {
     
                         @Override
@@ -497,7 +492,7 @@ public class UpsertCompiler {
                 // column being projected into then invert the bits.
                 if (literalExpression.getColumnModifier() != column.getColumnModifier()) {
                     byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
-                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, 0, tempByteValue, 0, byteValue.length);
                 }
                 if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) { 
                     throw new TypeMismatchException(

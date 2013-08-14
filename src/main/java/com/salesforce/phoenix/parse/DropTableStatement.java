@@ -29,7 +29,7 @@ package com.salesforce.phoenix.parse;
 
 import com.salesforce.phoenix.schema.PTableType;
 
-public class DropTableStatement implements SQLStatement {
+public class DropTableStatement implements BindableStatement {
     private final TableName tableName;
     private final boolean ifExists;
     private final PTableType tableType;

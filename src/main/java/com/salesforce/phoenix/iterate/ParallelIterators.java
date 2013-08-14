@@ -42,6 +42,7 @@ import com.google.common.base.Function;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
+import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.*;
@@ -76,9 +77,9 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         }
     };
 
-    public ParallelIterators(StatementContext context, TableRef table, GroupBy groupBy, Integer limit, ParallelIteratorFactory iteratorFactory) throws SQLException {
+    public ParallelIterators(StatementContext context, TableRef table, HintNode hintNode, GroupBy groupBy, Integer limit, ParallelIteratorFactory iteratorFactory) throws SQLException {
         super(context, table, groupBy);
-        this.splits = getSplits(context, table);
+        this.splits = getSplits(context, table, hintNode);
         this.iteratorFactory = iteratorFactory;
         if (limit != null) {
             ScanUtil.andFilterAtEnd(context.getScan(), new PageFilter(limit));
@@ -87,12 +88,13 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
 
     /**
      * Splits the given scan's key range so that each split can be queried in parallel
+     * @param hintNode TODO
      *
      * @return the key ranges that should be scanned in parallel
      */
     // exposed for tests
-    public static List<KeyRange> getSplits(StatementContext context, TableRef table) throws SQLException {
-        return ParallelIteratorRegionSplitterFactory.getSplitter(context, table).getSplits();
+    public static List<KeyRange> getSplits(StatementContext context, TableRef table, HintNode hintNode) throws SQLException {
+        return ParallelIteratorRegionSplitterFactory.getSplitter(context, table, hintNode).getSplits();
     }
 
     public List<KeyRange> getSplits() {

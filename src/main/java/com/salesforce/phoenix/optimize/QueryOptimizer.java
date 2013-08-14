@@ -39,7 +39,7 @@ public class QueryOptimizer {
          * Only indexes on tables with immutable rows may be used until we hook up
          * incremental index maintenance. 
          */
-        if (!dataTable.isImmutableRows() || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || dataPlan.getContext().hasHint(Hint.NO_INDEX)) {
+        if (!dataTable.isImmutableRows() || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || select.getHint().hasHint(Hint.NO_INDEX)) {
             return dataPlan;
         }
         
@@ -60,7 +60,7 @@ public class QueryOptimizer {
     
     private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement translatedSelect, List<PTable> indexes, List<QueryPlan> plans) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
-        String indexHint = dataPlan.getContext().getHint(Hint.INDEX);
+        String indexHint = translatedSelect.getHint().getHint(Hint.INDEX);
         if (indexHint == null) {
             return null;
         }

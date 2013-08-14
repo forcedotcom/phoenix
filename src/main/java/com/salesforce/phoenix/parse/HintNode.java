@@ -37,6 +37,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * Node representing optimizer hints in SQL
  */
 public class HintNode {
+    public static final HintNode EMPTY_HINT_NODE = new HintNode();
+    
     public static final char SEPARATOR = ' ';
     public static final String PREFIX = "(";
     public static final String SUFFIX = ")";
@@ -73,6 +75,9 @@ public class HintNode {
     };
 
     private final Map<Hint,String> hints = new HashMap<Hint,String>();
+
+    private HintNode() {
+    }
 
     public HintNode(String hint) {
         // Split on whitespace or parenthesis. We do not need to handle escaped or

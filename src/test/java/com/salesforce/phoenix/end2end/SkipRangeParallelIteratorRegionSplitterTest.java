@@ -51,6 +51,8 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.iterate.SkipRangeParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.*;
@@ -331,9 +333,9 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
     private static List<KeyRange> getSplits(TableRef table, final Scan scan, final NavigableMap<HRegionInfo, ServerName> regions,
             final ScanRanges scanRanges) throws SQLException {
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        StatementContext context = new StatementContext(connection, null, Collections.emptyList(), 0, scan);
+        StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, connection, null, Collections.emptyList(), scan);
         context.setScanRanges(scanRanges);
-        SkipRangeParallelIteratorRegionSplitter splitter = SkipRangeParallelIteratorRegionSplitter.getInstance(context, table);
+        SkipRangeParallelIteratorRegionSplitter splitter = SkipRangeParallelIteratorRegionSplitter.getInstance(context, table, HintNode.EMPTY_HINT_NODE);
         List<KeyRange> keyRanges = splitter.getSplits();
         Collections.sort(keyRanges, new Comparator<KeyRange>() {
             @Override
