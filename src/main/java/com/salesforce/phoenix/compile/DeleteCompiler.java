@@ -31,6 +31,7 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.*;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
@@ -43,7 +44,8 @@ import com.salesforce.phoenix.execute.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
-import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
+import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.*;
@@ -62,9 +64,55 @@ public class DeleteCompiler {
         this.connection = connection;
     }
     
-    public MutationPlan compile(DeleteStatement statement, List<Object> binds) throws SQLException {
+    private static MutationState deleteRows(PhoenixConnection connection, TableRef tableRef, ResultIterator iterator) throws SQLException {
         final boolean isAutoCommit = connection.getAutoCommit();
         ConnectionQueryServices services = connection.getQueryServices();
+        final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
+        final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
+        Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutations = Maps.newHashMapWithExpectedSize(batchSize);
+        try {
+            Tuple row;
+            int rowCount = 0;
+            while ((row = iterator.next()) != null) {
+                // Need to create new ptr each time since we're holding on to it
+                ImmutableBytesPtr ptr = new ImmutableBytesPtr();
+                row.getKey(ptr);
+                mutations.put(ptr,null);
+                if (mutations.size() > maxSize) {
+                    throw new IllegalArgumentException("MutationState size of " + mutations.size() + " is bigger than max allowed size of " + maxSize);
+                }
+                rowCount++;
+                // Commit a batch if auto commit is true and we're at our batch size
+                if (isAutoCommit && rowCount % batchSize == 0) {
+                    MutationState state = new MutationState(tableRef, mutations, 0, maxSize, connection);
+                    connection.getMutationState().join(state);
+                    connection.commit();
+                    mutations.clear();
+                }
+            }
+            // If auto commit is true, this last batch will be committed upon return
+            return new MutationState(tableRef,mutations, rowCount / batchSize * batchSize, maxSize, connection);
+        } finally {
+            iterator.close();
+        }
+    }
+    
+    private static class DeletingParallelIteratorFactory extends MutatingParallelIteratorFactory {
+        
+        private DeletingParallelIteratorFactory(PhoenixConnection connection, TableRef tableRef) {
+            super(connection, tableRef);
+        }
+        
+        @Override
+        protected MutationState mutate(PhoenixConnection connection, ResultIterator iterator) throws SQLException {
+            return deleteRows(connection, tableRef, iterator);
+        }
+        
+    }
+    
+    public MutationPlan compile(DeleteStatement statement, List<Object> binds) throws SQLException {
+        final boolean isAutoCommit = connection.getAutoCommit();
+        final ConnectionQueryServices services = connection.getQueryServices();
         final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         final TableRef tableRef = resolver.getTables().get(0);
         if (tableRef.getTable().getType() == PTableType.VIEW) {
@@ -73,8 +121,8 @@ public class DeleteCompiler {
         Scan scan = new Scan();
         ParseNode where = statement.getWhere();
         final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint(), false);
-        Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
-        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, false, limit, Collections.<String,ParseNode>emptyMap()); 
+        final Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
+        final OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), GroupBy.EMPTY_GROUP_BY, false, limit, Collections.<String,ParseNode>emptyMap()); 
         Expression whereClause = WhereCompiler.getWhereClause(context, where);
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         
@@ -156,13 +204,14 @@ public class DeleteCompiler {
                 }
             };
         } else {
-            final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
             List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                     NODE_FACTORY.aliasedNode(null,
                         NODE_FACTORY.literal(1)));
-            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
-            // TODO: same optimization as UPSERT SELECT for ParallelResultIteratorFactory
-            final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy, new SpoolingResultIteratorFactory(services));
+            final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, orderBy);
+            // If there's no post processing (i.e. no limit), then we can issue the deletes in parallel as we get results back for the scan
+            // Otherwise, we need to buffer the results and process afterwards.
+            ParallelIteratorFactory parallelIteratorFactory = limit == null ? new DeletingParallelIteratorFactory(connection, tableRef) : new SpoolingResultIteratorFactory(services);
+            final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy, parallelIteratorFactory);
             return new MutationPlan() {
 
                 @Override
@@ -179,32 +228,18 @@ public class DeleteCompiler {
                 public MutationState execute() throws SQLException {
                     Scanner scanner = plan.getScanner();
                     ResultIterator iterator = scanner.iterator();
-                    int estSize = scanner.getEstimatedSize();
-                    Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutations = Maps.newHashMapWithExpectedSize(estSize);
-                    try {
-                        Tuple row;
-                        int rowCount = 0;
-                        while ((row = iterator.next()) != null) {
-                            // Need to create new ptr each time since we're holding on to it
-                            ImmutableBytesPtr ptr = new ImmutableBytesPtr();
-                            row.getKey(ptr);
-                            mutations.put(ptr,null);
-                            if (mutations.size() > maxSize) {
-                                throw new IllegalArgumentException("MutationState size of " + mutations.size() + " is bigger than max allowed size of " + maxSize);
-                            }
-                            rowCount++;
-                            // Commit a batch if auto commit is true and we're at our batch size
-                            if (isAutoCommit && rowCount % batchSize == 0) {
-                                MutationState state = new MutationState(tableRef, mutations, 0, maxSize, connection);
-                                connection.getMutationState().join(state);
-                                connection.commit();
-                                mutations.clear();
-                            }
+                    if (limit == null) {
+                        Tuple tuple;
+                        long totalRowCount = 0;
+                        while ((tuple=iterator.next()) != null) {// Runs query
+                            KeyValue kv = tuple.getValue(0);
+                            totalRowCount += PDataType.LONG.getCodec().decodeLong(kv.getBuffer(), kv.getValueOffset(), null);
                         }
-                        // If auto commit is true, this last batch will be committed upon return
-                        return new MutationState(tableRef,mutations, rowCount / batchSize * batchSize, maxSize, connection);
-                    } finally {
-                        iterator.close();
+                        // Return total number of rows that have been delete. In the case of auto commit being off
+                        // the mutations will all be in the mutation state of the current connection.
+                        return new MutationState(maxSize, connection, totalRowCount);
+                    } else {
+                        return deleteRows(connection, tableRef, iterator);
                     }
                 }
 

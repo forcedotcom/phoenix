@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.query.QueryConstants.*;
-
 import java.sql.*;
 import java.util.*;
 
@@ -56,7 +54,6 @@ import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.*;
 
@@ -143,74 +140,19 @@ public class UpsertCompiler {
         }
     }
 
-    private static class UpsertParallelIteratorFactory implements ParallelIteratorFactory {
-        private final PhoenixStatement statement;
-        private final TableRef tableRef;
+    private static class UpsertingParallelIteratorFactory extends MutatingParallelIteratorFactory {
         private RowProjector projector;
         private int[] columnIndexes;
         private int[] pkSlotIndexes;
 
-        private UpsertParallelIteratorFactory (PhoenixStatement statement, TableRef tableRef) {
-            this.statement = statement;
-            this.tableRef = tableRef;
-            
-            // If aggregate or limit, use SpoolingParallelIteratorFactory
-            // TODO: Have a method on SelectStatement for determining if isAggregate
-            // Need Stack with ParseContext to track per SelectStatement (since they can be nested)
-            // Track any usage of aggregate function (or group by or limit)
-            // Otherwise, I think we can use the optimized parallel iterator factory, since there's
-            // no post processing necessary
+        private UpsertingParallelIteratorFactory (PhoenixConnection connection, TableRef tableRef) {
+            super(connection, tableRef);
         }
+
         @Override
-        public PeekingResultIterator newIterator(ResultIterator scanner) throws SQLException {
-            // Clone statement and connection as they're not thread safe
-            // (and these will be operating in parallel)
-            final PhoenixConnection connection = new PhoenixConnection(statement.getConnection());
+        protected MutationState mutate(PhoenixConnection connection, ResultIterator iterator) throws SQLException {
             PhoenixStatement statement = new PhoenixStatement(connection);
-            final MutationState state = upsertSelect(statement, tableRef, projector, scanner, columnIndexes, pkSlotIndexes);
-            long totalRowCount = state.getUpdateCount();
-            if (connection.getAutoCommit()) {
-                connection.getMutationState().join(state);
-                connection.commit();
-            }
-            byte[] value = PDataType.LONG.toBytes(totalRowCount);
-            KeyValue keyValue = KeyValueUtil.newKeyValue(UNGROUPED_AGG_ROW_KEY, SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value, 0, value.length);
-            final Tuple tuple = new SingleKeyValueTuple(keyValue);
-            return new PeekingResultIterator() {
-                private boolean done = false;
-                
-                @Override
-                public Tuple next() throws SQLException {
-                    if (done) {
-                        return null;
-                    }
-                    done = true;
-                    return tuple;
-                }
-
-                @Override
-                public void explain(List<String> planSteps) {
-                }
-
-                @Override
-                public void close() throws SQLException {
-                    try {
-                        // Join the child mutation states in close, since this is called in a single threaded manner
-                        // after the parallel results have been processed.
-                        if (!connection.getAutoCommit()) {
-                            UpsertParallelIteratorFactory.this.statement.getConnection().getMutationState().join(state);
-                        }
-                    } finally {
-                        connection.close();
-                    }
-                }
-
-                @Override
-                public Tuple peek() throws SQLException {
-                    return done ? null : tuple;
-                }
-                
-            };
+            return upsertSelect(statement, tableRef, projector, iterator, columnIndexes, pkSlotIndexes);
         }
         
         public void setRowProjector(RowProjector projector) {
@@ -296,7 +238,7 @@ public class UpsertCompiler {
         RowProjector rowProjectorToBe = null;
         int nValuesToSet;
         boolean runOnServer = false;
-        UpsertParallelIteratorFactory upsertParallelIteratorFactoryToBe = null;
+        UpsertingParallelIteratorFactory upsertParallelIteratorFactoryToBe = null;
         final boolean isAutoCommit = connection.getAutoCommit();
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
@@ -319,7 +261,7 @@ public class UpsertCompiler {
             } else {
                 // We can pipeline the upsert select instead of spooling everything to disk first,
                 // if we don't have any post processing that's required.
-                parallelIteratorFactory = upsertParallelIteratorFactoryToBe = new UpsertParallelIteratorFactory(statement, tableRef);
+                parallelIteratorFactory = upsertParallelIteratorFactoryToBe = new UpsertingParallelIteratorFactory(connection, tableRef);
             }
             // Pass scan through if same table in upsert and select so that projection is computed correctly
             QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns, parallelIteratorFactory);
@@ -332,7 +274,7 @@ public class UpsertCompiler {
             nValuesToSet = valueNodes.size();
         }
         final RowProjector projector = rowProjectorToBe;
-        final UpsertParallelIteratorFactory upsertParallelIteratorFactory = upsertParallelIteratorFactoryToBe;
+        final UpsertingParallelIteratorFactory upsertParallelIteratorFactory = upsertParallelIteratorFactoryToBe;
         final QueryPlan queryPlan = plan;
         // Resize down to allow a subset of columns to be specifiable
         if (columnNodes.isEmpty()) {
