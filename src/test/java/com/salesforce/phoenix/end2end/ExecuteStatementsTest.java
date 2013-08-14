@@ -109,4 +109,33 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
         assertFalse(rs.next());
         conn.close();
     }
+    
+    @Test
+    public void testCharPadding() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        String tableName = "foo";
+        String testString = "hello";
+        String query = "CREATE TABLE " + tableName + " (pk integer not null primary key, a_char char(8) not null)";
+        PreparedStatement statement = conn.prepareStatement(query);
+        statement.execute();
+        statement = conn.prepareStatement(
+                "upsert into " + tableName +
+                "    (pk, " +
+                "    a_char)" +
+                "VALUES (?, ?)");
+        statement.setInt(1, 1);
+        statement.setString(2, testString);
+        statement.execute();       
+        conn.commit();
+        
+        try {
+            query = "select a_char from " + tableName;
+            statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(testString, rs.getString(1).trim());
+        } finally {
+            conn.close();
+        }
+    }
 }

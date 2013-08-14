@@ -462,10 +462,8 @@ public class PTableImpl implements PTable {
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
                 Integer byteSize = column.getByteSize();
-                if (type.isFixedWidth()) { // TODO: handle multi-byte characters
-                    if (byteValue.length != byteSize) {
-                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
-                    }
+                if (type.isFixedWidth() && byteValue.length <= byteSize) { 
+                    byteValue = Arrays.copyOf(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }
@@ -473,7 +471,7 @@ public class PTableImpl implements PTable {
                 setValues.add(family, qualifier, ts, byteValue);
             }
         }
-
+        
         @Override
         public void delete() {
             setValues = new Put(key);
