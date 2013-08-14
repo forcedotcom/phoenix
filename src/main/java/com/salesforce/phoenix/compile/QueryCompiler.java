@@ -152,7 +152,7 @@ public class QueryCompiler {
         if (context.isAggregate()) {
             // We must add an extra dedup step if there's a group by and a select distinct
             boolean dedup = !statement.getGroupBy().isEmpty() && statement.isDistinct();
-            return new AggregatePlan(context, tableRef, projector, limit, groupBy, dedup, having, orderBy);
+            return new AggregatePlan(context, tableRef, projector, limit, groupBy, dedup, having, orderBy, parallelIteratorFactory);
         } else {
             return new ScanPlan(context, tableRef, projector, limit, orderBy, parallelIteratorFactory);
         }

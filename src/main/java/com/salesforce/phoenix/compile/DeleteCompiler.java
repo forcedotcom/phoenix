@@ -104,7 +104,7 @@ public class DeleteCompiler {
                     return connection;
                 }
             };
-        } else if (isAutoCommit && limit == null && orderBy.getOrderByExpressions().isEmpty()) {
+        } else if (isAutoCommit && limit == null) {
             // TODO: better abstraction - DeletePlan ?
             scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>
@@ -112,8 +112,9 @@ public class DeleteCompiler {
             List<AliasedNode> select = Collections.<AliasedNode>singletonList(
                     NODE_FACTORY.aliasedNode(null, 
                             NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
+            // Ignoring ORDER BY, since with auto commit on and no limit makes no difference
             final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
-            final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
+            final QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services));
             return new MutationPlan() {
 
                 @Override
@@ -160,6 +161,7 @@ public class DeleteCompiler {
                     NODE_FACTORY.aliasedNode(null,
                         NODE_FACTORY.literal(1)));
             final RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
+            // TODO: same optimization as UPSERT SELECT for ParallelResultIteratorFactory
             final QueryPlan plan = new ScanPlan(context, tableRef, projector, limit, orderBy, new SpoolingResultIteratorFactory(services));
             return new MutationPlan() {
 

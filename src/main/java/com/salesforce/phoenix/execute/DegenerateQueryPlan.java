@@ -41,7 +41,7 @@ import com.salesforce.phoenix.schema.TableRef;
 public class DegenerateQueryPlan extends BasicQueryPlan {
 
     public DegenerateQueryPlan(StatementContext context, TableRef table) {
-        super(context, table, RowProjector.EMPTY_PROJECTOR, PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA, null, OrderBy.EMPTY_ORDER_BY, GroupBy.EMPTY_GROUP_BY);
+        super(context, table, RowProjector.EMPTY_PROJECTOR, PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA, null, OrderBy.EMPTY_ORDER_BY, GroupBy.EMPTY_GROUP_BY, null);
         context.setScanRanges(ScanRanges.NOTHING);
     }
 

@@ -40,7 +40,7 @@ import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.iterate.*;
-import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
+import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -60,9 +60,11 @@ public class AggregatePlan extends BasicQueryPlan {
     private final boolean dedup;
     private List<KeyRange> splits;
 
-    public AggregatePlan(StatementContext context, TableRef table, RowProjector projector, Integer limit,
-            GroupBy groupBy, boolean dedup, Expression having, OrderBy orderBy) {
-        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, groupBy);
+    public AggregatePlan(
+            StatementContext context, TableRef table, RowProjector projector, Integer limit,
+            GroupBy groupBy, boolean dedup, Expression having, OrderBy orderBy,
+            ParallelIteratorFactory parallelIteratorFactory) {
+        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, groupBy, parallelIteratorFactory);
         this.having = having;
         this.dedup = dedup;
         this.aggregators = context.getAggregationManager().getAggregators();
@@ -83,7 +85,7 @@ public class AggregatePlan extends BasicQueryPlan {
         if (groupBy.isEmpty()) {
             UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
         }
-        ParallelIterators parallelIterators = new ParallelIterators(context, table, groupBy, null, new SpoolingResultIteratorFactory(services));
+        ParallelIterators parallelIterators = new ParallelIterators(context, table, groupBy, null, parallelIteratorFactory);
         splits = parallelIterators.getSplits();
 
         AggregatingResultIterator aggResultIterator;

@@ -52,11 +52,9 @@ import com.salesforce.phoenix.schema.*;
  */
 public class ScanPlan extends BasicQueryPlan {
     private List<KeyRange> splits;
-    private ParallelIteratorFactory parallelIteratorFactory;
     
     public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy, ParallelIteratorFactory parallelIteratorFactory) {
-        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null);
-        this.parallelIteratorFactory = parallelIteratorFactory;
+        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null, parallelIteratorFactory);
         if (!orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
             int thresholdBytes = context.getConnection().getQueryServices().getProps().getInt(
                     QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
