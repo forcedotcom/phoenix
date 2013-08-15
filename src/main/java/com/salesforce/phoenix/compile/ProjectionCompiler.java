@@ -200,7 +200,6 @@ public class ProjectionCompiler {
         
         selectVisitor.compile();
         boolean isProjectEmptyKeyValue = table.getType() != PTableType.VIEW && !isWildcard && projectedFamilies == null;
-        RowProjector projector = new RowProjector(projectedColumns, estimatedByteSize, isProjectEmptyKeyValue);
         if (!isProjectEmptyKeyValue) {
             if (projectedFamilies != null) {
                 projectColumnFamilies(table, scan, projectedFamilies);
@@ -216,7 +215,7 @@ public class ProjectionCompiler {
                  projectAllColumnFamilies(table,scan);
             }
         }
-        return projector;
+        return new RowProjector(projectedColumns, estimatedByteSize, isProjectEmptyKeyValue);
     }
         
     private static class SelectClauseVisitor extends ExpressionCompiler {

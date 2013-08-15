@@ -95,26 +95,46 @@ public abstract class ExplainTable {
         Filter filter = scan.getFilter();
         PageFilter pageFilter = null;
         if (filter != null) {
+            int offset = 0;
+            boolean hasFirstKeyOnlyFilter = false;
             String filterDesc = "";
             if (hasSkipScanFilter) {
                 if (filter instanceof FilterList) {
-                    FilterList filterList = (FilterList) filter;
-                    filterDesc = filterList.getFilters().get(1).toString();
-                    if (filterList.getFilters().size() > 2) {
-                        pageFilter = (PageFilter) filterList.getFilters().get(2);
+                    List<Filter> filterList = ((FilterList) filter).getFilters();
+                    if (filterList.get(0) instanceof FirstKeyOnlyFilter) {
+                        hasFirstKeyOnlyFilter = true;
+                        offset = 1;
+                    }
+                    if (filterList.size() > offset+1) {
+                        filterDesc = filterList.get(offset+1).toString();
+                        if (filterList.size() > offset+2) {
+                            pageFilter = (PageFilter) filterList.get(offset+2);
+                        }
                     }
                 }
             } else if (filter instanceof FilterList) {
-                FilterList filterList = (FilterList) filter;
-                filterDesc = filterList.getFilters().get(0).toString();
-                if (filterList.getFilters().size() > 1) {
-                    pageFilter = (PageFilter) filterList.getFilters().get(1);
+                List<Filter> filterList = ((FilterList) filter).getFilters();
+                if (filterList.get(0) instanceof FirstKeyOnlyFilter) {
+                    hasFirstKeyOnlyFilter = true;
+                    offset = 1;
+                }
+                if (filterList.size() > offset) {
+                    filterDesc = filterList.get(offset).toString();
+                    if (filterList.size() > offset+1) {
+                        pageFilter = (PageFilter) filterList.get(offset+1);
+                    }
                 }
             } else {
-                filterDesc = filter.toString();
+                if (filter instanceof FirstKeyOnlyFilter) {
+                    hasFirstKeyOnlyFilter = true;
+                } else {
+                    filterDesc = filter.toString();
+                }
             }
             if (filterDesc.length() > 0) {
-                planSteps.add("    SERVER FILTER BY " + filterDesc);
+                planSteps.add("    SERVER FILTER BY " + (hasFirstKeyOnlyFilter ? "FIRST KEY ONLY AND " : "") + filterDesc);
+            } else if (hasFirstKeyOnlyFilter) {
+                planSteps.add("    SERVER FILTER BY FIRST KEY ONLY");
             }
             if (pageFilter != null) {
                 planSteps.add("    SERVER " + pageFilter.getPageSize() + " ROW LIMIT");
