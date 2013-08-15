@@ -164,9 +164,10 @@ public class QueryCompiler {
                     throw new SQLException(e);
                 }
             }
-            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes);
+            Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, null);
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
-            BasicQueryPlan plan = compileSingleQuery(context, JoinCompiler.newSelectWithoutJoin(statement), binds);
+            BasicQueryPlan plan = compileSingleQuery(context, JoinCompiler.getSubqueryWithoutJoin(statement, join), binds);
             return new HashJoinPlan(plan, joinIds, hashExpressions, joinPlans);
         }
         
@@ -177,11 +178,8 @@ public class QueryCompiler {
         
         if (type == JoinType.Right
                 || (type == JoinType.Inner && joinTables.size() > 1)) {
-            if (join.isPostAggregate()) {
-                throw new UnsupportedOperationException("Does not support aggregation functions on right join.");
-            }
-            SelectStatement lhs = JoinCompiler.getSubQuery(statement);
-            SelectStatement rhs = JoinCompiler.newSelectForLastJoin(statement, join);
+            SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoin(statement);
+            SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(statement, join);
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpec(join);
             StatementContext lhsCtx = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
@@ -190,13 +188,14 @@ public class QueryCompiler {
             Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
             List<Expression> joinExpressions = splittedExpressions.getSecond();
             List<Expression> hashExpressions = splittedExpressions.getFirst();
-            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left});
+            Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, lastJoinTable);
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
             BasicQueryPlan rhsPlan = compileSingleQuery(context, rhs, binds);
             return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
         }
         
-        SelectStatement lhs = JoinCompiler.getSubQueryForFinalPlan(statement);
+        SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoinAsFinalPlan(statement);
         SelectStatement rhs = lastJoinTable.getAsSubquery();
         QueryPlan rhsPlan;
         try {
@@ -209,7 +208,8 @@ public class QueryCompiler {
         Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
         List<Expression> joinExpressions = splittedExpressions.getFirst();
         List<Expression> hashExpressions = splittedExpressions.getSecond();
-        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left});
+        Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, null);
+        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
         HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
         BasicQueryPlan lhsPlan = compileSingleQuery(context, lhs, binds);
         return new HashJoinPlan(lhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});

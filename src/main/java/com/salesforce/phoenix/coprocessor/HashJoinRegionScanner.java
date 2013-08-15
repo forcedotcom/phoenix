@@ -39,8 +39,10 @@ import org.apache.hadoop.hbase.regionserver.RegionScanner;
 
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.TupleUtil;
@@ -119,6 +121,27 @@ public class HashJoinRegionScanner implements RegionScanner {
                             joined.addAll(lhs);
                             joined.addAll(rhs); // we don't replace rowkey here, for further reference to the rowkey fields, needs to specify family as well.
                             resultQueue.offer(joined);
+                        }
+                    }
+                }
+                // apply post-join filter
+                Expression postFilter = joinInfo.getPostJoinFilterExpression();
+                if (postFilter != null) {
+                    ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+                    for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
+                        Tuple t = new ResultTuple(new Result(iter.next()));
+                        try {
+                            if (!postFilter.evaluate(t, tempPtr)) {
+                                iter.remove();
+                                continue;
+                            }
+                        } catch (IllegalDataException e) {
+                            iter.remove();
+                            continue;
+                        }
+                        Boolean b = (Boolean)postFilter.getDataType().toObject(tempPtr);
+                        if (!b.booleanValue()) {
+                            iter.remove();
                         }
                     }
                 }
