@@ -25,7 +25,7 @@ import java.util.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.salesforce.phoenix.exception.PhoenixParserException;
@@ -77,8 +77,8 @@ public class DynamicFamilyTest extends BaseHBaseManagedTimeTest {
     private static final Time ENTRY3_USER_ID2_LOGIN_TIME = new Time(System.currentTimeMillis()+360000);
     private static final Time ENTRY3_USER_ID3_LOGIN_TIME = new Time(System.currentTimeMillis()+420000);
 
-    @BeforeClass
-    public static void doBeforeTestSetup() throws Exception {
+    @Before
+    public void doBeforeTestSetup() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         String ddl = "create table if not exists  " + WEB_STATS
