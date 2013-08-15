@@ -1918,6 +1918,11 @@ public enum PDataType {
                 throw new IllegalDataException(e);
             }
         }
+        
+        @Override
+        public int getResultSetSqlType() {
+            return LONG.getResultSetSqlType();
+        }
     },
     /**
      * Unsigned integer type that restricts values to be from 0 to {@link java.lang.Integer#MAX_VALUE} inclusive. May be used to map to existing HTable values created through {@link org.apache.hadoop.hbase.util.Bytes#toBytes(int)}
@@ -2035,6 +2040,11 @@ public enum PDataType {
             } catch (NumberFormatException e) {
                 throw new IllegalDataException(e);
             }
+        }
+        
+        @Override
+        public int getResultSetSqlType() {
+            return INTEGER.getResultSetSqlType();
         }
     },
     UNSIGNED_SMALLINT("UNSIGNED_SMALLINT", 13, Short.class, new UnsignedShortCodec()) {
@@ -2158,6 +2168,11 @@ public enum PDataType {
           return super.isCoercibleTo(targetType, value);
       }
       
+      
+      @Override
+      public int getResultSetSqlType() {
+          return SMALLINT.getResultSetSqlType();
+      }
     },
     UNSIGNED_TINYINT("UNSIGNED_TINYINT", 11, Byte.class, new UnsignedByteCodec()) {
 
@@ -2260,6 +2275,11 @@ public enum PDataType {
           return DECIMAL.isComparableTo(targetType);
       }
       
+      
+      @Override
+      public int getResultSetSqlType() {
+          return TINYINT.getResultSetSqlType();
+      }
     },
     UNSIGNED_FLOAT("UNSIGNED_FLOAT", 14, Float.class, new UnsignedFloatCodec()) {
 
@@ -2458,6 +2478,11 @@ public enum PDataType {
             return this == targetType || targetType == FLOAT || UNSIGNED_DOUBLE.isCoercibleTo(targetType);
         }
         
+        
+        @Override
+        public int getResultSetSqlType() {
+            return FLOAT.getResultSetSqlType();
+        }
     },
     UNSIGNED_DOUBLE("UNSIGNED_DOUBLE", 15, Double.class, new UnsignedDoubleCodec()) {
 
@@ -2663,6 +2688,11 @@ public enum PDataType {
             return this == targetType || DOUBLE.isCoercibleTo(targetType);
         }
         
+        
+        @Override
+        public int getResultSetSqlType() {
+            return  DOUBLE.getResultSetSqlType();
+        }
     },
     BOOLEAN("BOOLEAN", Types.BOOLEAN, Boolean.class, null) {
 
@@ -4500,6 +4530,18 @@ public enum PDataType {
 
     public byte[] getSqlTypeNameBytes() {
         return sqlTypeNameBytes;
+    }
+    
+    /**
+     * By default just returns sqlType for the PDataType,
+     * however it allows unknown types (our unsigned types)
+     * to return the regular corresponding sqlType so
+     * that tools like SQuirrel correctly display values
+     * of this type.
+     * @return
+     */
+    public int getResultSetSqlType() {
+        return this.sqlType;
     }
 
     public KeyRange getKeyRange(byte[] point) {
