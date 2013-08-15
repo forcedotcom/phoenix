@@ -143,7 +143,16 @@ public class PostDDLCompiler {
                             columnFamilies.add(projectCF);
                         }
                         // Need to project all column families into the scan, since we haven't yet created our empty key value
-                        RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.COUNT_ONE, GroupBy.EMPTY_GROUP_BY, columnFamilies);
+                        RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.COUNT_ONE, GroupBy.EMPTY_GROUP_BY);
+                        // Explicitly project these column families and don't project the empty key value,
+                        // since at this point we haven't added the empty key value everywhere.
+                        if (columnFamilies != null) {
+                            scan.getFamilyMap().clear();
+                            for (byte[] family : columnFamilies) {
+                                scan.addFamily(family);
+                            }
+                            projector = new RowProjector(projector,false);
+                        }
                         QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(connection.getQueryServices()), GroupBy.EMPTY_GROUP_BY, null);
                         Scanner scanner = plan.getScanner();
                         ResultIterator iterator = scanner.iterator();

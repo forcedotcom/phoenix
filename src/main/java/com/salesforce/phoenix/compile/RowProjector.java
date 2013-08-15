@@ -54,6 +54,9 @@ public class RowProjector {
     private final int estimatedSize;
     private final boolean isProjectEmptyKeyValue;
     
+    public RowProjector(RowProjector projector, boolean isProjectEmptyKeyValue) {
+        this(projector.getColumnProjectors(), projector.getEstimatedRowByteSize(), isProjectEmptyKeyValue);
+    }
     /**
      * Construct RowProjector based on a list of ColumnProjectors.
      * @param columnProjectors ordered list of ColumnProjectors corresponding to projected columns in SELECT clause
