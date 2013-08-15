@@ -35,6 +35,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
@@ -67,7 +68,7 @@ public class PostDDLCompiler {
         this.connection = connection;
     }
 
-    public MutationPlan compile(final List<TableRef> tableRefs, final byte[] emptyCF, final List<PColumn> deleteList,
+    public MutationPlan compile(final List<TableRef> tableRefs, final byte[] emptyCF, final byte[] projectCF, final List<PColumn> deleteList,
             final long timestamp) throws SQLException {
         
         return new MutationPlan() {
@@ -103,7 +104,7 @@ public class PostDDLCompiler {
                      * 3) updating the necessary rows to have an empty KV
                      */
                     long totalMutationCount = 0;
-                    for (final TableRef tableRef: tableRefs) {
+                    for (final TableRef tableRef : tableRefs) {
                         Scan scan = new Scan();
                         scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
                         ColumnResolver resolver = new ColumnResolver() {
@@ -133,7 +134,16 @@ public class PostDDLCompiler {
                                 scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
                             }
                         }
-                        RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.COUNT_ONE, GroupBy.EMPTY_GROUP_BY);
+                        List<byte[]> columnFamilies = Lists.newArrayListWithExpectedSize(tableRef.getTable().getColumnFamilies().size());
+                        if (projectCF == null) {
+                            for (PColumnFamily family : tableRef.getTable().getColumnFamilies()) {
+                                columnFamilies.add(family.getName().getBytes());
+                            }
+                        } else {
+                            columnFamilies.add(projectCF);
+                        }
+                        // Need to project all column families into the scan, since we haven't yet created our empty key value
+                        RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.COUNT_ONE, GroupBy.EMPTY_GROUP_BY, columnFamilies);
                         QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(connection.getQueryServices()), GroupBy.EMPTY_GROUP_BY, null);
                         Scanner scanner = plan.getScanner();
                         ResultIterator iterator = scanner.iterator();

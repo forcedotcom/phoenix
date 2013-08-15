@@ -31,7 +31,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
@@ -43,9 +43,8 @@ import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
 import com.salesforce.phoenix.expression.visitor.SingleAggregateFunctionVisitor;
 import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.SizedUtil;
 
 
 /**
@@ -61,10 +60,6 @@ public class ProjectionCompiler {
     private ProjectionCompiler() {
     }
     
-    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException  {
-        return compile(context, statement, groupBy, null);
-    }
-    
     private static void projectAllColumnFamilies(PTable table, Scan scan) {
         // Will project everything if no CF were specified
         scan.getFamilyMap().clear();
@@ -73,10 +68,17 @@ public class ProjectionCompiler {
         }
     }
 
-    private static void projectColumnFamily(PTable table, Scan scan,String familyName) {
-        // Will project all colmuns for given CF
+    private static void projectColumnFamilies(PTable table, Scan scan, List<byte[]> families) {
+        // Will project everything if no CF were specified
         scan.getFamilyMap().clear();
-        scan.addFamily(familyName.getBytes());
+        for (byte[] family : families) {
+            scan.addFamily(family);
+        }
+    }
+
+    private static void projectColumnFamily(PTable table, Scan scan, byte[] family) {
+        // Will project all colmuns for given CF
+        scan.addFamily(family);
     }
     
     public static Map<String, ParseNode> buildAliasMap(StatementContext context, SelectStatement statement) {
@@ -91,6 +93,18 @@ public class ProjectionCompiler {
         return aliasParseNodeMap;
     }
     
+    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException  {
+        return compile(context, statement, groupBy, null, null);
+    }
+    
+    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, List<byte[]> projectedFamilies) throws SQLException {
+        return compile(context, statement, groupBy, null, projectedFamilies);
+    }
+
+    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, PColumn[] targetColumns) throws SQLException {
+        return compile(context, statement, groupBy, targetColumns, null);
+    }
+    
     /**
      * Builds the projection for the scan
      * @param context query context kept between compilation of different query clauses
@@ -101,7 +115,7 @@ public class ProjectionCompiler {
      * @return projector used to access row values during scan
      * @throws SQLException 
      */
-    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, PColumn[] targetColumns) throws SQLException {
+    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, PColumn[] targetColumns, List<byte[]> projectedFamilies) throws SQLException {
         List<AliasedNode> aliasedNodes = statement.getSelect();
         // Setup projected columns in Scan
         SelectClauseVisitor selectVisitor = new SelectClauseVisitor(context, groupBy);
@@ -120,8 +134,6 @@ public class ProjectionCompiler {
                     ExpressionCompiler.throwNonAggExpressionInAggException(node.toString());
                 }
                 isWildcard = true;
-                // Project everything for SELECT *
-                projectAllColumnFamilies(table,scan);
                 for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getColumns().size(); i++) {
                     ColumnRef ref = new ColumnRef(tableRef,i);
                     Expression expression = ref.newColumnExpression();
@@ -131,7 +143,7 @@ public class ProjectionCompiler {
             } else if (node instanceof  FamilyParseNode){
                 // Project everything for SELECT cf.*
         		PColumnFamily pfamily = table.getColumnFamily(((FamilyParseNode) node).getFamilyName());
-        		projectColumnFamily(table,scan,((FamilyParseNode) node).getFamilyName());		
+        		projectColumnFamily(table,scan,Bytes.toBytes(((FamilyParseNode) node).getFamilyName()));		
         		for (PColumn column : pfamily.getColumns()) {
         			ColumnRef ref = new ColumnRef(tableRef,column.getPosition());
                     Expression expression = ref.newColumnExpression();
@@ -169,50 +181,39 @@ public class ProjectionCompiler {
         }
 
         int estimatedKeySize = table.getRowKeySchema().getEstimatedValueLength();
-        int estimatedRowSize = 0;
+        int estimatedByteSize = 0;
         for (Map.Entry<byte[],NavigableSet<byte[]>> entry : scan.getFamilyMap().entrySet()) {
             PColumnFamily family = table.getColumnFamily(entry.getKey());
             if (entry.getValue() == null) {
                 for (PColumn column : family.getColumns()) {
                     Integer byteSize = column.getByteSize();
-                    estimatedRowSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
+                    estimatedByteSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
                 }
             } else {
                 for (byte[] cq : entry.getValue()) {
                     PColumn column = family.getColumn(cq);
                     Integer byteSize = column.getByteSize();
-                    estimatedRowSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
+                    estimatedByteSize += SizedUtil.KEY_VALUE_SIZE + estimatedKeySize + (byteSize == null ? RowKeySchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
                 }
             }
         }
         
         selectVisitor.compile();
-        RowProjector projector = new RowProjector(projectedColumns, estimatedRowSize);
-        boolean projectNotNull = true;
-        if (statement.isAggregate() || statement.isDistinct()) {
-            if (groupBy.isEmpty()) {
-                // If nothing projected into scan and we only have one column family, just allow everything
-                // to be projected and use a FirstKeyOnlyFilter to skip from row to row.
-                // TODO: benchmark versus projecting our empty column
-                if (scan.getFamilyMap().isEmpty() && table.getColumnFamilies().size() == 1) { 
-                    ScanUtil.andFilterAtBeginning(scan, new FirstKeyOnlyFilter());
-                    projectNotNull = false;
-                }
-            }
-        }
-        if (projectNotNull && !isWildcard) {
-            // Since we don't have the empty key value in read-only tables,
-            // we must project everything.
-            /* 
-             * TODO: this could be optimized by detecting:
-             * - if a column is projected that's not in the where clause
-             * - if a column is grouped by that's not in the where clause
-             * - if we're not using IS NULL or CASE WHEN expressions
-             */
-            if (table.getType() == PTableType.VIEW) {
-                projectAllColumnFamilies(table,scan);
+        boolean isProjectEmptyKeyValue = table.getType() != PTableType.VIEW && !isWildcard && projectedFamilies == null;
+        RowProjector projector = new RowProjector(projectedColumns, estimatedByteSize, isProjectEmptyKeyValue);
+        if (!isProjectEmptyKeyValue) {
+            if (projectedFamilies != null) {
+                projectColumnFamilies(table, scan, projectedFamilies);
             } else {
-                scan.addColumn(SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies()), QueryConstants.EMPTY_COLUMN_BYTES);
+                // Since we don't have the empty key value in read-only tables,
+                // we must project everything.
+                /* 
+                 * TODO: this could be optimized by detecting:
+                 * - if a column is projected that's not in the where clause
+                 * - if a column is grouped by that's not in the where clause
+                 * - if we're not using IS NULL or CASE WHEN expressions
+                 */
+                 projectAllColumnFamilies(table,scan);
             }
         }
         return projector;

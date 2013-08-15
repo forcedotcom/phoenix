@@ -35,7 +35,6 @@ import java.sql.*;
 import java.util.*;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
@@ -364,36 +363,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testConstantCountForSingleCF() throws Exception {
-        // Select columns in PK
-        String query = "select count(1) from atable";
-        List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
-        // Projects nothing, but adds FirstKeyOnlyFilter
-        assertTrue(scan.getFamilyMap().isEmpty());
-        assertTrue(scan.getFilter() instanceof FirstKeyOnlyFilter);
-    }
-
-    @Test
-    public void testConstantCountForMultiCF() throws Exception {
-        // Select columns in PK
-        String query = "select count(1) from multi_cf";
-        List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
-        // Projects nothing, but adds FirstKeyOnlyFilter
-        Set<byte[]> projectedFamilies = scan.getFamilyMap().keySet();
-        assertEquals(1, scan.getFamilyMap().values().size());
-        // Empty column name
-        assertArrayEquals(QueryConstants.EMPTY_COLUMN_BYTES, scan.getFamilyMap().values().iterator().next().iterator().next());
-        assertEquals(1,projectedFamilies.size());
-        // Empty column name should be in first column family
-        assertTrue(projectedFamilies.contains(Bytes.toBytes(SchemaUtil.normalizeIdentifier("a"))));
-        assertNull(scan.getFilter());
-    }
-
-    @Test
     public void testNullInScanKey() throws Exception {
         // Select columns in PK
         String query = "select val from ptsdb where inst is null and host='a'";
@@ -558,35 +527,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             }
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. B_STRING"));
-        }
-    }
-
-    @Test
-    public void testFirstKeyOnlyFilter() throws Exception {
-        // Select columns in PK
-        String[] queries = new String[] {
-            "SELECT count(1) FROM atable",
-        };
-        List<Object> binds = Collections.emptyList();
-        for (String query : queries) {
-            Scan scan = new Scan();
-            compileQuery(query, binds, scan);
-            assertTrue(scan.getFilter() instanceof FirstKeyOnlyFilter);
-        }
-    }
-
-    @Test
-    public void testNotFirstKeyOnlyFilter() throws Exception {
-        // Select columns in PK
-        String[] queries = new String[] {
-            "SELECT count(1) FROM atable GROUP BY a_string",
-            "SELECT count(b_string) FROM atable",
-        };
-        List<Object> binds = Collections.emptyList();
-        for (String query : queries) {
-            Scan scan = new Scan();
-            compileQuery(query, binds, scan);
-            assertFalse(scan.getFilter() instanceof FirstKeyOnlyFilter);
         }
     }
 

@@ -54,7 +54,8 @@ import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class UpsertCompiler {
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
@@ -362,10 +363,6 @@ public class UpsertCompiler {
                     // Build table from projectedColumns
                     PTable projectedTable = PTableImpl.makePTable(table, projectedColumns);
                     
-                    // Remove projection of empty column, since it can lead to problems when building another projection
-                    // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
-                    // prevent having to do this.
-                    ScanUtil.removeEmptyColumnFamily(context.getScan(), table);
                     SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, upsert.getSelect().getHint());
                     final RowProjector aggProjector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
                     /*

@@ -290,7 +290,7 @@ public class MetaDataClient {
         PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
         TableRef tableRef = new TableRef(null, table, schema, ts, false);
         byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
-        MutationPlan plan = compiler.compile(Collections.singletonList(tableRef), emptyCF, null, tableRef.getTimeStamp());
+        MutationPlan plan = compiler.compile(Collections.singletonList(tableRef), emptyCF, null, null, tableRef.getTimeStamp());
         return connection.getQueryServices().updateData(plan);
     }
 
@@ -763,7 +763,7 @@ public class MetaDataClient {
                     for (PTable index: table.getIndexes()) {
                         tableRefs.add(new TableRef(null, index, schema, ts, false));
                     }
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, Collections.<PColumn>emptyList(), ts);
+                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, null, Collections.<PColumn>emptyList(), ts);
                     return connection.getQueryServices().updateData(plan);
                 }
                 break;
@@ -895,8 +895,18 @@ public class MetaDataClient {
                 Collections.reverse(tableMetaData);
                 
                 byte[] emptyCF = null;
-                if (table.getType() != PTableType.VIEW && family != null && table.getColumnFamilies().isEmpty()) {
-                    emptyCF = family.getFirst();
+                byte[] projectCF = null;
+                if (table.getType() != PTableType.VIEW && family != null) {
+                    if (table.getColumnFamilies().isEmpty()) {
+                        emptyCF = family.getFirst();
+                    } else {
+                        try {
+                            table.getColumnFamily(family.getFirst());
+                        } catch (ColumnFamilyNotFoundException e) {
+                            projectCF = family.getFirst();
+                            emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
+                        }
+                    }
                 }
                 MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType() == PTableType.VIEW, family);
                 try {
@@ -914,7 +924,7 @@ public class MetaDataClient {
                         connection.setAutoCommit(true);
                         // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                         long ts = (scn == null ? result.getMutationTime() : scn);
-                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(new TableRef(null, table, schema, ts, false)), emptyCF, null, ts);
+                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(new TableRef(null, table, schema, ts, false)), emptyCF, projectCF, null, ts);
                         return connection.getQueryServices().updateData(plan);
                     }
                     return new MutationState(0,connection);
@@ -1035,7 +1045,7 @@ public class MetaDataClient {
                         Long scn = connection.getSCN();
                         // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                         long ts = (scn == null ? result.getMutationTime() : scn);
-                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(tableRef), emptyCF, Collections.singletonList(columnToDrop), ts);
+                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(tableRef), emptyCF, null, Collections.singletonList(columnToDrop), ts);
                         return connection.getQueryServices().updateData(plan);
                     }
                     return new MutationState(0, connection);

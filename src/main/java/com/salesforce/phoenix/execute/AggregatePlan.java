@@ -84,7 +84,7 @@ public class AggregatePlan extends BasicQueryPlan {
         if (groupBy.isEmpty()) {
             UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
         }
-        ParallelIterators parallelIterators = new ParallelIterators(context, table, statement.getHint(), groupBy, null, parallelIteratorFactory);
+        ParallelIterators parallelIterators = new ParallelIterators(context, tableRef, statement, projection, groupBy, null, parallelIteratorFactory);
         splits = parallelIterators.getSplits();
 
         AggregatingResultIterator aggResultIterator;

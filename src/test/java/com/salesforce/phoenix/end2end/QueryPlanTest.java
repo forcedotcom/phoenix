@@ -77,13 +77,11 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
 
                 "SELECT count(*) FROM atable",
                 "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
-                "    SERVER FILTER BY FirstKeyOnlyFilter\n" +
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 // TODO: review: why does this change with parallelized non aggregate queries?
                 "SELECT count(*) FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
                 "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001',['003'-'004')\n" + 
-                "    SERVER FILTER BY FirstKeyOnlyFilter\n" + 
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 "SELECT a_string FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",

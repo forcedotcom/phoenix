@@ -37,18 +37,19 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.PageFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.*;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -77,12 +78,16 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         }
     };
 
-    public ParallelIterators(StatementContext context, TableRef table, HintNode hintNode, GroupBy groupBy, Integer limit, ParallelIteratorFactory iteratorFactory) throws SQLException {
-        super(context, table, groupBy);
-        this.splits = getSplits(context, table, hintNode);
+    public ParallelIterators(StatementContext context, TableRef tableRef, FilterableStatement statement, RowProjector projector, GroupBy groupBy, Integer limit, ParallelIteratorFactory iteratorFactory) throws SQLException {
+        super(context, tableRef, groupBy);
+        this.splits = getSplits(context, tableRef, statement.getHint());
         this.iteratorFactory = iteratorFactory;
         if (limit != null) {
             ScanUtil.andFilterAtEnd(context.getScan(), new PageFilter(limit));
+        }
+        PTable table = tableRef.getTable();
+        if (projector.isProjectEmptyKeyValue()) {
+            context.getScan().addColumn(SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies()), QueryConstants.EMPTY_COLUMN_BYTES);
         }
     }
 
