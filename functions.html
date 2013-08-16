@@ -397,18 +397,18 @@ syntax-end -->
 <h3 id="to_number" class="notranslate">TO_NUMBER</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-TO_NUMBER( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_NUMBER( <a href="index.html#term">stringTerm</a> | <a href="index.html#term">timeStampTerm</a> [, <a href="index.html#string">formatString</a>] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_NUMBER ( <a href="index.html#term">stringTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_NUMBER ( <a href="index.html#term">stringTerm</a></code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#term">timeStampTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-TO_NUMBER( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_NUMBER( <a href="index.html#term">stringTerm</a> | <a href="index.html#term">timeStampTerm</a> [, <a href="index.html#string">formatString</a>] )
 </pre>
 syntax-end -->
-<p>Formats a string as a number, optionally accepting a format string. For details on the format, see <code>java.text.DecimalFormat</code>. This method returns a decimal number.</p>
+<p>Formats a string or date/time/timeStamp as a number, optionally accepting a format string. For details on the format, see <code>java.text.DecimalFormat</code>. For date, time, and timeStamp terms, the result is the time in milliseconds since the epoch. This method returns a decimal number.</p>
 <p>Example:</p>
 <p class="notranslate">TO_NUMBER(&#39;&#36;123.33&#39;, &#39;\u00A4###.##&#39;)</p>
 
