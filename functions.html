@@ -138,27 +138,6 @@ syntax-end -->
 </table>
 <!-- railroad-end -->
 
-<h3>General Functions</h3>
-<!-- syntax-start
-<p class="notranslate">
-
-    <a href="#coalesce" >COALESCE</a><br />
-</p>
-syntax-end -->
-<!-- railroad-start -->
-<table class="notranslate index">
-    <tr>
-        <td class="index">
-            
-                <a href="#coalesce" >COALESCE</a><br />
-                    </td><td class="index">
-                    </td><td class="index">
-                    </td>
-    </tr>
-</table>
-<!-- railroad-end -->
-
-
 <h3>Time and Date Functions</h3>
 <!-- syntax-start
 <p class="notranslate">
@@ -194,6 +173,31 @@ syntax-end -->
     </tr>
 </table>
 <!-- railroad-end -->
+
+<h3>Other Functions</h3>
+<!-- syntax-start
+<p class="notranslate">
+
+    <a href="#to_number" >TO_NUMBER</a><br />
+
+    <a href="#coalesce" >COALESCE</a><br />
+</p>
+syntax-end -->
+<!-- railroad-start -->
+<table class="notranslate index">
+    <tr>
+        <td class="index">
+            
+                <a href="#to_number" >TO_NUMBER</a><br />
+                    </td><td class="index">
+            
+                <a href="#coalesce" >COALESCE</a><br />
+                    </td><td class="index">
+                    </td>
+    </tr>
+</table>
+<!-- railroad-end -->
+
 
 
 <h3 id="avg" class="notranslate">AVG</h3>
@@ -376,24 +380,6 @@ syntax-end -->
 <p>Example:</p>
 <p class="notranslate">STDDEV_SAMP( X )</p>
 
-<h3 id="coalesce" class="notranslate">COALESCE</h3>
-<!-- railroad-start -->
-<pre name="bnf" style="display: none">
-COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
-</pre>
-<div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COALESCE ( <a href="index.html#term">firstTerm</a> , <a href="index.html#term">secondTerm</a> )</code></td></tr></table>
-</div>
-<!-- railroad-end -->
-<!-- syntax-start
-<pre>
-COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
-</pre>
-syntax-end -->
-<p>Returns the value of the first argument if not null and the second argument otherwise. Useful to guarantee that a column in an <code>UPSERT SELECT</code> command will evaluate to a non null value.</p>
-<p>Example:</p>
-<p class="notranslate">COALESCE(last_update_date, CURRENT_DATE())</p>
-
 <h3 id="to_number" class="notranslate">TO_NUMBER</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
@@ -411,6 +397,24 @@ syntax-end -->
 <p>Formats a string or date/time/timeStamp as a number, optionally accepting a format string. For details on the format, see <code>java.text.DecimalFormat</code>. For date, time, and timeStamp terms, the result is the time in milliseconds since the epoch. This method returns a decimal number.</p>
 <p>Example:</p>
 <p class="notranslate">TO_NUMBER(&#39;&#36;123.33&#39;, &#39;\u00A4###.##&#39;)</p>
+
+<h3 id="coalesce" class="notranslate">COALESCE</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COALESCE ( <a href="index.html#term">firstTerm</a> , <a href="index.html#term">secondTerm</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
+</pre>
+syntax-end -->
+<p>Returns the value of the first argument if not null and the second argument otherwise. Useful to guarantee that a column in an <code>UPSERT SELECT</code> command will evaluate to a non null value.</p>
+<p>Example:</p>
+<p class="notranslate">COALESCE(last_update_date, CURRENT_DATE())</p>
 
 <h3 id="substr" class="notranslate">SUBSTR</h3>
 <!-- railroad-start -->
