@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression;
 
 import java.io.*;
 import java.sql.SQLException;
+import java.util.Arrays;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -122,6 +123,10 @@ public class LiteralExpression extends BaseTerminalExpression {
         value = type.toObject(value, actualType);
         try {
             byte[] b = type.toBytes(value, columnModifier);
+            System.out.println("Type " + type + "Length "+ b.length);
+            if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
+                b = Arrays.copyOf(b, maxLength);
+            }
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];
             }

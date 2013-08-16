@@ -114,28 +114,52 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
     public void testCharPadding() throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         String tableName = "foo";
-        String testString = "hello";
-        String query = "CREATE TABLE " + tableName + " (pk integer not null primary key, a_char char(8) not null)";
+        String rowKey = "hello"; 
+        String testString = "world";
+        String query = "create table " + tableName +
+                "(a_id integer not null, \n" + 
+                "a_string char(8) not null, \n" +
+                "b_string char(8) not null \n" + 
+                "CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))";
+        
+    
         PreparedStatement statement = conn.prepareStatement(query);
         statement.execute();
         statement = conn.prepareStatement(
                 "upsert into " + tableName +
-                "    (pk, " +
-                "    a_char)" +
-                "VALUES (?, ?)");
+                "    (a_id, " +
+                "    a_string, " +
+                "    b_string)" +
+                "VALUES (?, ?, ?)");
         statement.setInt(1, 1);
-        statement.setString(2, testString);
+        statement.setString(2, rowKey);
+        statement.setString(3, testString);
         statement.execute();       
         conn.commit();
         
         try {
-            query = "select a_char from " + tableName;
-            statement = conn.prepareStatement(query);
-            ResultSet rs = statement.executeQuery();
-            assertTrue(rs.next());
-            assertEquals(testString, rs.getString(1).trim());
+            // test rowkey and non-rowkey values in select statement
+            query = "select a_string, b_string from " + tableName;
+            assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
+            
+            // test with rowkey  in where clause
+            query = "select a_string, b_string from " + tableName + " where a_string = '" + rowKey + "'";
+            assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
+            
+            // test with non-rowkey  in where clause
+            query = "select a_string, b_string from " + tableName + " where b_string = '" + testString + "'";
+            assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
+
         } finally {
             conn.close();
         }
     }
+    
+    private void assertCharacterPadding(PreparedStatement statement, String rowKey, String testString) throws SQLException {
+        ResultSet rs = statement.executeQuery();
+        assertTrue(rs.next());
+        assertEquals(rowKey, rs.getString(1).trim());
+        assertEquals(testString, rs.getString(2).trim());
+    }
+    
 }
