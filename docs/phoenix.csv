@@ -972,7 +972,7 @@ string. If the replacement string is not specified, it defaults to an empty stri
 REGEXP_REPLACE('abc123ABC', '[0-9]+', '#') evaluates to 'abc#ABC'
 "
 
-"Functions (Number)","TO_NUMBER","
+"Functions (General)","TO_NUMBER","
 TO_NUMBER( stringTerm | timeStampTerm [, formatString] )
 ","
 Formats a string or date/time/timeStamp as a number, optionally accepting a format string.
@@ -1051,7 +1051,6 @@ the underlying representation is the epoch time as a long value.
 ","
 CURRENT_TIME()
 "
-
 
 "Functions (General)","COALESCE","
 COALESCE( firstTerm, secondTerm )
