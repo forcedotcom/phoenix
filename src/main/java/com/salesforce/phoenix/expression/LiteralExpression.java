@@ -123,6 +123,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         value = type.toObject(value, actualType);
         try {
             byte[] b = type.toBytes(value, columnModifier);
+
             if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
                 b = Arrays.copyOf(b, maxLength);
             }
