@@ -8,5 +8,9 @@
 .classpath
 .project
 
+# intellij stuff
+.idea/
+*.iml
+
 #maven stuffs
 target/
