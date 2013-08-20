@@ -96,7 +96,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      */
     public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
         super(services);
-        this.config = HBaseConfiguration.create();
+        this.config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
         for (Entry<String,String> entry : services.getProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
@@ -147,7 +147,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public HTableInterface getTable(byte[] tableName) throws SQLException {
         try {
-            return HTableFactoryProvider.getHTableFactory().getTable(tableName, connection, getExecutor());
+            return HBaseFactoryProvider.getHTableFactory().getTable(tableName, connection, getExecutor());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -663,7 +663,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         scan.addColumn(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES);
         // Add filter so that we only get the table row and not the column rows
         scan.setFilter(new SingleColumnValueFilter(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.INTEGER.toBytes(0)));
-        HTableInterface table = HTableFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
+        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
         ResultScanner scanner = table.getScanner(scan);
         Result result = null;
         while ((result = scanner.next()) != null) {
