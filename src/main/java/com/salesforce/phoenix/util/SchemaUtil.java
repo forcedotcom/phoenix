@@ -597,6 +597,12 @@ public class SchemaUtil {
                 metaConnection.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE).next();
             }
             
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 5 && !columnExists(table, COLUMN_MODIFIER)) {
+                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 5, COLUMN_MODIFIER + " INTEGER NULL");
+            }
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 4 && !columnExists(table, SALT_BUCKETS)) {
+                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 4, SALT_BUCKETS + " INTEGER NULL");
+            }
             if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3 && !columnExists(table, DATA_TABLE_NAME)) {
                 metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3, DATA_TABLE_NAME + " VARCHAR NULL");
             }
@@ -625,7 +631,6 @@ public class SchemaUtil {
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + TABLE_CAT_NAME + " is null " +
                 " and " + COLUMN_NAME + " is not null " +
-                " and " + TABLE_TYPE_NAME  + " = '" + PTableType.USER.getSerializedValue() + "'" +
                 " order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION + " DESC";
         ResultSet rs = conn.createStatement().executeQuery(query);
         String currentTableName = null;

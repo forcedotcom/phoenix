@@ -106,7 +106,6 @@ public interface QueryConstants {
             REF_GENERATION_NAME + " VARCHAR," +
             TABLE_SEQ_NUM + " BIGINT," +
             COLUMN_COUNT + " INTEGER," +
-            SALT_BUCKETS + " INTEGER," +
             // Column metadata (will be null for table row)
             COLUMN_SIZE + " INTEGER," +
             BUFFER_LENGTH + " INTEGER," +
@@ -124,8 +123,10 @@ public interface QueryConstants {
             SCOPE_TABLE + " VARCHAR," +
             SOURCE_DATA_TYPE + " INTEGER," + // supposed to be SHORT
             IS_AUTOINCREMENT + " VARCHAR," +
+            // Columns added in 1.2.1
             COLUMN_MODIFIER + " INTEGER," +
-            // Index metadata
+            SALT_BUCKETS + " INTEGER," +
+            // Columns added in 2.0.0
             DATA_TABLE_NAME + " VARCHAR NULL," +
             INDEX_STATE + " CHAR(1)\n," +
             IMMUTABLE_ROWS + " BOOLEAN\n" +
