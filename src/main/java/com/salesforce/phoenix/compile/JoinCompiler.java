@@ -54,20 +54,22 @@ public class JoinCompiler {
     
     public static class JoinSpec {
         private TableRef mainTable;
-        private List<AliasedNode> select;
-        private ParseNode preFilters;
-        private List<Expression> postFilters;
+        private List<AliasedNode> select; // all basic nodes related to mainTable, no aggregation.
+        private List<ParseNode> preFilters;
+        private List<ParseNode> postFilters;
+        private List<Expression> postFilterExpressions;
         private List<JoinTable> joinTables;
         private boolean isPostAggregateOrDistinct;
         private ColumnResolver resolver;
         
-        private JoinSpec(TableRef table, List<AliasedNode> select, ParseNode preFilters, 
-                List<Expression> postFilters, List<JoinTable> joinTables, boolean isPostAggregate,
-                ColumnResolver resolver) {
+        private JoinSpec(TableRef table, List<AliasedNode> select, List<ParseNode> preFilters, 
+                List<ParseNode> postFilters, List<Expression> postFilterExpressions, 
+                List<JoinTable> joinTables, boolean isPostAggregate, ColumnResolver resolver) {
             this.mainTable = table;
             this.select = select;
             this.preFilters = preFilters;
             this.postFilters = postFilters;
+            this.postFilterExpressions = postFilterExpressions;
             this.joinTables = joinTables;
             this.isPostAggregateOrDistinct = isPostAggregate;
             this.resolver = resolver;
@@ -81,12 +83,16 @@ public class JoinCompiler {
             return select;
         }
         
-        public ParseNode getPreFilters() {
+        public List<ParseNode> getPreFilters() {
             return preFilters;
         }
         
-        public List<Expression> getPostFilters() {
+        public List<ParseNode> getPostFilters() {
             return postFilters;
+        }
+        
+        public List<Expression> getPostFilterExpressions() {
+            return postFilterExpressions;
         }
         
         public List<JoinTable> getJoinTables() {
@@ -100,10 +106,20 @@ public class JoinCompiler {
         public ColumnResolver getColumnResolver() {
             return resolver;
         }
+        
+        public ParseNode getPreFiltersCombined() {
+            if (preFilters == null || preFilters.isEmpty())
+                return null;
+            
+            if (preFilters.size() == 1)
+                return preFilters.get(0);
+            
+            return factory.and(preFilters);
+        }
     }
     
     public static JoinSpec getSubJoinSpec(JoinSpec join) {
-        return new JoinSpec(join.mainTable, join.select, join.preFilters, join.postFilters, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregateOrDistinct, join.resolver);
+        return new JoinSpec(join.mainTable, join.select, join.preFilters, join.postFilters, join.postFilterExpressions, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregateOrDistinct, join.resolver);
     }
     
     public static class JoinTable {
@@ -111,19 +127,22 @@ public class JoinCompiler {
         private List<Expression> conditions;
         private TableNode tableNode; // original table node
         private TableRef table;
-        private List<AliasedNode> select;
-        private ParseNode preFilters;
-        private List<Expression> postJoinFilters; // will be pushed to postFilters in case of star join
+        private List<AliasedNode> select; // all basic nodes related to this table, no aggregation.
+        private List<ParseNode> preFilters;
+        private List<ParseNode> postFilters;
+        private List<Expression> postFilterExpressions; // will be pushed to postFilters in case of star join
         private SelectStatement subquery;
         
         private JoinTable(JoinType type, List<Expression> conditions, TableNode tableNode, List<AliasedNode> select,
-                ParseNode preFilters, List<Expression> postJoinFilters, TableRef table, SelectStatement subquery) {
+                List<ParseNode> preFilters, List<ParseNode> postFilters, List<Expression> postFilterExpressions, 
+                TableRef table, SelectStatement subquery) {
             this.type = type;
             this.conditions = conditions;
             this.tableNode = tableNode;
             this.select = select;
             this.preFilters = preFilters;
-            this.postJoinFilters = postJoinFilters;
+            this.postFilters = postFilters;
+            this.postFilterExpressions = postFilterExpressions;
             this.table = table;
             this.subquery = subquery;
         }
@@ -148,16 +167,30 @@ public class JoinCompiler {
             return select;
         }
         
-        public ParseNode getPreFilters() {
+        public List<ParseNode> getPreFilters() {
             return preFilters;
         }
         
-        public List<Expression> getPostJoinFilters() {
-            return postJoinFilters;
+        public List<ParseNode> getPostFilters() {
+            return postFilters;
+        }
+        
+        public List<Expression> getPostFilterExpressions() {
+            return postFilterExpressions;
         }
         
         public SelectStatement getSubquery() {
             return subquery;
+        }
+        
+        public ParseNode getPreFiltersCombined() {
+            if (preFilters == null || preFilters.isEmpty())
+                return null;
+            
+            if (preFilters.size() == 1)
+                return preFilters.get(0);
+            
+            return factory.and(preFilters);
         }
         
         public SelectStatement getAsSubquery() {
@@ -186,7 +219,7 @@ public class JoinCompiler {
     }
     
     public static SelectStatement getSubqueryWithoutJoin(SelectStatement statement, JoinSpec join) {
-        return factory.select(statement.getFrom().subList(0, 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFilters(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return factory.select(statement.getFrom().subList(0, 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
     
     // Get the last join table select statement with fixed-up select and where nodes.
@@ -202,21 +235,44 @@ public class JoinCompiler {
         List<TableNode> from = new ArrayList<TableNode>(1);
         from.add(lastJoinTable.getTableNode());
         
-        // TODO distinguish last join in original query or last join in subquery
-        return factory.select(from, statement.getHint(), statement.isDistinct(), lastJoinTable.getSelect(), lastJoinTable.getPreFilters(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return factory.select(from, statement.getHint(), statement.isDistinct(), statement.getSelect(), lastJoinTable.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
     
     // Get subquery with fixed select and where nodes
-    public static SelectStatement getSubQueryWithoutLastJoin(SelectStatement statement) {
-        // TODO
-        return null;
+    public static SelectStatement getSubQueryWithoutLastJoin(SelectStatement statement, JoinSpec join) {
+        List<TableNode> from = statement.getFrom();
+        assert(from.size() > 1);
+        List<JoinTable> joinTables = join.getJoinTables();
+        int count = joinTables.size();
+        assert (count > 0);
+        List<AliasedNode> select = new ArrayList<AliasedNode>();
+        List<ParseNode> filters = new ArrayList<ParseNode>();
+        select.addAll(join.getSelect());
+        filters.addAll(join.getPreFilters());
+        for (int i = 0; i < count - 1; i++) {
+            select.addAll(joinTables.get(i).getSelect());
+            filters.addAll(joinTables.get(i).getPreFilters());
+            filters.addAll(joinTables.get(i).getPostFilters());
+        }
+        ParseNode where = null;
+        if (filters.size() == 1) {
+            where = filters.get(0);
+        } else if (filters.size() > 1) {
+            where = factory.and(filters);
+        }
+        
+        return factory.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), select, where, null, null, null, null, statement.getBindCount());
     }
     
     // Get subquery with complete select and where nodes
     // Throws exception if the subquery contains joins.
-    public static SelectStatement getSubQueryWithoutLastJoinAsFinalPlan(SelectStatement statement) {
-        // TODO
-        return null;
+    public static SelectStatement getSubQueryWithoutLastJoinAsFinalPlan(SelectStatement statement, JoinSpec join) {
+        List<TableNode> from = statement.getFrom();
+        assert(from.size() > 1);
+        if (from.size() > 2)
+            throw new UnsupportedOperationException("Left table of a left join cannot contain joins.");
+        
+        return factory.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
     
     public static Expression getPostJoinFilterExpression(JoinSpec join, JoinTable joinTable) {

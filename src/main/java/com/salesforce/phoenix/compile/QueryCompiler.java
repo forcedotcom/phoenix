@@ -178,7 +178,7 @@ public class QueryCompiler {
         
         if (type == JoinType.Right
                 || (type == JoinType.Inner && joinTables.size() > 1)) {
-            SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoin(statement);
+            SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoin(statement, join);
             SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(statement, join);
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpec(join);
             StatementContext lhsCtx = new StatementContext(connection, join.getColumnResolver(), binds, statement.getBindCount(), scan, statement.getHint(), new HashCacheClient(connection.getQueryServices(), connection.getTenantId()));
@@ -195,7 +195,7 @@ public class QueryCompiler {
             return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
         }
         
-        SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoinAsFinalPlan(statement);
+        SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoinAsFinalPlan(statement, join);
         SelectStatement rhs = lastJoinTable.getAsSubquery();
         QueryPlan rhsPlan;
         try {
