@@ -137,6 +137,20 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
         statement.execute();       
         conn.commit();
         
+        ensureTableCreated(getUrl(),BTABLE_NAME, null, nextTimestamp()-2);
+        statement = conn.prepareStatement(
+                "upsert into BTABLE VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        statement.setString(1, "abc");
+        statement.setString(2, "xyz");
+        statement.setString(3, "x");
+        statement.setInt(4, 9);
+        statement.setString(5, "ab");
+        statement.setInt(6, 1);
+        statement.setInt(7, 1);
+        statement.setString(8, "ab");
+        statement.setString(9, "morning");
+        statement.execute();       
+        conn.commit();
         try {
             // test rowkey and non-rowkey values in select statement
             query = "select a_string, b_string from " + tableName;
@@ -196,6 +210,7 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             query = "select a_string, b_string from " + tableName + " where a_id = 3 and a_string = '" + testString2 + "'";
             assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
             
+            //where selecting from a CHAR(x) and upserting into a CHAR(y) where x>y
             // upsert rowkey value greater than rowkey limit
             try {
                 
@@ -224,7 +239,18 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             catch (SQLException ex) {
                 assertTrue(ex.getMessage().contains("The value is outside the range for the data type. columnName=B_STRING"));
             }
+                        
+            //where selecting from a CHAR(x) and upserting into a CHAR(y) where x<=y.
+            upsert = "UPSERT INTO " + tableName + "(a_id, a_string, b_string) " +
+                    "SELECT a_integer, a_id, e_string FROM BTABLE";
             
+            statement = conn.prepareStatement(upsert);
+            rowsInserted = statement.executeUpdate();
+            assertEquals(1, rowsInserted);
+            conn.commit();
+            
+            query = "select a_string, b_string from " + tableName + " where a_string  = 'xyz'";
+            assertCharacterPadding(conn.prepareStatement(query), "xyz", "morning");
         } finally {
             conn.close();
         }
