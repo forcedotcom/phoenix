@@ -32,7 +32,6 @@ import static com.salesforce.phoenix.query.QueryServices.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 
 import com.salesforce.phoenix.util.DateUtil;
@@ -97,7 +96,7 @@ public class QueryServicesOptions {
     }
 
     public static QueryServicesOptions withDefaults() {
-        Configuration config = HBaseConfiguration.create();
+        Configuration config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
         QueryServicesOptions options = new QueryServicesOptions(config)
             .setIfUnset(KEEP_ALIVE_MS_ATTRIB, DEFAULT_KEEP_ALIVE_MS)
             .setIfUnset(THREAD_POOL_SIZE_ATTRIB, DEFAULT_THREAD_POOL_SIZE)
