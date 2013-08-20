@@ -25,16 +25,45 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.util;
 
-import org.junit.Test;
+import java.util.ServiceLoader;
+import java.util.concurrent.ConcurrentHashMap;
 
-import static org.junit.Assert.assertTrue;
+/**
+ * Resolves object instances registered using the JDK 6+ {@link java.util.ServiceLoader}.
+ *
+ * @author aaraujo
+ * @since 2.0
+ */
+public class InstanceResolver {
+    private static final ConcurrentHashMap<Class, Object> RESOLVED_SINGLETONS = new ConcurrentHashMap<Class, Object>();
 
-public class HTableFactoryProviderTest {
-    @Test
-    public void defaultProvider() {
-        HTableFactory provided = HTableFactoryProvider.getHTableFactory();
-        assertTrue(provided instanceof HTableFactory.HTableFactoryImpl);
+    private InstanceResolver() {/* not allowed */}
+
+    /**
+     * Resolves an instance of the specified class if it has not already been resolved.
+     * @param clazz The type of instance to resolve
+     * @param defaultInstance The instance to use if a custom instance has not been registered
+     * @return The resolved instance or the default instance provided.
+     *         {@code null} if an instance is not registered and a default is not provided.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T getSingleton(Class<T> clazz, T defaultInstance) {
+        if (!RESOLVED_SINGLETONS.containsKey(clazz)) {
+            // check the type of the default instance if provided
+            if (defaultInstance != null && !clazz.isInstance(defaultInstance)) throw new IllegalArgumentException("defaultInstance is not of type " + clazz.getName());
+            RESOLVED_SINGLETONS.put(clazz, resolveSingleton(clazz, defaultInstance));
+        }
+        return (T) RESOLVED_SINGLETONS.get(clazz);
+    }
+
+    private synchronized static <T> T resolveSingleton(Class<T> clazz, T defaultInstance) {
+        ServiceLoader<T> loader = ServiceLoader.load(clazz);
+        // returns the first registered instance found
+        for (T singleton : loader) {
+            return singleton;
+        }
+        return defaultInstance;
     }
 }

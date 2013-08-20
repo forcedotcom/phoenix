@@ -27,33 +27,28 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import java.util.ServiceLoader;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
 
 /**
- * Loads the first {@link HTableFactory} registered using the JDK 6+ {@link java.util.ServiceLoader} facilities.
- * <p/>
- * If dependent projects do not register an {@code HTableFactory} implementation, the default implementation is provided.
+ * Creates {@link Configuration} instances that contain HBase/Hadoop settings.
  *
  * @author aaraujo
- * @since 0.2
+ * @since 2.0
  */
-public class HTableFactoryProvider {
+public interface ConfigurationFactory {
+    /**
+     * @return Configuration containing HBase/Hadoop settings
+     */
+    Configuration getConfiguration();
 
-    private static final HTableFactory DEFAULT = new HTableFactory.HTableFactoryImpl();
-    private static HTableFactory resolvedFactory;
-
-    public static synchronized HTableFactory getHTableFactory() {
-        if (resolvedFactory != null) return resolvedFactory;
-        resolvedFactory = resolveFactory();
-        return resolvedFactory;
-    }
-
-    private static HTableFactory resolveFactory() {
-        ServiceLoader<HTableFactory> loader = ServiceLoader.load(HTableFactory.class);
-        for (HTableFactory factory : loader) {
-            return factory;
+    /**
+     * Default implementation uses {@link org.apache.hadoop.hbase.HBaseConfiguration#create()}.
+     */
+    static class ConfigurationFactoryImpl implements ConfigurationFactory {
+        @Override
+        public Configuration getConfiguration() {
+            return HBaseConfiguration.create();
         }
-        return DEFAULT;
     }
-
 }
