@@ -61,6 +61,10 @@ public class StddevSampFunction extends SingleAggregateFunction {
 
     @Override
     public Aggregator newClientAggregator() {
+        if (children.get(0).getDataType() == PDataType.DECIMAL) {
+            // Special Aggregators for DECIMAL datatype for more precision than double
+            return new DecimalStddevSampAggregator(children);
+        }
         return new StddevSampAggregator(children);
     }
     

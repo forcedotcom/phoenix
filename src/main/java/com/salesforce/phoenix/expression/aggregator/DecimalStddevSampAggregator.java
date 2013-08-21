@@ -25,56 +25,26 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.expression.aggregator;
 
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.schema.PDataType;
 
 /**
- * 
- * Built-in function for STDDEV_POP(<expression>) aggregate function
+ * Client side Aggregator for STDDEV_SAMP aggregations for DECIMAL data type.
  * 
  * @author anoopsjohn
  * @since 1.2.1
  */
-@BuiltInFunction(name = StddevPopFunction.NAME, args = { @Argument(allowedTypes={PDataType.DECIMAL})})
-public class StddevPopFunction extends SingleAggregateFunction {
-    public static final String NAME = "STDDEV_POP";
+public class DecimalStddevSampAggregator extends BaseDecimalStddevAggregator {
 
-    public StddevPopFunction() {
-
-    }
-
-    public StddevPopFunction(List<Expression> childern) {
-        super(childern);
+    public DecimalStddevSampAggregator(List<Expression> exps) {
+        super(exps);
     }
 
     @Override
-    public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator();
-    }
-
-    @Override
-    public Aggregator newClientAggregator() {
-        if (children.get(0).getDataType() == PDataType.DECIMAL) {
-            // Special Aggregators for DECIMAL datatype for more precision than double
-            return new DecimalStddevPopAggregator(children);
-        }
-        return new StddevPopAggregator(children);
-    }
-    
-    @Override
-    public String getName() {
-        return NAME;
-    }
-
-    @Override
-    public PDataType getDataType() {
-        return PDataType.DECIMAL;
+    protected long getDataPointsCount() {
+        return totalCount - 1;
     }
 }
