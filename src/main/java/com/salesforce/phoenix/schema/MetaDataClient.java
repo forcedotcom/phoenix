@@ -130,9 +130,8 @@ public class MetaDataClient {
             NULLABLE + "," +
             COLUMN_SIZE + "," +
             DECIMAL_DIGITS + "," +
-            ORDINAL_POSITION + "," + 
-            COLUMN_MODIFIER + 
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            ORDINAL_POSITION + 
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
         TABLE_SCHEM_NAME + "," +
@@ -221,7 +220,9 @@ public class MetaDataClient {
             colUpsert.setInt(8, column.getScale());
         }
         colUpsert.setInt(9, column.getPosition() + (isSalted ? 0 : 1));
-        colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
+        if (colUpsert.getParameterMetaData().getParameterCount() > 9) {
+            colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
+        }
         if (colUpsert.getParameterMetaData().getParameterCount() > 10) {
             colUpsert.setString(11, parentTableName);
         }
