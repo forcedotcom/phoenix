@@ -375,6 +375,10 @@ public class SchemaUtil {
     public static boolean isMetaTable(byte[] tableName) {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
     }
+    
+    public static byte[] padChar(byte[] byteValue, Integer byteSize) {
+        return Arrays.copyOf(byteValue, byteSize);
+    }
 
     // Given the splits and the rowKeySchema, find out the keys that 
     public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum, boolean defaultRowKeyOrder) throws SQLException {

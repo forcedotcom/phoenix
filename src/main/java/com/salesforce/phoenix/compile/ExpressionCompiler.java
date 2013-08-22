@@ -124,7 +124,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             // into account the comparison operator.
             if (rhs.getDataType() != lhs.getDataType() || rhs.getColumnModifier() != lhs.getColumnModifier()) {
                 if (rhs.getDataType().isCoercibleTo(lhs.getDataType(), rhsValue)) { // will convert 2.0 -> 2
-                    children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhs.getDataType(), lhs.getMaxLength(), null, lhs.getColumnModifier()));
+                    children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhs.getDataType(), 
+                            lhs.getMaxLength(), null, lhs.getColumnModifier()));
                 } else if (node.getFilterOp() == CompareOp.EQUAL) {
                     return LiteralExpression.FALSE_EXPRESSION;
                 } else if (node.getFilterOp() == CompareOp.NOT_EQUAL) {

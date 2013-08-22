@@ -27,9 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -114,7 +112,10 @@ public class ComparisonExpression extends BaseCompoundExpression {
         int rhsOffset = ptr.getOffset();
         int rhsLength = ptr.getLength();
         PDataType rhsDataType = children.get(1).getDataType();
-        ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();                       
+        ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();   
+        if (rhsDataType == PDataType.CHAR && rhsLength < lhsLength) {
+            rhsLength = lhsLength;
+        }
         int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
         ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;

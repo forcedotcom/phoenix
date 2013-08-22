@@ -29,7 +29,6 @@ package com.salesforce.phoenix.expression;
 
 import java.io.*;
 import java.sql.SQLException;
-import java.util.Arrays;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -41,6 +40,7 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 
@@ -104,7 +104,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
     
     public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException { // remove?
-    	return newConstant(value, type, maxLength, scale, null);
+        return newConstant(value, type, maxLength, scale, null);
     }
 
     // TODO: cache?
@@ -124,7 +124,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         try {
             byte[] b = type.toBytes(value, columnModifier);
             if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
-                b = Arrays.copyOf(b, maxLength);
+                b = SchemaUtil.padChar(b, maxLength);
             }
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];

@@ -118,8 +118,8 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
         String testString = "world";
         String query = "create table " + tableName +
                 "(a_id integer not null, \n" + 
-                "a_string char(8) not null, \n" +
-                "b_string char(10) not null \n" + 
+                "a_string char(10) not null, \n" +
+                "b_string char(8) not null \n" + 
                 "CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))";
         
     
@@ -148,7 +148,7 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
         statement.setInt(6, 1);
         statement.setInt(7, 1);
         statement.setString(8, "ab");
-        statement.setString(9, "morning");
+        statement.setString(9, "morning1");
         statement.execute();       
         conn.commit();
         try {
@@ -207,8 +207,14 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             statement = conn.prepareStatement(upsert);
             statement.execute();
             conn.commit();
-            query = "select a_string, b_string from " + tableName + " where a_id = 3 and a_string = '" + testString2 + "'";
+            query = "select a_string, b_string from " + tableName + "  where a_id = 3 and a_string = b_string";
             assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
+            
+            // can't compare a higher length col with lower length : a_string(10), b_string(8) 
+            query = "select a_string, b_string from " + tableName + "  where a_id = 3 and b_string = a_string";
+            statement = conn.prepareStatement(query);
+            rs = statement.executeQuery();
+            assertFalse(rs.next());
             
             //where selecting from a CHAR(x) and upserting into a CHAR(y) where x>y
             // upsert rowkey value greater than rowkey limit
@@ -242,15 +248,15 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
                         
             //where selecting from a CHAR(x) and upserting into a CHAR(y) where x<=y.
             upsert = "UPSERT INTO " + tableName + "(a_id, a_string, b_string) " +
-                    "SELECT a_integer, a_id, e_string FROM BTABLE";
+                    "SELECT a_integer, e_string, a_id FROM BTABLE";
             
             statement = conn.prepareStatement(upsert);
             rowsInserted = statement.executeUpdate();
             assertEquals(1, rowsInserted);
             conn.commit();
             
-            query = "select a_string, b_string from " + tableName + " where a_string  = 'xyz'";
-            assertCharacterPadding(conn.prepareStatement(query), "xyz", "morning");
+            query = "select a_string, b_string from " + tableName + " where a_string  = 'morning1'";
+            assertCharacterPadding(conn.prepareStatement(query), "morning1", "xyz");
         } finally {
             conn.close();
         }
