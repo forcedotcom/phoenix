@@ -223,6 +223,13 @@ public class SchemaUtil {
         return Bytes.toStringBinary(tableName);
     }
 
+    
+    public static byte[] getCharUnpaddedLength(byte[] b, int offset, int length) {
+        int i = offset + length -1;
+        while(b[i] == 0 && i-- > offset) {}
+        return Arrays.copyOfRange(b, offset, i+1);
+    }
+    
     public static String getColumnDisplayName(String schemaName, String tableName, String familyName, String columnName) {
         return Bytes.toStringBinary(getColumnName(
                 StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 

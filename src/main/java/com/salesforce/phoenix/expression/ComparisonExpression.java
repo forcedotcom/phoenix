@@ -39,6 +39,7 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -95,6 +96,7 @@ public class ComparisonExpression extends BaseCompoundExpression {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        int comparisonResult;
         if (!children.get(0).evaluate(tuple, ptr)) {
             return false;
         }
@@ -113,10 +115,14 @@ public class ComparisonExpression extends BaseCompoundExpression {
         int rhsLength = ptr.getLength();
         PDataType rhsDataType = children.get(1).getDataType();
         ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();   
-        if (rhsDataType == PDataType.CHAR && rhsLength < lhsLength) {
-            rhsLength = lhsLength;
+        if (rhsDataType == PDataType.CHAR && rhsDataType == PDataType.CHAR && rhsLength != lhsLength) {
+            lhsBytes = SchemaUtil.getCharUnpaddedLength(lhsBytes, lhsOffset, lhsLength);
+            rhsBytes = SchemaUtil.getCharUnpaddedLength(rhsBytes, rhsOffset, rhsLength);
+            comparisonResult = lhsDataType.compareTo(lhsBytes, rhsBytes);
+        } else {
+            comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
+                    rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
         }
-        int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
         ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
     }

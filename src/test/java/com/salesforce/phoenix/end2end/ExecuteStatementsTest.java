@@ -182,6 +182,8 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             
             String rowKey2 = "good"; 
             String testString2 = "morning";
+            String testString8Char = "morning1";
+            String testString10Char = "morning123";
             String upsert = "UPSERT INTO " + tableName + " values (2, '" + rowKey2 + "', '" + testString2+ "') ";
             statement = conn.prepareStatement(upsert);
             statement.execute();
@@ -210,8 +212,28 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             query = "select a_string, b_string from " + tableName + "  where a_id = 3 and a_string = b_string";
             assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
             
-            // can't compare a higher length col with lower length : a_string(10), b_string(8) 
+            // compare a higher length col with lower length : a_string(10), b_string(8) 
             query = "select a_string, b_string from " + tableName + "  where a_id = 3 and b_string = a_string";
+            statement = conn.prepareStatement(query);
+            rs = statement.executeQuery();
+            assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
+            
+            upsert = "UPSERT INTO " + tableName + " values (4, '" + rowKey2 + "', '" + rowKey2 + "') ";
+            statement = conn.prepareStatement(upsert);
+            statement.execute();
+            conn.commit();
+            
+            // where both the columns have same value with different paddings
+            query = "select a_string, b_string from " + tableName + "  where a_id = 4 and b_string = a_string";
+            assertCharacterPadding(conn.prepareStatement(query), rowKey2, rowKey2);
+            
+            upsert = "UPSERT INTO " + tableName + " values (5, '" + testString10Char + "', '" + testString8Char + "') ";
+            statement = conn.prepareStatement(upsert);
+            statement.execute();
+            conn.commit();
+            
+            // where one of columns is the smaller value is subset of larger value
+            query = "select a_string, b_string from " + tableName + "  where a_id = 5 and b_string = a_string";
             statement = conn.prepareStatement(query);
             rs = statement.executeQuery();
             assertFalse(rs.next());
