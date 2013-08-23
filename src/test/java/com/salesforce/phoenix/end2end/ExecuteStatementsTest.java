@@ -232,7 +232,7 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             statement.execute();
             conn.commit();
             
-            // where one of columns is the smaller value is subset of larger value
+            // where smaller column is the subset of larger string
             query = "select a_string, b_string from " + tableName + "  where a_id = 5 and b_string = a_string";
             statement = conn.prepareStatement(query);
             rs = statement.executeQuery();
