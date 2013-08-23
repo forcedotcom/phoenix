@@ -25,39 +25,46 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.join;
+package com.salesforce.phoenix.coprocessor;
 
+import java.io.Closeable;
 import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.ipc.CoprocessorProtocol;
+import org.apache.hadoop.io.Writable;
+
+import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 
 /**
  * 
- * EndPoint coprocessor to send the table being cached in a hash join to a region server.
- * Used in conjunction with {@link HashJoiningRegionObserver} to perform a hash join.
- *
+ * EndPoint coprocessor to send a cache to a region server.
+ * Used for:
+ * a) hash joins, to send the smaller side of the join to each region server
+ * b) secondary indexes, to send the necessary meta data to each region server
  * @author jtaylor
  * @since 0.1
  */
-public interface HashCacheProtocol extends CoprocessorProtocol {
+public interface ServerCachingProtocol extends CoprocessorProtocol {
+    public static interface ServerCacheFactory extends Writable {
+        public Closeable newCache(ImmutableBytesWritable cachePtr, MemoryChunk chunk) throws SQLException;
+    }
     /**
-     * Add the table being cached in a hash join to the region server attributes.  One side
-     * of the join is queried in advance and cached on each server for quicker retrievals. 
+     * Add the cache to the region server cache.  
      * @param tenantId the tenantId or null if not applicable
-     * @param joinId unique identifier of a hash join between two tables
-     * @param hashCache binary representation of table being cached
+     * @param cacheId unique identifier of the cache
+     * @param cache binary representation of cache
      * @return true on success and otherwise throws
      * @throws SQLException 
      */
-    public boolean addHashCache(byte[] tenantId, byte[] joinId, ImmutableBytesWritable hashCache) throws SQLException;
+    public boolean addServerCache(byte[] tenantId, byte[] cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory elementFactory) throws SQLException;
     /**
-     * Remove the cached table from the region server attributes.  Called upon completion of
-     * hash join when cache is no longer needed.
+     * Remove the cache from the region server cache.  Called upon completion of
+     * the operation when cache is no longer needed.
      * @param tenantId the tenantId or null if not applicable
-     * @param joinId unique identifier of a hash join between two tables
+     * @param cacheId unique identifier of the cache
      * @return true on success and otherwise throws
      * @throws SQLException 
      */
-    public boolean removeHashCache(byte[] tenantId, byte[] joinId) throws SQLException;
+    public boolean removeServerCache(byte[] tenantId, byte[] cacheId) throws SQLException;
 }
