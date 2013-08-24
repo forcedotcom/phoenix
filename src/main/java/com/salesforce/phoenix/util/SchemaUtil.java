@@ -224,10 +224,12 @@ public class SchemaUtil {
     }
 
     
-    public static byte[] getCharUnpaddedLength(byte[] b, int offset, int length) {
+    public static int getCharUnpaddedLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
         int i = offset + length -1;
-        while(b[i] == 0 && i-- > offset) {}
-        return Arrays.copyOfRange(b, offset, i+1);
+        // If bytes are inverted, we need to invert the byte we're looking for too
+        byte padByte = columnModifier == null ? 0 : columnModifier.apply((byte)0);
+        while(b[i] == padByte && i-- > offset) {}
+        return i - offset + 1;
     }
     
     public static String getColumnDisplayName(String schemaName, String tableName, String familyName, String columnName) {

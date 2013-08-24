@@ -115,14 +115,15 @@ public class ComparisonExpression extends BaseCompoundExpression {
         int rhsLength = ptr.getLength();
         PDataType rhsDataType = children.get(1).getDataType();
         ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();   
-        if (rhsDataType == PDataType.CHAR && rhsDataType == PDataType.CHAR && rhsLength != lhsLength) {
-            lhsBytes = SchemaUtil.getCharUnpaddedLength(lhsBytes, lhsOffset, lhsLength);
-            rhsBytes = SchemaUtil.getCharUnpaddedLength(rhsBytes, rhsOffset, rhsLength);
-            comparisonResult = lhsDataType.compareTo(lhsBytes, rhsBytes);
-        } else {
-            comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
-                    rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
+        if (rhsDataType == PDataType.CHAR) {
+            rhsLength = SchemaUtil.getCharUnpaddedLength(rhsBytes, rhsOffset, rhsLength, rhsColumnModifier);
         }
+        if (lhsDataType == PDataType.CHAR) {
+            lhsLength = SchemaUtil.getCharUnpaddedLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
+        }
+        
+        comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
+                rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
         ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
     }
