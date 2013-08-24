@@ -53,11 +53,12 @@ public interface ServerCachingProtocol extends CoprocessorProtocol {
      * Add the cache to the region server cache.  
      * @param tenantId the tenantId or null if not applicable
      * @param cacheId unique identifier of the cache
-     * @param cache binary representation of cache
+     * @param cachePtr pointer to the byte array of the cache
+     * @param cacheFactory factory that converts from byte array to object representation on the server side
      * @return true on success and otherwise throws
      * @throws SQLException 
      */
-    public boolean addServerCache(byte[] tenantId, byte[] cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory elementFactory) throws SQLException;
+    public boolean addServerCache(byte[] tenantId, byte[] cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory cacheFactory) throws SQLException;
     /**
      * Remove the cache from the region server cache.  Called upon completion of
      * the operation when cache is no longer needed.

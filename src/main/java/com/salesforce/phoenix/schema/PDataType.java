@@ -4607,12 +4607,13 @@ public enum PDataType {
     }
     
     /**
-     * By default just returns sqlType for the PDataType,
+     * By default returns sqlType for the PDataType,
      * however it allows unknown types (our unsigned types)
      * to return the regular corresponding sqlType so
      * that tools like SQuirrel correctly display values
      * of this type.
-     * @return
+     * @return integer representing the SQL type for display
+     * of a result set of this type
      */
     public int getResultSetSqlType() {
         return this.sqlType;

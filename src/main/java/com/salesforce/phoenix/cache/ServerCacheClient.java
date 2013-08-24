@@ -67,9 +67,9 @@ public class ServerCacheClient {
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
      * for caching during hash join processing.
-     * @param services the global services
-     * @param iterateOverTableName table name
-     * @param tenantId the tenantId or null if not applicable
+     * @param connection the client connection
+     * @param cacheUsingTableRef table name
+     * @param minMaxKeyRange KeyRange specifying the min and max keys for the operation involving cacheUsingTableRef
      */
     public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, KeyRange minMaxKeyRange) {
         this.connection = connection;

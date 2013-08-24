@@ -60,25 +60,19 @@ public class HashCacheClient  {
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
      * for caching during hash join processing.
-     * @param services the global services
+     * @param connection the client connection
      * @param cacheUsingTableRef table ref to table that will use the cache during its scan
-     * @param minMaxKeyRange the KeyRange of the start/stop of the scan that will be performed
+     * @param minMaxKeyRange the KeyRange of the min and max row for the operation that will be performed
      */
     public HashCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, KeyRange minMaxKeyRange) {
         serverCache = new ServerCacheClient(connection,cacheUsingTableRef,minMaxKeyRange);
     }
 
     /**
-     * Send the results of scanning the hashCacheTable (using the hashCacheScan) to all
-     * region servers for the table being iterated over (i.e. the other table involved in
-     * the join that is not being hashed).
+     * Send the results of scanning through the scanner to all
+     * region servers for regions of the table that will use the cache
+     * that intersect with the minMaxKeyRange.
      * @param scanner scanner for the table or intermediate results being cached
-     * @param tableName table name being scanned or null when hash cache will not be used
-     * in an outer join. TODO: switch to List<byte[]> for multi-table case if we go with
-     * single column layout
-     * @param cfs column families for table being scanned or null when hash cache will not
-     * be used in an outer join.  TODO: switch to List<byte[][]> for multi-table case if
-     * we go with single column layout
      * @return client-side {@link ServerCache} representing the added hash cache
      * @throws SQLException 
      * @throws MaxHashCacheSizeExceededException if size of hash cache exceeds max allowed
@@ -93,8 +87,7 @@ public class HashCacheClient  {
         return serverCache.addServerCache(ptr, new HashCacheFactory());
     }
     
-    // package private for testing
-    void serialize(ImmutableBytesWritable ptr, Scanner scanner, List<Expression> onExpressions) throws SQLException {
+    private void serialize(ImmutableBytesWritable ptr, Scanner scanner, List<Expression> onExpressions) throws SQLException {
         long maxSize = serverCache.getConnection().getQueryServices().getProps().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MAX_HASH_CACHE_SIZE);
         long estimatedSize = Math.min(scanner.getEstimatedSize(), maxSize);
         if (estimatedSize > Integer.MAX_VALUE) {
