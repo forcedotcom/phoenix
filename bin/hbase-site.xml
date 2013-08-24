@@ -22,20 +22,10 @@
  */
 -->
 <configuration>
+<!--
 	<property>
-		<name>phoenix.query.threadPoolSize</name>
-		<value>128</value>
+		<name>phoenix.mutate.upsertBatchSize</name>
+		<value>50000</value>
 	</property>
-	<property>
-		<name>phoenix.query.targetConcurrency</name>
-		<value>32</value>
-	</property>
-	<property>
-		<name>phoenix.query.maxConcurrency</name>
-		<value>64</value>
-	</property> 
-	<property>
-		<name>phoenix.query.timeoutMs</name>
-		<value>240000</value>
-	</property>
+-->
 </configuration>
