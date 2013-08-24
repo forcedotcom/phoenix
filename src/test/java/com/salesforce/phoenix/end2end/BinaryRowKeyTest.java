@@ -87,9 +87,7 @@ public class BinaryRowKeyTest extends BaseHBaseManagedTimeTest {
             stmt.setString(2, "a");
             stmt.execute();
             conn.commit();
-            fail("Should have caught bad insert.");
-        } catch (Exception e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("TEST_TABLE.A_BINARY must be 10 bytes"));
+           
         } finally {
             conn.close();
         }
