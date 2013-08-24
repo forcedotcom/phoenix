@@ -73,12 +73,14 @@ public class BinaryRowKeyTest extends BaseHBaseManagedTimeTest {
     }
 
     @Test
-    public void testInsertBadBinaryValue() throws SQLException {
+    public void testInsertPaddedBinaryValue() throws SQLException {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
             initTableValues();
-            
+            conn.setAutoCommit(true);
+            conn.createStatement().execute("DELETE FROM test_table");
+           
             String query = "UPSERT INTO test_table"
                     + "(a_binary, a_string) "
                     + "VALUES(?,?)";
@@ -86,8 +88,11 @@ public class BinaryRowKeyTest extends BaseHBaseManagedTimeTest {
             stmt.setBytes(1, new byte[] {0,0,0,0,0,0,0,0,1});
             stmt.setString(2, "a");
             stmt.execute();
-            conn.commit();
-           
+            
+            ResultSet rs = conn.createStatement().executeQuery("SELECT a_string FROM test_table");
+            assertTrue(rs.next());
+            assertEquals("a",rs.getString(1));
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }
