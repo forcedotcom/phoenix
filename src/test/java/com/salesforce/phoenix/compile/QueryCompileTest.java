@@ -964,9 +964,4 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
     }
-    
-    @Test
-    public void testCharWithPadding() throws Exception {
-        
-    }
 }
