@@ -223,6 +223,15 @@ public class SchemaUtil {
         return Bytes.toStringBinary(tableName);
     }
 
+    
+    public static int getCharUnpaddedLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
+        int i = offset + length -1;
+        // If bytes are inverted, we need to invert the byte we're looking for too
+        byte padByte = columnModifier == null ? 0 : columnModifier.apply((byte)0);
+        while(b[i] == padByte && i-- > offset) {}
+        return i - offset + 1;
+    }
+    
     public static String getColumnDisplayName(String schemaName, String tableName, String familyName, String columnName) {
         return Bytes.toStringBinary(getColumnName(
                 StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 
@@ -360,6 +369,10 @@ public class SchemaUtil {
 
     public static boolean isMetaTable(byte[] tableName) {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
+    }
+    
+    public static byte[] padChar(byte[] byteValue, Integer byteSize) {
+        return Arrays.copyOf(byteValue, byteSize);
     }
 
     public static boolean isMetaTable(String schemaName, String tableName) {
