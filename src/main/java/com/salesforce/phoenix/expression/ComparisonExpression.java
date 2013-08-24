@@ -96,7 +96,6 @@ public class ComparisonExpression extends BaseCompoundExpression {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        int comparisonResult;
         if (!children.get(0).evaluate(tuple, ptr)) {
             return false;
         }
@@ -122,7 +121,7 @@ public class ComparisonExpression extends BaseCompoundExpression {
             lhsLength = SchemaUtil.getCharUnpaddedLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
         }
         
-        comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
+        int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
                 rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
         ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
