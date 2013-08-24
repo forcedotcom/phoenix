@@ -967,9 +967,8 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
 
         try {
             stmt.execute();
-            fail();
         } catch (ConstraintViolationException e) {
-            assertTrue(e.getMessage().contains(" must be 10 bytes"));
+            fail("Constraint voilation Exception should not be thrown, the characters have to be padded");
         } finally {
             conn.close();
         }
@@ -1004,9 +1003,8 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
 
         try {
             stmt.execute();
-            fail();
         } catch (ConstraintViolationException e) {
-            assertTrue(e.getMessage().contains(" must be 3 bytes"));
+            fail("Constraint voilation Exception should not be thrown, the characters have to be padded");
         } finally {
             conn.close();
         }
