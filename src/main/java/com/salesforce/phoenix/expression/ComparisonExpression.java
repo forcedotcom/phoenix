@@ -115,10 +115,10 @@ public class ComparisonExpression extends BaseCompoundExpression {
         PDataType rhsDataType = children.get(1).getDataType();
         ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();   
         if (rhsDataType == PDataType.CHAR) {
-            rhsLength = SchemaUtil.getCharUnpaddedLength(rhsBytes, rhsOffset, rhsLength, rhsColumnModifier);
+            rhsLength = SchemaUtil.getUnpaddedCharLength(rhsBytes, rhsOffset, rhsLength, rhsColumnModifier);
         }
         if (lhsDataType == PDataType.CHAR) {
-            lhsLength = SchemaUtil.getCharUnpaddedLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
+            lhsLength = SchemaUtil.getUnpaddedCharLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
         }
         
         int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 

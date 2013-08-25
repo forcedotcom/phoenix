@@ -198,12 +198,13 @@ public enum PDataType {
             }
             if (length == 0) {
                 return null;
-           }
-           String s = Bytes.toString(bytes, offset, length);
-           if (length != s.length()) {
+            }
+            length = SchemaUtil.getUnpaddedCharLength(bytes, offset, length, null);
+            String s = Bytes.toString(bytes, offset, length);
+            if (length != s.length()) {
                throw new IllegalDataException("CHAR types may only contain single byte characters (" + s + ")");
-           }
-           return s;
+            }
+            return s;
         }
 
         @Override
@@ -240,6 +241,15 @@ public enum PDataType {
         @Override
         public Integer getByteSize() {
             return null;
+        }
+
+        @Override
+        public Integer getMaxLength(Object o) {
+            if (o == null) {
+                return null;
+            }
+            String value = (String) o;
+            return value.length();
         }
 
         @Override

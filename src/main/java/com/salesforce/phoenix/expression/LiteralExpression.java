@@ -59,8 +59,8 @@ public class LiteralExpression extends BaseTerminalExpression {
             TYPED_NULL_EXPRESSIONS[i] = new LiteralExpression(PDataType.values()[i]);
         }
     }
-    public static final LiteralExpression FALSE_EXPRESSION = new LiteralExpression(Boolean.FALSE);
-    public static final LiteralExpression TRUE_EXPRESSION = new LiteralExpression(Boolean.TRUE);
+    public static final LiteralExpression FALSE_EXPRESSION = new LiteralExpression(Boolean.FALSE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.FALSE));
+    public static final LiteralExpression TRUE_EXPRESSION = new LiteralExpression(Boolean.TRUE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.TRUE));
 
     private Object value;
     private PDataType type;
@@ -123,7 +123,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         value = type.toObject(value, actualType);
         try {
             byte[] b = type.toBytes(value, columnModifier);
-            if (type == PDataType.CHAR && maxLength != null  && b.length != maxLength) {
+            if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
                 b = SchemaUtil.padChar(b, maxLength);
             }
             if (b.length == 0) {
@@ -138,26 +138,12 @@ public class LiteralExpression extends BaseTerminalExpression {
     public LiteralExpression() {
     }
 
-    protected LiteralExpression(Object value) {
-        this.value = value;
-        this.type = PDataType.fromLiteral(value);
-        if (type == null) {
-            this.byteValue = PDataType.NULL_BYTES;
-        } else {
-            this.byteValue = this.type.toBytes(this.value);
-        }
-        this.byteSize = byteValue.length;
-        this.maxLength = type == null? null : type.getMaxLength(value);
-        this.scale = type == null? null : type.getScale(value);
-    }
-
     private LiteralExpression(PDataType type) {
         this(null, type, ByteUtil.EMPTY_BYTE_ARRAY);
     }
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue) {
-        this(value, type, byteValue, type == null? null : type.getMaxLength(value),
-                type == null? null : type.getScale(value), null);
+        this(value, type, byteValue, type == null? null : type.getMaxLength(value), type == null? null : type.getScale(value), null);
     }
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue,

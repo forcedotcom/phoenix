@@ -157,7 +157,7 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
             
             // test with rowkey  in where clause
-            query = "select a_string, b_string from " + tableName + " where a_string = '" + rowKey + "'";
+            query = "select a_string, b_string from " + tableName + " where a_id = 1 and a_string = '" + rowKey + "'";
             assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
             
             // test with non-rowkey  in where clause
@@ -288,8 +288,8 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
     private void assertCharacterPadding(PreparedStatement statement, String rowKey, String testString) throws SQLException {
         ResultSet rs = statement.executeQuery();
         assertTrue(rs.next());
-        assertEquals(rowKey, rs.getString(1).trim());
-        assertEquals(testString, rs.getString(2).trim());
+        assertEquals(rowKey, rs.getString(1));
+        assertEquals(testString, rs.getString(2));
     }
     
 }

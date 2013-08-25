@@ -68,6 +68,7 @@ import com.salesforce.phoenix.schema.*;
 public class SchemaUtil {
     private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
+    private static final byte PAD_BYTE = (byte)0;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
     /**
@@ -224,11 +225,13 @@ public class SchemaUtil {
     }
 
     
-    public static int getCharUnpaddedLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
+    public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
         int i = offset + length -1;
         // If bytes are inverted, we need to invert the byte we're looking for too
-        byte padByte = columnModifier == null ? 0 : columnModifier.apply((byte)0);
-        while(b[i] == padByte && i-- > offset) {}
+        byte padByte = columnModifier == null ? PAD_BYTE : columnModifier.apply(PAD_BYTE);
+        while(i > offset && b[i] == padByte) {
+            i--;
+        }
         return i - offset + 1;
     }
     
