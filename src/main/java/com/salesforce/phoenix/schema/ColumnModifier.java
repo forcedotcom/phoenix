@@ -118,16 +118,16 @@ public enum ColumnModifier {
     }
 
     /**
-     * Copies the bytes from src array to dest array and applies the column modifier operation on the bytes
-     * starting at the specified offset index.  The column modifier is applied to the number of bytes matching the 
-     * specified length.  If dest is null, a new byte array is allocated.
+     * Copies the bytes from source array to detination array and applies the column modifier operation on the bytes
+     * starting at the specified offsets.  The column modifier is applied to the number of bytes matching the 
+     * specified length.
      * 
-     * @param src  the src byte array to copy from, cannot be null
-     * @param dest the byte array to copy into, if it is null, a new byte array with the same lenght as src is allocated
-     * @param dstOffset TODO
-     * @param length  apply the column modifier for this many bytes 
-     * @param offset  start applying the column modifier from this index
-     * @return  dest or a new byte array if dest is null
+     * @param src  the source byte array to copy from, cannot be null
+     * @param srcOffset the offset into the source byte array at which to begin.
+     * @param dest the destination byte array into which to transfer the modified bytes.
+     * @param dstOffset the offset into the destination byte array at which to begin
+     * @param length the number of bytes for which to apply the modification
+     * @return the destination byte array
      */
     public abstract byte[] apply(byte[] src, int srcOffset, byte[] dest, int dstOffset, int length);
     public abstract byte apply(byte b);

@@ -32,27 +32,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 public class HashJoinInfo {
     private static final String HASH_JOIN = "HashJoin";
     
-    private ImmutableBytesWritable[] joinIds;
+    private ImmutableBytesPtr[] joinIds;
     private List<Expression>[] joinExpressions;
     private JoinType[] joinTypes;
     
-    private HashJoinInfo(ImmutableBytesWritable[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes) {
+    private HashJoinInfo(ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes) {
         this.joinIds = joinIds;
         this.joinExpressions = joinExpressions;
         this.joinTypes = joinTypes;
     }
     
-    public ImmutableBytesWritable[] getJoinIds() {
+    public ImmutableBytesPtr[] getJoinIds() {
         return joinIds;
     }
     
@@ -102,11 +102,11 @@ public class HashJoinInfo {
         try {
             DataInputStream input = new DataInputStream(stream);
             int count = WritableUtils.readVInt(input);
-            ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[count];
+            ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[count];
             List<Expression>[] joinExpressions = new List[count];
             JoinType[] joinTypes = new JoinType[count];
             for (int i = 0; i < count; i++) {
-                joinIds[i] = new ImmutableBytesWritable();
+                joinIds[i] = new ImmutableBytesPtr();
                 joinIds[i].readFields(input);
                 int nExprs = WritableUtils.readVInt(input);
                 joinExpressions[i] = new ArrayList<Expression>(nExprs);

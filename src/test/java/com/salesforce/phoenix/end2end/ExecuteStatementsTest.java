@@ -109,4 +109,187 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
         assertFalse(rs.next());
         conn.close();
     }
+    
+    @Test
+    public void testCharPadding() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        String tableName = "foo";
+        String rowKey = "hello"; 
+        String testString = "world";
+        String query = "create table " + tableName +
+                "(a_id integer not null, \n" + 
+                "a_string char(10) not null, \n" +
+                "b_string char(8) not null \n" + 
+                "CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))";
+        
+    
+        PreparedStatement statement = conn.prepareStatement(query);
+        statement.execute();
+        statement = conn.prepareStatement(
+                "upsert into " + tableName +
+                "    (a_id, " +
+                "    a_string, " +
+                "    b_string)" +
+                "VALUES (?, ?, ?)");
+        statement.setInt(1, 1);
+        statement.setString(2, rowKey);
+        statement.setString(3, testString);
+        statement.execute();       
+        conn.commit();
+        
+        ensureTableCreated(getUrl(),BTABLE_NAME, null, nextTimestamp()-2);
+        statement = conn.prepareStatement(
+                "upsert into BTABLE VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        statement.setString(1, "abc");
+        statement.setString(2, "xyz");
+        statement.setString(3, "x");
+        statement.setInt(4, 9);
+        statement.setString(5, "ab");
+        statement.setInt(6, 1);
+        statement.setInt(7, 1);
+        statement.setString(8, "ab");
+        statement.setString(9, "morning1");
+        statement.execute();       
+        conn.commit();
+        try {
+            // test rowkey and non-rowkey values in select statement
+            query = "select a_string, b_string from " + tableName;
+            assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
+            
+            // test with rowkey  in where clause
+            query = "select a_string, b_string from " + tableName + " where a_id = 1 and a_string = '" + rowKey + "'";
+            assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
+            
+            // test with non-rowkey  in where clause
+            query = "select a_string, b_string from " + tableName + " where b_string = '" + testString + "'";
+            assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
+            
+            // test with rowkey and id  in where clause
+            query = "select a_string, b_string from " + tableName + " where a_id = 1 and a_string = '" + rowKey + "'";
+            assertCharacterPadding(conn.prepareStatement(query), rowKey, testString);
+            
+            // test with rowkey and id  in where clause where rowkey is greater than the length of the char.len
+            query = "select a_string, b_string from " + tableName + " where a_id = 1 and a_string  = '" + rowKey + testString + "'";
+            statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertFalse(rs.next());
+            
+            // test with rowkey and id  in where clause where rowkey is lesser than the length of the char.len
+            query = "select a_string, b_string from " + tableName + " where a_id = 1 and a_string  = 'he'";
+            statement = conn.prepareStatement(query);
+            rs = statement.executeQuery();
+            assertFalse(rs.next());
+            
+            String rowKey2 = "good"; 
+            String testString2 = "morning";
+            String testString8Char = "morning1";
+            String testString10Char = "morning123";
+            String upsert = "UPSERT INTO " + tableName + " values (2, '" + rowKey2 + "', '" + testString2+ "') ";
+            statement = conn.prepareStatement(upsert);
+            statement.execute();
+            conn.commit();
+            
+            // test upsert statement with padding
+            String tenantId = getOrganizationId();
+            initATableValues(tenantId, getDefaultSplits(tenantId), null, nextTimestamp()-1);
+            
+            upsert = "UPSERT INTO " + tableName + "(a_id, a_string, b_string) " +
+                    "SELECT A_INTEGER, A_STRING, B_STRING FROM ATABLE WHERE a_string = ?";
+            
+            statement = conn.prepareStatement(upsert);
+            statement.setString(1, A_VALUE);
+            int rowsInserted = statement.executeUpdate();
+            assertEquals(4, rowsInserted);
+            conn.commit();
+            
+            query = "select a_string, b_string from " + tableName + " where a_string  = '" + A_VALUE+"'";
+            assertCharacterPadding(conn.prepareStatement(query), A_VALUE, B_VALUE);            
+            
+            upsert = "UPSERT INTO " + tableName + " values (3, '" + testString2 + "', '" + testString2+ "') ";
+            statement = conn.prepareStatement(upsert);
+            statement.execute();
+            conn.commit();
+            query = "select a_string, b_string from " + tableName + "  where a_id = 3 and a_string = b_string";
+            assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
+            
+            // compare a higher length col with lower length : a_string(10), b_string(8) 
+            query = "select a_string, b_string from " + tableName + "  where a_id = 3 and b_string = a_string";
+            statement = conn.prepareStatement(query);
+            rs = statement.executeQuery();
+            assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
+            
+            upsert = "UPSERT INTO " + tableName + " values (4, '" + rowKey2 + "', '" + rowKey2 + "') ";
+            statement = conn.prepareStatement(upsert);
+            statement.execute();
+            conn.commit();
+            
+            // where both the columns have same value with different paddings
+            query = "select a_string, b_string from " + tableName + "  where a_id = 4 and b_string = a_string";
+            assertCharacterPadding(conn.prepareStatement(query), rowKey2, rowKey2);
+            
+            upsert = "UPSERT INTO " + tableName + " values (5, '" + testString10Char + "', '" + testString8Char + "') ";
+            statement = conn.prepareStatement(upsert);
+            statement.execute();
+            conn.commit();
+            
+            // where smaller column is the subset of larger string
+            query = "select a_string, b_string from " + tableName + "  where a_id = 5 and b_string = a_string";
+            statement = conn.prepareStatement(query);
+            rs = statement.executeQuery();
+            assertFalse(rs.next());
+            
+            //where selecting from a CHAR(x) and upserting into a CHAR(y) where x>y
+            // upsert rowkey value greater than rowkey limit
+            try {
+                
+                upsert = "UPSERT INTO " + tableName + "(a_id, a_string, b_string) " +
+                        "SELECT x_integer, organization_id, b_string FROM ATABLE WHERE a_string = ?";
+                
+                statement = conn.prepareStatement(upsert);
+                statement.setString(1, A_VALUE);
+                statement.executeUpdate();
+                fail("Should fail when bigger than expected character is inserted");
+            } catch (SQLException ex) {
+                assertTrue(ex.getMessage().contains("The value is outside the range for the data type. columnName=A_STRING"));
+            }
+            
+            // upsert non-rowkey value greater than its limit
+            try {
+                
+                upsert = "UPSERT INTO " + tableName + "(a_id, a_string, b_string) " +
+                        "SELECT y_integer, a_string, entity_id FROM ATABLE WHERE a_string = ?";
+                
+                statement = conn.prepareStatement(upsert);
+                statement.setString(1, A_VALUE);
+                statement.executeUpdate();
+                fail("Should fail when bigger than expected character is inserted");
+            }
+            catch (SQLException ex) {
+                assertTrue(ex.getMessage().contains("The value is outside the range for the data type. columnName=B_STRING"));
+            }
+                        
+            //where selecting from a CHAR(x) and upserting into a CHAR(y) where x<=y.
+            upsert = "UPSERT INTO " + tableName + "(a_id, a_string, b_string) " +
+                    "SELECT a_integer, e_string, a_id FROM BTABLE";
+            
+            statement = conn.prepareStatement(upsert);
+            rowsInserted = statement.executeUpdate();
+            assertEquals(1, rowsInserted);
+            conn.commit();
+            
+            query = "select a_string, b_string from " + tableName + " where a_string  = 'morning1'";
+            assertCharacterPadding(conn.prepareStatement(query), "morning1", "xyz");
+        } finally {
+            conn.close();
+        }
+    }
+    
+    
+    private void assertCharacterPadding(PreparedStatement statement, String rowKey, String testString) throws SQLException {
+        ResultSet rs = statement.executeQuery();
+        assertTrue(rs.next());
+        assertEquals(rowKey, rs.getString(1));
+        assertEquals(testString, rs.getString(2));
+    }
+    
 }

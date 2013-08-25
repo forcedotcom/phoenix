@@ -25,39 +25,40 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.join;
+package com.salesforce.phoenix.coprocessor;
 
 import java.sql.SQLException;
 
+import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.ipc.CoprocessorProtocol;
+
+import com.salesforce.phoenix.cache.GlobalCache;
+import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+
+
+
 
 /**
  * 
- * EndPoint coprocessor to send the table being cached in a hash join to a region server.
- * Used in conjunction with {@link HashJoiningRegionObserver} to perform a hash join.
+ * Server-side implementation of {@link ServerCachingProtocol}
  *
  * @author jtaylor
  * @since 0.1
  */
-public interface HashCacheProtocol extends CoprocessorProtocol {
-    /**
-     * Add the table being cached in a hash join to the region server attributes.  One side
-     * of the join is queried in advance and cached on each server for quicker retrievals. 
-     * @param tenantId the tenantId or null if not applicable
-     * @param joinId unique identifier of a hash join between two tables
-     * @param hashCache binary representation of table being cached
-     * @return true on success and otherwise throws
-     * @throws SQLException 
-     */
-    public boolean addHashCache(byte[] tenantId, byte[] joinId, ImmutableBytesWritable hashCache) throws SQLException;
-    /**
-     * Remove the cached table from the region server attributes.  Called upon completion of
-     * hash join when cache is no longer needed.
-     * @param tenantId the tenantId or null if not applicable
-     * @param joinId unique identifier of a hash join between two tables
-     * @return true on success and otherwise throws
-     * @throws SQLException 
-     */
-    public boolean removeHashCache(byte[] tenantId, byte[] joinId) throws SQLException;
+public class ServerCachingEndpointImpl extends BaseEndpointCoprocessor implements ServerCachingProtocol {
+
+    @Override
+    public boolean addServerCache(byte[] tenantId, byte[] cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory cacheFactory) throws SQLException {
+        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesPtr(tenantId));
+        tenantCache.addServerCache(new ImmutableBytesPtr(cacheId), cachePtr, cacheFactory);
+        return true;
+    }
+
+    @Override
+    public boolean removeServerCache(byte[] tenantId, byte[] cacheId) throws SQLException {
+        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesPtr(tenantId));
+        tenantCache.removeServerCache(new ImmutableBytesPtr(cacheId));
+        return true;
+    }
 }

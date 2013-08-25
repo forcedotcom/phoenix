@@ -85,6 +85,7 @@ public class KeyRange implements Writable {
         }
     };
     public static final Comparator<KeyRange> COMPARATOR = new Comparator<KeyRange>() {
+        @SuppressWarnings("deprecation")
         @Override public int compare(KeyRange o1, KeyRange o2) {
             return ComparisonChain.start()
                     .compare(o1.lowerUnbound(), o2.lowerUnbound())

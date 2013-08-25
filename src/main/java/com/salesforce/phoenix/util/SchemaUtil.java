@@ -68,6 +68,7 @@ import com.salesforce.phoenix.schema.*;
 public class SchemaUtil {
     private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
+    private static final byte PAD_BYTE = (byte)0;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
     /**
@@ -223,6 +224,17 @@ public class SchemaUtil {
         return Bytes.toStringBinary(tableName);
     }
 
+    
+    public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
+        int i = offset + length -1;
+        // If bytes are inverted, we need to invert the byte we're looking for too
+        byte padByte = columnModifier == null ? PAD_BYTE : columnModifier.apply(PAD_BYTE);
+        while(i > offset && b[i] == padByte) {
+            i--;
+        }
+        return i - offset + 1;
+    }
+    
     public static String getColumnDisplayName(String schemaName, String tableName, String familyName, String columnName) {
         return Bytes.toStringBinary(getColumnName(
                 StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 
@@ -360,6 +372,10 @@ public class SchemaUtil {
 
     public static boolean isMetaTable(byte[] tableName) {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
+    }
+    
+    public static byte[] padChar(byte[] byteValue, Integer byteSize) {
+        return Arrays.copyOf(byteValue, byteSize);
     }
 
     public static boolean isMetaTable(String schemaName, String tableName) {

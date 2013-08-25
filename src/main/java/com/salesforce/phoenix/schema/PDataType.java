@@ -198,12 +198,13 @@ public enum PDataType {
             }
             if (length == 0) {
                 return null;
-           }
-           String s = Bytes.toString(bytes, offset, length);
-           if (length != s.length()) {
+            }
+            length = SchemaUtil.getUnpaddedCharLength(bytes, offset, length, null);
+            String s = Bytes.toString(bytes, offset, length);
+            if (length != s.length()) {
                throw new IllegalDataException("CHAR types may only contain single byte characters (" + s + ")");
-           }
-           return s;
+            }
+            return s;
         }
 
         @Override
@@ -240,6 +241,15 @@ public enum PDataType {
         @Override
         public Integer getByteSize() {
             return null;
+        }
+
+        @Override
+        public Integer getMaxLength(Object o) {
+            if (o == null) {
+                return null;
+            }
+            String value = (String) o;
+            return value.length();
         }
 
         @Override
@@ -317,6 +327,22 @@ public enum PDataType {
             case UNSIGNED_SMALLINT:
                 s = (Short)object;
                 return s;
+            case FLOAT:
+            case UNSIGNED_FLOAT:
+                Float f = (Float)object;
+                if (f > Long.MAX_VALUE || f < Long.MIN_VALUE) {
+                    throw new IllegalDataException(actualType + " value " + f + " cannot be cast to Long without changing its value");
+                }
+                s = f.longValue();
+                return s;
+            case DOUBLE:
+            case UNSIGNED_DOUBLE:
+                Double de = (Double) object;
+                if (de > Long.MAX_VALUE || de < Long.MIN_VALUE) {
+                    throw new IllegalDataException(actualType + " value " + de + " cannot be cast to Long without changing its value");
+                }
+                s = de.longValue();
+                return s;
             case DECIMAL:
                 BigDecimal d = (BigDecimal)object;
                 return d.longValueExact();
@@ -349,6 +375,10 @@ public enum PDataType {
             case UNSIGNED_SMALLINT:
             case UNSIGNED_TINYINT:
             case TINYINT:
+            case UNSIGNED_FLOAT:
+            case FLOAT:
+            case UNSIGNED_DOUBLE:
+            case DOUBLE:
                 return actualType.getCodec().decodeLong(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
@@ -375,6 +405,8 @@ public enum PDataType {
             if (value != null) {
                 long l;
                 switch (targetType) {
+                    case UNSIGNED_DOUBLE:
+                    case UNSIGNED_FLOAT:
                     case UNSIGNED_LONG:
                         l = (Long) value;
                         return l >= 0;
@@ -490,6 +522,10 @@ public enum PDataType {
             case UNSIGNED_SMALLINT:
             case TINYINT:
             case UNSIGNED_TINYINT:
+            case FLOAT:
+            case UNSIGNED_FLOAT:
+            case DOUBLE:
+            case UNSIGNED_DOUBLE:
                 return actualType.getCodec().decodeInt(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
@@ -500,6 +536,8 @@ public enum PDataType {
         public boolean isCoercibleTo(PDataType targetType, Object value) {
             if (value != null) {
                 switch (targetType) {
+                    case UNSIGNED_DOUBLE:
+                    case UNSIGNED_FLOAT:
                     case UNSIGNED_LONG:
                     case UNSIGNED_INT:
                         int i = (Integer) value;
@@ -645,6 +683,10 @@ public enum PDataType {
           case UNSIGNED_LONG:
           case INTEGER:
           case UNSIGNED_INT:
+          case FLOAT:
+          case UNSIGNED_FLOAT:
+          case DOUBLE:
+          case UNSIGNED_DOUBLE:
               return actualType.getCodec().decodeShort(b, o, null);
           default:
               return super.toObject(b,o,l,actualType);
@@ -667,6 +709,8 @@ public enum PDataType {
       public boolean isCoercibleTo(PDataType targetType, Object value) {
           if (value != null) {
               switch (targetType) {
+                  case UNSIGNED_DOUBLE:
+                  case UNSIGNED_FLOAT:
                   case UNSIGNED_LONG:
                   case UNSIGNED_INT:
                   case UNSIGNED_SMALLINT:
@@ -770,6 +814,10 @@ public enum PDataType {
               return null;
           }
           switch (actualType) {
+          case UNSIGNED_DOUBLE:
+          case DOUBLE:
+          case UNSIGNED_FLOAT:
+          case FLOAT:
           case UNSIGNED_LONG:
           case LONG:
           case UNSIGNED_INT:
@@ -788,6 +836,8 @@ public enum PDataType {
       public boolean isCoercibleTo(PDataType targetType, Object value) {
           if (value != null) {
               switch (targetType) {
+                  case UNSIGNED_DOUBLE:
+                  case UNSIGNED_FLOAT:
                   case UNSIGNED_LONG:
                   case UNSIGNED_INT:
                   case UNSIGNED_SMALLINT:
@@ -1815,6 +1865,22 @@ public enum PDataType {
                     throw new IllegalDataException("Value may not be negative(" + v + ")");
                 }
                 return v;
+            case UNSIGNED_FLOAT:
+            case FLOAT:
+                Float f = (Float) object;
+                v = f.longValue();
+                if (v < 0) {
+                    throw new IllegalDataException("Value may not be negative(" + v + ")");
+                }
+                return v;
+            case UNSIGNED_DOUBLE:
+            case DOUBLE:
+                Double de = (Double) object;
+                v = de.longValue();
+                if (v < 0) {
+                    throw new IllegalDataException("Value may not be negative(" + v + ")");
+                }
+                return v;
             case DECIMAL:
                 BigDecimal d = (BigDecimal) object;
                 if (d.signum() == -1) {
@@ -1838,7 +1904,12 @@ public enum PDataType {
             case UNSIGNED_INT:
             case SMALLINT:
             case UNSIGNED_SMALLINT:
+            case TINYINT:
             case UNSIGNED_TINYINT:
+            case FLOAT:
+            case UNSIGNED_FLOAT:
+            case DOUBLE:
+            case UNSIGNED_DOUBLE:
                 return actualType.getCodec().decodeLong(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
@@ -1971,7 +2042,12 @@ public enum PDataType {
             case INTEGER:
             case SMALLINT:
             case UNSIGNED_SMALLINT:
+            case TINYINT:
             case UNSIGNED_TINYINT:
+            case FLOAT:
+            case UNSIGNED_FLOAT:
+            case DOUBLE:
+            case UNSIGNED_DOUBLE:
                 return actualType.getCodec().decodeInt(b, o, null);
             default:
                 return super.toObject(b,o,l,actualType);
@@ -2135,6 +2211,10 @@ public enum PDataType {
           case SMALLINT:
           case UNSIGNED_TINYINT:
           case TINYINT:
+          case UNSIGNED_FLOAT:
+          case FLOAT:
+          case UNSIGNED_DOUBLE:
+          case DOUBLE:
               return actualType.getCodec().decodeShort(b, o, null);
           default:
               return super.toObject(b,o,l,actualType);
@@ -2259,6 +2339,10 @@ public enum PDataType {
           case SMALLINT:
           case UNSIGNED_TINYINT:
           case TINYINT:
+          case UNSIGNED_FLOAT:
+          case FLOAT:
+          case UNSIGNED_DOUBLE:
+          case DOUBLE:
               return actualType.getCodec().decodeByte(b, o, null);
           default:
               return super.toObject(b,o,l,actualType);
@@ -4533,12 +4617,13 @@ public enum PDataType {
     }
     
     /**
-     * By default just returns sqlType for the PDataType,
+     * By default returns sqlType for the PDataType,
      * however it allows unknown types (our unsigned types)
      * to return the regular corresponding sqlType so
      * that tools like SQuirrel correctly display values
      * of this type.
-     * @return
+     * @return integer representing the SQL type for display
+     * of a result set of this type
      */
     public int getResultSetSqlType() {
         return this.sqlType;

@@ -296,6 +296,22 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
+    public void testNotDegenerateRowKeyFilter() throws SQLException {
+        String keyPrefix = "fo";
+        String query = "select * from atable where entity_id=?";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        List<Object> binds = Arrays.<Object>asList(keyPrefix);
+        Scan scan = new Scan();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        assertEquals(0,scan.getStartRow().length);
+        assertEquals(0,scan.getStopRow().length);
+    }
+
+    @Test
     public void testDegenerateRowKeyFilter() throws SQLException {
         String keyPrefix = "foobar";
         String query = "select * from atable where substr(entity_id,1,3)=?";

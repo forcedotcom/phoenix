@@ -25,38 +25,47 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.join;
+package com.salesforce.phoenix.coprocessor;
 
+import java.io.Closeable;
 import java.sql.SQLException;
 
-import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.ipc.CoprocessorProtocol;
+import org.apache.hadoop.io.Writable;
 
-import com.salesforce.phoenix.cache.GlobalCache;
-import com.salesforce.phoenix.cache.TenantCache;
-
-
+import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 
 /**
  * 
- * Server-side implementation of {@link HashCacheProtocol}
- *
+ * EndPoint coprocessor to send a cache to a region server.
+ * Used for:
+ * a) hash joins, to send the smaller side of the join to each region server
+ * b) secondary indexes, to send the necessary meta data to each region server
  * @author jtaylor
  * @since 0.1
  */
-public class HashCacheImplementation extends BaseEndpointCoprocessor implements HashCacheProtocol {
-
-    @Override
-    public boolean addHashCache(byte[] tenantId, byte[] joinId, ImmutableBytesWritable hashCache) throws SQLException {
-        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesWritable(tenantId));
-        tenantCache.addHashCache(new ImmutableBytesWritable(joinId), hashCache);
-        return true;
+public interface ServerCachingProtocol extends CoprocessorProtocol {
+    public static interface ServerCacheFactory extends Writable {
+        public Closeable newCache(ImmutableBytesWritable cachePtr, MemoryChunk chunk) throws SQLException;
     }
-
-    @Override
-    public boolean removeHashCache(byte[] tenantId, byte[] joinId) throws SQLException {
-        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesWritable(tenantId));
-        tenantCache.removeHashCache(new ImmutableBytesWritable(joinId));
-        return true;
-    }
+    /**
+     * Add the cache to the region server cache.  
+     * @param tenantId the tenantId or null if not applicable
+     * @param cacheId unique identifier of the cache
+     * @param cachePtr pointer to the byte array of the cache
+     * @param cacheFactory factory that converts from byte array to object representation on the server side
+     * @return true on success and otherwise throws
+     * @throws SQLException 
+     */
+    public boolean addServerCache(byte[] tenantId, byte[] cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory cacheFactory) throws SQLException;
+    /**
+     * Remove the cache from the region server cache.  Called upon completion of
+     * the operation when cache is no longer needed.
+     * @param tenantId the tenantId or null if not applicable
+     * @param cacheId unique identifier of the cache
+     * @return true on success and otherwise throws
+     * @throws SQLException 
+     */
+    public boolean removeServerCache(byte[] tenantId, byte[] cacheId) throws SQLException;
 }

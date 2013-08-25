@@ -311,10 +311,8 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
                 }
                 Integer byteSize = column.getByteSize();
-                if (type.isFixedWidth()) { // TODO: handle multi-byte characters
-                    if (byteValue.length != byteSize) {
-                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
-                    }
+                if (type.isFixedWidth() && byteValue.length <= byteSize) {
+                    byteValue = SchemaUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
                 }
@@ -467,10 +465,8 @@ public class PTableImpl implements PTable {
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
                 Integer byteSize = column.getByteSize();
-                if (type.isFixedWidth()) { // TODO: handle multi-byte characters
-                    if (byteValue.length != byteSize) {
-                        throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " must be " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
-                    }
+                if (type.isFixedWidth() && byteValue.length <= byteSize) { 
+                    byteValue = SchemaUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }
@@ -478,7 +474,7 @@ public class PTableImpl implements PTable {
                 setValues.add(family, qualifier, ts, byteValue);
             }
         }
-
+        
         @Override
         public void delete() {
             setValues = new Put(key);
