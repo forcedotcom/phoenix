@@ -4,8 +4,9 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.client.Scan;
 
+import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.ExplainPlan;
 import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.RowProjector;
@@ -17,15 +18,16 @@ import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 public class HashJoinPlan implements QueryPlan {
     
     private BasicQueryPlan plan;
-    private ImmutableBytesWritable[] joinIds;
+    private ImmutableBytesPtr[] joinIds;
     private List<Expression>[] hashExpressions;
     private QueryPlan[] hashPlans;
     
-    public HashJoinPlan(BasicQueryPlan plan, ImmutableBytesWritable[] joinIds,
+    public HashJoinPlan(BasicQueryPlan plan, ImmutableBytesPtr[] joinIds,
             List<Expression>[] hashExpressions, QueryPlan[] hashPlans) {
         this.plan = plan;
         this.joinIds = joinIds;
@@ -53,9 +55,12 @@ public class HashJoinPlan implements QueryPlan {
         assert (joinIds.length == hashExpressions.length && joinIds.length == hashPlans.length);
         
         HashCacheClient hashClient = plan.getContext().getHashClient();
+        Scan scan = plan.getContext().getScan();
+        KeyRange keyRange = KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow());
         // TODO replace with Future execution
         for (int i = 0; i < joinIds.length; i++) {
-            hashClient.addHashCache(joinIds[i].get(), hashPlans[i].getScanner(), hashExpressions[i], plan.getTableRef());
+            ServerCache cache = hashClient.addHashCache(hashPlans[i].getScanner(), hashExpressions[i], plan.getTableRef(), keyRange);
+            joinIds[i].set(cache.getId());
         }
         return plan.getScanner();
     }
@@ -77,20 +82,17 @@ public class HashJoinPlan implements QueryPlan {
 
     @Override
     public StatementContext getContext() {
-        // TODO Auto-generated method stub
-        return null;
+        return plan.getContext();
     }
 
     @Override
     public GroupBy getGroupBy() {
-        // TODO Auto-generated method stub
-        return null;
+        return plan.getGroupBy();
     }
 
     @Override
     public TableRef getTableRef() {
-        // TODO Auto-generated method stub
-        return null;
+        return plan.getTableRef();
     }
 
 }

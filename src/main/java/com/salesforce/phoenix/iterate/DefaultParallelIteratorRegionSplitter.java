@@ -39,6 +39,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
@@ -60,11 +61,11 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
     protected final StatementContext context;
     protected final TableRef table;
 
-    public static DefaultParallelIteratorRegionSplitter getInstance(StatementContext context, TableRef table) {
-        return new DefaultParallelIteratorRegionSplitter(context, table);
+    public static DefaultParallelIteratorRegionSplitter getInstance(StatementContext context, TableRef table, HintNode hintNode) {
+        return new DefaultParallelIteratorRegionSplitter(context, table, hintNode);
     }
 
-    protected DefaultParallelIteratorRegionSplitter(StatementContext context, TableRef table) {
+    protected DefaultParallelIteratorRegionSplitter(StatementContext context, TableRef table, HintNode hintNode) {
         this.context = context;
         this.table = table;
         ReadOnlyProps props = context.getConnection().getQueryServices().getProps();
@@ -74,7 +75,7 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
                 QueryServicesOptions.DEFAULT_MAX_QUERY_CONCURRENCY);
         Preconditions.checkArgument(targetConcurrency >= 1, "Invalid target concurrency: " + targetConcurrency);
         Preconditions.checkArgument(maxConcurrency >= targetConcurrency , "Invalid max concurrency: " + maxConcurrency);
-        this.maxIntraRegionParallelization = context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION) ? 1 : props.getInt(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB,
+        this.maxIntraRegionParallelization = hintNode.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION) ? 1 : props.getInt(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB,
                 QueryServicesOptions.DEFAULT_MAX_INTRA_REGION_PARALLELIZATION);
         Preconditions.checkArgument(maxIntraRegionParallelization >= 1 , "Invalid max intra region parallelization: " + maxIntraRegionParallelization);
     }

@@ -190,4 +190,16 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         QueryPlan plan = stmt.optimizeQuery("SELECT /*+  INDEX(t  idx3 idx4 \"idx5\") INDEX(t idx6 idx1) */ k FROM t WHERE v1 = 'foo' AND v2 = 'bar'");
         assertEquals("IDX1", plan.getTableRef().getTable().getName().getString());
     }
+    
+    @Test
+    public void testChooseSmallerTable() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("CREATE INDEX idx ON t(v1)");
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        QueryPlan plan = stmt.optimizeQuery("SELECT count(*) FROM t");
+        assertEquals("IDX", plan.getTableRef().getTable().getName().getString());
+    }
+    
+
 }

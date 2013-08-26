@@ -30,6 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.parse.*;
 
 
@@ -42,7 +43,7 @@ import com.salesforce.phoenix.parse.*;
  * @author jtaylor
  * @since 0.1
  */
-public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
+public class StatementNormalizer extends ParseNodeRewriter {
     
     /**
      * Rewrite the select statement by switching any constants to the right hand side
@@ -52,7 +53,7 @@ public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
      * @throws SQLException 
      */
     public static SelectStatement normalize(SelectStatement statement) throws SQLException {
-        return rewrite(statement, new RHSLiteralStatementRewriter());
+        return rewrite(statement, new StatementNormalizer());
     }
     
     @Override
@@ -61,5 +62,16 @@ public class RHSLiteralStatementRewriter extends ParseNodeRewriter {
              return NODE_FACTORY.comparison(node.getInvertFilterOp(), nodes.get(1), nodes.get(0));
          }
          return super.visitLeave(node, nodes);
+    }
+    
+    @Override
+    public ParseNode visitLeave(final BetweenParseNode node, List<ParseNode> nodes) throws SQLException {
+       
+        LessThanOrEqualParseNode lhsNode =  NODE_FACTORY.lte(node.getChildren().get(1), node.getChildren().get(0));
+        LessThanOrEqualParseNode rhsNode =  NODE_FACTORY.lte(node.getChildren().get(0), node.getChildren().get(2));
+        List<ParseNode> parseNodes = Lists.newArrayList();
+        parseNodes.add(this.visitLeave(lhsNode, lhsNode.getChildren()));
+        parseNodes.add(this.visitLeave(rhsNode, rhsNode.getChildren()));
+        return super.visitLeave(node, parseNodes);
     }
 }

@@ -75,6 +75,7 @@ public class ColumnDef {
                 }
                 scale = null;
             } else if (this.dataType == PDataType.DECIMAL) {
+            	Integer origMaxLength = maxLength;
                 maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
                 // for deciaml, 1 <= maxLength <= PDataType.MAX_PRECISION;
                 if (maxLength < 1 || maxLength > PDataType.MAX_PRECISION) {
@@ -92,7 +93,7 @@ public class ColumnDef {
                 // When neither a precision nor a scale is specified, the precision and scale is
                 // ignored. All decimal are stored with as much decimal points as possible.
                 scale = scale == null ? 
-                		maxLength == null ? PDataType.NO_SCALE : PDataType.DEFAULT_SCALE : 
+                		origMaxLength == null ? null : PDataType.DEFAULT_SCALE : 
                 		scale > maxLength ? maxLength : scale; 
             } else if (this.dataType == PDataType.BINARY) {
                 if (maxLength == null) {

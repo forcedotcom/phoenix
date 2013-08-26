@@ -25,7 +25,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.join;
+package com.salesforce.phoenix.coprocessor;
 
 import java.sql.SQLException;
 
@@ -34,29 +34,31 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+
 
 
 
 /**
  * 
- * Server-side implementation of {@link HashCacheProtocol}
+ * Server-side implementation of {@link ServerCachingProtocol}
  *
  * @author jtaylor
  * @since 0.1
  */
-public class HashCacheImplementation extends BaseEndpointCoprocessor implements HashCacheProtocol {
+public class ServerCachingEndpointImpl extends BaseEndpointCoprocessor implements ServerCachingProtocol {
 
     @Override
-    public boolean addHashCache(byte[] tenantId, byte[] joinId, ImmutableBytesWritable hashCache) throws SQLException {
-        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesWritable(tenantId));
-        tenantCache.addHashCache(new ImmutableBytesWritable(joinId), hashCache);
+    public boolean addServerCache(byte[] tenantId, byte[] cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory cacheFactory) throws SQLException {
+        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesPtr(tenantId));
+        tenantCache.addServerCache(new ImmutableBytesPtr(cacheId), cachePtr, cacheFactory);
         return true;
     }
 
     @Override
-    public boolean removeHashCache(byte[] tenantId, byte[] joinId) throws SQLException {
-        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesWritable(tenantId));
-        tenantCache.removeHashCache(new ImmutableBytesWritable(joinId));
+    public boolean removeServerCache(byte[] tenantId, byte[] cacheId) throws SQLException {
+        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), new ImmutableBytesPtr(tenantId));
+        tenantCache.removeServerCache(new ImmutableBytesPtr(cacheId));
         return true;
     }
 }

@@ -112,7 +112,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         return new PhoenixResultSet(scanner, PhoenixStatement.this);
     }
     
-    protected static interface ExecutableStatement extends SQLStatement {
+    protected static interface ExecutableStatement extends BindableStatement {
         public boolean execute() throws SQLException;
         public int executeUpdate() throws SQLException;
         public PhoenixResultSet executeQuery() throws SQLException;
@@ -128,8 +128,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     
     private class ExecutableSelectStatement extends SelectStatement implements ExecutableStatement {
         private ExecutableSelectStatement(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where,
-                List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-            super(from, hint, isDistinct, select, where, groupBy, having, orderBy, limit, bindCount);
+                List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount, boolean isAggregate) {
+            super(from, hint, isDistinct, select, where, groupBy, having, orderBy, limit, bindCount, isAggregate);
         }
 
         @Override
@@ -672,10 +672,10 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             new ExpressionProjector(EXPLAIN_PLAN_ALIAS, EXPLAIN_PLAN_TABLE_NAME, 
                     new RowKeyColumnExpression(EXPLAIN_PLAN_DATUM,
                             new RowKeyValueAccessor(Collections.<PDatum>singletonList(EXPLAIN_PLAN_DATUM), 0)), false)
-            ), 0);
+            ), 0, true);
     private class ExecutableExplainStatement extends ExplainStatement implements ExecutableStatement {
 
-        public ExecutableExplainStatement(SQLStatement statement) {
+        public ExecutableExplainStatement(BindableStatement statement) {
             super(statement);
         }
 
@@ -791,8 +791,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public ExecutableSelectStatement select(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select,
                                                 ParseNode where, List<ParseNode> groupBy, ParseNode having,
-                                                List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
-            return new ExecutableSelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount);
+                                                List<OrderByNode> orderBy, LimitNode limit, int bindCount, boolean isAggregate) {
+            return new ExecutableSelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount, isAggregate);
         }
         
         @Override
@@ -841,7 +841,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public ExplainStatement explain(SQLStatement statement) {
+        public ExplainStatement explain(BindableStatement statement) {
             return new ExecutableExplainStatement(statement);
         }
 

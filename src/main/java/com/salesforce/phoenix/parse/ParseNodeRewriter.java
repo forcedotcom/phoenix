@@ -128,7 +128,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
         }
         return NODE_FACTORY.select(statement.getFrom(), statement.getHint(), statement.isDistinct(),
                 normSelectNodes, normWhere, normGroupByNodes, normHaving, normOrderByNodes,
-                statement.getLimit(), statement.getBindCount());
+                statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
     
     protected void reset() {
@@ -272,6 +272,20 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             @Override
             public ParseNode createNode(List<ParseNode> children) {
                 return NODE_FACTORY.comparison(node.getFilterOp(), children.get(0), children.get(1));
+            }
+        });
+    }
+    
+    @Override
+    public ParseNode visitLeave(final BetweenParseNode node, List<ParseNode> nodes) throws SQLException {
+        return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                if(node.isNegate()) {
+                    return NODE_FACTORY.not(NODE_FACTORY.and(children));
+                } else {
+                    return NODE_FACTORY.and(children);
+                }
             }
         });
     }

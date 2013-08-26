@@ -31,7 +31,8 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 
 import java.io.*;
-import java.sql.*;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -47,6 +48,7 @@ import com.salesforce.phoenix.expression.aggregator.ClientAggregators;
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
 import com.salesforce.phoenix.expression.function.SumAggregateFunction;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
@@ -86,7 +88,7 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             };
 
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        StatementContext context = new StatementContext(pconn, null, Collections.emptyList(), 0, new Scan());
+        StatementContext context = new StatementContext(SelectStatement.COUNT_ONE, pconn, null, Collections.emptyList(), new Scan());
         AggregationManager aggregationManager = context.getAggregationManager();
         SumAggregateFunction func = new SumAggregateFunction(Arrays.<Expression>asList(new KeyValueColumnExpression(new PLongColumn() {
             @Override

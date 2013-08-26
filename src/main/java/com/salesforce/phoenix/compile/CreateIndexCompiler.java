@@ -53,7 +53,7 @@ public class CreateIndexCompiler {
     public MutationPlan compile(final CreateIndexStatement statement, List<Object> binds) throws SQLException {
         final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         Scan scan = new Scan();
-        final StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan);
+        final StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
         List<ParseNode> splitNodes = statement.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];

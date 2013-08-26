@@ -78,7 +78,7 @@
 		a row that goes outside the max versions, raw scanning will not return the correct results
 		for the current row, leading to incorrect index maintenance.... you've been warned.
 	-->
-    <hbase.version>0.94.10-SNAPSHOT</hbase.version>
+    <hbase.version>0.94.10</hbase.version>
     <hadoop.version>1.0.4</hadoop.version>
     <jackson.version>1.8.8</jackson.version>
     <guava.version>12.0.1</guava.version>

@@ -181,6 +181,10 @@ public class TestUtil {
         return new AndExpression(Arrays.asList(expressions));
     }
 
+    public static Expression not(Expression expression) {
+        return new NotExpression(expression);
+    }
+    
     public static Expression or(Expression... expressions) {
         return new OrExpression(Arrays.asList(expressions));
     }

@@ -30,9 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.*;
 
 
 public class LimitCompiler {
@@ -68,7 +66,8 @@ public class LimitCompiler {
     private LimitCompiler() {
     }
 
-    public static Integer getLimit(StatementContext context, LimitNode limitNode) throws SQLException {
+    public static Integer compile(StatementContext context, FilterableStatement statement) throws SQLException {
+        LimitNode limitNode = statement.getLimit();
         if (limitNode == null) {
             return null;
         }

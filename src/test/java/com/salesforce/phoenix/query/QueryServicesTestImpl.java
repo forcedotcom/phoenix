@@ -75,7 +75,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setTargetQueryConcurrency(DEFAULT_TARGET_QUERY_CONCURRENCY)
                 .setMaxQueryConcurrency(DEFAULT_MAX_QUERY_CONCURRENCY)
                 .setRowKeyOrderSaltedTable(true)
-                .setMaxHashCacheTTLMs(DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS)
+                .setMaxServerCacheTTLMs(DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS)
                 .setMasterInfoPort(DEFAULT_MASTER_INFO_PORT)
                 .setRegionServerInfoPort(DEFAULT_REGIONSERVER_INFO_PORT)
                 .setRegionServerLeasePeriodMs(DEFAULT_REGIONSERVER_LEASE_PERIOD_MS)

@@ -129,7 +129,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getString();
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getBytes();
     
-    private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList(), 0));
+    private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList(), 0, true));
     
     private final PhoenixConnection connection;
     private final ResultSet emptyResultSet;
@@ -593,7 +593,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                                 },
                                 column.isCaseSensitive())
                         );
-                        final RowProjector newProjector = new RowProjector(columns, projector.getEstimatedByteSize());
+                        final RowProjector newProjector = new RowProjector(columns, projector.getEstimatedRowByteSize(), projector.isProjectEmptyKeyValue());
                         Scanner delegate = new DelegateScanner(scanner) {
                             @Override
                             public RowProjector getProjection() {
@@ -755,7 +755,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             new ExpressionProjector(TABLE_TYPE_NAME, TYPE_SCHEMA_AND_TABLE, 
                     new RowKeyColumnExpression(TABLE_TYPE_DATUM,
                             new RowKeyValueAccessor(Collections.<PDatum>singletonList(TABLE_TYPE_DATUM), 0)), false)
-            ), 0);
+            ), 0, true);
     private static final Collection<Tuple> TABLE_TYPE_TUPLES = Lists.newArrayListWithExpectedSize(PTableType.values().length);
     static {
         for (PTableType tableType : PTableType.values()) {

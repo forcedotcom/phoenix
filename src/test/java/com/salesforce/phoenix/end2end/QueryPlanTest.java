@@ -64,26 +64,29 @@ public class QueryPlanTest extends BaseConnectedQueryTest {
 
                 "SELECT inst,host FROM PTSDB WHERE REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1', 'na2','na3')", // REVIEW: should this use skip scan given the regexpr_substr
                 "CLIENT PARALLEL 1-WAY SKIP SCAN ON 3 RANGES OVER PTSDB ['na1'-'na2')...['na3'-'na4')\n" + 
-                "    SERVER FILTER BY REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')",
+                "    SERVER FILTER BY FIRST KEY ONLY AND REGEXP_SUBSTR(INST, '[^-]+', 1) IN ('na1','na2','na3')",
 
                 "SELECT inst,host FROM PTSDB WHERE inst IN ('na1', 'na2','na3') AND host IN ('a','b') AND date >= to_date('2013-01-01') AND date < to_date('2013-01-02')",
-                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 6 RANGES OVER PTSDB 'na1'...'na3','a'...'b',['2013-01-01'-'2013-01-02')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 6 RANGES OVER PTSDB 'na1'...'na3','a'...'b',['2013-01-01'-'2013-01-02')\n" + 
+                "    SERVER FILTER BY FIRST KEY ONLY",
 
                 "SELECT inst,host FROM PTSDB WHERE inst LIKE 'na%' AND host IN ('a','b') AND date >= to_date('2013-01-01') AND date < to_date('2013-01-02')",
-                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 RANGES OVER PTSDB ['na'-'nb'),'a'...'b',['2013-01-01'-'2013-01-02')",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 RANGES OVER PTSDB ['na'-'nb'),'a'...'b',['2013-01-01'-'2013-01-02')\n" + 
+                "    SERVER FILTER BY FIRST KEY ONLY",
 
                 "SELECT host FROM PTSDB3 WHERE host IN ('na1', 'na2','na3')",
-                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 3 KEYS OVER PTSDB3 'na3'...'na1'",
+                "CLIENT PARALLEL 1-WAY SKIP SCAN ON 3 KEYS OVER PTSDB3 'na3'...'na1'\n" + 
+                "    SERVER FILTER BY FIRST KEY ONLY",
 
                 "SELECT count(*) FROM atable",
-                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" +
-                "    SERVER FILTER BY FirstKeyOnlyFilter\n" +
+                "CLIENT PARALLEL 4-WAY FULL SCAN OVER ATABLE\n" + 
+                "    SERVER FILTER BY FIRST KEY ONLY\n" + 
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 // TODO: review: why does this change with parallelized non aggregate queries?
                 "SELECT count(*) FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",
                 "CLIENT PARALLEL 1-WAY RANGE SCAN OVER ATABLE '000000000000001',['003'-'004')\n" + 
-                "    SERVER FILTER BY FirstKeyOnlyFilter\n" + 
+                "    SERVER FILTER BY FIRST KEY ONLY\n" + 
                 "    SERVER AGGREGATE INTO SINGLE ROW",
 
                 "SELECT a_string FROM atable WHERE organization_id='000000000000001' AND SUBSTR(entity_id,1,3) > '002' AND SUBSTR(entity_id,1,3) <= '003'",

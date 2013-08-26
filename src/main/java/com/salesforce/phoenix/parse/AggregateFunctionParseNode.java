@@ -44,9 +44,4 @@ public class AggregateFunctionParseNode extends FunctionParseNode {
     public boolean isConstant() {
         return false;
     }
-    
-    @Override
-    public boolean isAggregate() {
-        return true;
-    }
 }

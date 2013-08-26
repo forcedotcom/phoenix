@@ -122,7 +122,7 @@ public class PhoenixResultSetMetaData implements ResultSetMetaData {
     @Override
     public int getColumnType(int column) throws SQLException {
         PDataType type = rowProjector.getColumnProjector(column-1).getExpression().getDataType();
-        return type == null ? Types.NULL : type.getSqlType();
+        return type == null ? Types.NULL : type.getResultSetSqlType();
     }
 
     @Override

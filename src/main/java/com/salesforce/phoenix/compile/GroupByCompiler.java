@@ -139,7 +139,7 @@ public class GroupByCompiler {
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public static GroupBy getGroupBy(StatementContext context, SelectStatement statement, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
+    public static GroupBy compile(StatementContext context, SelectStatement statement, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
         List<ParseNode> groupByNodes = statement.getGroupBy();
         /**
          * Distinct can use an aggregate plan if there's no group by.
@@ -147,25 +147,7 @@ public class GroupByCompiler {
          * Order by only allowed on columns in the select distinct
          */
         if (groupByNodes.isEmpty()) {
-            AggregationVisitor visitor = new AggregationVisitor();
-            
-            for (AliasedNode aliasedNode : statement.getSelect()) {
-                aliasedNode.getNode().accept(visitor);
-                if (visitor.isAggregate()) {
-                    break;
-                }
-            }
-            if (!visitor.isAggregate()) {
-                for (OrderByNode orderNode : statement.getOrderBy()) {
-                    orderNode.getNode().accept(visitor);
-                    if (visitor.isAggregate()) {
-                        break;
-                    }
-                }
-            }
-            
-            if (visitor.isAggregate()) {
-                context.setAggregate(true);
+            if (statement.isAggregate()) {
                 return new GroupBy.GroupByBuilder().setScanAttribName(UngroupedAggregateRegionObserver.UNGROUPED_AGG).build();
             }
             if (!statement.isDistinct()) {
@@ -198,7 +180,6 @@ public class GroupByCompiler {
             return GroupBy.EMPTY_GROUP_BY;
         }
         
-        context.setAggregate(true);
         boolean isRowKeyOrderedGrouping = groupByVisitor.isOrderPreserving();
         List<Expression> expressions = Lists.newArrayListWithCapacity(groupByEntries.size());
         List<Expression> keyExpressions = expressions;
@@ -297,19 +278,5 @@ public class GroupByCompiler {
     }
     
     private GroupByCompiler() {
-    }
-    
-    private static class AggregationVisitor extends StatelessTraverseAllParseNodeVisitor {
-        private boolean isAggregate = false;
-        
-        @Override
-        public Void visitLeave(FunctionParseNode node, List<Void> l) throws SQLException {
-            isAggregate |= node.isAggregate();
-            return null;
-        }
-        
-        public boolean isAggregate() {
-            return isAggregate;
-        }
     }
 }

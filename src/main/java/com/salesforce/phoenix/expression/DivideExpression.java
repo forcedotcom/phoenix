@@ -30,6 +30,7 @@ package com.salesforce.phoenix.expression;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 /**
@@ -40,11 +41,24 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
  * @since 0.1
  */
 public abstract class DivideExpression extends ArithmeticExpression {
+    private Integer maxLength;
+    private Integer scale;
+
     public DivideExpression() {
     }
 
     public DivideExpression(List<Expression> children) {
         super(children);
+        for (int i=0; i<children.size(); i++) {
+            Expression childExpr = children.get(i);
+            if (i == 0) {
+                maxLength = childExpr.getMaxLength();
+                scale = childExpr.getScale();
+            } else {
+                maxLength = getPrecision(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+                scale = getScale(maxLength, childExpr.getMaxLength(), scale, childExpr.getScale());
+            }
+        }
     }
 
     @Override
@@ -60,5 +74,33 @@ public abstract class DivideExpression extends ArithmeticExpression {
     @Override
     public String getOperatorString() {
         return " / ";
+    }
+    
+    private static Integer getPrecision(Integer lp, Integer rp, Integer ls, Integer rs) {
+    	if (ls == null || rs == null) {
+    		return PDataType.MAX_PRECISION;
+    	}
+        int val = getScale(lp, rp, ls, rs) + lp - ls + rp;
+        return Math.min(PDataType.MAX_PRECISION, val);
+    }
+
+    private static Integer getScale(Integer lp, Integer rp, Integer ls, Integer rs) {
+    	// If we are adding a decimal with scale and precision to a decimal
+    	// with no precision nor scale, the scale system does not apply.
+    	if (ls == null || rs == null) {
+    		return null;
+    	}
+        int val = Math.max(PDataType.MAX_PRECISION - lp + ls - rs, 0);
+        return Math.min(PDataType.MAX_PRECISION, val);
+    }
+
+    @Override
+    public Integer getScale() {
+        return scale;
+    }
+
+    @Override
+    public Integer getMaxLength() {
+        return maxLength;
     }
 }

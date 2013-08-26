@@ -27,14 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public class ExplainStatement implements SQLStatement {
-    private final SQLStatement statement;
+public class ExplainStatement implements BindableStatement {
+    private final BindableStatement statement;
     
-    public ExplainStatement(SQLStatement statement) {
+    public ExplainStatement(BindableStatement statement) {
         this.statement = statement;
     }
 
-    public SQLStatement getStatement() {
+    public BindableStatement getStatement() {
         return statement;
     }
 

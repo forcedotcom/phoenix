@@ -35,16 +35,17 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
-import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.*;
@@ -61,14 +62,13 @@ import com.salesforce.phoenix.util.ScanUtil;
  * @since 0.1
  */
 public class PostDDLCompiler {
-    private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
     private final PhoenixConnection connection;
 
     public PostDDLCompiler(PhoenixConnection connection) {
         this.connection = connection;
     }
 
-    public MutationPlan compile(final List<TableRef> tableRefs, final byte[] emptyCF, final List<PColumn> deleteList,
+    public MutationPlan compile(final List<TableRef> tableRefs, final byte[] emptyCF, final byte[] projectCF, final List<PColumn> deleteList,
             final long timestamp) throws SQLException {
         
         return new MutationPlan() {
@@ -103,11 +103,8 @@ public class PostDDLCompiler {
                      * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
                      * 3) updating the necessary rows to have an empty KV
                      */
-                    List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                            NODE_FACTORY.aliasedNode(null, 
-                                    NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
                     long totalMutationCount = 0;
-                    for (final TableRef tableRef: tableRefs) {
+                    for (final TableRef tableRef : tableRefs) {
                         Scan scan = new Scan();
                         scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
                         ColumnResolver resolver = new ColumnResolver() {
@@ -120,12 +117,11 @@ public class PostDDLCompiler {
                                 throw new UnsupportedOperationException();
                             }
                         };
-                        StatementContext context = new StatementContext(connection, resolver, Collections.<Object>emptyList(), 0, scan);
+                        StatementContext context = new StatementContext(SelectStatement.COUNT_ONE, connection, resolver, Collections.<Object>emptyList(), scan);
                         ScanUtil.setTimeRange(scan, timestamp);
                         if (emptyCF != null) {
                             scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
                         }
-                        // TODO: handle table with indexes for deletion of column
                         if (deleteList != null) {
                             if (deleteList.isEmpty()) {
                                 scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
@@ -138,8 +134,26 @@ public class PostDDLCompiler {
                                 scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
                             }
                         }
-                        RowProjector projector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
-                        QueryPlan plan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
+                        List<byte[]> columnFamilies = Lists.newArrayListWithExpectedSize(tableRef.getTable().getColumnFamilies().size());
+                        if (projectCF == null) {
+                            for (PColumnFamily family : tableRef.getTable().getColumnFamilies()) {
+                                columnFamilies.add(family.getName().getBytes());
+                            }
+                        } else {
+                            columnFamilies.add(projectCF);
+                        }
+                        // Need to project all column families into the scan, since we haven't yet created our empty key value
+                        RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.COUNT_ONE, GroupBy.EMPTY_GROUP_BY);
+                        // Explicitly project these column families and don't project the empty key value,
+                        // since at this point we haven't added the empty key value everywhere.
+                        if (columnFamilies != null) {
+                            scan.getFamilyMap().clear();
+                            for (byte[] family : columnFamilies) {
+                                scan.addFamily(family);
+                            }
+                            projector = new RowProjector(projector,false);
+                        }
+                        QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(connection.getQueryServices()), GroupBy.EMPTY_GROUP_BY, null);
                         Scanner scanner = plan.getScanner();
                         ResultIterator iterator = scanner.iterator();
                         try {

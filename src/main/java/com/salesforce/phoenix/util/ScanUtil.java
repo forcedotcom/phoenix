@@ -40,7 +40,6 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.KeyRange.Bound;
-import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeySchema;
 
 
@@ -381,24 +380,6 @@ public class ScanUtil {
             return mid;
         } else {
             return ++mid;
-        }
-    }
-
-    /**
-     * Clear the projection of the QueryConstants.EMPTY_COLUMN_BYTES in the scan. Used in cases where the
-     * scan will be reused across multiple query compiles, like UPSERT SELECT.
-     * TODO: Project empty column family from QueryPlan.newScanner instead of ProjectionCompiler to avoid
-     * having to do this.
-     * @param scan
-     */
-    public static void removeEmptyColumnFamily(Scan scan, PTable table) {
-        Map<byte [], NavigableSet<byte []>> familyMap = scan.getFamilyMap();
-        byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
-        NavigableSet<byte []> keyValues = familyMap.get(emptyCF);
-        if (keyValues != null) {
-            if (keyValues.remove(QueryConstants.EMPTY_COLUMN_BYTES) && keyValues.isEmpty()) {
-                familyMap.remove(emptyCF);
-            }
         }
     }
 }

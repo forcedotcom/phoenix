@@ -202,7 +202,7 @@ public class JoinCompiler {
             
             List<TableNode> from = new ArrayList<TableNode>(1);
             from.add(tableNode);
-            return NODE_FACTORY.select(from, null, false, select, getPreFiltersCombined(), null, null, null, null, 0);
+            return NODE_FACTORY.select(from, null, false, select, getPreFiltersCombined(), null, null, null, null, 0, false);
         }
         
         public boolean isEquiJoin() {
@@ -247,7 +247,7 @@ public class JoinCompiler {
     }
     
     public static SelectStatement getSubqueryWithoutJoin(SelectStatement statement, JoinSpec join) {
-        return NODE_FACTORY.select(statement.getFrom().subList(0, 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return NODE_FACTORY.select(statement.getFrom().subList(0, 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
     
     // Get the last join table select statement with fixed-up select and where nodes.
@@ -263,7 +263,7 @@ public class JoinCompiler {
         List<TableNode> from = new ArrayList<TableNode>(1);
         from.add(lastJoinTable.getTableNode());
         
-        return NODE_FACTORY.select(from, statement.getHint(), statement.isDistinct(), statement.getSelect(), lastJoinTable.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return NODE_FACTORY.select(from, statement.getHint(), statement.isDistinct(), statement.getSelect(), lastJoinTable.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
     
     // Get subquery with fixed select and where nodes
@@ -289,7 +289,7 @@ public class JoinCompiler {
             where = NODE_FACTORY.and(filters);
         }
         
-        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), select, where, null, null, null, null, statement.getBindCount());
+        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), false, select, where, null, null, null, null, statement.getBindCount(), false);
     }
     
     // Get subquery with complete select and where nodes
@@ -300,7 +300,7 @@ public class JoinCompiler {
         if (from.size() > 2)
             throw new UnsupportedOperationException("Left table of a left join cannot contain joins.");
         
-        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
     
     public static Expression getPostJoinFilterExpression(JoinSpec join, JoinTable joinTable) {

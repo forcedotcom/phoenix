@@ -39,7 +39,7 @@ public class QueryOptimizer {
          * Only indexes on tables with immutable rows may be used until we hook up
          * incremental index maintenance. 
          */
-        if (!dataTable.isImmutableRows() || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || dataPlan.getContext().hasHint(Hint.NO_INDEX)) {
+        if (!dataTable.isImmutableRows() || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || select.getHint().hasHint(Hint.NO_INDEX)) {
             return dataPlan;
         }
         
@@ -60,7 +60,7 @@ public class QueryOptimizer {
     
     private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement translatedSelect, List<PTable> indexes, List<QueryPlan> plans) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
-        String indexHint = dataPlan.getContext().getHint(Hint.INDEX);
+        String indexHint = translatedSelect.getHint().getHint(Hint.INDEX);
         if (indexHint == null) {
             return null;
         }
@@ -187,6 +187,12 @@ public class QueryOptimizer {
                         return plan1.getGroupBy().isOrderPreserving() ? -1 : 1;
                     }
                 }
+                // Use smaller table (table with fewest kv columns)
+                PTable table1 = plan1.getTableRef().getTable();
+                PTable table2 = plan2.getTableRef().getTable();
+                c = (table1.getColumns().size() - table1.getPKColumns().size()) - (table2.getColumns().size() - table2.getPKColumns().size());
+                if (c != 0) return c;
+                
                 // All things being equal, just use the data table
                 if (plan1.getTableRef().getTable().getType() != PTableType.INDEX) {
                     return -1;

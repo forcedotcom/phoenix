@@ -42,6 +42,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.*;
 
 
@@ -257,8 +258,8 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNegativeCompareNegativeValue() throws Exception {
-        String query = "SELECT uint_key, ulong_key, string_key FROM HBASE_NATIVE WHERE uint_key > ulong_key";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String query = "SELECT string_key FROM HBASE_NATIVE WHERE uint_key > 100000";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 7); // Run query at timestamp 7
         Properties props = new Properties(TEST_PROPERTIES);
         PhoenixConnection conn = DriverManager.getConnection(url, props).unwrap(PhoenixConnection.class);
         HTableInterface hTable = conn.getQueryServices().getTable(SchemaUtil.getTableName(Bytes.toBytes(HBASE_NATIVE)));
@@ -270,15 +271,24 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
         byte[] key;
         Put put;
         
+        // Need to use native APIs because the Phoenix APIs wouldn't let you insert a
+        // negative number for an unsigned type
         key = ByteUtil.concat(Bytes.toBytes(-10), Bytes.toBytes(100L), Bytes.toBytes("e"));
         put = new Put(key);
-        put.add(family, uintCol, ts, Bytes.toBytes(10));
-        put.add(family, ulongCol, ts, Bytes.toBytes(100L));
+        // Insert at later timestamp than other queries in this test are using, so that
+        // we don't affect them
+        put.add(family, uintCol, ts+6, Bytes.toBytes(10));
+        put.add(family, ulongCol, ts+6, Bytes.toBytes(100L));
+        put.add(family, QueryConstants.EMPTY_COLUMN_BYTES, ts+6, ByteUtil.EMPTY_BYTE_ARRAY);
         mutations.add(put);
         hTable.batch(mutations);
     
+        // Demonstrates weakness of HBase Bytes serialization. Negative numbers
+        // show up as bigger than positive numbers
         PreparedStatement statement = conn.prepareStatement(query);
         ResultSet rs = statement.executeQuery();
+        assertTrue(rs.next());
+        assertEquals("e", rs.getString(1));
         assertFalse(rs.next());
     }
 }
