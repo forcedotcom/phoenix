@@ -32,6 +32,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
@@ -61,9 +62,16 @@ public abstract class DistinctValueWithCountClientAggregator extends BaseAggrega
 
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(ptr.get(),
-                ptr.getOffset(), ptr.getLength()));
+        InputStream is = new ByteArrayInputStream(ptr.get(), ptr.getOffset() + 1, ptr.getLength() - 1);
         try {
+            if (Bytes.equals(ptr.get(), ptr.getOffset(), 1, DistinctValueWithCountServerAggregator.COMPRESS_MARKER, 0,
+                    1)) {
+                InputStream decompressionStream = DistinctValueWithCountServerAggregator.COMPRESS_ALGO
+                        .createDecompressionStream(is,
+                                DistinctValueWithCountServerAggregator.COMPRESS_ALGO.getDecompressor(), 0);
+                is = decompressionStream;
+            }
+            DataInputStream in = new DataInputStream(is);
             int mapSize = WritableUtils.readVInt(in);
             for (int i = 0; i < mapSize; i++) {
                 int keyLen = WritableUtils.readVInt(in);

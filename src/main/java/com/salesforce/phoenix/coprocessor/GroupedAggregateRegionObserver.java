@@ -32,7 +32,9 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import java.io.*;
 import java.util.*;
 
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.conf.Configurable;
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
@@ -106,7 +108,8 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         }
         List<Expression> expressions = deserializeGroupByExpressions(expressionBytes);
         
-        ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
+        ServerAggregators aggregators = ServerAggregators.deserialize(
+                scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), c.getEnvironment().getConfiguration());
 
         final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);        
@@ -217,7 +220,13 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                             if (logger.isDebugEnabled()) {
                                 logger.debug("Adding new aggregate bucket for row key " + Bytes.toStringBinary(key.get(),key.getOffset(),key.getLength()));
                             }
-                            aggregateMap.put(key, rowAggregators = aggregators.newAggregators());
+                            rowAggregators = aggregators.newAggregators();
+                            for (Aggregator aggr : rowAggregators) {
+                                if (aggr instanceof Configurable) {
+                                    ((Configurable)aggr).setConf(c.getEnvironment().getConfiguration());
+                                }
+                            }
+                            aggregateMap.put(key, rowAggregators);
                         }
                         // Aggregate values here
                         aggregators.aggregate(rowAggregators, result);

@@ -31,6 +31,8 @@ import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.hadoop.conf.Configurable;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
@@ -108,9 +110,10 @@ public class ServerAggregators extends Aggregators {
     /**
      * Deserialize aggregators from the serialized byte array representation
      * @param b byte array representation of a list of Aggregators
+     * @param conf Server side configuration used by HBase
      * @return newly instantiated Aggregators instance
      */
-    public static ServerAggregators deserialize(byte[] b) {
+    public static ServerAggregators deserialize(byte[] b, Configuration conf) {
         if (b == null) {
             return ServerAggregators.EMPTY_AGGREGATORS;
         }
@@ -126,7 +129,13 @@ public class ServerAggregators extends Aggregators {
                 SingleAggregateFunction aggFunc = (SingleAggregateFunction)ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
                 aggFunc.readFields(input);
                 functions[i] = aggFunc;
-                aggregators[i] = aggFunc.getAggregator();
+                Aggregator aggregator = aggFunc.getAggregator();
+                if (aggregator instanceof Configurable) {
+                    // When an aggregator needs the conf, it has to declared Configurable by implementing
+                    // org.apache.hadoop.conf.Configurable
+                    ((Configurable)aggregator).setConf(conf);
+                }
+                aggregators[i] = aggregator;
                 expressions[i] = aggFunc.getAggregatorExpression();
             }
             return new ServerAggregators(functions, aggregators,expressions, minNullableIndex);
