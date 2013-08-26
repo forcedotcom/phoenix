@@ -44,9 +44,9 @@ import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.test.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.util.*;
 
 
