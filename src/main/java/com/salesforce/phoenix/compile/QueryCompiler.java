@@ -35,8 +35,6 @@ import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Pair;
-
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinTable;
@@ -154,9 +152,10 @@ public class QueryCompiler {
             for (int i = 0; i < count; i++) {
                 JoinTable joinTable = joinTables.get(i);
                 joinIds[i] = new ImmutableBytesWritable(HashCacheClient.nextJoinId());
-                Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(joinTable);
-                joinExpressions[i] = splittedExpressions.getFirst();
-                hashExpressions[i] = splittedExpressions.getSecond();
+                if (!joinTable.isEquiJoin())
+                    throw new UnsupportedOperationException("Do not support non equi-joins.");
+                joinExpressions[i] = joinTable.getLeftTableConditions();
+                hashExpressions[i] = joinTable.getRightTableConditions();
                 joinTypes[i] = joinTable.getType();
                 try {
                     joinPlans[i] = compile(joinTable.getAsSubquery(), binds, new Scan(scanCopy));
@@ -185,14 +184,13 @@ public class QueryCompiler {
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
             byte[] joinId = HashCacheClient.nextJoinId();
             ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[] {new ImmutableBytesWritable(joinId)};
-            Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
-            List<Expression> joinExpressions = splittedExpressions.getSecond();
-            List<Expression> hashExpressions = splittedExpressions.getFirst();
+            if (!lastJoinTable.isEquiJoin())
+                throw new UnsupportedOperationException("Do not support non equi-joins.");
             Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, lastJoinTable);
-            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.getRightTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
             BasicQueryPlan rhsPlan = compileSingleQuery(context, rhs, binds);
-            return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
+            return new HashJoinPlan(rhsPlan, joinIds, new List[] {lastJoinTable.getLeftTableConditions()}, new QueryPlan[] {lhsPlan});
         }
         
         SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoinAsFinalPlan(statement, join);
@@ -205,14 +203,13 @@ public class QueryCompiler {
         }
         byte[] joinId = HashCacheClient.nextJoinId();
         ImmutableBytesWritable[] joinIds = new ImmutableBytesWritable[] {new ImmutableBytesWritable(joinId)};
-        Pair<List<Expression>, List<Expression>> splittedExpressions = JoinCompiler.splitEquiJoinConditions(lastJoinTable);
-        List<Expression> joinExpressions = splittedExpressions.getFirst();
-        List<Expression> hashExpressions = splittedExpressions.getSecond();
+        if (!lastJoinTable.isEquiJoin())
+            throw new UnsupportedOperationException("Do not support non equi-joins.");
         Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, null);
-        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.getLeftTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
         HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
         BasicQueryPlan lhsPlan = compileSingleQuery(context, lhs, binds);
-        return new HashJoinPlan(lhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});
+        return new HashJoinPlan(lhsPlan, joinIds, new List[] {lastJoinTable.getRightTableConditions()}, new QueryPlan[] {rhsPlan});
     }
     
     protected BasicQueryPlan compileSingleQuery(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{

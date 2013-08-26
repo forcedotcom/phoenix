@@ -31,8 +31,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.hadoop.hbase.util.Pair;
-
+import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.AliasedNode;
@@ -114,7 +113,7 @@ public class JoinCompiler {
             if (preFilters.size() == 1)
                 return preFilters.get(0);
             
-            return factory.and(preFilters);
+            return NODE_FACTORY.and(preFilters);
         }
     }
     
@@ -132,6 +131,9 @@ public class JoinCompiler {
         private List<ParseNode> postFilters;
         private List<Expression> postFilterExpressions; // will be pushed to postFilters in case of star join
         private SelectStatement subquery;
+        // equi-joins only
+        private List<Expression> leftTableConditions;
+        private List<Expression> rightTableConditions;
         
         private JoinTable(JoinType type, List<Expression> conditions, TableNode tableNode, List<AliasedNode> select,
                 List<ParseNode> preFilters, List<ParseNode> postFilters, List<Expression> postFilterExpressions, 
@@ -145,6 +147,7 @@ public class JoinCompiler {
             this.postFilterExpressions = postFilterExpressions;
             this.table = table;
             this.subquery = subquery;
+            // TODO split left and right table conditions;
         }
         
         public JoinType getType() {
@@ -190,17 +193,33 @@ public class JoinCompiler {
             if (preFilters.size() == 1)
                 return preFilters.get(0);
             
-            return factory.and(preFilters);
+            return NODE_FACTORY.and(preFilters);
         }
         
         public SelectStatement getAsSubquery() {
-            // TODO
-            return subquery;
+            if (subquery != null)
+                return subquery;
+            
+            List<TableNode> from = new ArrayList<TableNode>(1);
+            from.add(tableNode);
+            return NODE_FACTORY.select(from, null, false, select, getPreFiltersCombined(), null, null, null, null, 0);
+        }
+        
+        public boolean isEquiJoin() {
+            return (leftTableConditions != null && !leftTableConditions.isEmpty());
+        }
+        
+        public List<Expression> getLeftTableConditions() {
+            return leftTableConditions;
+        }
+        
+        public List<Expression> getRightTableConditions() {
+            return rightTableConditions;
         }
     }
     
     // for creation of new statements
-    private static ParseNodeFactory factory = new ParseNodeFactory();
+    private static ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
     
     public static JoinSpec getJoinSpec(SelectStatement statement, PhoenixConnection connection) throws SQLException {
         // TODO
@@ -208,18 +227,27 @@ public class JoinCompiler {
     }
     
     public static StarJoinType getStarJoinType(JoinSpec join) {
-        // TODO
-        return StarJoinType.NONE;
-    }
-    
-    // Left: other table expressions; Right: this table expressions.
-    public static Pair<List<Expression>, List<Expression>> splitEquiJoinConditions(JoinTable joinTable) {
-        // TODO
-        return null;
+        assert(!join.getJoinTables().isEmpty());
+        
+        StarJoinType starJoinType = StarJoinType.BASIC;
+        for (JoinTable joinTable : join.getJoinTables()) {
+            if (!joinTable.isEquiJoin() 
+                    || (joinTable.getType() != JoinType.Left 
+                            && joinTable.getType() != JoinType.Inner))
+                return StarJoinType.NONE;
+            if (starJoinType == StarJoinType.BASIC) {
+                for (Expression expr : joinTable.getLeftTableConditions()) {
+                    // TODO test if expr consists ref to tables other than mainTable
+                    starJoinType = StarJoinType.EXTENDED;
+                }
+            }
+        }
+        
+        return starJoinType;
     }
     
     public static SelectStatement getSubqueryWithoutJoin(SelectStatement statement, JoinSpec join) {
-        return factory.select(statement.getFrom().subList(0, 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return NODE_FACTORY.select(statement.getFrom().subList(0, 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
     
     // Get the last join table select statement with fixed-up select and where nodes.
@@ -235,7 +263,7 @@ public class JoinCompiler {
         List<TableNode> from = new ArrayList<TableNode>(1);
         from.add(lastJoinTable.getTableNode());
         
-        return factory.select(from, statement.getHint(), statement.isDistinct(), statement.getSelect(), lastJoinTable.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return NODE_FACTORY.select(from, statement.getHint(), statement.isDistinct(), statement.getSelect(), lastJoinTable.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
     
     // Get subquery with fixed select and where nodes
@@ -258,10 +286,10 @@ public class JoinCompiler {
         if (filters.size() == 1) {
             where = filters.get(0);
         } else if (filters.size() > 1) {
-            where = factory.and(filters);
+            where = NODE_FACTORY.and(filters);
         }
         
-        return factory.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), select, where, null, null, null, null, statement.getBindCount());
+        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), select, where, null, null, null, null, statement.getBindCount());
     }
     
     // Get subquery with complete select and where nodes
@@ -272,11 +300,26 @@ public class JoinCompiler {
         if (from.size() > 2)
             throw new UnsupportedOperationException("Left table of a left join cannot contain joins.");
         
-        return factory.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
+        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount());
     }
     
     public static Expression getPostJoinFilterExpression(JoinSpec join, JoinTable joinTable) {
-        // TODO
-        return null;
+        List<Expression> postFilters = new ArrayList<Expression>();
+        if (joinTable != null) {
+            postFilters.addAll(joinTable.getPostFilterExpressions());
+        } else {
+            for (JoinTable table : join.getJoinTables()) {
+                postFilters.addAll(table.getPostFilterExpressions());
+            }
+        }
+        postFilters.addAll(join.getPostFilterExpressions());
+        Expression postJoinFilterExpression = null;
+        if (postFilters.size() == 1) {
+            postJoinFilterExpression = postFilters.get(0);
+        } else if (postFilters.size() > 1) {
+            postJoinFilterExpression = new AndExpression(postFilters);
+        }
+        
+        return postJoinFilterExpression;
     }
 }
