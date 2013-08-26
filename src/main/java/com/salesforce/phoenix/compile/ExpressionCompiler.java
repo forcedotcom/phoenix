@@ -206,7 +206,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             
             // Determine if we know the expression must be TRUE or FALSE based on the max size of
             // a fixed length expression.
-            if (children.get(1).getMaxLength() != null && lhs.getMaxLength() != null && lhs.getMaxLength() > children.get(1).getMaxLength()) {
+            if (children.get(1).getMaxLength() != null && lhs.getMaxLength() != null && lhs.getMaxLength() < children.get(1).getMaxLength()) {
                 switch (node.getFilterOp()) {
                     case EQUAL:
                         return LiteralExpression.FALSE_EXPRESSION;

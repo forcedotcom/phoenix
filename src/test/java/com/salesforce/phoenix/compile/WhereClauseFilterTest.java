@@ -296,7 +296,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testNotDegenerateRowKeyFilter() throws SQLException {
+    public void testPaddedRowKeyFilter() throws SQLException {
         String keyPrefix = "fo";
         String query = "select * from atable where entity_id=?";
         SQLParser parser = new SQLParser(query);
@@ -309,6 +309,24 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         assertEquals(0,scan.getStartRow().length);
         assertEquals(0,scan.getStopRow().length);
+        assertNotNull(scan.getFilter());
+    }
+
+    @Test
+    public void testPaddedStartStopKey() throws SQLException {
+        String tenantId = "000000000000001";
+        String keyPrefix = "fo";
+        String query = "select * from atable where organization_id=? AND entity_id=?";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        List<Object> binds = Arrays.<Object>asList(tenantId,keyPrefix);
+        Scan scan = new Scan();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes(keyPrefix), new byte[15-keyPrefix.length()]),scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(scan.getStartRow()),scan.getStopRow());
     }
 
     @Test
@@ -324,6 +342,24 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
         // Degenerate b/c "foobar" is more than 3 characters
+        assertDegenerate(context);
+    }
+
+    @Test
+    public void testDegenerateBiggerThanMaxLengthVarchar() throws SQLException {
+        byte[] tooBigValue = new byte[101];
+        Arrays.fill(tooBigValue, (byte)50);
+        String aString = (String)PDataType.VARCHAR.toObject(tooBigValue);
+        String query = "select * from atable where a_string=?";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        List<Object> binds = Arrays.<Object>asList(aString);
+        Scan scan = new Scan();
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        // Degenerate b/c a_string length is 100
         assertDegenerate(context);
     }
 

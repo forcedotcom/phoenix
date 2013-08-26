@@ -123,8 +123,12 @@ public class LiteralExpression extends BaseTerminalExpression {
         value = type.toObject(value, actualType);
         try {
             byte[] b = type.toBytes(value, columnModifier);
-            if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
-                b = SchemaUtil.padChar(b, maxLength);
+            if (type == PDataType.VARCHAR || type == PDataType.CHAR) {
+                if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
+                    b = SchemaUtil.padChar(b, maxLength);
+                } else if (value != null) {
+                    maxLength = ((String)value).length();
+                }
             }
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];
