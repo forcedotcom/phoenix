@@ -67,6 +67,7 @@ import com.salesforce.phoenix.schema.*;
  */
 public class SchemaUtil {
     private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
+    private static final String _ARRAY = "_ARRAY";
     private static final int VAR_LENGTH_ESTIMATE = 10;
     private static final byte PAD_BYTE = (byte)0;
     
@@ -179,6 +180,34 @@ public class SchemaUtil {
         }
         return name.toUpperCase();
     }
+    
+        
+	/**
+	 * Normalize an identifier. If name is surrounded by double quotes, it is
+	 * used as-is, otherwise the name is upper caased.
+	 * 
+	 * @param name
+	 *            the parsed identifier
+	 * @return the normalized identifier
+	 */
+	public static String normalizeIdentifierWithArray(String name) {
+		if (name == null) {
+			return name;
+		}
+		if (isCaseSensitive(name)) {
+			// Don't upper case if in quotes
+			return name.substring(1, name.length() - 1);
+		}
+		return name.toUpperCase() + _ARRAY;
+	}
+	
+	public static String getPrimitiveTypeOfArray(String name) {
+		if(name != null) {
+			String substring = name.substring(0, name.indexOf(_ARRAY));
+			return substring;
+		} 
+		return null;
+	}
 
     public static boolean isCaseSensitive(String name) {
         return name.length() > 0 && name.charAt(0)=='"';

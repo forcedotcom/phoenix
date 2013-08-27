@@ -122,7 +122,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setArray(int parameterIndex, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+    	parameters.set(parameterIndex - 1, x);
     }
 
     @Override

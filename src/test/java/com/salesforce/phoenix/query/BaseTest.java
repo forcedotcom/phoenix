@@ -68,7 +68,8 @@ public abstract class BaseTest {
                 "    a_float float,\n" +
                 "    a_double double,\n" +
                 "    a_unsigned_float unsigned_float,\n" +
-                "    a_unsigned_double unsigned_double\n" +
+                "    a_unsigned_double unsigned_double,\n" +
+                "    a_integer_array integer array[]\n" + 
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
                 ")");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +

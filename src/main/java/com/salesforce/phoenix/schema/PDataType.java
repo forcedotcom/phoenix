@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.schema;
 
 import java.math.*;
+import java.nio.ByteBuffer;
 import java.sql.*;
 import java.text.Format;
 import java.util.Map;
@@ -477,6 +478,112 @@ public enum PDataType {
             }
         }
     },
+    INTEGER_ARRAY("INTEGER_ARRAY", Types.ARRAY, Array.class, null) {
+        // Currently there is no Codec to this.
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			// The object passed itself may be the PhoenixArray.  Need to check
+			if (rhsType == INTEGER_ARRAY) {
+				return compareTo(lhs, rhs);
+			}
+			return 1;
+		}
+
+		public int compareTo(Object lhs, Object rhs) {
+			PhoenixArray arrCodec = new PhoenixArray(Types.INTEGER);
+			return arrCodec.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public boolean isFixedWidth() {
+			// TODO : Currently there is no limit.. If there is a limit param then this should become true
+			return false;
+		}
+
+		@Override
+		public Integer getByteSize() {
+			// Need to implement this?
+			return 0;
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			// TODO : Should we merge the array elements into one byte array?
+			// We can add this to a 2D byte[] but that would demand a change in this api return type
+			// or need to introduce a new one
+			// currently do for 1D array
+			PhoenixArray array = (PhoenixArray)object;
+			int noOfElements = array.elements.length;
+			if (array.baseType == PDataType.INTEGER.ordinal()) {
+				ByteBuffer buffer = ByteBuffer.allocate(Bytes.SIZEOF_INT + (noOfElements * INTEGER.getByteSize()));
+				buffer.putInt(noOfElements);
+				for (int i = 0; i < array.elements.length; i++) {
+					byte[] bytes = PDataType.INTEGER.toBytes(
+							array.elements[i]);
+					buffer.put(bytes);
+				}
+				return buffer.array();
+			}
+			return null;
+			
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			// TODO:??
+			return 0;
+		}
+
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			// Should check for every element in the array?
+			return true;
+		}
+		@Override
+		public Object toObject(String value) {
+			// TODO: How can this be done?
+			throw new IllegalDataException("This operation is not suppported");
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			 if (!actualType.isCoercibleTo(this)) {
+	                throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
+	            }
+	            // Recreate the PhoenixArray here
+	            ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
+	            int noOfElements = buffer.getInt();
+	            Integer[] elements = new Integer[noOfElements];
+	            for(int i = 0; i < noOfElements; i++) {
+	            	byte[] val = new byte[PDataType.INTEGER.getByteSize()];
+	            	buffer.get(val);
+	            	elements[i] = (Integer)PDataType.INTEGER.toObject(val, columnModifier);
+	            }
+	            PhoenixArray array = new PhoenixArray(Types.INTEGER, elements);
+	            return array;
+		}
+		
+		@Override
+        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+            return toObject(bytes, offset, length, actualType, null);
+        }
+
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			// the object that is passed here is the actual array set in the params
+			return object;
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			// How to use the sortOrder ? Just reverse the elements
+			return toObject(object, actualType);
+		}
+    	
+    }, 
     INTEGER("INTEGER", Types.INTEGER, Integer.class, new IntCodec()) {
 
         @Override

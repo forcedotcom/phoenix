@@ -46,6 +46,7 @@ import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PhoenixArray;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
@@ -145,6 +146,36 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
             assertTrue (rs.next());
             assertEquals(rs.getString(1), A_VALUE);
             assertEquals(rs.getString("B_string"), B_VALUE);
+            assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testScanByArrayValue() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer_array, /* comment ok? */ b_string, a_float FROM aTable WHERE ?=organization_id and ?=a_float";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setFloat(2, 0.03f);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            // Need to support primitive
+            Integer[] intArr =  new Integer[2];
+            intArr[0] = 1000;
+            intArr[1] = 100;
+            PhoenixArray array = (PhoenixArray)conn.createArrayOf("INTEGER_ARRAY", intArr);
+            PhoenixArray resultArray = (PhoenixArray)rs.getArray(1);
+            assertEquals(resultArray, array);
+            assertEquals(rs.getString("B_string"), E_VALUE);
             assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
             assertFalse(rs.next());
         } finally {

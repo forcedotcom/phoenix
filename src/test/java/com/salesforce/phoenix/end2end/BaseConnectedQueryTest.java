@@ -191,8 +191,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                     "    A_FLOAT," +
                     "    A_DOUBLE," +
                     "    A_UNSIGNED_FLOAT," +
-                    "    A_UNSIGNED_DOUBLE)" +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    "    A_UNSIGNED_DOUBLE, A_INTEGER_ARRAY)" +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             stmt.setString(1, tenantId);
             stmt.setString(2, ROW1);
             stmt.setString(3, A_VALUE);
@@ -209,6 +209,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0001);
             stmt.setFloat(15, 0.01f);
             stmt.setDouble(16, 0.0001);
+            // Need to support primitive
+            Integer[] intArr =  new Integer[2];
+            intArr[0] = 1;
+            intArr[1] = 2;
+            Array array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -227,6 +233,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0002);
             stmt.setFloat(15, 0.02f);
             stmt.setDouble(16, 0.0002);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = 1;
+            intArr[1] = 100;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -245,6 +257,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0003);
             stmt.setFloat(15, 0.03f);
             stmt.setDouble(16, 0.0003);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = 1000;
+            intArr[1] = 100;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -263,6 +281,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0004);
             stmt.setFloat(15, 0.04f);
             stmt.setDouble(16, 0.0004);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = 1;
+            intArr[1] = -5;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -281,6 +305,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0005);
             stmt.setFloat(15, 0.05f);
             stmt.setDouble(16, 0.0005);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = -45;
+            intArr[1] = 0;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -299,6 +329,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0006);
             stmt.setFloat(15, 0.06f);
             stmt.setDouble(16, 0.0006);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = -45;
+            intArr[1] = 63;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -317,6 +353,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0007);
             stmt.setFloat(15, 0.07f);
             stmt.setDouble(16, 0.0007);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = -45;
+            intArr[1] = 64;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -337,6 +379,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0008);
             stmt.setFloat(15, 0.08f);
             stmt.setDouble(16, 0.0008);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = -45;
+            intArr[1] = 68;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -357,6 +405,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0009);
             stmt.setFloat(15, 0.09f);
             stmt.setDouble(16, 0.0009);
+            // Need to support primitive
+            intArr =  new Integer[2];
+            intArr[0] = -45;
+            intArr[1] = 69;
+            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
+            stmt.setArray(17, array);
             stmt.execute();
                 
             conn.commit();

@@ -32,6 +32,7 @@ import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
 
 import java.io.*;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.*;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -464,7 +465,13 @@ public class PTableImpl implements PTable {
                 removeIfPresent(setValues, family, qualifier);
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
-                Integer byteSize = column.getByteSize();
+            	Integer byteSize;
+            	// Arrays cannot be having fixed size and byte size
+            	if (type.getSqlType() == Types.ARRAY) {
+            		byteSize = byteValue.length;
+				} else {
+					byteSize = column.getByteSize();
+				}
                 if (type.isFixedWidth() && byteValue.length <= byteSize) { 
                     byteValue = SchemaUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
