@@ -651,7 +651,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     
                 long expectedSeqNum = MetaDataUtil.getSequenceNumber(tableMetadata) - 1; // lookup TABLE_SEQ_NUM in tableMetaData
                 if (logger.isDebugEnabled()) {
-                    logger.debug("For table " + Bytes.toStringBinary(key) + " expecting seqNum " + expectedSeqNum + " and found seqNum " + table.getSequenceNumber());
+                    logger.debug("For table " + Bytes.toStringBinary(key) + " expecting seqNum " + expectedSeqNum + " and found seqNum " + table.getSequenceNumber() + " with " + table.getColumns().size() + " columns: " + table.getColumns());
                 }
                 if (expectedSeqNum != table.getSequenceNumber()) {
                     if (logger.isDebugEnabled()) {
