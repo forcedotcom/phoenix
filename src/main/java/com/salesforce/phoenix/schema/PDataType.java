@@ -4538,7 +4538,6 @@ public enum PDataType {
      * to return the regular corresponding sqlType so
      * that tools like SQuirrel correctly display values
      * of this type.
-     * @return
      */
     public int getResultSetSqlType() {
         return this.sqlType;
