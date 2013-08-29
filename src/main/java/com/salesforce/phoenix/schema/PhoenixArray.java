@@ -27,40 +27,33 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
-
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableUtils;
-
-import java.util.Map;;
+import java.util.Map;
 
 /**
  * java.sql.Array implementation for Phoenix
  */
-public class PhoenixArray implements Array, Writable {
+public class PhoenixArray implements Array {
 	PDataType baseType;
-	Object[] elements;
+	Object primitiveTypeArray;
 	int dimensions;
 
 	public PhoenixArray() {
 		// empty constructor
 	}
-	public PhoenixArray(PDataType baseType) {
-		this.baseType = baseType;
-	}
-
+	
 	public PhoenixArray(PDataType baseType, Object[] elements) {
 		this.baseType = baseType;
-		this.elements = elements;
+		this.primitiveTypeArray = convertObjectArrayToPrimitiveArray(elements);
 		this.dimensions = elements.length;
 	}
 	
+	public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+		return elements;
+	}
 
 	@Override
 	public void free() throws SQLException {
@@ -68,7 +61,7 @@ public class PhoenixArray implements Array, Writable {
 
 	@Override
 	public Object getArray() throws SQLException {
-		return elements;
+		return primitiveTypeArray;
 	}
 
 	@Override
@@ -82,7 +75,7 @@ public class PhoenixArray implements Array, Writable {
 			throw new IllegalArgumentException("Index cannot be less than 1");
 		}
 		// Get the set of elements from the given index to the specified count
-		Object[] intArr = (Object[]) elements;
+		Object[] intArr = (Object[]) primitiveTypeArray;
 		boundaryCheck(index, count, intArr);
 		Object[] newArr = new Object[count];
 		// Add checks() here.
@@ -145,38 +138,12 @@ public class PhoenixArray implements Array, Writable {
 		return this.dimensions;
 	}
 	
-	@Override
-	public void readFields(DataInput in) throws IOException {
-		int baseTypeInt = WritableUtils.readVInt(in);
-		PDataType baseType = PDataType.fromTypeId(baseTypeInt);
-		int noOfElements = WritableUtils.readVInt(in);
-		byte[] buffer;
-		if(baseType.isFixedWidth()) {
-			buffer = new byte[baseType.getByteSize() * noOfElements];
-		} else {
-			int elementSize = in.readInt();
-			buffer = new byte[elementSize];
-		}
-		in.readFully(buffer, 0, buffer.length);
+	public int estimateByteSize(int pos) {
+		return this.baseType.estimateByteSize(((Object[])primitiveTypeArray)[pos]);
 	}
-
-	@Override
-	public void write(DataOutput out) throws IOException {
-		WritableUtils.writeVInt(out, baseType.getSqlType());
-		int noOfElements = this.elements.length;
-		WritableUtils.writeVInt(out, noOfElements);
-		if (baseType.isFixedWidth()) {
-			for (int i = 0; i < noOfElements; i++) {
-				byte[] bytes = baseType.toBytes(this.elements[i]);
-				out.write(bytes, 0, bytes.length);
-			}
-		} else {
-			for (int i = 0; i < noOfElements; i++) {
-				out.writeInt(baseType.estimateByteSize(this.elements[i]));
-				byte[] bytes = baseType.toBytes(this.elements[i]);
-				out.write(bytes, 0, bytes.length);
-			}
-		}
+	
+	public byte[] toBytes(int pos) {
+		return this.baseType.toBytes(((Object[])primitiveTypeArray)[pos]);
 	}
 	
 	@Override
@@ -187,7 +154,8 @@ public class PhoenixArray implements Array, Writable {
 		if (this.baseType != ((PhoenixArray) obj).baseType) {
 			return false;
 		}
-		return Arrays.equals(this.elements, ((PhoenixArray) obj).elements);
+		return Arrays.equals((Object[]) this.primitiveTypeArray,
+				(Object[]) ((PhoenixArray) obj).primitiveTypeArray);
 	}
 
 	@Override
@@ -196,8 +164,281 @@ public class PhoenixArray implements Array, Writable {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result
-				+ ((elements == null) ? 0 : elements.hashCode());
+				+ ((primitiveTypeArray == null) ? 0 : primitiveTypeArray.hashCode());
 		return result;
+	}
+	
+	public static class PrimitiveIntPhoenixArray extends PhoenixArray {
+		private int[] intArr;
+		public PrimitiveIntPhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(int.class,
+					elements.length);
+			intArr = (int[]) object;
+			return intArr;
+		}
+		
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(intArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Integer)intArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((int[]) this.primitiveTypeArray,
+					(int[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
+	}
+	
+	public static class PrimitiveShortPhoenixArray extends PhoenixArray {
+		private short[] shortArr;
+		public PrimitiveShortPhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(short.class,
+					elements.length);
+			shortArr = (short[]) object;
+			return shortArr;
+		}
+		
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(shortArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Short)shortArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((short[]) this.primitiveTypeArray,
+					(short[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
+	}
+	
+	public static class PrimitiveLongPhoenixArray extends PhoenixArray {
+		private long[] longArr;
+		public PrimitiveLongPhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(long.class,
+					elements.length);
+			longArr = (long[]) object;
+			return longArr;
+		}
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(longArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Long)longArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((long[]) this.primitiveTypeArray,
+					(long[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
 
 	}
+	
+	public static class PrimitiveDoublePhoenixArray extends PhoenixArray {
+		private double[] doubleArr;
+		public PrimitiveDoublePhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(double.class,
+					elements.length);
+			doubleArr = (double[]) object;
+			return doubleArr;
+		}
+		
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(doubleArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Double)doubleArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((double[]) this.primitiveTypeArray,
+					(double[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
+	}
+	
+	public static class PrimitiveFloatPhoenixArray extends PhoenixArray {
+		private float[] floatArr;
+		public PrimitiveFloatPhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(float.class,
+					elements.length);
+			floatArr = (float[]) object;
+			return floatArr;
+		}
+		
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(floatArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Float)floatArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((float[]) this.primitiveTypeArray,
+					(float[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
+	}
+	
+	public static class PrimitiveBytePhoenixArray extends PhoenixArray {
+		private byte[] byteArr;
+		public PrimitiveBytePhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(byte.class,
+					elements.length);
+			byteArr = (byte[]) object;
+			return byteArr;
+		}
+		
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(byteArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Byte)byteArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((byte[]) this.primitiveTypeArray,
+					(byte[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
+	}
+	
+	public static class PrimitiveBooleanPhoenixArray extends PhoenixArray {
+		private boolean[] booleanArr;
+		public PrimitiveBooleanPhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(boolean.class,
+					elements.length);
+			booleanArr = (boolean[]) object;
+			return booleanArr;
+		}
+		
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(booleanArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Boolean)booleanArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((boolean[]) this.primitiveTypeArray,
+					(boolean[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
+	}
+	
+	public static class PrimitiveCharPhoenixArray extends PhoenixArray {
+		private char[] charArr;
+		public PrimitiveCharPhoenixArray(PDataType dataType, Object[] elements) {
+			super(dataType, elements);
+		}
+		@Override
+		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
+			Object object = java.lang.reflect.Array.newInstance(char.class,
+					elements.length);
+			charArr = (char[]) object;
+			return charArr;
+		}
+		
+		public int estimateByteSize(int pos) {
+			return this.baseType.estimateByteSize(charArr[pos]);
+		}
+		
+		public byte[] toBytes(int pos) {
+			return this.baseType.toBytes((Character)charArr[pos]);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+				return false;
+			}
+			if (this.baseType != ((PhoenixArray) obj).baseType) {
+				return false;
+			}
+			return Arrays.equals((char[]) this.primitiveTypeArray,
+					(char[]) ((PhoenixArray) obj).primitiveTypeArray);
+		}
+	}
+
+	
 }

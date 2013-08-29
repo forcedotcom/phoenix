@@ -252,7 +252,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
     	PDataType arrayPrimitiveType = PDataType.fromSqlTypeName(typeName);
-    	return new PhoenixArray(arrayPrimitiveType, elements);
+    	return PDataTypeForArray.instantiatePhoenixArray(arrayPrimitiveType, elements);
     }
 
     @Override

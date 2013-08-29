@@ -88,7 +88,7 @@ public class PDataTypeForArray{
 
 	public byte[] bytesFromByteBuffer(PhoenixArray array, PDataType baseType,
 			boolean fixedWidthElements) {
-		int noOfElements = array.elements.length;
+		int noOfElements = array.dimensions;
 		int vIntSize = WritableUtils.getVIntSize(noOfElements);
 		ByteBuffer buffer;
 		if (fixedWidthElements) {
@@ -96,8 +96,8 @@ public class PDataTypeForArray{
 					+ (noOfElements * baseType.getByteSize()));
 		} else {
 			int totalVarSize = 0;
-			for (int i = 0; i < array.elements.length; i++) {
-				totalVarSize += baseType.estimateByteSize(array.elements[i]);
+			for (int i = 0; i < noOfElements; i++) {
+				totalVarSize += array.estimateByteSize(i);
 			}
 			/**
 			 * For non fixed width arrays we will write No of elements - as vint
@@ -111,11 +111,11 @@ public class PDataTypeForArray{
 					+ (noOfElements * Bytes.SIZEOF_INT));
 		}
 		ByteBufferUtils.writeVLong(buffer, noOfElements);
-		for (int i = 0; i < array.elements.length; i++) {
+		for (int i = 0; i < noOfElements; i++) {
 			if (!fixedWidthElements) {
-				buffer.putInt(baseType.estimateByteSize(array.elements[i]));
+				buffer.putInt(array.estimateByteSize(i));
 			}
-			byte[] bytes = baseType.toBytes(array.elements[i]);
+			byte[] bytes = array.toBytes(i);
 			buffer.put(bytes);
 		}
 		return buffer.array();
@@ -139,8 +139,57 @@ public class PDataTypeForArray{
 			buffer.get(val);
 			elements[i] = baseDataType.toObject(val, columnModifier);
 		}
-		PhoenixArray array = new PhoenixArray(baseDataType, elements);
-		return array;
+		return PDataTypeForArray.instantiatePhoenixArray(baseDataType, elements);
+	}
+	
+	public static PhoenixArray instantiatePhoenixArray(PDataType actualType,
+			Object[] elements) {
+		switch (actualType) {
+		case INTEGER:
+			return new PhoenixArray.PrimitiveIntPhoenixArray(actualType, elements);
+		case BINARY:
+			return new PhoenixArray(actualType, elements);
+		case CHAR:
+			return new PhoenixArray(actualType, elements);
+		case DATE:
+			return new PhoenixArray(actualType, elements);
+		case BOOLEAN:
+			return new PhoenixArray.PrimitiveBooleanPhoenixArray(actualType, elements);
+		case DECIMAL:
+			return new PhoenixArray(actualType, elements);
+		case DOUBLE:
+			return new PhoenixArray.PrimitiveDoublePhoenixArray(actualType, elements);
+		case FLOAT:
+			return new PhoenixArray.PrimitiveFloatPhoenixArray(actualType, elements);
+		case LONG:
+			return new PhoenixArray.PrimitiveLongPhoenixArray(actualType, elements);
+		case SMALLINT:
+			return new PhoenixArray.PrimitiveShortPhoenixArray(actualType, elements);
+		case TIME:
+			return new PhoenixArray(actualType, elements);
+		case TIMESTAMP:
+			return new PhoenixArray(actualType, elements);
+		case TINYINT:
+			return new PhoenixArray.PrimitiveBytePhoenixArray(actualType, elements);
+		case UNSIGNED_DOUBLE:
+			return new PhoenixArray.PrimitiveDoublePhoenixArray(actualType, elements);
+		case UNSIGNED_FLOAT:
+			return new PhoenixArray.PrimitiveFloatPhoenixArray(actualType, elements);
+		case UNSIGNED_INT:
+			return new PhoenixArray.PrimitiveIntPhoenixArray(actualType, elements);
+		case UNSIGNED_LONG:
+			return new PhoenixArray.PrimitiveLongPhoenixArray(actualType, elements);
+		case UNSIGNED_SMALLINT:
+			return new PhoenixArray.PrimitiveShortPhoenixArray(actualType, elements);
+		case UNSIGNED_TINYINT:
+			return new PhoenixArray.PrimitiveBytePhoenixArray(actualType, elements);
+		case VARBINARY:
+			return new PhoenixArray(actualType, elements);
+		case VARCHAR:
+			return new PhoenixArray(actualType, elements);
+		default:
+			return new PhoenixArray(actualType, elements);
+		}
 	}
 	
 	public int compareTo(Object lhs, Object rhs) {
