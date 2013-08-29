@@ -118,10 +118,9 @@ public enum ColumnModifier {
     }
 
     /**
-     * Copies the bytes from source array to detination array and applies the column modifier operation on the bytes
+     * Copies the bytes from source array to destination array and applies the column modifier operation on the bytes
      * starting at the specified offsets.  The column modifier is applied to the number of bytes matching the 
      * specified length.
-     * 
      * @param src  the source byte array to copy from, cannot be null
      * @param srcOffset the offset into the source byte array at which to begin.
      * @param dest the destination byte array into which to transfer the modified bytes.
