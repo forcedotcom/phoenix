@@ -37,6 +37,8 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.*;
@@ -53,6 +55,8 @@ import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.util.*;
 
 public class MetaDataClient {
+    private static final Logger logger = LoggerFactory.getLogger(MetaDataClient.class);
+
     private static final ParseNodeFactory FACTORY = new ParseNodeFactory();
     private static final String CREATE_TABLE =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
@@ -789,6 +793,9 @@ public class MetaDataClient {
             break;
         case CONCURRENT_TABLE_MUTATION:
             connection.addTable(schemaName, result.getTable());
+            if (logger.isDebugEnabled()) {
+                logger.debug("CONCURRENT_TABLE_MUTATION for table " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            }
             throw new ConcurrentTableMutationException(schemaName, tableName);
         case NEWER_TABLE_FOUND:
             if (result.getTable() != null) {
@@ -811,7 +818,6 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
-            List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
             connection.setAutoCommit(false);
             TableName tableNameNode = statement.getTable().getName();
             String schemaName = tableNameNode.getSchemaName();
@@ -819,11 +825,15 @@ public class MetaDataClient {
 
             boolean retried = false;
             while (true) {
+                List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
                 ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
                 PTable table = resolver.getTables().get(0).getTable();
                 PSchema schema = resolver.getTables().get(0).getSchema();
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Resolved table to " + SchemaUtil.getTableDisplayName(schema.getName(), table.getName().getString()) + " with seqNum " + table.getSequenceNumber() + " at timestamp " + table.getTimeStamp() + " with " + table.getColumns().size() + " columns: " + table.getColumns());
+                }
                 
-                int position = table.getColumns().size();
+                final int position = table.getColumns().size();
                 
                 List<PColumn> currentPKs = table.getPKColumns();
                 PColumn lastPK = currentPKs.get(currentPKs.size()-1);
@@ -932,6 +942,9 @@ public class MetaDataClient {
                 } catch (ConcurrentTableMutationException e) {
                     if (retried) {
                         throw e;
+                    }
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Caught ConcurrentTableMutationException for table " + SchemaUtil.getTableDisplayName(schemaName, tableName) + ". Will try again...");
                     }
                     retried = true;
                 }
