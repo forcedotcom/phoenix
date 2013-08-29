@@ -4622,11 +4622,8 @@ public enum PDataType {
      * to return the regular corresponding sqlType so
      * that tools like SQuirrel correctly display values
      * of this type.
-<<<<<<< HEAD
      * @return integer representing the SQL type for display
      * of a result set of this type
-=======
->>>>>>> 2.0.1
      */
     public int getResultSetSqlType() {
         return this.sqlType;
