@@ -124,8 +124,9 @@ public class LiteralExpression extends BaseTerminalExpression {
         if (!actualType.isCoercibleTo(type, value)) {
             throw new TypeMismatchException(type, actualType, value.toString());
         }
-		if(actualType.getSqlType() != Types.ARRAY)
+		if(!actualType.isArrayType()) {
 			value = type.toObject(value, actualType);
+		}
         try {
             byte[] b = type.toBytes(value, columnModifier);
             if (type == PDataType.VARCHAR || type == PDataType.CHAR) {

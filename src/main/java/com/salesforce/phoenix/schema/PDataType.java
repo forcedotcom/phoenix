@@ -55,6 +55,7 @@ import com.salesforce.phoenix.util.*;
  */
 @SuppressWarnings("rawtypes")
 public enum PDataType {
+	
     VARCHAR("VARCHAR", Types.VARCHAR, String.class, null) {
         @Override
         public byte[] toBytes(Object object) {
@@ -236,7 +237,7 @@ public enum PDataType {
 
         @Override
         public boolean isFixedWidth() {
-            return true;
+            return false;
         }
 
         @Override
@@ -478,114 +479,8 @@ public enum PDataType {
             }
         }
     },
-    INTEGER_ARRAY("INTEGER_ARRAY", Types.ARRAY, Array.class, null) {
-        // Currently there is no Codec to this.
-		@Override
-		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
-			// The object passed itself may be the PhoenixArray.  Need to check
-			if (rhsType == INTEGER_ARRAY) {
-				return compareTo(lhs, rhs);
-			}
-			return 1;
-		}
-
-		public int compareTo(Object lhs, Object rhs) {
-			PhoenixArray arrCodec = new PhoenixArray(Types.INTEGER);
-			return arrCodec.compareTo(lhs, rhs);
-		}
-
-		@Override
-		public boolean isFixedWidth() {
-			// TODO : Currently there is no limit.. If there is a limit param then this should become true
-			return false;
-		}
-
-		@Override
-		public Integer getByteSize() {
-			// Need to implement this?
-			return 0;
-		}
-
-		@Override
-		public byte[] toBytes(Object object) {
-			// TODO : Should we merge the array elements into one byte array?
-			// We can add this to a 2D byte[] but that would demand a change in this api return type
-			// or need to introduce a new one
-			// currently do for 1D array
-			PhoenixArray array = (PhoenixArray)object;
-			int noOfElements = array.elements.length;
-			if (array.baseType == PDataType.INTEGER.ordinal()) {
-				ByteBuffer buffer = ByteBuffer.allocate(Bytes.SIZEOF_INT + (noOfElements * INTEGER.getByteSize()));
-				buffer.putInt(noOfElements);
-				for (int i = 0; i < array.elements.length; i++) {
-					byte[] bytes = PDataType.INTEGER.toBytes(
-							array.elements[i]);
-					buffer.put(bytes);
-				}
-				return buffer.array();
-			}
-			return null;
-			
-		}
-
-		@Override
-		public int toBytes(Object object, byte[] bytes, int offset) {
-			// TODO:??
-			return 0;
-		}
-
-		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			// Should check for every element in the array?
-			return true;
-		}
-		@Override
-		public Object toObject(String value) {
-			// TODO: How can this be done?
-			throw new IllegalDataException("This operation is not suppported");
-		}
-		
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier) {
-			 if (!actualType.isCoercibleTo(this)) {
-	                throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
-	            }
-	            // Recreate the PhoenixArray here
-	            ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
-	            int noOfElements = buffer.getInt();
-	            Integer[] elements = new Integer[noOfElements];
-	            for(int i = 0; i < noOfElements; i++) {
-	            	byte[] val = new byte[PDataType.INTEGER.getByteSize()];
-	            	buffer.get(val);
-	            	elements[i] = (Integer)PDataType.INTEGER.toObject(val, columnModifier);
-	            }
-	            PhoenixArray array = new PhoenixArray(Types.INTEGER, elements);
-	            return array;
-		}
-		
-		@Override
-        public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-            return toObject(bytes, offset, length, actualType, null);
-        }
-
-		
-		@Override
-		public Object toObject(Object object, PDataType actualType) {
-			// the object that is passed here is the actual array set in the params
-			return object;
-		}
-		
-		@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			// How to use the sortOrder ? Just reverse the elements
-			return toObject(object, actualType);
-		}
-    	
-    }, 
     INTEGER("INTEGER", Types.INTEGER, Integer.class, new IntCodec()) {
-
+    	
         @Override
         public byte[] toBytes(Object object) {
             byte[] b = new byte[Bytes.SIZEOF_INT];
@@ -2262,7 +2157,7 @@ public enum PDataType {
         if (object == null) {
           throw new ConstraintViolationException(this + " may not be null");
         }
-        byte[] b = new byte[Bytes.SIZEOF_INT];
+        byte[] b = new byte[Bytes.SIZEOF_SHORT];
         toBytes(object, b, 0);
         return b;
       }
@@ -3179,7 +3074,1186 @@ public enum PDataType {
             return VARBINARY.toStringLiteral(b, offset, length, formatter);
         }
     },
-    ;
+    INTEGER_ARRAY("INTEGER_ARRAY", Types.ARRAY + PDataType.INTEGER.getSqlType(), Array.class, null) {
+    	@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.INTEGER, PDataType.INTEGER.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.INTEGER);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.INTEGER, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+		
+	},
+	VARCHAR_ARRAY("VARCHAR_ARRAY", Types.ARRAY + PDataType.VARCHAR.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return false;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.VARCHAR, PDataType.VARCHAR.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.VARCHAR);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.VARCHAR, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+
+	},
+	CHAR_ARRAY("CHAR_ARRAY", Types.ARRAY + PDataType.CHAR.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return false;
+		}
+		
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.CHAR, PDataType.CHAR.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.CHAR);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.CHAR, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	LONG_ARRAY("LONG_ARRAY", Types.ARRAY + PDataType.LONG.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.LONG, PDataType.LONG.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.LONG);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.LONG, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	SMALLINT_ARRAY("SMALLINT_ARRAY", Types.ARRAY + PDataType.SMALLINT.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.SMALLINT, PDataType.SMALLINT.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.SMALLINT);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.SMALLINT, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	TINYINT_ARRAY("TINYINT_ARRAY", Types.ARRAY + PDataType.TINYINT.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.TINYINT, PDataType.TINYINT.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TINYINT);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TINYINT, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	FLOAT_ARRAY("FLOAT_ARRAY", Types.ARRAY + PDataType.FLOAT.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.FLOAT, PDataType.FLOAT.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.FLOAT);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.FLOAT, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	DOUBLE_ARRAY("DOUBLE_ARRAY", Types.ARRAY + PDataType.DOUBLE.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.DOUBLE, PDataType.DOUBLE.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DOUBLE);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DOUBLE, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	// How to deal with this?? Is this ARRAY type valid?
+	DECIMAL_ARRAY("DECIMAL_ARRAY", Types.ARRAY + PDataType.DECIMAL.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return false;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.DECIMAL, PDataType.DECIMAL.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DECIMAL);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DECIMAL, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	TIMESTAMP_ARRAY("TIMESTAMP_ARRAY", Types.ARRAY + PDataType.TIMESTAMP.getSqlType(), Array.class,
+			null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.TIMESTAMP, PDataType.TIMESTAMP.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIMESTAMP);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIMESTAMP, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	TIME_ARRAY("TIME_ARRAY", Types.ARRAY + PDataType.TIME.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.TIME, PDataType.TIME.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIME);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIME, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	DATE_ARRAY("DATE_ARRAY", Types.ARRAY + PDataType.DATE.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.DATE, PDataType.DATE.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DATE);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DATE, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	UNSIGNED_LONG_ARRAY("UNSIGNED_LONG_ARRAY", Types.ARRAY + PDataType.UNSIGNED_LONG.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_LONG, PDataType.UNSIGNED_LONG.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_LONG);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_LONG, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	UNSIGNED_INT_ARRAY("UNSIGNED_INT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_INT.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_INT, PDataType.UNSIGNED_INT.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_INT);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_INT, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	UNSIGNED_SMALLINT_ARRAY("UNSIGNED_SMALLINT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_SMALLINT.getSqlType(),
+			Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_SMALLINT, PDataType.UNSIGNED_SMALLINT.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_SMALLINT);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_SMALLINT, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	UNSIGNED_TINYINT_ARRAY("UNSIGNED_TINYINT__ARRAY", Types.ARRAY + PDataType.UNSIGNED_TINYINT.getSqlType(), Array.class,
+			null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_TINYINT, PDataType.UNSIGNED_TINYINT.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_TINYINT);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_TINYINT, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	UNSIGNED_FLOAT_ARRAY("UNSIGNED_FLOAT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_FLOAT.getSqlType(), Array.class, null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_FLOAT, PDataType.UNSIGNED_FLOAT.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_FLOAT);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_FLOAT, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return pDataTypeForArray.isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	},
+	UNSIGNED_DOUBLE_ARRAY("UNSIGNED_DOUBLE__ARRAY", Types.ARRAY + PDataType.UNSIGNED_DOUBLE.getSqlType(), Array.class,
+			null) {
+		@Override
+    	public boolean isArrayType() {
+    		return true;
+    	}
+		@Override
+		public boolean isFixedWidth() {
+			return true;
+		}
+		@Override
+		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+			return pDataTypeForArray.compareTo(lhs, rhs);
+		}
+
+		@Override
+		public Integer getByteSize() {
+			return pDataTypeForArray.getByteSize();
+		}
+
+		@Override
+		public byte[] toBytes(Object object) {
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_DOUBLE, PDataType.UNSIGNED_DOUBLE.isFixedWidth());
+		}
+
+		@Override
+		public int toBytes(Object object, byte[] bytes, int offset) {
+			return pDataTypeForArray.toBytes(object, bytes, offset);
+		}
+
+		@Override
+		public Object toObject(String value) {
+			return pDataTypeForArray.toObject(value);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType,
+				ColumnModifier sortOrder) {
+			return pDataTypeForArray.toObject(object, sortOrder);
+		}
+		
+		@Override
+		public Object toObject(Object object, PDataType actualType) {
+			return pDataTypeForArray.toObject(object);
+		}
+		
+		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_DOUBLE);
+		}
+		
+		@Override
+		public Object toObject(byte[] bytes, int offset, int length,
+				PDataType actualType, ColumnModifier columnModifier) {
+			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_DOUBLE, columnModifier);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType) {
+			return isCoercibleTo(targetType, null);
+		}
+		
+		@Override
+		public boolean isCoercibleTo(PDataType targetType, Object value) {
+			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		}
+	};
 
     private final String sqlTypeName;
     private final int sqlType;
@@ -3187,7 +4261,7 @@ public enum PDataType {
     private final byte[] clazzNameBytes;
     private final byte[] sqlTypeNameBytes;
     private final PDataCodec codec;
-
+    final PDataTypeForArray pDataTypeForArray = new PDataTypeForArray();
     private PDataType(String sqlTypeName, int sqlType, Class clazz, PDataCodec codec) {
         this.sqlTypeName = sqlTypeName;
         this.sqlType = sqlType;
@@ -3244,7 +4318,9 @@ public enum PDataType {
     public final Class getJavaClass() {
         return clazz;
     }
-
+    public boolean isArrayType() {
+    	return false;
+    }
     public final int compareTo(byte[] lhs, int lhsOffset, int lhsLength, ColumnModifier lhsColumnModifier,
                                byte[] rhs, int rhsOffset, int rhsLength, ColumnModifier rhsColumnModifier, PDataType rhsType) {
         if (this.isBytesComparableWith(rhsType)) { // directly compare the bytes
@@ -4677,6 +5753,11 @@ public enum PDataType {
         }
         throw new IllegalDataException("Unsupported sql type: " + sqlTypeName);
     }
+    
+    public static int sqlArrayType(String sqlTypeName) {
+    	PDataType fromSqlTypeName = fromSqlTypeName(sqlTypeName);
+    	return fromSqlTypeName.getSqlType() + Types.ARRAY;
+    }
 
     private static final int SQL_TYPE_OFFSET;
     private static final PDataType[] SQL_TYPE_TO_PCOLUMN_DATA_TYPE;
@@ -4700,15 +5781,15 @@ public enum PDataType {
         }
     }
 
-    public static PDataType fromSqlType(Integer sqlType) {
-        int offset = sqlType - SQL_TYPE_OFFSET;
+    public static PDataType fromTypeId(Integer typeId) {
+        int offset = typeId - SQL_TYPE_OFFSET;
         if (offset >= 0 && offset < SQL_TYPE_TO_PCOLUMN_DATA_TYPE.length) {
             PDataType type = SQL_TYPE_TO_PCOLUMN_DATA_TYPE[offset];
             if (type != null) {
                 return type;
             }
         }
-        throw new IllegalDataException("Unsupported sql type: " + sqlType);
+        throw new IllegalDataException("Unsupported sql type: " + typeId);
     }
 
     public String getJavaClassName() {
@@ -4778,12 +5859,19 @@ public enum PDataType {
         if (value == null) {
             return null;
         }
-        for (PDataType type : PDataType.values()) {
-            if (type.getJavaClass().isInstance(value)) {
-                return type;
-            }
-        }
+		for (PDataType type : PDataType.values()) {
+			if (type.isArrayType()) {
+				PhoenixArray arr = (PhoenixArray) value;
+				if ((type.getSqlType() == arr.baseType.sqlType + Types.ARRAY)
+						&& type.getJavaClass().isInstance(value)) {
+					return type;
+				}
+			} else {
+				if (type.getJavaClass().isInstance(value)) {
+					return type;
+				}
+			}
+		}
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
-    
 }

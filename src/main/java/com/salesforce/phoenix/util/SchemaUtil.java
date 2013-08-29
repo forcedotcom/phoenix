@@ -696,7 +696,7 @@ public class SchemaUtil {
             } else if (skipToNext) {
                 continue;
             }
-            PDataType dataType = PDataType.fromSqlType(rs.getInt(3));
+            PDataType dataType = PDataType.fromTypeId(rs.getInt(3));
             if (dataType.isFixedWidth() || rs.getInt(4) != DatabaseMetaData.attributeNullable) {
                 skipToNext = true;
             } else {

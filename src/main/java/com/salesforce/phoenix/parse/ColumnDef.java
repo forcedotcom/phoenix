@@ -60,7 +60,7 @@ public class ColumnDef {
          this.columnDefName = columnDefName;
          this.isArray = isArray;
          if(this.isArray) {
-        	 this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifierWithArray(sqlTypeName));
+        	 this.dataType = sqlTypeName == null ? null : PDataType.fromTypeId(PDataType.sqlArrayType(SchemaUtil.normalizeIdentifier(sqlTypeName)));
          } else {
              this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
          }

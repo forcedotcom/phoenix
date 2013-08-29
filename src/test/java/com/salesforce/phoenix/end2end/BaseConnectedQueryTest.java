@@ -159,6 +159,231 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         initATableValues(tenantId, splits, date, null);
     }
     
+    protected static void initTablesWithArrays(String tenantId, byte[][] splits, Date date, Long ts) throws Exception {
+    	 if (ts == null) {
+             ensureTableCreated(getUrl(), TABLE_WITH_ARRAY, splits);
+         } else {
+             ensureTableCreated(getUrl(), TABLE_WITH_ARRAY, splits, ts-2);
+         }
+    	 Properties props = new Properties();
+         if (ts != null) {
+             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+         }
+         Connection conn = DriverManager.getConnection(getUrl(), props);
+         try {
+             // Insert all rows at ts
+             PreparedStatement stmt = conn.prepareStatement(
+                     "upsert into " +
+                     "TABLE_WITH_ARRAY(" +
+                     "    ORGANIZATION_ID, " +
+                     "    ENTITY_ID, " +
+                     "    a_string_array, " +
+                     "    B_STRING, " +
+                     "    A_INTEGER, " +
+                     "    A_DATE, " +
+                     "    X_DECIMAL, " +
+                     "    x_long_array, " +
+                     "    X_INTEGER," +
+                     "    a_byte_array," +
+                     "    A_SHORT," +
+                     "    A_FLOAT," +
+                     "    a_double_array," +
+                     "    A_UNSIGNED_FLOAT," +
+                     "    A_UNSIGNED_DOUBLE)" +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW1);
+             // Need to support primitive
+             String[] strArr =  new String[2];
+             strArr[0] = "ABC";
+             strArr[1] = "CEDF";
+             Array array = conn.createArrayOf("VARCHAR", strArr);
+             stmt.setArray(3, array);
+             stmt.setString(4, B_VALUE);
+             stmt.setInt(5, 1);
+             stmt.setDate(6, date);
+             stmt.setBigDecimal(7, null);
+             // Need to support primitive
+             Long[] longArr =  new Long[2];
+             longArr[0] = 25l;
+             longArr[1] = 36l;
+             array = conn.createArrayOf("BIGINT", longArr);
+             stmt.setArray(8, array);
+             stmt.setNull(9, Types.INTEGER);
+             // Need to support primitive
+             Byte[] byteArr =  new Byte[2];
+             byteArr[0] = 25;
+             byteArr[1] = 36;
+             array = conn.createArrayOf("TINYINT", byteArr);
+             stmt.setArray(10, array);
+             stmt.setShort(11, (short) 128);
+             stmt.setFloat(12, 0.01f);
+             // Need to support primitive
+             Double[] doubleArr =  new Double[2];
+             doubleArr[0] = 25.343;
+             doubleArr[1] = 36.763;
+             array = conn.createArrayOf("DOUBLE", doubleArr);
+             stmt.setArray(13, array);
+             stmt.setFloat(14, 0.01f);
+             stmt.setDouble(15, 0.0001);
+             stmt.execute();
+                 
+            /* stmt.setString(1, tenantId);
+             stmt.setString(2, ROW2);
+             stmt.setString(3, A_VALUE);
+             stmt.setString(4, C_VALUE);
+             stmt.setInt(5, 2);
+             stmt.setDate(6, date == null ? null : new Date(date.getTime() + MILLIS_IN_DAY * 1));
+             stmt.setBigDecimal(7, null);
+             stmt.setNull(8, Types.BIGINT);
+             stmt.setNull(9, Types.INTEGER);
+             stmt.setNull(10, Types.INTEGER);
+             stmt.setByte(11, (byte)2);
+             stmt.setShort(12, (short) 129);
+             stmt.setFloat(13, 0.02f);
+             stmt.setDouble(14, 0.0002);
+             stmt.setFloat(15, 0.02f);
+             stmt.setDouble(16, 0.0002);
+             stmt.execute();
+                 
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW3);
+             stmt.setString(3, A_VALUE);
+             stmt.setString(4, E_VALUE);
+             stmt.setInt(5, 3);
+             stmt.setDate(6, date == null ? null : new Date(date.getTime() + MILLIS_IN_DAY * 2));
+             stmt.setBigDecimal(7, null);
+             stmt.setNull(8, Types.BIGINT);
+             stmt.setNull(9, Types.INTEGER);
+             stmt.setNull(10, Types.INTEGER);
+             stmt.setByte(11, (byte)3);
+             stmt.setShort(12, (short) 130);
+             stmt.setFloat(13, 0.03f);
+             stmt.setDouble(14, 0.0003);
+             stmt.setFloat(15, 0.03f);
+             stmt.setDouble(16, 0.0003);
+             stmt.execute();
+                 
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW4);
+             stmt.setString(3, A_VALUE);
+             stmt.setString(4, B_VALUE);
+             stmt.setInt(5, 4);
+             stmt.setDate(6, date == null ? null : date);
+             stmt.setBigDecimal(7, null);
+             stmt.setNull(8, Types.BIGINT);
+             stmt.setNull(9, Types.INTEGER);
+             stmt.setNull(10, Types.INTEGER);
+             stmt.setByte(11, (byte)4);
+             stmt.setShort(12, (short) 131);
+             stmt.setFloat(13, 0.04f);
+             stmt.setDouble(14, 0.0004);
+             stmt.setFloat(15, 0.04f);
+             stmt.setDouble(16, 0.0004);
+             stmt.execute();
+                 
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW5);
+             stmt.setString(3, B_VALUE);
+             stmt.setString(4, C_VALUE);
+             stmt.setInt(5, 5);
+             stmt.setDate(6, date == null ? null : new Date(date.getTime() + MILLIS_IN_DAY * 1));
+             stmt.setBigDecimal(7, null);
+             stmt.setNull(8, Types.BIGINT);
+             stmt.setNull(9, Types.INTEGER);
+             stmt.setNull(10, Types.INTEGER);
+             stmt.setByte(11, (byte)5);
+             stmt.setShort(12, (short) 132);
+             stmt.setFloat(13, 0.05f);
+             stmt.setDouble(14, 0.0005);
+             stmt.setFloat(15, 0.05f);
+             stmt.setDouble(16, 0.0005);
+             stmt.execute();
+                 
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW6);
+             stmt.setString(3, B_VALUE);
+             stmt.setString(4, E_VALUE);
+             stmt.setInt(5, 6);
+             stmt.setDate(6, date == null ? null : new Date(date.getTime() + MILLIS_IN_DAY * 2));
+             stmt.setBigDecimal(7, null);
+             stmt.setNull(8, Types.BIGINT);
+             stmt.setNull(9, Types.INTEGER);
+             stmt.setNull(10, Types.INTEGER);
+             stmt.setByte(11, (byte)6);
+             stmt.setShort(12, (short) 133);
+             stmt.setFloat(13, 0.06f);
+             stmt.setDouble(14, 0.0006);
+             stmt.setFloat(15, 0.06f);
+             stmt.setDouble(16, 0.0006);
+             stmt.execute();
+                 
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW7);
+             stmt.setString(3, B_VALUE);
+             stmt.setString(4, B_VALUE);
+             stmt.setInt(5, 7);
+             stmt.setDate(6, date == null ? null : date);
+             stmt.setBigDecimal(7, BigDecimal.valueOf(0.1));
+             stmt.setLong(8, 5L);
+             stmt.setInt(9, 5);
+             stmt.setNull(10, Types.INTEGER);
+             stmt.setByte(11, (byte)7);
+             stmt.setShort(12, (short) 134);
+             stmt.setFloat(13, 0.07f);
+             stmt.setDouble(14, 0.0007);
+             stmt.setFloat(15, 0.07f);
+             stmt.setDouble(16, 0.0007);
+             stmt.execute();
+                 
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW8);
+             stmt.setString(3, B_VALUE);
+             stmt.setString(4, C_VALUE);
+             stmt.setInt(5, 8);
+             stmt.setDate(6, date == null ? null : new Date(date.getTime() + MILLIS_IN_DAY * 1));
+             stmt.setBigDecimal(7, BigDecimal.valueOf(3.9));
+             long l = Integer.MIN_VALUE - 1L;
+             assert(l < Integer.MIN_VALUE);
+             stmt.setLong(8, l);
+             stmt.setInt(9, 4);
+             stmt.setNull(10, Types.INTEGER);
+             stmt.setByte(11, (byte)8);
+             stmt.setShort(12, (short) 135);
+             stmt.setFloat(13, 0.08f);
+             stmt.setDouble(14, 0.0008);
+             stmt.setFloat(15, 0.08f);
+             stmt.setDouble(16, 0.0008);
+             stmt.setArray(17, array);
+             stmt.execute();
+                 
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW9);
+             stmt.setString(3, C_VALUE);
+             stmt.setString(4, E_VALUE);
+             stmt.setInt(5, 9);
+             stmt.setDate(6, date == null ? null : new Date(date.getTime() + MILLIS_IN_DAY * 2));
+             stmt.setBigDecimal(7, BigDecimal.valueOf(3.3));
+             l = Integer.MAX_VALUE + 1L;
+             assert(l > Integer.MAX_VALUE);
+             stmt.setLong(8, l);
+             stmt.setInt(9, 3);
+             stmt.setInt(10, 300);
+             stmt.setByte(11, (byte)9);
+             stmt.setShort(12, (short) 0);
+             stmt.setFloat(13, 0.09f);
+             stmt.setDouble(14, 0.0009);
+             stmt.setFloat(15, 0.09f);
+             stmt.setDouble(16, 0.0009);
+             stmt.setArray(17, array);
+             stmt.execute();*/
+                 
+             conn.commit();
+         } finally {
+             conn.close();
+         }
+    }
+    
     protected static void initATableValues(String tenantId, byte[][] splits, Date date, Long ts) throws Exception {
         if (ts == null) {
             ensureTableCreated(getUrl(), ATABLE_NAME, splits);
@@ -191,8 +416,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                     "    A_FLOAT," +
                     "    A_DOUBLE," +
                     "    A_UNSIGNED_FLOAT," +
-                    "    A_UNSIGNED_DOUBLE, A_INTEGER_ARRAY)" +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    "    A_UNSIGNED_DOUBLE)" +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             stmt.setString(1, tenantId);
             stmt.setString(2, ROW1);
             stmt.setString(3, A_VALUE);
@@ -209,12 +434,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0001);
             stmt.setFloat(15, 0.01f);
             stmt.setDouble(16, 0.0001);
-            // Need to support primitive
-            Integer[] intArr =  new Integer[2];
-            intArr[0] = 1;
-            intArr[1] = 2;
-            Array array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -233,12 +452,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0002);
             stmt.setFloat(15, 0.02f);
             stmt.setDouble(16, 0.0002);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = 1;
-            intArr[1] = 100;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -257,12 +470,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0003);
             stmt.setFloat(15, 0.03f);
             stmt.setDouble(16, 0.0003);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = 1000;
-            intArr[1] = 100;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -281,12 +488,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0004);
             stmt.setFloat(15, 0.04f);
             stmt.setDouble(16, 0.0004);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = 1;
-            intArr[1] = -5;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -305,12 +506,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0005);
             stmt.setFloat(15, 0.05f);
             stmt.setDouble(16, 0.0005);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = -45;
-            intArr[1] = 0;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -329,12 +524,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0006);
             stmt.setFloat(15, 0.06f);
             stmt.setDouble(16, 0.0006);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = -45;
-            intArr[1] = 63;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -353,12 +542,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0007);
             stmt.setFloat(15, 0.07f);
             stmt.setDouble(16, 0.0007);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = -45;
-            intArr[1] = 64;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -379,12 +562,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0008);
             stmt.setFloat(15, 0.08f);
             stmt.setDouble(16, 0.0008);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = -45;
-            intArr[1] = 68;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -405,12 +582,6 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setDouble(14, 0.0009);
             stmt.setFloat(15, 0.09f);
             stmt.setDouble(16, 0.0009);
-            // Need to support primitive
-            intArr =  new Integer[2];
-            intArr[0] = -45;
-            intArr[1] = 69;
-            array = conn.createArrayOf("INTEGER_ARRAY", intArr);
-            stmt.setArray(17, array);
             stmt.execute();
                 
             conn.commit();

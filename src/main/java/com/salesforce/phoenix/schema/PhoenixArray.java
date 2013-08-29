@@ -35,8 +35,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableUtils;
 
 import java.util.Map;;
 
@@ -44,16 +44,18 @@ import java.util.Map;;
  * java.sql.Array implementation for Phoenix
  */
 public class PhoenixArray implements Array, Writable {
-	int baseType;
+	PDataType baseType;
 	Object[] elements;
 	int dimensions;
-	byte[] buffer;
 
-	public PhoenixArray(int baseType) {
+	public PhoenixArray() {
+		// empty constructor
+	}
+	public PhoenixArray(PDataType baseType) {
 		this.baseType = baseType;
 	}
 
-	public PhoenixArray(int baseType, Object[] elements) {
+	public PhoenixArray(PDataType baseType, Object[] elements) {
 		this.baseType = baseType;
 		this.elements = elements;
 		this.dimensions = elements.length;
@@ -66,17 +68,7 @@ public class PhoenixArray implements Array, Writable {
 
 	@Override
 	public Object getArray() throws SQLException {
-		if (this.baseType == PDataType.INTEGER.ordinal()
-				|| this.baseType == PDataType.UNSIGNED_INT.ordinal()) {
-			Object[] intArr = (Object[]) elements;
-			// Add the elements into this
-			return intArr;
-		} else if (this.baseType == PDataType.LONG.ordinal()
-				|| this.baseType == PDataType.UNSIGNED_LONG.ordinal()) {
-			Object[] longArr = (Object[]) elements;
-			return longArr;
-		}
-		return null;
+		return elements;
 	}
 
 	@Override
@@ -90,20 +82,16 @@ public class PhoenixArray implements Array, Writable {
 			throw new IllegalArgumentException("Index cannot be less than 1");
 		}
 		// Get the set of elements from the given index to the specified count
-		if (this.baseType == PDataType.INTEGER.ordinal()
-				|| this.baseType == PDataType.UNSIGNED_INT.ordinal()) {
-			Object[] intArr = (Object[]) elements;
-			boundaryCheck(index, count, intArr);
-			Object[] newArr = new Object[count];
-			// Add checks() here.
-			int i = 0;
-			for(int j = (int)index; j < count ; j++) {
-				newArr[i] = intArr[j];
-				i++;
-			}
-			return newArr;
+		Object[] intArr = (Object[]) elements;
+		boundaryCheck(index, count, intArr);
+		Object[] newArr = new Object[count];
+		// Add checks() here.
+		int i = 0;
+		for (int j = (int) index; j < count; j++) {
+			newArr[i] = intArr[j];
+			i++;
 		}
-		return null;
+		return newArr;
 	}
 
 	private void boundaryCheck(long index, int count, Object[] arr) {
@@ -123,86 +111,69 @@ public class PhoenixArray implements Array, Writable {
 
 	@Override
 	public int getBaseType() throws SQLException {
-		return baseType;
+		return baseType.getSqlType();
 	}
 
 	@Override
 	public String getBaseTypeName() throws SQLException {
-		return PDataType.fromSqlType(baseType).name();
+		return baseType.name();
 	}
 
 	@Override
 	public ResultSet getResultSet() throws SQLException {
-		return null;
+		throw new UnsupportedOperationException("Currently not supported");
 	}
 
 	@Override
 	public ResultSet getResultSet(Map<String, Class<?>> arg0)
 			throws SQLException {
-		return null;
+		throw new UnsupportedOperationException("Currently not supported");
 	}
 
 	@Override
 	public ResultSet getResultSet(long arg0, int arg1) throws SQLException {
-		return null;
+		throw new UnsupportedOperationException("Currently not supported");
 	}
 
 	@Override
 	public ResultSet getResultSet(long arg0, int arg1,
 			Map<String, Class<?>> arg2) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new UnsupportedOperationException("Currently not supported");
 	}
 
-	public int compareTo(Object lhs, Object rhs) {
-		Object[] lhsArr = (Object[]) lhs;
-		Object[] rhsArr = (Object[]) rhs;
-		if (Arrays.equals(lhsArr, rhsArr)) {
-			return 0;
-		}
-		return 1;
-	}
-
-	public byte[][] toBytes() {
-		if (this.baseType == PDataType.INTEGER.ordinal()
-				|| this.baseType == PDataType.UNSIGNED_INT.ordinal()) {
-			Integer[] arr = (Integer[]) elements;
-			byte[][] bytes = new byte[arr.length][];
-			int i = 0;
-			for (Integer arrElement : arr) {
-				bytes[i] = Bytes.toBytes(arrElement);
-				i++;
-			}
-			return bytes;
-		}
-		return null;
-	}
-	
 	public int getDimensions() {
 		return this.dimensions;
 	}
 	
-	public byte[] getBuffer() {
-		return this.buffer;
-	}
-	
 	@Override
 	public void readFields(DataInput in) throws IOException {
-		int noOfElements = in.readInt();
-		// for multidimensional Array this could not be so simple??
-		if (baseType == PDataType.INTEGER.ordinal()) {
-			buffer = new byte[(PDataType.INTEGER.getByteSize() * noOfElements)];			
-			in.readFully(buffer, 0, buffer.length);
+		int baseTypeInt = WritableUtils.readVInt(in);
+		PDataType baseType = PDataType.fromTypeId(baseTypeInt);
+		int noOfElements = WritableUtils.readVInt(in);
+		byte[] buffer;
+		if(baseType.isFixedWidth()) {
+			buffer = new byte[baseType.getByteSize() * noOfElements];
+		} else {
+			int elementSize = in.readInt();
+			buffer = new byte[elementSize];
 		}
+		in.readFully(buffer, 0, buffer.length);
 	}
 
 	@Override
 	public void write(DataOutput out) throws IOException {
-		out.writeInt(this.elements.length);
-		if (baseType == PDataType.INTEGER.ordinal()) {
-			for (int i = 0; i < this.elements.length; i++) {
-				byte[] bytes = PDataType.INTEGER.toBytes(
-						this.elements[i]);
+		WritableUtils.writeVInt(out, baseType.getSqlType());
+		int noOfElements = this.elements.length;
+		WritableUtils.writeVInt(out, noOfElements);
+		if (baseType.isFixedWidth()) {
+			for (int i = 0; i < noOfElements; i++) {
+				byte[] bytes = baseType.toBytes(this.elements[i]);
+				out.write(bytes, 0, bytes.length);
+			}
+		} else {
+			for (int i = 0; i < noOfElements; i++) {
+				out.writeInt(baseType.estimateByteSize(this.elements[i]));
+				byte[] bytes = baseType.toBytes(this.elements[i]);
 				out.write(bytes, 0, bytes.length);
 			}
 		}
@@ -210,13 +181,13 @@ public class PhoenixArray implements Array, Writable {
 	
 	@Override
 	public boolean equals(Object obj) {
-		if(this.dimensions != ((PhoenixArray)obj).dimensions) {
+		if (this.dimensions != ((PhoenixArray) obj).dimensions) {
 			return false;
 		}
-		if(this.baseType != ((PhoenixArray)obj).baseType) {
+		if (this.baseType != ((PhoenixArray) obj).baseType) {
 			return false;
 		}
-		return Arrays.equals(this.elements, ((PhoenixArray)obj).elements);
+		return Arrays.equals(this.elements, ((PhoenixArray) obj).elements);
 	}
 
 	@Override
@@ -224,9 +195,9 @@ public class PhoenixArray implements Array, Writable {
 		// TODO : Revisit
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((elements == null) ? 0 : elements.hashCode());
+		result = prime * result
+				+ ((elements == null) ? 0 : elements.hashCode());
 		return result;
 
 	}
-
 }

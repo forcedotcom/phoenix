@@ -69,7 +69,6 @@ public abstract class BaseTest {
                 "    a_double double,\n" +
                 "    a_unsigned_float unsigned_float,\n" +
                 "    a_unsigned_double unsigned_double,\n" +
-                "    a_integer_array integer array[]\n" + 
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
                 ")");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
@@ -243,6 +242,26 @@ public abstract class BaseTest {
                 "IMMUTABLE_ROWS=true");
         builder.put("SumDoubleTest","create table SumDoubleTest" +
                 "   (id varchar not null primary key, d DOUBLE, f FLOAT, ud UNSIGNED_DOUBLE, uf UNSIGNED_FLOAT, i integer, de decimal)");
+        builder.put(TABLE_WITH_ARRAY,"create table " + TABLE_WITH_ARRAY +
+                "   (organization_id char(15) not null, \n" +
+                "    entity_id char(15) not null,\n" +
+                "    a_string_array varchar array[],\n" +
+                "    b_string varchar(100),\n" +
+                "    a_integer integer,\n" +
+                "    a_date date,\n" +
+                "    a_time time,\n" +
+                "    a_timestamp timestamp,\n" +
+                "    x_decimal decimal(31,10),\n" +
+                "    x_long_array bigint array[],\n" +
+                "    x_integer integer,\n" +
+                "    a_byte_array tinyint array[],\n" +
+                "    a_short smallint,\n" +
+                "    a_float float,\n" +
+                "    a_double_array double array[],\n" +
+                "    a_unsigned_float unsigned_float,\n" +
+                "    a_unsigned_double unsigned_double \n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
+                ")");
         tableDDLMap = builder.build();
     }
 

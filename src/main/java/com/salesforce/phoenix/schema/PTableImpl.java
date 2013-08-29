@@ -467,7 +467,7 @@ public class PTableImpl implements PTable {
             } else {
             	Integer byteSize;
             	// Arrays cannot be having fixed size and byte size
-            	if (type.getSqlType() == Types.ARRAY) {
+            	if (type.isArrayType()) {
             		byteSize = byteValue.length;
 				} else {
 					byteSize = column.getByteSize();

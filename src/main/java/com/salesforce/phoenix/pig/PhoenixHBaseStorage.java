@@ -211,7 +211,7 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	}
 
 	private Object convertTypeSpecificValue(Object o, byte type, Integer sqlType) {
-		PDataType pDataType = PDataType.fromSqlType(sqlType);
+		PDataType pDataType = PDataType.fromTypeId(sqlType);
 
 		return TypeUtil.castPigTypeToPhoenix(o, type, pDataType);
 	}

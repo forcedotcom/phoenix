@@ -157,25 +157,95 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     public void testScanByArrayValue() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_integer_array, /* comment ok? */ b_string, a_float FROM aTable WHERE ?=organization_id and ?=a_float";
+        initTablesWithArrays(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_float";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
-            statement.setFloat(2, 0.03f);
+            statement.setFloat(2, 0.01f);
             ResultSet rs = statement.executeQuery();
             assertTrue (rs.next());
             // Need to support primitive
-            Integer[] intArr =  new Integer[2];
-            intArr[0] = 1000;
-            intArr[1] = 100;
-            PhoenixArray array = (PhoenixArray)conn.createArrayOf("INTEGER_ARRAY", intArr);
+            Double[] doubleArr =  new Double[2];
+            doubleArr[0] = 25.343;
+            doubleArr[1] = 36.763;
+            PhoenixArray array = (PhoenixArray)conn.createArrayOf("DOUBLE", doubleArr);
             PhoenixArray resultArray = (PhoenixArray)rs.getArray(1);
             assertEquals(resultArray, array);
-            assertEquals(rs.getString("B_string"), E_VALUE);
+            assertEquals(rs.getString("B_string"), B_VALUE);
+            assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testScanWithArrayInWhereClause() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initTablesWithArrays(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_byte_array";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            // Need to support primitive
+            Byte[] byteArr =  new Byte[2];
+            byteArr[0] = 25;
+            byteArr[1] = 36;
+            Array array = conn.createArrayOf("TINYINT", byteArr);
+            statement.setArray(2, array);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            // Need to support primitive
+            Double[] doubleArr =  new Double[2];
+            doubleArr[0] = 25.343;
+            doubleArr[1] = 36.763;
+            array = (PhoenixArray)conn.createArrayOf("DOUBLE", doubleArr);
+            PhoenixArray resultArray = (PhoenixArray)rs.getArray(1);
+            assertEquals(resultArray, array);
+            assertEquals(rs.getString("B_string"), B_VALUE);
+            assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testScanWithNonFixedWidthArrayInWhereClause() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initTablesWithArrays(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_string_array";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            // Need to support primitive
+            String[] strArr =  new String[2];
+            strArr[0] = "ABC";
+            strArr[1] = "CEDF";
+            Array array = conn.createArrayOf("VARCHAR", strArr);
+            statement.setArray(2, array);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            // Need to support primitive
+            Double[] doubleArr =  new Double[2];
+            doubleArr[0] = 25.343;
+            doubleArr[1] = 36.763;
+            array = (PhoenixArray)conn.createArrayOf("DOUBLE", doubleArr);
+            PhoenixArray resultArray = (PhoenixArray)rs.getArray(1);
+            assertEquals(resultArray, array);
+            assertEquals(rs.getString("B_string"), B_VALUE);
             assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
             assertFalse(rs.next());
         } finally {
