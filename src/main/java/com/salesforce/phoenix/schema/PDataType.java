@@ -3074,7 +3074,7 @@ public enum PDataType {
             return VARBINARY.toStringLiteral(b, offset, length, formatter);
         }
     },
-    INTEGER_ARRAY("INTEGER_ARRAY", Types.ARRAY + PDataType.INTEGER.getSqlType(), Array.class, null) {
+    INTEGER_ARRAY("INTEGER_ARRAY", Types.ARRAY + PDataType.INTEGER.getSqlType(), PhoenixArray.class, null) {
     	@Override
     	public boolean isArrayType() {
     		return true;
@@ -3141,7 +3141,7 @@ public enum PDataType {
 		}
 		
 	},
-	VARCHAR_ARRAY("VARCHAR_ARRAY", Types.ARRAY + PDataType.VARCHAR.getSqlType(), Array.class, null) {
+	VARCHAR_ARRAY("VARCHAR_ARRAY", Types.ARRAY + PDataType.VARCHAR.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3207,7 +3207,7 @@ public enum PDataType {
 		}
 
 	},
-	CHAR_ARRAY("CHAR_ARRAY", Types.ARRAY + PDataType.CHAR.getSqlType(), Array.class, null) {
+	CHAR_ARRAY("CHAR_ARRAY", Types.ARRAY + PDataType.CHAR.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3273,7 +3273,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	LONG_ARRAY("LONG_ARRAY", Types.ARRAY + PDataType.LONG.getSqlType(), Array.class, null) {
+	LONG_ARRAY("LONG_ARRAY", Types.ARRAY + PDataType.LONG.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3338,7 +3338,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	SMALLINT_ARRAY("SMALLINT_ARRAY", Types.ARRAY + PDataType.SMALLINT.getSqlType(), Array.class, null) {
+	SMALLINT_ARRAY("SMALLINT_ARRAY", Types.ARRAY + PDataType.SMALLINT.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3403,7 +3403,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	TINYINT_ARRAY("TINYINT_ARRAY", Types.ARRAY + PDataType.TINYINT.getSqlType(), Array.class, null) {
+	TINYINT_ARRAY("TINYINT_ARRAY", Types.ARRAY + PDataType.TINYINT.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3468,7 +3468,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	FLOAT_ARRAY("FLOAT_ARRAY", Types.ARRAY + PDataType.FLOAT.getSqlType(), Array.class, null) {
+	FLOAT_ARRAY("FLOAT_ARRAY", Types.ARRAY + PDataType.FLOAT.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3534,7 +3534,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	DOUBLE_ARRAY("DOUBLE_ARRAY", Types.ARRAY + PDataType.DOUBLE.getSqlType(), Array.class, null) {
+	DOUBLE_ARRAY("DOUBLE_ARRAY", Types.ARRAY + PDataType.DOUBLE.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3600,7 +3600,7 @@ public enum PDataType {
 		}
 	},
 	// How to deal with this?? Is this ARRAY type valid?
-	DECIMAL_ARRAY("DECIMAL_ARRAY", Types.ARRAY + PDataType.DECIMAL.getSqlType(), Array.class, null) {
+	DECIMAL_ARRAY("DECIMAL_ARRAY", Types.ARRAY + PDataType.DECIMAL.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3665,7 +3665,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	TIMESTAMP_ARRAY("TIMESTAMP_ARRAY", Types.ARRAY + PDataType.TIMESTAMP.getSqlType(), Array.class,
+	TIMESTAMP_ARRAY("TIMESTAMP_ARRAY", Types.ARRAY + PDataType.TIMESTAMP.getSqlType(), PhoenixArray.class,
 			null) {
 		@Override
     	public boolean isArrayType() {
@@ -3731,7 +3731,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	TIME_ARRAY("TIME_ARRAY", Types.ARRAY + PDataType.TIME.getSqlType(), Array.class, null) {
+	TIME_ARRAY("TIME_ARRAY", Types.ARRAY + PDataType.TIME.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3796,7 +3796,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	DATE_ARRAY("DATE_ARRAY", Types.ARRAY + PDataType.DATE.getSqlType(), Array.class, null) {
+	DATE_ARRAY("DATE_ARRAY", Types.ARRAY + PDataType.DATE.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3861,7 +3861,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	UNSIGNED_LONG_ARRAY("UNSIGNED_LONG_ARRAY", Types.ARRAY + PDataType.UNSIGNED_LONG.getSqlType(), Array.class, null) {
+	UNSIGNED_LONG_ARRAY("UNSIGNED_LONG_ARRAY", Types.ARRAY + PDataType.UNSIGNED_LONG.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3926,7 +3926,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	UNSIGNED_INT_ARRAY("UNSIGNED_INT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_INT.getSqlType(), Array.class, null) {
+	UNSIGNED_INT_ARRAY("UNSIGNED_INT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_INT.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -3992,7 +3992,7 @@ public enum PDataType {
 		}
 	},
 	UNSIGNED_SMALLINT_ARRAY("UNSIGNED_SMALLINT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_SMALLINT.getSqlType(),
-			Array.class, null) {
+			PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -4057,7 +4057,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	UNSIGNED_TINYINT_ARRAY("UNSIGNED_TINYINT__ARRAY", Types.ARRAY + PDataType.UNSIGNED_TINYINT.getSqlType(), Array.class,
+	UNSIGNED_TINYINT_ARRAY("UNSIGNED_TINYINT__ARRAY", Types.ARRAY + PDataType.UNSIGNED_TINYINT.getSqlType(), PhoenixArray.class,
 			null) {
 		@Override
     	public boolean isArrayType() {
@@ -4123,7 +4123,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	UNSIGNED_FLOAT_ARRAY("UNSIGNED_FLOAT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_FLOAT.getSqlType(), Array.class, null) {
+	UNSIGNED_FLOAT_ARRAY("UNSIGNED_FLOAT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_FLOAT.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -4188,7 +4188,7 @@ public enum PDataType {
 			return pDataTypeForArray.isCoercibleTo(targetType, value);
 		}
 	},
-	UNSIGNED_DOUBLE_ARRAY("UNSIGNED_DOUBLE__ARRAY", Types.ARRAY + PDataType.UNSIGNED_DOUBLE.getSqlType(), Array.class,
+	UNSIGNED_DOUBLE_ARRAY("UNSIGNED_DOUBLE__ARRAY", Types.ARRAY + PDataType.UNSIGNED_DOUBLE.getSqlType(), PhoenixArray.class,
 			null) {
 		@Override
     	public boolean isArrayType() {
