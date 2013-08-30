@@ -343,6 +343,14 @@ public abstract class ValueSchema implements Writable {
         ptr.set(ptr.get(),ptr.getOffset()-length,length);
     }
     
+    public int getEstimatedByteSize() {
+        int size = 0;
+        size += WritableUtils.getVIntSize(minNullable);
+        size += WritableUtils.getVIntSize(fields.size());
+        size += fields.size() * 3;
+        return size;
+    }
+    
     public void serialize(DataOutput output) throws IOException {
         WritableUtils.writeVInt(output, minNullable);
         WritableUtils.writeVInt(output, fields.size());

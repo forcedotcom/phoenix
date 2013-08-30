@@ -43,6 +43,7 @@ import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.*;
+import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.stat.PTableStats;
@@ -84,6 +85,7 @@ public class PTableImpl implements PTable {
     // Data table name that the index is created on.
     private PName dataTableName;
     private boolean isImmutableRows;
+    private ImmutableBytesWritable indexMaintainers;
     
     public PTableImpl() {
     }
@@ -660,5 +662,18 @@ public class PTableImpl implements PTable {
     @Override
     public PName getDataTableName() {
         return dataTableName;
+    }
+
+    @Override
+    public void getIndexMaintainers(byte[] schemaName, ImmutableBytesWritable ptr) {
+        if (indexMaintainers == null) {
+            indexMaintainers = new ImmutableBytesWritable();
+            if (indexes.isEmpty()) {
+                indexMaintainers.set(ByteUtil.EMPTY_BYTE_ARRAY);
+            } else {
+                IndexMaintainer.serialize(schemaName, this, indexMaintainers);
+            }
+        }
+        ptr.set(indexMaintainers.get(), indexMaintainers.getOffset(), indexMaintainers.getLength());
     }
 }

@@ -1,10 +1,7 @@
 
 package com.salesforce.hbase.index.builder.covered;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 import org.apache.hadoop.hbase.util.Bytes;
 

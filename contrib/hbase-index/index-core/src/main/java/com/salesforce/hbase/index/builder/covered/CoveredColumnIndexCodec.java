@@ -1,22 +1,14 @@
 package com.salesforce.hbase.index.builder.covered;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.filter.BinaryComparator;
 import org.apache.hadoop.hbase.regionserver.ExposedMemStore;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
@@ -353,7 +345,7 @@ public class CoveredColumnIndexCodec {
       d.setTimestamp(indexRow.nextNewestTs);
     }
 
-    return d == null? Collections.singleton((Mutation)indexInsert) : Arrays.asList((Mutation)indexInsert, (Mutation)d);
+    return d == null? Collections.singleton((Mutation)indexInsert) : Arrays.asList(indexInsert, d);
   }
 
   private static void addColumnsToPut(Put indexInsert, IndexUpdateEntry columns,

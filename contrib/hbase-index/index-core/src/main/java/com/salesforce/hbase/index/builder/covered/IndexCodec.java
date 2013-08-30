@@ -54,6 +54,7 @@ public interface IndexCodec {
    *          care about the latest column values, for each column you are indexing for each index
    *          table.
    * @return the pairs of (updates,index table name) that should be applied.
+ * @throws IOException 
    */
-  public Iterable<IndexUpdate> getIndexUpserts(TableState state);
+  public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException;
 }

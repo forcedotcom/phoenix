@@ -178,4 +178,6 @@ public interface PTable extends Writable {
      */
     PName getDataTableName();
     boolean isImmutableRows();
+    
+    void getIndexMaintainers(byte[] schemaName, ImmutableBytesWritable ptr); 
 }

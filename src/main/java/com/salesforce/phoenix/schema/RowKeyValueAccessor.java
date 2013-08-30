@@ -138,7 +138,7 @@ public class RowKeyValueAccessor implements Writable   {
         hasSeparator = (length & 0x02) != 0;
         isFixedLength = (length & 0x01) != 0;
         length >>= 2;
-        offsets = ByteUtil.deserializeIntArray(input, length);
+        offsets = ByteUtil.deserializeVIntArray(input, length);
     }
 
     @Override
@@ -147,7 +147,7 @@ public class RowKeyValueAccessor implements Writable   {
         // (since there's plenty of room)
         int length = offsets.length << 2;
         length |= (hasSeparator ? 1 << 1 : 0) | (isFixedLength ? 1 : 0);
-        ByteUtil.serializeIntArray(output, offsets, length);
+        ByteUtil.serializeVIntArray(output, offsets, length);
     }
     
     /**

@@ -223,7 +223,13 @@ public class ServerCacheClient {
         Throwable lastThrowable = null;
         HTableInterface iterateOverTable = services.getTable(cacheUsingTableRef.getTableName());
         NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(cacheUsingTableRef);
-        Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
+        Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers);
+        /**
+         * Allow for the possibility that the region we based where to send our cache has split and been
+         * relocated to another region server *after* we sent it, but before we removed it. To accommodate
+         * this, we iterate through the current metadata boundaries and remove the cache once for each
+         * server that we originally sent to.
+         */
         for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
             if (remainingOnServers.contains(entry.getValue())) {  // Call once per server
                 try {

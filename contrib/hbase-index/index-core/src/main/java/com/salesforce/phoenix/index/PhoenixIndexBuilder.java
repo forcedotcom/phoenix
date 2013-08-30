@@ -29,38 +29,22 @@ package com.salesforce.phoenix.index;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.PriorityQueue;
-import java.util.Queue;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.hbase.util.*;
 
-import com.google.common.collect.Ordering;
-import com.google.common.collect.TreeMultimap;
+import com.google.common.collect.*;
 import com.google.common.primitives.Longs;
 import com.salesforce.hbase.index.builder.BaseIndexBuilder;
-import com.salesforce.hbase.index.builder.covered.ColumnTracker;
-import com.salesforce.hbase.index.builder.covered.IndexCodec;
-import com.salesforce.hbase.index.builder.covered.IndexUpdate;
-import com.salesforce.hbase.index.builder.covered.LocalTable;
-import com.salesforce.hbase.index.builder.covered.LocalTableState;
-import com.salesforce.hbase.index.builder.covered.TableState;
+import com.salesforce.hbase.index.builder.covered.*;
 
 /**
  * Build covered indexes for phoenix updates.
@@ -136,8 +120,9 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * @param updateMap index updates into which to add new updates. Modified as a side-effect.
    * @param state current state of the row for the mutation.
    * @param m mutation to batch
+ * @throws IOException 
    */
-  private void batchMutationAndAddUpdates(List<Pair<Mutation, String>> updateMap, Mutation m) {
+  private void batchMutationAndAddUpdates(List<Pair<Mutation, String>> updateMap, Mutation m) throws IOException {
     // split the mutation into timestamp-based batches
     TreeMultimap<Long, KeyValue> batches = createTimestampBatchesFromMutation(m);
 
@@ -226,9 +211,10 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * @param updateMap map to update with new index elements
    * @param batch timestamp-based batch of edits
    * @param state local state to update and pass to the codec
+ * @throws IOException 
    */
   private void addMutationsForBatch(Collection<Pair<Mutation, String>> updateMap,
-      Entry<Long, Collection<KeyValue>> batch, LocalTableState state) {
+      Entry<Long, Collection<KeyValue>> batch, LocalTableState state) throws IOException {
 
     // do a single pass to figure out if we even need to fix up history.
     Iterable<IndexUpdate> upserts = getPendingIndexUpdates(state, batch);
@@ -264,6 +250,7 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
         }
       }
 
+      Queue<ColumnTrackerQueueElement> nextUpdateBatches = Queues.newSynchronousQueue(); // JT - to fix compiler error
       if (needCleanup) {
         // enque this tracker for another pass to for cleanup
         addTrackerToQueue(nextUpdateBatches, tracker);
@@ -305,10 +292,11 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
       state.addPendingUpdates(batch.getValue());
 
       // get the updates to the current index
-      Iterable<IndexUpdate> upserts = codec.getIndexUpserts(state);
+      // JT - rename from upserts to currentUpserts to fix compiler error
+      Iterable<IndexUpdate> currentUpserts = codec.getIndexUpserts(state);
       state.resetTrackedColumns();
 
-      for (IndexUpdate update : upserts) {
+      for (IndexUpdate update : currentUpserts) {
         // TODO replace this as just storing a byte[], to avoid all the String <-> byte[] swapping
         // HBase does
         String table = Bytes.toString(update.getTableName());
@@ -345,9 +333,10 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
   /**
    * @param state
    * @return
+ * @throws IOException 
    */
   private Iterable<IndexUpdate> getPendingIndexUpdates(LocalTableState state,
-      Entry<Long, Collection<KeyValue>> batch) {
+      Entry<Long, Collection<KeyValue>> batch) throws IOException {
     // add the current batch to the map
     state.addPendingUpdates(batch.getValue());
 
@@ -398,6 +387,7 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
       this.trackers.addAll(Arrays.asList(tracker));
     }
 
+    @Override
     public boolean equals(Object o) {
       if (!(o instanceof ColumnTrackerQueueElement)) {
         return false;

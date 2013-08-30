@@ -29,6 +29,7 @@ package com.salesforce.phoenix.util;
 
 import java.sql.SQLException;
 import java.util.*;
+import java.util.BitSet;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;

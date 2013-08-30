@@ -1,34 +1,15 @@
 package com.salesforce.hbase.index.builder.covered;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.hbase.util.*;
 
 import com.google.common.collect.Ordering;
 import com.google.common.collect.TreeMultimap;
@@ -271,25 +252,6 @@ public class CoveredColumnIndexer extends BaseIndexBuilder {
       }
     }
     return batches;
-  }
-
-  /**
-   * Find all the {@link ColumnGroup}s that match this {@link Mutation} to the primary table.
-   * @param m mutation to match against
-   * @return the {@link ColumnGroup}s that should be updated with this {@link Mutation}.
-   */
-  private Collection<ColumnGroup> findMatchingGroups(Mutation m) {
-    Set<ColumnGroup> matches = new HashSet<ColumnGroup>();
-    for (Entry<byte[], List<KeyValue>> family : m.getFamilyMap().entrySet()) {
-      // no kvs being added, means we can ignore this family
-      if (family.getValue() == null || family.getValue().size() == 0) {
-        continue;
-      }
-
-      getAllMatchingGroups(matches, family.getValue());
-
-    }
-    return matches;
   }
 
   /**
