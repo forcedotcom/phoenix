@@ -91,6 +91,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             // TODO: ColumnReference constructor with byte[],offset,length
             Collection<IndexMaintainer> maintainers = indexMap.get(new ColumnReference(kv.getFamily(),kv.getQualifier()));
             for (IndexMaintainer maintainer : maintainers) {
+                // TODO: if more efficient, I could do this just once with all columns in all indexes
                 Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
                 IndexUpdate indexUpdate = pair.getSecond();
                 Scanner scanner = pair.getFirst();
@@ -114,9 +115,27 @@ public class PhoenixIndexCodec implements IndexCodec {
     }
 
     @Override
-    public Iterable<Pair<Delete, byte[]>> getIndexDeletes(TableState state) {
-        // TODO Implement IndexCodec.getIndexDeletes
-        return null;
+    public Iterable<Pair<Delete, byte[]>> getIndexDeletes(TableState state) throws IOException {
+        Multimap<ColumnReference, IndexMaintainer> indexMap = getIndexMap(state);
+        if (indexMap.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Pair<Delete, byte[]>> indexUpdates = Lists.newArrayList();
+        for (KeyValue kv : state.getPendingUpdate()) {
+            // TODO: ColumnReference constructor with byte[],offset,length
+            Collection<IndexMaintainer> maintainers = indexMap.get(new ColumnReference(kv.getFamily(),kv.getQualifier()));
+            for (IndexMaintainer maintainer : maintainers) {
+                // TODO: if more efficient, I could do this just once with all columns in all indexes
+                // FIXME: somewhat weird that you get back an IndexUpdate here
+                Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
+                Scanner scanner = pair.getFirst();
+                Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getIndexedColumns().size());
+                byte[] rowKey = maintainer.buildRowKey(valueMap);
+                Delete delete = new Delete(rowKey);
+                indexUpdates.add(new Pair<Delete, byte[]>(delete, maintainer.getIndexTableName()));
+            }
+        }
+        return indexUpdates;
     }
     
 }

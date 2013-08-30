@@ -404,9 +404,10 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
 
   /**
    * Get the index deletes from the codec (IndexCodec{@link #getIndexDeletes(TableState)} and then add them to the update map.
+ * @throws IOException 
    */
   protected void addDeleteUpdatesToMap(Collection<Pair<Mutation, String>> updateMap,
-      LocalTableState state, long ts) {
+      LocalTableState state, long ts) throws IOException {
     Iterable<Pair<Delete, byte[]>> cleanup = codec.getIndexDeletes(state);
     if (cleanup != null) {
       for (Pair<Delete, byte[]> d : cleanup) {
