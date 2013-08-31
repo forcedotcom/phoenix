@@ -34,71 +34,88 @@ import java.sql.SQLException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.OutputCommitter;
-import org.apache.hadoop.mapreduce.OutputFormat;
-import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
-import com.salesforce.phoenix.pig.PhoenixPigConfiguration;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 
 /**
- * {@link OutputFormat} implementation for Phoenix
+ * 
+ * {@link OutputCommitter} implementation for Pig tasks using Phoenix
+ * connections to upsert to HBase
  * 
  * @author pkommireddi
  *
  */
-public class PhoenixOutputFormat extends OutputFormat<NullWritable, PhoenixRecord> {
-	private static final Log LOG = LogFactory.getLog(PhoenixOutputFormat.class);
+public class PhoenixOutputCommitter extends OutputCommitter {
+	private final Log LOG = LogFactory.getLog(PhoenixOutputCommitter.class);
 	
-	private Connection connection;
-	private PhoenixPigConfiguration config;
-
-	@Override
-	public void checkOutputSpecs(JobContext jobContext) throws IOException, InterruptedException {		
-	}
-
-	/**
-	 * TODO Implement {@link OutputCommitter} to rollback in case of task failure
-	 */
+	private final PhoenixOutputFormat outputFormat;
 	
-	@Override
-	public OutputCommitter getOutputCommitter(TaskAttemptContext context) throws IOException, InterruptedException {
-		return new PhoenixOutputCommitter(this);
-	}
-
-	@Override
-	public RecordWriter<NullWritable, PhoenixRecord> getRecordWriter(TaskAttemptContext context) throws IOException, InterruptedException {
-		try {
-			return new PhoenixRecordWriter(getConnection(context.getConfiguration()), config);
-		} catch (SQLException e) {
-			throw new IOException(e);
+	public PhoenixOutputCommitter(PhoenixOutputFormat outputFormat) {
+		if(outputFormat == null) {
+			throw new IllegalArgumentException("PhoenixOutputFormat must not be null.");
 		}
+		this.outputFormat = outputFormat;
 	}
-	
+
 	/**
-	 * This method creates a database connection. A single instance is created
-	 * and passed around for re-use.
+	 *  TODO implement rollback functionality. 
+	 *  
+	 *  {@link PhoenixStatement#execute(String)} is buffered on the client, this makes 
+	 *  it difficult to implement rollback as once a commit is issued it's hard to go 
+	 *  back all the way to undo. 
+	 */
+	@Override
+	public void abortTask(TaskAttemptContext context) throws IOException {
+	}
+
+	@Override
+	public void commitTask(TaskAttemptContext context) throws IOException {
+		commit(outputFormat.getConnection(context.getConfiguration()));
+	}
+
+	@Override
+	public boolean needsTaskCommit(TaskAttemptContext context) throws IOException {
+		return true;
+	}
+
+	@Override
+	public void setupJob(JobContext jobContext) throws IOException {		
+	}
+
+	@Override
+	public void setupTask(TaskAttemptContext context) throws IOException {
+	}
+
+	/**
+	 * Commit a transaction on task completion
 	 * 
-	 * @param configuration
-	 * @return
+	 * @param connection
 	 * @throws IOException
 	 */
-	synchronized Connection getConnection(Configuration configuration) throws IOException {
-	    if (connection != null) { 
-	    	return connection; 
-	    }
-	    
-	    config = new PhoenixPigConfiguration(configuration);	    
+	private void commit(Connection connection) throws IOException {
 		try {
-			LOG.info("Initializing new Phoenix connection...");
-			connection = config.getConnection();
-			LOG.info("Initialized Phoenix connection, autoCommit="+ connection.getAutoCommit());
-			return connection;
+			if (connection == null || connection.isClosed()) {
+				throw new IOException("Trying to commit a connection that is null or closed: "+ connection);
+			}
 		} catch (SQLException e) {
-			throw new IOException(e);
+			throw new IOException("Exception calling isClosed on connection", e);
+		}
+
+		try {
+			LOG.debug("Commit called on task completion");
+			connection.commit();
+		} catch (SQLException e) {
+			throw new IOException("Exception while trying to commit a connection. ", e);
+		} finally {
+			try {
+				LOG.debug("Closing connection to database on task completion");
+				connection.close();
+			} catch (SQLException e) {
+				LOG.warn("Exception while trying to close database connection", e);
+			}
 		}
 	}
 }

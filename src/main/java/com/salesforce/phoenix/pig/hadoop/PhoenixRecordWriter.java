@@ -36,7 +36,6 @@ import java.sql.SQLException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.NullWritable;
-import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
@@ -67,32 +66,13 @@ public class PhoenixRecordWriter extends RecordWriter<NullWritable, PhoenixRecor
 		this.statement = this.conn.prepareStatement(config.getUpsertStatement());
 	}
 
+
 	/**
-	 * Commit only at the end of task. This should ideally reside in an implementation of
-	 * {@link OutputCommitter} since that will allow us to rollback in case of task failure.
+	 * Committing and closing the connection is handled by {@link PhoenixOutputCommitter}.
 	 * 
 	 */
 	@Override
 	public void close(TaskAttemptContext context) throws IOException, InterruptedException {
-		try {
-			if (conn == null || conn.isClosed()) {
-				throw new IOException("Trying to commit a connection that is null or closed: "+ conn);
-			}
-		} catch (SQLException e) {
-			throw new IOException("Exception calling isClosed on connection", e);
-		}
-		
-		LOG.info("commit called during close");
-		try {
-			conn.commit();
-		} catch (SQLException e) {
-			throw new IOException("Exception while committing to database." + e);
-		}
-		try {
-			conn.close();
-		} catch (SQLException e) {
-			throw new IOException("Exception while closing database connection." + e);
-		}
 	}
 
 	@Override
@@ -100,15 +80,14 @@ public class PhoenixRecordWriter extends RecordWriter<NullWritable, PhoenixRecor
 		try {
 			record.write(statement, config.getColumnMetadataList());
 			numRecords++;
-			
-			if(numRecords % batchSize == 0) {
-				LOG.info("commit called on a batch of size : "+batchSize);
+
+			if (numRecords % batchSize == 0) {
+				LOG.debug("commit called on a batch of size : " + batchSize);
 				conn.commit();
 			}
-			
 		} catch (SQLException e) {
 			throw new IOException("Exception while committing to database.", e);
-		}		
+		}
 	}
 
 }
