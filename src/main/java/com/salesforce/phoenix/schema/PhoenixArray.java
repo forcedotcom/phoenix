@@ -27,9 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.Array;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -38,16 +36,16 @@ import java.util.Map;
  */
 public class PhoenixArray implements Array {
 	PDataType baseType;
-	Object primitiveTypeArray;
+	Object array;
 	int dimensions;
-
 	public PhoenixArray() {
 		// empty constructor
 	}
 	
 	public PhoenixArray(PDataType baseType, Object[] elements) {
+		// As we are dealing with primitive types and only the Boxed objects
 		this.baseType = baseType;
-		this.primitiveTypeArray = convertObjectArrayToPrimitiveArray(elements);
+		this.array = convertObjectArrayToPrimitiveArray(elements);
 		this.dimensions = elements.length;
 	}
 	
@@ -61,7 +59,7 @@ public class PhoenixArray implements Array {
 
 	@Override
 	public Object getArray() throws SQLException {
-		return primitiveTypeArray;
+		return array;
 	}
 
 	@Override
@@ -75,7 +73,7 @@ public class PhoenixArray implements Array {
 			throw new IllegalArgumentException("Index cannot be less than 1");
 		}
 		// Get the set of elements from the given index to the specified count
-		Object[] intArr = (Object[]) primitiveTypeArray;
+		Object[] intArr = (Object[]) array;
 		boundaryCheck(index, count, intArr);
 		Object[] newArr = new Object[count];
 		// Add checks() here.
@@ -109,7 +107,7 @@ public class PhoenixArray implements Array {
 
 	@Override
 	public String getBaseTypeName() throws SQLException {
-		return baseType.name();
+		return baseType.getSqlTypeName();
 	}
 
 	@Override
@@ -139,11 +137,11 @@ public class PhoenixArray implements Array {
 	}
 	
 	public int estimateByteSize(int pos) {
-		return this.baseType.estimateByteSize(((Object[])primitiveTypeArray)[pos]);
+		return this.baseType.estimateByteSize(((Object[])array)[pos]);
 	}
 	
 	public byte[] toBytes(int pos) {
-		return this.baseType.toBytes(((Object[])primitiveTypeArray)[pos]);
+		return this.baseType.toBytes(((Object[])array)[pos]);
 	}
 	
 	@Override
@@ -154,8 +152,8 @@ public class PhoenixArray implements Array {
 		if (this.baseType != ((PhoenixArray) obj).baseType) {
 			return false;
 		}
-		return Arrays.equals((Object[]) this.primitiveTypeArray,
-				(Object[]) ((PhoenixArray) obj).primitiveTypeArray);
+		return Arrays.deepEquals((Object[]) this.array,
+				(Object[]) ((PhoenixArray) obj).array);
 	}
 
 	@Override
@@ -164,7 +162,7 @@ public class PhoenixArray implements Array {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result
-				+ ((primitiveTypeArray == null) ? 0 : primitiveTypeArray.hashCode());
+				+ ((array == null) ? 0 : array.hashCode());
 		return result;
 	}
 	
@@ -197,8 +195,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((int[]) this.primitiveTypeArray,
-					(int[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((int[]) this.array,
+					(int[]) ((PhoenixArray) obj).array);
 		}
 	}
 	
@@ -231,8 +229,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((short[]) this.primitiveTypeArray,
-					(short[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((short[]) this.array,
+					(short[]) ((PhoenixArray) obj).array);
 		}
 	}
 	
@@ -264,8 +262,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((long[]) this.primitiveTypeArray,
-					(long[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((long[]) this.array,
+					(long[]) ((PhoenixArray) obj).array);
 		}
 
 	}
@@ -299,8 +297,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((double[]) this.primitiveTypeArray,
-					(double[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((double[]) this.array,
+					(double[]) ((PhoenixArray) obj).array);
 		}
 	}
 	
@@ -333,8 +331,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((float[]) this.primitiveTypeArray,
-					(float[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((float[]) this.array,
+					(float[]) ((PhoenixArray) obj).array);
 		}
 	}
 	
@@ -367,8 +365,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((byte[]) this.primitiveTypeArray,
-					(byte[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((byte[]) this.array,
+					(byte[]) ((PhoenixArray) obj).array);
 		}
 	}
 	
@@ -401,8 +399,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((boolean[]) this.primitiveTypeArray,
-					(boolean[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((boolean[]) this.array,
+					(boolean[]) ((PhoenixArray) obj).array);
 		}
 	}
 	
@@ -435,8 +433,8 @@ public class PhoenixArray implements Array {
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
 				return false;
 			}
-			return Arrays.equals((char[]) this.primitiveTypeArray,
-					(char[]) ((PhoenixArray) obj).primitiveTypeArray);
+			return Arrays.equals((char[]) this.array,
+					(char[]) ((PhoenixArray) obj).array);
 		}
 	}
 

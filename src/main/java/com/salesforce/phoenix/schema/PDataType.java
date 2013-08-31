@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.schema;
 
 import java.math.*;
-import java.nio.ByteBuffer;
 import java.sql.*;
 import java.text.Format;
 import java.util.Map;
@@ -36,6 +35,7 @@ import java.util.Map;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Base64;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
@@ -3132,13 +3132,29 @@ public enum PDataType {
 		
 		@Override
 		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
+			return pDataTypeForArray.isCoercibleTo(targetType, PDataType.INTEGER_ARRAY);
 		}
 		
 		@Override
 		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
+		   
+		   PhoenixArray pArr = (PhoenixArray)value;
+		   int[] intArr = (int[])pArr.array;
+           for (int i : intArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.INTEGER, i)) {
+                   return false;
+               }
+           }
+		   return true;
 		}
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.INTEGER.getByteSize());
+        }
 		
 	},
 	VARCHAR_ARRAY("VARCHAR_ARRAY", Types.ARRAY + PDataType.VARCHAR.getSqlType(), PhoenixArray.class, null) {
@@ -3197,14 +3213,40 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.VARCHAR_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           Object[] charArr = (Object[])pArr.array;
+           for (Object i : charArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.VARCHAR, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+
+            int totalVarSize = 0;
+            for (int i = 0; i < noOfElements; i++) {
+                totalVarSize += array.estimateByteSize(i);
+            }
+            /**
+             * For non fixed width arrays we will write No of elements - as vint (we know the no of elements upfront so
+             * we can know how much space this vint is going to occupy) Write the size of every element as Int (cannot
+             * use vint here as we cannot fix the actual size of the ByteBuffer for allocation) Followed by the actual
+             * data - totalVarSize (this has to calculated upfront). See above for loop
+             */
+            return vIntSize + (totalVarSize) + (noOfElements * Bytes.SIZEOF_INT);
+        }
 
 	},
 	CHAR_ARRAY("CHAR_ARRAY", Types.ARRAY + PDataType.CHAR.getSqlType(), PhoenixArray.class, null) {
@@ -3264,14 +3306,39 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.CHAR_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           Object[] charArr = (Object[])pArr.array;
+           for (Object i : charArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.CHAR, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            int totalVarSize = 0;
+            for (int i = 0; i < noOfElements; i++) {
+                totalVarSize += array.estimateByteSize(i);
+            }
+            /**
+             * For non fixed width arrays we will write No of elements - as vint (we know the no of elements upfront so
+             * we can know how much space this vint is going to occupy) Write the size of every element as Int (cannot
+             * use vint here as we cannot fix the actual size of the ByteBuffer for allocation) Followed by the actual
+             * data - totalVarSize (this has to calculated upfront). See above for loop
+             */
+            return vIntSize + (totalVarSize) + (noOfElements * Bytes.SIZEOF_INT);
+        }
 	},
 	LONG_ARRAY("LONG_ARRAY", Types.ARRAY + PDataType.LONG.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3329,14 +3396,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.LONG_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           long[] longArr = (long[])pArr.array;
+           for (long i : longArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.LONG, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.LONG.getByteSize());
+        }
 	},
 	SMALLINT_ARRAY("SMALLINT_ARRAY", Types.ARRAY + PDataType.SMALLINT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3394,14 +3476,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.SMALLINT_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           short[] shortArr = (short[])pArr.array;
+           for (short i : shortArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.SMALLINT, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.SMALLINT.getByteSize());
+        }
 	},
 	TINYINT_ARRAY("TINYINT_ARRAY", Types.ARRAY + PDataType.TINYINT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3459,14 +3556,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.TINYINT_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           byte[] byteArr = (byte[])pArr.array;
+           for (byte i : byteArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.TINYINT, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.TINYINT.getByteSize());
+        }
 	},
 	FLOAT_ARRAY("FLOAT_ARRAY", Types.ARRAY + PDataType.FLOAT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3525,14 +3637,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.FLOAT_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           float[] floatArr = (float[])pArr.array;
+           for (float i : floatArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.FLOAT, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.FLOAT.getByteSize());
+        }
 	},
 	DOUBLE_ARRAY("DOUBLE_ARRAY", Types.ARRAY + PDataType.DOUBLE.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3590,14 +3717,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.DOUBLE_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           double[] doubleArr = (double[])pArr.array;
+           for (double i : doubleArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.DOUBLE, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.DOUBLE.getByteSize());
+        }
 	},
 	// How to deal with this?? Is this ARRAY type valid?
 	DECIMAL_ARRAY("DECIMAL_ARRAY", Types.ARRAY + PDataType.DECIMAL.getSqlType(), PhoenixArray.class, null) {
@@ -3656,14 +3798,40 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.DECIMAL_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           Object[] decimalArr = (Object[])pArr.array;
+           for (Object i : decimalArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.DECIMAL, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+
+            int totalVarSize = 0;
+            for (int i = 0; i < noOfElements; i++) {
+                totalVarSize += array.estimateByteSize(i);
+            }
+            /**
+             * For non fixed width arrays we will write No of elements - as vint (we know the no of elements upfront so
+             * we can know how much space this vint is going to occupy) Write the size of every element as Int (cannot
+             * use vint here as we cannot fix the actual size of the ByteBuffer for allocation) Followed by the actual
+             * data - totalVarSize (this has to calculated upfront). See above for loop
+             */
+            return vIntSize + (totalVarSize) + (noOfElements * Bytes.SIZEOF_INT);
+        }
 	},
 	TIMESTAMP_ARRAY("TIMESTAMP_ARRAY", Types.ARRAY + PDataType.TIMESTAMP.getSqlType(), PhoenixArray.class,
 			null) {
@@ -3722,14 +3890,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.TIMESTAMP_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           Object[] timeStampArr = (Object[])pArr.array;
+           for (Object i : timeStampArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.TIMESTAMP, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.TIMESTAMP.getByteSize());
+        }
 	},
 	TIME_ARRAY("TIME_ARRAY", Types.ARRAY + PDataType.TIME.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3787,14 +3970,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.TIME_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           Object[] timeArr = (Object[])pArr.array;
+           for (Object i : timeArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.TIME, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.TIME.getByteSize());
+        }
 	},
 	DATE_ARRAY("DATE_ARRAY", Types.ARRAY + PDataType.DATE.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3852,14 +4050,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.DATE_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           Object[] dateArr = (Object[])pArr.array;
+           for (Object i : dateArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.DATE, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.DATE.getByteSize());
+        }
 	},
 	UNSIGNED_LONG_ARRAY("UNSIGNED_LONG_ARRAY", Types.ARRAY + PDataType.UNSIGNED_LONG.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3917,14 +4130,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_LONG_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           long[] longArr = (long[])pArr.array;
+           for (long i : longArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_LONG, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.UNSIGNED_LONG.getByteSize());
+        }
 	},
 	UNSIGNED_INT_ARRAY("UNSIGNED_INT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_INT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3982,14 +4210,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_INT_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           int[] intArr = (int[])pArr.array;
+           for (int i : intArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_INT, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.UNSIGNED_INT.getByteSize());
+        }
 	},
 	UNSIGNED_SMALLINT_ARRAY("UNSIGNED_SMALLINT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_SMALLINT.getSqlType(),
 			PhoenixArray.class, null) {
@@ -4048,14 +4291,30 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_SMALLINT_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           short[] shortArr = (short[])pArr.array;
+           for (short i : shortArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_SMALLINT, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+		
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.UNSIGNED_SMALLINT.getByteSize());
+        }
 	},
 	UNSIGNED_TINYINT_ARRAY("UNSIGNED_TINYINT__ARRAY", Types.ARRAY + PDataType.UNSIGNED_TINYINT.getSqlType(), PhoenixArray.class,
 			null) {
@@ -4114,14 +4373,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_TINYINT_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           byte[] byteArr = (byte[])pArr.array;
+           for (byte i : byteArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_TINYINT, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.UNSIGNED_TINYINT.getByteSize());
+        }
 	},
 	UNSIGNED_FLOAT_ARRAY("UNSIGNED_FLOAT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_FLOAT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -4179,14 +4453,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return pDataTypeForArray.isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_FLOAT_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           float[] floatArr = (float[])pArr.array;
+           for (float i : floatArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_FLOAT, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+
+        @Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.UNSIGNED_FLOAT.getByteSize());
+        }
 	},
 	UNSIGNED_DOUBLE_ARRAY("UNSIGNED_DOUBLE__ARRAY", Types.ARRAY + PDataType.UNSIGNED_DOUBLE.getSqlType(), PhoenixArray.class,
 			null) {
@@ -4245,14 +4534,29 @@ public enum PDataType {
 		}
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType) {
-			return isCoercibleTo(targetType, null);
-		}
+        public boolean isCoercibleTo(PDataType targetType) {
+            return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_DOUBLE_ARRAY);
+        }
 		
 		@Override
-		public boolean isCoercibleTo(PDataType targetType, Object value) {
-			return pDataTypeForArray.isCoercibleTo(targetType, value);
-		}
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+           PhoenixArray pArr = (PhoenixArray)value;
+           double[] doubleArr = (double[])pArr.array;
+           for (double i : doubleArr) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, i)) {
+                   return false;
+               }
+           }
+           return true;
+        }
+		
+		@Override
+        public int estimateByteSize(Object object) {
+            PhoenixArray array = (PhoenixArray)object;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            return vIntSize + (noOfElements * PDataType.UNSIGNED_DOUBLE.getByteSize());
+        }
 	};
 
     private final String sqlTypeName;
@@ -4447,6 +4751,7 @@ public enum PDataType {
         public int encodeFloat(float v, byte[] b, int o);
         public int encodeDouble(double v, ImmutableBytesWritable ptr);
         public int encodeDouble(double v, byte[] b, int o);
+        public PhoenixArrayFactory getPhoenixArrayFactory();
     }
 
     public static abstract class BaseCodec implements PDataCodec {
@@ -4655,6 +4960,16 @@ public enum PDataType {
         public int encodeShort(short v, byte[] b, int o) {
           return encodeLong(v, b, o);
         }
+        
+        @Override
+        public PhoenixArrayFactory getPhoenixArrayFactory() {
+            return new PhoenixArrayFactory() {
+                @Override
+                public PhoenixArray newArray(PDataType type, Object[] elements) {
+                    return new PhoenixArray.PrimitiveLongPhoenixArray(type, elements);
+                }
+            };
+        }
     }
 
     public static class IntCodec extends BaseCodec {
@@ -4755,6 +5070,16 @@ public enum PDataType {
         public int encodeShort(short v, byte[] b, int o) {
           return encodeInt(v, b, o);
         }
+        
+        @Override
+        public PhoenixArrayFactory getPhoenixArrayFactory() {
+            return new PhoenixArrayFactory() {
+                @Override
+                public PhoenixArray newArray(PDataType type, Object[] elements) {
+                    return new PhoenixArray.PrimitiveIntPhoenixArray(type, elements);
+                }
+            };
+        }
     }
     
     public static class ShortCodec extends BaseCodec {
@@ -4852,6 +5177,16 @@ public enum PDataType {
           }
           return encodeShort((short)v,b,o);
       }
+      
+      @Override
+      public PhoenixArrayFactory getPhoenixArrayFactory() {
+          return new PhoenixArrayFactory() {
+              @Override
+              public PhoenixArray newArray(PDataType type, Object[] elements) {
+                  return new PhoenixArray.PrimitiveShortPhoenixArray(type, elements);
+              }
+          };
+      }
     }
     
     public static class ByteCodec extends BaseCodec {
@@ -4939,6 +5274,15 @@ public enum PDataType {
                 throw new IllegalDataException("Value " + v + " cannot be encoded as an Byte without changing its value");
             }
             return encodeByte((byte)v,b,o);
+        }
+        @Override
+        public PhoenixArrayFactory getPhoenixArrayFactory() {
+            return new PhoenixArrayFactory() {
+                @Override
+                public PhoenixArray newArray(PDataType type, Object[] elements) {
+                    return new PhoenixArray.PrimitiveBytePhoenixArray(type, elements);
+                }
+            };
         }
     }
     
@@ -5156,6 +5500,16 @@ public enum PDataType {
             Bytes.putInt(b, o, i);
             return Bytes.SIZEOF_INT;
         }
+        
+        @Override
+        public PhoenixArrayFactory getPhoenixArrayFactory() {
+            return new PhoenixArrayFactory() {
+                @Override
+                public PhoenixArray newArray(PDataType type, Object[] elements) {
+                    return new PhoenixArray.PrimitiveFloatPhoenixArray(type, elements);
+                }
+            };
+        }
     }
     
     public static class DoubleCodec extends BaseCodec {
@@ -5258,6 +5612,15 @@ public enum PDataType {
             return encodeDouble(v, b, o);
         }
         
+        @Override
+        public PhoenixArrayFactory getPhoenixArrayFactory() {
+            return new PhoenixArrayFactory() {
+                @Override
+                public PhoenixArray newArray(PDataType type, Object[] elements) {
+                    return new PhoenixArray.PrimitiveDoublePhoenixArray(type, elements);
+                }
+            };
+        }
     }
     
     public static class UnsignedFloatCodec extends FloatCodec {
@@ -5321,6 +5684,17 @@ public enum PDataType {
         @Override
         public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
             throw new UnsupportedOperationException();
+        }
+        
+        @Override
+        public PhoenixArrayFactory getPhoenixArrayFactory() {
+            return new PhoenixArrayFactory() {
+                
+                @Override
+                public PhoenixArray newArray(PDataType type, Object[] elements) {
+                    return new PhoenixArray(type, elements);
+                }
+            };
         }
     }
 
@@ -5780,6 +6154,30 @@ public enum PDataType {
             SQL_TYPE_TO_PCOLUMN_DATA_TYPE[sqlType-SQL_TYPE_OFFSET] = dataType;
         }
     }
+    
+    private static interface PhoenixArrayFactory {
+        PhoenixArray newArray(PDataType type, Object[] elements);
+    }
+    
+    public static PhoenixArrayFactory[] ARRAY_FACTORY = new PhoenixArrayFactory[PDataType.values().length];
+    static {
+        int i = 0;
+        for (PDataType type : PDataType.values()) {
+            if (!type.isArrayType()) {
+                if (type.getCodec() != null) {
+                    ARRAY_FACTORY[i++] = type.getCodec().getPhoenixArrayFactory();
+                } else {
+                    ARRAY_FACTORY[i++] = new PhoenixArrayFactory() {
+                        
+                        @Override
+                        public PhoenixArray newArray(PDataType type, Object[] elements) {
+                            return new PhoenixArray(type, elements);
+                        }
+                    };
+                }
+            }
+        }
+    }
 
     public static PDataType fromTypeId(Integer typeId) {
         int offset = typeId - SQL_TYPE_OFFSET;
@@ -5790,6 +6188,10 @@ public enum PDataType {
             }
         }
         throw new IllegalDataException("Unsupported sql type: " + typeId);
+    }
+    
+    public static PhoenixArrayFactory[] getArrayFactory() {
+        return ARRAY_FACTORY;
     }
 
     public String getJavaClassName() {
@@ -5834,7 +6236,15 @@ public enum PDataType {
         }
         return o.toString();
     }
-    
+
+    public static PhoenixArray instantiatePhoenixArray(PDataType actualType,
+            Object[] elements) {
+        PhoenixArrayFactory factory = ARRAY_FACTORY[actualType.ordinal()];
+        if (factory == null) {
+            throw new IllegalArgumentException("Cannot create an array of " + actualType);
+         }
+         return factory.newArray(actualType, elements);
+    }
     public KeyRange getKeyRange(byte[] lowerRange, boolean lowerInclusive, byte[] upperRange, boolean upperInclusive) {
         /*
          * Force lower bound to be inclusive for fixed width keys because it makes

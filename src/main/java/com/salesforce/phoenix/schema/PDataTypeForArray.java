@@ -28,16 +28,14 @@
 package com.salesforce.phoenix.schema;
 
 import java.nio.ByteBuffer;
+import java.sql.Types;
 
 import org.apache.hadoop.hbase.util.ByteBufferUtils;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.WritableUtils;
 
 /**
  * The datatype for PColummns that are Arrays
  */
 public class PDataTypeForArray{
-
 
 	public PDataTypeForArray() {
 	}
@@ -48,7 +46,9 @@ public class PDataTypeForArray{
 	}
 
 	public byte[] toBytes(Object object, PDataType baseType, boolean fixedWidth) {
-		return bytesFromByteBuffer((PhoenixArray) object, baseType, fixedWidth);
+	    int size = PDataType.fromTypeId((baseType.getSqlType() + Types.ARRAY)).estimateByteSize(object);
+	    ByteBuffer buffer = ByteBuffer.allocate(size);
+		return bytesFromByteBuffer((PhoenixArray)object, buffer, ((PhoenixArray)object).dimensions, fixedWidth);
 	}
 
 	public int toBytes(Object object, byte[] bytes, int offset) {
@@ -57,13 +57,17 @@ public class PDataTypeForArray{
 	}
 
 	public boolean isCoercibleTo(PDataType targetType, Object value) {
-		// Should check for every element in the array?
-		return true;
+	    return targetType.isCoercibleTo(targetType, value);
 	}
+	
+	public boolean isCoercibleTo(PDataType targetType, PDataType expectedTargetType) {
+        return targetType == expectedTargetType;
+    }
 
-	public Object toObject(String value) {
-		// TODO: How can this be done?
-		throw new IllegalDataException("This operation is not suppported");
+
+    public Object toObject(String value) {
+		// TODO: Do this as done in CSVLoader
+		throw new IllegalArgumentException("This operation is not suppported");
 	}
 
 	public Object toObject(byte[] bytes, int offset, int length,  boolean fixedWidth, PDataType baseType, 
@@ -86,30 +90,10 @@ public class PDataTypeForArray{
 		return toObject(object);
 	}
 
-	public byte[] bytesFromByteBuffer(PhoenixArray array, PDataType baseType,
-			boolean fixedWidthElements) {
-		int noOfElements = array.dimensions;
-		int vIntSize = WritableUtils.getVIntSize(noOfElements);
-		ByteBuffer buffer;
-		if (fixedWidthElements) {
-			buffer = ByteBuffer.allocate(vIntSize
-					+ (noOfElements * baseType.getByteSize()));
-		} else {
-			int totalVarSize = 0;
-			for (int i = 0; i < noOfElements; i++) {
-				totalVarSize += array.estimateByteSize(i);
-			}
-			/**
-			 * For non fixed width arrays we will write No of elements - as vint
-			 * (we know the no of elements upfront so we can know how much space
-			 * this vint is going to occupy) Write the size of every element as
-			 * Int (cannot use vint here as we cannot fix the actual size of the
-			 * ByteBuffer for allocation) Followed by the actual data -
-			 * totalVarSize (this has to calculated upfront). See above for loop
-			 */
-			buffer = ByteBuffer.allocate(vIntSize + (totalVarSize)
-					+ (noOfElements * Bytes.SIZEOF_INT));
-		}
+	// Making this private
+	private byte[] bytesFromByteBuffer(PhoenixArray array, ByteBuffer buffer,
+			int noOfElements, boolean fixedWidthElements) {
+	    if(buffer == null) return null;
 		ByteBufferUtils.writeVLong(buffer, noOfElements);
 		for (int i = 0; i < noOfElements; i++) {
 			if (!fixedWidthElements) {
@@ -121,7 +105,7 @@ public class PDataTypeForArray{
 		return buffer.array();
 	}
 
-	public Object createPhoenixArray(byte[] bytes, int offset, int length,
+	private Object createPhoenixArray(byte[] bytes, int offset, int length,
 			ColumnModifier columnModifier, boolean fixedWidthElements,
 			PDataType baseDataType) {
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
@@ -142,55 +126,9 @@ public class PDataTypeForArray{
 		return PDataTypeForArray.instantiatePhoenixArray(baseDataType, elements);
 	}
 	
-	public static PhoenixArray instantiatePhoenixArray(PDataType actualType,
-			Object[] elements) {
-		switch (actualType) {
-		case INTEGER:
-			return new PhoenixArray.PrimitiveIntPhoenixArray(actualType, elements);
-		case BINARY:
-			return new PhoenixArray(actualType, elements);
-		case CHAR:
-			return new PhoenixArray(actualType, elements);
-		case DATE:
-			return new PhoenixArray(actualType, elements);
-		case BOOLEAN:
-			return new PhoenixArray.PrimitiveBooleanPhoenixArray(actualType, elements);
-		case DECIMAL:
-			return new PhoenixArray(actualType, elements);
-		case DOUBLE:
-			return new PhoenixArray.PrimitiveDoublePhoenixArray(actualType, elements);
-		case FLOAT:
-			return new PhoenixArray.PrimitiveFloatPhoenixArray(actualType, elements);
-		case LONG:
-			return new PhoenixArray.PrimitiveLongPhoenixArray(actualType, elements);
-		case SMALLINT:
-			return new PhoenixArray.PrimitiveShortPhoenixArray(actualType, elements);
-		case TIME:
-			return new PhoenixArray(actualType, elements);
-		case TIMESTAMP:
-			return new PhoenixArray(actualType, elements);
-		case TINYINT:
-			return new PhoenixArray.PrimitiveBytePhoenixArray(actualType, elements);
-		case UNSIGNED_DOUBLE:
-			return new PhoenixArray.PrimitiveDoublePhoenixArray(actualType, elements);
-		case UNSIGNED_FLOAT:
-			return new PhoenixArray.PrimitiveFloatPhoenixArray(actualType, elements);
-		case UNSIGNED_INT:
-			return new PhoenixArray.PrimitiveIntPhoenixArray(actualType, elements);
-		case UNSIGNED_LONG:
-			return new PhoenixArray.PrimitiveLongPhoenixArray(actualType, elements);
-		case UNSIGNED_SMALLINT:
-			return new PhoenixArray.PrimitiveShortPhoenixArray(actualType, elements);
-		case UNSIGNED_TINYINT:
-			return new PhoenixArray.PrimitiveBytePhoenixArray(actualType, elements);
-		case VARBINARY:
-			return new PhoenixArray(actualType, elements);
-		case VARCHAR:
-			return new PhoenixArray(actualType, elements);
-		default:
-			return new PhoenixArray(actualType, elements);
-		}
-	}
+    public static PhoenixArray instantiatePhoenixArray(PDataType actualType, Object[] elements) {
+        return PDataType.instantiatePhoenixArray(actualType, elements);
+    }
 	
 	public int compareTo(Object lhs, Object rhs) {
 		PhoenixArray lhsArr = (PhoenixArray) lhs;

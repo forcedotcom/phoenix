@@ -30,9 +30,7 @@ package com.salesforce.phoenix.schema;
 import static org.junit.Assert.assertEquals;
 
 import java.math.BigDecimal;
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.sql.*;
 
 import org.junit.Test;
 
@@ -64,8 +62,8 @@ public class PDataTypeForArraysTest {
 	@Test
 	public void testForCharArray() {
 		String[] strArr = new String[2];
-		strArr[0] = "ram";
-		strArr[1] = "krishna";
+		strArr[0] = "abd";
+		strArr[1] = "deftg";
 		PhoenixArray arr = PDataTypeForArray.instantiatePhoenixArray(PDataType.CHAR, strArr);
 		byte[] bytes = PDataType.CHAR_ARRAY.toBytes(arr);
 		PhoenixArray resultArr = (PhoenixArray) PDataType.CHAR_ARRAY
@@ -132,7 +130,7 @@ public class PDataTypeForArraysTest {
 				.toObject(bytes, 0, bytes.length);
 		assertEquals(arr, resultArr);
 	}
-
+	
 	@Test
 	public void testForDecimalArray() {
 		BigDecimal[] bigDecimalArr = new BigDecimal[2];
