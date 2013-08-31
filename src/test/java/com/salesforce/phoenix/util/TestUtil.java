@@ -94,6 +94,7 @@ public class TestUtil {
     public static final String TEST_SCHEMA_FILE_NAME = "config" + File.separator + "test-schema.xml";
     public static final String CED_SCHEMA_FILE_NAME = "config" + File.separator + "schema.xml";
     public static final String ATABLE_NAME = "ATABLE";
+    public static final String TABLE_WITH_ARRAY = "TABLE_WITH_ARRAY";
     public static final String SUM_DOUBLE_NAME = "SumDoubleTest";
     public static final String ATABLE_SCHEMA_NAME = "";
     public static final String BTABLE_NAME = "BTABLE";

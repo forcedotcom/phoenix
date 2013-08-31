@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression;
 
 import java.io.*;
 import java.sql.SQLException;
+import java.sql.Types;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -103,6 +104,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         return newConstant(value, type, null, null, columnModifier);
     }
     
+    
     public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException { // remove?
         return newConstant(value, type, maxLength, scale, null);
     }
@@ -117,10 +119,14 @@ public class LiteralExpression extends BaseTerminalExpression {
             return TYPED_NULL_EXPRESSIONS[type.ordinal()];
         }
         PDataType actualType = PDataType.fromLiteral(value);
+        // For array we should check individual element in it?
+        // It would be costly though!!!!!
         if (!actualType.isCoercibleTo(type, value)) {
             throw new TypeMismatchException(type, actualType, value.toString());
         }
-        value = type.toObject(value, actualType);
+		if(!actualType.isArrayType()) {
+			value = type.toObject(value, actualType);
+		}
         try {
             byte[] b = type.toBytes(value, columnModifier);
             if (type == PDataType.VARCHAR || type == PDataType.CHAR) {
@@ -250,7 +256,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     public byte[] getBytes() {
         return byteValue;
     }
-
+    
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return visitor.visit(this);

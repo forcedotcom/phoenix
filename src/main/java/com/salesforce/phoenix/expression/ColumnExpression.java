@@ -111,6 +111,9 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (byteSize != null) {
             return byteSize;
         }
+        // Calling super.getByteSize could yield Null also if fixedWidth is True and 
+        // getByteSize is null.
+        // But while reading we are trying to read the byte size though it was not written
         return super.getByteSize();
     }
 
@@ -130,7 +133,8 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         int typeAndNullable = WritableUtils.readVInt(input);
         isNullable = (typeAndNullable & 0x01) != 0;
         type = PDataType.values()[typeAndNullable >>> 1];
-        if (type.isFixedWidth() && type.getByteSize() == null) {
+        // If array type then we would not have written the byteSize for the array column
+        if (!type.isArrayType() && type.isFixedWidth() && type.getByteSize() == null) {
             byteSize = WritableUtils.readVInt(input);
         }
         columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));

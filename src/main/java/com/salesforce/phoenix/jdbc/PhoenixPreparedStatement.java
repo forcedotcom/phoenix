@@ -122,7 +122,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setArray(int parameterIndex, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+    	parameters.set(parameterIndex - 1, x);
     }
 
     @Override
@@ -300,7 +300,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void setObject(int parameterIndex, Object o, int targetSqlType) throws SQLException {
-        PDataType targetType = PDataType.fromSqlType(targetSqlType);
+        PDataType targetType = PDataType.fromTypeId(targetSqlType);
         PDataType sourceType = PDataType.fromLiteral(o);
         o = targetType.toObject(o, sourceType);
         parameters.set(parameterIndex - 1, o);
