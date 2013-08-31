@@ -157,7 +157,7 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
         	record.add(t.get(i));
         }
         
-        try {
+		try {
 			writer.write(null, record);
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
@@ -174,13 +174,12 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	public void cleanupOnFailure(String location, Job job) throws IOException {
 	}
 
-    @Override
-    public void cleanupOnSuccess(String location, Job job) throws IOException {
-    }
+	@Override
+	public void cleanupOnSuccess(String location, Job job) throws IOException {
+	}
 
 	@Override
-	public String relToAbsPathForStoreLocation(String location, Path curDir)
-			throws IOException {
+	public String relToAbsPathForStoreLocation(String location, Path curDir) throws IOException {
 		return location;
 	}
 
