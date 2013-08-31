@@ -41,7 +41,8 @@ public class PhoenixIndexCodec implements IndexCodec {
     public static final String INDEX_MD = "IdxMD";
     public static final String INDEX_UUID = "IdxUUID";
 
-    Multimap<ColumnReference, IndexMaintainer> indexMap;
+    private Multimap<ColumnReference, IndexMaintainer> indexMap;
+    private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
 
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
@@ -96,7 +97,8 @@ public class PhoenixIndexCodec implements IndexCodec {
                 IndexUpdate indexUpdate = pair.getSecond();
                 Scanner scanner = pair.getFirst();
                 Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getAllColumns().size());
-                byte[] rowKey = maintainer.buildRowKey(valueMap);
+                ptr.set(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength());
+                byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
                 Put put = new Put(rowKey);
                 indexUpdate.setTable(maintainer.getIndexTableName());
                 indexUpdate.setUpdate(put);
@@ -130,7 +132,8 @@ public class PhoenixIndexCodec implements IndexCodec {
                 Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
                 Scanner scanner = pair.getFirst();
                 Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getIndexedColumns().size());
-                byte[] rowKey = maintainer.buildRowKey(valueMap);
+                ptr.set(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength());
+                byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
                 Delete delete = new Delete(rowKey);
                 indexUpdates.add(new Pair<Delete, byte[]>(delete, maintainer.getIndexTableName()));
             }

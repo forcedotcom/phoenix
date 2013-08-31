@@ -53,12 +53,17 @@ public class IndexUtil {
     // Since we cannot have nullable fixed length in a row key
     // we need to translate to variable length.
     public static PDataType getIndexColumnDataType(PColumn dataColumn) throws SQLException {
-        return getIndexColumnDataType(dataColumn.isNullable(),dataColumn.getDataType(),dataColumn.getName().getString());
+        PDataType type = getIndexColumnDataType(dataColumn.isNullable(),dataColumn.getDataType());
+        if (type == null) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(dataColumn.getName().getString())
+            .setMessage("Type="+dataColumn.getDataType()).build().buildException();
+        }
+        return type;
     }
     
     // Since we cannot have nullable fixed length in a row key
     // we need to translate to variable length.
-    public static PDataType getIndexColumnDataType(boolean isNullable, PDataType dataType, String columnName) throws SQLException {
+    public static PDataType getIndexColumnDataType(boolean isNullable, PDataType dataType) {
         if (!isNullable || !dataType.isFixedWidth()) {
             return dataType;
         }
@@ -70,9 +75,7 @@ public class IndexUtil {
         if (dataType.isCoercibleTo(PDataType.VARCHAR)) {
             return PDataType.VARCHAR;
         }
-        // Should not happen;
-        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_INDEX_COLUMN_ON_TYPE).setColumnName(columnName)
-            .setMessage("Type="+dataType).build().buildException();
+        return null;
     }
     
     public static String getIndexColumnName(String dataColumnFamilyName, String dataColumnName) {

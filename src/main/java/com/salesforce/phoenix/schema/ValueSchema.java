@@ -243,11 +243,7 @@ public abstract class ValueSchema implements Writable {
      * @return true if a value was found at the position and false if it is null.
      */
     public boolean setAccessor(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
-        if (isNull(position, bitSet)) {
-            return false;
-        }
-        setAccessor(ptr, 0, position, bitSet);
-        return true;
+        return setAccessor(ptr, 0, position, bitSet);
     }
     
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
@@ -323,7 +319,10 @@ public abstract class ValueSchema implements Writable {
      *  length of ptr will be updated to the length of the value at endPosition.
      *  TODO: should be able to use first for this instead
      */
-    private void setAccessor(ImmutableBytesWritable ptr, int startPosition, int endPosition, ValueBitSet bitSet) {
+    public boolean setAccessor(ImmutableBytesWritable ptr, int startPosition, int endPosition, ValueBitSet bitSet) {
+        if (isNull(endPosition, bitSet)) {
+            return false;
+        }
         int maxLength = ptr.getLength();
         int length = 0;
         int position = startPosition;
@@ -341,6 +340,7 @@ public abstract class ValueSchema implements Writable {
             position += nFields;
         }
         ptr.set(ptr.get(),ptr.getOffset()-length,length);
+        return true;
     }
     
     public int getEstimatedByteSize() {
