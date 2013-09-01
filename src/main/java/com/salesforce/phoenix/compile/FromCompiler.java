@@ -20,6 +20,8 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
 
 import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -35,6 +37,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class FromCompiler {
+    private static final Logger logger = LoggerFactory.getLogger(FromCompiler.class);
+
     private static final ColumnResolver EMPTY_TABLE_RESOLVER = new ColumnResolver() {
 
         @Override
@@ -98,7 +102,7 @@ public class FromCompiler {
             String tableName = tableNameNode.getTableName();
             SQLException sqlE = null;
             long timeStamp = QueryConstants.UNSET_TIMESTAMP;
-            TableRef tableRef;
+            TableRef tableRef = null;
             boolean retry = true;
             while (true) {
                 try {
@@ -112,6 +116,9 @@ public class FromCompiler {
                         theTable = this.addDynamicColumns(table.getDynamicColumns(), theTable);
                     }
                     tableRef = new TableRef(null, theTable, theSchema, timeStamp, !table.getDynamicColumns().isEmpty());
+                    if (!retry && logger.isDebugEnabled()) {
+                        logger.debug("Re-resolved stale table " + SchemaUtil.getTableDisplayName(schemaName, tableName) + " with seqNum " + tableRef.getTable().getSequenceNumber() + " at timestamp " + tableRef.getTable().getTimeStamp() + " with " + tableRef.getTable().getColumns().size() + " columns: " + tableRef.getTable().getColumns());
+                    }
                     break;
                 } catch (SchemaNotFoundException e) {
                     sqlE = new TableNotFoundException(schemaName, tableName);

@@ -68,15 +68,15 @@ public class TypeUtil {
 			sqlType = PDataType.VARCHAR;
 			break;
 		case DataType.DOUBLE:
+			sqlType = PDataType.DOUBLE;
+			break;
 		case DataType.FLOAT:
-		//case DataType.BIGDECIMAL: not in Pig v 0.11.0
-			sqlType = PDataType.DECIMAL;
+			sqlType = PDataType.FLOAT;
 			break;
 		case DataType.INTEGER:
 			sqlType = PDataType.INTEGER;
 			break;
 		case DataType.LONG:
-		// case DataType.BIGINTEGER: not in Pig v 0.11.0
 			sqlType = PDataType.LONG;
 			break;
 		case DataType.BOOLEAN:
