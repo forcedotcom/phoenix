@@ -28,8 +28,9 @@
 package com.salesforce.phoenix.util;
 
 import java.sql.SQLException;
-import java.util.*;
 import java.util.BitSet;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
@@ -41,7 +42,15 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PRow;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.ValueBitSet;
 
 public class IndexUtil {
     private static final String INDEX_COLUMN_NAME_SEP = ":";
@@ -136,22 +145,25 @@ public class IndexUtil {
             row = indexTable.newRow(ts, ptr);
             row.delete();
         } else {
-            for (Map.Entry<byte[],List<KeyValue>> entry : dataMutation.getFamilyMap().entrySet()) {
-                PColumnFamily family = dataTable.getColumnFamily(entry.getKey());
-                for (KeyValue kv : entry.getValue()) {
-                    byte[] cq = kv.getQualifier();
-                    if (Bytes.compareTo(QueryConstants.EMPTY_COLUMN_BYTES, cq) != 0) {
-                        try {
-                            PColumn dataColumn = family.getColumn(cq);
-                            PColumn indexColumn = indexTable.getColumn(getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
-                            ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
-                            coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                            indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
-                            if (!SchemaUtil.isPKColumn(indexColumn)) {
-                                indexValuesSet.set(indexColumn.getPosition()-nIndexColumns-indexOffset);
+            // If no column families in table, then nothing to look for 
+            if (!dataTable.getColumnFamilies().isEmpty()) {
+                for (Map.Entry<byte[],List<KeyValue>> entry : dataMutation.getFamilyMap().entrySet()) {
+                    PColumnFamily family = dataTable.getColumnFamily(entry.getKey());
+                    for (KeyValue kv : entry.getValue()) {
+                        byte[] cq = kv.getQualifier();
+                        if (Bytes.compareTo(QueryConstants.EMPTY_COLUMN_BYTES, cq) != 0) {
+                            try {
+                                PColumn dataColumn = family.getColumn(cq);
+                                PColumn indexColumn = indexTable.getColumn(getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
+                                ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
+                                coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
+                                indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
+                                if (!SchemaUtil.isPKColumn(indexColumn)) {
+                                    indexValuesSet.set(indexColumn.getPosition()-nIndexColumns-indexOffset);
+                                }
+                            } catch (ColumnNotFoundException e) {
+                                // Ignore as this means that the data column isn't in the index
                             }
-                        } catch (ColumnNotFoundException e) {
-                            // Ignore as this means that the data column isn't in the index
                         }
                     }
                 }

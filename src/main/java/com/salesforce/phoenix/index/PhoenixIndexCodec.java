@@ -16,7 +16,9 @@
 package com.salesforce.phoenix.index;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
@@ -25,13 +27,19 @@ import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.*;
-import com.salesforce.hbase.index.builder.covered.*;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.salesforce.hbase.index.builder.covered.ColumnReference;
+import com.salesforce.hbase.index.builder.covered.IndexCodec;
+import com.salesforce.hbase.index.builder.covered.IndexUpdate;
+import com.salesforce.hbase.index.builder.covered.TableState;
 import com.salesforce.hbase.index.builder.covered.scanner.Scanner;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.PhoenixRuntime;
 /**
  * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
  * {@link #getIndexDeletes(TableState)}) as well as what the new index state should be (
@@ -41,7 +49,7 @@ public class PhoenixIndexCodec implements IndexCodec {
     public static final String INDEX_MD = "IdxMD";
     public static final String INDEX_UUID = "IdxUUID";
 
-    private Multimap<ColumnReference, IndexMaintainer> indexMap;
+    private List<IndexMaintainer> indexMaintainers;
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
 
     @Override
@@ -50,26 +58,26 @@ public class PhoenixIndexCodec implements IndexCodec {
     }
 
     @SuppressWarnings("unchecked")
-    private Multimap<ColumnReference, IndexMaintainer> getIndexMap(TableState state) {
-        if (indexMap != null) {
-            return indexMap;
+    private List<IndexMaintainer> getIndexMaintainers(TableState state) {
+        if (indexMaintainers != null) {
+            return indexMaintainers;
         }
         byte[] md;
         byte[] uuid = state.getUpdateAttributes().get(INDEX_UUID);
         if (uuid == null) {
             md = state.getUpdateAttributes().get(INDEX_MD);
             if (md == null) {
-                indexMap = ImmutableListMultimap.of();
+                indexMaintainers = Collections.emptyList();
             } else {
-                indexMap = IndexMaintainer.deserialize(md);
+                indexMaintainers = IndexMaintainer.deserialize(md);
             }
         } else {
             byte[] tenantIdBytes = state.getUpdateAttributes().get(PhoenixRuntime.TENANT_ID_ATTRIB);
             ImmutableBytesWritable tenantId = tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
             TenantCache cache = GlobalCache.getTenantCache(state.getEnvironment().getConfiguration(), tenantId);
-            indexMap = (Multimap<ColumnReference, IndexMaintainer>)cache.getServerCache(new ImmutableBytesPtr(uuid));
+            indexMaintainers = (List<IndexMaintainer>)cache.getServerCache(new ImmutableBytesPtr(uuid));
         }
-        return indexMap;
+        return indexMaintainers;
     }
 
     private static Map<ColumnReference,byte[]> asMap(Scanner scanner, int expectedSize) throws IOException {
@@ -83,60 +91,56 @@ public class PhoenixIndexCodec implements IndexCodec {
     
     @Override
     public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException {
-        Multimap<ColumnReference, IndexMaintainer> indexMap = getIndexMap(state);
-        if (indexMap.isEmpty()) {
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
+        if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
         List<IndexUpdate> indexUpdates = Lists.newArrayList();
-        for (KeyValue kv : state.getPendingUpdate()) {
-            // TODO: ColumnReference constructor with byte[],offset,length
-            Collection<IndexMaintainer> maintainers = indexMap.get(new ColumnReference(kv.getFamily(),kv.getQualifier()));
-            for (IndexMaintainer maintainer : maintainers) {
-                // TODO: if more efficient, I could do this just once with all columns in all indexes
-                Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
-                IndexUpdate indexUpdate = pair.getSecond();
-                Scanner scanner = pair.getFirst();
-                Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getAllColumns().size());
-                ptr.set(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength());
-                byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
-                Put put = new Put(rowKey);
-                indexUpdate.setTable(maintainer.getIndexTableName());
-                indexUpdate.setUpdate(put);
-                for (ColumnReference ref : maintainer.getCoverededColumns()) {
-                    byte[] value = valueMap.get(ref);
-                    if (value != null) { // FIXME: is this right?
-                        put.add(ref.getFamily(), ref.getQualifier(), value);
-                    }
+        // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
+        byte[] dataRowKey = state.getCurrentRowKey();
+        for (IndexMaintainer maintainer : indexMaintainers) {
+            // TODO: if more efficient, I could do this just once with all columns in all indexes
+            Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
+            IndexUpdate indexUpdate = pair.getSecond();
+            Scanner scanner = pair.getFirst();
+            Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getAllColumns().size());
+            ptr.set(dataRowKey);
+            byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
+            Put put = new Put(rowKey);
+            indexUpdate.setTable(maintainer.getIndexTableName());
+            indexUpdate.setUpdate(put);
+            for (ColumnReference ref : maintainer.getCoverededColumns()) {
+                byte[] value = valueMap.get(ref);
+                if (value != null) { // FIXME: is this right?
+                    put.add(ref.getFamily(), ref.getQualifier(), value);
                 }
-                // Add the empty key value
-                put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ByteUtil.EMPTY_BYTE_ARRAY);
-                indexUpdates.add(indexUpdate);
             }
+            // Add the empty key value
+            put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ByteUtil.EMPTY_BYTE_ARRAY);
+            indexUpdates.add(indexUpdate);
         }
         return indexUpdates;
     }
 
     @Override
     public Iterable<Pair<Delete, byte[]>> getIndexDeletes(TableState state) throws IOException {
-        Multimap<ColumnReference, IndexMaintainer> indexMap = getIndexMap(state);
-        if (indexMap.isEmpty()) {
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
+        if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
         List<Pair<Delete, byte[]>> indexUpdates = Lists.newArrayList();
-        for (KeyValue kv : state.getPendingUpdate()) {
-            // TODO: ColumnReference constructor with byte[],offset,length
-            Collection<IndexMaintainer> maintainers = indexMap.get(new ColumnReference(kv.getFamily(),kv.getQualifier()));
-            for (IndexMaintainer maintainer : maintainers) {
-                // TODO: if more efficient, I could do this just once with all columns in all indexes
-                // FIXME: somewhat weird that you get back an IndexUpdate here
-                Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
-                Scanner scanner = pair.getFirst();
-                Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getIndexedColumns().size());
-                ptr.set(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength());
-                byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
-                Delete delete = new Delete(rowKey);
-                indexUpdates.add(new Pair<Delete, byte[]>(delete, maintainer.getIndexTableName()));
-            }
+        // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
+        byte[] dataRowKey = state.getCurrentRowKey();
+        for (IndexMaintainer maintainer : indexMaintainers) {
+            // TODO: if more efficient, I could do this just once with all columns in all indexes
+            // FIXME: somewhat weird that you get back an IndexUpdate here
+            Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
+            Scanner scanner = pair.getFirst();
+            Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getIndexedColumns().size());
+            ptr.set(dataRowKey);
+            byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
+            Delete delete = new Delete(rowKey);
+            indexUpdates.add(new Pair<Delete, byte[]>(delete, maintainer.getIndexTableName()));
         }
         return indexUpdates;
     }

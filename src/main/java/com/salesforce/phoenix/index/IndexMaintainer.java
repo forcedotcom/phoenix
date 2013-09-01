@@ -1,6 +1,13 @@
 package com.salesforce.phoenix.index;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -9,11 +16,23 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.google.common.collect.*;
+import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.builder.covered.ColumnReference;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.ValueBitSet;
+import com.salesforce.phoenix.schema.ValueSchema;
+import com.salesforce.phoenix.util.BitSet;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.IndexUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
 public class IndexMaintainer implements Writable {
     private List<ColumnReference> indexedColumns;
@@ -54,24 +73,22 @@ public class IndexMaintainer implements Writable {
         return iterator;
     }
 
-    public static Multimap<ColumnReference, IndexMaintainer> deserialize(byte[] mdValue) {
+    public static List<IndexMaintainer> deserialize(byte[] mdValue) {
         ByteArrayInputStream stream = new ByteArrayInputStream(mdValue);
         DataInput input = new DataInputStream(stream);
-        Multimap<ColumnReference, IndexMaintainer> indexMap = null;
+        List<IndexMaintainer> maintainers = Collections.emptyList();
         try {
             int size = WritableUtils.readVInt(input);
-            indexMap = ArrayListMultimap.create(size * 5, size);
+            maintainers = Lists.newArrayListWithExpectedSize(size);
             for (int i = 0; i < size; i++) {
                 IndexMaintainer maintainer = new IndexMaintainer();
                 maintainer.readFields(input);
-                for (ColumnReference ref : maintainer.getAllColumns()) {
-                    indexMap.put(ref, maintainer);
-                }
+                maintainers.add(maintainer);
             }
         } catch (IOException e) {
             throw new RuntimeException(e); // Impossible
         }
-        return indexMap;
+        return maintainers;
     }
     /**
      * For client-side to serialize all IndexMaintainers for a given table
@@ -107,6 +124,7 @@ public class IndexMaintainer implements Writable {
          * the data column. TODO: review, as this would be useful
          */
         int pkPosition = 0;
+        // TODO: handle salted column in data and/or index table
         for (PColumn column : dataTable.getColumns()) {
             String name = IndexUtil.getIndexColumnName(column);
             boolean isPKColumn = SchemaUtil.isPKColumn(column);
@@ -211,6 +229,7 @@ public class IndexMaintainer implements Writable {
         BitSet descIndexColumnBitSet = BitSet.read(input, totalIndexedColumns);
         BitSet pkNotNullableBitSet = BitSet.read(input, totalIndexedColumns);
         iterator = newIterator(pkColumnBitSet, descDataColumnBitSet, descIndexColumnBitSet, pkNotNullableBitSet);
+        iterator.readFields(input);
     }
 
     private RowKeyValueIterator newIterator(BitSet pkColumnBitSet, BitSet descDataColumnBitSet, BitSet descIndexColumnBitSet, BitSet pkNotNullableBitSet) {
@@ -230,6 +249,8 @@ public class IndexMaintainer implements Writable {
             size += WritableUtils.getVIntSize(ref.getQualifier().length);
             size += ref.getQualifier().length;
         }
+        size += indexedColumnTypes.size();
+        size += indexedColumnByteSizes.size();
         for (int i = 0; i < coveredColumns.size(); i++) {
             ColumnReference ref = coveredColumns.get(i);
             size += WritableUtils.getVIntSize(ref.getFamily().length);
@@ -259,12 +280,13 @@ public class IndexMaintainer implements Writable {
             Integer byteSize = indexedColumnByteSizes.get(i);
             WritableUtils.writeVInt(output, byteSize == null ? 0 : byteSize);
         }
+        WritableUtils.writeVInt(output, coveredColumns.size());
+        for (int i = 0; i < coveredColumns.size(); i++) {
+            ColumnReference ref = coveredColumns.get(i);
+            Bytes.writeByteArray(output, ref.getFamily());
+            Bytes.writeByteArray(output, ref.getQualifier());
+        }
         rowKeySchema.write(output);
-        int totalIndexedColumns = rowKeySchema.getFieldCount() + indexedColumns.size();
-        BitSet.write(output, iterator.getPkColumnBitSet(), totalIndexedColumns);
-        BitSet.write(output, iterator.getDescDataColumnBitSet(), totalIndexedColumns);
-        BitSet.write(output, iterator.getDescIndexColumnBitSet(), totalIndexedColumns);
-        BitSet.write(output, iterator.getPkNotNullableBitSet(), totalIndexedColumns);
         iterator.write(output);
     }
 
@@ -275,7 +297,7 @@ public class IndexMaintainer implements Writable {
         }
     }
     
-    public abstract class RowKeyValueIterator {
+    public abstract class RowKeyValueIterator implements Writable {
         private final BitSet pkColumnBitSet;
         private final BitSet descDataColumnBitSet;
         private final BitSet descIndexColumnBitSet;
@@ -300,10 +322,22 @@ public class IndexMaintainer implements Writable {
         protected abstract int getLength();
         protected abstract int getPosition(int index);
         protected abstract int setPosition(int index, int position);
-        protected abstract void read(DataInput input) throws IOException;
-        protected abstract void write(DataOutput output) throws IOException;
+        
+        @Override
+        public void readFields(DataInput input) throws IOException {
+            
+        }
+        
+        @Override
+        public void write(DataOutput output) throws IOException {
+            int length = getLength();
+            BitSet.write(output, pkColumnBitSet, length);
+            BitSet.write(output, descDataColumnBitSet, length);
+            BitSet.write(output, descIndexColumnBitSet, length);
+            BitSet.write(output, pkNotNullableBitSet, length);
+        }
 
-        public boolean writeNext(DataOutput output) throws IOException {
+        private boolean writeNextKeyPart(DataOutput output) throws IOException {
             index++;
             int position = getPosition(index);
             ColumnModifier dataColumnModifier = null;
@@ -315,13 +349,18 @@ public class IndexMaintainer implements Writable {
                 int nSkipFields = 0;
                 if (index > 0 && pkColumnBitSet.get(getPosition(index-1)) && (nSkipFields=position - getPosition(index-1)) > 0 ) { // Increasing, then start from ptr
                     for (int i = position-nSkipFields+1; i <= position; i++) {
-                        if (rowKeySchema.next(ptr, i, ptr.get().length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                        if (rowKeySchema.next(ptr, i, rowKeyPtr.getOffset()+rowKeyPtr.getLength(), ValueBitSet.EMPTY_VALUE_BITSET) == null) {
                             return indexColumnType.isFixedWidth();
                         }
                     }
                 } else { // Reposition from beginning
                     this.ptr.set(rowKeyPtr.get(), rowKeyPtr.getOffset(), rowKeyPtr.getLength());
-                    if (!rowKeySchema.setAccessor(ptr, position, ValueBitSet.EMPTY_VALUE_BITSET)) {
+                    int maxOffset = ptr.getOffset() + ptr.getLength();
+                    int i = 0;
+                    Boolean  hasValue;
+                    for (hasValue = rowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); i < position && hasValue != null; hasValue=rowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET)) {
+                    }
+                    if (hasValue == null) {
                         return indexColumnType.isFixedWidth();
                     }
                 }
@@ -394,7 +433,8 @@ public class IndexMaintainer implements Writable {
         }
 
         @Override
-        protected void write(DataOutput output) throws IOException {
+        public void write(DataOutput output) throws IOException {
+            super.write(output);
             output.write(columnPosition);
         }
 
@@ -404,7 +444,8 @@ public class IndexMaintainer implements Writable {
         }
 
         @Override
-        protected void read(DataInput input) throws IOException {
+        public void readFields(DataInput input) throws IOException {
+            super.readFields(input);
             input.readFully(columnPosition);
         }
 
@@ -437,7 +478,7 @@ public class IndexMaintainer implements Writable {
             return columnPosition[index] = position;
         }
         @Override
-        protected void write(DataOutput output) throws IOException {
+        public void write(DataOutput output) throws IOException {
             for (int i = 0; i < columnPosition.length; i++) {
                 output.writeInt(columnPosition[i]);
             }
@@ -449,7 +490,7 @@ public class IndexMaintainer implements Writable {
         }
 
         @Override
-        protected void read(DataInput input) throws IOException {
+        public void readFields(DataInput input) throws IOException {
             for (int i = 0; i < columnPosition.length; i++) {
                 columnPosition[i] = input.readInt();
             }
@@ -466,13 +507,11 @@ public class IndexMaintainer implements Writable {
         DataOutput output = new DataOutputStream(stream);
         try {
             iterator.init(valueMap, rowKeyPtr);
-            boolean isFixedWidth = true;
             // Write index row key
             for (int i = 0; i < iterator.getLength(); i++) {
-                if (!isFixedWidth) {
+                if (!iterator.writeNextKeyPart(output)) {
                     output.write(QueryConstants.SEPARATOR_BYTE);
                 }
-                isFixedWidth = iterator.writeNext(output);
             }
             int length = stream.size();
             byte[] indexRowKey = stream.getBuffer();
@@ -480,7 +519,7 @@ public class IndexMaintainer implements Writable {
             while (indexRowKey[length-1] == QueryConstants.SEPARATOR_BYTE) {
                 length--;
             }
-            return indexRowKey.length == length ? indexRowKey : stream.toByteArray();
+            return indexRowKey.length == length ? indexRowKey : Arrays.copyOf(indexRowKey, length);
         } finally {
             stream.close();
         }
