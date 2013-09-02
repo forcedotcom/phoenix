@@ -71,7 +71,7 @@ public class IndexMaintainer implements Writable {
             int nIndexPKColumns = index.getPKColumns().size() - indexPosOffset;
             IndexMaintainer maintainer = new IndexMaintainer(
                     dataTable.getRowKeySchema(),
-                    index.getBucketNum() != null,
+                    dataTable.getBucketNum() != null,
                     SchemaUtil.getTableName(schemaName, index.getName().getBytes()), 
                     nIndexColumns,
                     nIndexPKColumns,
@@ -109,6 +109,7 @@ public class IndexMaintainer implements Writable {
                 maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
             }
             estimatedSize += maintainer.getEstimatedByteSize();
+            maintainer.initCachedState();
         }
 
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedSize + 1);
@@ -338,19 +339,10 @@ public class IndexMaintainer implements Writable {
             PDataType type = PDataType.values()[WritableUtils.readVInt(input)];
             indexedColumnTypes.add(type);
         }
-        estimatedIndexRowKeyBytes = nIndexSaltBuckets == 0 ?  0 : SaltingUtil.NUM_SALTING_BYTES;
         indexedColumnByteSizes = Lists.newArrayListWithExpectedSize(nIndexedColumns);
         for (int i = 0; i < nIndexedColumns; i++) {
             int byteSize = WritableUtils.readVInt(input);
-            Integer byteSizeInt;
-            if (byteSize == 0) {
-                byteSizeInt = null;
-                byteSize = ValueSchema.ESTIMATED_VARIABLE_LENGTH_SIZE;
-            } else {
-                byteSizeInt = byteSize;
-            }
-            estimatedIndexRowKeyBytes += byteSize;
-            indexedColumnByteSizes.add(byteSizeInt);
+            indexedColumnByteSizes.add(byteSize == 0 ? null : Integer.valueOf(byteSize));
         }
         int nCoveredColumns = WritableUtils.readVInt(input);
         coveredColumns = Lists.newArrayListWithExpectedSize(nCoveredColumns);
@@ -362,11 +354,27 @@ public class IndexMaintainer implements Writable {
         indexTableName = Bytes.readByteArray(input);
         rowKeyMetaData = newRowKeyMetaData();
         rowKeyMetaData.readFields(input);
+        
+        initCachedState();
+    }
+    
+    private int estimateIndexRowKeyByteSize() {
+        int estimatedIndexRowKeyBytes = dataRowKeySchema.getEstimatedValueLength() + (nIndexSaltBuckets == 0 ?  0 : SaltingUtil.NUM_SALTING_BYTES);
+        for (Integer byteSize : indexedColumnByteSizes) {
+            estimatedIndexRowKeyBytes += (byteSize == null ? ValueSchema.ESTIMATED_VARIABLE_LENGTH_SIZE : byteSize);
+        }
+        return estimatedIndexRowKeyBytes;
+   }
+    
+    /**
+     * Init calculated state reading/creating
+     */
+    private void initCachedState() {
+        estimatedIndexRowKeyBytes = estimateIndexRowKeyByteSize();
 
         this.allColumns = Lists.newArrayListWithExpectedSize(indexedColumns.size() + coveredColumns.size());
         allColumns.addAll(indexedColumns);
         allColumns.addAll(coveredColumns);
-        estimatedIndexRowKeyBytes += dataRowKeySchema.getEstimatedValueLength();
         
         int dataPkOffset = isDataTableSalted ? 1 : 0;
         int nIndexPkColumns = getIndexPkColumnCount();

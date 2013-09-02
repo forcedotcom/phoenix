@@ -137,6 +137,7 @@ public class IndexUtil {
         indexType.coerceBytes(ptr, dataType, dataModifier, indexModifier);
     }
     
+    // TODO: use IndexMaintainers to build the mutations instead. Keep this to generate them for testing purposes
     public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation, ImmutableBytesWritable ptr) throws SQLException {
         byte[] dataRowKey = dataMutation.getRow();
         int maxOffset = dataRowKey.length;
@@ -155,7 +156,6 @@ public class IndexUtil {
         int maxIndexValues = indexColumns.size() - nIndexColumns - indexOffset;
         BitSet indexValuesSet = new BitSet(maxIndexValues);
         byte[][] indexValues = new byte[indexColumns.size() - indexOffset][];
-        // TODO: drive this off of the index table columns instead of looking at every key value
         while (hasValue != null) {
             if (hasValue) {
                 PColumn dataColumn = dataPKColumns.get(i);

@@ -78,7 +78,6 @@ public class ServerCacheClient {
     private static final Log LOG = LogFactory.getLog(ServerCacheClient.class);
     private final PhoenixConnection connection;
     private final TableRef cacheUsingTableRef;
-    private final ScanRanges keyRanges;
 
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
@@ -90,10 +89,9 @@ public class ServerCacheClient {
      * TODO: instead of minMaxKeyRange, have an interface for iterating through ranges as we may be sending to
      * servers when we don't have to if the min is in first region and max is in last region, especially for point queries.
      */
-    public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, ScanRanges keyRanges) {
+    public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
         this.connection = connection;
         this.cacheUsingTableRef = cacheUsingTableRef;
-        this.keyRanges = keyRanges;
     }
 
     public PhoenixConnection getConnection() {
@@ -146,7 +144,7 @@ public class ServerCacheClient {
 
     }
     
-    public ServerCache addServerCache(final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory) throws SQLException {
+    public ServerCache addServerCache(ScanRanges keyRanges, final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         MemoryChunk chunk = services.getMemoryManager().allocate(cachePtr.getLength());
         List<Closeable> closeables = new ArrayList<Closeable>();

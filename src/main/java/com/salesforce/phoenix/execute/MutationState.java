@@ -29,7 +29,9 @@ package com.salesforce.phoenix.execute;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.HTableInterface;
@@ -37,10 +39,25 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.*;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
+import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
+import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.MetaDataClient;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PRow;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.IndexUtil;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 
 /**
  * 
@@ -52,6 +69,7 @@ import com.salesforce.phoenix.util.*;
 public class MutationState implements SQLCloseable {
     private PhoenixConnection connection;
     private final long maxSize;
+    private final ImmutableBytesPtr tempPtr = new ImmutableBytesPtr();
     private final Map<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> mutations = Maps.newHashMapWithExpectedSize(3); // TODO: Sizing?
     private final long sizeOffset;
     private int numEntries = 0;
@@ -283,13 +301,37 @@ public class MutationState implements SQLCloseable {
         List<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> committedList = Lists.newArrayListWithCapacity(this.mutations.size());
         while (iterator.hasNext()) {
             Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> entry = iterator.next();
+            Map<ImmutableBytesPtr,Map<PColumn,byte[]>> valuesMap = entry.getValue();
             TableRef tableRef = entry.getKey();
+            PTable table = tableRef.getTable();
+            table.getIndexMaintainers(tableRef.getSchemaName(), tempPtr);
+            boolean hasIndexMaintainers = tempPtr.getLength() > 0;
+            boolean isDataTable = true;
             long serverTimestamp = serverTimeStamps[i++];
-            Iterator<Pair<byte[],List<Mutation>>> mutationsIterator = addRowMutations(tableRef, entry.getValue(), serverTimestamp);
+            Iterator<Pair<byte[],List<Mutation>>> mutationsIterator = addRowMutations(tableRef, valuesMap, serverTimestamp);
             while (mutationsIterator.hasNext()) {
                 Pair<byte[],List<Mutation>> pair = mutationsIterator.next();
                 byte[] htableName = pair.getFirst();
                 List<Mutation> mutations = pair.getSecond();
+                
+                ServerCache cache = null;
+                if (hasIndexMaintainers && isDataTable) {
+                    String attribName = PhoenixIndexCodec.INDEX_UUID;
+                    byte[] attribValue;
+                    if (IndexMetaDataCacheClient.useIndexMetadataCache(mutations, tempPtr.getLength())) {
+                        IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
+                        cache = client.addIndexMetadataCache(mutations, tempPtr);
+                        attribName = PhoenixIndexCodec.INDEX_UUID;
+                        attribValue = cache.getId();
+                    } else {
+                        attribValue = ByteUtil.copyKeyBytesIfNecessary(tempPtr);
+                    }
+                    // Either set the UUID to be able to access the index metadata from the cache
+                    // or set the index metadata directly on the Mutation
+                    for (Mutation mutation : mutations) {
+                        mutation.setAttribute(attribName, attribValue);
+                    }
+                }
                 
                 SQLException sqlE = null;
                 HTableInterface hTable = connection.getQueryServices().getTable(htableName);
@@ -310,11 +352,18 @@ public class MutationState implements SQLCloseable {
                             sqlE = ServerUtil.parseServerException(e);
                         }
                     } finally {
-                        if (sqlE != null) {
-                            throw sqlE;
+                        try {
+                            if (cache != null) {
+                                cache.close();
+                            }
+                        } finally {
+                            if (sqlE != null) {
+                                throw sqlE;
+                            }
                         }
                     }
                 }
+                isDataTable = false;
             }
             numEntries -= entry.getValue().size();
             iterator.remove(); // Remove batches as we process them

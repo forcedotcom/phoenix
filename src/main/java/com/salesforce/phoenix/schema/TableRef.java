@@ -36,6 +36,7 @@ public final class TableRef {
     private final PTable table;
     private final String alias;
     private final PSchema schema;
+    private final byte[] schemaName;
     private final byte[] tableName;
     private final long timeStamp;
     private final boolean hasDynamicCols;
@@ -44,7 +45,8 @@ public final class TableRef {
         this.alias = alias;
         this.table = table;
         this.schema = schema;
-        this.tableName = SchemaUtil.getTableName(Bytes.toBytes(schema.getName()), table.getName().getBytes());
+        this.schemaName = Bytes.toBytes(schema.getName());
+        this.tableName = SchemaUtil.getTableName(schemaName, table.getName().getBytes());
         this.timeStamp = timeStamp;
         this.hasDynamicCols = hasDynamicCols;
     }
@@ -57,6 +59,10 @@ public final class TableRef {
         return alias;
     }
 
+    public byte[] getSchemaName() {
+        return schemaName;
+    }
+    
     public PSchema getSchema() {
         return schema;
     }

@@ -431,12 +431,22 @@ public class PTableImpl implements PTable {
             } else {
                 this.key = ByteUtil.copyKeyBytesIfNecessary(key);
             }
+            newMutations();
+        }
+        
+        @SuppressWarnings("deprecation")
+        private void newMutations() {
             this.setValues = new Put(this.key);
             this.unsetValues = new Delete(this.key);
-        }
+            // No need to write to the WAL for indexes
+            if (PTableImpl.this.getType() == PTableType.INDEX) {
+                this.setValues.setWriteToWAL(false);
+                this.unsetValues.setWriteToWAL(false);
+            }
+       }
 
         @Override
-        public List<Mutation> toRowMutations() { // TODO: change to List<Mutation> once it implements Row
+        public List<Mutation> toRowMutations() {
             List<Mutation> mutations = new ArrayList<Mutation>(3);
             if (deleteRow != null) {
                 // Include only deleteRow mutation if present because it takes precedence over all others
@@ -499,16 +509,19 @@ public class PTableImpl implements PTable {
             }
         }
         
+        @SuppressWarnings("deprecation")
         @Override
         public void delete() {
-            setValues = new Put(key);
-            unsetValues = new Delete(key);
-            @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
+            newMutations();
             // FIXME: the version of the Delete constructor without the lock args was introduced
             // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
             // of the client.
-           Delete delete = new Delete(key,ts,null);
+            Delete delete = new Delete(key,ts,null);
             deleteRow = delete;
+            // No need to write to the WAL for indexes
+            if (PTableImpl.this.getType() == PTableType.INDEX) {
+                deleteRow.setWriteToWAL(false);
+            }
         }
     }
 
