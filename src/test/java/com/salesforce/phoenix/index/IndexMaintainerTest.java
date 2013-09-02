@@ -19,6 +19,7 @@ import org.junit.Test;
 
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.builder.covered.ColumnReference;
+import com.salesforce.phoenix.index.PhoenixIndexCodec.ValueGetter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.schema.PTable;
@@ -48,6 +49,17 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         testIndexRowKeyBuilding(DEFAULT_SCHEMA_NAME, DEFAULT_TABLE_NAME, dataColumns, pk, indexColumns, values, "", dataProps, indexProps);
     }
 
+    private static ValueGetter newValueGetter(final Map<ColumnReference, byte[]> valueMap) {
+        return new ValueGetter() {
+
+            @Override
+            public byte[] getValue(ColumnReference ref) {
+                return valueMap.get(ref);
+            }
+            
+        };
+    }
+    
     private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns, String pk, String indexColumns, Object[] values, String includeColumns, String dataProps, String indexProps) throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         String fullTableName = SchemaUtil.getTableDisplayName(schemaName, tableName) ;
@@ -76,12 +88,13 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         for (KeyValue kv : dataKeyValues) {
             valueMap.put(new ColumnReference(kv.getFamily(),kv.getQualifier()), kv.getValue());
         }
+        ValueGetter valueGetter = newValueGetter(valueMap);
         ImmutableBytesWritable rowKeyPtr = new ImmutableBytesWritable(dataKeyValues.get(0).getRow());
         List<KeyValue> indexKeyValues = iterator.next().getSecond();
         ImmutableBytesWritable indexKeyPtr = new ImmutableBytesWritable(indexKeyValues.get(0).getRow());
         
         ptr.set(rowKeyPtr.get(), rowKeyPtr.getOffset(), rowKeyPtr.getLength());
-        byte[] mutablelndexRowKey = im1.buildRowKey(valueMap, ptr);
+        byte[] mutablelndexRowKey = im1.buildRowKey(valueGetter, ptr);
         byte[] immutableIndexRowKey = indexKeyPtr.copyBytes();
         assertArrayEquals(immutableIndexRowKey, mutablelndexRowKey);
     }

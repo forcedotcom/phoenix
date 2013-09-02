@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -18,6 +17,7 @@ import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.builder.covered.ColumnReference;
+import com.salesforce.phoenix.index.PhoenixIndexCodec.ValueGetter;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
@@ -196,7 +196,7 @@ public class IndexMaintainer implements Writable {
         this.nIndexSaltBuckets  = nIndexSaltBuckets == null ? 0 : nIndexSaltBuckets;
     }
 
-    public byte[] buildRowKey(Map<ColumnReference, byte[]> valueMap, ImmutableBytesWritable rowKeyPtr) throws IOException {
+    public byte[] buildRowKey(ValueGetter valueGetter, ImmutableBytesWritable rowKeyPtr) throws IOException {
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedIndexRowKeyBytes);
         DataOutput output = new DataOutputStream(stream);
         try {
@@ -235,7 +235,7 @@ public class IndexMaintainer implements Writable {
                 ColumnModifier dataColumnModifier = null;
                 if (dataPkPosition[i] == -1) {
                     dataColumnType = indexedColumnTypes.get(j);
-                    byte[] value = valueMap.get(indexedColumns.get(j));
+                    byte[] value = valueGetter.getValue(indexedColumns.get(j));
                     if (value == null) {
                         ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
                     } else {

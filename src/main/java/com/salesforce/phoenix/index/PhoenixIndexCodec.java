@@ -80,13 +80,30 @@ public class PhoenixIndexCodec implements IndexCodec {
         return indexMaintainers;
     }
 
-    private static Map<ColumnReference,byte[]> asMap(Scanner scanner, int expectedSize) throws IOException {
+    /* 
+     * Looks up the current value based on a ColumnReference. Used for both mutable secondary indexes
+     * as well as immutable secondary indexes (where an existing map already backs the retrieval of a
+     * value given a PColumn).
+     * TODO: For Jesse to move to one of his indexing packages
+     */
+    public static interface ValueGetter {
+        byte[] getValue(ColumnReference ref);
+    }
+    
+    private static ValueGetter newValueGetter(Scanner scanner, int expectedSize) throws IOException {
         KeyValue kv;
-        Map<ColumnReference,byte[]> valueMap = Maps.newHashMapWithExpectedSize(expectedSize);
+        final Map<ColumnReference,byte[]> valueMap = Maps.newHashMapWithExpectedSize(expectedSize);
         while ((kv = scanner.next()) != null) {
             valueMap.put(new ColumnReference(kv.getFamily(),kv.getQualifier()), kv.getValue());
         }
-        return valueMap;
+        return new ValueGetter() {
+
+            @Override
+            public byte[] getValue(ColumnReference ref) {
+                return valueMap.get(ref);
+            }
+            
+        };
     }
     
     @Override
@@ -103,14 +120,14 @@ public class PhoenixIndexCodec implements IndexCodec {
             Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             IndexUpdate indexUpdate = pair.getSecond();
             Scanner scanner = pair.getFirst();
-            Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getAllColumns().size());
+            ValueGetter valueGetter = newValueGetter(scanner, maintainer.getAllColumns().size());
             ptr.set(dataRowKey);
-            byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
+            byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Put put = new Put(rowKey);
             indexUpdate.setTable(maintainer.getIndexTableName());
             indexUpdate.setUpdate(put);
             for (ColumnReference ref : maintainer.getCoverededColumns()) {
-                byte[] value = valueMap.get(ref);
+                byte[] value = valueGetter.getValue(ref);
                 if (value != null) { // FIXME: is this right?
                     put.add(ref.getFamily(), ref.getQualifier(), value);
                 }
@@ -136,9 +153,9 @@ public class PhoenixIndexCodec implements IndexCodec {
             // FIXME: somewhat weird that you get back an IndexUpdate here
             Pair<Scanner,IndexUpdate> pair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
             Scanner scanner = pair.getFirst();
-            Map<ColumnReference,byte[]> valueMap = asMap(scanner, maintainer.getIndexedColumns().size());
+            ValueGetter valueGetter = newValueGetter(scanner, maintainer.getAllColumns().size());
             ptr.set(dataRowKey);
-            byte[] rowKey = maintainer.buildRowKey(valueMap, ptr);
+            byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Delete delete = new Delete(rowKey);
             indexUpdates.add(new Pair<Delete, byte[]>(delete, maintainer.getIndexTableName()));
         }
