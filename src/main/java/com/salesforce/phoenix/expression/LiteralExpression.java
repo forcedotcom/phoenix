@@ -103,6 +103,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         return newConstant(value, type, null, null, columnModifier);
     }
     
+    
     public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException { // remove?
         return newConstant(value, type, maxLength, scale, null);
     }
@@ -117,6 +118,8 @@ public class LiteralExpression extends BaseTerminalExpression {
             return TYPED_NULL_EXPRESSIONS[type.ordinal()];
         }
         PDataType actualType = PDataType.fromLiteral(value);
+        // For array we should check individual element in it?
+        // It would be costly though!!!!!
         if (!actualType.isCoercibleTo(type, value)) {
             throw new TypeMismatchException(type, actualType, value.toString());
         }
@@ -250,7 +253,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     public byte[] getBytes() {
         return byteValue;
     }
-
+    
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return visitor.visit(this);

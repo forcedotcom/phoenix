@@ -159,6 +159,76 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         initATableValues(tenantId, splits, date, null);
     }
     
+    protected static void initTablesWithArrays(String tenantId, Date date, Long ts) throws Exception {
+    	 Properties props = new Properties();
+         if (ts != null) {
+             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+         }
+         Connection conn = DriverManager.getConnection(getUrl(), props);
+         try {
+             // Insert all rows at ts
+             PreparedStatement stmt = conn.prepareStatement(
+                     "upsert into " +
+                     "TABLE_WITH_ARRAY(" +
+                     "    ORGANIZATION_ID, " +
+                     "    ENTITY_ID, " +
+                     "    a_string_array, " +
+                     "    B_STRING, " +
+                     "    A_INTEGER, " +
+                     "    A_DATE, " +
+                     "    X_DECIMAL, " +
+                     "    x_long_array, " +
+                     "    X_INTEGER," +
+                     "    a_byte_array," +
+                     "    A_SHORT," +
+                     "    A_FLOAT," +
+                     "    a_double_array," +
+                     "    A_UNSIGNED_FLOAT," +
+                     "    A_UNSIGNED_DOUBLE)" +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+             stmt.setString(1, tenantId);
+             stmt.setString(2, ROW1);
+             // Need to support primitive
+             String[] strArr =  new String[2];
+             strArr[0] = "ABC";
+             strArr[1] = "CEDF";
+             Array array = conn.createArrayOf("VARCHAR", strArr);
+             stmt.setArray(3, array);
+             stmt.setString(4, B_VALUE);
+             stmt.setInt(5, 1);
+             stmt.setDate(6, date);
+             stmt.setBigDecimal(7, null);
+             // Need to support primitive
+             Long[] longArr =  new Long[2];
+             longArr[0] = 25l;
+             longArr[1] = 36l;
+             array = conn.createArrayOf("BIGINT", longArr);
+             stmt.setArray(8, array);
+             stmt.setNull(9, Types.INTEGER);
+             // Need to support primitive
+             Byte[] byteArr =  new Byte[2];
+             byteArr[0] = 25;
+             byteArr[1] = 36;
+             array = conn.createArrayOf("TINYINT", byteArr);
+             stmt.setArray(10, array);
+             stmt.setShort(11, (short) 128);
+             stmt.setFloat(12, 0.01f);
+             // Need to support primitive
+             Double[] doubleArr =  new Double[2];
+             doubleArr[0] = 25.343;
+             doubleArr[1] = 36.763;
+             array = conn.createArrayOf("DOUBLE", doubleArr);
+             stmt.setArray(13, array);
+             stmt.setFloat(14, 0.01f);
+             stmt.setDouble(15, 0.0001);
+             stmt.execute();
+                 
+             conn.commit();
+         } finally {
+             conn.close();
+         }
+    }
+    
     protected static void initATableValues(String tenantId, byte[][] splits, Date date, Long ts) throws Exception {
         if (ts == null) {
             ensureTableCreated(getUrl(), ATABLE_NAME, splits);

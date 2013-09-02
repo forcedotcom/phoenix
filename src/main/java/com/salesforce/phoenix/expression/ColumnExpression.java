@@ -27,16 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.*;
 
 /**
  * 

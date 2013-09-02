@@ -30,27 +30,18 @@ package com.salesforce.phoenix.pig;
 import java.io.IOException;
 import java.util.Properties;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.*;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.OutputFormat;
-import org.apache.hadoop.mapreduce.RecordWriter;
-import org.apache.pig.ResourceSchema;
+import org.apache.hadoop.mapreduce.*;
+import org.apache.pig.*;
 import org.apache.pig.ResourceSchema.ResourceFieldSchema;
-import org.apache.pig.StoreFuncInterface;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.util.ObjectSerializer;
 import org.apache.pig.impl.util.UDFContext;
 
-import com.salesforce.phoenix.pig.hadoop.PhoenixOutputFormat;
-import com.salesforce.phoenix.pig.hadoop.PhoenixRecord;
-import com.salesforce.phoenix.pig.hadoop.PhoenixRecordWriter;
+import com.salesforce.phoenix.pig.hadoop.*;
+import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * StoreFunc that uses Phoenix to store data into HBase.
@@ -162,7 +153,11 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}
-        
+	}
+
+	private Object convertTypeSpecificValue(Object o, byte type, Integer sqlType) {
+		PDataType pDataType = PDataType.fromTypeId(sqlType);
+		return TypeUtil.castPigTypeToPhoenix(o, type, pDataType);
 	}
 
 	@Override
