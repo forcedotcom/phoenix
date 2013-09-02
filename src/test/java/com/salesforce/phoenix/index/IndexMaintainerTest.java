@@ -26,7 +26,9 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
-
+    private static final String DEFAULT_SCHEMA_NAME = "";
+    private static final String DEFAULT_TABLE_NAME = "rkTest";
+    
     @Before
     public void beforeTest() throws Exception {
         stopServer();
@@ -34,12 +36,19 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
     }
     
     
-    private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns, String pk, String indexColumns, Object[] values) throws Exception {
-        testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, "", "", "");
+    private void testIndexRowKeyBuilding(String dataColumns, String pk, String indexColumns, Object[] values) throws Exception {
+        testIndexRowKeyBuilding(DEFAULT_SCHEMA_NAME, DEFAULT_TABLE_NAME, dataColumns, pk, indexColumns, values, "", "", "");
+    }
+
+    private void testIndexRowKeyBuilding(String dataColumns, String pk, String indexColumns, Object[] values, String includeColumns) throws Exception {
+        testIndexRowKeyBuilding(DEFAULT_SCHEMA_NAME, DEFAULT_TABLE_NAME, dataColumns, pk, indexColumns, values, includeColumns, "", "");
+    }
+
+    private void testIndexRowKeyBuilding(String dataColumns, String pk, String indexColumns, Object[] values, String includeColumns, String dataProps, String indexProps) throws Exception {
+        testIndexRowKeyBuilding(DEFAULT_SCHEMA_NAME, DEFAULT_TABLE_NAME, dataColumns, pk, indexColumns, values, "", dataProps, indexProps);
     }
 
     private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns, String pk, String indexColumns, Object[] values, String includeColumns, String dataProps, String indexProps) throws Exception {
-
         Connection conn = DriverManager.getConnection(getUrl());
         String fullTableName = SchemaUtil.getTableDisplayName(schemaName, tableName) ;
         conn.createStatement().execute("CREATE TABLE " + fullTableName + "(" + dataColumns + " CONSTRAINT pk PRIMARY KEY (" + pk + "))  IMMUTABLE_ROWS=true " + (dataProps.isEmpty() ? "" : "," + dataProps) );
@@ -79,55 +88,75 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
 
     @Test
     public void testRowKeyVarOnlyIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 DECIMAL", "k1,k2", "k2, k1", new Object [] {"a",1.1});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 DECIMAL", "k1,k2", "k2, k1", new Object [] {"a",1.1});
     }
  
     @Test
     public void testVarFixedndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1,k2", "k2, k1", new Object [] {"a",1.1});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1,k2", "k2, k1", new Object [] {"a",1.1});
     }
  
     
     @Test
     public void testCompositeRowKeyVarFixedIndex() throws Exception {
         // TODO: using 1.1 for INTEGER didn't give error
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1,k2", "k2, k1", new Object [] {"a",1});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1,k2", "k2, k1", new Object [] {"a",1});
     }
  
     @Test
     public void testSingleKeyValueIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1", "v", new Object [] {"a",1,"b"});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1", "v", new Object [] {"a",1,"b"});
     }
  
     @Test
     public void testMultiKeyValueIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 CHAR(1) NOT NULL, k2 INTEGER NOT NULL, v1 DECIMAL, v2 CHAR(2), v3 BIGINT", "k1, k2", "v2, k2, v1", new Object [] {"a",1,2.2,"bb"});
+        testIndexRowKeyBuilding("k1 CHAR(1) NOT NULL, k2 INTEGER NOT NULL, v1 DECIMAL, v2 CHAR(2), v3 BIGINT", "k1, k2", "v2, k2, v1", new Object [] {"a",1,2.2,"bb"});
+    }
+ 
+    @Test
+    public void testMultiKeyValueCoveredIndex() throws Exception {
+        testIndexRowKeyBuilding("k1 CHAR(1) NOT NULL, k2 INTEGER NOT NULL, v1 DECIMAL, v2 CHAR(2), v3 BIGINT, v4 CHAR(10)", "k1, k2", "v2, k2, v1", new Object [] {"a",1,2.2,"bb"}, "v3, v4");
     }
  
     @Test
     public void testSingleKeyValueDescIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1", "v DESC", new Object [] {"a",1,"b"});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1", "v DESC", new Object [] {"a",1,"b"});
     }
  
     @Test
     public void testCompositeRowKeyVarFixedDescIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1,k2", "k2 DESC, k1", new Object [] {"a",1});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1,k2", "k2 DESC, k1", new Object [] {"a",1});
     }
  
     @Test
     public void testCompositeDescRowKeyVarFixedDescIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1, k2 DESC", "k2 DESC, k1", new Object [] {"a",1});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1, k2 DESC", "k2 DESC, k1", new Object [] {"a",1});
     }
  
     @Test
     public void testCompositeDescRowKeyVarDescIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 DECIMAL NOT NULL, v VARCHAR", "k1, k2 DESC", "k2 DESC, k1", new Object [] {"a",1.1,"b"});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 DECIMAL NOT NULL, v VARCHAR", "k1, k2 DESC", "k2 DESC, k1", new Object [] {"a",1.1,"b"});
     }
  
     @Test
     public void testCompositeDescRowKeyVarAscIndex() throws Exception {
-        testIndexRowKeyBuilding("", "rkTest", "k1 VARCHAR, k2 DECIMAL NOT NULL, v VARCHAR", "k1, k2 DESC", "k2, k1", new Object [] {"a",1.1,"b"});
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 DECIMAL NOT NULL, v VARCHAR", "k1, k2 DESC", "k2, k1", new Object [] {"a",1.1,"b"});
     }
  
+    @Test
+    public void testCompositeDescRowKeyVarFixedDescSaltedIndex() throws Exception {
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1, k2 DESC", "k2 DESC, k1", new Object [] {"a",1}, "", "", "SALT_BUCKETS=4");
+    }
  
+    @Test
+    public void testCompositeDescRowKeyVarFixedDescSaltedIndexSaltedTable() throws Exception {
+        testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1, k2 DESC", "k2 DESC, k1", new Object [] {"a",1}, "", "SALT_BUCKETS=3", "SALT_BUCKETS=4");
+    }
+ 
+    @Test
+    public void testMultiKeyValueCoveredSaltedIndex() throws Exception {
+        testIndexRowKeyBuilding("k1 CHAR(1) NOT NULL, k2 INTEGER NOT NULL, v1 DECIMAL, v2 CHAR(2), v3 BIGINT, v4 CHAR(10)", "k1, k2", "v2 DESC, k2 DESC, v1", new Object [] {"a",1,2.2,"bb"}, "v3, v4", "", "SALT_BUCKETS=4");
+    }
+ 
+
 }

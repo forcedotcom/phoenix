@@ -126,6 +126,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
 
     @Override
     public void readFields(DataInput input) throws IOException {
+        // TODO: scale and maxLength aren't being serialized, but needs to be
         // read/write type ordinal and isNullable bit together to save space
         int typeAndNullable = WritableUtils.readVInt(input);
         isNullable = (typeAndNullable & 0x01) != 0;
