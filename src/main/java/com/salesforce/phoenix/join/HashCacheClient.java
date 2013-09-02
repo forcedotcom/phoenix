@@ -39,14 +39,19 @@ import org.xerial.snappy.Snappy;
 
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
+import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ServerUtil;
+import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
+import com.salesforce.phoenix.util.TupleUtil;
 
 /**
  * 
@@ -64,8 +69,8 @@ public class HashCacheClient  {
      * @param cacheUsingTableRef table ref to table that will use the cache during its scan
      * @param minMaxKeyRange the KeyRange of the min and max row for the operation that will be performed
      */
-    public HashCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, KeyRange minMaxKeyRange) {
-        serverCache = new ServerCacheClient(connection,cacheUsingTableRef,minMaxKeyRange);
+    public HashCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, ScanRanges keyRanges) {
+        serverCache = new ServerCacheClient(connection,cacheUsingTableRef,keyRanges);
     }
 
     /**
@@ -75,7 +80,7 @@ public class HashCacheClient  {
      * @param scanner scanner for the table or intermediate results being cached
      * @return client-side {@link ServerCache} representing the added hash cache
      * @throws SQLException 
-     * @throws MaxHashCacheSizeExceededException if size of hash cache exceeds max allowed
+     * @throws MaxServerCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
     public ServerCache addHashCache(Scanner scanner, List<Expression> onExpressions) throws SQLException {
@@ -110,7 +115,7 @@ public class HashCacheClient  {
             for (Tuple result = iterator.next(); result != null; result = iterator.next()) {
                 TupleUtil.write(result, out);
                 if (baOut.size() > maxSize) {
-                    throw new MaxHashCacheSizeExceededException("Size of hash cache (" + baOut.size() + " bytes) exceeds the maximum allowed size (" + maxSize + " bytes)");
+                    throw new MaxServerCacheSizeExceededException("Size of hash cache (" + baOut.size() + " bytes) exceeds the maximum allowed size (" + maxSize + " bytes)");
                 }
                 nRows++;
             }

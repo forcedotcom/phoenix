@@ -47,7 +47,7 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         PTable table = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier(tableName));
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         table.getIndexMaintainers(Bytes.toBytes(schemaName), ptr);
-        List<IndexMaintainer> c1 = IndexMaintainer.deserialize(ptr.get());
+        List<IndexMaintainer> c1 = IndexMaintainer.deserialize(ptr);
         assertEquals(1,c1.size());
         IndexMaintainer im1 = c1.get(0);
         

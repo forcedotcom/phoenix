@@ -42,6 +42,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
@@ -88,16 +89,41 @@ public class IndexUtil {
     }
     
     public static String getIndexColumnName(String dataColumnFamilyName, String dataColumnName) {
-        return dataColumnFamilyName == null ? dataColumnName : dataColumnFamilyName + INDEX_COLUMN_NAME_SEP + dataColumnName;
+        return (dataColumnFamilyName == null ? "" : dataColumnFamilyName) + INDEX_COLUMN_NAME_SEP + dataColumnName;
     }
     
     public static byte[] getIndexColumnName(byte[] dataColumnFamilyName, byte[] dataColumnName) {
-        return dataColumnFamilyName == null ? dataColumnName : ByteUtil.concat(dataColumnFamilyName, INDEX_COLUMN_NAME_SEP_BYTES, dataColumnName);
+        return ByteUtil.concat(dataColumnFamilyName == null ?  ByteUtil.EMPTY_BYTE_ARRAY : dataColumnFamilyName, INDEX_COLUMN_NAME_SEP_BYTES, dataColumnName);
     }
     
     public static String getIndexColumnName(PColumn dataColumn) {
         String dataColumnFamilyName = SchemaUtil.isPKColumn(dataColumn) ? null : dataColumn.getFamilyName().getString();
         return getIndexColumnName(dataColumnFamilyName, dataColumn.getName().getString());
+    }
+
+    public static PColumn getDataColumn(PTable dataTable, String indexColumnName) {
+        int pos = indexColumnName.indexOf(INDEX_COLUMN_NAME_SEP);
+        if (pos < 0) {
+            throw new IllegalArgumentException("Could not find expected '" + INDEX_COLUMN_NAME_SEP +  "' separator in index column name of \"" + indexColumnName + "\"");
+        }
+        if (pos == 0) {
+            try {
+                return dataTable.getPKColumn(indexColumnName.substring(1));
+            } catch (ColumnNotFoundException e) {
+                throw new IllegalArgumentException("Could not find PK column \"" +  indexColumnName.substring(pos+1) + "\" in index column name of \"" + indexColumnName + "\"", e);
+            }
+        }
+        PColumnFamily family;
+        try {
+            family = dataTable.getColumnFamily(indexColumnName.substring(0, pos));
+        } catch (ColumnFamilyNotFoundException e) {
+            throw new IllegalArgumentException("Could not find column family \"" +  indexColumnName.substring(0, pos) + "\" in index column name of \"" + indexColumnName + "\"", e);
+        }
+        try {
+            return family.getColumn(indexColumnName.substring(pos+1));
+        } catch (ColumnNotFoundException e) {
+            throw new IllegalArgumentException("Could not find column \"" +  indexColumnName.substring(pos+1) + "\" in index column name of \"" + indexColumnName + "\"", e);
+        }
     }
 
     private static void coerceDataValueToIndexValue(PColumn dataColumn, PColumn indexColumn, ImmutableBytesWritable ptr) {
@@ -129,10 +155,11 @@ public class IndexUtil {
         int maxIndexValues = indexColumns.size() - nIndexColumns - indexOffset;
         BitSet indexValuesSet = new BitSet(maxIndexValues);
         byte[][] indexValues = new byte[indexColumns.size() - indexOffset][];
+        // TODO: drive this off of the index table columns instead of looking at every key value
         while (hasValue != null) {
             if (hasValue) {
                 PColumn dataColumn = dataPKColumns.get(i);
-                PColumn indexColumn = indexTable.getColumn(dataColumn.getName().getString());
+                PColumn indexColumn = indexTable.getColumn(IndexUtil.getIndexColumnName(dataColumn));
                 coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
                 indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
             }

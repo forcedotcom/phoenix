@@ -36,21 +36,21 @@ package com.salesforce.phoenix.join;
  * @author jtaylor
  * @since 0.1
  */
-public class MaxHashCacheSizeExceededException extends RuntimeException {
+public class MaxServerCacheSizeExceededException extends RuntimeException {
 	private static final long serialVersionUID = 1L;
 
-	public MaxHashCacheSizeExceededException() {
+	public MaxServerCacheSizeExceededException() {
     }
 
-    public MaxHashCacheSizeExceededException(String message) {
+    public MaxServerCacheSizeExceededException(String message) {
         super(message);
     }
 
-    public MaxHashCacheSizeExceededException(Throwable cause) {
+    public MaxServerCacheSizeExceededException(Throwable cause) {
         super(cause);
     }
 
-    public MaxHashCacheSizeExceededException(String message, Throwable cause) {
+    public MaxServerCacheSizeExceededException(String message, Throwable cause) {
         super(message, cause);
     }
 
