@@ -29,7 +29,6 @@ package com.salesforce.phoenix.expression;
 
 import java.io.*;
 import java.sql.SQLException;
-import java.sql.Types;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -124,9 +123,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         if (!actualType.isCoercibleTo(type, value)) {
             throw new TypeMismatchException(type, actualType, value.toString());
         }
-		if(!actualType.isArrayType()) {
-			value = type.toObject(value, actualType);
-		}
+        value = type.toObject(value, actualType);
         try {
             byte[] b = type.toBytes(value, columnModifier);
             if (type == PDataType.VARCHAR || type == PDataType.CHAR) {

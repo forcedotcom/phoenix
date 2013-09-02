@@ -237,7 +237,7 @@ public enum PDataType {
 
         @Override
         public boolean isFixedWidth() {
-            return false;
+            return true;
         }
 
         @Override
@@ -3081,7 +3081,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 
 		@Override
@@ -3096,7 +3096,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.INTEGER, PDataType.INTEGER.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.INTEGER);
 		}
 
 		@Override
@@ -3112,22 +3112,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.INTEGER);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.INTEGER);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.INTEGER, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.INTEGER, columnModifier);
 		}
 		
 		@Override
@@ -3147,14 +3147,6 @@ public enum PDataType {
            }
 		   return true;
 		}
-		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.INTEGER.getByteSize());
-        }
 		
 	},
 	VARCHAR_ARRAY("VARCHAR_ARRAY", Types.ARRAY + PDataType.VARCHAR.getSqlType(), PhoenixArray.class, null) {
@@ -3178,7 +3170,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.VARCHAR, PDataType.VARCHAR.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.VARCHAR);
 		}
 
 		@Override
@@ -3194,22 +3186,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.VARCHAR);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.VARCHAR);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.VARCHAR, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.VARCHAR, columnModifier);
 		}
 		
 		@Override
@@ -3229,25 +3221,6 @@ public enum PDataType {
            return true;
         }
 		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-
-            int totalVarSize = 0;
-            for (int i = 0; i < noOfElements; i++) {
-                totalVarSize += array.estimateByteSize(i);
-            }
-            /**
-             * For non fixed width arrays we will write No of elements - as vint (we know the no of elements upfront so
-             * we can know how much space this vint is going to occupy) Write the size of every element as Int (cannot
-             * use vint here as we cannot fix the actual size of the ByteBuffer for allocation) Followed by the actual
-             * data - totalVarSize (this has to calculated upfront). See above for loop
-             */
-            return vIntSize + (totalVarSize) + (noOfElements * Bytes.SIZEOF_INT);
-        }
-
 	},
 	CHAR_ARRAY("CHAR_ARRAY", Types.ARRAY + PDataType.CHAR.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3271,7 +3244,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.CHAR, PDataType.CHAR.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.CHAR);
 		}
 
 		@Override
@@ -3287,22 +3260,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.CHAR);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.CHAR);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.CHAR, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.CHAR, columnModifier);
 		}
 		
 		@Override
@@ -3322,23 +3295,6 @@ public enum PDataType {
            return true;
         }
 		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            int totalVarSize = 0;
-            for (int i = 0; i < noOfElements; i++) {
-                totalVarSize += array.estimateByteSize(i);
-            }
-            /**
-             * For non fixed width arrays we will write No of elements - as vint (we know the no of elements upfront so
-             * we can know how much space this vint is going to occupy) Write the size of every element as Int (cannot
-             * use vint here as we cannot fix the actual size of the ByteBuffer for allocation) Followed by the actual
-             * data - totalVarSize (this has to calculated upfront). See above for loop
-             */
-            return vIntSize + (totalVarSize) + (noOfElements * Bytes.SIZEOF_INT);
-        }
 	},
 	LONG_ARRAY("LONG_ARRAY", Types.ARRAY + PDataType.LONG.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3347,7 +3303,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -3361,7 +3317,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.LONG, PDataType.LONG.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.LONG);
 		}
 
 		@Override
@@ -3377,22 +3333,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.LONG);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.LONG);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.LONG, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.LONG, columnModifier);
 		}
 		
 		@Override
@@ -3412,13 +3368,6 @@ public enum PDataType {
            return true;
         }
 		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.LONG.getByteSize());
-        }
 	},
 	SMALLINT_ARRAY("SMALLINT_ARRAY", Types.ARRAY + PDataType.SMALLINT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3427,7 +3376,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -3441,7 +3390,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.SMALLINT, PDataType.SMALLINT.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.SMALLINT);
 		}
 
 		@Override
@@ -3457,22 +3406,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.SMALLINT);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.SMALLINT);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.SMALLINT, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.SMALLINT, columnModifier);
 		}
 		
 		@Override
@@ -3492,13 +3441,6 @@ public enum PDataType {
            return true;
         }
 		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.SMALLINT.getByteSize());
-        }
 	},
 	TINYINT_ARRAY("TINYINT_ARRAY", Types.ARRAY + PDataType.TINYINT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3507,7 +3449,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -3521,7 +3463,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.TINYINT, PDataType.TINYINT.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.TINYINT);
 		}
 
 		@Override
@@ -3537,22 +3479,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TINYINT);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TINYINT);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TINYINT, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TINYINT, columnModifier);
 		}
 		
 		@Override
@@ -3572,13 +3514,6 @@ public enum PDataType {
            return true;
         }
 		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.TINYINT.getByteSize());
-        }
 	},
 	FLOAT_ARRAY("FLOAT_ARRAY", Types.ARRAY + PDataType.FLOAT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3587,7 +3522,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		
 		@Override
@@ -3602,7 +3537,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.FLOAT, PDataType.FLOAT.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.FLOAT);
 		}
 
 		@Override
@@ -3618,22 +3553,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.FLOAT);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.FLOAT);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.FLOAT, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.FLOAT, columnModifier);
 		}
 		
 		@Override
@@ -3653,13 +3588,6 @@ public enum PDataType {
            return true;
         }
 		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.FLOAT.getByteSize());
-        }
 	},
 	DOUBLE_ARRAY("DOUBLE_ARRAY", Types.ARRAY + PDataType.DOUBLE.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3668,7 +3596,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -3682,7 +3610,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.DOUBLE, PDataType.DOUBLE.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.DOUBLE);
 		}
 
 		@Override
@@ -3698,22 +3626,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DOUBLE);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DOUBLE);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DOUBLE, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DOUBLE, columnModifier);
 		}
 		
 		@Override
@@ -3733,13 +3661,6 @@ public enum PDataType {
            return true;
         }
 
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.DOUBLE.getByteSize());
-        }
 	},
 	// How to deal with this?? Is this ARRAY type valid?
 	DECIMAL_ARRAY("DECIMAL_ARRAY", Types.ARRAY + PDataType.DECIMAL.getSqlType(), PhoenixArray.class, null) {
@@ -3763,7 +3684,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.DECIMAL, PDataType.DECIMAL.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.DECIMAL);
 		}
 
 		@Override
@@ -3779,22 +3700,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DECIMAL);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DECIMAL);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DECIMAL, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DECIMAL, columnModifier);
 		}
 		
 		@Override
@@ -3813,25 +3734,7 @@ public enum PDataType {
            }
            return true;
         }
-		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-
-            int totalVarSize = 0;
-            for (int i = 0; i < noOfElements; i++) {
-                totalVarSize += array.estimateByteSize(i);
-            }
-            /**
-             * For non fixed width arrays we will write No of elements - as vint (we know the no of elements upfront so
-             * we can know how much space this vint is going to occupy) Write the size of every element as Int (cannot
-             * use vint here as we cannot fix the actual size of the ByteBuffer for allocation) Followed by the actual
-             * data - totalVarSize (this has to calculated upfront). See above for loop
-             */
-            return vIntSize + (totalVarSize) + (noOfElements * Bytes.SIZEOF_INT);
-        }
+	
 	},
 	TIMESTAMP_ARRAY("TIMESTAMP_ARRAY", Types.ARRAY + PDataType.TIMESTAMP.getSqlType(), PhoenixArray.class,
 			null) {
@@ -3841,7 +3744,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -3855,7 +3758,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.TIMESTAMP, PDataType.TIMESTAMP.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.TIMESTAMP);
 		}
 
 		@Override
@@ -3871,22 +3774,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIMESTAMP);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TIMESTAMP);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIMESTAMP, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TIMESTAMP, columnModifier);
 		}
 		
 		@Override
@@ -3906,13 +3809,6 @@ public enum PDataType {
            return true;
         }
 
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.TIMESTAMP.getByteSize());
-        }
 	},
 	TIME_ARRAY("TIME_ARRAY", Types.ARRAY + PDataType.TIME.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3921,7 +3817,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -3935,7 +3831,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.TIME, PDataType.TIME.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.TIME);
 		}
 
 		@Override
@@ -3951,22 +3847,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIME);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TIME);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.TIME, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TIME, columnModifier);
 		}
 		
 		@Override
@@ -3986,13 +3882,6 @@ public enum PDataType {
            return true;
         }
 
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.TIME.getByteSize());
-        }
 	},
 	DATE_ARRAY("DATE_ARRAY", Types.ARRAY + PDataType.DATE.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -4001,7 +3890,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -4015,7 +3904,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.DATE, PDataType.DATE.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.DATE);
 		}
 
 		@Override
@@ -4031,22 +3920,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DATE);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DATE);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.DATE, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DATE, columnModifier);
 		}
 		
 		@Override
@@ -4066,13 +3955,6 @@ public enum PDataType {
            return true;
         }
 
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.DATE.getByteSize());
-        }
 	},
 	UNSIGNED_LONG_ARRAY("UNSIGNED_LONG_ARRAY", Types.ARRAY + PDataType.UNSIGNED_LONG.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -4081,7 +3963,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -4095,7 +3977,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_LONG, PDataType.UNSIGNED_LONG.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_LONG);
 		}
 
 		@Override
@@ -4111,22 +3993,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_LONG);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_LONG);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_LONG, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_LONG, columnModifier);
 		}
 		
 		@Override
@@ -4145,14 +4027,7 @@ public enum PDataType {
            }
            return true;
         }
-		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.UNSIGNED_LONG.getByteSize());
-        }
+	
 	},
 	UNSIGNED_INT_ARRAY("UNSIGNED_INT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_INT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -4161,7 +4036,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -4175,7 +4050,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_INT, PDataType.UNSIGNED_INT.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_INT);
 		}
 
 		@Override
@@ -4191,22 +4066,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_INT);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_INT);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_INT, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_INT, columnModifier);
 		}
 		
 		@Override
@@ -4226,13 +4101,6 @@ public enum PDataType {
            return true;
         }
 
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.UNSIGNED_INT.getByteSize());
-        }
 	},
 	UNSIGNED_SMALLINT_ARRAY("UNSIGNED_SMALLINT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_SMALLINT.getSqlType(),
 			PhoenixArray.class, null) {
@@ -4242,7 +4110,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -4256,7 +4124,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_SMALLINT, PDataType.UNSIGNED_SMALLINT.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_SMALLINT);
 		}
 
 		@Override
@@ -4272,22 +4140,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_SMALLINT);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_SMALLINT);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_SMALLINT, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_SMALLINT, columnModifier);
 		}
 		
 		@Override
@@ -4307,14 +4175,6 @@ public enum PDataType {
            return true;
         }
 
-		
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.UNSIGNED_SMALLINT.getByteSize());
-        }
 	},
 	UNSIGNED_TINYINT_ARRAY("UNSIGNED_TINYINT__ARRAY", Types.ARRAY + PDataType.UNSIGNED_TINYINT.getSqlType(), PhoenixArray.class,
 			null) {
@@ -4324,7 +4184,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -4338,7 +4198,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_TINYINT, PDataType.UNSIGNED_TINYINT.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_TINYINT);
 		}
 
 		@Override
@@ -4354,22 +4214,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_TINYINT);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_TINYINT);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_TINYINT, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_TINYINT, columnModifier);
 		}
 		
 		@Override
@@ -4388,14 +4248,6 @@ public enum PDataType {
            }
            return true;
         }
-
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.UNSIGNED_TINYINT.getByteSize());
-        }
 	},
 	UNSIGNED_FLOAT_ARRAY("UNSIGNED_FLOAT_ARRAY", Types.ARRAY + PDataType.UNSIGNED_FLOAT.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -4404,7 +4256,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -4418,7 +4270,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_FLOAT, PDataType.UNSIGNED_FLOAT.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_FLOAT);
 		}
 
 		@Override
@@ -4434,22 +4286,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_FLOAT);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_FLOAT);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_FLOAT, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_FLOAT, columnModifier);
 		}
 		
 		@Override
@@ -4469,13 +4321,6 @@ public enum PDataType {
            return true;
         }
 
-        @Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.UNSIGNED_FLOAT.getByteSize());
-        }
 	},
 	UNSIGNED_DOUBLE_ARRAY("UNSIGNED_DOUBLE__ARRAY", Types.ARRAY + PDataType.UNSIGNED_DOUBLE.getSqlType(), PhoenixArray.class,
 			null) {
@@ -4485,7 +4330,7 @@ public enum PDataType {
     	}
 		@Override
 		public boolean isFixedWidth() {
-			return true;
+			return false;
 		}
 		@Override
 		public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
@@ -4499,7 +4344,7 @@ public enum PDataType {
 
 		@Override
 		public byte[] toBytes(Object object) {
-			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_DOUBLE, PDataType.UNSIGNED_DOUBLE.isFixedWidth());
+			return pDataTypeForArray.toBytes(object, PDataType.UNSIGNED_DOUBLE);
 		}
 
 		@Override
@@ -4515,22 +4360,22 @@ public enum PDataType {
 		@Override
 		public Object toObject(Object object, PDataType actualType,
 				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, sortOrder);
+			return pDataTypeForArray.toObject(object, actualType, sortOrder);
 		}
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
-			return pDataTypeForArray.toObject(object);
+			return pDataTypeForArray.toObject(object, actualType);
 		}
 		
 		public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_DOUBLE);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_DOUBLE);
 		}
 		
 		@Override
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
-			return pDataTypeForArray.toObject(bytes, offset, length, isFixedWidth(), PDataType.UNSIGNED_DOUBLE, columnModifier);
+			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_DOUBLE, columnModifier);
 		}
 		
 		@Override
@@ -4550,13 +4395,6 @@ public enum PDataType {
            return true;
         }
 		
-		@Override
-        public int estimateByteSize(Object object) {
-            PhoenixArray array = (PhoenixArray)object;
-            int noOfElements = array.dimensions;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
-            return vIntSize + (noOfElements * PDataType.UNSIGNED_DOUBLE.getByteSize());
-        }
 	};
 
     private final String sqlTypeName;
@@ -4586,6 +4424,24 @@ public enum PDataType {
     public int estimateByteSize(Object o) {
         if (isFixedWidth()) {
             return getByteSize();
+        }
+        if(isArrayType()) {
+            PhoenixArray array = (PhoenixArray)o;
+            int noOfElements = array.dimensions;
+            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+
+            int totalVarSize = 0;
+            for (int i = 0; i < noOfElements; i++) {
+                totalVarSize += array.estimateByteSize(i);
+            }
+            /**
+             * For non fixed width arrays we will write No of elements - as vint (we know the no of elements upfront so
+             * we can know how much space this vint is going to occupy) Write the size of every element as Int (cannot
+             * use vint here as we cannot fix the actual size of the ByteBuffer for allocation) Followed by the actual
+             * data - totalVarSize (this has to calculated upfront). See above for loop
+             */
+            //return vIntSize + (totalVarSize) + (noOfElements * Bytes.SIZEOF_INT);
+            return vIntSize + (totalVarSize);
         }
         // Non fixed width types must override this
         throw new UnsupportedOperationException();
@@ -5959,7 +5815,7 @@ public enum PDataType {
 
     public boolean isSizeCompatible(PDataType srcType, Object value, byte[] b,
             Integer maxLength, Integer desiredMaxLength, Integer scale, Integer desiredScale) {
-        return true;
+         return true;
     }
 
     public int compareTo(byte[] b1, byte[] b2) {

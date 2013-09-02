@@ -176,6 +176,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(int.class,
 					elements.length);
 			intArr = (int[]) object;
+			int i = 0;
+			for(Object o : elements) {
+			    intArr[i++] = (Integer)o;
+			}
 			return intArr;
 		}
 		
@@ -210,6 +214,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(short.class,
 					elements.length);
 			shortArr = (short[]) object;
+			int i = 0;
+            for(Object o : elements) {
+                shortArr[i++] = (Short)o;
+            }
 			return shortArr;
 		}
 		
@@ -244,6 +252,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(long.class,
 					elements.length);
 			longArr = (long[]) object;
+			int i = 0;
+            for(Object o : elements) {
+                longArr[i++] = (Long)o;
+            }
 			return longArr;
 		}
 		public int estimateByteSize(int pos) {
@@ -278,6 +290,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(double.class,
 					elements.length);
 			doubleArr = (double[]) object;
+			int i = 0;
+            for(Object o : elements) {
+                doubleArr[i++] = (Double)o;
+            }
 			return doubleArr;
 		}
 		
@@ -312,6 +328,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(float.class,
 					elements.length);
 			floatArr = (float[]) object;
+			int i = 0;
+            for(Object o : elements) {
+                floatArr[i++] = (Float)o;
+            }
 			return floatArr;
 		}
 		
@@ -346,6 +366,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(byte.class,
 					elements.length);
 			byteArr = (byte[]) object;
+			int i = 0;
+            for(Object o : elements) {
+                byteArr[i++] = (Byte)o;
+            }
 			return byteArr;
 		}
 		
@@ -380,6 +404,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(boolean.class,
 					elements.length);
 			booleanArr = (boolean[]) object;
+			int i = 0;
+            for(Object o : elements) {
+                booleanArr[i++] = (Boolean)o;
+            }
 			return booleanArr;
 		}
 		
@@ -414,6 +442,10 @@ public class PhoenixArray implements Array {
 			Object object = java.lang.reflect.Array.newInstance(char.class,
 					elements.length);
 			charArr = (char[]) object;
+			int i = 0;
+            for(Object o : elements) {
+                charArr[i++] = (Character)o;
+            }
 			return charArr;
 		}
 		

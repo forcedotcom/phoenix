@@ -45,7 +45,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 public class ColumnDef {
     private final ColumnName columnDefName;
-    private final PDataType dataType;
+    private PDataType dataType;
     private final boolean isNull;
     private final Integer maxLength;
     private final Integer scale;
@@ -57,13 +57,16 @@ public class ColumnDef {
     ColumnDef(ColumnName columnDefName, String sqlTypeName, boolean isArray, Integer arrSize, boolean isNull, Integer maxLength,
     		            Integer scale, boolean isPK, ColumnModifier columnModifier) {
    	 try {
+   	     PDataType localType = null;
          this.columnDefName = columnDefName;
          this.isArray = isArray;
          if(this.isArray) {
-        	 this.dataType = sqlTypeName == null ? null : PDataType.fromTypeId(PDataType.sqlArrayType(SchemaUtil.normalizeIdentifier(sqlTypeName)));
+        	 localType = sqlTypeName == null ? null : PDataType.fromTypeId(PDataType.sqlArrayType(SchemaUtil.normalizeIdentifier(sqlTypeName)));
+        	 this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
          } else {
              this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
          }
+         
          // TODO : Add correctness check for arrSize.  Should this be ignored as in postgresql
          // Also add what is the limit that we would support.  Are we going to support a
          //  fixed size or like postgre allow infinite.  May be the datatypes max limit can 
@@ -136,6 +139,9 @@ public class ColumnDef {
          this.scale = scale;
          this.isPK = isPK;
          this.columnModifier = columnModifier;
+         if(this.isArray) {
+             this.dataType = localType;
+         }
      } catch (SQLException e) {
          throw new ParseException(e);
      }
