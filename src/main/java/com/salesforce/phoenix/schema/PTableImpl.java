@@ -464,8 +464,8 @@ public class PTableImpl implements PTable {
                 removeIfPresent(setValues, family, qualifier);
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
-                Integer byteSize = column.getByteSize();
-                if (type.isFixedWidth() && byteValue.length <= byteSize) { 
+				Integer	byteSize = column.getByteSize();
+                if (byteSize != null && type.isFixedWidth() && byteValue.length <= byteSize) { 
                     byteValue = SchemaUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
