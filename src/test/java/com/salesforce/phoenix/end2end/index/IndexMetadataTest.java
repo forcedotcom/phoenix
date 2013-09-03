@@ -1,28 +1,17 @@
 package com.salesforce.phoenix.end2end.index;
 
-import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
-import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
-import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static com.salesforce.phoenix.util.TestUtil.*;
+import static org.junit.Assert.*;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Types;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
 
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.PIndexState;
-import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.StringUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
@@ -257,20 +246,23 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
+        String ddl = "create table test_table (char_pk varchar not null,"
+        		+ " a.int_col integer, a.long_col integer,"
+        		+ " b.int_col integer, b.long_col integer"
+        		+ " constraint pk primary key (char_pk))";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ddl = "CREATE INDEX IDX1 ON test_table (a.int_col, b.int_col)";
+        stmt = conn.prepareStatement(ddl);
+        stmt.execute();
         try {
-            String ddl = "create table test_table (char_pk varchar not null,"
-            		+ " a.int_col integer, a.long_col integer,"
-            		+ " b.int_col integer, b.long_col integer"
-            		+ " constraint pk primary key (char_pk))";
-            PreparedStatement stmt = conn.prepareStatement(ddl);
-            stmt.execute();
-            
-            ddl = "CREATE INDEX IDX ON test_table (int_col ASC, long_cal ASC)";
+            ddl = "CREATE INDEX IDX2 ON test_table (int_col)";
             stmt = conn.prepareStatement(ddl);
             stmt.execute();
-            fail("Should have caught exception.");
-        } catch (SQLException e) {
-        	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1023 (42Y82): Index may only be created on a table with immutable rows."));
+            fail("Should have caught exception");
+        } catch (AmbiguousColumnException e) {
+            assertEquals(SQLExceptionCode.AMBIGUOUS_COLUMN.getErrorCode(), e.getErrorCode());
         } finally {
             conn.close();
         }
