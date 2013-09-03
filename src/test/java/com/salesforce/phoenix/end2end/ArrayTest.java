@@ -149,7 +149,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
         String ddlStmt =  "create table " + TABLE_WITH_ARRAY +
                 "   (organization_id char(15) not null, \n" +
                 "    entity_id char(15) not null,\n" +
-                "    a_string_array varchar array[],\n" +
+                "    a_string_array varchar(100) array[],\n" +
                 "    b_string varchar(100),\n" +
                 "    a_integer integer,\n" +
                 "    a_date date,\n" +

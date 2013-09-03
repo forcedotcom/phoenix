@@ -37,7 +37,7 @@ import java.util.Map;
 public class PhoenixArray implements Array {
 	PDataType baseType;
 	Object array;
-	int dimensions;
+	int numElements;
 	public PhoenixArray() {
 		// empty constructor
 	}
@@ -46,7 +46,7 @@ public class PhoenixArray implements Array {
 		// As we are dealing with primitive types and only the Boxed objects
 		this.baseType = baseType;
 		this.array = convertObjectArrayToPrimitiveArray(elements);
-		this.dimensions = elements.length;
+		this.numElements = elements.length;
 	}
 	
 	public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
@@ -133,7 +133,7 @@ public class PhoenixArray implements Array {
 	}
 
 	public int getDimensions() {
-		return this.dimensions;
+		return this.numElements;
 	}
 	
 	public int estimateByteSize(int pos) {
@@ -146,7 +146,7 @@ public class PhoenixArray implements Array {
 	
 	@Override
 	public boolean equals(Object obj) {
-		if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+		if (this.numElements != ((PhoenixArray) obj).numElements) {
 			return false;
 		}
 		if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -193,7 +193,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -231,7 +231,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -268,7 +268,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -307,7 +307,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -345,7 +345,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -383,7 +383,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -421,7 +421,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
@@ -459,7 +459,7 @@ public class PhoenixArray implements Array {
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (this.dimensions != ((PhoenixArray) obj).dimensions) {
+			if (this.numElements != ((PhoenixArray) obj).numElements) {
 				return false;
 			}
 			if (this.baseType != ((PhoenixArray) obj).baseType) {
