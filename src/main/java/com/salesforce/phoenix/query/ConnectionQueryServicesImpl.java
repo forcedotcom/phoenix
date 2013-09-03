@@ -83,6 +83,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.salesforce.hbase.index.IndexUtil;
+import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.builder.covered.CoveredColumnIndexerV2;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
@@ -517,9 +518,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (!descriptor.hasCoprocessor(ServerCachingEndpointImpl.class.getName())) {
                 descriptor.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
             }
-            Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
-            opts.put(PhoenixIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
-            IndexUtil.enableIndexing(descriptor, CoveredColumnIndexerV2.class, opts);
+            // TODO: better encapsulation for this
+            if (!descriptor.hasCoprocessor(Indexer.class.getName())) {
+                Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
+                opts.put(PhoenixIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
+                IndexUtil.enableIndexing(descriptor, CoveredColumnIndexerV2.class, opts);
+            }
             //IndexUtil.enableIndexing(descriptor, PhoenixIndexBuilder.class, null);
             
             // Setup split policy on Phoenix metadata table to ensure that the key values of a Phoenix table

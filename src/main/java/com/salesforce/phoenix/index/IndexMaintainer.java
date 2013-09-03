@@ -50,7 +50,7 @@ import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 public class IndexMaintainer implements Writable {
     
     public static IndexMaintainer create(PTable dataTable, PTable index) {
-        if (dataTable.getType() == PTableType.INDEX || index.getType() != PTableType.INDEX) {
+        if (dataTable.getType() == PTableType.INDEX || index.getType() != PTableType.INDEX || !dataTable.getIndexes().contains(index)) {
             throw new IllegalArgumentException();
         }
         int indexPosOffset = index.getBucketNum() == null ? 0 : 1;

@@ -20,7 +20,8 @@ import com.salesforce.phoenix.schema.TableRef;
 
 public class IndexMetaDataCacheClient {
     private static final int USE_CACHE_THRESHOLD = 10;
-    private static final int UUID_BYTE_LENGTH = 16; // 128 bits as bytes should hopefully be 16 bytes
+    // Would expect 128 bits as bytes would be 16 bytes, but these UUIDs end up being 36 bytes
+    private static final int UUID_BYTE_LENGTH = 36; 
 
     private final ServerCacheClient serverCache;
     
