@@ -39,6 +39,7 @@ import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinTable;
 import com.salesforce.phoenix.compile.JoinCompiler.StarJoinType;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.coprocessor.ScanProjector;
 import com.salesforce.phoenix.execute.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
@@ -130,20 +131,22 @@ public class QueryCompiler {
         List<TableNode> fromNodes = statement.getFrom();
         if (fromNodes.size() == 1) {
             ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
-            StatementContext context = new StatementContext(statement, connection, resolver, binds, scan, null);
+            StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
             return compileSingleQuery(context, statement, binds);
         }
         
         JoinSpec join = JoinCompiler.getJoinSpec(statement, connection);
-        StatementContext context = new StatementContext(statement, connection, join.getColumnResolver(), binds, scan, new HashCacheClient(connection));
+        StatementContext context = new StatementContext(statement, connection, join.getColumnResolver(), binds, scan, true, new HashCacheClient(connection));
         return compileJoinQuery(context, statement, binds, join);
     }
     
     @SuppressWarnings("unchecked")
     protected QueryPlan compileJoinQuery(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
         List<JoinTable> joinTables = join.getJoinTables();
-        if (joinTables.isEmpty())
+        if (joinTables.isEmpty()) {
+            ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
             return compileSingleQuery(context, statement, binds);
+        }
         
         StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
         if (starJoin == StarJoinType.BASIC || starJoin == StarJoinType.EXTENDED) {
@@ -156,13 +159,13 @@ public class QueryCompiler {
             for (int i = 0; i < count; i++) {
                 JoinTable joinTable = joinTables.get(i);
                 joinIds[i] = new ImmutableBytesPtr(); // place-holder
-                if (!joinTable.isEquiJoin())
-                    throw new UnsupportedOperationException("Do not support non equi-joins.");
-                joinExpressions[i] = joinTable.getLeftTableConditions();
-                hashExpressions[i] = joinTable.getRightTableConditions();
+                joinExpressions[i] = joinTable.compileLeftTableConditions();
+                hashExpressions[i] = joinTable.compileRightTableConditions();
                 joinTypes[i] = joinTable.getType();
                 try {
-                    joinPlans[i] = compile(joinTable.getAsSubquery(), binds, new Scan(scanCopy));
+                    Scan subScan = new Scan(scanCopy);
+                    ScanProjector.serializeProjectorIntoScan(subScan, joinTable.getScanProjector());
+                    joinPlans[i] = compile(joinTable.getAsSubquery(), binds, subScan);
                 } catch (IOException e) {
                     throw new SQLException(e);
                 }
@@ -170,6 +173,7 @@ public class QueryCompiler {
             Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, null);
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
+            ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
             BasicQueryPlan plan = compileSingleQuery(context, JoinCompiler.getSubqueryWithoutJoin(statement, join), binds);
             return new HashJoinPlan(plan, joinIds, hashExpressions, joinPlans);
         }
@@ -184,34 +188,40 @@ public class QueryCompiler {
             SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoin(statement, join);
             SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(statement, join);
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpec(join);
-            StatementContext lhsCtx = new StatementContext(statement, connection, join.getColumnResolver(), binds, scan, context.getHashClient());
+            Scan subScan;
+            try {
+                subScan = new Scan(scanCopy);
+            } catch (IOException e) {
+                throw new SQLException(e);
+            }
+            StatementContext lhsCtx = new StatementContext(statement, connection, join.getColumnResolver(), binds, subScan, true, context.getHashClient());
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr()};
-            if (!lastJoinTable.isEquiJoin())
-                throw new UnsupportedOperationException("Do not support non equi-joins.");
             Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, lastJoinTable);
-            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.getRightTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.compileRightTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
+            ScanProjector.serializeProjectorIntoScan(context.getScan(), lastJoinTable.getScanProjector());
             BasicQueryPlan rhsPlan = compileSingleQuery(context, rhs, binds);
-            return new HashJoinPlan(rhsPlan, joinIds, new List[] {lastJoinTable.getLeftTableConditions()}, new QueryPlan[] {lhsPlan});
+            return new HashJoinPlan(rhsPlan, joinIds, new List[] {lastJoinTable.compileLeftTableConditions()}, new QueryPlan[] {lhsPlan});
         }
         
         SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoinAsFinalPlan(statement, join);
         SelectStatement rhs = lastJoinTable.getAsSubquery();
-        QueryPlan rhsPlan;
+        Scan subScan;
         try {
-            rhsPlan = compile(rhs, binds, new Scan(scanCopy));
+            subScan = new Scan(scanCopy);
         } catch (IOException e) {
             throw new SQLException(e);
         }
+        ScanProjector.serializeProjectorIntoScan(subScan, lastJoinTable.getScanProjector());
+        QueryPlan rhsPlan = compile(rhs, binds, subScan);
         ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr()};
-        if (!lastJoinTable.isEquiJoin())
-            throw new UnsupportedOperationException("Do not support non equi-joins.");
         Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, null);
-        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.getLeftTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.compileLeftTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
         HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
+        ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
         BasicQueryPlan lhsPlan = compileSingleQuery(context, lhs, binds);
-        return new HashJoinPlan(lhsPlan, joinIds, new List[] {lastJoinTable.getRightTableConditions()}, new QueryPlan[] {rhsPlan});
+        return new HashJoinPlan(lhsPlan, joinIds, new List[] {lastJoinTable.compileRightTableConditions()}, new QueryPlan[] {rhsPlan});
     }
     
     protected BasicQueryPlan compileSingleQuery(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{

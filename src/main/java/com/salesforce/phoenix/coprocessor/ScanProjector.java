@@ -37,7 +37,6 @@ import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.WritableUtils;
 
@@ -50,14 +49,13 @@ public class ScanProjector {
     public enum ProjectionType {TABLE, CF, CQ};
     
     private static final String SCAN_PROJECTOR = "scanProjector";
-    private static final byte[] SEPERATOR = Bytes.toBytes(":");
     
     private final ProjectionType type;
     private final byte[] tablePrefix;
     private final Map<ImmutableBytesPtr, byte[]> cfProjectionMap;
     private final Map<ImmutableBytesPtr, Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> cqProjectionMap;
     
-    private ScanProjector(ProjectionType type, byte[] tablePrefix, 
+    public ScanProjector(ProjectionType type, byte[] tablePrefix, 
             Map<ImmutableBytesPtr, byte[]> cfProjectionMap, Map<ImmutableBytesPtr, 
             Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> cqProjectionMap) {
         this.type = ProjectionType.TABLE;
@@ -183,7 +181,7 @@ public class ScanProjector {
     
     public KeyValue getProjectedKeyValue(KeyValue kv) {
         if (type == ProjectionType.TABLE) {
-            byte[] cf = ByteUtil.concat(tablePrefix, SEPERATOR, kv.getFamily());
+            byte[] cf = ByteUtil.concat(tablePrefix, kv.getFamily());
             return KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength(), 
                     cf, kv.getQualifier(), kv.getTimestamp(), kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
         }

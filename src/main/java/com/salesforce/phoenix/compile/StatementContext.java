@@ -69,13 +69,14 @@ public class StatementContext {
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
+    private final boolean prefixColumnFamily;
     private final HashCacheClient hashClient;
     
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
-        this(statement, connection, resolver, binds, scan, null);
+        this(statement, connection, resolver, binds, scan, false, null);
     }
     
-    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, HashCacheClient hashClient) {
+    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, boolean prefixColumnFamily, HashCacheClient hashClient) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -87,6 +88,7 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
+        this.prefixColumnFamily = prefixColumnFamily;
         this.hashClient = hashClient;
     }
 
@@ -112,6 +114,10 @@ public class StatementContext {
 
     public BindManager getBindManager() {
         return binds;
+    }
+    
+    public boolean shouldPrefixColumnFamily() {
+        return prefixColumnFamily;
     }
     
     public HashCacheClient getHashClient() {

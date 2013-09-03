@@ -31,6 +31,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.hadoop.hbase.util.Bytes;
+
+import com.salesforce.phoenix.coprocessor.ScanProjector;
+import com.salesforce.phoenix.coprocessor.ScanProjector.ProjectionType;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -41,6 +45,8 @@ import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 public class JoinCompiler {
@@ -56,19 +62,17 @@ public class JoinCompiler {
         private List<AliasedNode> select; // all basic nodes related to mainTable, no aggregation.
         private List<ParseNode> preFilters;
         private List<ParseNode> postFilters;
-        private List<Expression> postFilterExpressions;
         private List<JoinTable> joinTables;
         private boolean isPostAggregateOrDistinct;
         private ColumnResolver resolver;
         
         private JoinSpec(TableRef table, List<AliasedNode> select, List<ParseNode> preFilters, 
-                List<ParseNode> postFilters, List<Expression> postFilterExpressions, 
-                List<JoinTable> joinTables, boolean isPostAggregate, ColumnResolver resolver) {
+                List<ParseNode> postFilters, List<JoinTable> joinTables, boolean isPostAggregate, 
+                ColumnResolver resolver) {
             this.mainTable = table;
             this.select = select;
             this.preFilters = preFilters;
             this.postFilters = postFilters;
-            this.postFilterExpressions = postFilterExpressions;
             this.joinTables = joinTables;
             this.isPostAggregateOrDistinct = isPostAggregate;
             this.resolver = resolver;
@@ -88,10 +92,6 @@ public class JoinCompiler {
         
         public List<ParseNode> getPostFilters() {
             return postFilters;
-        }
-        
-        public List<Expression> getPostFilterExpressions() {
-            return postFilterExpressions;
         }
         
         public List<JoinTable> getJoinTables() {
@@ -115,46 +115,55 @@ public class JoinCompiler {
             
             return NODE_FACTORY.and(preFilters);
         }
+        
+        public ScanProjector getScanProjector() {
+            byte[] tableName = null;
+            if (mainTable.getTableAlias() != null) {
+                tableName = Bytes.toBytes(mainTable.getTableAlias());
+            } else {
+                tableName = mainTable.getTableName();
+            }
+            byte[] tablePrefix = ByteUtil.concat(tableName, PROJECTION_SEPERATOR);
+            return new ScanProjector(ProjectionType.TABLE, tablePrefix, null, null);
+        }
+        
+        public List<Expression> compilePostFilterExpressions() {
+            // TODO
+            return null;
+        }
     }
     
     public static JoinSpec getSubJoinSpec(JoinSpec join) {
-        return new JoinSpec(join.mainTable, join.select, join.preFilters, join.postFilters, join.postFilterExpressions, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregateOrDistinct, join.resolver);
+        return new JoinSpec(join.mainTable, join.select, join.preFilters, join.postFilters, join.joinTables.subList(0, join.joinTables.size() - 2), join.isPostAggregateOrDistinct, join.resolver);
     }
     
     public static class JoinTable {
         private JoinType type;
-        private List<Expression> conditions;
+        private List<ParseNode> conditions;
         private TableNode tableNode; // original table node
         private TableRef table;
         private List<AliasedNode> select; // all basic nodes related to this table, no aggregation.
         private List<ParseNode> preFilters;
         private List<ParseNode> postFilters;
-        private List<Expression> postFilterExpressions; // will be pushed to postFilters in case of star join
         private SelectStatement subquery;
-        // equi-joins only
-        private List<Expression> leftTableConditions;
-        private List<Expression> rightTableConditions;
         
-        private JoinTable(JoinType type, List<Expression> conditions, TableNode tableNode, List<AliasedNode> select,
-                List<ParseNode> preFilters, List<ParseNode> postFilters, List<Expression> postFilterExpressions, 
-                TableRef table, SelectStatement subquery) {
+        private JoinTable(JoinType type, List<ParseNode> conditions, TableNode tableNode, List<AliasedNode> select,
+                List<ParseNode> preFilters, List<ParseNode> postFilters, TableRef table, SelectStatement subquery) {
             this.type = type;
             this.conditions = conditions;
             this.tableNode = tableNode;
             this.select = select;
             this.preFilters = preFilters;
             this.postFilters = postFilters;
-            this.postFilterExpressions = postFilterExpressions;
             this.table = table;
             this.subquery = subquery;
-            // TODO split left and right table conditions;
         }
         
         public JoinType getType() {
             return type;
         }
         
-        public List<Expression> getJoinConditions() {
+        public List<ParseNode> getJoinConditions() {
             return conditions;
         }
         
@@ -176,10 +185,6 @@ public class JoinCompiler {
         
         public List<ParseNode> getPostFilters() {
             return postFilters;
-        }
-        
-        public List<Expression> getPostFilterExpressions() {
-            return postFilterExpressions;
         }
         
         public SelectStatement getSubquery() {
@@ -205,21 +210,43 @@ public class JoinCompiler {
             return NODE_FACTORY.select(from, null, false, select, getPreFiltersCombined(), null, null, null, null, 0, false);
         }
         
-        public boolean isEquiJoin() {
-            return (leftTableConditions != null && !leftTableConditions.isEmpty());
+        public ScanProjector getScanProjector() {
+            byte[] tableName = null;
+            if (table.getTableAlias() != null) {
+                tableName = Bytes.toBytes(table.getTableAlias());
+            } else {
+                tableName = table.getTableName();
+            }
+            byte[] tablePrefix = ByteUtil.concat(tableName, PROJECTION_SEPERATOR);
+            return new ScanProjector(ProjectionType.TABLE, tablePrefix, null, null);
         }
         
-        public List<Expression> getLeftTableConditions() {
-            return leftTableConditions;
+        public List<Expression> compilePostFilterExpressions() {
+            // TODO
+            return null;
         }
         
-        public List<Expression> getRightTableConditions() {
-            return rightTableConditions;
+        /**
+         * @throws SQLException if it is not an equi-join.
+         */
+        public List<Expression> compileLeftTableConditions() throws SQLException {
+            // TODO
+            return null;
+        }
+        
+        /**
+         * @throws SQLException if it is not an equi-join.
+         */
+        public List<Expression> compileRightTableConditions() throws SQLException {
+            // TODO
+            return null;
         }
     }
     
     // for creation of new statements
     private static ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
+    
+    private static final byte[] PROJECTION_SEPERATOR = Bytes.toBytes(":");
     
     public static JoinSpec getJoinSpec(SelectStatement statement, PhoenixConnection connection) throws SQLException {
         // TODO
@@ -231,12 +258,17 @@ public class JoinCompiler {
         
         StarJoinType starJoinType = StarJoinType.BASIC;
         for (JoinTable joinTable : join.getJoinTables()) {
-            if (!joinTable.isEquiJoin() 
-                    || (joinTable.getType() != JoinType.Left 
-                            && joinTable.getType() != JoinType.Inner))
+            if (joinTable.getType() != JoinType.Left 
+                    && joinTable.getType() != JoinType.Inner)
                 return StarJoinType.NONE;
             if (starJoinType == StarJoinType.BASIC) {
-                for (Expression expr : joinTable.getLeftTableConditions()) {
+                List<Expression> leftTableConditions;
+                try {
+                    leftTableConditions = joinTable.compileLeftTableConditions();
+                } catch (SQLException e) {
+                    return StarJoinType.NONE;
+                }
+                for (Expression expr : leftTableConditions) {
                     // TODO test if expr consists ref to tables other than mainTable
                     starJoinType = StarJoinType.EXTENDED;
                 }
@@ -306,13 +338,13 @@ public class JoinCompiler {
     public static Expression getPostJoinFilterExpression(JoinSpec join, JoinTable joinTable) {
         List<Expression> postFilters = new ArrayList<Expression>();
         if (joinTable != null) {
-            postFilters.addAll(joinTable.getPostFilterExpressions());
+            postFilters.addAll(joinTable.compilePostFilterExpressions());
         } else {
             for (JoinTable table : join.getJoinTables()) {
-                postFilters.addAll(table.getPostFilterExpressions());
+                postFilters.addAll(table.compilePostFilterExpressions());
             }
         }
-        postFilters.addAll(join.getPostFilterExpressions());
+        postFilters.addAll(join.compilePostFilterExpressions());
         Expression postJoinFilterExpression = null;
         if (postFilters.size() == 1) {
             postJoinFilterExpression = postFilters.get(0);
