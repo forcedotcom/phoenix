@@ -102,7 +102,8 @@ public class PTableImpl implements PTable {
     // Data table name that the index is created on.
     private PName dataTableName;
     private boolean isImmutableRows;
-    private ImmutableBytesWritable indexMaintainers;
+    private IndexMaintainer indexMaintainer;
+    private ImmutableBytesWritable indexMaintainersPtr;
     
     public PTableImpl() {
     }
@@ -700,15 +701,23 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public void getIndexMaintainers(byte[] schemaName, ImmutableBytesWritable ptr) {
-        if (indexMaintainers == null) {
-            indexMaintainers = new ImmutableBytesWritable();
+    public IndexMaintainer getIndexMaintainer(PTable dataTable) {
+        if (indexMaintainer == null) {
+            indexMaintainer = IndexMaintainer.create(dataTable, this);
+        }
+        return indexMaintainer;
+    }
+
+    @Override
+    public void getIndexMaintainers(ImmutableBytesWritable ptr) {
+        if (indexMaintainersPtr == null) {
+            indexMaintainersPtr = new ImmutableBytesWritable();
             if (indexes.isEmpty()) {
-                indexMaintainers.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                indexMaintainersPtr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             } else {
-                IndexMaintainer.serialize(schemaName, this, indexMaintainers);
+                IndexMaintainer.serialize(this, indexMaintainersPtr);
             }
         }
-        ptr.set(indexMaintainers.get(), indexMaintainers.getOffset(), indexMaintainers.getLength());
+        ptr.set(indexMaintainersPtr.get(), indexMaintainersPtr.getOffset(), indexMaintainersPtr.getLength());
     }
 }

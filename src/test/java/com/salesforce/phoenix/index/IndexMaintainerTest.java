@@ -2,6 +2,7 @@ package com.salesforce.phoenix.index;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -11,14 +12,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.builder.covered.ColumnReference;
+import com.salesforce.phoenix.end2end.index.IndexTestUtil;
 import com.salesforce.phoenix.index.PhoenixIndexCodec.ValueGetter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
@@ -63,11 +66,12 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
     private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns, String pk, String indexColumns, Object[] values, String includeColumns, String dataProps, String indexProps) throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         String fullTableName = SchemaUtil.getTableDisplayName(schemaName, tableName) ;
-        conn.createStatement().execute("CREATE TABLE " + fullTableName + "(" + dataColumns + " CONSTRAINT pk PRIMARY KEY (" + pk + "))  IMMUTABLE_ROWS=true " + (dataProps.isEmpty() ? "" : "," + dataProps) );
+        conn.createStatement().execute("CREATE TABLE " + fullTableName + "(" + dataColumns + " CONSTRAINT pk PRIMARY KEY (" + pk + "))  " + (dataProps.isEmpty() ? "" : dataProps) );
         conn.createStatement().execute("CREATE INDEX idx ON " + fullTableName + "(" + indexColumns + ") " + (includeColumns.isEmpty() ? "" : "INCLUDE (" + includeColumns + ") ") + (indexProps.isEmpty() ? "" : indexProps));
         PTable table = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier(tableName));
+        PTable index = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier("idx"));
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-        table.getIndexMaintainers(Bytes.toBytes(schemaName), ptr);
+        table.getIndexMaintainers(ptr);
         List<IndexMaintainer> c1 = IndexMaintainer.deserialize(ptr);
         assertEquals(1,c1.size());
         IndexMaintainer im1 = c1.get(0);
@@ -85,18 +89,28 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         	Iterator<Pair<byte[],List<KeyValue>>> iterator = PhoenixRuntime.getUncommittedDataIterator(conn);
         List<KeyValue> dataKeyValues = iterator.next().getSecond();
         Map<ColumnReference,byte[]> valueMap = Maps.newHashMapWithExpectedSize(dataKeyValues.size());
+        ImmutableBytesWritable rowKeyPtr = new ImmutableBytesWritable(dataKeyValues.get(0).getRow());
+        Put dataMutation = new Put(rowKeyPtr.copyBytes());
         for (KeyValue kv : dataKeyValues) {
             valueMap.put(new ColumnReference(kv.getFamily(),kv.getQualifier()), kv.getValue());
+            dataMutation.add(kv);
         }
         ValueGetter valueGetter = newValueGetter(valueMap);
-        ImmutableBytesWritable rowKeyPtr = new ImmutableBytesWritable(dataKeyValues.get(0).getRow());
-        List<KeyValue> indexKeyValues = iterator.next().getSecond();
-        ImmutableBytesWritable indexKeyPtr = new ImmutableBytesWritable(indexKeyValues.get(0).getRow());
+        
+        List<Mutation> indexMutations = IndexTestUtil.generateIndexData(index, table, dataMutation);
+        assertEquals(1,indexMutations.size());
+        assertTrue(indexMutations.get(0) instanceof Put);
+        Mutation indexMutation = indexMutations.get(0);
+        ImmutableBytesWritable indexKeyPtr = new ImmutableBytesWritable(indexMutation.getRow());
         
         ptr.set(rowKeyPtr.get(), rowKeyPtr.getOffset(), rowKeyPtr.getLength());
         byte[] mutablelndexRowKey = im1.buildRowKey(valueGetter, ptr);
         byte[] immutableIndexRowKey = indexKeyPtr.copyBytes();
         assertArrayEquals(immutableIndexRowKey, mutablelndexRowKey);
+        
+        for (ColumnReference ref : im1.getCoverededColumns()) {
+            valueMap.get(ref);
+        }
     }
 
     @Test

@@ -67,10 +67,9 @@ public class HashCacheClient  {
      * for caching during hash join processing.
      * @param connection the client connection
      * @param cacheUsingTableRef table ref to table that will use the cache during its scan
-     * @param minMaxKeyRange the KeyRange of the min and max row for the operation that will be performed
      */
-    public HashCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, ScanRanges keyRanges) {
-        serverCache = new ServerCacheClient(connection,cacheUsingTableRef,keyRanges);
+    public HashCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
+        serverCache = new ServerCacheClient(connection,cacheUsingTableRef);
     }
 
     /**
@@ -83,13 +82,13 @@ public class HashCacheClient  {
      * @throws MaxServerCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
-    public ServerCache addHashCache(Scanner scanner, List<Expression> onExpressions) throws SQLException {
+    public ServerCache addHashCache(ScanRanges keyRanges, Scanner scanner, List<Expression> onExpressions) throws SQLException {
         /**
          * Serialize and compress hashCacheTable
          */
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         serialize(ptr, scanner, onExpressions);
-        return serverCache.addServerCache(ptr, new HashCacheFactory());
+        return serverCache.addServerCache(keyRanges, ptr, new HashCacheFactory());
     }
     
     private void serialize(ImmutableBytesWritable ptr, Scanner scanner, List<Expression> onExpressions) throws SQLException {

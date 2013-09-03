@@ -23,6 +23,7 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.ValueBitSet;
@@ -48,6 +49,55 @@ import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
  */
 public class IndexMaintainer implements Writable {
     
+    public static IndexMaintainer create(PTable dataTable, PTable index) {
+        if (dataTable.getType() == PTableType.INDEX || index.getType() != PTableType.INDEX) {
+            throw new IllegalArgumentException();
+        }
+        int indexPosOffset = index.getBucketNum() == null ? 0 : 1;
+        int nIndexColumns = index.getColumns().size() - indexPosOffset;
+        int nIndexPKColumns = index.getPKColumns().size() - indexPosOffset;
+        IndexMaintainer maintainer = new IndexMaintainer(
+                dataTable.getRowKeySchema(),
+                dataTable.getBucketNum() != null,
+                index.getName().getBytes(), 
+                nIndexColumns,
+                nIndexPKColumns,
+                index.getBucketNum());
+        RowKeyMetaData rowKeyMetaData = maintainer.getRowKeyMetaData();
+        int j = indexPosOffset;
+        for (; j < nIndexPKColumns + indexPosOffset; j++) {
+            PColumn indexColumn = index.getColumns().get(j);
+            assert(j == indexColumn.getPosition());
+            int indexPos = j - indexPosOffset;
+            PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
+            boolean isPKColumn = SchemaUtil.isPKColumn(column);
+            if (isPKColumn) {
+                int dataPkPos = dataTable.getPKColumns().indexOf(column) - (dataTable.getBucketNum() == null ? 0 : 1);
+                rowKeyMetaData.setIndexPkPosition(dataPkPos, indexPos);
+                if (!column.isNullable()) {
+                    rowKeyMetaData.getPkNotNullableBitSet().set(indexPos);
+                }
+                if (column.getColumnModifier() != null) {
+                    rowKeyMetaData.getDescDataColumnBitSet().set(indexPos);
+                }
+            } else {
+                maintainer.getIndexedColumnTypes().add(column.getDataType());
+                maintainer.getIndexedColumnSizes().add(column.getByteSize());
+                maintainer.getIndexedColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
+            }
+            if (indexColumn.getColumnModifier() != null) {
+                rowKeyMetaData.getDescIndexColumnBitSet().set(indexPos);
+            }
+        }
+        for (; j < nIndexColumns; j++) {
+            PColumn indexColumn = index.getColumns().get(j);
+            PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
+            maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
+        }
+        maintainer.initCachedState();
+        return maintainer;
+    }
+    
     /**
      * For client-side to serialize all IndexMaintainers for a given table
      * @param schemaName name of schema containing data table
@@ -55,72 +105,25 @@ public class IndexMaintainer implements Writable {
      * @param ptr bytes pointer to hold returned serialized value
      * @throws IOException 
      */
-    public static void serialize(byte[] schemaName, PTable dataTable, ImmutableBytesWritable ptr) {
+    public static void serialize(PTable dataTable, ImmutableBytesWritable ptr) {
         List<PTable> indexes = dataTable.getIndexes();
-        if (indexes.isEmpty()) {
+        if (dataTable.isImmutableRows() || indexes.isEmpty()) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return;
         }
-        int estimatedSize = dataTable.getRowKeySchema().getEstimatedByteSize() + 1;
-        IndexMaintainer[] maintainers = new IndexMaintainer[indexes.size()];
-        // TODO: handle salted column in data and/or index table
-        for (int i = 0; i < indexes.size(); i++) {
-            PTable index  = indexes.get(i);
-            int indexPosOffset = index.getBucketNum() == null ? 0 : 1;
-            int nIndexColumns = index.getColumns().size() - indexPosOffset;
-            int nIndexPKColumns = index.getPKColumns().size() - indexPosOffset;
-            IndexMaintainer maintainer = new IndexMaintainer(
-                    dataTable.getRowKeySchema(),
-                    dataTable.getBucketNum() != null,
-                    SchemaUtil.getTableName(schemaName, index.getName().getBytes()), 
-                    nIndexColumns,
-                    nIndexPKColumns,
-                    index.getBucketNum());
-            maintainers[i] = maintainer;
-            RowKeyMetaData rowKeyMetaData = maintainer.getRowKeyMetaData();
-            int j = indexPosOffset;
-            for (; j < nIndexPKColumns + indexPosOffset; j++) {
-                PColumn indexColumn = index.getColumns().get(j);
-                assert(j == indexColumn.getPosition());
-                int indexPos = j - indexPosOffset;
-                PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
-                boolean isPKColumn = SchemaUtil.isPKColumn(column);
-                if (isPKColumn) {
-                    int dataPkPos = dataTable.getPKColumns().indexOf(column) - (dataTable.getBucketNum() == null ? 0 : 1);
-                    rowKeyMetaData.setIndexPkPosition(dataPkPos, indexPos);
-                    if (!column.isNullable()) {
-                        rowKeyMetaData.getPkNotNullableBitSet().set(indexPos);
-                    }
-                    if (column.getColumnModifier() != null) {
-                        rowKeyMetaData.getDescDataColumnBitSet().set(indexPos);
-                    }
-                } else {
-                    maintainer.getIndexedColumnTypes().add(column.getDataType());
-                    maintainer.getIndexedColumnSizes().add(column.getByteSize());
-                    maintainer.getIndexedColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
-                }
-                if (indexColumn.getColumnModifier() != null) {
-                    rowKeyMetaData.getDescIndexColumnBitSet().set(indexPos);
-                }
-            }
-            for (; j < nIndexColumns; j++) {
-                PColumn indexColumn = index.getColumns().get(j);
-                PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
-                maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
-            }
-            estimatedSize += maintainer.getEstimatedByteSize();
-            maintainer.initCachedState();
+        int estimatedSize = dataTable.getRowKeySchema().getEstimatedByteSize() + 2;
+        for (PTable index : indexes) {
+            estimatedSize += index.getIndexMaintainer(dataTable).getEstimatedByteSize();
         }
-
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedSize + 1);
         DataOutput output = new DataOutputStream(stream);
         try {
             // Encode data table salting in sign of number of indexes
-            WritableUtils.writeVInt(output, maintainers.length * (dataTable.getBucketNum() == null ? 1 : -1));
+            WritableUtils.writeVInt(output, indexes.size() * (dataTable.getBucketNum() == null ? 1 : -1));
             // Write out data row key schema once, since it's the same for all index maintainers
             dataTable.getRowKeySchema().write(output);
-            for (int i = 0; i < maintainers.length; i++) {
-                maintainers[i].write(output);
+            for (PTable index : indexes) {
+                index.getIndexMaintainer(dataTable).write(output);
             }
         } catch (IOException e) {
             throw new RuntimeException(e); // Impossible
@@ -197,7 +200,7 @@ public class IndexMaintainer implements Writable {
         this.nIndexSaltBuckets  = nIndexSaltBuckets == null ? 0 : nIndexSaltBuckets;
     }
 
-    public byte[] buildRowKey(ValueGetter valueGetter, ImmutableBytesWritable rowKeyPtr) throws IOException {
+    public byte[] buildRowKey(ValueGetter valueGetter, ImmutableBytesWritable rowKeyPtr)  {
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedIndexRowKeyBytes);
         DataOutput output = new DataOutputStream(stream);
         try {
@@ -215,7 +218,7 @@ public class IndexMaintainer implements Writable {
             int maxRowKeyOffset = rowKeyPtr.getOffset() + rowKeyPtr.getLength();
             // Write index row key
             // TODO: investigate bug in rowKeySchema.setAccessor causing it not to skip over separator bytes
-            for (Boolean hasValue = dataRowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET); i < dataRowKeySchema.getFieldCount(); hasValue=dataRowKeySchema.next(ptr, ++i, maxRowKeyOffset, ValueBitSet.EMPTY_VALUE_BITSET)) {
+            for (Boolean hasValue = dataRowKeySchema.first(ptr, i, maxRowKeyOffset, ValueBitSet.EMPTY_VALUE_BITSET); i < dataRowKeySchema.getFieldCount(); hasValue=dataRowKeySchema.next(ptr, ++i, maxRowKeyOffset, ValueBitSet.EMPTY_VALUE_BITSET)) {
                 int pos = rowKeyMetaData.getIndexPkPosition(i-dataPosOffset);
                 if (Boolean.TRUE.equals(hasValue)) {
                     dataRowKeyLocator[0][pos] = ptr.getOffset();
@@ -280,8 +283,14 @@ public class IndexMaintainer implements Writable {
                 indexRowKey[0] = saltByte;
             }
             return indexRowKey.length == length ? indexRowKey : Arrays.copyOf(indexRowKey, length);
+        } catch (IOException e) {
+            throw new RuntimeException(e); // Impossible
         } finally {
-            stream.close();
+            try {
+                stream.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e); // Impossible
+            }
         }
     }
 
@@ -399,7 +408,7 @@ public class IndexMaintainer implements Writable {
         return capacity < 0xFF ? new ByteSizeRowKeyMetaData(capacity) : new IntSizedRowKeyMetaData(capacity);
     }
 
-    private int getEstimatedByteSize() {
+    public int getEstimatedByteSize() {
         int size = WritableUtils.getVIntSize(nIndexSaltBuckets);
         size += WritableUtils.getVIntSize(indexedColumns.size());
         for (int i = 0; i < indexedColumns.size(); i++) {

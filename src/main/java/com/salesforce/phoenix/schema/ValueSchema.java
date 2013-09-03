@@ -27,8 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
@@ -276,6 +280,14 @@ public abstract class ValueSchema implements Writable {
             return null;
         }
         int maxOffset = ptr.getOffset() + ptr.getLength();
+        ptr.set(ptr.get(), ptr.getOffset(), 0);
+        return positionPtr(ptr, position, maxOffset, bitSet);
+    }
+    
+    public Boolean first(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
+        if (ptr.getLength() == 0) {
+            return null;
+        }
         ptr.set(ptr.get(), ptr.getOffset(), 0);
         return positionPtr(ptr, position, maxOffset, bitSet);
     }

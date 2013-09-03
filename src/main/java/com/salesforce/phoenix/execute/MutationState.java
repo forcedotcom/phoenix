@@ -36,7 +36,6 @@ import java.util.Map;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Iterators;
@@ -157,7 +156,7 @@ public class MutationState implements SQLCloseable {
         throwIfTooBig();
     }
     
-    private static Iterator<Pair<byte[],List<Mutation>>> addRowMutations(final TableRef tableRef, final Map<ImmutableBytesPtr, Map<PColumn, byte[]>> values, long timestamp) {
+    private Iterator<Pair<byte[],List<Mutation>>> addRowMutations(final TableRef tableRef, final Map<ImmutableBytesPtr, Map<PColumn, byte[]>> values, long timestamp, boolean includeMutableIndexes) {
         final List<Mutation> mutations = Lists.newArrayListWithExpectedSize(values.size());
         Iterator<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>> iterator = values.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -173,9 +172,8 @@ public class MutationState implements SQLCloseable {
             }
             mutations.addAll(row.toRowMutations());
         }
-        final byte[] schemaName = Bytes.toBytes(tableRef.getSchema().getName());
         final Iterator<PTable> indexes = // Only maintain tables with immutable rows through this client-side mechanism
-                tableRef.getTable().isImmutableRows() ? 
+                (tableRef.getTable().isImmutableRows() || includeMutableIndexes) ? 
                         tableRef.getTable().getIndexes().iterator() : 
                         Iterators.<PTable>emptyIterator();
         return new Iterator<Pair<byte[],List<Mutation>>>() {
@@ -193,10 +191,10 @@ public class MutationState implements SQLCloseable {
                     return new Pair<byte[],List<Mutation>>(tableRef.getTableName(),mutations);
                 }
                 PTable index = indexes.next();
-                byte[] fullTableName = SchemaUtil.getTableName(schemaName, index.getName().getBytes());
+                byte[] fullTableName = SchemaUtil.getTableName(tableRef.getSchemaName(), index.getName().getBytes());
                 List<Mutation> indexMutations;
                 try {
-                    indexMutations = IndexUtil.generateIndexData(tableRef.getTable(), index, mutations);
+                    indexMutations = IndexUtil.generateIndexData(tableRef.getTable(), index, mutations, tempPtr);
                 } catch (SQLException e) {
                     throw new IllegalDataException(e);
                 }
@@ -227,7 +225,7 @@ public class MutationState implements SQLCloseable {
             private Iterator<Pair<byte[],List<Mutation>>> innerIterator = init();
                     
             private Iterator<Pair<byte[],List<Mutation>>> init() {
-                return addRowMutations(current.getKey(), current.getValue(), timestamp);
+                return addRowMutations(current.getKey(), current.getValue(), timestamp, true);
             }
             
             @Override
@@ -304,11 +302,11 @@ public class MutationState implements SQLCloseable {
             Map<ImmutableBytesPtr,Map<PColumn,byte[]>> valuesMap = entry.getValue();
             TableRef tableRef = entry.getKey();
             PTable table = tableRef.getTable();
-            table.getIndexMaintainers(tableRef.getSchemaName(), tempPtr);
+            table.getIndexMaintainers(tempPtr);
             boolean hasIndexMaintainers = tempPtr.getLength() > 0;
             boolean isDataTable = true;
             long serverTimestamp = serverTimeStamps[i++];
-            Iterator<Pair<byte[],List<Mutation>>> mutationsIterator = addRowMutations(tableRef, valuesMap, serverTimestamp);
+            Iterator<Pair<byte[],List<Mutation>>> mutationsIterator = addRowMutations(tableRef, valuesMap, serverTimestamp, false);
             while (mutationsIterator.hasNext()) {
                 Pair<byte[],List<Mutation>> pair = mutationsIterator.next();
                 byte[] htableName = pair.getFirst();
@@ -316,7 +314,7 @@ public class MutationState implements SQLCloseable {
                 
                 ServerCache cache = null;
                 if (hasIndexMaintainers && isDataTable) {
-                    String attribName = PhoenixIndexCodec.INDEX_UUID;
+                    String attribName;
                     byte[] attribValue;
                     if (IndexMetaDataCacheClient.useIndexMetadataCache(mutations, tempPtr.getLength())) {
                         IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
@@ -324,6 +322,7 @@ public class MutationState implements SQLCloseable {
                         attribName = PhoenixIndexCodec.INDEX_UUID;
                         attribValue = cache.getId();
                     } else {
+                        attribName = PhoenixIndexCodec.INDEX_MD;
                         attribValue = ByteUtil.copyKeyBytesIfNecessary(tempPtr);
                     }
                     // Either set the UUID to be able to access the index metadata from the cache

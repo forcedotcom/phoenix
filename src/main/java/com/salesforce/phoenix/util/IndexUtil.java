@@ -27,31 +27,30 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
+import java.io.IOException;
 import java.sql.SQLException;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
+import com.salesforce.hbase.index.builder.covered.ColumnReference;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.index.IndexMaintainer;
+import com.salesforce.phoenix.index.PhoenixIndexCodec.ValueGetter;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
-import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PRow;
 import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.schema.RowKeySchema;
-import com.salesforce.phoenix.schema.ValueBitSet;
 
 public class IndexUtil {
     private static final String INDEX_COLUMN_NAME_SEP = ":";
@@ -126,92 +125,54 @@ public class IndexUtil {
         }
     }
 
-    private static void coerceDataValueToIndexValue(PColumn dataColumn, PColumn indexColumn, ImmutableBytesWritable ptr) {
-        PDataType dataType = dataColumn.getDataType();
-        // TODO: push to RowKeySchema? 
-        ColumnModifier dataModifier = dataColumn.getColumnModifier();
-        PDataType indexType = indexColumn.getDataType();
-        ColumnModifier indexModifier = indexColumn.getColumnModifier();
-        // We know ordinal position will match pk position, because you cannot
-        // alter an index table.
-        indexType.coerceBytes(ptr, dataType, dataModifier, indexModifier);
-    }
-    
-    // TODO: use IndexMaintainers to build the mutations instead. Keep this to generate them for testing purposes
-    public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation, ImmutableBytesWritable ptr) throws SQLException {
-        byte[] dataRowKey = dataMutation.getRow();
-        int maxOffset = dataRowKey.length;
-        RowKeySchema dataRowKeySchema = dataTable.getRowKeySchema();
-        List<PColumn> dataPKColumns = dataTable.getPKColumns();
-        int i = 0;
-        int indexOffset = 0;
-        ptr.set(dataRowKey);
-        Boolean hasValue = dataRowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
-        if (dataTable.getBucketNum() != null) { // Skip salt column
-            hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
-        }
-        List<PColumn> indexPKColumns = indexTable.getPKColumns();
-        List<PColumn> indexColumns = indexTable.getColumns();
-        int nIndexColumns = indexPKColumns.size();
-        int maxIndexValues = indexColumns.size() - nIndexColumns - indexOffset;
-        BitSet indexValuesSet = new BitSet(maxIndexValues);
-        byte[][] indexValues = new byte[indexColumns.size() - indexOffset][];
-        while (hasValue != null) {
-            if (hasValue) {
-                PColumn dataColumn = dataPKColumns.get(i);
-                PColumn indexColumn = indexTable.getColumn(IndexUtil.getIndexColumnName(dataColumn));
-                coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
-            }
-            hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
-        }
-        PRow row;
-        long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
-        if (dataMutation instanceof Delete && dataMutation.getFamilyMap().values().isEmpty()) {
-            indexTable.newKey(ptr, indexValues);
-            row = indexTable.newRow(ts, ptr);
-            row.delete();
-        } else {
-            // If no column families in table, then nothing to look for 
-            if (!dataTable.getColumnFamilies().isEmpty()) {
-                for (Map.Entry<byte[],List<KeyValue>> entry : dataMutation.getFamilyMap().entrySet()) {
-                    PColumnFamily family = dataTable.getColumnFamily(entry.getKey());
-                    for (KeyValue kv : entry.getValue()) {
-                        byte[] cq = kv.getQualifier();
-                        if (Bytes.compareTo(QueryConstants.EMPTY_COLUMN_BYTES, cq) != 0) {
-                            try {
-                                PColumn dataColumn = family.getColumn(cq);
-                                PColumn indexColumn = indexTable.getColumn(getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
-                                ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
-                                coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                                indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
-                                if (!SchemaUtil.isPKColumn(indexColumn)) {
-                                    indexValuesSet.set(indexColumn.getPosition()-nIndexColumns-indexOffset);
-                                }
-                            } catch (ColumnNotFoundException e) {
-                                // Ignore as this means that the data column isn't in the index
-                            }
+    public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
+        IndexMaintainer maintainer = index.getIndexMaintainer(table);
+        List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
+        for (final Mutation dataMutation : dataMutations) {
+            // TODO: is this more efficient than looking in our mutation map
+            // using the key plus finding the PColumn?
+            ValueGetter valueGetter = new ValueGetter() {
+
+                @Override
+                public byte[] getValue(ColumnReference ref) {
+                    Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
+                    byte[] family = ref.getFamily();
+                    List<KeyValue> kvs = familyMap.get(family);
+                    if (kvs == null) {
+                        return null;
+                    }
+                    byte[] qualifier = ref.getQualifier();
+                    for (KeyValue kv : kvs) {
+                        if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), family, 0, family.length) == 0 &&
+                            Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), qualifier, 0, qualifier.length) == 0) {
+                            return kv.getValue();
                         }
+                    }
+                    return null;
+                }
+                
+            };
+            // TODO: we could only handle a delete if maintainer.getIndexColumns().isEmpty(),
+            // since the Delete marker will have no key values
+            assert(dataMutation instanceof Put);
+            long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
+            ptr.set(dataMutation.getRow());
+            byte[] indexRowKey = maintainer.buildRowKey(valueGetter, ptr);
+            Put put = new Put(indexRowKey);
+            for (ColumnReference ref : maintainer.getCoverededColumns()) {
+                byte[] value = valueGetter.getValue(ref);
+                if (value != null) {
+                    KeyValue kv = KeyValueUtil.newKeyValue(put.getRow(), ref.getFamily(), ref.getQualifier(), ts, value);
+                    try {
+                        put.add(kv);
+                    } catch (IOException e) {
+                        throw new SQLException(e); // Impossible
                     }
                 }
             }
-            indexTable.newKey(ptr, indexValues);
-            row = indexTable.newRow(ts, ptr);
-            int pos = 0;
-            while ((pos = indexValuesSet.nextSetBit(pos)) >= 0) {
-                int index = nIndexColumns + indexOffset + pos++;
-                PColumn indexColumn = indexColumns.get(index);
-                row.setValue(indexColumn, indexValues[index]);
-            }
-        }
-        return row.toRowMutations();
-    }
-
-    public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations) throws SQLException {
-        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-        List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
-        for (Mutation dataMutation : dataMutations) {
-            indexMutations.addAll(generateIndexData(index, table, dataMutation, ptr));
+            put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
+           
+            indexMutations.add(put);
         }
         return indexMutations;
     }
