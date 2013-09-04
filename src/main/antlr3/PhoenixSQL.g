@@ -372,7 +372,7 @@ create_table_node returns [CreateTableStatement ret]
 
 // Parse a create index statement.
 create_index_node returns [CreateIndexStatement ret]
-    :   CREATE INDEX i=index_name (IF NOT ex=EXISTS)? ON t=from_table_name
+    :   CREATE INDEX (IF NOT ex=EXISTS)? i=index_name ON t=from_table_name
         (LPAREN pk=index_pk_constraint RPAREN)
         (INCLUDE (LPAREN icrefs=column_names RPAREN))?
         (p=fam_properties)?

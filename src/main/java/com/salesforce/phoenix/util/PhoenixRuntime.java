@@ -203,6 +203,8 @@ public class PhoenixRuntime {
             }
         } catch (Throwable t) {
             t.printStackTrace();
+        } finally {
+            System.exit(0);
         }
     }
 
