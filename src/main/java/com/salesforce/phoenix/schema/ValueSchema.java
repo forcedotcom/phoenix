@@ -269,21 +269,18 @@ public abstract class ValueSchema implements Writable {
         return false;
     }
     
-    // TODO: wrap these first, next calls into our own Iterator implementation
-    // that supports a reset method, so we don't need to instantiate a new one
-    // on each iteration.
+    /**
+     * Move the bytes ptr to the current position 
+     * TODO: get rid of this and set the ptr length to 0 initially and just always use next
+     * @param ptr
+     * @param position
+     * @param maxOffset
+     * @param bitSet
+     * @return
+     */
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL", 
             justification="Designed to return null.")
-    public Boolean first(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
-        if (ptr.getLength() == 0) {
-            return null;
-        }
-        int maxOffset = ptr.getOffset() + ptr.getLength();
-        ptr.set(ptr.get(), ptr.getOffset(), 0);
-        return positionPtr(ptr, position, maxOffset, bitSet);
-    }
-    
     public Boolean first(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
         if (ptr.getLength() == 0) {
             return null;
@@ -293,15 +290,18 @@ public abstract class ValueSchema implements Writable {
     }
     
     /**
-     * Move the bytes ptr to the position after the positional index provided
+     * Move the bytes ptr to the next position relative to the current ptr
      * @param ptr bytes pointer pointing to the value at the positional index
      * provided.
-     * @param position zero-based index of the field in the value schema at
-     *  which to position the ptr.
-     * @param maxOffset TODO
+     * @param position zero-based index of the next field in the value schema
+     * @param maxOffset max possible offset value when iterating
      * @param bitSet bit set representing whether or not a value is null
-     * @return true if there is a field after position and false otherwise.
-     */
+     * @return true if a value was found and ptr was set, false if the value is null and ptr was not
+     * set, and null if the value is null and there are no more values
+      * TODO: wrap these first, next calls into our own Iterator implementation
+      * that supports a reset method, so we don't need to instantiate a new one
+      * on each iteration.
+      */
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL", 
             justification="Designed to return null.")

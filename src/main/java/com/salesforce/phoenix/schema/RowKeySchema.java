@@ -35,7 +35,6 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -139,36 +138,4 @@ public class RowKeySchema extends ValueSchema {
     public int getMaxFields() {
         return this.getMinNullable();
     }
-    
-    /**
-     * Given potentially a partial key, but one that is valid against
-     * this row key schema, increment it to the next key in the row
-     * key schema key space.
-     * @param ptr pointer to the key to be incremented
-     * @return a new byte array with the incremented key
-     */
-    public byte[] nextKey(ImmutableBytesWritable ptr) {
-        byte[] buf = ptr.get();
-        int offset = ptr.getOffset();
-        int length = ptr.getLength();
-        byte[] key;
-        if (!this.getField(this.getMaxFields()-1).getType().isFixedWidth()) {
-            // Add a SEPARATOR byte at the end if we have a complete key with a variable
-            // length at the end
-            if (this.setAccessor(ptr, this.getMaxFields()-1, ValueBitSet.EMPTY_VALUE_BITSET)) {
-                key = new byte[length+1];
-                System.arraycopy(buf, offset, key, 0, length);
-                key[length] = QueryConstants.SEPARATOR_BYTE;
-                ByteUtil.nextKey(key, key.length);
-                return key;
-            }
-        }
-        // No separator needed because we either have a fixed width value at the end
-        // or we have a partial key which would be terminated with a separator byte.
-        key = new byte[length];
-        System.arraycopy(buf, offset, key, 0, length);
-        ByteUtil.nextKey(key, key.length);
-        return key;
-    }
-    
 }

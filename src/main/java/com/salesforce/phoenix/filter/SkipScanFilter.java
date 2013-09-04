@@ -27,11 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -39,10 +42,14 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
-import com.google.common.hash.*;
-import com.salesforce.phoenix.query.*;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.ValueSchema.Field;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
@@ -159,7 +166,7 @@ public class SkipScanFilter extends FilterBase {
         if (!lowerUnbound) {
             // Find the position of the first slot of the lower range
             ptr.set(lowerInclusiveKey);
-            schema.first(ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
+            schema.first(ptr, 0, ptr.getOffset()+ptr.getLength(), ValueBitSet.EMPTY_VALUE_BITSET);
             startPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, 0);
             // Lower range is past last upper range of first slot, so cannot possibly be in range
             if (startPos >= slots.get(0).size()) {
@@ -171,7 +178,7 @@ public class SkipScanFilter extends FilterBase {
         if (!upperUnbound) {
             // Find the position of the first slot of the upper range
             ptr.set(upperExclusiveKey);
-            schema.first(ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
+            schema.first(ptr, 0, ptr.getOffset()+ptr.getLength(), ValueBitSet.EMPTY_VALUE_BITSET);
             endPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, startPos);
             // Upper range lower than first lower range of first slot, so cannot possibly be in range
             if (endPos == 0 && Bytes.compareTo(upperExclusiveKey, slots.get(0).get(0).getLowerRange()) <= 0) {
@@ -288,7 +295,7 @@ public class SkipScanFilter extends FilterBase {
         boolean seek = false;
         int earliestRangeIndex = nSlots-1;
         ptr.set(currentKey, offset, length);
-        schema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+        schema.first(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET);
         while (true) {
             // Increment to the next range while the upper bound of our current slot is less than our current key
             while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpperToLowerBound(ptr) < 0) {

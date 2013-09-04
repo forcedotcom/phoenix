@@ -74,7 +74,7 @@ public class IndexTestUtil {
         int i = 0;
         int indexOffset = 0;
         ptr.set(dataRowKey);
-        Boolean hasValue = dataRowKeySchema.first(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+        Boolean hasValue = dataRowKeySchema.first(ptr, i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
         if (dataTable.getBucketNum() != null) { // Skip salt column
             hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
         }
