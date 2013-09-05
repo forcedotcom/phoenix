@@ -103,18 +103,6 @@ public class PDataTypeForArray{
         return targetType == expectedTargetType;
     }
 	
-	public boolean isCoercibleTo(PDataType sourceType, PDataType targetType,
-			Object value) {
-		PhoenixArray pArr = (PhoenixArray) value;
-		int[] intArr = (int[]) pArr.array;
-		for (int i : intArr) {
-			if (isCoercibleTo(PDataType.BOOLEAN, i)) {
-				return false;
-			}
-		}
-		return true;
-	}
-	
 	public boolean isSizeCompatible(PDataType srcType, Object value,
 			byte[] b, Integer maxLength, Integer desiredMaxLength,
 			Integer scale, Integer desiredScale) {
