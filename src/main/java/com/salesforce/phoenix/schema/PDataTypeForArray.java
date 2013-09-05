@@ -38,7 +38,8 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public class PDataTypeForArray{
 
-    private Integer byteSize;
+    private static final int MAX_POSSIBLE_VINT_LENGTH = 2;
+	private Integer byteSize;
 	public PDataTypeForArray() {
 	}
 
@@ -83,7 +84,7 @@ public class PDataTypeForArray{
 
 	private boolean calculateMaxOffset(int size) {
 		// If the total size + Offset postion ptr + Numelements in Vint is less than Short
-		if (size + Bytes.SIZEOF_INT + 2 <= Short.MAX_VALUE) {
+		if ((size + Bytes.SIZEOF_INT + MAX_POSSIBLE_VINT_LENGTH) <= (2 * Short.MAX_VALUE)) {
 			return true;
 		}
 		return false;
@@ -101,6 +102,34 @@ public class PDataTypeForArray{
 	public boolean isCoercibleTo(PDataType targetType, PDataType expectedTargetType) {
         return targetType == expectedTargetType;
     }
+	
+	public boolean isCoercibleTo(PDataType sourceType, PDataType targetType,
+			Object value) {
+		PhoenixArray pArr = (PhoenixArray) value;
+		int[] intArr = (int[]) pArr.array;
+		for (int i : intArr) {
+			if (isCoercibleTo(PDataType.BOOLEAN, i)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	public boolean isSizeCompatible(PDataType srcType, Object value,
+			byte[] b, Integer maxLength, Integer desiredMaxLength,
+			Integer scale, Integer desiredScale) {
+		PhoenixArray pArr = (PhoenixArray) value;
+		Object[] charArr = (Object[]) pArr.array;
+		PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
+				- Types.ARRAY);
+		for (Object o : charArr) {
+			if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
+					desiredMaxLength, scale, desiredScale)) {
+				return false;
+			}
+		}
+		return true;
+	}
 
 
     public Object toObject(String value) {
@@ -167,7 +196,7 @@ public class PDataTypeForArray{
 				if (temp < 0) {
 					offsetArray.putInt(buffer.position());
 				} else {
-					offsetArray.putShort((short)buffer.position());
+					offsetArray.putShort((short)(buffer.position() - Short.MAX_VALUE));
 				}
                 byte[] bytes = array.toBytes(i);
                 buffer.put(bytes);
@@ -223,8 +252,8 @@ public class PDataTypeForArray{
 							if ((indexArr.position() + 2 * baseSize) <= indexArr
 									.capacity()) {
 								if (useShort) {
-									currOff = indexArr.getShort();
-									nextOff = indexArr.getShort();
+									currOff = indexArr.getShort() + Short.MAX_VALUE;
+									nextOff = indexArr.getShort() + Short.MAX_VALUE;
 								} else {
 									currOff = indexArr.getInt();
 									nextOff = indexArr.getInt();
@@ -234,7 +263,7 @@ public class PDataTypeForArray{
 						} else {
 							currOff = nextOff;
 							if(useShort) {
-								nextOff = indexArr.getShort();
+								nextOff = indexArr.getShort() + Short.MAX_VALUE;
 							} else {
 								nextOff = indexArr.getInt();
 							}

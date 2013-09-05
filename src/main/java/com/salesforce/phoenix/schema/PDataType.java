@@ -3137,7 +3137,6 @@ public enum PDataType {
 		
 		@Override
 		public boolean isCoercibleTo(PDataType targetType, Object value) {
-		   
 		   PhoenixArray pArr = (PhoenixArray)value;
 		   int[] intArr = (int[])pArr.array;
            for (int i : intArr) {
@@ -3214,8 +3213,8 @@ public enum PDataType {
 		public boolean isCoercibleTo(PDataType targetType, Object value) {
 		   
 		   PhoenixArray pArr = (PhoenixArray)value;
-		   int[] intArr = (int[])pArr.array;
-           for (int i : intArr) {
+		   boolean[] booleanArr = (boolean[])pArr.array;
+           for (boolean i : booleanArr) {
                if(!pDataTypeForArray.isCoercibleTo(PDataType.BOOLEAN, i)) {
                    return false;
                }
@@ -3300,18 +3299,8 @@ public enum PDataType {
 		public boolean isSizeCompatible(PDataType srcType, Object value,
 				byte[] b, Integer maxLength, Integer desiredMaxLength,
 				Integer scale, Integer desiredScale) {
-			PhoenixArray pArr = (PhoenixArray) value;
-			Object[] charArr = (Object[]) pArr.array;
-			PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
-					- Types.ARRAY);
-			for (Object o : charArr) {
-				if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
-						desiredMaxLength, scale, desiredScale)) {
-					return false;
-				}
-			}
-			return true;
-		}
+			return pDataTypeForArray.isSizeCompatible(srcType, value, b,
+					maxLength, desiredMaxLength, scale, desiredScale);		}
 		
 	},
 	VARBINARY_ARRAY("VARBINARY_ARRAY", Types.ARRAY + PDataType.VARBINARY.getSqlType(), PhoenixArray.class, null) {
@@ -3390,17 +3379,8 @@ public enum PDataType {
 		public boolean isSizeCompatible(PDataType srcType, Object value,
 				byte[] b, Integer maxLength, Integer desiredMaxLength,
 				Integer scale, Integer desiredScale) {
-			PhoenixArray pArr = (PhoenixArray) value;
-			Object[] charArr = (Object[]) pArr.array;
-			PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
-					- Types.ARRAY);
-			for (Object o : charArr) {
-				if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
-						desiredMaxLength, scale, desiredScale)) {
-					return false;
-				}
-			}
-			return true;
+			return pDataTypeForArray.isSizeCompatible(srcType, value, b,
+					maxLength, desiredMaxLength, scale, desiredScale);
 		}
 		
 	},
@@ -3480,19 +3460,10 @@ public enum PDataType {
 		public boolean isSizeCompatible(PDataType srcType, Object value,
 				byte[] b, Integer maxLength, Integer desiredMaxLength,
 				Integer scale, Integer desiredScale) {
-			PhoenixArray pArr = (PhoenixArray) value;
-			Object[] charArr = (Object[]) pArr.array;
-			PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
-					- Types.ARRAY);
-			for (Object o : charArr) {
-				if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
-						desiredMaxLength, scale, desiredScale)) {
-					return false;
-				}
-			}
-			return true;
+			return pDataTypeForArray.isSizeCompatible(srcType, value, b,
+					maxLength, desiredMaxLength, scale, desiredScale);
 		}
-		
+
 	},
 	CHAR_ARRAY("CHAR_ARRAY", Types.ARRAY + PDataType.CHAR.getSqlType(), PhoenixArray.class, null) {
 		@Override
@@ -3571,17 +3542,8 @@ public enum PDataType {
 		public boolean isSizeCompatible(PDataType srcType, Object value,
 				byte[] b, Integer maxLength, Integer desiredMaxLength,
 				Integer scale, Integer desiredScale) {
-			PhoenixArray pArr = (PhoenixArray) value;
-			Object[] charArr = (Object[]) pArr.array;
-			PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
-					- Types.ARRAY);
-			for (Object o : charArr) {
-				if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
-						desiredMaxLength, scale, desiredScale)) {
-					return false;
-				}
-			}
-			return true;
+			return pDataTypeForArray.isSizeCompatible(srcType, value, b,
+					maxLength, desiredMaxLength, scale, desiredScale);
 		}
 		
 	},
@@ -4028,17 +3990,8 @@ public enum PDataType {
 		public boolean isSizeCompatible(PDataType srcType, Object value,
 				byte[] b, Integer maxLength, Integer desiredMaxLength,
 				Integer scale, Integer desiredScale) {
-			PhoenixArray pArr = (PhoenixArray) value;
-			Object[] charArr = (Object[]) pArr.array;
-			PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
-					- Types.ARRAY);
-			for (Object o : charArr) {
-				if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
-						desiredMaxLength, scale, desiredScale)) {
-					return false;
-				}
-			}
-			return true;
+			return pDataTypeForArray.isSizeCompatible(srcType, value, b,
+					maxLength, desiredMaxLength, scale, desiredScale);
 		}
 	
 	},
