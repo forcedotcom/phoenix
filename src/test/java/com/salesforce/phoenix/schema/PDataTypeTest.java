@@ -1008,9 +1008,7 @@ public class PDataTypeTest {
                type.toObject(new byte[0],0,0);
                type.toObject(new byte[0],0,0, type);
             } catch (ConstraintViolationException e) {
-            	if(type.isArrayType()) {
-            		
-            	} else if (! (type.isFixedWidth() && e.getMessage().contains("may not be null"))) {
+            	if (!type.isArrayType() && ! ( type.isFixedWidth() && e.getMessage().contains("may not be null"))) {
             		// Fixed width types do not support the concept of a "null" value.
                     fail(type + ":" + e);
                 }
