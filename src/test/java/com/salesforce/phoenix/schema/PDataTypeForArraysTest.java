@@ -48,6 +48,20 @@ public class PDataTypeForArraysTest {
 				.toObject(bytes, 0, bytes.length);
 		assertEquals(arr, resultArr);
 	}
+	
+	@Test
+	public void testForBooleanArray() {
+		Boolean[] boolArr = new Boolean[2];
+		boolArr[0] = true;
+		boolArr[1] = false;
+		PhoenixArray arr = PDataTypeForArray.instantiatePhoenixArray(
+				PDataType.BOOLEAN, boolArr);
+		PDataType.BOOLEAN_ARRAY.toObject(arr, PDataType.BOOLEAN_ARRAY);
+		byte[] bytes = PDataType.BOOLEAN_ARRAY.toBytes(arr);
+		PhoenixArray resultArr = (PhoenixArray) PDataType.BOOLEAN_ARRAY
+				.toObject(bytes, 0, bytes.length);
+		assertEquals(arr, resultArr);
+	}
 
 	@Test
 	public void testForVarCharArray() {

@@ -28,9 +28,7 @@
 
 package com.salesforce.phoenix.pig.hadoop;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -92,7 +90,7 @@ public class PhoenixRecord implements Writable {
 	}
 
 	private Object convertTypeSpecificValue(Object o, byte type, Integer sqlType) {
-		PDataType pDataType = PDataType.fromSqlType(sqlType);
+		PDataType pDataType = PDataType.fromTypeId(sqlType);
 
 		return TypeUtil.castPigTypeToPhoenix(o, type, pDataType);
 	}
