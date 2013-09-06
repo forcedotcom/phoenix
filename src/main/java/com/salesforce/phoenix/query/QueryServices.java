@@ -143,6 +143,17 @@ public interface QueryServices extends SQLCloseable {
     public static final String THREAD_TIMEOUT_MS_ATTRIB = "phoenix.query.timeoutMs";
     public static final String SPOOL_THRESHOLD_BYTES_ATTRIB = "phoenix.query.spoolThresholdBytes";
     
+    /**
+	 * max size to spool the the result into
+	 * ${java.io.tmpdir}/ResultSpoolerXXX.bin if
+	 * {@link QueryServices#SPOOL_THRESHOLD_BYTES_ATTRIB } is reached.
+	 * <p>
+	 * default is unlimited(-1)
+	 * <p>
+	 * if the threshold is reached, a {@link SpoolTooBigToDiskException } will be thrown 
+	 */
+	public static final String MAX_SPOOL_TO_DISK_BYTES_ATTRIB = "phoenix.query.maxSpoolToDiskBytes";
+    
     public static final String MAX_MEMORY_PERC_ATTRIB = "phoenix.query.maxGlobalMemoryPercentage";
     public static final String MAX_MEMORY_WAIT_MS_ATTRIB = "phoenix.query.maxGlobalMemoryWaitMs";
     public static final String MAX_TENANT_MEMORY_PERC_ATTRIB = "phoenix.query.maxTenantMemoryPercentage";

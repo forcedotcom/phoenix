@@ -72,6 +72,8 @@ public class QueryServicesOptions {
     public static final int DEFAULT_SCAN_CACHE_SIZE = 1000;
     public static final int DEFAULT_MAX_INTRA_REGION_PARALLELIZATION = DEFAULT_MAX_QUERY_CONCURRENCY;
     
+    public static final long DEFAULT_SPOOL_TO_DISK_BYTES = -1;
+    
     private final Configuration config;
     
     private QueryServicesOptions(Configuration config) {
@@ -119,6 +121,7 @@ public class QueryServicesOptions {
             .setIfUnset(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)
             .setIfUnset(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES)
             .setIfUnset(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS)
+            .setIfUnset(MAX_SPOOL_TO_DISK_BYTES_ATTRIB, DEFAULT_SPOOL_TO_DISK_BYTES);
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
