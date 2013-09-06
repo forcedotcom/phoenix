@@ -31,6 +31,9 @@
 current_dir=$(cd $(dirname $0);pwd)
 phoenix_jar_path="$current_dir/../target"
 phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
+index_jar_path="$current_dir/../contrib/hbase-index/index-core/target"
+index_jar=$(find $index_jar_path/index-core-*-SNAPSHOT.jar)
+
 
 if [ -z "$1" ] 
   then echo -e "Zookeeper not specified. \nUsage: sqlline.sh <zookeeper> <optional_sql_file> \nExample: \n 1. sqlline.sh localhost \n 2. sqlline.sh localhost ../examples/stock_symbol.sql";
@@ -41,4 +44,4 @@ if [ "$2" ]
   then sqlfile="--run=$2";
 fi
 
-java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:$current_dir/log4j.properties sqlline.SqlLine -d com.salesforce.phoenix.jdbc.PhoenixDriver -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true --isolation=TRANSACTION_READ_COMMITTED $sqlfile
+java -cp ".:$phoenix_client_jar:$index_jar" -Dlog4j.configuration=file:$current_dir/log4j.properties sqlline.SqlLine -d com.salesforce.phoenix.jdbc.PhoenixDriver -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true --isolation=TRANSACTION_READ_COMMITTED $sqlfile

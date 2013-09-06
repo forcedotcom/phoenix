@@ -32,6 +32,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.ImmutableList;
 import com.salesforce.phoenix.util.KeyValueUtil;
 
 
@@ -39,14 +40,14 @@ public class MultiKeyValueTuple implements Tuple {
     private List<KeyValue> values;
     
     public MultiKeyValueTuple(List<KeyValue> values) {
-        this.values = values;
+        setKeyValues(values);
     }
     
     public MultiKeyValueTuple() {
     }
 
     public void setKeyValues(List<KeyValue> values) {
-        this.values = values;
+        this.values = ImmutableList.copyOf(values);
     }
     
     @Override

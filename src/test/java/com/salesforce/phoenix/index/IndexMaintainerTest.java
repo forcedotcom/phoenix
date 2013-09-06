@@ -97,7 +97,7 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         }
         ValueGetter valueGetter = newValueGetter(valueMap);
         
-        List<Mutation> indexMutations = IndexTestUtil.generateIndexData(index, table, dataMutation);
+        List<Mutation> indexMutations = IndexTestUtil.generateIndexData(index, table, dataMutation, ptr);
         assertEquals(1,indexMutations.size());
         assertTrue(indexMutations.get(0) instanceof Put);
         Mutation indexMutation = indexMutations.get(0);

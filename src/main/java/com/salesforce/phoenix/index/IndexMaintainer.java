@@ -274,7 +274,7 @@ public class IndexMaintainer implements Writable {
             int length = stream.size();
             byte[] indexRowKey = stream.getBuffer();
             // Remove trailing nulls
-            while (indexRowKey[length-1] == QueryConstants.SEPARATOR_BYTE) {
+            while (length > 0 && indexRowKey[length-1] == QueryConstants.SEPARATOR_BYTE) {
                 length--;
             }
             if (nIndexSaltBuckets > 0) {

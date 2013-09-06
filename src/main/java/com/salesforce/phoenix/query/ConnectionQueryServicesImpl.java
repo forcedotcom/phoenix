@@ -197,7 +197,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 @Override
                 public NavigableMap<HRegionInfo, ServerName> load(TableRef key) throws Exception {
                     logger.info("LOAD: {}", key);
-                    return MetaScanner.allTableRegions(config, connection, key.getTableName(), false);
+                    return MetaScanner.allTableRegions(config, key.getTableName(), false);
                 }
             });
     }
@@ -787,7 +787,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         boolean isIncompatible = false;
         int minHBaseVersion = Integer.MAX_VALUE;
         try {
-            NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(config, connection, TYPE_TABLE_NAME, false);
+            NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(config, TYPE_TABLE_NAME, false);
             Set<ServerName> serverMap = Sets.newHashSetWithExpectedSize(regionInfoMap.size());
             TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
             List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionInfoMap.size());

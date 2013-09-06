@@ -21,6 +21,7 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -65,8 +66,15 @@ public class IndexTestUtil {
         indexType.coerceBytes(ptr, dataType, dataModifier, indexModifier);
     }
     
-    public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation) throws SQLException {
-        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+    public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
+        List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
+        for (Mutation dataMutation : dataMutations) {
+            indexMutations.addAll(generateIndexData(index, table, dataMutation, ptr));
+        }
+        return indexMutations;
+    }
+
+    public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation, ImmutableBytesWritable ptr) throws SQLException {
         byte[] dataRowKey = dataMutation.getRow();
         int maxOffset = dataRowKey.length;
         RowKeySchema dataRowKeySchema = dataTable.getRowKeySchema();
