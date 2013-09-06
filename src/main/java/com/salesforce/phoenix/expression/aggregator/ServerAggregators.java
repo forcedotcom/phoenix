@@ -31,7 +31,6 @@ import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.WritableUtils;
 
@@ -100,13 +99,17 @@ public class ServerAggregators extends Aggregators {
 
     @Override
     public Aggregator[] newAggregators() {
+        return newAggregators(null);
+    }
+
+    public Aggregator[] newAggregators(Configuration conf) {
         Aggregator[] aggregators = new Aggregator[functions.length];
         for (int i = 0; i < functions.length; i++) {
-            aggregators[i] = functions[i].newServerAggregator();
+            aggregators[i] = functions[i].newServerAggregator(conf);
         }
         return aggregators;
     }
-    
+
     /**
      * Deserialize aggregators from the serialized byte array representation
      * @param b byte array representation of a list of Aggregators
@@ -127,15 +130,9 @@ public class ServerAggregators extends Aggregators {
             SingleAggregateFunction[] functions = new SingleAggregateFunction[len];
             for (int i = 0; i < aggregators.length; i++) {
                 SingleAggregateFunction aggFunc = (SingleAggregateFunction)ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
-                aggFunc.readFields(input);
+                aggFunc.readFields(input, conf);
                 functions[i] = aggFunc;
-                Aggregator aggregator = aggFunc.getAggregator();
-                if (aggregator instanceof Configurable) {
-                    // When an aggregator needs the conf, it has to declared Configurable by implementing
-                    // org.apache.hadoop.conf.Configurable
-                    ((Configurable)aggregator).setConf(conf);
-                }
-                aggregators[i] = aggregator;
+                aggregators[i] = aggFunc.getAggregator();
                 expressions[i] = aggFunc.getAggregatorExpression();
             }
             return new ServerAggregators(functions, aggregators,expressions, minNullableIndex);

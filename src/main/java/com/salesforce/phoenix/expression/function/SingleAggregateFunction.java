@@ -31,6 +31,7 @@ import java.io.DataInput;
 import java.io.IOException;
 import java.util.*;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
@@ -129,9 +130,10 @@ abstract public class SingleAggregateFunction extends AggregateFunction {
      * Create the aggregator to do server-side aggregation.
      * The data type of the returned Aggregator must match
      * the data type returned by {@link #newClientAggregator()}
+     * @param conf HBase configuration.
      * @return the aggregator to use on the server-side
      */
-    abstract public Aggregator newServerAggregator();
+    abstract public Aggregator newServerAggregator(Configuration conf);
     /**
      * Create the aggregator to do client-side aggregation
      * based on the results returned from the aggregating
@@ -140,13 +142,12 @@ abstract public class SingleAggregateFunction extends AggregateFunction {
      * @return the aggregator to use on the client-side
      */
     public Aggregator newClientAggregator() {
-        return newServerAggregator();
+        return newServerAggregator(null);
     }
     
-    @Override
-    public void readFields(DataInput input) throws IOException {
+    public void readFields(DataInput input, Configuration conf) throws IOException {
         super.readFields(input);
-        aggregator = newServerAggregator();
+        aggregator = newServerAggregator(conf);
     }
 
     @Override

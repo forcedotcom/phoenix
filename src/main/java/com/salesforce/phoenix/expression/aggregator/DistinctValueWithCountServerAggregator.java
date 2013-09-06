@@ -32,7 +32,6 @@ import java.io.OutputStream;
 import java.util.*;
 import java.util.Map.Entry;
 
-import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.io.hfile.Compression;
@@ -53,18 +52,20 @@ import com.salesforce.phoenix.util.*;
  * @author anoopsjohn
  * @since 1.2.1
  */
-public class DistinctValueWithCountServerAggregator extends BaseAggregator implements Configurable {
+public class DistinctValueWithCountServerAggregator extends BaseAggregator {
     private static final Logger LOG = LoggerFactory.getLogger(DistinctValueWithCountServerAggregator.class);
     public static final int DEFAULT_ESTIMATED_DISTINCT_VALUES = 10000;
     public static final byte[] COMPRESS_MARKER = new byte[] { (byte)1 };
     public static final Algorithm COMPRESS_ALGO = Compression.Algorithm.SNAPPY;
 
-    private Configuration conf;
+    private int compressThreshold;
     private byte[] buffer = null;
     private Map<ImmutableBytesPtr, Integer> valueVsCount = new HashMap<ImmutableBytesPtr, Integer>();
 
-    public DistinctValueWithCountServerAggregator() {
+    public DistinctValueWithCountServerAggregator(Configuration conf) {
         super(null);
+        compressThreshold = conf.getInt(QueryServices.DISTINCT_VALUE_COMPRESS_THRESHOLD_ATTRIB,
+                QueryServicesOptions.DEFAULT_DISTINCT_VALUE_COMPRESS_THRESHOLD);
     }
 
     @Override
@@ -99,8 +100,6 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator imple
             offset += key.getLength();
             offset += ByteUtil.vintToBytes(buffer, offset, entry.getValue().intValue());
         }
-        int compressThreshold = conf.getInt(QueryServices.DISTINCT_VALUE_COMPRESS_THRESHOLD_ATTRIB,
-                QueryServicesOptions.DEFAULT_DISTINCT_VALUE_COMPRESS_THRESHOLD);
         if (serializationSize > compressThreshold) {
             // The size for the map serialization is above the threshold. We will do the Snappy compression here.
             ByteArrayOutputStream compressedByteStream = new ByteArrayOutputStream();
@@ -178,15 +177,5 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator imple
         // and stores in a variable for future use. This size of the Aggregators is being used in
         // Grouped unordered scan. Do we need some changes there in that calculation?
         return super.getSize() + SizedUtil.ARRAY_SIZE + countMapHeapSize();
-    }
-
-    @Override
-    public Configuration getConf() {
-        return this.conf;
-    }
-
-    @Override
-    public void setConf(Configuration conf) {
-        this.conf = conf;
     }
 }

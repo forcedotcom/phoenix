@@ -110,7 +110,7 @@ public class StddevTest extends BaseClientMangedTimeTest {
             assertTrue(rs.next());
             BigDecimal stddev = rs.getBigDecimal(1);
             stddev = stddev.setScale(10, RoundingMode.HALF_UP);
-            assertEquals(1.668, stddev.doubleValue(), 0.0);
+            assertEquals(1.6679994671, stddev.doubleValue(), 0.0);
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -135,7 +135,7 @@ public class StddevTest extends BaseClientMangedTimeTest {
             assertTrue(rs.next());
             BigDecimal stddev = rs.getBigDecimal(1);
             stddev = stddev.setScale(10, RoundingMode.HALF_UP);
-            assertEquals(2.043, stddev.doubleValue(), 0.0);
+            assertEquals(2.0428737928, stddev.doubleValue(), 0.0);
             assertFalse(rs.next());
         } finally {
             conn.close();

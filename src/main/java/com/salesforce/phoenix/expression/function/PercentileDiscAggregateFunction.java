@@ -29,10 +29,10 @@ package com.salesforce.phoenix.expression.function;
 
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
+
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
-import com.salesforce.phoenix.expression.aggregator.PercentileDiscClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -40,7 +40,7 @@ import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
- * Built-in function for PERCENTILE_DIST(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
+ * Built-in function for PERCENTILE_DISC(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
  *
  * @author ramkrishna
  * @since 1.2.1
@@ -60,8 +60,8 @@ public class PercentileDiscAggregateFunction extends SingleAggregateFunction {
 	}
 	
 	@Override
-	public Aggregator newServerAggregator() {
-		return new DistinctValueWithCountServerAggregator();
+	public Aggregator newServerAggregator(Configuration conf) {
+		return new DistinctValueWithCountServerAggregator(conf);
 	}
 	
 	@Override
@@ -74,5 +74,4 @@ public class PercentileDiscAggregateFunction extends SingleAggregateFunction {
 		return NAME;
 	}
 	
-
 }

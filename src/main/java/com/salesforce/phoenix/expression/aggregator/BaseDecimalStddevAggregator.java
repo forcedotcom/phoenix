@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.salesforce.phoenix.expression.ColumnExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -47,12 +48,14 @@ import com.salesforce.phoenix.util.BigDecimalUtil.Operation;
  */
 public abstract class BaseDecimalStddevAggregator extends DistinctValueWithCountClientAggregator {
 
-    protected Expression stdDevColExp; // We know that PDataType for stdDevColExp is DECIMAL.
     private BigDecimal cachedResult = null;
-    private BigDecimal[] decimalVals = null;
+    private int colPrecision;
+    private int colScale;
 
     public BaseDecimalStddevAggregator(List<Expression> exps) {
-        this.stdDevColExp = exps.get(0);
+        ColumnExpression stdDevColExp = (ColumnExpression)exps.get(0);
+        this.colPrecision = stdDevColExp.getMaxLength();
+        this.colScale = stdDevColExp.getScale();
     }
 
     @Override
@@ -64,14 +67,13 @@ public abstract class BaseDecimalStddevAggregator extends DistinctValueWithCount
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (cachedResult == null) {
             BigDecimal ssd = sumSquaredDeviation();
-            ssd = BigDecimalUtil.divide(ssd, new BigDecimal(getDataPointsCount()));
+            ssd = ssd.divide(new BigDecimal(getDataPointsCount()), PDataType.DEFAULT_MATH_CONTEXT);
             // Calculate the precision & scale for the stddev result.
             // Max precision that we can support is 38 See PDataType.MAX_PRECISION
-            Pair<Integer, Integer> precisionScale = BigDecimalUtil.getResultPrecisionScale(Operation.OTHERS,
-                    decimalVals);
-            cachedResult = BigDecimalUtil
-                    .sqrt(ssd, new MathContext(Math.min(precisionScale.getFirst(), PDataType.MAX_PRECISION),
-                            RoundingMode.HALF_UP));
+            Pair<Integer, Integer> precisionScale = BigDecimalUtil.getResultPrecisionScale(this.colPrecision,
+                    this.colScale, this.colPrecision, this.colScale, Operation.OTHERS);
+            cachedResult = new BigDecimal(Math.sqrt(ssd.doubleValue()), new MathContext(Math.min(
+                    precisionScale.getFirst(), PDataType.MAX_PRECISION), RoundingMode.HALF_UP));
             cachedResult.setScale(precisionScale.getSecond(), RoundingMode.HALF_UP);
         }
         if (buffer == null) {
@@ -86,7 +88,7 @@ public abstract class BaseDecimalStddevAggregator extends DistinctValueWithCount
 
     private BigDecimal sumSquaredDeviation() {
         BigDecimal m = mean();
-        BigDecimal result = new BigDecimal(0.0);
+        BigDecimal result = BigDecimal.ZERO;
         for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
             BigDecimal colValue = (BigDecimal)PDataType.DECIMAL.toObject(entry.getKey());
             BigDecimal delta = colValue.subtract(m);
@@ -96,21 +98,18 @@ public abstract class BaseDecimalStddevAggregator extends DistinctValueWithCount
     }
 
     private BigDecimal mean() {
-        BigDecimal sum = new BigDecimal(0.0);
+        BigDecimal sum = BigDecimal.ZERO;
         int i = 0;
-        decimalVals = new BigDecimal[valueVsCount.size()]; // Caching the BigDecimals. Needed in coming steps also.
         for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
             BigDecimal colValue = (BigDecimal)PDataType.DECIMAL.toObject(entry.getKey());
             sum = sum.add(colValue.multiply(new BigDecimal(entry.getValue())));
-            decimalVals[i++] = colValue;
         }
-        return BigDecimalUtil.divide(sum, new BigDecimal(totalCount));
+        return sum.divide(new BigDecimal(totalCount), PDataType.DEFAULT_MATH_CONTEXT);
     }
 
     @Override
     public void reset() {
         super.reset();
         this.cachedResult = null;
-        this.decimalVals = null;
     }
 }

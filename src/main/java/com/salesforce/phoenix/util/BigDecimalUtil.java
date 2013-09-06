@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import java.math.*;
-
 import org.apache.hadoop.hbase.util.Pair;
 
 /**
@@ -38,72 +36,38 @@ import org.apache.hadoop.hbase.util.Pair;
  */
 public class BigDecimalUtil {
 
-    private static final BigDecimal TWO = BigDecimal.valueOf(2L);
-
     /**
-     * @param lo The dividend
-     * @param ro The divisor
+     * Calculates the precision and scale for BigDecimal arithmetic operation results. It uses the algorithm mentioned
+     * <a href="http://db.apache.org/derby/docs/10.0/manuals/reference/sqlj124.html#HDRSII-SQLJ-36146">here</a>
+     * @param lp precision of the left operand
+     * @param ls scale of the left operand
+     * @param rp precision of the right operand
+     * @param rs scale of the right operand
+     * @param op The operation type
      * @return
      */
-    public static BigDecimal divide(BigDecimal lo, BigDecimal ro) {
-        Pair<Integer, Integer> precisionScale = BigDecimalUtil.getResultPrecisionScale(Operation.DIVIDE, lo, ro);
-        BigDecimal result = lo.divide(ro, new MathContext(precisionScale.getFirst(), RoundingMode.HALF_UP));
-        result.setScale(precisionScale.getSecond(), RoundingMode.HALF_UP);
-        return result;
-    }
-
-    // http://blog.udby.com/archives/17
-    public static BigDecimal sqrt(BigDecimal x, MathContext mc) {
-        if (mc.getPrecision() <= MathContext.DECIMAL64.getPrecision()) {
-            return new BigDecimal(StrictMath.sqrt(x.doubleValue()), mc);
-        }
-        BigDecimal g = x.divide(TWO, mc);
-        boolean done = false;
-        final int maxIterations = mc.getPrecision() + 1;
-        for (int i = 0; !done && i < maxIterations; i++) {
-            // r = (x/g + g) / 2
-            BigDecimal r = x.divide(g, mc);
-            r = r.add(g);
-            r = r.divide(TWO, mc);
-            done = r.equals(g);
-            g = r;
-        }
-        return g;
-    }
-    
-    // http://db.apache.org/derby/docs/10.0/manuals/reference/sqlj124.html#HDRSII-SQLJ-36146
-    public static Pair<Integer, Integer> getResultPrecisionScale(Operation op, BigDecimal... operands) {
-        if (operands.length < 2) throw new IllegalArgumentException("Atleast 2 operands required");
-        int lp = operands[0].precision();
-        int ls = operands[0].scale();
-        int rp, rs;
+    public static Pair<Integer, Integer> getResultPrecisionScale(int lp, int ls, int rp, int rs, Operation op) {
         int resultPrec = 0, resultScale = 0;
-        for (int i = 1; i < operands.length; i++) {
-            rp = operands[i].precision();
-            rs = operands[i].scale();
-            switch (op) {
-            case MULTIPLY:
-                resultPrec = lp + rp;
-                resultScale = ls + rs;
-                break;
-            case DIVIDE:
-                resultPrec = lp - ls + rp + Math.max(ls + rp - rs + 1, 4);
-                resultScale = 31 - lp + ls - rs;
-                break;
-            case ADD:
-                resultPrec = 2 * (lp - ls) + ls; // Is this correct? The page says addition -> 2 * (p - s) + s.
-                resultScale = Math.max(ls, rs);
-                break;
-            case AVG:
-                resultPrec = Math.max(lp - ls, rp - rs) + 1 + Math.max(ls, rs);
-                resultScale = Math.max(Math.max(ls, rs), 4);
-                break;
-            case OTHERS:
-                resultPrec = Math.max(lp - ls, rp - rs) + 1 + Math.max(ls, rs);
-                resultScale = Math.max(ls, rs);
-            }
-            lp = resultPrec;
-            ls = resultScale;
+        switch (op) {
+        case MULTIPLY:
+            resultPrec = lp + rp;
+            resultScale = ls + rs;
+            break;
+        case DIVIDE:
+            resultPrec = lp - ls + rp + Math.max(ls + rp - rs + 1, 4);
+            resultScale = 31 - lp + ls - rs;
+            break;
+        case ADD:
+            resultPrec = 2 * (lp - ls) + ls; // Is this correct? The page says addition -> 2 * (p - s) + s.
+            resultScale = Math.max(ls, rs);
+            break;
+        case AVG:
+            resultPrec = Math.max(lp - ls, rp - rs) + 1 + Math.max(ls, rs);
+            resultScale = Math.max(Math.max(ls, rs), 4);
+            break;
+        case OTHERS:
+            resultPrec = Math.max(lp - ls, rp - rs) + 1 + Math.max(ls, rs);
+            resultScale = Math.max(ls, rs);
         }
         return new Pair<Integer, Integer>(resultPrec, resultScale);
     }

@@ -32,7 +32,6 @@ import static com.salesforce.phoenix.query.QueryConstants.*;
 import java.io.*;
 import java.util.*;
 
-import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
@@ -220,12 +219,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                             if (logger.isDebugEnabled()) {
                                 logger.debug("Adding new aggregate bucket for row key " + Bytes.toStringBinary(key.get(),key.getOffset(),key.getLength()));
                             }
-                            rowAggregators = aggregators.newAggregators();
-                            for (Aggregator aggr : rowAggregators) {
-                                if (aggr instanceof Configurable) {
-                                    ((Configurable)aggr).setConf(c.getEnvironment().getConfiguration());
-                                }
-                            }
+                            rowAggregators = aggregators.newAggregators(c.getEnvironment().getConfiguration());
                             aggregateMap.put(key, rowAggregators);
                         }
                         // Aggregate values here

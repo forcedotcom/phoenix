@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -47,8 +46,7 @@ public class DistinctCountClientAggregator extends DistinctValueWithCountClientA
             initBuffer();
         }
         long value = this.valueVsCount.size();
-        byte[] valueBytes = Bytes.toBytes(value);
-        System.arraycopy(valueBytes, 0, buffer, 0, valueBytes.length);
+        buffer = PDataType.LONG.toBytes(value);
         ptr.set(buffer);
         return true;
     }
