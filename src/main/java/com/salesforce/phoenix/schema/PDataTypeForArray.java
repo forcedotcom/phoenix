@@ -33,6 +33,8 @@ import java.sql.Types;
 import org.apache.hadoop.hbase.util.ByteBufferUtils;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.phoenix.util.ByteUtil;
+
 /**
  * The datatype for PColummns that are Arrays
  */
@@ -63,6 +65,9 @@ public class PDataTypeForArray{
             size = byteSize;
         }
         int noOfElements = ((PhoenixArray)object).numElements;
+        if(noOfElements == 0) {
+        	return ByteUtil.EMPTY_BYTE_ARRAY;
+        }
         ByteBuffer buffer;
         int capacity = 0;
 		if (byteSize == null) {
@@ -210,6 +215,9 @@ public class PDataTypeForArray{
 	private Object createPhoenixArray(byte[] bytes, int offset, int length,
 			ColumnModifier columnModifier, Integer byteSize,
 			PDataType baseDataType) {
+		if(bytes == null || bytes.length == 0) {
+			return null;
+		}
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
 		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
 		boolean useShort = true;
