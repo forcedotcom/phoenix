@@ -33,12 +33,15 @@ import java.sql.Types;
 import org.apache.hadoop.hbase.util.ByteBufferUtils;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.phoenix.util.ByteUtil;
+
 /**
  * The datatype for PColummns that are Arrays
  */
 public class PDataTypeForArray{
 
-    private Integer byteSize;
+    private static final int MAX_POSSIBLE_VINT_LENGTH = 2;
+	private Integer byteSize;
 	public PDataTypeForArray() {
 	}
 
@@ -52,22 +55,44 @@ public class PDataTypeForArray{
 	}
 
 	public byte[] toBytes(Object object, PDataType baseType) {
+		if(object == null) {
+			throw new ConstraintViolationException(this + " may not be null");
+		}
 	    int size;
         if (byteSize == null) {
             size = PDataType.fromTypeId((baseType.getSqlType() + Types.ARRAY)).estimateByteSize(object);
         } else {
             size = byteSize;
         }
-        int noOfElements = ((PhoenixArray)object).dimensions;
-        ByteBuffer buffer;
-        if(byteSize == null) {
-            // variable
-            int capacity = initOffsetArray(noOfElements);
-            buffer = ByteBuffer.allocate(size + capacity + Bytes.SIZEOF_INT);
-        } else {
-             buffer = ByteBuffer.allocate(size);
+        int noOfElements = ((PhoenixArray)object).numElements;
+        if(noOfElements == 0) {
+        	return ByteUtil.EMPTY_BYTE_ARRAY;
         }
-		return bytesFromByteBuffer((PhoenixArray)object, buffer, noOfElements, byteSize);
+        ByteBuffer buffer;
+        int capacity = 0;
+		if (byteSize == null) {
+			// variable
+			if (calculateMaxOffset(size)) {
+				// Use Short to represent the offset
+				capacity = initOffsetArray(noOfElements, Bytes.SIZEOF_SHORT);
+			} else {
+				capacity = initOffsetArray(noOfElements, Bytes.SIZEOF_INT);
+				// Negate the number of elements
+				noOfElements = -noOfElements;
+			}
+			buffer = ByteBuffer.allocate(size + capacity + Bytes.SIZEOF_INT);
+		} else {
+			buffer = ByteBuffer.allocate(size);
+		}
+		return bytesFromByteBuffer((PhoenixArray)object, buffer, noOfElements, byteSize, capacity);
+	}
+
+	private boolean calculateMaxOffset(int size) {
+		// If the total size + Offset postion ptr + Numelements in Vint is less than Short
+		if ((size + Bytes.SIZEOF_INT + MAX_POSSIBLE_VINT_LENGTH) <= (2 * Short.MAX_VALUE)) {
+			return true;
+		}
+		return false;
 	}
 
 	public int toBytes(Object object, byte[] bytes, int offset) {
@@ -82,6 +107,22 @@ public class PDataTypeForArray{
 	public boolean isCoercibleTo(PDataType targetType, PDataType expectedTargetType) {
         return targetType == expectedTargetType;
     }
+	
+	public boolean isSizeCompatible(PDataType srcType, Object value,
+			byte[] b, Integer maxLength, Integer desiredMaxLength,
+			Integer scale, Integer desiredScale) {
+		PhoenixArray pArr = (PhoenixArray) value;
+		Object[] charArr = (Object[]) pArr.array;
+		PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
+				- Types.ARRAY);
+		for (Object o : charArr) {
+			if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
+					desiredMaxLength, scale, desiredScale)) {
+				return false;
+			}
+		}
+		return true;
+	}
 
 
     public Object toObject(String value) {
@@ -123,25 +164,33 @@ public class PDataTypeForArray{
 	 * <offset of the index array> - int
 	 * <elements>  - these are the values
 	 * <offset array> - offset of every element written as INT
-	 * For eg : For an varchar array with abc, defgh
 	 * 
 	 * @param array
 	 * @param buffer
 	 * @param noOfElements
 	 * @param byteSize
+	 * @param capacity 
 	 * @return
 	 */
 	private byte[] bytesFromByteBuffer(PhoenixArray array, ByteBuffer buffer,
-			int noOfElements, Integer byteSize) {
+			int noOfElements, Integer byteSize, int capacity) {
+		int temp = noOfElements;
         if (buffer == null) return null;
         ByteBufferUtils.writeVLong(buffer, noOfElements);
         if (byteSize == null) {
             int fillerForOffsetByteArray = buffer.position();
             buffer.position(fillerForOffsetByteArray + Bytes.SIZEOF_INT);
-            ByteBuffer offsetArray = ByteBuffer.allocate(initOffsetArray(noOfElements));
+            ByteBuffer offsetArray = ByteBuffer.allocate(capacity);
+            if(noOfElements < 0){
+            	noOfElements = -noOfElements;
+            }
             for (int i = 0; i < noOfElements; i++) {
                 // Not fixed width
-                offsetArray.putInt(buffer.position());
+				if (temp < 0) {
+					offsetArray.putInt(buffer.position());
+				} else {
+					offsetArray.putShort((short)(buffer.position() - Short.MAX_VALUE));
+				}
                 byte[] bytes = array.toBytes(i);
                 buffer.put(bytes);
             }
@@ -158,17 +207,26 @@ public class PDataTypeForArray{
         return buffer.array();
 	}
 
-	private int initOffsetArray(int noOfElements) {
+	private int initOffsetArray(int noOfElements, int baseSize) {
 		// for now create an offset array equal to the noofelements
-		return noOfElements * Bytes.SIZEOF_INT;
-        
+		return noOfElements * baseSize;
     }
 
 	private Object createPhoenixArray(byte[] bytes, int offset, int length,
 			ColumnModifier columnModifier, Integer byteSize,
 			PDataType baseDataType) {
+		if(bytes == null || bytes.length == 0) {
+			return null;
+		}
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
 		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
+		boolean useShort = true;
+		int baseSize = Bytes.SIZEOF_SHORT;
+		if(noOfElements < 0) {
+			noOfElements = -noOfElements;
+			baseSize = Bytes.SIZEOF_INT;
+			useShort = false;
+		}
 		Object[] elements = (Object[]) java.lang.reflect.Array.newInstance(
 				baseDataType.getJavaClass(), noOfElements);
 		if (byteSize == null) {
@@ -176,45 +234,54 @@ public class PDataTypeForArray{
 			int valArrayPostion = buffer.position();
 			buffer.position(indexOffset);
 			ByteBuffer indexArr = ByteBuffer
-					.allocate(initOffsetArray(noOfElements));
+					.allocate(initOffsetArray(noOfElements, baseSize));
 			byte[] array = indexArr.array();
 			buffer.get(array);
+			int countOfElementsRead = 0;
 			int i = 0;
-			int count = 0;
 			int currOff = -1;
 			int nextOff = -1;
 			if (noOfElements > 1) {
 				while (indexArr.hasRemaining()) {
-					if (i < noOfElements) {
+					if (countOfElementsRead < noOfElements) {
 						if (currOff == -1) {
-							if ((indexArr.position() + 2 * Bytes.SIZEOF_INT) <= indexArr
+							if ((indexArr.position() + 2 * baseSize) <= indexArr
 									.capacity()) {
-								currOff = indexArr.getInt();
-								nextOff = indexArr.getInt();
-								i += 2;
+								if (useShort) {
+									currOff = indexArr.getShort() + Short.MAX_VALUE;
+									nextOff = indexArr.getShort() + Short.MAX_VALUE;
+								} else {
+									currOff = indexArr.getInt();
+									nextOff = indexArr.getInt();
+								}
+								countOfElementsRead += 2;
 							}
 						} else {
 							currOff = nextOff;
-							nextOff = indexArr.getInt();
-							i += 1;
+							if(useShort) {
+								nextOff = indexArr.getShort() + Short.MAX_VALUE;
+							} else {
+								nextOff = indexArr.getInt();
+							}
+							countOfElementsRead += 1;
 						}
 						int elementLength = nextOff - currOff;
 						buffer.position(currOff);
 						byte[] val = new byte[elementLength];
 						buffer.get(val);
-						elements[count++] = baseDataType.toObject(val,
+						elements[i++] = baseDataType.toObject(val,
 								columnModifier);
 					}
 				}
 				buffer.position(nextOff);
 				byte[] val = new byte[indexOffset - nextOff];
 				buffer.get(val);
-				elements[count++] = baseDataType.toObject(val, columnModifier);
+				elements[i++] = baseDataType.toObject(val, columnModifier);
 			} else {
 				byte[] val = new byte[indexOffset - valArrayPostion];
 				buffer.position(valArrayPostion);
 				buffer.get(val);
-				elements[count++] = baseDataType.toObject(val, columnModifier);
+				elements[i++] = baseDataType.toObject(val, columnModifier);
 			}
 
 		} else {
@@ -245,4 +312,5 @@ public class PDataTypeForArray{
 		}
 		return 1;
 	}
+
 }
