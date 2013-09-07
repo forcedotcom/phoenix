@@ -397,14 +397,23 @@ public class IndexMaintainer implements Writable {
         }
         dataRowKeyLocator = new int[2][nIndexPkColumns];
         
-        int j = indexedColumnTypes.size()-1;
-        maxTrailingNulls = 0;
-        int index = nIndexPkColumns-1;
+        // Calculate the max number of trailing nulls that we should get rid of after building the index row key.
+        // We only get rid of nulls for variable length types, so we have to be careful to consider the type of the
+        // index table, not the data type of the data table
+        int indexedColumnTypesPos = indexedColumnTypes.size()-1;
+        int indexPkPos = nIndexPkColumns-1;
         BitSet pkNotNullableBitSet = this.rowKeyMetaData.getPkNotNullableBitSet();
-        while (index >= 0 && !IndexUtil.getIndexColumnDataType(dataPkPosition[index] == -1 || !pkNotNullableBitSet.get(dataPkPosition[index]), (dataPkPosition[index] == -1 ? indexedColumnTypes.get(j--) : dataRowKeySchema.getField(dataPkPosition[index]).getType())).isFixedWidth()) {
-            index--;
-            maxTrailingNulls++;
+        while (indexPkPos >= 0) {
+            int dataPkPos = dataPkPosition[indexPkPos];
+            PDataType dataType = dataPkPos == -1 ? indexedColumnTypes.get(indexedColumnTypesPos--) : dataRowKeySchema.getField(dataPkPos).getType();
+            boolean isDataNullable = dataPkPos == -1 ? true: !pkNotNullableBitSet.get(indexPkPos);
+            PDataType indexDataType = IndexUtil.getIndexColumnDataType(isDataNullable, dataType);
+            if (indexDataType.isFixedWidth()) {
+                break;
+            }
+            indexPkPos--;
         }
+        maxTrailingNulls = nIndexPkColumns-indexPkPos-1;
     }
 
     private int getIndexPkColumnCount() {

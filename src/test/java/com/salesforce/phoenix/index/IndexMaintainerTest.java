@@ -67,49 +67,57 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         Connection conn = DriverManager.getConnection(getUrl());
         String fullTableName = SchemaUtil.getTableDisplayName(schemaName, tableName) ;
         conn.createStatement().execute("CREATE TABLE " + fullTableName + "(" + dataColumns + " CONSTRAINT pk PRIMARY KEY (" + pk + "))  " + (dataProps.isEmpty() ? "" : dataProps) );
-        conn.createStatement().execute("CREATE INDEX idx ON " + fullTableName + "(" + indexColumns + ") " + (includeColumns.isEmpty() ? "" : "INCLUDE (" + includeColumns + ") ") + (indexProps.isEmpty() ? "" : indexProps));
-        PTable table = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier(tableName));
-        PTable index = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier("idx"));
-        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-        table.getIndexMaintainers(ptr);
-        List<IndexMaintainer> c1 = IndexMaintainer.deserialize(ptr);
-        assertEquals(1,c1.size());
-        IndexMaintainer im1 = c1.get(0);
-        
-        StringBuilder buf = new StringBuilder("UPSERT INTO " + fullTableName  + " VALUES(");
-        for (int i = 0; i < values.length; i++) {
-            buf.append("?,");
-        }
-        buf.setCharAt(buf.length()-1, ')');
-        PreparedStatement stmt = conn.prepareStatement(buf.toString());
-        for (int i = 0; i < values.length; i++) {
-            stmt.setObject(i+1, values[i]);
-        }
-        stmt.execute();
-        	Iterator<Pair<byte[],List<KeyValue>>> iterator = PhoenixRuntime.getUncommittedDataIterator(conn);
-        List<KeyValue> dataKeyValues = iterator.next().getSecond();
-        Map<ColumnReference,byte[]> valueMap = Maps.newHashMapWithExpectedSize(dataKeyValues.size());
-        ImmutableBytesWritable rowKeyPtr = new ImmutableBytesWritable(dataKeyValues.get(0).getRow());
-        Put dataMutation = new Put(rowKeyPtr.copyBytes());
-        for (KeyValue kv : dataKeyValues) {
-            valueMap.put(new ColumnReference(kv.getFamily(),kv.getQualifier()), kv.getValue());
-            dataMutation.add(kv);
-        }
-        ValueGetter valueGetter = newValueGetter(valueMap);
-        
-        List<Mutation> indexMutations = IndexTestUtil.generateIndexData(index, table, dataMutation, ptr);
-        assertEquals(1,indexMutations.size());
-        assertTrue(indexMutations.get(0) instanceof Put);
-        Mutation indexMutation = indexMutations.get(0);
-        ImmutableBytesWritable indexKeyPtr = new ImmutableBytesWritable(indexMutation.getRow());
-        
-        ptr.set(rowKeyPtr.get(), rowKeyPtr.getOffset(), rowKeyPtr.getLength());
-        byte[] mutablelndexRowKey = im1.buildRowKey(valueGetter, ptr);
-        byte[] immutableIndexRowKey = indexKeyPtr.copyBytes();
-        assertArrayEquals(immutableIndexRowKey, mutablelndexRowKey);
-        
-        for (ColumnReference ref : im1.getCoverededColumns()) {
-            valueMap.get(ref);
+        try {
+            conn.createStatement().execute("CREATE INDEX idx ON " + fullTableName + "(" + indexColumns + ") " + (includeColumns.isEmpty() ? "" : "INCLUDE (" + includeColumns + ") ") + (indexProps.isEmpty() ? "" : indexProps));
+            PTable table = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier(tableName));
+            PTable index = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier("idx"));
+            ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+            table.getIndexMaintainers(ptr);
+            List<IndexMaintainer> c1 = IndexMaintainer.deserialize(ptr);
+            assertEquals(1,c1.size());
+            IndexMaintainer im1 = c1.get(0);
+            
+            StringBuilder buf = new StringBuilder("UPSERT INTO " + fullTableName  + " VALUES(");
+            for (int i = 0; i < values.length; i++) {
+                buf.append("?,");
+            }
+            buf.setCharAt(buf.length()-1, ')');
+            PreparedStatement stmt = conn.prepareStatement(buf.toString());
+            for (int i = 0; i < values.length; i++) {
+                stmt.setObject(i+1, values[i]);
+            }
+            stmt.execute();
+            	Iterator<Pair<byte[],List<KeyValue>>> iterator = PhoenixRuntime.getUncommittedDataIterator(conn);
+            List<KeyValue> dataKeyValues = iterator.next().getSecond();
+            Map<ColumnReference,byte[]> valueMap = Maps.newHashMapWithExpectedSize(dataKeyValues.size());
+            ImmutableBytesWritable rowKeyPtr = new ImmutableBytesWritable(dataKeyValues.get(0).getRow());
+            Put dataMutation = new Put(rowKeyPtr.copyBytes());
+            for (KeyValue kv : dataKeyValues) {
+                valueMap.put(new ColumnReference(kv.getFamily(),kv.getQualifier()), kv.getValue());
+                dataMutation.add(kv);
+            }
+            ValueGetter valueGetter = newValueGetter(valueMap);
+            
+            List<Mutation> indexMutations = IndexTestUtil.generateIndexData(index, table, dataMutation, ptr);
+            assertEquals(1,indexMutations.size());
+            assertTrue(indexMutations.get(0) instanceof Put);
+            Mutation indexMutation = indexMutations.get(0);
+            ImmutableBytesWritable indexKeyPtr = new ImmutableBytesWritable(indexMutation.getRow());
+            
+            ptr.set(rowKeyPtr.get(), rowKeyPtr.getOffset(), rowKeyPtr.getLength());
+            byte[] mutablelndexRowKey = im1.buildRowKey(valueGetter, ptr);
+            byte[] immutableIndexRowKey = indexKeyPtr.copyBytes();
+            assertArrayEquals(immutableIndexRowKey, mutablelndexRowKey);
+            
+            for (ColumnReference ref : im1.getCoverededColumns()) {
+                valueMap.get(ref);
+            }
+        } finally {
+            try {
+                conn.createStatement().execute("DROP TABLE " + fullTableName);
+            } finally {
+                conn.close();
+            }
         }
     }
 
@@ -131,6 +139,14 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
     }
  
     @Test
+    public void testCompositeRowKeyVarFixedAtEndIndex() throws Exception {
+        // Forces trailing zero in index key for fixed length
+        for (int i = 0; i < 10; i++) {
+            testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, k3 VARCHAR, v VARCHAR", "k1,k2,k3", "k1, k3, k2", new Object [] {"a",i, "b"});
+        }
+    }
+ 
+   @Test
     public void testSingleKeyValueIndex() throws Exception {
         testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1", "v", new Object [] {"a",1,"b"});
     }
