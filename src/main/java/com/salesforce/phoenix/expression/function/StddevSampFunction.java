@@ -29,6 +29,8 @@ package com.salesforce.phoenix.expression.function;
 
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
+
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
@@ -55,13 +57,17 @@ public class StddevSampFunction extends SingleAggregateFunction {
     }
 
     @Override
-    public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator();
+    public Aggregator newServerAggregator(Configuration conf) {
+        return new DistinctValueWithCountServerAggregator(conf);
     }
 
     @Override
     public Aggregator newClientAggregator() {
-        return new StddevSampAggregator(children);
+        if (children.get(0).getDataType() == PDataType.DECIMAL) {
+            // Special Aggregators for DECIMAL datatype for more precision than double
+            return new DecimalStddevSampAggregator(children, getAggregatorExpression().getColumnModifier());
+        }
+        return new StddevSampAggregator(children, getAggregatorExpression().getColumnModifier());
     }
     
     @Override

@@ -585,7 +585,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 query = queries[i];
                 Scan scan = new Scan();
                 compileQuery(query, binds, scan);
-                ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
+                ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), null);
                 Aggregator aggregator = aggregators.getAggregators()[0];
                 assertTrue(aggregator instanceof CountAggregator);
             }
