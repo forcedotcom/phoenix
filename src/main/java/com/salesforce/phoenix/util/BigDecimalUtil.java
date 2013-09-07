@@ -25,59 +25,54 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.util;
 
-import java.util.List;
-
-import org.apache.hadoop.conf.Configuration;
-
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.MaxAggregator;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-
-
+import org.apache.hadoop.hbase.util.Pair;
 
 /**
- * Built-in function for finding MAX.
  * 
- * @author syyang
- * @since 0.1
+ * @author anoopsjohn
+ * @since 1.2.1
  */
-@BuiltInFunction(name=MaxAggregateFunction.NAME, nodeClass=MaxAggregateParseNode.class, args= {@Argument()} )
-public class MaxAggregateFunction extends MinAggregateFunction {
-    public static final String NAME = "MAX";
+public class BigDecimalUtil {
 
-    public MaxAggregateFunction() {
+    /**
+     * Calculates the precision and scale for BigDecimal arithmetic operation results. It uses the algorithm mentioned
+     * <a href="http://db.apache.org/derby/docs/10.0/manuals/reference/sqlj124.html#HDRSII-SQLJ-36146">here</a>
+     * @param lp precision of the left operand
+     * @param ls scale of the left operand
+     * @param rp precision of the right operand
+     * @param rs scale of the right operand
+     * @param op The operation type
+     * @return
+     */
+    public static Pair<Integer, Integer> getResultPrecisionScale(int lp, int ls, int rp, int rs, Operation op) {
+        int resultPrec = 0, resultScale = 0;
+        switch (op) {
+        case MULTIPLY:
+            resultPrec = lp + rp;
+            resultScale = ls + rs;
+            break;
+        case DIVIDE:
+            resultPrec = lp - ls + rp + Math.max(ls + rp - rs + 1, 4);
+            resultScale = 31 - lp + ls - rs;
+            break;
+        case ADD:
+            resultPrec = 2 * (lp - ls) + ls; // Is this correct? The page says addition -> 2 * (p - s) + s.
+            resultScale = Math.max(ls, rs);
+            break;
+        case AVG:
+            resultPrec = Math.max(lp - ls, rp - rs) + 1 + Math.max(ls, rs);
+            resultScale = Math.max(Math.max(ls, rs), 4);
+            break;
+        case OTHERS:
+            resultPrec = Math.max(lp - ls, rp - rs) + 1 + Math.max(ls, rs);
+            resultScale = Math.max(ls, rs);
+        }
+        return new Pair<Integer, Integer>(resultPrec, resultScale);
     }
     
-    public MaxAggregateFunction(List<Expression> childExpressions, CountAggregateFunction delegate) {
-        super(childExpressions, delegate);
+    public static enum Operation {
+        MULTIPLY, DIVIDE, ADD, AVG, OTHERS;
     }
-
-    @Override 
-    public Aggregator newServerAggregator(Configuration conf) {
-        final PDataType type = getAggregatorExpression().getDataType();
-        ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
-        return new MaxAggregator(columnModifier) {
-            @Override
-            public PDataType getDataType() {
-                return type;
-            }
-        };
-    }
-    
-    @Override
-    public String getName() {
-        return NAME;
-    }
-    
-    @Override
-    public ColumnModifier getColumnModifier() {
-       return getAggregatorExpression().getColumnModifier(); 
-    }    
 }

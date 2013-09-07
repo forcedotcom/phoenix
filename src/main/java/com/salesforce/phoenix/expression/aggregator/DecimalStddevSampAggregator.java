@@ -25,59 +25,27 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.expression.aggregator;
 
 import java.util.List;
 
-import org.apache.hadoop.conf.Configuration;
-
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.MaxAggregator;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-
-
 
 /**
- * Built-in function for finding MAX.
+ * Client side Aggregator for STDDEV_SAMP aggregations for DECIMAL data type.
  * 
- * @author syyang
- * @since 0.1
+ * @author anoopsjohn
+ * @since 1.2.1
  */
-@BuiltInFunction(name=MaxAggregateFunction.NAME, nodeClass=MaxAggregateParseNode.class, args= {@Argument()} )
-public class MaxAggregateFunction extends MinAggregateFunction {
-    public static final String NAME = "MAX";
+public class DecimalStddevSampAggregator extends BaseDecimalStddevAggregator {
 
-    public MaxAggregateFunction() {
-    }
-    
-    public MaxAggregateFunction(List<Expression> childExpressions, CountAggregateFunction delegate) {
-        super(childExpressions, delegate);
+    public DecimalStddevSampAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+        super(exps, columnModifier);
     }
 
-    @Override 
-    public Aggregator newServerAggregator(Configuration conf) {
-        final PDataType type = getAggregatorExpression().getDataType();
-        ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
-        return new MaxAggregator(columnModifier) {
-            @Override
-            public PDataType getDataType() {
-                return type;
-            }
-        };
-    }
-    
     @Override
-    public String getName() {
-        return NAME;
+    protected long getDataPointsCount() {
+        return totalCount - 1;
     }
-    
-    @Override
-    public ColumnModifier getColumnModifier() {
-       return getAggregatorExpression().getColumnModifier(); 
-    }    
 }

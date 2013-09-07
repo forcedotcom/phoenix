@@ -27,12 +27,21 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.util.*;
 import java.util.Map.Entry;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.io.hfile.Compression;
+import org.apache.hadoop.hbase.io.hfile.Compression.Algorithm;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.*;
@@ -44,13 +53,19 @@ import com.salesforce.phoenix.util.*;
  * @since 1.2.1
  */
 public class DistinctValueWithCountServerAggregator extends BaseAggregator {
+    private static final Logger LOG = LoggerFactory.getLogger(DistinctValueWithCountServerAggregator.class);
     public static final int DEFAULT_ESTIMATED_DISTINCT_VALUES = 10000;
-    
+    public static final byte[] COMPRESS_MARKER = new byte[] { (byte)1 };
+    public static final Algorithm COMPRESS_ALGO = Compression.Algorithm.SNAPPY;
+
+    private int compressThreshold;
     private byte[] buffer = null;
     private Map<ImmutableBytesPtr, Integer> valueVsCount = new HashMap<ImmutableBytesPtr, Integer>();
 
-    public DistinctValueWithCountServerAggregator() {
+    public DistinctValueWithCountServerAggregator(Configuration conf) {
         super(null);
+        compressThreshold = conf.getInt(QueryServices.DISTINCT_VALUE_COMPRESS_THRESHOLD_ATTRIB,
+                QueryServicesOptions.DEFAULT_DISTINCT_VALUE_COMPRESS_THRESHOLD);
     }
 
     @Override
@@ -74,8 +89,9 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator {
         // This serializes the Map. The format is as follows
         // Map size(VInt ie. 1 to 5 bytes) +
         // ( key length [VInt ie. 1 to 5 bytes] + key bytes + value [VInt ie. 1 to 5 bytes] )*
-        buffer = new byte[countMapSerializationSize()];
-        int offset = 0;
+        int serializationSize = countMapSerializationSize();
+        buffer = new byte[serializationSize];
+        int offset = 1;
         offset += ByteUtil.vintToBytes(buffer, offset, this.valueVsCount.size());
         for (Entry<ImmutableBytesPtr, Integer> entry : this.valueVsCount.entrySet()) {
             ImmutableBytesPtr key = entry.getKey();
@@ -83,6 +99,21 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator {
             System.arraycopy(key.get(), key.getOffset(), buffer, offset, key.getLength());
             offset += key.getLength();
             offset += ByteUtil.vintToBytes(buffer, offset, entry.getValue().intValue());
+        }
+        if (serializationSize > compressThreshold) {
+            // The size for the map serialization is above the threshold. We will do the Snappy compression here.
+            ByteArrayOutputStream compressedByteStream = new ByteArrayOutputStream();
+            try {
+                compressedByteStream.write(COMPRESS_MARKER);
+                OutputStream compressionStream = COMPRESS_ALGO.createCompressionStream(compressedByteStream,
+                        COMPRESS_ALGO.getCompressor(), 0);
+                compressionStream.write(buffer, 1, buffer.length - 1);
+                compressionStream.flush();
+                ptr.set(compressedByteStream.toByteArray(), 0, compressedByteStream.size());
+                return true;
+            } catch (Exception e) {
+                LOG.error("Exception while Snappy compression of data.", e);
+            }
         }
         ptr.set(buffer, 0, offset);
         return true;
