@@ -16,9 +16,7 @@
 package com.salesforce.phoenix.index;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
@@ -30,19 +28,11 @@ import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.salesforce.hbase.index.builder.covered.ColumnReference;
-import com.salesforce.hbase.index.builder.covered.IndexCodec;
-import com.salesforce.hbase.index.builder.covered.IndexUpdate;
-import com.salesforce.hbase.index.builder.covered.TableState;
+import com.salesforce.hbase.index.builder.covered.*;
 import com.salesforce.hbase.index.builder.covered.scanner.Scanner;
-import com.salesforce.phoenix.cache.GlobalCache;
-import com.salesforce.phoenix.cache.IndexMetaDataCache;
-import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.phoenix.cache.*;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.util.PhoenixRuntime;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
 /**
  * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
  * {@link #getIndexDeletes(TableState)}) as well as what the new index state should be (
@@ -124,6 +114,7 @@ public class PhoenixIndexCodec implements IndexCodec {
         };
     }
     
+    @SuppressWarnings("deprecation")
     @Override
     public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException {
         List<Pair<byte[],IndexMaintainer>> indexMaintainers = getIndexMaintainers(state);
@@ -144,6 +135,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             ptr.set(dataRowKey);
             byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Put put = new Put(rowKey);
+            put.setWriteToWAL(false);
             indexUpdate.setTable(tableName);
             indexUpdate.setUpdate(put);
             for (ColumnReference ref : maintainer.getCoverededColumns()) {
@@ -159,6 +151,7 @@ public class PhoenixIndexCodec implements IndexCodec {
         return indexUpdates;
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public Iterable<Pair<Delete, byte[]>> getIndexDeletes(TableState state) throws IOException {
         List<Pair<byte[],IndexMaintainer>> indexMaintainers = getIndexMaintainers(state);
@@ -178,6 +171,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             ptr.set(dataRowKey);
             byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Delete delete = new Delete(rowKey);
+            delete.setWriteToWAL(false);
             indexUpdates.add(new Pair<Delete, byte[]>(delete, tableName));
         }
         return indexUpdates;

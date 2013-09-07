@@ -32,11 +32,16 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -66,6 +71,8 @@ import com.salesforce.phoenix.util.ServerUtil;
  * @since 0.1
  */
 public class MutationState implements SQLCloseable {
+    private static final Logger logger = LoggerFactory.getLogger(MutationState.class);
+
     private PhoenixConnection connection;
     private final long maxSize;
     private final ImmutableBytesPtr tempPtr = new ImmutableBytesPtr();
@@ -292,6 +299,20 @@ public class MutationState implements SQLCloseable {
         return timeStamps;
     }
     
+    private static void logMutationSize(HTableInterface htable, List<Mutation> mutations) {
+        long byteSize = 0;
+        int keyValueCount = 0;
+        for (Mutation mutation : mutations) {
+            for (Entry<byte[], List<KeyValue>> entry : mutation.getFamilyMap().entrySet()) {
+                for (KeyValue kv : entry.getValue()) {
+                    byteSize += kv.getBuffer().length;
+                    keyValueCount++;
+                }
+            }
+        }
+        logger.debug("Sending " + mutations.size() + " mutations for " + Bytes.toString(htable.getTableName()) + " with " + keyValueCount + " key values of total size " + byteSize + " bytes");
+    }
+    
     public void commit() throws SQLException {
         int i = 0;
         long[] serverTimeStamps = validate();
@@ -335,6 +356,7 @@ public class MutationState implements SQLCloseable {
                 SQLException sqlE = null;
                 HTableInterface hTable = connection.getQueryServices().getTable(htableName);
                 try {
+                    if (logger.isDebugEnabled()) logMutationSize(hTable, mutations);
                     hTable.batch(mutations);
                     committedList.add(entry);
                 } catch (Exception e) {

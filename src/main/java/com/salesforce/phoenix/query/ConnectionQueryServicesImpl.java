@@ -448,9 +448,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
 
-    private HColumnDescriptor generateColumnFamilyDescriptor(Pair<byte[],Map<String,Object>> family, boolean readOnly) throws SQLException {
+    private HColumnDescriptor generateColumnFamilyDescriptor(Pair<byte[],Map<String,Object>> family, PTableType tableType) throws SQLException {
         HColumnDescriptor columnDesc = new HColumnDescriptor(family.getFirst());
-        if (!readOnly) {
+        if (tableType != PTableType.VIEW) {
             columnDesc.setKeepDeletedCells(true);
             columnDesc.setDataBlockEncoding(SchemaUtil.DEFAULT_DATA_BLOCK_ENCODING);
             for (Entry<String,Object> entry : family.getSecond().entrySet()) {
@@ -471,7 +471,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
       hcd.setKeepDeletedCells(true);
     }
     
-    private HTableDescriptor generateTableDescriptor(byte[] tableName, HTableDescriptor existingDesc, boolean readOnly, Map<String,Object> tableProps, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
+    private HTableDescriptor generateTableDescriptor(byte[] tableName, HTableDescriptor existingDesc, PTableType tableType, Map<String,Object> tableProps, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         HTableDescriptor descriptor = (existingDesc != null) ? new HTableDescriptor(existingDesc) : new HTableDescriptor(tableName);
         for (Entry<String,Object> entry : tableProps.entrySet()) {
             String key = entry.getKey();
@@ -479,9 +479,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             descriptor.setValue(key, value == null ? null : value.toString());
         }
         if (families.isEmpty()) {
-            if (!readOnly) {
+            if (tableType != PTableType.VIEW) {
                 // Add dummy column family so we have key values for tables that 
-                HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(new Pair<byte[],Map<String,Object>>(QueryConstants.EMPTY_COLUMN_BYTES,Collections.<String,Object>emptyMap()), readOnly);
+                HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(new Pair<byte[],Map<String,Object>>(QueryConstants.EMPTY_COLUMN_BYTES,Collections.<String,Object>emptyMap()), tableType);
                 descriptor.addFamily(columnDescriptor);
             }
         } else {
@@ -489,13 +489,13 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 // If family is only in phoenix description, add it. otherwise, modify its property accordingly.
                 byte[] familyByte = family.getFirst();
                 if (descriptor.getFamily(familyByte) == null) {
-                    if (readOnly) {
+                    if (tableType == PTableType.VIEW) {
                         throw new ReadOnlyTableException("The HBase column families for a VIEW must already exist(" + Bytes.toStringBinary(familyByte) + ")");
                     }
-                    HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(family, readOnly);
+                    HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(family, tableType);
                     descriptor.addFamily(columnDescriptor);
                 } else {
-                    if (!readOnly) {
+                    if (tableType != PTableType.VIEW) {
                         modifyColumnFamilyDescriptor(descriptor.getFamily(familyByte), family);
                     }
                 }
@@ -519,12 +519,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 descriptor.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
             }
             // TODO: better encapsulation for this
-            if (!descriptor.hasCoprocessor(Indexer.class.getName())) {
+            // Since indexes can't have indexes, don't install our indexing coprocessor for indexes
+            if (tableType != PTableType.INDEX && !descriptor.hasCoprocessor(Indexer.class.getName())) {
                 Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
                 opts.put(PhoenixIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
                 IndexUtil.enableIndexing(descriptor, CoveredColumnIndexerV2.class, opts);
             }
-            //IndexUtil.enableIndexing(descriptor, PhoenixIndexBuilder.class, null);
             
             // Setup split policy on Phoenix metadata table to ensure that the key values of a Phoenix table
             // stay on the same region.
@@ -542,7 +542,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         return descriptor;
     }
 
-    private void ensureFamilyCreated(byte[] tableName, boolean readOnly, Pair<byte[],Map<String,Object>> family) throws SQLException {
+    private void ensureFamilyCreated(byte[] tableName, PTableType tableType , Pair<byte[],Map<String,Object>> family) throws SQLException {
         HBaseAdmin admin = null;
         SQLException sqlE = null;
         try {
@@ -553,13 +553,13 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 HColumnDescriptor columnDescriptor = null;
 
                 if (oldDescriptor == null) {
-                    if (readOnly) {
+                    if (tableType == PTableType.VIEW) {
                         throw new ReadOnlyTableException("The HBase column families for a read-only table must already exist(" + Bytes.toStringBinary(family.getFirst()) + ")");
                     }
-                    columnDescriptor = generateColumnFamilyDescriptor(family, readOnly);
+                    columnDescriptor = generateColumnFamilyDescriptor(family, tableType );
                 } else {
                     columnDescriptor = new HColumnDescriptor(oldDescriptor);
-                    if (!readOnly) {
+                    if (tableType != PTableType.VIEW) {
                         modifyColumnFamilyDescriptor(columnDescriptor, family);
                     }
                 }
@@ -607,7 +607,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      * @return true if table was created and false if it already exists
      * @throws SQLException
      */
-    private boolean ensureTableCreated(byte[] tableName, boolean readOnly, Map<String,Object> props, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
+    private boolean ensureTableCreated(byte[] tableName, PTableType tableType , Map<String,Object> props, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         HBaseAdmin admin = null;
         SQLException sqlE = null;
         HTableDescriptor existingDesc = null;
@@ -619,12 +619,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 existingDesc = admin.getTableDescriptor(tableName);
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
                 tableExist = false;
-                if (readOnly) {
+                if (tableType == PTableType.VIEW) {
                     throw new ReadOnlyTableException("An HBase table for a VIEW must already exist(" + SchemaUtil.getTableDisplayName(tableName) + ")");
                 }
             }
 
-            HTableDescriptor newDesc = generateTableDescriptor(tableName, existingDesc, readOnly, props, families, splits);
+            HTableDescriptor newDesc = generateTableDescriptor(tableName, existingDesc, tableType , props, families, splits);
             
             if (!tableExist) {
                 /*
@@ -882,7 +882,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
-        ensureTableCreated(tableName, tableType == PTableType.VIEW, tableProps, families, splits);
+        ensureTableCreated(tableName, tableType, tableProps, families, splits);
 
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
@@ -923,7 +923,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, boolean readOnly, Pair<byte[],Map<String,Object>> family) throws SQLException {
+    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException {
         byte[][] rowKeyMetaData = new byte[2][];
         byte[] rowKey = tableMetaData.get(0).getRow();
         SchemaUtil.getVarChars(rowKey, rowKeyMetaData);
@@ -932,7 +932,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
         if (family != null) {
-            ensureFamilyCreated(tableName, readOnly, family);
+            ensureFamilyCreated(tableName, tableType, family);
         }
         MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
@@ -945,7 +945,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, byte[] emptyCF) throws SQLException {
+    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
@@ -953,7 +953,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
         if (emptyCF != null) {
-            this.ensureFamilyCreated(tableName, false, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
+            this.ensureFamilyCreated(tableName, tableType, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
         }
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {

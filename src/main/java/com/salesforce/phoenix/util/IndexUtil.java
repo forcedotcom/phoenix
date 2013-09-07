@@ -125,56 +125,60 @@ public class IndexUtil {
         }
     }
 
+    @SuppressWarnings("deprecation")
     public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
         IndexMaintainer maintainer = index.getIndexMaintainer(table);
         List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
         for (final Mutation dataMutation : dataMutations) {
-            // TODO: is this more efficient than looking in our mutation map
-            // using the key plus finding the PColumn?
-            ValueGetter valueGetter = new ValueGetter() {
-
-                @Override
-                public byte[] getValue(ColumnReference ref) {
-                    Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
-                    byte[] family = ref.getFamily();
-                    List<KeyValue> kvs = familyMap.get(family);
-                    if (kvs == null) {
+            // Ignore deletes
+            if (dataMutation instanceof Put) {
+                // TODO: is this more efficient than looking in our mutation map
+                // using the key plus finding the PColumn?
+                ValueGetter valueGetter = new ValueGetter() {
+    
+                    @Override
+                    public byte[] getValue(ColumnReference ref) {
+                        Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
+                        byte[] family = ref.getFamily();
+                        List<KeyValue> kvs = familyMap.get(family);
+                        if (kvs == null) {
+                            return null;
+                        }
+                        byte[] qualifier = ref.getQualifier();
+                        for (KeyValue kv : kvs) {
+                            if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), family, 0, family.length) == 0 &&
+                                Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), qualifier, 0, qualifier.length) == 0) {
+                                return kv.getValue();
+                            }
+                        }
                         return null;
                     }
-                    byte[] qualifier = ref.getQualifier();
-                    for (KeyValue kv : kvs) {
-                        if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), family, 0, family.length) == 0 &&
-                            Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), qualifier, 0, qualifier.length) == 0) {
-                            return kv.getValue();
+                    
+                };
+                // TODO: we could only handle a delete if maintainer.getIndexColumns().isEmpty(),
+                // since the Delete marker will have no key values
+                assert(dataMutation instanceof Put);
+                long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
+                ptr.set(dataMutation.getRow());
+                byte[] indexRowKey = maintainer.buildRowKey(valueGetter, ptr);
+                Put put = new Put(indexRowKey);
+                for (ColumnReference ref : maintainer.getCoverededColumns()) {
+                    byte[] value = valueGetter.getValue(ref);
+                    if (value != null) {
+                        KeyValue kv = KeyValueUtil.newKeyValue(put.getRow(), ref.getFamily(), ref.getQualifier(), ts, value);
+                        try {
+                            put.add(kv);
+                        } catch (IOException e) {
+                            throw new SQLException(e); // Impossible
                         }
                     }
-                    return null;
                 }
-                
-            };
-            // TODO: we could only handle a delete if maintainer.getIndexColumns().isEmpty(),
-            // since the Delete marker will have no key values
-            assert(dataMutation instanceof Put);
-            long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
-            ptr.set(dataMutation.getRow());
-            byte[] indexRowKey = maintainer.buildRowKey(valueGetter, ptr);
-            Put put = new Put(indexRowKey);
-            for (ColumnReference ref : maintainer.getCoverededColumns()) {
-                byte[] value = valueGetter.getValue(ref);
-                if (value != null) {
-                    KeyValue kv = KeyValueUtil.newKeyValue(put.getRow(), ref.getFamily(), ref.getQualifier(), ts, value);
-                    try {
-                        put.add(kv);
-                    } catch (IOException e) {
-                        throw new SQLException(e); // Impossible
-                    }
-                }
+                put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
+                put.setWriteToWAL(false);
+               
+                indexMutations.add(put);
             }
-            put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
-           
-            indexMutations.add(put);
         }
         return indexMutations;
     }
-
 }

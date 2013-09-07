@@ -175,8 +175,9 @@ public class IndexMaintainer implements Writable {
     private final RowKeySchema dataRowKeySchema;
     
     private int estimatedIndexRowKeyBytes;
-    protected int[][] dataRowKeyLocator;
-    protected int[] dataPkPosition;
+    private int[][] dataRowKeyLocator;
+    private int[] dataPkPosition;
+    private int maxTrailingNulls;
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
     
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted) {
@@ -272,9 +273,10 @@ public class IndexMaintainer implements Writable {
                 }
             }
             int length = stream.size();
+            int minLength = length - maxTrailingNulls;
             byte[] indexRowKey = stream.getBuffer();
             // Remove trailing nulls
-            while (length > 0 && indexRowKey[length-1] == QueryConstants.SEPARATOR_BYTE) {
+            while (length > minLength && indexRowKey[length-1] == QueryConstants.SEPARATOR_BYTE) {
                 length--;
             }
             if (nIndexSaltBuckets > 0) {
@@ -394,6 +396,15 @@ public class IndexMaintainer implements Writable {
             this.dataPkPosition[dataPkPosition] = i;
         }
         dataRowKeyLocator = new int[2][nIndexPkColumns];
+        
+        int j = indexedColumnTypes.size()-1;
+        maxTrailingNulls = 0;
+        int index = nIndexPkColumns-1;
+        BitSet pkNotNullableBitSet = this.rowKeyMetaData.getPkNotNullableBitSet();
+        while (index >= 0 && !IndexUtil.getIndexColumnDataType(dataPkPosition[index] == -1 || !pkNotNullableBitSet.get(dataPkPosition[index]), (dataPkPosition[index] == -1 ? indexedColumnTypes.get(j--) : dataRowKeySchema.getField(dataPkPosition[index]).getType())).isFixedWidth()) {
+            index--;
+            maxTrailingNulls++;
+        }
     }
 
     private int getIndexPkColumnCount() {

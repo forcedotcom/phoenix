@@ -27,44 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.PK_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SALT_BUCKETS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_CAT_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.sql.*;
+import java.util.*;
 
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -72,16 +40,9 @@ import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.salesforce.phoenix.compile.ColumnResolver;
-import com.salesforce.phoenix.compile.FromCompiler;
-import com.salesforce.phoenix.compile.MutationPlan;
-import com.salesforce.phoenix.compile.PostDDLCompiler;
-import com.salesforce.phoenix.compile.PostIndexDDLCompiler;
-import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.google.common.collect.*;
+import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
@@ -89,25 +50,9 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.AddColumnStatement;
-import com.salesforce.phoenix.parse.AlterIndexStatement;
-import com.salesforce.phoenix.parse.ColumnDef;
-import com.salesforce.phoenix.parse.ColumnName;
-import com.salesforce.phoenix.parse.CreateIndexStatement;
-import com.salesforce.phoenix.parse.CreateTableStatement;
-import com.salesforce.phoenix.parse.DropColumnStatement;
-import com.salesforce.phoenix.parse.DropIndexStatement;
-import com.salesforce.phoenix.parse.DropTableStatement;
-import com.salesforce.phoenix.parse.ParseNodeFactory;
-import com.salesforce.phoenix.parse.PrimaryKeyConstraint;
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.query.QueryServices;
-import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.util.IndexUtil;
-import com.salesforce.phoenix.util.MetaDataUtil;
-import com.salesforce.phoenix.util.PhoenixRuntime;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.util.*;
 
 public class MetaDataClient {
     private static final Logger logger = LoggerFactory.getLogger(MetaDataClient.class);
@@ -976,7 +921,7 @@ public class MetaDataClient {
                         }
                     }
                 }
-                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType() == PTableType.VIEW, family);
+                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType(), family);
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_ALREADY_EXISTS) {
@@ -1099,7 +1044,7 @@ public class MetaDataClient {
                 if (table.getType() != PTableType.VIEW && !SchemaUtil.isPKColumn(columnToDrop) && table.getColumnFamilies().get(0).getName().equals(columnToDrop.getFamilyName()) && table.getColumnFamilies().get(0).getColumns().size() == 1) {
                     emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies().subList(1, table.getColumnFamilies().size()));
                 }
-                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, emptyCF != null && Bytes.compareTo(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES)==0 ? emptyCF : null);
+                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, table.getType(), emptyCF != null && Bytes.compareTo(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES)==0 ? emptyCF : null);
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_NOT_FOUND) {

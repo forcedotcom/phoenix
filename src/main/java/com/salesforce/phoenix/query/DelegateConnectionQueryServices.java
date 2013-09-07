@@ -119,13 +119,13 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, boolean isView, Pair<byte[],Map<String,Object>> family) throws SQLException {
-        return getDelegate().addColumn(tabeMetaData, isView, family);
+    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException {
+        return getDelegate().addColumn(tabeMetaData, tableType, family);
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, byte[] emptyCF) throws SQLException {
-        return getDelegate().dropColumn(tabeMetaData, emptyCF);
+    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
+        return getDelegate().dropColumn(tabeMetaData, tableType, emptyCF);
     }
 
     @Override

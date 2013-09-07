@@ -101,42 +101,48 @@ public class CSVLoader {
 		String[] nextLine;
 		int rowCount = 0;
 		int upsertBatchSize = conn.getMutateBatchSize();
-		Object upsertValue = null;
-		long start = System.currentTimeMillis();
-
-		// Upsert data based on SqlType of each column
-		while ((nextLine = reader.readNext()) != null) {
-		    if (columns == null) {
-		        stmt = stmtCache[nextLine.length-1];
-		        if (stmt == null) {
-	                String upsertStatement = QueryUtil.constructUpsertStatement(columnInfo, tableName, nextLine.length);
-	                stmt = conn.prepareStatement(upsertStatement);
-	                stmtCache[nextLine.length-1] = stmt;
-		        }
-		    }
-			for (int index = 0; index < columnInfo.length; index++) {
-			    if (columnInfo[index] == null) {
-			        continue;
-			    }
-				upsertValue = convertTypeSpecificValue(nextLine[index], columnInfo[index].getSqlType());
-				if (upsertValue != null) {
-					stmt.setObject(index + 1, upsertValue, columnInfo[index].getSqlType());
-				} else {
-					stmt.setNull(index + 1, columnInfo[index].getSqlType());
-				}
-			}
-			stmt.execute();
-
-			// Commit when batch size is reached
-			if (++rowCount % upsertBatchSize == 0) {
-				conn.commit();
-				System.out.println("Rows upserted: " + rowCount);
-			}
+		boolean wasAutoCommit = conn.getAutoCommit();
+		try {
+    		conn.setAutoCommit(false);
+    		Object upsertValue = null;
+    		long start = System.currentTimeMillis();
+    
+    		// Upsert data based on SqlType of each column
+    		while ((nextLine = reader.readNext()) != null) {
+    		    if (columns == null) {
+    		        stmt = stmtCache[nextLine.length-1];
+    		        if (stmt == null) {
+    	                String upsertStatement = QueryUtil.constructUpsertStatement(columnInfo, tableName, nextLine.length);
+    	                stmt = conn.prepareStatement(upsertStatement);
+    	                stmtCache[nextLine.length-1] = stmt;
+    		        }
+    		    }
+    			for (int index = 0; index < columnInfo.length; index++) {
+    			    if (columnInfo[index] == null) {
+    			        continue;
+    			    }
+    				upsertValue = convertTypeSpecificValue(nextLine[index], columnInfo[index].getSqlType());
+    				if (upsertValue != null) {
+    					stmt.setObject(index + 1, upsertValue, columnInfo[index].getSqlType());
+    				} else {
+    					stmt.setNull(index + 1, columnInfo[index].getSqlType());
+    				}
+    			}
+    			stmt.execute();
+    
+    			// Commit when batch size is reached
+    			if (++rowCount % upsertBatchSize == 0) {
+    				conn.commit();
+    				System.out.println("Rows upserted: " + rowCount);
+    			}
+    		}
+    		conn.commit();
+    		double elapsedDuration = ((System.currentTimeMillis() - start) / 1000.0);
+    		System.out.println("CSV Upsert complete. " + rowCount + " rows upserted");
+    		System.out.println("Time: " + elapsedDuration + " sec(s)\n");
+		} finally {
+		    if (wasAutoCommit) conn.setAutoCommit(true);
 		}
-		conn.commit();
-		double elapsedDuration = ((System.currentTimeMillis() - start) / 1000.0);
-		System.out.println("CSV Upsert complete. " + rowCount + " rows upserted");
-		System.out.println("Time: " + elapsedDuration + " sec(s)\n");
 	}
 	
 	/**

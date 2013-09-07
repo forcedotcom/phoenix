@@ -66,7 +66,7 @@ public class IndexTestUtil {
         indexType.coerceBytes(ptr, dataType, dataModifier, indexModifier);
     }
     
-    public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
+    public static List<Mutation> generateIndexData(PTable index, PTable table, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
         List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
         for (Mutation dataMutation : dataMutations) {
             indexMutations.addAll(generateIndexData(index, table, dataMutation, ptr));
