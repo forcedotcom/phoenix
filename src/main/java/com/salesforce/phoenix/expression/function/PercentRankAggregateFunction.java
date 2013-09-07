@@ -64,7 +64,7 @@ public class PercentRankAggregateFunction extends SingleAggregateFunction {
 
     @Override
     public Aggregator newClientAggregator() {
-        return new PercentRankClientAggregator(children);
+        return new PercentRankClientAggregator(children, getAggregatorExpression().getColumnModifier());
     }
 
     @Override

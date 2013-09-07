@@ -30,6 +30,7 @@ package com.salesforce.phoenix.expression.aggregator;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.ColumnModifier;
 
 /**
  * Client side Aggregator for STDDEV_SAMP aggregations for DECIMAL data type.
@@ -39,8 +40,8 @@ import com.salesforce.phoenix.expression.Expression;
  */
 public class DecimalStddevSampAggregator extends BaseDecimalStddevAggregator {
 
-    public DecimalStddevSampAggregator(List<Expression> exps) {
-        super(exps);
+    public DecimalStddevSampAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+        super(exps, columnModifier);
     }
 
     @Override

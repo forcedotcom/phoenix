@@ -66,7 +66,7 @@ public class PercentileDiscAggregateFunction extends SingleAggregateFunction {
 	
 	@Override
 	public Aggregator newClientAggregator() {
-		return new PercentileDiscClientAggregator(children);
+		return new PercentileDiscClientAggregator(children, getAggregatorExpression().getColumnModifier());
 	}
 
 	@Override

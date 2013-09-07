@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
@@ -48,7 +49,8 @@ public abstract class BaseStddevAggregator extends DistinctValueWithCountClientA
     protected Expression stdDevColExp;
     private BigDecimal cachedResult = null;
 
-    public BaseStddevAggregator(List<Expression> exps) {
+    public BaseStddevAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+        super(columnModifier);
         this.stdDevColExp = exps.get(0);
     }
 

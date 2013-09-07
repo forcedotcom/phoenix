@@ -65,7 +65,7 @@ public class PercentileContAggregateFunction extends SingleAggregateFunction {
 
     @Override
     public Aggregator newClientAggregator() {
-        return new PercentileClientAggregator(children);
+        return new PercentileClientAggregator(children, getAggregatorExpression().getColumnModifier());
     }
 
     @Override

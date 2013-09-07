@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.aggregator;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -39,7 +40,11 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @since 1.2.1
  */
 public class DistinctCountClientAggregator extends DistinctValueWithCountClientAggregator {
-    
+
+    public DistinctCountClientAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
+    }
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (buffer == null) {
