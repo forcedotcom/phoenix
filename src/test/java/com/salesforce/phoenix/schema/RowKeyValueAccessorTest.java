@@ -52,7 +52,7 @@ public class RowKeyValueAccessorTest  extends BaseConnectionlessQueryTest  {
         List<PColumn> pkColumns = table.getPKColumns();
         RowKeyValueAccessor accessor = new RowKeyValueAccessor(pkColumns, 3);
         int offset = accessor.getOffset(keyValue.getBuffer(), keyValue.getRowOffset());
-        int length = accessor.getLength(keyValue.getBuffer(), offset, keyValue.getRowLength());
+        int length = accessor.getLength(keyValue.getBuffer(), offset, keyValue.getOffset()+keyValue.getLength());
         ImmutableBytesWritable ptr = new ImmutableBytesWritable(keyValue.getBuffer(), offset, length);
         
         PDataType dataType = pkColumns.get(index).getDataType();
@@ -65,18 +65,5 @@ public class RowKeyValueAccessorTest  extends BaseConnectionlessQueryTest  {
     @Test
     public void testFixedLengthValueAtEnd() throws Exception {
         assertExpectedRowKeyValue("n VARCHAR NOT NULL, s CHAR(1) NOT NULL, y SMALLINT NOT NULL, o BIGINT NOT NULL", "n,s,y DESC,o DESC", new Object[] {"Abbey","F",2012,253}, 3);
-    }
-    
-    @Test
-    public void testReproOfIndexDataTableDescrepancy() {
-        byte[] rowKey = new byte[] {0, 0, 0, 32, 0, 0, 0, 0, 0, 16, 65, 98, 98, 101, 121, 0, 70, 120, 68, 127, -1, -1, -1, -1, -1, -1, 2, 95, 48, 95, 48, 0, 0, 1, 64, -16, 72, 109, -38, 4};
-        RowKeyValueAccessor accessor = new RowKeyValueAccessor(new int[] {-1, 3},true, false);
-        
-        int maxOffset = 27;
-        int offset = accessor.getOffset(rowKey, 10);
-        assertEquals(19,offset);
-        int length = accessor.getLength(rowKey, offset, maxOffset);
-        assertEquals(8,length);
-         
     }
 }
