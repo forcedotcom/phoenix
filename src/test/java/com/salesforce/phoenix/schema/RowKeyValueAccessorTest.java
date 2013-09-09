@@ -31,9 +31,9 @@ public class RowKeyValueAccessorTest  extends BaseConnectionlessQueryTest  {
         String schemaName = "";
         String tableName = "T";
         Connection conn = DriverManager.getConnection(getUrl());
-        String fullTableName = SchemaUtil.getTableDisplayName(schemaName, tableName) ;
+        String fullTableName = SchemaUtil.getTableName(schemaName, tableName) ;
         conn.createStatement().execute("CREATE TABLE " + fullTableName + "(" + dataColumns + " CONSTRAINT pk PRIMARY KEY (" + pk + "))  " + (dataProps.isEmpty() ? "" : dataProps) );
-        PTable table = conn.unwrap(PhoenixConnection.class).getPMetaData().getSchema(SchemaUtil.normalizeIdentifier(schemaName)).getTable(SchemaUtil.normalizeIdentifier(tableName));
+        PTable table = conn.unwrap(PhoenixConnection.class).getPMetaData().getTable(SchemaUtil.getTableName(SchemaUtil.normalizeIdentifier(schemaName),SchemaUtil.normalizeIdentifier(tableName)));
         conn.close();
         StringBuilder buf = new StringBuilder("UPSERT INTO " + fullTableName  + " VALUES(");
         for (int i = 0; i < values.length; i++) {

@@ -35,7 +35,6 @@ import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -110,8 +109,6 @@ import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PMetaDataImpl;
-import com.salesforce.phoenix.schema.PSchema;
-import com.salesforce.phoenix.schema.PSchemaImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
@@ -197,7 +194,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 @Override
                 public NavigableMap<HRegionInfo, ServerName> load(TableRef key) throws Exception {
                     logger.info("LOAD: {}", key);
-                    return MetaScanner.allTableRegions(config, key.getTableName(), false);
+                    return MetaScanner.allTableRegions(config, key.getTable().getName().getBytes(), false);
                 }
             });
     }
@@ -293,19 +290,18 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+    public PMetaData addTable(PTable table) throws SQLException {
         try {
             // If existing table isn't older than new table, don't replace
             // If a client opens a connection at an earlier timestamp, this can happen
-            PTable existingTable = latestMetaData.getSchema(schemaName).getTable(table.getName().getString());
+            PTable existingTable = latestMetaData.getTable(table.getName().getString());
             if (existingTable.getTimeStamp() >= table.getTimeStamp()) {
                 return latestMetaData;
             }
         } catch (TableNotFoundException e) {
-        } catch (SchemaNotFoundException e) {
         }
         synchronized(latestMetaDataLock) {
-            latestMetaData = latestMetaData.addTable(schemaName, table);
+            latestMetaData = latestMetaData.addTable(table);
             latestMetaDataLock.notifyAll();
             return latestMetaData;
         }
@@ -318,7 +314,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     /**
      * Ensures that metaData mutations are handled in the correct order
      */
-    private PMetaData metaDataMutated(String schemaName, String tableName, long tableSeqNum, Mutator mutator) throws SQLException {
+    private PMetaData metaDataMutated(String tableName, long tableSeqNum, Mutator mutator) throws SQLException {
         synchronized(latestMetaDataLock) {
             PMetaData metaData = latestMetaData;
             PTable table;
@@ -326,7 +322,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             while (true) {
                 try {
                     try {
-                        table = metaData.getSchema(schemaName).getTable(tableName);
+                        table = metaData.getTable(tableName);
                         /* If the table is at the prior sequence number, then we're good to go.
                          * We know if we've got this far, that the server validated the mutations,
                          * so we'd just need to wait until the other connection that mutated the same
@@ -337,7 +333,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                             metaData = mutator.mutate(metaData);
                             break;
                         } else if (table.getSequenceNumber() >= tableSeqNum) {
-                            logger.warn("Attempt to cache older version of " + schemaName + "." + tableName + ": current= " + table.getSequenceNumber() + ", new=" + tableSeqNum);
+                            logger.warn("Attempt to cache older version of " + tableName + ": current= " + table.getSequenceNumber() + ", new=" + tableSeqNum);
                             break;
                         }
                     } catch (SchemaNotFoundException e) {
@@ -347,8 +343,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     // We waited long enough - just remove the table from the cache
                     // and the next time it's used it'll be pulled over from the server.
                     if (waitTime <= 0) {
-                        logger.warn("Unable to update meta data repo within " + (DEFAULT_OUT_OF_ORDER_MUTATIONS_WAIT_TIME_MS/1000) + " seconds for " + schemaName + "." + tableName);
-                        metaData = metaData.removeTable(schemaName, tableName);
+                        logger.warn("Unable to update meta data repo within " + (DEFAULT_OUT_OF_ORDER_MUTATIONS_WAIT_TIME_MS/1000) + " seconds for " + tableName);
+                        metaData = metaData.removeTable(tableName);
                         break;
                     }
                     latestMetaDataLock.wait(waitTime);
@@ -364,12 +360,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      }
 
     @Override
-    public PMetaData addColumn(final String schemaName, final String tableName, final List<PColumn> columns, final long tableTimeStamp, final long tableSeqNum, final boolean isImmutableRows) throws SQLException {
-        return metaDataMutated(schemaName, tableName, tableSeqNum, new Mutator() {
+    public PMetaData addColumn(final String tableName, final List<PColumn> columns, final long tableTimeStamp, final long tableSeqNum, final boolean isImmutableRows) throws SQLException {
+        return metaDataMutated(tableName, tableSeqNum, new Mutator() {
             @Override
             public PMetaData mutate(PMetaData metaData) throws SQLException {
                 try {
-                    return metaData.addColumn(schemaName, tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
+                    return metaData.addColumn(tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
                 } catch (TableNotFoundException e) {
                     // The DROP TABLE may have been processed first, so just ignore.
                     return metaData;
@@ -379,21 +375,21 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      }
 
     @Override
-    public PMetaData removeTable(final String schemaName, final String tableName) throws SQLException {
+    public PMetaData removeTable(final String tableName) throws SQLException {
         synchronized(latestMetaDataLock) {
-            latestMetaData = latestMetaData.removeTable(schemaName, tableName);
+            latestMetaData = latestMetaData.removeTable(tableName);
             latestMetaDataLock.notifyAll();
             return latestMetaData;
         }
     }
 
     @Override
-    public PMetaData removeColumn(final String schemaName, final String tableName, final String familyName, final String columnName, final long tableTimeStamp, final long tableSeqNum) throws SQLException {
-        return metaDataMutated(schemaName, tableName, tableSeqNum, new Mutator() {
+    public PMetaData removeColumn(final String tableName, final String familyName, final String columnName, final long tableTimeStamp, final long tableSeqNum) throws SQLException {
+        return metaDataMutated(tableName, tableSeqNum, new Mutator() {
             @Override
             public PMetaData mutate(PMetaData metaData) throws SQLException {
                 try {
-                    return metaData.removeColumn(schemaName, tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
+                    return metaData.removeColumn(tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
                 } catch (TableNotFoundException e) {
                     // The DROP TABLE may have been processed first, so just ignore.
                     return metaData;
@@ -403,11 +399,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     private static boolean hasNewerTables(long scn, PMetaData metaData) {
-        for (PSchema schema : metaData.getSchemas().values()) {
-            for (PTable table : schema.getTables().values()) {
-                if (table.getTimeStamp() >= scn) {
-                    return true;
-                }
+        for (PTable table : metaData.getTables().values()) {
+            if (table.getTimeStamp() >= scn) {
+                return true;
             }
         }
         return false;
@@ -417,27 +411,19 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         if (!hasNewerTables(scn, metaData)) {
             return metaData;
         }
-        Map<String,PSchema> newSchemas = new HashMap<String,PSchema>(metaData.getSchemas());
-        for (Map.Entry<String, PSchema> schemaEntry : metaData.getSchemas().entrySet()) {
-            Map<String,PTable> newTables = new HashMap<String,PTable>(schemaEntry.getValue().getTables());
-            Iterator<Map.Entry<String, PTable>> iterator = newTables.entrySet().iterator();
-            boolean wasModified = false;
-            while (iterator.hasNext()) {
-                if (iterator.next().getValue().getTimeStamp() >= scn) {
-                    iterator.remove();
-                    wasModified = true;
-                }
-            }
-            if (wasModified) {
-                if (newTables.isEmpty()) {
-                    newSchemas.remove(schemaEntry.getKey());
-                } else {
-                    PSchema newSchema = new PSchemaImpl(schemaEntry.getKey(),newTables);
-                    newSchemas.put(schemaEntry.getKey(), newSchema);
-                }
+        Map<String,PTable> newTables = Maps.newHashMap(metaData.getTables());
+        Iterator<Map.Entry<String, PTable>> iterator = newTables.entrySet().iterator();
+        boolean wasModified = false;
+        while (iterator.hasNext()) {
+            if (iterator.next().getValue().getTimeStamp() >= scn) {
+                iterator.remove();
+                wasModified = true;
             }
         }
-        return new PMetaDataImpl(newSchemas);
+        if (wasModified) {
+            return new PMetaDataImpl(newTables);
+        }
+        return metaData;
     }
     
     @Override
@@ -620,7 +606,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
                 tableExist = false;
                 if (tableType == PTableType.VIEW) {
-                    throw new ReadOnlyTableException("An HBase table for a VIEW must already exist(" + SchemaUtil.getTableDisplayName(tableName) + ")");
+                    throw new ReadOnlyTableException("An HBase table for a VIEW must already exist(" + Bytes.toString(tableName) + ")");
                 }
             }
 
@@ -746,7 +732,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             getVarChars(rowKey, rowKeyMetaData);
             byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
             byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-            byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
+            byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
             if (!SchemaUtil.isMetaTable(tableName)) {
                 try {
                     HTableDescriptor existingDesc = admin.getTableDescriptor(tableName);
@@ -881,7 +867,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         SchemaUtil.getVarChars(key, rowKeyMetadata);
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
+        byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         ensureTableCreated(tableName, tableType, tableProps, families, splits);
 
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
@@ -930,7 +916,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
-        byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
+        byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         if (family != null) {
             ensureFamilyCreated(tableName, tableType, family);
         }
@@ -950,7 +936,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
+        byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
         if (emptyCF != null) {
             this.ensureFamilyCreated(tableName, tableType, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));

@@ -53,6 +53,8 @@ public interface PTable extends Writable {
      * @return table name
      */
     PName getName();
+    PName getSchemaName(); 
+    PName getTableName(); 
 
     /**
      * @return the table type
@@ -177,9 +179,10 @@ public interface PTable extends Writable {
      * For a table of index type, return the name of the data table.
      * @return the name of the data table that this index is on.
      */
-    PName getDataTableName();
+    PName getParentTableName();
+    PName getParentName();
     boolean isImmutableRows();
     
     void getIndexMaintainers(ImmutableBytesWritable ptr);
-    IndexMaintainer getIndexMaintainer(PTable dataTable); 
+    IndexMaintainer getIndexMaintainer(PTable dataTable);
 }

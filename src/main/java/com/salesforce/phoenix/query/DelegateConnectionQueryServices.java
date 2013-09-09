@@ -74,26 +74,26 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
-        return getDelegate().addTable(schemaName, table);
+    public PMetaData addTable(PTable table) throws SQLException {
+        return getDelegate().addTable(table);
     }
 
     @Override
-    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> columns, long tableTimeStamp,
-            long tableSeqNum, boolean isImmutableRows) throws SQLException {
-        return getDelegate().addColumn(schemaName, tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
+    public PMetaData addColumn(String tableName, List<PColumn> columns, long tableTimeStamp, long tableSeqNum,
+            boolean isImmutableRows) throws SQLException {
+        return getDelegate().addColumn(tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
     }
 
     @Override
-    public PMetaData removeTable(String schemaName, String tableName)
+    public PMetaData removeTable(String tableName)
             throws SQLException {
-        return getDelegate().removeTable(schemaName, tableName);
+        return getDelegate().removeTable(tableName);
     }
 
     @Override
-    public PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName,
-            long tableTimeStamp, long tableSeqNum) throws SQLException {
-        return getDelegate().removeColumn(schemaName, tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
+    public PMetaData removeColumn(String tableName, String familyName, String columnName, long tableTimeStamp,
+            long tableSeqNum) throws SQLException {
+        return getDelegate().removeColumn(tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
     }
 
     @Override

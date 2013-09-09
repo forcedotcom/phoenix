@@ -18,6 +18,7 @@ import java.util.Properties;
 
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -35,8 +36,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class IndexTest extends BaseHBaseManagedTimeTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
-    private static final byte[] DATA_TABLE_FULL_NAME = SchemaUtil.getTableName(null, "T");
-    private static final byte[] INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(null, "I");
+    private static final byte[] DATA_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "T"));
+    private static final byte[] INDEX_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "I"));
     
     @BeforeClass
     public static void doSetup() throws Exception {

@@ -81,6 +81,8 @@ public class PTableImpl implements PTable {
     private static final Integer NO_SALTING = -1;
     
     private PName name;
+    private PName schemaName;
+    private PName tableName;
     private PTableType type;
     private PIndexState state;
     private long sequenceNumber;
@@ -100,7 +102,8 @@ public class PTableImpl implements PTable {
     // Indexes associated with this table.
     private List<PTable> indexes;
     // Data table name that the index is created on.
-    private PName dataTableName;
+    private PName parentName;
+    private PName parentTableName;
     private boolean isImmutableRows;
     private IndexMaintainer indexMaintainer;
     private ImmutableBytesWritable indexMaintainersPtr;
@@ -139,48 +142,50 @@ public class PTableImpl implements PTable {
     
     public static PTableImpl makePTable(PTable table, long timeStamp, List<PTable> indexes) throws SQLException {
         return new PTableImpl(
-                table.getName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
-                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getDataTableName(), indexes, table.isImmutableRows());
+                table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
+                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getParentTableName(), indexes, table.isImmutableRows());
     }
 
     public static PTableImpl makePTable(PTable table, List<PColumn> columns) throws SQLException {
         return new PTableImpl(
-                table.getName(), table.getType(), table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), 
-                table.getPKName(), table.getBucketNum(), columns, table.getDataTableName(), table.getIndexes(), table.isImmutableRows());
+                table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), 
+                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows());
     }
 
     public static PTableImpl makePTable(PTable table, long timeStamp, long sequenceNumber, List<PColumn> columns) throws SQLException {
         return new PTableImpl(
-                table.getName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
-                table.getPKName(), table.getBucketNum(), columns, table.getDataTableName(), table.getIndexes(), table.isImmutableRows());
+                table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
+                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows());
     }
 
     public static PTableImpl makePTable(PTable table, long timeStamp, long sequenceNumber, List<PColumn> columns, boolean isImmutableRows) throws SQLException {
         return new PTableImpl(
-                table.getName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
-                table.getPKName(), table.getBucketNum(), columns, table.getDataTableName(), table.getIndexes(), isImmutableRows);
+                table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
+                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), isImmutableRows);
     }
 
     public static PTableImpl makePTable(PTable table, PIndexState state) throws SQLException {
         return new PTableImpl(
-                table.getName(), table.getType(), state, table.getTimeStamp(), table.getSequenceNumber(), 
-                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getDataTableName(), table.getIndexes(), table.isImmutableRows());
+                table.getSchemaName(), table.getTableName(), table.getType(), state, table.getTimeStamp(), table.getSequenceNumber(), 
+                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getParentTableName(), table.getIndexes(), table.isImmutableRows());
     }
 
-    public static PTableImpl makePTable(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
+    public static PTableImpl makePTable(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
             Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes, boolean isImmutableRows) throws SQLException {
-        return new PTableImpl(name, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, dataTableName, indexes, isImmutableRows);
+        return new PTableImpl(schemaName, tableName, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, dataTableName, indexes, isImmutableRows);
     }
 
-    private PTableImpl(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
+    private PTableImpl(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
             Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes, boolean isImmutableRows) throws SQLException {
-        init(name, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
+        init(schemaName, tableName, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
                 dataTableName, indexes, isImmutableRows);
     }
 
-    private void init(PName name, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
-            Integer bucketNum, List<PColumn> columns, PTableStats stats, PName dataTableName, List<PTable> indexes, boolean isImmutableRows) throws SQLException {
-        this.name = name;
+    private void init(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
+            Integer bucketNum, List<PColumn> columns, PTableStats stats, PName parentTableName, List<PTable> indexes, boolean isImmutableRows) throws SQLException {
+        this.schemaName = schemaName;
+        this.tableName = tableName;
+        this.name = PNameFactory.newName(SchemaUtil.getTableName(schemaName.getString(), tableName.getString()));
         this.type = type;
         this.state = state;
         this.timeStamp = timeStamp;
@@ -263,7 +268,8 @@ public class PTableImpl implements PTable {
         this.familyByString = familyByString.build();
         this.stats = stats;
         this.indexes = indexes;
-        this.dataTableName = dataTableName;
+        this.parentTableName = parentTableName;
+        this.parentName = parentTableName == null ? null : PNameFactory.newName(SchemaUtil.getTableName(schemaName.getString(), parentTableName.getString()));
     }
 
     @Override
@@ -284,6 +290,16 @@ public class PTableImpl implements PTable {
     @Override
     public final PName getName() {
         return name;
+    }
+
+    @Override
+    public final PName getSchemaName() {
+        return schemaName;
+    }
+
+    @Override
+    public final PName getTableName() {
+        return tableName;
     }
 
     @Override
@@ -567,8 +583,10 @@ public class PTableImpl implements PTable {
 
     @Override
     public void readFields(DataInput input) throws IOException {
+        byte[] schemaNameBytes = Bytes.readByteArray(input);
         byte[] tableNameBytes = Bytes.readByteArray(input);
-        PName tableName = new PNameImpl(tableNameBytes);
+        PName schemaName = PNameFactory.newName(schemaNameBytes);
+        PName tableName = PNameFactory.newName(tableNameBytes);
         PTableType tableType = PTableType.values()[WritableUtils.readVInt(input)];
         PIndexState indexState = null;
         if (tableType == PTableType.INDEX) {
@@ -580,7 +598,7 @@ public class PTableImpl implements PTable {
         long sequenceNumber = WritableUtils.readVLong(input);
         long timeStamp = input.readLong();
         byte[] pkNameBytes = Bytes.readByteArray(input);
-        PName pkName = pkNameBytes.length == 0 ? null : new PNameImpl(pkNameBytes);
+        PName pkName = pkNameBytes.length == 0 ? null : PNameFactory.newName(pkNameBytes);
         Integer bucketNum = WritableUtils.readVInt(input);
         int nColumns = WritableUtils.readVInt(input);
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(nColumns);
@@ -609,10 +627,10 @@ public class PTableImpl implements PTable {
             guidePosts.put(key, value);
         }
         byte[] dataTableNameBytes = Bytes.readByteArray(input);
-        PName dataTableName = dataTableNameBytes.length == 0 ? null : new PNameImpl(dataTableNameBytes);
+        PName dataTableName = dataTableNameBytes.length == 0 ? null : PNameFactory.newName(dataTableNameBytes);
         PTableStats stats = new PTableStatsImpl(guidePosts);
         try {
-            init(tableName, tableType, indexState, timeStamp, sequenceNumber, pkName,
+            init(schemaName, tableName, tableType, indexState, timeStamp, sequenceNumber, pkName,
                     bucketNum.equals(NO_SALTING) ? null : bucketNum, columns, stats, dataTableName, indexes, isImmutableRows);
         } catch (SQLException e) {
             throw new RuntimeException(e); // Impossible
@@ -621,7 +639,8 @@ public class PTableImpl implements PTable {
 
     @Override
     public void write(DataOutput output) throws IOException {
-        Bytes.writeByteArray(output, name.getBytes());
+        Bytes.writeByteArray(output, schemaName.getBytes());
+        Bytes.writeByteArray(output, tableName.getBytes());
         WritableUtils.writeVInt(output, type.ordinal());
         if (type == PTableType.INDEX) {
             WritableUtils.writeVInt(output, state == null ? -1 : state.ordinal());
@@ -648,7 +667,7 @@ public class PTableImpl implements PTable {
         }
         output.writeBoolean(isImmutableRows);
         stats.write(output);
-        Bytes.writeByteArray(output, dataTableName == null ? ByteUtil.EMPTY_BYTE_ARRAY : dataTableName.getBytes());
+        Bytes.writeByteArray(output, parentTableName == null ? ByteUtil.EMPTY_BYTE_ARRAY : parentTableName.getBytes());
     }
 
     @Override
@@ -696,8 +715,13 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public PName getDataTableName() {
-        return dataTableName;
+    public PName getParentTableName() {
+        return parentTableName;
+    }
+
+    @Override
+    public PName getParentName() {
+        return parentName;
     }
 
     @Override

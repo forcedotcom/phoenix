@@ -35,8 +35,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class MutableIndexTest extends BaseHBaseManagedTimeTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
-    private static final byte[] DATA_TABLE_FULL_NAME = SchemaUtil.getTableName(null, "T");
-    private static final byte[] INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(null, "I");
+    private static final byte[] DATA_TABLE_FULL_NAME = SchemaUtil.getTableNameAsBytes(null, "T");
+    private static final byte[] INDEX_TABLE_FULL_NAME = SchemaUtil.getTableNameAsBytes(null, "I");
     
     @BeforeClass
     public static void doSetup() throws Exception {

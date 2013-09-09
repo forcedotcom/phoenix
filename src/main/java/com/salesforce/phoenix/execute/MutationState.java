@@ -60,7 +60,6 @@ import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
-import com.salesforce.phoenix.util.SchemaUtil;
 import com.salesforce.phoenix.util.ServerUtil;
 
 /**
@@ -195,17 +194,16 @@ public class MutationState implements SQLCloseable {
             public Pair<byte[], List<Mutation>> next() {
                 if (isFirst) {
                     isFirst = false;
-                    return new Pair<byte[],List<Mutation>>(tableRef.getTableName(),mutations);
+                    return new Pair<byte[],List<Mutation>>(tableRef.getTable().getName().getBytes(),mutations);
                 }
                 PTable index = indexes.next();
-                byte[] fullTableName = SchemaUtil.getTableName(tableRef.getSchemaName(), index.getName().getBytes());
                 List<Mutation> indexMutations;
                 try {
                     indexMutations = IndexUtil.generateIndexData(tableRef.getTable(), index, mutations, tempPtr);
                 } catch (SQLException e) {
                     throw new IllegalDataException(e);
                 }
-                return new Pair<byte[],List<Mutation>>(fullTableName,indexMutations);
+                return new Pair<byte[],List<Mutation>>(index.getName().getBytes(),indexMutations);
             }
 
             @Override
@@ -273,7 +271,7 @@ public class MutationState implements SQLCloseable {
             long serverTimeStamp = tableRef.getTimeStamp();
             PTable table = tableRef.getTable();
             if (!connection.getAutoCommit()) {
-                serverTimeStamp = client.updateCache(tableRef.getSchema().getName(), tableRef.getTable().getName().getString());
+                serverTimeStamp = client.updateCache(table.getSchemaName().getString(), table.getTableName().getString());
                 if (serverTimeStamp < 0) {
                     serverTimeStamp *= -1;
                     // TODO: use bitset?
@@ -286,7 +284,7 @@ public class MutationState implements SQLCloseable {
                             }
                         }
                     }
-                    table = connection.getPMetaData().getSchema(tableRef.getSchema().getName()).getTable(tableRef.getTable().getName().getString());
+                    table = connection.getPMetaData().getTable(tableRef.getTable().getName().getString());
                     for (PColumn column : columns) {
                         if (column != null) {
                             table.getColumnFamily(column.getFamilyName().getString()).getColumn(column.getName().getString());

@@ -34,7 +34,6 @@ import com.salesforce.phoenix.compile.ExplainPlan;
 import com.salesforce.phoenix.compile.RowProjector;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.schema.TableRef;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 
 public class DegenerateScanner implements Scanner {
@@ -42,7 +41,7 @@ public class DegenerateScanner implements Scanner {
     private final RowProjector projector;
     
     public DegenerateScanner(TableRef table, RowProjector projector) {
-        explainPlan = new ExplainPlan(Collections.singletonList("DEGENERATE SCAN OVER " + SchemaUtil.getTableDisplayName(table.getSchema().getName(), table.getTable().getName().getString())));
+        explainPlan = new ExplainPlan(Collections.singletonList("DEGENERATE SCAN OVER " + table.getTable().getName().getString()));
         this.projector = projector;
     }
 

@@ -254,19 +254,53 @@ public class SchemaUtil {
         return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName));
     }
 
-    public static String getTableDisplayName(String schemaName, String tableName) {
-        return Bytes.toStringBinary(getTableName(schemaName,tableName));
+    public static String getTableName(String schemaName, String tableName) {
+        return getName(schemaName,tableName);
     }
 
-    public static String getTableDisplayName(byte[] schemaName, byte[] tableName) {
-        return Bytes.toStringBinary(getTableName(schemaName,tableName));
+    private static String getName(String optionalQualifier, String name) {
+        if (optionalQualifier == null || optionalQualifier.isEmpty()) {
+            return name;
+        }
+        return optionalQualifier + QueryConstants.NAME_SEPARATOR + name;
     }
 
-    public static String getTableDisplayName(byte[] tableName) {
-        return Bytes.toStringBinary(tableName);
+    public static String getTableName(byte[] schemaName, byte[] tableName) {
+        return Bytes.toString(getTableNameAsBytes(schemaName,tableName));
     }
 
-    
+    public static String getColumnName(String schemaName, String tableName, String familyName, String columnName) {
+        if ((schemaName == null || schemaName.isEmpty()) && tableName == null || tableName.isEmpty()) {
+            return getName(familyName, columnName);
+        }
+        return getName(getName(schemaName, tableName), getName(familyName, columnName));
+    }
+
+    public static String getColumnName(String familyName, String columnName) {
+        return getName(familyName, columnName);
+    }
+
+    public static byte[] getTableNameAsBytes(String schemaName, String tableName) {
+        if (schemaName == null || schemaName.length() == 0) {
+            return StringUtil.toBytes(tableName);
+        }
+        return getTableNameAsBytes(StringUtil.toBytes(schemaName),StringUtil.toBytes(tableName));
+    }
+
+    public static byte[] getTableNameAsBytes(byte[] schemaName, byte[] tableName) {
+        return getNameAsBytes(schemaName, tableName);
+    }
+
+    private static byte[] getNameAsBytes(byte[] nameOne, byte[] nameTwo) {
+        if (nameOne == null || nameOne.length == 0) {
+            return nameTwo;
+        } else if ((nameTwo == null || nameTwo.length == 0)) {
+            return nameOne;
+        } else {
+            return ByteUtil.concat(nameOne, QueryConstants.NAME_SEPARATOR_BYTES, nameTwo);
+        }
+    }
+
     public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
         int i = offset + length -1;
         // If bytes are inverted, we need to invert the byte we're looking for too
@@ -277,55 +311,6 @@ public class SchemaUtil {
         return i - offset + 1;
     }
     
-    public static String getColumnDisplayName(String schemaName, String tableName, String familyName, String columnName) {
-        return Bytes.toStringBinary(getColumnName(
-                StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 
-                StringUtil.toBytes(familyName), StringUtil.toBytes(columnName)));
-    }
-
-    public static String getColumnDisplayName(String familyName, String columnName) {
-        return getTableDisplayName(familyName, columnName);
-    }
-
-    /**
-     * Get the HTable name for a given schemaName and tableName
-     * @param tableName
-     */
-    public static byte[] getTableName(String tableName) {
-        return getTableName(null, tableName);
-    }
-
-    public static byte[] getTableName(String schemaName, String tableName) {
-        if (schemaName == null || schemaName.length() == 0) {
-            return getTableName(StringUtil.toBytes(tableName));
-        }
-        return getTableName(StringUtil.toBytes(schemaName),StringUtil.toBytes(tableName));
-    }
-
-    public static byte[] getTableName(byte[] tableName) {
-        return getTableName(null, tableName);
-    }
-
-    public static byte[] getTableName(byte[] schemaName, byte[] tableName) {
-        return concatTwoNames(schemaName, tableName);
-    }
-
-    public static byte[] getColumnName(byte[] schemaName, byte[] tableName, byte[] familyName, byte[] columnName) {
-        byte[] tableNamePart = concatTwoNames(schemaName, tableName);
-        byte[] columnNamePart = concatTwoNames(familyName, columnName);
-        return concatTwoNames(tableNamePart, columnNamePart);
-    }
-
-    private static byte[] concatTwoNames(byte[] nameOne, byte[] nameTwo) {
-        if (nameOne == null || nameOne.length == 0) {
-            return nameTwo;
-        } else if ((nameTwo == null || nameTwo.length == 0)) {
-            return nameOne;
-        } else {
-            return ByteUtil.concat(nameOne, QueryConstants.NAME_SEPARATOR_BYTES, nameTwo);
-        }
-    }
-
     public static int getVarCharLength(byte[] buf, int keyOffset, int maxLength) {
         return getVarCharLength(buf, keyOffset, maxLength, 1);
     }
@@ -647,7 +632,7 @@ public class SchemaUtil {
     }
     
     public static void updateSystemTableTo2(PhoenixConnection metaConnection, PTable table) throws SQLException {
-        PTable metaTable = metaConnection.getPMetaData().getSchema(PhoenixDatabaseMetaData.TYPE_SCHEMA).getTable(PhoenixDatabaseMetaData.TYPE_TABLE);
+        PTable metaTable = metaConnection.getPMetaData().getTable(SchemaUtil.getTableName(PhoenixDatabaseMetaData.TYPE_SCHEMA, PhoenixDatabaseMetaData.TYPE_TABLE));
         // Execute alter table statement for each column that was added if not already added
         if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
             // Causes row key of system table to be upgraded

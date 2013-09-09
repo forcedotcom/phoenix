@@ -172,7 +172,7 @@ public class ServerCacheClient {
                         keyRanges.intersect(entry.getKey().getStartKey(), entry.getKey().getEndKey())) {  // Call RPC once per server
                     servers.add(entry.getValue());
                     final byte[] key = entry.getKey().getStartKey();
-                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTableName());
+                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTable().getName().getBytes());
                     closeables.add(htable);
                     futures.add(executor.submit(new JobCallable<Boolean>() {
                         
@@ -242,7 +242,7 @@ public class ServerCacheClient {
     private void removeServerCache(byte[] cacheId, Set<ServerName> servers) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         Throwable lastThrowable = null;
-        HTableInterface iterateOverTable = services.getTable(cacheUsingTableRef.getTableName());
+        HTableInterface iterateOverTable = services.getTable(cacheUsingTableRef.getTable().getName().getBytes());
         NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(cacheUsingTableRef);
         Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers);
         /**

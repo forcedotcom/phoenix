@@ -22,7 +22,6 @@ import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PIndexState;
-import com.salesforce.phoenix.schema.PSchema;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 
@@ -115,7 +114,7 @@ public class QueryOptimizer {
     
     private static int getIndexPosition(List<PTable> indexes, String indexName) {
         for (int i = 0; i < indexes.size(); i++) {
-            if (indexName.equals(indexes.get(i).getName().getString())) {
+            if (indexName.equals(indexes.get(i).getTableName().getString())) {
                 return i;
             }
         }
@@ -128,10 +127,10 @@ public class QueryOptimizer {
         QueryPlan dataPlan = plans.get(0);
         int nColumns = dataPlan.getProjector().getColumnCount();
         String alias = '"' + dataPlan.getTableRef().getTableAlias() + '"'; // double quote in case it's case sensitive
-        PSchema schema = dataPlan.getTableRef().getSchema();
-        String schemaName = schema.getName().length() == 0 ? null :  '"' + schema.getName() + '"';
+        String schemaName = dataPlan.getTableRef().getTable().getSchemaName().getString();
+        schemaName = schemaName.length() == 0 ? null :  '"' + schemaName + '"';
 
-        String tableName = '"' + index.getName().getString() + '"';
+        String tableName = '"' + index.getTableName().getString() + '"';
         List<? extends TableNode> tables = Collections.singletonList(FACTORY.namedTable(alias, FACTORY.table(schemaName, tableName)));
         try {
             SelectStatement indexSelect = FACTORY.select(translatedSelect, tables);
