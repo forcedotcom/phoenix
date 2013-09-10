@@ -137,6 +137,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * The the latest Phoenix table at or before the given clientTimestamp. If the
      * client already has the latest (based on the tableTimestamp), then no table
      * is returned.
+     * @param tenantId
      * @param schemaName
      * @param tableName
      * @param tableTimestamp
@@ -144,7 +145,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * @return MetaDataMutationResult
      * @throws IOException
      */
-    MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimestamp) throws IOException;
+    MetaDataMutationResult getTable(byte[] tenantId, byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimestamp) throws IOException;
 
     /**
      * Create a new Phoenix table

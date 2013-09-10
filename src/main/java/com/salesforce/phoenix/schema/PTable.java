@@ -174,7 +174,7 @@ public interface PTable extends Writable {
     PIndexState getIndexState();
 
     /**
-     * For a table of index type, return the name of the data table.
+     * For a table of index type or a tenant-specific table, return the name of the data table.
      * @return the name of the data table that this index is on.
      */
     PName getDataTableName();

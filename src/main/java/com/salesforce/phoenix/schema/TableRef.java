@@ -44,11 +44,14 @@ public final class TableRef {
         this.alias = alias;
         this.table = table;
         this.schema = schema;
-        this.tableName = SchemaUtil.getTableName(Bytes.toBytes(schema.getName()), table.getName().getBytes());
+        if (table.getTenantId() != null && table.getDataTableName() != null)
+            this.tableName = SchemaUtil.getTableName(Bytes.toBytes(schema.getName()), table.getDataTableName().getBytes());
+        else
+            this.tableName = SchemaUtil.getTableName(Bytes.toBytes(schema.getName()), table.getName().getBytes());
         this.timeStamp = timeStamp;
         this.hasDynamicCols = hasDynamicCols;
     }
-
+    
     public PTable getTable() {
         return table;
     }

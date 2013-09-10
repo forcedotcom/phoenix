@@ -75,9 +75,9 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
         try {
             conn.setAutoCommit(false);
-            int rowsMutated = conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Cheap Sunglasses')");
+            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Cheap Sunglasses')");
+            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 2, 'Viva Las Vegas')");
             conn.commit();
-            assertEquals(1, rowsMutated);
             
             ResultSet rs = conn.createStatement().executeQuery("select tenant_col from TENANT_TABLE where id = 1");
             assertTrue("Expected 1 row in result set", rs.next());

@@ -772,9 +772,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     @Override
-    public MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
+    public MetaDataMutationResult getTable(byte[] tenantId, byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
         try {
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName, ByteUtil.EMPTY_BYTE_ARRAY);
+            byte[] key = SchemaUtil.getTableKey(schemaName, tableName, tenantId);
             
             // get the co-processor environment
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();

@@ -184,7 +184,7 @@ public class MetaDataClient {
         if (tableTimestamp == clientTimeStamp - 1) {
             return clientTimeStamp;
         }
-        MetaDataMutationResult result = connection.getQueryServices().getTable(schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
+        MetaDataMutationResult result = connection.getQueryServices().getTable(connection.getTenantId(), schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
         MutationCode code = result.getMutationCode();
         PTable resultTable = result.getTable();
         // We found an updated table, so update our cache
