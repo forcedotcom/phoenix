@@ -104,8 +104,8 @@ public class TupleUtil {
      * @return the concatenated byte array as ImmutableBytesWritable
      * @throws IOException
      */
-    public static ImmutableBytesWritable getConcatenatedValue(Tuple result, List<Expression> expressions) throws IOException {
-        ImmutableBytesWritable value = new ImmutableBytesWritable(ByteUtil.EMPTY_BYTE_ARRAY);
+    public static ImmutableBytesPtr getConcatenatedValue(Tuple result, List<Expression> expressions) throws IOException {
+        ImmutableBytesPtr value = new ImmutableBytesPtr(ByteUtil.EMPTY_BYTE_ARRAY);
         Expression expression = expressions.get(0);
         boolean evaluated = expression.evaluate(result, value);
         

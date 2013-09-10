@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.query.QueryConstants.*;
-
 import java.sql.*;
 import java.util.*;
 
@@ -47,21 +45,19 @@ import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.*;
 import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class UpsertCompiler {
-    private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
-
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
         Map<PColumn,byte[]> columnValues = Maps.newHashMapWithExpectedSize(columnIndexes.length);
         byte[][] pkValues = new byte[table.getPKColumns().size()][];
@@ -111,7 +107,7 @@ public class UpsertCompiler {
                     // column being projected into then invert the bits.
                     if (column.getColumnModifier() == ColumnModifier.SORT_DESC) {
                         byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
-                        byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                        byteValue = ColumnModifier.SORT_DESC.apply(byteValue, 0, tempByteValue, 0, byteValue.length);
                     }
                     // We are guaranteed that the two column will have compatible types,
                     // as we checked that before.
@@ -142,74 +138,19 @@ public class UpsertCompiler {
         }
     }
 
-    private static class UpsertParallelIteratorFactory implements ParallelIteratorFactory {
-        private final PhoenixStatement statement;
-        private final TableRef tableRef;
+    private static class UpsertingParallelIteratorFactory extends MutatingParallelIteratorFactory {
         private RowProjector projector;
         private int[] columnIndexes;
         private int[] pkSlotIndexes;
 
-        private UpsertParallelIteratorFactory (PhoenixStatement statement, TableRef tableRef) {
-            this.statement = statement;
-            this.tableRef = tableRef;
-            
-            // If aggregate or limit, use SpoolingParallelIteratorFactory
-            // TODO: Have a method on SelectStatement for determining if isAggregate
-            // Need Stack with ParseContext to track per SelectStatement (since they can be nested)
-            // Track any usage of aggregate function (or group by or limit)
-            // Otherwise, I think we can use the optimized parallel iterator factory, since there's
-            // no post processing necessary
+        private UpsertingParallelIteratorFactory (PhoenixConnection connection, TableRef tableRef) {
+            super(connection, tableRef);
         }
+
         @Override
-        public PeekingResultIterator newIterator(ResultIterator scanner) throws SQLException {
-            // Clone statement and connection as they're not thread safe
-            // (and these will be operating in parallel)
-            final PhoenixConnection connection = new PhoenixConnection(statement.getConnection());
+        protected MutationState mutate(PhoenixConnection connection, ResultIterator iterator) throws SQLException {
             PhoenixStatement statement = new PhoenixStatement(connection);
-            final MutationState state = upsertSelect(statement, tableRef, projector, scanner, columnIndexes, pkSlotIndexes);
-            long totalRowCount = state.getUpdateCount();
-            if (connection.getAutoCommit()) {
-                connection.getMutationState().join(state);
-                connection.commit();
-            }
-            byte[] value = PDataType.LONG.toBytes(totalRowCount);
-            KeyValue keyValue = KeyValueUtil.newKeyValue(UNGROUPED_AGG_ROW_KEY, SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value, 0, value.length);
-            final Tuple tuple = new SingleKeyValueTuple(keyValue);
-            return new PeekingResultIterator() {
-                private boolean done = false;
-                
-                @Override
-                public Tuple next() throws SQLException {
-                    if (done) {
-                        return null;
-                    }
-                    done = true;
-                    return tuple;
-                }
-
-                @Override
-                public void explain(List<String> planSteps) {
-                }
-
-                @Override
-                public void close() throws SQLException {
-                    try {
-                        // Join the child mutation states in close, since this is called in a single threaded manner
-                        // after the parallel results have been processed.
-                        if (!connection.getAutoCommit()) {
-                            UpsertParallelIteratorFactory.this.statement.getConnection().getMutationState().join(state);
-                        }
-                    } finally {
-                        connection.close();
-                    }
-                }
-
-                @Override
-                public Tuple peek() throws SQLException {
-                    return done ? null : tuple;
-                }
-                
-            };
+            return upsertSelect(statement, tableRef, projector, iterator, columnIndexes, pkSlotIndexes);
         }
         
         public void setRowProjector(RowProjector projector) {
@@ -240,7 +181,7 @@ public class UpsertCompiler {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef + ")");
         }
         Scan scan = new Scan();
-        final StatementContext context = new StatementContext(connection, resolver, binds, upsert.getBindCount(), scan);
+        final StatementContext context = new StatementContext(upsert, connection, resolver, binds, scan);
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
         List<PColumn> allColumns = table.getColumns();
@@ -295,7 +236,7 @@ public class UpsertCompiler {
         RowProjector rowProjectorToBe = null;
         int nValuesToSet;
         boolean runOnServer = false;
-        UpsertParallelIteratorFactory upsertParallelIteratorFactoryToBe = null;
+        UpsertingParallelIteratorFactory upsertParallelIteratorFactoryToBe = null;
         final boolean isAutoCommit = connection.getAutoCommit();
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
@@ -318,7 +259,7 @@ public class UpsertCompiler {
             } else {
                 // We can pipeline the upsert select instead of spooling everything to disk first,
                 // if we don't have any post processing that's required.
-                parallelIteratorFactory = upsertParallelIteratorFactoryToBe = new UpsertParallelIteratorFactory(statement, tableRef);
+                parallelIteratorFactory = upsertParallelIteratorFactoryToBe = new UpsertingParallelIteratorFactory(connection, tableRef);
             }
             // Pass scan through if same table in upsert and select so that projection is computed correctly
             QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns, parallelIteratorFactory);
@@ -331,7 +272,7 @@ public class UpsertCompiler {
             nValuesToSet = valueNodes.size();
         }
         final RowProjector projector = rowProjectorToBe;
-        final UpsertParallelIteratorFactory upsertParallelIteratorFactory = upsertParallelIteratorFactoryToBe;
+        final UpsertingParallelIteratorFactory upsertParallelIteratorFactory = upsertParallelIteratorFactoryToBe;
         final QueryPlan queryPlan = plan;
         // Resize down to allow a subset of columns to be specifiable
         if (columnNodes.isEmpty()) {
@@ -422,15 +363,8 @@ public class UpsertCompiler {
                     // Build table from projectedColumns
                     PTable projectedTable = PTableImpl.makePTable(table, projectedColumns);
                     
-                    // Remove projection of empty column, since it can lead to problems when building another projection
-                    // using this same scan. TODO: move projection code to a later stage, like QueryPlan.newScanner to
-                    // prevent having to do this.
-                    ScanUtil.removeEmptyColumnFamily(context.getScan(), table);
-                    List<AliasedNode> select = Collections.<AliasedNode>singletonList(
-                            NODE_FACTORY.aliasedNode(null, 
-                                    NODE_FACTORY.function(CountAggregateFunction.NORMALIZED_NAME, LiteralParseNode.STAR)));
-                    // Ignore order by - it has no impact
-                    final RowProjector aggProjector = ProjectionCompiler.getRowProjector(context, select, false, GroupBy.EMPTY_GROUP_BY, OrderBy.EMPTY_ORDER_BY);
+                    SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, upsert.getSelect().getHint());
+                    final RowProjector aggProjector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
                     /*
                      * Transfer over PTable representing subset of columns selected, but all PK columns.
                      * Move columns setting PK first in pkSlot order, adding LiteralExpression of null for any missing ones.
@@ -440,7 +374,8 @@ public class UpsertCompiler {
                      */
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
-                    final QueryPlan aggPlan = new AggregatePlan(context, tableRef, projector, null, GroupBy.EMPTY_GROUP_BY, false, null, OrderBy.EMPTY_ORDER_BY);
+                    // Ignore order by - it has no impact
+                    final QueryPlan aggPlan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services), GroupBy.EMPTY_GROUP_BY, null);
                     return new MutationPlan() {
     
                         @Override
@@ -554,7 +489,7 @@ public class UpsertCompiler {
                 // column being projected into then invert the bits.
                 if (literalExpression.getColumnModifier() != column.getColumnModifier()) {
                     byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
-                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, tempByteValue, 0, byteValue.length);
+                    byteValue = ColumnModifier.SORT_DESC.apply(byteValue, 0, tempByteValue, 0, byteValue.length);
                 }
                 if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) { 
                     throw new TypeMismatchException(

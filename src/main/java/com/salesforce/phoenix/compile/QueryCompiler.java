@@ -105,41 +105,32 @@ public class QueryCompiler {
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public QueryPlan compile(SelectStatement statement, List<Object> binds) throws SQLException{
-        /**
-         * TODO: cleanup compiler APIs to pass through SelectStatement instead of multiple parts of it
-         * Don't store isAggregate in StatementContext, try just using SelectStatement.isAggregate(),
-         *     perhaps modifying it to be true if isDistinct.
-         * Probably need intermediate interface like TopNStatement that defines getWhere, getOrderBy, getLimit, isDistinct
-         *     so that DeleteStatement can reuse.
-         * Always use parallelIteratorFactory so that it's more general purpose potentially.
-         * 
-         * Ensure that scanner is closed in UpsertSelectParallelIterator
-         */
+    public QueryPlan compile(SelectStatement statement, List<Object> binds) throws SQLException {
         assert(binds.size() == statement.getBindCount());
         
-        statement = RHSLiteralStatementRewriter.normalize(statement);
+        statement = StatementNormalizer.normalize(statement);
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
         TableRef tableRef = resolver.getTables().get(0);
-        PTable table = tableRef.getTable();
-        StatementContext context = new StatementContext(connection, resolver, binds, statement.getBindCount(), scan, statement.getHint(), statement.isAggregate()||statement.isDistinct());
-        if (table.getType() == PTableType.INDEX && table.getIndexState() != PIndexState.ACTIVE) {
-            return new DegenerateQueryPlan(context, tableRef);
+        StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
+        // Short circuit out if we're compiling an index query and the index isn't active.
+        // We must do this after the ColumnResolver resolves the table, as we may be updating the local
+        // cache of the index table and it may now be inactive.
+        if (tableRef.getTable().getType() == PTableType.INDEX && tableRef.getTable().getIndexState() != PIndexState.ACTIVE) {
+            return new DegenerateQueryPlan(context, statement, tableRef);
         }
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
-        Integer limit = LimitCompiler.getLimit(context, statement.getLimit());
+        Map<String, ParseNode> aliasMap = ProjectionCompiler.buildAliasMap(context, statement);
+        Integer limit = LimitCompiler.compile(context, statement);
 
-        GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
-        boolean isDistinct = statement.getGroupBy().isEmpty() && statement.isDistinct();
+        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasMap);
         // Optimize the HAVING clause by finding any group by expressions that can be moved
         // to the WHERE clause
-        statement = HavingCompiler.moveToWhereClause(context, statement, groupBy);
-        Expression having = HavingCompiler.getExpression(statement, context, groupBy);
+        statement = HavingCompiler.rewrite(context, statement, groupBy);
+        Expression having = HavingCompiler.compile(context, statement, groupBy);
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
-        WhereCompiler.getWhereClause(context, statement.getWhere());
-        OrderBy orderBy = OrderByCompiler.getOrderBy(context, statement.getOrderBy(), groupBy, isDistinct, limit, aliasParseNodeMap); 
-        RowProjector projector = ProjectionCompiler.getRowProjector(context, statement.getSelect(), statement.isDistinct(), groupBy, orderBy, targetColumns);
+        WhereCompiler.compile(context, statement);
+        OrderBy orderBy = OrderByCompiler.compile(context, statement, aliasMap, groupBy, limit); 
+        RowProjector projector = ProjectionCompiler.compile(context, statement, groupBy, targetColumns);
         
         // Final step is to build the query plan
         if (maxRows > 0) {
@@ -149,12 +140,10 @@ public class QueryCompiler {
                 limit = maxRows;
             }
         }
-        if (context.isAggregate()) {
-            // We must add an extra dedup step if there's a group by and a select distinct
-            boolean dedup = !statement.getGroupBy().isEmpty() && statement.isDistinct();
-            return new AggregatePlan(context, tableRef, projector, limit, groupBy, dedup, having, orderBy);
+        if (statement.isAggregate() || statement.isDistinct()) {
+            return new AggregatePlan(context, statement, tableRef, projector, limit, orderBy, parallelIteratorFactory, groupBy, having);
         } else {
-            return new ScanPlan(context, tableRef, projector, limit, orderBy, parallelIteratorFactory);
+            return new ScanPlan(context, statement, tableRef, projector, limit, orderBy, parallelIteratorFactory);
         }
     }
 }

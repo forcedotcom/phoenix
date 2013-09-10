@@ -30,7 +30,7 @@ package com.salesforce.phoenix.parse;
 import java.util.Collections;
 import java.util.List;
 
-public class DeleteStatement extends SingleTableSQLStatement {
+public class DeleteStatement extends SingleTableSQLStatement implements FilterableStatement {
     private final ParseNode whereNode;
     private final List<OrderByNode> orderBy;
     private final LimitNode limit;
@@ -41,23 +41,37 @@ public class DeleteStatement extends SingleTableSQLStatement {
         this.whereNode = whereNode;
         this.orderBy = orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy;
         this.limit = limit;
-        this.hint = hint;
+        this.hint = hint == null ? HintNode.EMPTY_HINT_NODE : hint;
     }
 
+    @Override
     public ParseNode getWhere() {
         return whereNode;
     }
 
+    @Override
     public List<OrderByNode> getOrderBy() {
         return orderBy;
     }
 
+    @Override
     public LimitNode getLimit() {
         return limit;
     }
 
+    @Override
     public HintNode getHint() {
         return hint;
+    }
+
+    @Override
+    public boolean isDistinct() {
+        return false;
+    }
+
+    @Override
+    public boolean isAggregate() {
+        return false;
     }
 
 }

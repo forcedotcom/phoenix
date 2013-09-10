@@ -158,7 +158,7 @@ public class ParseNodeFactory {
         return get(SchemaUtil.normalizeIdentifier(name), children);
     }
 
-    private static BuiltInFunctionInfo get(String normalizedName, List<ParseNode> children) {
+    public static BuiltInFunctionInfo get(String normalizedName, List<ParseNode> children) {
         initBuiltInFunctionMap();
         BuiltInFunctionInfo info = BUILT_IN_FUNCTION_MAP.get(new BuiltInFunctionKey(normalizedName,children.size()));
         if (info == null) {
@@ -170,7 +170,7 @@ public class ParseNodeFactory {
     public ParseNodeFactory() {
     }
 
-    public ExplainStatement explain(SQLStatement statement) {
+    public ExplainStatement explain(BindableStatement statement) {
         return new ExplainStatement(statement);
     }
 
@@ -359,7 +359,6 @@ public class ParseNodeFactory {
         return new HintNode(hint);
     }
 
-
     public InListParseNode inList(List<ParseNode> children, boolean negate) {
         return new InListParseNode(children, negate);
     }
@@ -489,11 +488,11 @@ public class ParseNodeFactory {
     public OuterJoinParseNode outer(ParseNode node) {
         return new OuterJoinParseNode(node);
     }
-
+    
     public SelectStatement select(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where,
             List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount, boolean isAggregate) {
 
-        return new SelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount, isAggregate);
+        return new SelectStatement(from, hint == null ? HintNode.EMPTY_HINT_NODE : hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount, isAggregate);
     }
     
     public UpsertStatement upsert(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {

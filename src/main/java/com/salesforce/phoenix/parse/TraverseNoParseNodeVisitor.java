@@ -70,6 +70,11 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     }
     
     @Override
+    public boolean visitEnter(BetweenParseNode node) throws SQLException {
+        return false;
+    }
+    
+    @Override
     public T visitLeave(LikeParseNode node, List<T> l) throws SQLException {
         return null;
     }
@@ -200,6 +205,11 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
 
     @Override
     public T visitLeave(StringConcatParseNode node, List<T> l) throws SQLException {
+        return null;
+    }
+    
+    @Override
+    public T visitLeave(BetweenParseNode node, List<T> l) throws SQLException {
         return null;
     }
 }

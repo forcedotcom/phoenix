@@ -31,12 +31,7 @@ import static com.salesforce.phoenix.util.TestUtil.*;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Types;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -61,8 +56,7 @@ public class DistinctCountTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(3, rs.getInt(1));
-            assertEquals(3, rs.getLong(1));// It should work with getInt() or getLong()
+            assertEquals(3, rs.getLong(1));
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -85,8 +79,7 @@ public class DistinctCountTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1));
-            assertEquals(1, rs.getLong(1));// It should work with getInt() or getLong()
+            assertEquals(1, rs.getLong(1));
             assertFalse(rs.next());
         } finally {
             conn.close();

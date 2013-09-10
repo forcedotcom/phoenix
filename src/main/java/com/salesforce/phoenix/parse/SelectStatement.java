@@ -31,6 +31,9 @@ import java.util.Collections;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.function.CountAggregateFunction;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 
 /**
  * 
@@ -39,7 +42,35 @@ import com.google.common.collect.Lists;
  * @author jtaylor
  * @since 0.1
  */
-public class SelectStatement implements SQLStatement {
+public class SelectStatement implements FilterableStatement {
+    public static final SelectStatement SELECT_ONE =
+            new SelectStatement(
+                    Collections.<TableNode>emptyList(), null, false, 
+                    Collections.<AliasedNode>singletonList(new AliasedNode(null,new LiteralParseNode(1))),
+                    null, Collections.<ParseNode>emptyList(),
+                    null, Collections.<OrderByNode>emptyList(),
+                    null, 0, false);
+    public static final SelectStatement COUNT_ONE =
+            new SelectStatement(
+                    Collections.<TableNode>emptyList(), null, false,
+                    Collections.<AliasedNode>singletonList(
+                    new AliasedNode(null, 
+                        new AggregateFunctionParseNode(
+                                CountAggregateFunction.NORMALIZED_NAME, 
+                                LiteralParseNode.STAR, 
+                                new BuiltInFunctionInfo(CountAggregateFunction.class, CountAggregateFunction.class.getAnnotation(BuiltInFunction.class))))),
+                    null, Collections.<ParseNode>emptyList(), 
+                    null, Collections.<OrderByNode>emptyList(), 
+                    null, 0, true);
+    public static SelectStatement create(SelectStatement select, HintNode hint) {
+        if (select.getHint() == hint) {
+            return select;
+        }
+        return new SelectStatement(select.getFrom(), hint, select.isDistinct(), 
+                select.getSelect(), select.getWhere(), select.getGroupBy(), select.getHaving(), 
+                select.getOrderBy(), select.getLimit(), select.getBindCount(), select.isAggregate());
+    }
+    
     private final List<TableNode> fromTable;
     private final HintNode hint;
     private final boolean isDistinct;
@@ -88,7 +119,7 @@ public class SelectStatement implements SQLStatement {
     
     protected SelectStatement(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount, boolean isAggregate) {
         this.fromTable = Collections.unmodifiableList(from);
-        this.hint = hint;
+        this.hint = hint == null ? HintNode.EMPTY_HINT_NODE : hint;
         this.isDistinct = isDistinct;
         this.select = Collections.unmodifiableList(select);
         this.where = where;
@@ -100,10 +131,12 @@ public class SelectStatement implements SQLStatement {
         this.isAggregate = isAggregate || !this.groupBy.isEmpty() || this.having != null;
     }
     
+    @Override
     public boolean isDistinct() {
         return isDistinct;
     }
     
+    @Override
     public LimitNode getLimit() {
         return limit;
     }
@@ -117,6 +150,7 @@ public class SelectStatement implements SQLStatement {
         return fromTable;
     }
     
+    @Override
     public HintNode getHint() {
         return hint;
     }
@@ -127,6 +161,7 @@ public class SelectStatement implements SQLStatement {
     /**
      * Gets the where condition, or null if none.
      */
+    @Override
     public ParseNode getWhere() {
         return where;
     }
@@ -145,10 +180,12 @@ public class SelectStatement implements SQLStatement {
     /**
      * Gets the order-by, containing at least 1 element, or null, if none.
      */
+    @Override
     public List<OrderByNode> getOrderBy() {
         return orderBy;
     }
 
+    @Override
     public boolean isAggregate() {
         return isAggregate;
     }

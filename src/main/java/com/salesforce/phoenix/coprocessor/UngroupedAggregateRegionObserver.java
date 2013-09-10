@@ -162,7 +162,8 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
             mutations = Lists.newArrayListWithExpectedSize(1024);
             batchSize = c.getEnvironment().getConfiguration().getInt(MUTATE_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MUTATE_BATCH_SIZE);
         }
-        Aggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
+        Aggregators aggregators = ServerAggregators.deserialize(
+                scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), c.getEnvironment().getConfiguration());
         Aggregator[] rowAggregators = aggregators.getAggregators();
         boolean hasMore;
         boolean hasAny = false;
@@ -202,7 +203,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                     // If ColumnModifier from expression in SELECT doesn't match the
                                     // column being projected into then invert the bits.
                                     if (expression.getColumnModifier() != projectedColumns.get(i).getColumnModifier()) {
-                                        ColumnModifier.SORT_DESC.apply(values[i], values[i], 0, values[i].length);
+                                        ColumnModifier.SORT_DESC.apply(values[i], 0, values[i], 0, values[i].length);
                                     }
                                 }
                             }
@@ -217,7 +218,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                     // If ColumnModifier from expression in SELECT doesn't match the
                                     // column being projected into then invert the bits.
                                     if (expression.getColumnModifier() != column.getColumnModifier()) {
-                                        ColumnModifier.SORT_DESC.apply(bytes, bytes, 0, bytes.length);
+                                        ColumnModifier.SORT_DESC.apply(bytes, 0, bytes, 0, bytes.length);
                                     }
                                     // We are guaranteed that the two column will have the same type.
                                     if (!column.getDataType().isSizeCompatible(column.getDataType(),

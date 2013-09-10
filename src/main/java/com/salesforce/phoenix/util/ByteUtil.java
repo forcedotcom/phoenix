@@ -273,7 +273,7 @@ public class ByteUtil {
         for (ImmutableBytesWritable array : writables) {
             byte[] bytes = array.get();
             if (columnModifier != null) {
-                bytes = columnModifier.apply(bytes, new byte[bytes.length], array.getOffset(), array.getLength());
+                bytes = columnModifier.apply(bytes, array.getOffset(), new byte[array.getLength()], 0, array.getLength());
             }
             System.arraycopy(bytes, array.getOffset(), result, offset, array.getLength());
             offset += array.getLength();

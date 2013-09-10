@@ -37,6 +37,7 @@ import java.util.Properties;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 public class PercentileTest extends BaseClientMangedTimeTest {
@@ -209,6 +210,7 @@ public class PercentileTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
+
     @Test
     public void testPercentRank() throws Exception {
         long ts = nextTimestamp();
@@ -357,6 +359,105 @@ public class PercentileTest extends BaseClientMangedTimeTest {
             rank = rank.setScale(2, RoundingMode.HALF_UP);
             assertEquals(0.11, rank.doubleValue(), 0.0);
             assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPercentileContOnDescPKColumn() throws Exception {
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateINDEX_DATA_TABLETable();
+
+        String query = "SELECT PERCENTILE_CONT(1) WITHIN GROUP (ORDER BY long_pk ASC) FROM " + INDEX_DATA_SCHEMA
+                + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal percentile = rs.getBigDecimal(1);
+            percentile = percentile.setScale(1, RoundingMode.HALF_UP);
+            assertEquals(3.0, percentile.doubleValue(),0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPercentRankOnDescPKColumn() throws Exception {
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateINDEX_DATA_TABLETable();
+
+        String query = "SELECT PERCENT_RANK(2) WITHIN GROUP (ORDER BY long_pk ASC) FROM " + INDEX_DATA_SCHEMA
+                + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            BigDecimal rank = rs.getBigDecimal(1);
+            rank = rank.setScale(2, RoundingMode.HALF_UP);
+            assertEquals(0.67, rank.doubleValue(), 0.0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testPercentileDiscOnDescPKColumn() throws Exception {
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateINDEX_DATA_TABLETable();
+
+        String query = "SELECT PERCENTILE_DISC(0.4) WITHIN GROUP (ORDER BY long_pk DESC) FROM " + INDEX_DATA_SCHEMA
+                + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            long percentile_disc = rs.getLong(1);
+            assertEquals(2, percentile_disc);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    private static void populateINDEX_DATA_TABLETable() throws SQLException {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        try {
+            String upsert = "UPSERT INTO " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                    + " VALUES(?, ?, ?, ?, ?)";
+            PreparedStatement stmt = conn.prepareStatement(upsert);
+            stmt.setString(1, "varchar1");
+            stmt.setString(2, "char1");
+            stmt.setInt(3, 1);
+            stmt.setLong(4, 1L);
+            stmt.setBigDecimal(5, new BigDecimal(1.0));
+            stmt.executeUpdate();
+            
+            stmt.setString(1, "varchar2");
+            stmt.setString(2, "char2");
+            stmt.setInt(3, 2);
+            stmt.setLong(4, 2L);
+            stmt.setBigDecimal(5, new BigDecimal(2.0));
+            stmt.executeUpdate();
+            
+            stmt.setString(1, "varchar3");
+            stmt.setString(2, "char3");
+            stmt.setInt(3, 3);
+            stmt.setLong(4, 3L);
+            stmt.setBigDecimal(5, new BigDecimal(3.0));
+            stmt.executeUpdate();
+            
+            conn.commit();
         } finally {
             conn.close();
         }

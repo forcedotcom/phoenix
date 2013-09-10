@@ -25,9 +25,27 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.expression.aggregator;
 
+import java.util.List;
 
-public interface SQLStatement {
-    public int getBindCount();
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.ColumnModifier;
+
+/**
+ * Client side Aggregator for STDDEV_POP aggregations for DECIMAL data type.
+ * 
+ * @author anoopsjohn
+ * @since 1.2.1
+ */
+public class DecimalStddevPopAggregator extends BaseDecimalStddevAggregator {
+
+    public DecimalStddevPopAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+        super(exps, columnModifier);
+    }
+
+    @Override
+    protected long getDataPointsCount() {
+        return totalCount;
+    }
 }

@@ -65,19 +65,19 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
         Scan scan = new Scan();
-        statement = RHSLiteralStatementRewriter.normalize(statement);
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasParseNodeMap(context, statement.getSelect());
+        statement = StatementNormalizer.normalize(statement);
+        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasMap(context, statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        context = new StatementContext(pconn, resolver, binds, statement.getBindCount(), scan, null, statement.isAggregate()||statement.isDistinct());
+        context = new StatementContext(statement, pconn, resolver, binds, scan);
 
-        GroupBy groupBy = GroupByCompiler.getGroupBy(context, statement, aliasParseNodeMap);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasParseNodeMap);
         // Optimize the HAVING clause by finding any group by expressions that can be moved
         // to the WHERE clause
-        statement = HavingCompiler.moveToWhereClause(context, statement, groupBy);
-        Expression having = HavingCompiler.getExpression(statement, context, groupBy);
-        Expression where = WhereCompiler.getWhereClause(context, statement.getWhere());
-        where = WhereOptimizer.pushKeyExpressionsToScan(context, where);
+        statement = HavingCompiler.rewrite(context, statement, groupBy);
+        Expression having = HavingCompiler.compile(context, statement, groupBy);
+        Expression where = WhereCompiler.compile(context, statement);
+        where = WhereOptimizer.pushKeyExpressionsToScan(context, statement, where);
         return new Expressions(where,having);
     }
     

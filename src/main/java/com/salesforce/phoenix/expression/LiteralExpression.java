@@ -40,6 +40,7 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 
@@ -58,8 +59,8 @@ public class LiteralExpression extends BaseTerminalExpression {
             TYPED_NULL_EXPRESSIONS[i] = new LiteralExpression(PDataType.values()[i]);
         }
     }
-    public static final LiteralExpression FALSE_EXPRESSION = new LiteralExpression(Boolean.FALSE);
-    public static final LiteralExpression TRUE_EXPRESSION = new LiteralExpression(Boolean.TRUE);
+    public static final LiteralExpression FALSE_EXPRESSION = new LiteralExpression(Boolean.FALSE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.FALSE));
+    public static final LiteralExpression TRUE_EXPRESSION = new LiteralExpression(Boolean.TRUE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.TRUE));
 
     private Object value;
     private PDataType type;
@@ -103,7 +104,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
     
     public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException { // remove?
-    	return newConstant(value, type, maxLength, scale, null);
+        return newConstant(value, type, maxLength, scale, null);
     }
 
     // TODO: cache?
@@ -122,6 +123,13 @@ public class LiteralExpression extends BaseTerminalExpression {
         value = type.toObject(value, actualType);
         try {
             byte[] b = type.toBytes(value, columnModifier);
+            if (type == PDataType.VARCHAR || type == PDataType.CHAR) {
+                if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
+                    b = SchemaUtil.padChar(b, maxLength);
+                } else if (value != null) {
+                    maxLength = ((String)value).length();
+                }
+            }
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];
             }
@@ -134,26 +142,12 @@ public class LiteralExpression extends BaseTerminalExpression {
     public LiteralExpression() {
     }
 
-    protected LiteralExpression(Object value) {
-        this.value = value;
-        this.type = PDataType.fromLiteral(value);
-        if (type == null) {
-            this.byteValue = PDataType.NULL_BYTES;
-        } else {
-            this.byteValue = this.type.toBytes(this.value);
-        }
-        this.byteSize = byteValue.length;
-        this.maxLength = type == null? null : type.getMaxLength(value);
-        this.scale = type == null? null : type.getScale(value);
-    }
-
     private LiteralExpression(PDataType type) {
         this(null, type, ByteUtil.EMPTY_BYTE_ARRAY);
     }
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue) {
-        this(value, type, byteValue, type == null? null : type.getMaxLength(value),
-                type == null? null : type.getScale(value), null);
+        this(value, type, byteValue, type == null? null : type.getMaxLength(value), type == null? null : type.getScale(value), null);
     }
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue,

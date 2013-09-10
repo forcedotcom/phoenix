@@ -49,8 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.*;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
@@ -83,6 +82,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     /**
      * keep a cache of HRegionInfo objects
+     * TODO: if/when we delete HBase meta data for tables when we drop them, we'll need to invalidate
+     * this cache properly.
      */
     private final LoadingCache<TableRef, NavigableMap<HRegionInfo, ServerName>> tableRegionCache;
     
@@ -95,7 +96,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      */
     public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
         super(services);
-        this.config = HBaseConfiguration.create();
+        this.config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
         for (Entry<String,String> entry : services.getProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
@@ -146,7 +147,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public HTableInterface getTable(byte[] tableName) throws SQLException {
         try {
-            return HTableFactoryProvider.getHTableFactory().getTable(tableName, connection, getExecutor());
+            return HBaseFactoryProvider.getHTableFactory().getTable(tableName, connection, getExecutor());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -579,7 +580,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
                 return true;
             } else {
-                // TODO: what about local autobuild test environments?
                 if (existingDesc.equals(newDesc)) {
                     // Table is already created. Note that the presplits are ignored in this case
                     if (isMetaTable) {
@@ -588,7 +588,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     return false;
                 }
 
-                boolean removePhoenixJarPath = false;
+                boolean updateTo1_2 = false;
                 if (isMetaTable) {
                     /*
                      *  FIXME: remove this once everyone has been upgraded to v 0.94.4+
@@ -597,8 +597,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                      *  to a change in behavior of HBase.
                      */
                     String value = existingDesc.getValue("coprocessor$1");
-                    removePhoenixJarPath = (value != null && value.startsWith("phoenix.jar"));
-                    if (!removePhoenixJarPath) {
+                    updateTo1_2 = (value != null && value.startsWith("phoenix.jar"));
+                    if (!updateTo1_2) {
                         checkClientServerCompatibility();
                     }
                 }
@@ -613,7 +613,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                  * We've detected that the SYSTEM.TABLE needs to be upgraded, so let's
                  * query and update all tables here.
                  */
-                if (removePhoenixJarPath) {
+                if (updateTo1_2) {
                     upgradeTablesFrom0_94_2to0_94_4(admin);
                     // Do the compatibility check here, now that the jar path has been corrected.
                     // This will work with the new and the old jar, so do the compatibility check now.
@@ -663,7 +663,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         scan.addColumn(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES);
         // Add filter so that we only get the table row and not the column rows
         scan.setFilter(new SingleColumnValueFilter(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.INTEGER.toBytes(0)));
-        HTableInterface table = HTableFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
+        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
         ResultScanner scanner = table.getScanner(scan);
         Result result = null;
         while ((result = scanner.next()) != null) {
@@ -702,8 +702,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     private boolean isCompatible(Long serverVersion) {
-        return serverVersion != null &&
-                MetaDataProtocol.MINIMUM_PHOENIX_SERVER_VERSION <= MetaDataUtil.decodePhoenixVersion(serverVersion.longValue());
+        if (serverVersion == null) {
+            return false;
+        }
+        return MetaDataUtil.areClientAndServerCompatible(serverVersion);
     }
 
     private void checkClientServerCompatibility() throws SQLException {
@@ -712,13 +714,17 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         int minHBaseVersion = Integer.MAX_VALUE;
         try {
             NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(config, TYPE_TABLE_NAME, false);
+            Set<ServerName> serverMap = Sets.newHashSetWithExpectedSize(regionInfoMap.size());
             TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
-            List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionMap.size());
+            List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionInfoMap.size());
             for (Map.Entry<HRegionInfo, ServerName> entry : regionInfoMap.entrySet()) {
-                regionKeys.add(entry.getKey().getStartKey());
-                regionMap.put(entry.getKey().getStartKey(), entry.getValue());
+                if (!serverMap.contains(entry.getValue())) {
+                    regionKeys.add(entry.getKey().getStartKey());
+                    regionMap.put(entry.getKey().getRegionName(), entry.getValue());
+                    serverMap.add(entry.getValue());
+                }
             }
-            final Map<byte[],Long> results = Maps.newHashMapWithExpectedSize(regionMap.size());
+            final TreeMap<byte[],Long> results = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
             connection.processExecs(MetaDataProtocol.class, regionKeys,
                     PhoenixDatabaseMetaData.TYPE_TABLE_NAME, this.getDelegate().getExecutor(), new Batch.Call<MetaDataProtocol,Long>() {
                         @Override
@@ -738,7 +744,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     isIncompatible = true;
                     ServerName name = regionMap.get(result.getKey());
                     buf.append(name);
-                    buf.append(',');
+                    buf.append(';');
                 }
                 if (minHBaseVersion > MetaDataUtil.decodeHBaseVersion(result.getValue())) {
                     minHBaseVersion = MetaDataUtil.decodeHBaseVersion(result.getValue());
@@ -893,7 +899,30 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public void init(String url, Properties props) throws SQLException {
-        SchemaUtil.initMetaData(this, url, props);
+        props = new Properties(props);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP));
+        PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);
+        SQLException sqlE = null;
+        try {
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_METADATA);
+        } catch (TableAlreadyExistsException e) {
+            SchemaUtil.updateSystemTableTo2(metaConnection, e.getTable());
+        } catch (SQLException e) {
+            sqlE = e;
+        } finally {
+            try {
+                metaConnection.close();
+            } catch (SQLException e) {
+                if (sqlE != null) {
+                    sqlE.setNextException(e);
+                } else {
+                    sqlE = e;
+                }
+            }
+            if (sqlE != null) {
+                throw sqlE;
+            }
+        }
     }
 
     @Override

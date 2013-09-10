@@ -143,6 +143,17 @@ public interface QueryServices extends SQLCloseable {
     public static final String THREAD_TIMEOUT_MS_ATTRIB = "phoenix.query.timeoutMs";
     public static final String SPOOL_THRESHOLD_BYTES_ATTRIB = "phoenix.query.spoolThresholdBytes";
     
+    /**
+	 * max size to spool the the result into
+	 * ${java.io.tmpdir}/ResultSpoolerXXX.bin if
+	 * {@link QueryServices#SPOOL_THRESHOLD_BYTES_ATTRIB } is reached.
+	 * <p>
+	 * default is unlimited(-1)
+	 * <p>
+	 * if the threshold is reached, a {@link SpoolTooBigToDiskException } will be thrown 
+	 */
+	public static final String MAX_SPOOL_TO_DISK_BYTES_ATTRIB = "phoenix.query.maxSpoolToDiskBytes";
+    
     public static final String MAX_MEMORY_PERC_ATTRIB = "phoenix.query.maxGlobalMemoryPercentage";
     public static final String MAX_MEMORY_WAIT_MS_ATTRIB = "phoenix.query.maxGlobalMemoryWaitMs";
     public static final String MAX_TENANT_MEMORY_PERC_ATTRIB = "phoenix.query.maxTenantMemoryPercentage";
@@ -158,7 +169,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String MAX_MUTATION_SIZE_ATTRIB = "phoenix.mutate.maxSize";
     public static final String MUTATE_BATCH_SIZE_ATTRIB = "phoenix.mutate.batchSize";
     public static final String REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB = "phoenix.query.regionBoundaryCacheTTL";
-    public static final String MAX_HASH_CACHE_TIME_TO_LIVE_MS = "phoenix.coprocessor.maxHashCacheTimeToLiveMs";
+    public static final String MAX_SERVER_CACHE_TIME_TO_LIVE_MS = "phoenix.coprocessor.maxServerCacheTimeToLiveMs";
     public static final String MAX_INTRA_REGION_PARALLELIZATION_ATTRIB  = "phoenix.query.maxIntraRegionParallelization";
     public static final String ROW_KEY_ORDER_SALTED_TABLE_ATTRIB  = "phoenix.query.rowKeyOrderSaltedTable";
     public static final String USE_INDEXES_ATTRIB  = "phoenix.query.useIndexes";
@@ -173,6 +184,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String ZOOKEEPER_QUARUM_ATTRIB = "hbase.zookeeper.quorum";
     public static final String ZOOKEEPER_PORT_ATTRIB = "hbase.zookeeper.property.clientPort";
     public static final String ZOOKEEPER_ROOT_NODE_ATTRIB = "zookeeper.znode.parent";
+    public static final String DISTINCT_VALUE_COMPRESS_THRESHOLD_ATTRIB = "phoenix.distinct.value.compress.threshold";
 
     
     /**

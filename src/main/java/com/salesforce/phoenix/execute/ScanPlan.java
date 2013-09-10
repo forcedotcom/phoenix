@@ -37,7 +37,7 @@ import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
 import com.salesforce.phoenix.iterate.*;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.*;
 
@@ -52,15 +52,13 @@ import com.salesforce.phoenix.schema.*;
  */
 public class ScanPlan extends BasicQueryPlan {
     private List<KeyRange> splits;
-    private ParallelIteratorFactory parallelIteratorFactory;
     
-    public ScanPlan(StatementContext context, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy, ParallelIteratorFactory parallelIteratorFactory) {
-        super(context, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null);
-        this.parallelIteratorFactory = parallelIteratorFactory;
-        if (!orderBy.getOrderByExpressions().isEmpty() && !context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) { // TopN
+    public ScanPlan(StatementContext context, FilterableStatement statement, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy, ParallelIteratorFactory parallelIteratorFactory) {
+        super(context, statement, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null, parallelIteratorFactory);
+        if (!orderBy.getOrderByExpressions().isEmpty()) { // TopN
             int thresholdBytes = context.getConnection().getQueryServices().getProps().getInt(
                     QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
-            ScanRegionObserver.serializeIntoScan(context.getScan(), thresholdBytes, limit == null ? -1 : limit, orderBy.getOrderByExpressions(), projector.getEstimatedByteSize());
+            ScanRegionObserver.serializeIntoScan(context.getScan(), thresholdBytes, limit == null ? -1 : limit, orderBy.getOrderByExpressions(), projector.getEstimatedRowByteSize());
         }
     }
     
@@ -81,21 +79,10 @@ public class ScanPlan extends BasicQueryPlan {
          * limit is provided, run query serially.
          */
         boolean isOrdered = !orderBy.getOrderByExpressions().isEmpty();
-        ParallelIterators iterators = new ParallelIterators(context, tableRef, GroupBy.EMPTY_GROUP_BY, isOrdered ? null : limit, parallelIteratorFactory);
+        ParallelIterators iterators = new ParallelIterators(context, tableRef, statement, projection, GroupBy.EMPTY_GROUP_BY, isOrdered ? null : limit, parallelIteratorFactory);
         splits = iterators.getSplits();
         if (isOrdered) {
-            // If we expect to have a small amount of data in a single region then do the sort on the client side
-            if (context.hasHint(Hint.NO_INTRA_REGION_PARALLELIZATION)) {
-                int thresholdBytes = services.getProps().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, 
-                        QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
-                scanner = new ConcatResultIterator(iterators);
-                scanner = new OrderedResultIterator(scanner, orderBy.getOrderByExpressions(), thresholdBytes, limit);
-                if (limit != null) {
-                    scanner = new LimitingResultIterator(scanner, limit);
-                }
-            } else { // TopN or OrderBy with no limit
-                scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
-            }
+            scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
         } else {
             if (isSalted && 
                     (services.getProps().getBoolean(

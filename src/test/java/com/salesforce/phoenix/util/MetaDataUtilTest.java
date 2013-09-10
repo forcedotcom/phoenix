@@ -27,8 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import org.junit.Test;
 
@@ -41,5 +40,15 @@ public class MetaDataUtilTest {
         assertTrue(MetaDataUtil.encodeVersion("0.94.6")>MetaDataUtil.encodeVersion("0.94.5-mapR"));
         assertTrue(MetaDataUtil.encodeVersion("0.94.6")>MetaDataUtil.encodeVersion("0.94.5"));
         assertTrue(MetaDataUtil.encodeVersion("0.94.1-mapR")>MetaDataUtil.encodeVersion("0.94"));
+    }
+    
+    @Test
+    public void testCompatibility() {
+        assertTrue(MetaDataUtil.areClientAndServerCompatible(MetaDataUtil.encodeVersion(1,2,1), 1, 2));
+        assertTrue(MetaDataUtil.areClientAndServerCompatible(MetaDataUtil.encodeVersion(1,2,10), 1, 2));
+        assertTrue(MetaDataUtil.areClientAndServerCompatible(MetaDataUtil.encodeVersion(1,2,0), 1, 2));
+        assertTrue(MetaDataUtil.areClientAndServerCompatible(MetaDataUtil.encodeVersion(1,2,255), 1, 2));
+        assertFalse(MetaDataUtil.areClientAndServerCompatible(MetaDataUtil.encodeVersion(2,2,0), 2, 1));
+        assertFalse(MetaDataUtil.areClientAndServerCompatible(MetaDataUtil.encodeVersion(3,1,10), 4, 2));
     }
 }

@@ -38,6 +38,8 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.*;
@@ -54,7 +56,96 @@ import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.util.*;
 
 public class MetaDataClient {
+    private static final Logger logger = LoggerFactory.getLogger(MetaDataClient.class);
+
     private static final ParseNodeFactory FACTORY = new ParseNodeFactory();
+    private static final String CREATE_TABLE =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
+            TENANT_ID + "," +
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            TABLE_TYPE_NAME + "," +
+            TABLE_SEQ_NUM + "," +
+            COLUMN_COUNT + "," +
+            SALT_BUCKETS + "," +
+            PK_NAME + "," +
+            DATA_TABLE_NAME + "," +
+            INDEX_STATE + "," +
+            IMMUTABLE_ROWS +
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String CREATE_INDEX_LINK =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            TABLE_CAT_NAME +
+            ") VALUES (?, ?, ?)";
+    private static final String INCREMENT_SEQ_NUM =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            TABLE_SEQ_NUM  +
+            ") VALUES (?, ?, ?)";
+    private static final String MUTATE_TABLE =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        TABLE_TYPE_NAME + "," +
+        TABLE_SEQ_NUM + "," +
+        COLUMN_COUNT + "," +
+        IMMUTABLE_ROWS +
+        ") VALUES (?, ?, ?, ?, ?, ?)";
+    // For system table, don't set IMMUTABLE_ROWS, since at upgrade time
+    // between 1.2 and 2.0, we'll add this column (and we don't yet have
+    // the column while upgrading). 
+    private static final String MUTATE_SYSTEM_TABLE =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            TABLE_TYPE_NAME + "," +
+            TABLE_SEQ_NUM + "," +
+            COLUMN_COUNT + 
+            ") VALUES (?, ?, ?, ?, ?)";
+    private static final String UPDATE_INDEX_STATE =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            INDEX_STATE +
+            ") VALUES (?, ?, ?)";
+    private static final String INSERT_COLUMN =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        COLUMN_NAME + "," +
+        TABLE_CAT_NAME + "," +
+        DATA_TYPE + "," +
+        NULLABLE + "," +
+        COLUMN_SIZE + "," +
+        DECIMAL_DIGITS + "," +
+        ORDINAL_POSITION + "," + 
+        COLUMN_MODIFIER + "," +
+        DATA_TABLE_NAME + // write this both in the column and table rows for access by metadata APIs
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    // Don't write DATA_TABLE_NAME for system table since at upgrade time from 1.2 to 2.0, we won't have this column yet.
+    private static final String INSERT_SYSTEM_COLUMN =
+            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
+            TABLE_SCHEM_NAME + "," +
+            TABLE_NAME_NAME + "," +
+            COLUMN_NAME + "," +
+            TABLE_CAT_NAME + "," +
+            DATA_TYPE + "," +
+            NULLABLE + "," +
+            COLUMN_SIZE + "," +
+            DECIMAL_DIGITS + "," +
+            ORDINAL_POSITION + 
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String UPDATE_COLUMN_POSITION =
+        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
+        TABLE_SCHEM_NAME + "," +
+        TABLE_NAME_NAME + "," +
+        COLUMN_NAME + "," +
+        TABLE_CAT_NAME + "," +
+        ORDINAL_POSITION +
+        ") VALUES (?, ?, ?, ?, ?)";
     
     private final PhoenixConnection connection;
 
@@ -116,69 +207,6 @@ public class MetaDataClient {
         return result.getMutationTime();
     }
 
-    private static final String CREATE_TABLE =
-            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
-            TENANT_ID + "," +
-            TABLE_SCHEM_NAME + "," +
-            TABLE_NAME_NAME + "," +
-            TABLE_TYPE_NAME + "," +
-            TABLE_SEQ_NUM + "," +
-            COLUMN_COUNT + "," +
-            SALT_BUCKETS + "," +
-            PK_NAME + "," +
-            DATA_TABLE_NAME + "," +
-            INDEX_STATE + "," +
-            IMMUTABLE_ROWS +
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String CREATE_INDEX_LINK =
-            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
-            TABLE_SCHEM_NAME + "," +
-            TABLE_NAME_NAME + "," +
-            TABLE_CAT_NAME +
-            ") VALUES (?, ?, ?)";
-    private static final String INCREMENT_SEQ_NUM =
-            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
-            TABLE_SCHEM_NAME + "," +
-            TABLE_NAME_NAME + "," +
-            TABLE_SEQ_NUM  +
-            ") VALUES (?, ?, ?)";
-    private static final String MUTATE_TABLE =
-        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
-        TABLE_SCHEM_NAME + "," +
-        TABLE_NAME_NAME + "," +
-        TABLE_TYPE_NAME + "," +
-        TABLE_SEQ_NUM + "," +
-        COLUMN_COUNT + "," +
-        IMMUTABLE_ROWS +
-        ") VALUES (?, ?, ?, ?, ?, ?)";
-    private static final String UPDATE_INDEX_STATE =
-            "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
-            TABLE_SCHEM_NAME + "," +
-            TABLE_NAME_NAME + "," +
-            INDEX_STATE +
-            ") VALUES (?, ?, ?)";
-    private static final String INSERT_COLUMN =
-        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
-        TABLE_SCHEM_NAME + "," +
-        TABLE_NAME_NAME + "," +
-        COLUMN_NAME + "," +
-        TABLE_CAT_NAME + "," +
-        DATA_TYPE + "," +
-        NULLABLE + "," +
-        COLUMN_SIZE + "," +
-        DECIMAL_DIGITS + "," +
-        ORDINAL_POSITION + "," + 
-        COLUMN_MODIFIER + "," +
-        DATA_TABLE_NAME + // write this both in the column and table rows for access by metadata APIs
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String UPDATE_COLUMN_POSITION =
-        "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
-        TABLE_SCHEM_NAME + "," +
-        TABLE_NAME_NAME + "," +
-        COLUMN_NAME + "," +
-        TABLE_CAT_NAME + "," +
-        ORDINAL_POSITION +
-        ") VALUES (?, ?, ?, ?, ?)";
 
     private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert, String parentTableName, boolean isSalted) throws SQLException {
         colUpsert.setString(1, schemaName);
@@ -198,8 +226,12 @@ public class MetaDataClient {
             colUpsert.setInt(8, column.getScale());
         }
         colUpsert.setInt(9, column.getPosition() + (isSalted ? 0 : 1));
-        colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
-        colUpsert.setString(11, parentTableName);
+        if (colUpsert.getParameterMetaData().getParameterCount() > 9) {
+            colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
+        }
+        if (colUpsert.getParameterMetaData().getParameterCount() > 10) {
+            colUpsert.setString(11, parentTableName);
+        }
         colUpsert.execute();
     }
 
@@ -265,7 +297,7 @@ public class MetaDataClient {
         PSchema schema = new PSchemaImpl(schemaName,ImmutableMap.<String,PTable>of(table.getName().getString(), table));
         TableRef tableRef = new TableRef(null, table, schema, ts, false);
         byte[] emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
-        MutationPlan plan = compiler.compile(Collections.singletonList(tableRef), emptyCF, null, tableRef.getTimeStamp());
+        MutationPlan plan = compiler.compile(Collections.singletonList(tableRef), emptyCF, null, null, tableRef.getTimeStamp());
         return connection.getQueryServices().updateData(plan);
     }
 
@@ -657,14 +689,13 @@ public class MetaDataClient {
             case TABLE_ALREADY_EXISTS:
                 connection.addTable(schemaName, result.getTable());
                 if (!statement.ifNotExists()) {
-                    throw new TableAlreadyExistsException(schemaName, tableName);
+                    throw new TableAlreadyExistsException(schemaName, tableName, result.getTable());
                 }
                 return null;
             case PARENT_TABLE_NOT_FOUND:
                 throw new TableNotFoundException(schemaName, parent.getName().getString());
             case NEWER_TABLE_FOUND:
-                // TODO: add table if in result?
-                throw new NewerTableAlreadyExistsException(schemaName, tableName);
+                throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
             case UNALLOWED_TABLE_MUTATION:
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
@@ -724,7 +755,7 @@ public class MetaDataClient {
                 }
                 break;
             case NEWER_TABLE_FOUND:
-                throw new NewerTableAlreadyExistsException(schemaName, tableName);
+                throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
             case UNALLOWED_TABLE_MUTATION:
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
@@ -751,7 +782,7 @@ public class MetaDataClient {
                     for (PTable index: table.getIndexes()) {
                         tableRefs.add(new TableRef(null, index, schema, ts, false));
                     }
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, Collections.<PColumn>emptyList(), ts);
+                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, null, Collections.<PColumn>emptyList(), ts);
                     return connection.getQueryServices().updateData(plan);
                 }
                 break;
@@ -776,12 +807,15 @@ public class MetaDataClient {
             break;
         case CONCURRENT_TABLE_MUTATION:
             connection.addTable(schemaName, result.getTable());
+            if (logger.isDebugEnabled()) {
+                logger.debug("CONCURRENT_TABLE_MUTATION for table " + SchemaUtil.getTableDisplayName(schemaName, tableName));
+            }
             throw new ConcurrentTableMutationException(schemaName, tableName);
         case NEWER_TABLE_FOUND:
             if (result.getTable() != null) {
                 connection.addTable(schemaName, result.getTable());
             }
-            throw new NewerTableAlreadyExistsException(schemaName, tableName);
+            throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
         case NO_PK_COLUMNS:
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
                 .setSchemaName(schemaName).setTableName(tableName).build().buildException();
@@ -798,7 +832,6 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
-            List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
             connection.setAutoCommit(false);
             TableName tableNameNode = statement.getTable().getName();
             String schemaName = tableNameNode.getSchemaName();
@@ -806,11 +839,15 @@ public class MetaDataClient {
 
             boolean retried = false;
             while (true) {
+                List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
                 ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
                 PTable table = resolver.getTables().get(0).getTable();
                 PSchema schema = resolver.getTables().get(0).getSchema();
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Resolved table to " + SchemaUtil.getTableDisplayName(schema.getName(), table.getName().getString()) + " with seqNum " + table.getSequenceNumber() + " at timestamp " + table.getTimeStamp() + " with " + table.getColumns().size() + " columns: " + table.getColumns());
+                }
                 
-                int position = table.getColumns().size();
+                final int position = table.getColumns().size();
                 
                 List<PColumn> currentPKs = table.getPKColumns();
                 PColumn lastPK = currentPKs.get(currentPKs.size()-1);
@@ -843,7 +880,7 @@ public class MetaDataClient {
                 }
                 
                 boolean isSalted = table.getBucketNum() != null;
-                PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
+                PreparedStatement colUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? INSERT_SYSTEM_COLUMN : INSERT_COLUMN);
                 Pair<byte[],Map<String,Object>> family = null;
                 if (colDef != null) {
                     PColumn column = newColumn(position, colDef, PrimaryKeyConstraint.EMPTY);
@@ -866,13 +903,15 @@ public class MetaDataClient {
                 // Ordinal position is 1-based and we don't count SALT column in ordinal position
                 int totalColumnCount = position + (isSalted ? 0 : 1);
                 final long seqNum = table.getSequenceNumber() + 1;
-                PreparedStatement tableUpsert = connection.prepareStatement(MUTATE_TABLE);
+                PreparedStatement tableUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? MUTATE_SYSTEM_TABLE : MUTATE_TABLE);
                 tableUpsert.setString(1, schemaName);
                 tableUpsert.setString(2, tableName);
                 tableUpsert.setString(3, table.getType().getSerializedValue());
                 tableUpsert.setLong(4, seqNum);
                 tableUpsert.setInt(5, totalColumnCount);
-                tableUpsert.setBoolean(6, isImmutableRows);
+                if (tableUpsert.getParameterMetaData().getParameterCount() > 5) {
+                    tableUpsert.setBoolean(6, isImmutableRows);
+                }
                 tableUpsert.execute();
                 
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
@@ -881,8 +920,18 @@ public class MetaDataClient {
                 Collections.reverse(tableMetaData);
                 
                 byte[] emptyCF = null;
-                if (table.getType() != PTableType.VIEW && family != null && table.getColumnFamilies().isEmpty()) {
-                    emptyCF = family.getFirst();
+                byte[] projectCF = null;
+                if (table.getType() != PTableType.VIEW && family != null) {
+                    if (table.getColumnFamilies().isEmpty()) {
+                        emptyCF = family.getFirst();
+                    } else {
+                        try {
+                            table.getColumnFamily(family.getFirst());
+                        } catch (ColumnFamilyNotFoundException e) {
+                            projectCF = family.getFirst();
+                            emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
+                        }
+                    }
                 }
                 MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType() == PTableType.VIEW, family);
                 try {
@@ -900,13 +949,16 @@ public class MetaDataClient {
                         connection.setAutoCommit(true);
                         // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                         long ts = (scn == null ? result.getMutationTime() : scn);
-                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(new TableRef(null, table, schema, ts, false)), emptyCF, null, ts);
+                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(new TableRef(null, table, schema, ts, false)), emptyCF, projectCF, null, ts);
                         return connection.getQueryServices().updateData(plan);
                     }
                     return new MutationState(0,connection);
                 } catch (ConcurrentTableMutationException e) {
                     if (retried) {
                         throw e;
+                    }
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Caught ConcurrentTableMutationException for table " + SchemaUtil.getTableDisplayName(schemaName, tableName) + ". Will try again...");
                     }
                     retried = true;
                 }
@@ -1021,7 +1073,7 @@ public class MetaDataClient {
                         Long scn = connection.getSCN();
                         // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                         long ts = (scn == null ? result.getMutationTime() : scn);
-                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(tableRef), emptyCF, Collections.singletonList(columnToDrop), ts);
+                        MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(tableRef), emptyCF, null, Collections.singletonList(columnToDrop), ts);
                         return connection.getQueryServices().updateData(plan);
                     }
                     return new MutationState(0, connection);

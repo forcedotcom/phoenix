@@ -35,13 +35,14 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.schema.TableRef;
 
 public class DegenerateQueryPlan extends BasicQueryPlan {
 
-    public DegenerateQueryPlan(StatementContext context, TableRef table) {
-        super(context, table, RowProjector.EMPTY_PROJECTOR, PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA, null, OrderBy.EMPTY_ORDER_BY, GroupBy.EMPTY_GROUP_BY);
+    public DegenerateQueryPlan(StatementContext context, FilterableStatement statement, TableRef table) {
+        super(context, statement, table, RowProjector.EMPTY_PROJECTOR, PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA, null, OrderBy.EMPTY_ORDER_BY, GroupBy.EMPTY_GROUP_BY, null);
         context.setScanRanges(ScanRanges.NOTHING);
     }
 

@@ -30,6 +30,8 @@ package com.salesforce.phoenix.expression.function;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
+
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.aggregator.*;
@@ -101,7 +103,7 @@ public class CountAggregateFunction extends SingleAggregateFunction {
     }
     
     @Override 
-    public Aggregator newServerAggregator() {
+    public Aggregator newServerAggregator(Configuration conf) {
         return new CountAggregator();
     }
     

@@ -578,4 +578,72 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         assertFalse(rs.next());
         conn.close();
     }
+    
+    @Test
+    public void testUpsertSelectWithLimit() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.createStatement().execute("create table phoenix_test (id varchar(10) not null primary key, val varchar(10), ts timestamp)");
+        conn.close();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.createStatement().execute("upsert into phoenix_test values ('aaa', 'abc', current_date())");
+        conn.createStatement().execute("upsert into phoenix_test values ('bbb', 'bcd', current_date())");
+        conn.createStatement().execute("upsert into phoenix_test values ('ccc', 'cde', current_date())");
+        conn.commit();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 20));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        ResultSet rs = conn.createStatement().executeQuery("select * from phoenix_test");
+        
+        assertTrue(rs.next());
+        assertEquals("aaa",rs.getString(1));
+        assertEquals("abc",rs.getString(2));
+        assertNotNull(rs.getDate(3));
+        
+        assertTrue(rs.next());
+        assertEquals("bbb",rs.getString(1));
+        assertEquals("bcd",rs.getString(2));
+        assertNotNull(rs.getDate(3));
+        
+        assertTrue(rs.next());
+        assertEquals("ccc",rs.getString(1));
+        assertEquals("cde",rs.getString(2));
+        assertNotNull(rs.getDate(3));
+        
+        assertFalse(rs.next());
+        conn.close();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 30));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.createStatement().execute("upsert into phoenix_test (id, ts) select id, null from phoenix_test where id <= 'bbb' limit 1");
+        conn.commit();
+        conn.close();
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 40));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        rs = conn.createStatement().executeQuery("select * from phoenix_test");
+        
+        assertTrue(rs.next());
+        assertEquals("aaa",rs.getString(1));
+        assertEquals("abc",rs.getString(2));
+        assertNull(rs.getDate(3));
+        
+        assertTrue(rs.next());
+        assertEquals("bbb",rs.getString(1));
+        assertEquals("bcd",rs.getString(2));
+        assertNotNull(rs.getDate(3));
+        
+        assertTrue(rs.next());
+        assertEquals("ccc",rs.getString(1));
+        assertEquals("cde",rs.getString(2));
+        assertNotNull(rs.getDate(3));
+        
+        assertFalse(rs.next());
+        conn.close();
+
+    }
 }

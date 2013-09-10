@@ -46,6 +46,8 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
@@ -70,6 +72,7 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements MetaDataProtocol {
+    private static final Logger logger = LoggerFactory.getLogger(MetaDataEndpointImpl.class);
 
     // KeyValues for Table
     private static final KeyValue TABLE_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES);
@@ -162,7 +165,17 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 return null;
             }
             if (oldTable == null || tableTimeStamp < newTable.getTimeStamp()) {
-                metaDataCache.put(cacheKey, newTable);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Caching table " + Bytes.toStringBinary(cacheKey.get(), cacheKey.getOffset(), cacheKey.getLength()) + " at seqNum " + newTable.getSequenceNumber() + " with newer timestamp " + newTable.getTimeStamp() + " versus " + tableTimeStamp);
+                }
+                oldTable = metaDataCache.put(cacheKey, newTable);
+                if (logger.isDebugEnabled()) {
+                    if (oldTable == null) {
+                        logger.debug("No previously cached table " + Bytes.toStringBinary(cacheKey.get(), cacheKey.getOffset(), cacheKey.getLength()));
+                    } else {
+                        logger.debug("Previously cached table " + Bytes.toStringBinary(cacheKey.get(), cacheKey.getOffset(), cacheKey.getLength()) + " was at seqNum " + oldTable.getSequenceNumber() + " with timestamp " + oldTable.getTimeStamp());
+                    }
+                }
             }
             return newTable;
         } finally {
@@ -191,14 +204,16 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             if (cmp == 0) {
                 colKeyValues[j++] = kv;
                 i++;
-            } else {
+            } else if (cmp > 0) {
                 colKeyValues[j++] = null;
+            } else {
+                i++; // shouldn't happen - means unexpected KV in system table column row
             }
         }
         // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
         if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
                 || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
-            throw new IllegalStateException("Didn't find all required key values in column metadata row");
+            throw new IllegalStateException("Didn't find all required key values in '" + colName.getString() + "' column metadata row");
         }
         KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
         Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), null);
@@ -263,7 +278,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 tableKeyValues[j++] = kv;
                 i++;
             } else if (cmp > 0) {
-                j++;
+                tableKeyValues[j++] = null;
+            } else {
+                i++; // shouldn't happen - means unexpected KV in system table header row
             }
         }
         // TABLE_TYPE, TABLE_SEQ_NUM and COLUMN_COUNT are required.
@@ -408,7 +425,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 PTable table = loadTable(env, key, cacheKey, clientTimeStamp, HConstants.LATEST_TIMESTAMP);
                 if (table != null) {
                     if (table.getTimeStamp() < clientTimeStamp) {
-                        // If the table is older than the client time stamp and its deleted, continue
+                        // If the table is older than the client time stamp and it's deleted, continue
                         if (!isTableDeleted(table)) {
                             return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table);
                         }
@@ -615,6 +632,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
                 Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
                 PTable table = metaDataCache.get(cacheKey);
+                if (logger.isDebugEnabled()) {
+                    if (table == null) {
+                        logger.debug("Table " + Bytes.toStringBinary(key) + " not found in cache. Will build through scan");
+                    } else {
+                        logger.debug("Table " + Bytes.toStringBinary(key) + " found in cache with timestamp " + table.getTimeStamp() + " seqNum " + table.getSequenceNumber());
+                    }
+                }
                 // Get client timeStamp from mutations
                 long clientTimeStamp = MetaDataUtil.getClientTimeStamp(tableMetadata);
                 if (table == null && (table = buildTable(key, cacheKey, region, HConstants.LATEST_TIMESTAMP)) == null) {
@@ -631,13 +655,19 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 }
                     
                 long expectedSeqNum = MetaDataUtil.getSequenceNumber(tableMetadata) - 1; // lookup TABLE_SEQ_NUM in tableMetaData
+                if (logger.isDebugEnabled()) {
+                    logger.debug("For table " + Bytes.toStringBinary(key) + " expecting seqNum " + expectedSeqNum + " and found seqNum " + table.getSequenceNumber() + " with " + table.getColumns().size() + " columns: " + table.getColumns());
+                }
                 if (expectedSeqNum != table.getSequenceNumber()) {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("For table " + Bytes.toStringBinary(key) + " returning CONCURRENT_TABLE_MUTATION due to unexpected seqNum");
+                    }
                     return new MetaDataMutationResult(MutationCode.CONCURRENT_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), table);
                 }
                 
-                // Disallow mutation of a system or index table
+                // Disallow mutation of an index table
                 PTableType type = table.getType();
-                if (type == PTableType.SYSTEM || type == PTableType.INDEX) {
+                if (type == PTableType.INDEX) {
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 
@@ -648,7 +678,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 
                 region.mutateRowsWithLocks(tableMetadata, Collections.<byte[]>emptySet());
                 // Invalidate from cache
-                metaDataCache.remove(cacheKey);
+                PTable invalidatedTable = metaDataCache.remove(cacheKey);
+                if (logger.isDebugEnabled()) {
+                    if (invalidatedTable == null) {
+                        logger.debug("Attempted to invalidated table key " + Bytes.toStringBinary(cacheKey.get(),cacheKey.getOffset(),cacheKey.getLength()) + " but found no cached table");
+                    } else {
+                        logger.debug("Invalidated table key " + Bytes.toStringBinary(cacheKey.get(),cacheKey.getOffset(),cacheKey.getLength()) + " with timestamp " + invalidatedTable.getTimeStamp() + " and seqNum " + invalidatedTable.getSequenceNumber());
+                    }
+                }
                 // Get client timeStamp from mutations, since it may get updated by the mutateRowsWithLocks call
                 long currentTime = MetaDataUtil.getClientTimeStamp(tableMetadata);
                 return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, null);
@@ -823,8 +860,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     @Override
     public long getVersion() {
-        // The first 3 bytes of the long is used to encoding the HBase version as major.minor.patch.
-        // The next 3 bytes of the value is used to encode the Phoenix version as major.minor.patch.
+        // The first 5 bytes of the long is used to encoding the HBase version as major.minor.patch.
+        // The next 5 bytes of the value is used to encode the Phoenix version as major.minor.patch.
         return MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
     }
 

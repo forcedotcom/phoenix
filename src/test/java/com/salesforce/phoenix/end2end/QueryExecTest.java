@@ -153,11 +153,59 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testScanByUnsignedFloatValue() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_string, /* comment ok? */ b_string, a_unsigned_float FROM aTable WHERE ?=organization_id and ?=a_unsigned_float";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setFloat(2, 0.01f);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), A_VALUE);
+            assertEquals(rs.getString("B_string"), B_VALUE);
+            assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testScanByDoubleValue() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_string, /* comment ok? */ b_string, a_double FROM aTable WHERE ?=organization_id and ?=a_double";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setDouble(2, 0.0001);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), A_VALUE);
+            assertEquals(rs.getString("B_string"), B_VALUE);
+            assertTrue(Doubles.compare(rs.getDouble(3), 0.0001) == 0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testScanByUnsigned_DoubleValue() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_string, /* comment ok? */ b_string, a_unsigned_double FROM aTable WHERE ?=organization_id and ?=a_unsigned_double";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -304,10 +352,48 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testSumUnsignedDouble() throws Exception {
+        long ts = nextTimestamp();
+        initSumDoubleValues(null, ts);
+        String query = "SELECT SUM(ud) FROM SumDoubleTest";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Doubles.compare(rs.getDouble(1), 0.015)==0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testSumFloat() throws Exception {
         long ts = nextTimestamp();
         initSumDoubleValues(null, ts);
         String query = "SELECT SUM(f) FROM SumDoubleTest";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Floats.compare(rs.getFloat(1), 0.15f)==0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testSumUnsignedFloat() throws Exception {
+        long ts = nextTimestamp();
+        initSumDoubleValues(null, ts);
+        String query = "SELECT SUM(uf) FROM SumDoubleTest";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -541,12 +627,56 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testNotEqualsByUnsignedFloat() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_unsigned_float -- and here comment\n" + 
+        "FROM aTable WHERE organization_id=? and a_unsigned_float != 0.01d and a_unsigned_float <= 0.02d";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Floats.compare(rs.getFloat(1), 0.02f) == 0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testNotEqualsByDouble() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_double -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_double != 0.0001d and a_double <= 0.0002d";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertTrue(Doubles.compare(rs.getDouble(1), 0.0002) == 0);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testNotEqualsByUnsignedDouble() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_unsigned_double -- and here comment\n" + 
+        "FROM aTable WHERE organization_id=? and a_unsigned_double != 0.0001d and a_unsigned_double <= 0.0002d";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -2550,6 +2680,28 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where a_double + a_float > 0.08";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(ROW8, rs.getString(1));
+            assertTrue (rs.next());
+            assertEquals(ROW9, rs.getString(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testUnsignedDoubleAddExpression() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT entity_id FROM aTable where a_unsigned_double + a_unsigned_float > 0.08";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);

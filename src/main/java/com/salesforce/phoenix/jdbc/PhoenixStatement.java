@@ -112,7 +112,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         return new PhoenixResultSet(scanner, PhoenixStatement.this);
     }
     
-    protected static interface ExecutableStatement extends SQLStatement {
+    protected static interface ExecutableStatement extends BindableStatement {
         public boolean execute() throws SQLException;
         public int executeUpdate() throws SQLException;
         public PhoenixResultSet executeQuery() throws SQLException;
@@ -672,10 +672,10 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             new ExpressionProjector(EXPLAIN_PLAN_ALIAS, EXPLAIN_PLAN_TABLE_NAME, 
                     new RowKeyColumnExpression(EXPLAIN_PLAN_DATUM,
                             new RowKeyValueAccessor(Collections.<PDatum>singletonList(EXPLAIN_PLAN_DATUM), 0)), false)
-            ), 0);
+            ), 0, true);
     private class ExecutableExplainStatement extends ExplainStatement implements ExecutableStatement {
 
-        public ExecutableExplainStatement(SQLStatement statement) {
+        public ExecutableExplainStatement(BindableStatement statement) {
             super(statement);
         }
 
@@ -841,7 +841,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public ExplainStatement explain(SQLStatement statement) {
+        public ExplainStatement explain(BindableStatement statement) {
             return new ExecutableExplainStatement(statement);
         }
 

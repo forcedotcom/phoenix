@@ -43,11 +43,27 @@ import com.salesforce.phoenix.schema.PDataType;
 
 
 public class MetaDataUtil {
+
+    public static boolean areClientAndServerCompatible(long version) {
+        // A server and client with the same major and minor version number must be compatible.
+        // So it's important that we roll the PHOENIX_MAJOR_VERSION or PHOENIX_MINOR_VERSION
+        // when we make an incompatible change.
+        return areClientAndServerCompatible(MetaDataUtil.decodePhoenixVersion(version), MetaDataProtocol.PHOENIX_MAJOR_VERSION, MetaDataProtocol.PHOENIX_MINOR_VERSION);
+    }
+
+    // For testing
+    static boolean areClientAndServerCompatible(int version, int pMajor, int pMinor) {
+        // A server and client with the same major and minor version number must be compatible.
+        // So it's important that we roll the PHOENIX_MAJOR_VERSION or PHOENIX_MINOR_VERSION
+        // when we make an incompatible change.
+        return MetaDataUtil.encodeMaxPatchVersion(pMajor, pMinor) >= version && MetaDataUtil.encodeMinPatchVersion(pMajor, pMinor) <= version;
+    }
+
     // Given the encoded integer representing the phoenix version in the encoded version value.
     // The second byte in int would be the major version, 3rd byte minor version, and 4th byte 
     // patch version.
     public static int decodePhoenixVersion(long version) {
-        return (int) ((version << Byte.SIZE * 3) >>> Byte.SIZE * 5);
+        return (int) ((version << Byte.SIZE * 3) >>> Byte.SIZE * 4);
     }
 
     // Given the encoded integer representing the client hbase version in the encoded version value.
@@ -60,7 +76,7 @@ public class MetaDataUtil {
     public static long encodeHBaseAndPhoenixVersions(String hbaseVersion) {
         return (((long) encodeVersion(hbaseVersion)) << (Byte.SIZE * 5)) |
                 (((long) encodeVersion(MetaDataProtocol.PHOENIX_MAJOR_VERSION, MetaDataProtocol.PHOENIX_MINOR_VERSION,
-                        MetaDataProtocol.PHOENIX_PATCH_NUMBER)) << (Byte.SIZE * 2));
+                        MetaDataProtocol.PHOENIX_PATCH_NUMBER)) << (Byte.SIZE * 1));
     }
 
     // Encode a version string in the format of "major.minor.patch" into an integer.
@@ -80,6 +96,21 @@ public class MetaDataUtil {
         version |= (major << Byte.SIZE * 2);
         version |= (minor << Byte.SIZE);
         version |= patch;
+        return version;
+    }
+
+    public static int encodeMaxPatchVersion(int major, int minor) {
+        int version = 0;
+        version |= (major << Byte.SIZE * 2);
+        version |= (minor << Byte.SIZE);
+        version |= 0xFF;
+        return version;
+    }
+
+    public static int encodeMinPatchVersion(int major, int minor) {
+        int version = 0;
+        version |= (major << Byte.SIZE * 2);
+        version |= (minor << Byte.SIZE);
         return version;
     }
 

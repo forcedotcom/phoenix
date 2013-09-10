@@ -68,6 +68,7 @@ import com.salesforce.phoenix.schema.*;
 public class SchemaUtil {
     private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
+    private static final byte PAD_BYTE = (byte)0;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
     /**
@@ -223,6 +224,17 @@ public class SchemaUtil {
         return Bytes.toStringBinary(tableName);
     }
 
+    
+    public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
+        int i = offset + length -1;
+        // If bytes are inverted, we need to invert the byte we're looking for too
+        byte padByte = columnModifier == null ? PAD_BYTE : columnModifier.apply(PAD_BYTE);
+        while(i > offset && b[i] == padByte) {
+            i--;
+        }
+        return i - offset + 1;
+    }
+    
     public static String getColumnDisplayName(String schemaName, String tableName, String familyName, String columnName) {
         return Bytes.toStringBinary(getColumnName(
                 StringUtil.toBytes(schemaName), StringUtil.toBytes(tableName), 
@@ -336,24 +348,6 @@ public class SchemaUtil {
         return null;
     }
 
-    public static void initMetaData(ConnectionQueryServices services, String url, Properties props) throws SQLException {
-        // Use new connection with minimum SCN value
-        props = new Properties(props);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_TABLE_TIMESTAMP+1));
-        PhoenixConnection metaConnection = new PhoenixConnection(services, url, props, PMetaDataImpl.EMPTY_META_DATA);
-        try {
-            Statement metaStatement = metaConnection.createStatement();
-            metaStatement.executeUpdate(QueryConstants.CREATE_METADATA);
-        } catch (TableAlreadyExistsException e) {
-            // Add alter table statement of each column that was added
-            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + DATA_TABLE_NAME + " VARCHAR NULL");        
-            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + INDEX_STATE + " VARCHAR NULL");        
-            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + IMMUTABLE_ROWS + " BOOLEAN NULL");        
-        } finally {
-            metaConnection.close();
-        }
-    }
-
     public static String toString(byte[][] values) {
         if (values == null) {
             return "null";
@@ -378,6 +372,14 @@ public class SchemaUtil {
 
     public static boolean isMetaTable(byte[] tableName) {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
+    }
+    
+    public static byte[] padChar(byte[] byteValue, Integer byteSize) {
+        return Arrays.copyOf(byteValue, byteSize);
+    }
+
+    public static boolean isMetaTable(String schemaName, String tableName) {
+        return PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(schemaName) && PhoenixDatabaseMetaData.TYPE_TABLE.equals(tableName);
     }
 
     // Given the splits and the rowKeySchema, find out the keys that 
@@ -556,7 +558,7 @@ public class SchemaUtil {
         return (upgradeStr == null ? 0 : Integer.parseInt(upgradeStr));
     }
 
-    public static void checkIfUpgradeNecessary(ConnectionQueryServices connectionQueryServices, String url,
+    public static boolean checkIfUpgradeTo2Necessary(ConnectionQueryServices connectionQueryServices, String url,
             Properties info) throws SQLException {
         boolean isUpgrade = upgradeColumnCount(url, info) > 0;
         boolean isUpgradeNecessary = isUpgradeTo2Necessary(connectionQueryServices);
@@ -565,7 +567,9 @@ public class SchemaUtil {
         }
         if (isUpgrade && !isUpgradeNecessary) {
             info.remove(SchemaUtil.UPGRADE_TO_2_0); // Remove this property and ignore, since upgrade has already been done
+            return false;
         }
+        return true;
     }
 
     public static String getEscapedTableName(String schemaName, String tableName) {
@@ -575,16 +579,64 @@ public class SchemaUtil {
         return "\"" + schemaName + "\"." + "\"" + tableName + "\"";
     }
 
+    private static PhoenixConnection addMetaDataColumn(PhoenixConnection conn, long scn, String columnDef) throws SQLException {
+        String url = conn.getURL();
+        Properties props = conn.getClientInfo();
+        PMetaData metaData = conn.getPMetaData();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(scn));
+        PhoenixConnection metaConnection = new PhoenixConnection(conn.getQueryServices(), url, props, metaData);
+        try {
+            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + columnDef);
+            return metaConnection;
+        } finally {
+            metaConnection.close();
+        }
+    }
+    
+    public static boolean columnExists(PTable table, String columnName) {
+        try {
+            table.getColumn(columnName);
+            return true;
+        } catch (ColumnNotFoundException e) {
+            return false;
+        } catch (AmbiguousColumnException e) {
+            return true;
+        }
+    }
+    
+    public static void updateSystemTableTo2(PhoenixConnection metaConnection, PTable table) throws SQLException {
+        PTable metaTable = metaConnection.getPMetaData().getSchema(PhoenixDatabaseMetaData.TYPE_SCHEMA).getTable(PhoenixDatabaseMetaData.TYPE_TABLE);
+        // Execute alter table statement for each column that was added if not already added
+        if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
+            // Causes row key of system table to be upgraded
+            if (checkIfUpgradeTo2Necessary(metaConnection.getQueryServices(), metaConnection.getURL(), metaConnection.getClientInfo())) {
+                metaConnection.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE).next();
+            }
+            
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 5 && !columnExists(table, COLUMN_MODIFIER)) {
+                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 5, COLUMN_MODIFIER + " INTEGER NULL");
+            }
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 4 && !columnExists(table, SALT_BUCKETS)) {
+                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 4, SALT_BUCKETS + " INTEGER NULL");
+            }
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3 && !columnExists(table, DATA_TABLE_NAME)) {
+                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3, DATA_TABLE_NAME + " VARCHAR NULL");
+            }
+            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 2 && !columnExists(table, INDEX_STATE)) {
+                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 2, INDEX_STATE + " VARCHAR NULL");
+            }
+            if (!columnExists(table, IMMUTABLE_ROWS)) {
+                addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1, IMMUTABLE_ROWS + " BOOLEAN NULL");
+            }
+        }
+    }
+    
     public static void upgradeTo2(PhoenixConnection conn) throws SQLException {
         /*
          * Our upgrade hack sets a property on the scan that gets activated by an ungrouped aggregate query. 
          * Our UngroupedAggregateRegionObserver coprocessors will perform the required upgrade.
-         * Upgrade the SYSTEM.TABLE first
-         */
-        ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE);
-        rs.next();
-        /*
-         * Next walk through each table and upgrade any table with a nullable variable length column (VARCHAR or DECIMAL)
+         * The SYSTEM.TABLE will already have been upgraded, so walk through each user table and upgrade
+         * any table with a nullable variable length column (VARCHAR or DECIMAL)
          * at the end.
          */
         String query = "select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/ " +
@@ -595,9 +647,8 @@ public class SchemaUtil {
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + TABLE_CAT_NAME + " is null " +
                 " and " + COLUMN_NAME + " is not null " +
-                " and " + TABLE_TYPE_NAME  + " = '" + PTableType.USER.getSerializedValue() + "'" +
                 " order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION + " DESC";
-        rs = conn.createStatement().executeQuery(query);
+        ResultSet rs = conn.createStatement().executeQuery(query);
         String currentTableName = null;
         int nColumns = 0;
         boolean skipToNext = false;
