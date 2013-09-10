@@ -35,6 +35,7 @@ import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -45,10 +46,15 @@ public class CoerceExpression extends BaseSingleExpression {
     }
 
     public static Expression create(Expression expression, PDataType toType) throws SQLException {
-        return toType == expression.getDataType() ? expression : expression instanceof LiteralExpression ? LiteralExpression.newConstant(((LiteralExpression)expression).getValue(), toType) : new CoerceExpression(expression, toType);
+    	final PDataType dataType = expression.getDataType();
+		if (toType != null && !dataType.isCoercibleTo(toType)) {
+            throw new TypeMismatchException(dataType, toType, expression.toString());
+        } 
+        return toType == dataType ? expression : expression instanceof LiteralExpression ? LiteralExpression.newConstant(((LiteralExpression)expression).getValue(), toType) : new CoerceExpression(expression, toType);
     }
     
-    private CoerceExpression(Expression expression, PDataType toType) {
+    //Package protected for tests
+    CoerceExpression(Expression expression, PDataType toType) {
         super(expression);
         this.toType = toType;
     }
@@ -99,7 +105,7 @@ public class CoerceExpression extends BaseSingleExpression {
     
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return null; // Not exposed in language, only inserted dynamically into server expression
+        return getChild().accept(visitor);
     }
     
     @Override

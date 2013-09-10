@@ -904,4 +904,36 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
     }
+    
+    @Test
+    public void testValidUseOfCastOperator() throws Exception {
+        String query = "SELECT CAST a_integer AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        compileQuery(query, binds, scan);
+    }
+    
+    @Test
+    public void testIncompatibleDataTypesInCastOperatorInSelect() throws Exception {
+        String query = "SELECT CAST b_string AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testIncompatibleDataTypesInCastOperatorInWhere() throws Exception {
+        String query = "SELECT a_integer FROM aTable 2.5=CAST b_string AS DECIMAL/2 ";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.PARSER_ERROR.getErrorCode());
+        }  
+    }
 }

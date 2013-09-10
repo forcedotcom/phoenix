@@ -128,12 +128,22 @@ abstract public class UnsupportedAllParseNodeVisitor<E> extends BaseParseNodeVis
     public E visitLeave(NotParseNode node, List<E> l) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
-
+    
     @Override
     public boolean visitEnter(NotParseNode node) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
-
+    
+    @Override
+    public E visitLeave(CastParseNode node, List<E> l) throws SQLException {
+        throw new SQLFeatureNotSupportedException(node.toString());
+    }
+    
+    @Override
+    public boolean visitEnter(CastParseNode node) throws SQLException {
+        throw new SQLFeatureNotSupportedException(node.toString());
+    }
+    
     @Override
     public E visitLeave(InListParseNode node, List<E> l) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
