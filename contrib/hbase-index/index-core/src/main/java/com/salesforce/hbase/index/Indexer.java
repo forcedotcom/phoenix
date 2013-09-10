@@ -236,14 +236,14 @@ public class Indexer extends BaseRegionObserver {
   /**
    * Create a custom {@link InternalScanner} for a compaction that tracks the versions of rows that
    * are removed so we can clean then up from the the index table(s).
+   * <p>
+   * This is not yet implemented - its not clear if we should even mess around with the Index table
+   * for these rows as those points still existed. TODO: v2 of indexing
    */
   @Override
   public InternalScanner preCompactScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c,
       Store store, List<? extends KeyValueScanner> scanners, ScanType scanType, long earliestPutTs,
       InternalScanner s) throws IOException {
-    // if (true) {
-    // throw new RuntimeException("not yet implemented");
-    // }
     return super.preCompactScannerOpen(c, store, scanners, scanType, earliestPutTs, s);
   }
 
@@ -254,5 +254,4 @@ public class Indexer extends BaseRegionObserver {
   public IndexBuilder getBuilderForTesting() {
     return this.builder;
   }
-
 }

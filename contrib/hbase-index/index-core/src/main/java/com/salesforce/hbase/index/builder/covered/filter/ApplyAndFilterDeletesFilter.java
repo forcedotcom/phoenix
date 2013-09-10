@@ -63,11 +63,13 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public class ApplyAndFilterDeletesFilter extends FilterBase {
 
-  public static KeyValue END_ROW_KEY = KeyValue.createKeyValueFromKey(new byte[] { 127, 127, 127,
-      127, 127, 127, 127 });
   private boolean done = false;
   List<byte[]>families;
   private KeyValue coveringDelete;
+  private Hinter currentHint;
+  private DeleteColumnHinter columnHint = new DeleteColumnHinter();
+  private DeleteFamilyHinter familyHint = new DeleteFamilyHinter();
+  
   public ApplyAndFilterDeletesFilter(Collection<byte[]> families){
     this.families = new ArrayList<byte[]>(families);
     Collections.sort(this.families, Bytes.BYTES_COMPARATOR);
@@ -101,19 +103,7 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
   
   @Override
   public KeyValue getNextKeyHint(KeyValue peeked){
-    KeyValue hint;
-    //check to see if we have another column to seek
-    byte[] nextFamily = getNextFamily(peeked.getFamily());
-    if(nextFamily == null){
-      //no known next family, so we can be completely done
-      hint = END_ROW_KEY;
-      this.done =true;
-    }else{
-      //there is a valid family, so we should seek to that
-      hint = KeyValue.createFirstOnRow(peeked.getRow(), nextFamily, HConstants.EMPTY_BYTE_ARRAY);
-    }
-    
-    return hint;
+    return currentHint.getHint(peeked);
   }
   
   @Override
@@ -129,11 +119,16 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
      * delete, then we have deleted all columns and are definitely done with this family. This works
      * because deletes will always sort first, so we can be sure that if we see a delete, we can
      * skip everything else.
+     * 
      */
     case DeleteFamily:
-      // if its the delete of the entire column, then there are no more possible columns it
-      // could be and we move onto the next column
+      // we are doing a little bit of funny stuff here in that we are just flipping the pointer
+      // around for the hint, rather than re-creating the object each time. Just can't be access
+      // concurrently.
+      this.currentHint = familyHint;
+      return ReturnCode.SEEK_NEXT_USING_HINT; 
     case DeleteColumn:
+      this.currentHint = columnHint;
       return ReturnCode.SEEK_NEXT_USING_HINT;
     case Delete:
       // we are just deleting the single column value at this point.
@@ -172,5 +167,49 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
   @Override
   public void readFields(DataInput in) throws IOException {
     throw new UnsupportedOperationException("Server-side only filter, cannot be deserialized!");
+  }
+
+  /**
+   * Get the next hint for a given peeked keyvalue
+   */
+  interface Hinter {
+    public abstract KeyValue getHint(KeyValue peek);
+  }
+
+  /**
+   * Entire family has been deleted, so either seek to the next family, or if none are present in
+   * the original set of families to include, seek to the "last possible key"(or rather our best
+   * guess) and be done.
+   */
+  class DeleteFamilyHinter implements Hinter {
+
+    @Override
+    public KeyValue getHint(KeyValue peeked) {
+      // check to see if we have another column to seek
+      byte[] nextFamily = getNextFamily(peeked.getFamily());
+      if (nextFamily == null) {
+        // no known next family, so we can be completely done
+        done = true;
+        return KeyValue.LOWESTKEY;
+      } else {
+        // there is a valid family, so we should seek to that
+        return KeyValue.createFirstOnRow(peeked.getRow(), nextFamily, HConstants.EMPTY_BYTE_ARRAY);
+      }
+    }
+
+  }
+
+  /**
+   * Hint the next column-qualifier after the given keyvalue. We can't be smart like in the
+   * ScanQueryMatcher since we don't know the columns ahead of time.
+   */
+  class DeleteColumnHinter implements Hinter {
+
+    @Override
+    public KeyValue getHint(KeyValue kv) {
+      return KeyValue.createLastOnRow(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(),
+        kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), kv.getBuffer(),
+        kv.getQualifierOffset(), kv.getQualifierLength());
+    }
   }
 }

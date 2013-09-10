@@ -17,6 +17,7 @@
  */
 package com.salesforce.hbase.index.builder.covered;
 
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -24,7 +25,7 @@ import org.apache.hadoop.hbase.util.Bytes;
  *
  */
 public class IndexUpdate {
-  Put update;
+  Mutation update;
   byte[] tableName;
   ColumnTracker columns;
 
@@ -32,7 +33,7 @@ public class IndexUpdate {
     this.columns = tracker;
   }
 
-  public void setUpdate(Put p) {
+  public void setUpdate(Mutation p) {
     this.update = p;
   }
 
@@ -40,7 +41,7 @@ public class IndexUpdate {
     this.tableName = tableName;
   }
 
-  public Put getUpdate() {
+  public Mutation getUpdate() {
     return update;
   }
 
@@ -63,5 +64,12 @@ public class IndexUpdate {
     update.setTable(table);
     update.setUpdate(p);
     return update;
+  }
+
+  /**
+   * @return <tt>true</tt> if the necessary state for a valid index update has been set.
+   */
+  public boolean isValid() {
+    return this.tableName != null && this.update != null;
   }
 }

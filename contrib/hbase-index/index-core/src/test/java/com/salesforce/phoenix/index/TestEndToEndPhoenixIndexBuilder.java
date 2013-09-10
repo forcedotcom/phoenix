@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.index;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
@@ -45,28 +44,26 @@ import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdge;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.Pair;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
 
 import com.salesforce.hbase.index.IndexUtil;
 import com.salesforce.hbase.index.Indexer;
+import com.salesforce.hbase.index.TableName;
 import com.salesforce.hbase.index.builder.covered.ColumnReference;
-import com.salesforce.hbase.index.builder.covered.ColumnTracker;
 import com.salesforce.hbase.index.builder.covered.IndexCodec;
 import com.salesforce.hbase.index.builder.covered.IndexUpdate;
+import com.salesforce.hbase.index.builder.covered.LocalTableState;
 import com.salesforce.hbase.index.builder.covered.TableState;
 import com.salesforce.hbase.index.builder.covered.scanner.Scanner;
 
@@ -102,6 +99,11 @@ public class TestEndToEndPhoenixIndexBuilder {
   private static final byte[] qual = Bytes.toBytes("qual");
   private static final HColumnDescriptor FAM1 = new HColumnDescriptor(family);
 
+  @Rule
+  public TableName TestTable = new TableName();
+
+  private TestState state;
+
   @BeforeClass
   public static void setupCluster() throws Exception {
     Configuration conf = UTIL.getConfiguration();
@@ -114,6 +116,11 @@ public class TestEndToEndPhoenixIndexBuilder {
   @AfterClass
   public static void shutdownCluster() throws Exception {
     UTIL.shutdownMiniCluster();
+  }
+
+  @Before
+  public void setup() throws Exception {
+    this.state = setupTest(TestTable.getTableNameString());
   }
     
   private interface TableStateVerifier {
@@ -146,7 +153,8 @@ public class TestEndToEndPhoenixIndexBuilder {
     @Override
     public void verify(TableState state) {
       try {
-        Scanner kvs = state.getNonIndexedColumnsTableState(Arrays.asList(columns));
+        Scanner kvs =
+            ((LocalTableState) state).getNonIndexedColumnsTableState(Arrays.asList(columns));
 
         int count = 0;
         KeyValue kv;
@@ -166,7 +174,7 @@ public class TestEndToEndPhoenixIndexBuilder {
     private Queue<TableStateVerifier> verifiers = new ArrayDeque<TableStateVerifier>();
 
     @Override
-    public Iterable<Pair<Delete, byte[]>> getIndexDeletes(TableState state) {
+    public Iterable<IndexUpdate> getIndexDeletes(TableState state) {
       verify(state);
       return super.getIndexDeletes(state);
     }
@@ -191,8 +199,6 @@ public class TestEndToEndPhoenixIndexBuilder {
    */
   @Test
   public void testExpectedResultsInTableStateForSinglePut() throws Exception {
-    TestState state = setupTest("testExpectedResultsInTableState");
-
     //just do a simple Put to start with
     long ts = state.ts;
     Put p = new Put(row, ts);
@@ -247,8 +253,6 @@ public class TestEndToEndPhoenixIndexBuilder {
    */
   @Test
   public void testExpectedResultsInTableStateForBatchPuts() throws Exception {
-    String tableName = "testExpectedResultsInTableStateForBatchPuts";
-    TestState state = setupTest(tableName);
     long ts = state.ts;
     // build up a list of puts to make, all on the same row
     Put p1 = new Put(row, ts);
@@ -284,90 +288,6 @@ public class TestEndToEndPhoenixIndexBuilder {
 
     // cleanup after ourselves
     cleanup(state);
-  }
-
-  /**
-   * One of the more tricky problems is how to manage updating the index when a put is made 'back in
-   * time' from the current state of the row in the primary table. In this case, we need to issue a
-   * Put for the update and then immediately also issue a delete for that Put at the next newest
-   * timestamp of the indexed column.
-   * @throws Exception on failure.
-   */
-  @Test
-  public void testProperlyCoversIndexEntriesWhenPuttingBackInTime() throws Exception {
-    String tableName = "testProperlyCoversIndexEntriesWhenPuttingBackInTime";
-    TestState state = setupTest(tableName);
-    
-    //setup the index table
-    byte[] indexTableName = Bytes.toBytes("indexTable_coverBackInTimeEntries");
-    HTableDescriptor desc = new HTableDescriptor(indexTableName);
-    desc.addFamily(new HColumnDescriptor(family));
-    UTIL.getHBaseAdmin().createTable(desc);
-    HTable index = new HTable(UTIL.getConfiguration(), indexTableName);
-    
-    long ts = state.ts;
-
-    // make a put at the current timestamp
-    byte[] value = Bytes.toBytes("v1");
-    Put p = new Put(row, ts);
-    p.add(family, qual, value);
-
-    Put i = new Put(value, ts);
-    i.add(family, qual, row);
-
-    // setup the index entry we need to make. It has the exact same information as the primary
-    // table, just for simplicity.
-    ColumnReference familyRef = new ColumnReference(family, ColumnReference.ALL_QUALIFIERS);
-    ColumnTracker tracker = new ColumnTracker(Arrays.asList(familyRef));
-    IndexUpdate update = IndexUpdate.createIndexUpdateForTesting(tracker, indexTableName, i);
-    state.codec.addIndexUpserts(update);
-
-    // do the actual put
-    state.table.put(p);
-    state.table.flushCommits();
-
-    // make sure index state matches
-    Result r = index.get(new Get(value));
-    assertEquals("Index table has unexpected number of entries!", 1, r.list().size());
-    assertEquals("Got unexpected index entry!", i.get(family, qual).get(0), r.list().get(0));
-
-    // make a Put 'back in time' from the current timestamp
-    value = Bytes.toBytes("v0");
-    long pastTime = ts - 2;
-    p = new Put(row, pastTime);
-    p.add(family, qual, value);
-
-    i = new Put(value, pastTime);
-    i.add(family, qual, row);
-
-    // this time we need to update the tracker so it has the timestamp of the previous row
-    tracker.setTs(ts);
-    update = IndexUpdate.createIndexUpdateForTesting(tracker, indexTableName, i);
-    // add the update to the codec
-    state.codec.clear();
-    state.codec.addIndexUpserts(update);
-
-    // make the actual put
-    state.table.put(p);
-    state.table.flushCommits();
-
-    // check the index table - we should see the row at ts -2, but not at ts since it should be
-    // covered at a delete
-    Scan s = new Scan(value, value);
-    s.setTimeRange(pastTime - 1, ts - 1);
-    r = index.getScanner(s).next();
-    assertEquals("Index table has unexpected number of entries!", 1, r.list().size());
-    assertEquals("Got unexpected index entry!", i.get(family, qual).get(0), r.list().get(0));
-
-    // if we check at the future time, we shouldn't see the update at all
-    s.setTimeStamp(ts);
-    r = index.getScanner(s).next();
-    assertNull("Index has entry that should have been covered!", r);
-
-    //cleanup after ourselves
-    cleanup(state);
-    index.close();
-    UTIL.deleteTable(indexTableName);
   }
 
   /**

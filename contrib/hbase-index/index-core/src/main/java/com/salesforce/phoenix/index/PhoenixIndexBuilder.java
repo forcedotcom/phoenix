@@ -29,22 +29,37 @@ package com.salesforce.phoenix.index;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
-import java.util.*;
-import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.util.*;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.*;
-import com.google.common.primitives.Longs;
+import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.builder.BaseIndexBuilder;
-import com.salesforce.hbase.index.builder.covered.*;
+import com.salesforce.hbase.index.builder.covered.Batch;
+import com.salesforce.hbase.index.builder.covered.ColumnTracker;
+import com.salesforce.hbase.index.builder.covered.IndexCodec;
+import com.salesforce.hbase.index.builder.covered.IndexUpdate;
+import com.salesforce.hbase.index.builder.covered.IndexedColumnGroup;
+import com.salesforce.hbase.index.builder.covered.LocalHBaseState;
+import com.salesforce.hbase.index.builder.covered.LocalTable;
+import com.salesforce.hbase.index.builder.covered.LocalTableState;
+import com.salesforce.hbase.index.builder.covered.TableState;
 
 /**
  * Build covered indexes for phoenix updates.
@@ -72,7 +87,7 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
 
   protected RegionCoprocessorEnvironment env;
   private IndexCodec codec;
-  protected LocalTable localTable;
+  protected LocalHBaseState localTable;
 
   @Override
   public void setup(RegionCoprocessorEnvironment env) throws IOException {
@@ -99,7 +114,7 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) throws IOException {
     // build the index updates for each group
-    List<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
+    IndexUpdateManager updateMap = new IndexUpdateManager();
 
     batchMutationAndAddUpdates(updateMap, p);
 
@@ -107,7 +122,7 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
       LOG.debug("Found index updates for Put: " + updateMap);
     }
 
-    return updateMap;
+    return updateMap.toMap();
   }
 
   /**
@@ -120,24 +135,26 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * @param updateMap index updates into which to add new updates. Modified as a side-effect.
    * @param state current state of the row for the mutation.
    * @param m mutation to batch
- * @throws IOException 
    */
-  private void batchMutationAndAddUpdates(List<Pair<Mutation, String>> updateMap, Mutation m) throws IOException {
+  private void batchMutationAndAddUpdates(IndexUpdateManager manager, Mutation m) {
     // split the mutation into timestamp-based batches
-    TreeMultimap<Long, KeyValue> batches = createTimestampBatchesFromMutation(m);
+    Collection<Batch> batches = createTimestampBatchesFromMutation(m);
 
     // create a state manager, so we can manage each batch
     LocalTableState state = new LocalTableState(env, localTable, m);
 
     // go through each batch of keyvalues and build separate index entries for each
-    for (Entry<Long, Collection<KeyValue>> batch : batches.asMap().entrySet()) {
+    boolean cleanupCurrentState = true;
+    for (Batch batch : batches) {
       /*
        * We have to split the work between the cleanup and the update for each group because when we
        * update the current state of the row for the current batch (appending the mutations for the
        * current batch) the next group will see that as the current state, which will can cause the
        * a delete and a put to be created for the next group.
        */
-      addMutationsForBatch(updateMap, batch, state);
+      if (addMutationsForBatch(manager, batch, state, cleanupCurrentState)) {
+        cleanupCurrentState = false;
+      }
     }
   }
 
@@ -150,13 +167,12 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    *         in the returned ensures that batches (when iterating through the keys) will iterate the
    *         kvs in timestamp order
    */
-  protected TreeMultimap<Long, KeyValue> createTimestampBatchesFromMutation(Mutation m) {
-    TreeMultimap<Long, KeyValue> batches =
-        TreeMultimap.create(Ordering.natural(), KeyValue.COMPARATOR);
+  protected Collection<Batch> createTimestampBatchesFromMutation(Mutation m) {
+    Map<Long, Batch> batches = new HashMap<Long, Batch>();
     for (List<KeyValue> family : m.getFamilyMap().values()) {
-      batches.putAll(createTimestampBatchesFromKeyValues(family));
+      createTimestampBatchesFromKeyValues(family, batches);
     }
-    return batches;
+    return batches.values();
   }
 
   /**
@@ -164,16 +180,15 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * {@link KeyValue} with a timestamp == {@link HConstants#LATEST_TIMESTAMP} to the timestamp at
    * the time the method is called.
    * @param kvs {@link KeyValue}s to break into batches
+   * @param batches
    * @return map of timestamp to all the keyvalues with the same timestamp. the implict tree sorting
    *         in the returned ensures that batches (when iterating through the keys) will iterate the
    *         kvs in timestamp order
    */
-  protected TreeMultimap<Long, KeyValue> createTimestampBatchesFromKeyValues(
-      Collection<KeyValue> kvs) {
+  protected Collection<Batch> createTimestampBatchesFromKeyValues(Collection<KeyValue> kvs,
+      Map<Long, Batch> batches) {
     long now = EnvironmentEdgeManager.currentTimeMillis();
     byte[] nowBytes = Bytes.toBytes(now);
-    TreeMultimap<Long, KeyValue> batches =
-        TreeMultimap.create(Ordering.natural(), KeyValue.COMPARATOR);
 
     // batch kvs by timestamp
     for (KeyValue kv : kvs) {
@@ -183,9 +198,14 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
       if (kv.updateLatestStamp(nowBytes)) {
         ts = now;
       }
-      batches.put(ts, kv);
+      Batch batch = batches.get(ts);
+      if (batch == null) {
+        batch = new Batch(ts);
+        batches.put(ts, batch);
+      }
+      batch.add(kv);
     }
-    return batches;
+    return batches.values();
   }
 
   /**
@@ -211,213 +231,196 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * @param updateMap map to update with new index elements
    * @param batch timestamp-based batch of edits
    * @param state local state to update and pass to the codec
- * @throws IOException 
+   * @param requireCurrentStateCleanup <tt>true</tt> if we should should attempt to cleanup the
+   *          current state of the table, in the event of a 'back in time' batch. <tt>false</tt>
+   *          indicates we should not attempt the cleanup, e.g. an earlier batch already did the
+   *          cleanup.
+   * @return <tt>true</tt> if we cleaned up the current state forward (had a back-in-time put),
+   *         <tt>false</tt> otherwise
    */
-  private void addMutationsForBatch(Collection<Pair<Mutation, String>> updateMap,
-      Entry<Long, Collection<KeyValue>> batch, LocalTableState state) throws IOException {
+  private boolean addMutationsForBatch(IndexUpdateManager updateMap, Batch batch,
+      LocalTableState state, boolean requireCurrentStateCleanup) {
 
-    // do a single pass to figure out if we even need to fix up history.
-    Iterable<IndexUpdate> upserts = getPendingIndexUpdates(state, batch);
+    // need a temporary manager for the current batch. It should resolve any conflicts for the
+    // current batch. Essentially, we can get the case where a batch doesn't change the current
+    // state of the index (all Puts are covered by deletes), in which case we don't want to add
+    // anything
+    // A. Get the correct values for the pending state in the batch
+    // A.1 start by cleaning up the current state - as long as there are key-values in the batch
+    // that are indexed, we need to change the current state of the index. Its up to the codec to
+    // determine if we need to make any cleanup given the pending update.
+    long batchTs = batch.getTimestamp();
+    addCleanupForCurrentBatch(updateMap, batchTs, state);
 
-    // timestamp of all the indexed columns is the most recent, so we are done (its all latest
-    // timestmap updates)
-    long minTs = ColumnTracker.NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
-    for (IndexUpdate update : upserts) {
-      ColumnTracker tracker = update.getIndexedColumns();
-      if (minTs > tracker.getTS()) {
-        minTs = tracker.getTS();
-      }
-      // TODO replace this as just storing a byte[], to avoid all the String <-> byte[] swapping
-      // HBase does
-      String table = Bytes.toString(update.getTableName());
-      Put put = update.getUpdate();
-
-      // get the column tracker so we can check the timestamps we need to complete again
-
-      boolean needCleanup = tracker.getTS() < ColumnTracker.NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
-
-      // only make the put if the index update has been setup
-      if (put != null && table != null) {
-        updateMap.add(new Pair<Mutation, String>(put, table));
-
-        // only make the cleanup if we made a put and need cleanup
-        if (needCleanup) {
-          // there is a TS for the interested columns that is greater than the columns in the
-          // put. Therefore, we need to issue a delete at the same timestamp
-          Delete d = new Delete(put.getRow());
-          d.setTimestamp(tracker.getTS());
-          updateMap.add(new Pair<Mutation, String>(put, table));
-        }
-      }
-
-      Queue<ColumnTrackerQueueElement> nextUpdateBatches = Queues.newSynchronousQueue(); // JT - to fix compiler error
-      if (needCleanup) {
-        // enque this tracker for another pass to for cleanup
-        addTrackerToQueue(nextUpdateBatches, tracker);
-      }
+    // A.2 do a single pass first for the updates to the current state
+    state.addPendingUpdates(batch.getKvs());
+    long minTs = addUpdateForGivenTimestamp(batchTs, state, updateMap);
+    // if all the updates are the latest thing in the index, we are done - don't go and fix history
+    if (ColumnTracker.isNewestTime(minTs)) {
+      return false;
     }
 
-    // roll up then entire history, with the pending update - this gets the correct index entries
-    // and cleanup for the existing entries (with the update applied).
-
-    // roll back the pending update. This is needed so we can remove all the 'old' index entries. We
-    // don't need to do the puts here, but just the deletes at the given timestamps since we just
-    // want to completely hide the incorrect entries.
-
-    // cleanup the pending batch. If anything in the correct history is covered by Deletes used to
-    // 'fix' history (same row key and ts), we just drop the delete (we don't want to drop both
-    // because the update may have a different set of columns or value based on the update).
-
-    // queue to manage the next step in history that we need to 'fix'
-    Queue<ColumnTrackerQueueElement> nextUpdateBatches =
-        new PriorityQueue<PhoenixIndexBuilder.ColumnTrackerQueueElement>();
-
-    // start by getting the cleanup for the current state of the batch
-    nextUpdateBatches.add(new ColumnTrackerQueueElement(batch.getKey()));
-
-    // keep going while we don't need to roll back up the history
-    while (!nextUpdateBatches.isEmpty()) {
-      ColumnTrackerQueueElement elem = nextUpdateBatches.poll();
-      long ts = elem.ts;
-      state.setCurrentTimestamp(ts);
-      // set the hints from the current element
-      state.setHints(elem.trackers);
-      // cleanup the current state of the table
-      addDeleteUpdatesToMap(updateMap, state, ts);
-
-      // ignore any index tracking from the delete
-      state.resetTrackedColumns();
-
-      // add the current batch to the map
-      state.addPendingUpdates(batch.getValue());
-
-      // get the updates to the current index
-      // JT - rename from upserts to currentUpserts to fix compiler error
-      Iterable<IndexUpdate> currentUpserts = codec.getIndexUpserts(state);
-      state.resetTrackedColumns();
-
-      for (IndexUpdate update : currentUpserts) {
-        // TODO replace this as just storing a byte[], to avoid all the String <-> byte[] swapping
-        // HBase does
-        String table = Bytes.toString(update.getTableName());
-        Put put = update.getUpdate();
-
-        // get the column tracker so we can check the timestamps we need to complete again
-        ColumnTracker tracker = update.getIndexedColumns();
-        boolean needCleanup =
-            tracker.getTS() < ColumnTracker.NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
-
-        // only make the put if the index update has been setup
-        if (put != null && table != null) {
-          updateMap.add(new Pair<Mutation, String>(put, table));
-
-          // only make the cleanup if we made a put and need cleanup
-          if (needCleanup) {
-            // there is a TS for the interested columns that is greater than the columns in the
-            // put. Therefore, we need to issue a delete at the same timestamp
-            Delete d = new Delete(put.getRow());
-            d.setTimestamp(tracker.getTS());
-            updateMap.add(new Pair<Mutation, String>(put, table));
-          }
-        }
-
-        if (needCleanup) {
-          // enque this tracker for another pass to for cleanup
-          addTrackerToQueue(nextUpdateBatches, tracker);
-        }
-      }
-
+    // A.3 otherwise, we need to roll up through the current state and get the 'correct' view of the
+    // index. after this, we have the correct view of the index, from the batch up to the index
+    while(!ColumnTracker.isNewestTime(minTs) ){
+      minTs = addUpdateForGivenTimestamp(minTs, state, updateMap);
     }
+
+    // B. only cleanup the current state if we need to - its a huge waste of effort otherwise.
+   if (requireCurrentStateCleanup) {
+      // roll back the pending update. This is needed so we can remove all the 'old' index entries.
+      // We don't need to do the puts here, but just the deletes at the given timestamps since we
+      // just want to completely hide the incorrect entries.
+      state.rollback(batch.getKvs());
+      // setup state
+      state.setPendingUpdates(batch.getKvs());
+
+      // cleanup the pending batch. If anything in the correct history is covered by Deletes used to
+      // 'fix' history (same row key and ts), we just drop the delete (we don't want to drop both
+      // because the update may have a different set of columns or value based on the update).
+      cleanupIndexStateFromBatchOnward(updateMap, batchTs, state);
+
+      // have to roll the state forward again, so the current state is correct
+      state.applyPendingUpdates();
+      return true;
+    }
+    return false;
   }
 
-  /**
-   * @param state
-   * @return
- * @throws IOException 
-   */
-  private Iterable<IndexUpdate> getPendingIndexUpdates(LocalTableState state,
-      Entry<Long, Collection<KeyValue>> batch) throws IOException {
-    // add the current batch to the map
-    state.addPendingUpdates(batch.getValue());
+  private long addUpdateForGivenTimestamp(long ts, LocalTableState state,
+      IndexUpdateManager updateMap) {
+    state.setCurrentTimestamp(ts);
+    ts = addCurrentStateMutationsForBatch(updateMap, state);
+    return ts;
+  }
 
-    // get the updates to the current index
+  private void addCleanupForCurrentBatch(IndexUpdateManager updateMap, long batchTs,
+      LocalTableState state) {
+    // get the cleanup for the current state
+    state.setCurrentTimestamp(batchTs);
+    addDeleteUpdatesToMap(updateMap, state, batchTs);
+    // ignore any index tracking from the delete
+    state.resetTrackedColumns();
+  }
+  
+  /**
+   * Add the necessary mutations for the pending batch on the local state. Handles rolling up
+   * through history to determine the index changes after applying the batch (for the case where the
+   * batch is back in time).
+   * @param updateMap to update with index mutations
+   * @param batch to apply to the current state
+   * @param state current state of the table
+   * @return the minimum timestamp across all index columns requested. If
+   *         {@link ColumnTracker#isNewestTime(long)} returns <tt>true</tt> on the returned
+   *         timestamp, we know that this <i>was not a back-in-time update</i>.
+   */
+  private long
+      addCurrentStateMutationsForBatch(IndexUpdateManager updateMap, LocalTableState state) {
+
+    // get the index updates for this current batch
     Iterable<IndexUpdate> upserts = codec.getIndexUpserts(state);
     state.resetTrackedColumns();
-    return upserts;
-  }
 
-  /**
-   * @param nextUpdateBatches
-   * @param tracker
-   */
-  private void addTrackerToQueue(Queue<ColumnTrackerQueueElement> nextUpdateBatches,
-      ColumnTracker tracker) {
+    /*
+     * go through all the pending updates. If we are sure that all the entries are the latest
+     * timestamp, we can just add the index updates and move on. However, if there are columns that
+     * we skip past (based on the timestamp of the batch), we need to roll back up the history.
+     * Regardless of whether or not they are the latest timestamp, the entries here are going to be
+     * correct for the current batch timestamp, so we add them to the updates. The only thing we
+     * really care about it if we need to roll up the history and fix it as we go.
+     */
+    // timestamp of the next update we need to track
+    long minTs = ColumnTracker.NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
+    List<IndexedColumnGroup> columnHints = new ArrayList<IndexedColumnGroup>();
+    for (IndexUpdate update : upserts) {
+      // this is the one bit where we check the timestamps
+      final ColumnTracker tracker = update.getIndexedColumns();
+      long trackerTs = tracker.getTS();
+      // update the next min TS we need to track
+      if (trackerTs < minTs) {
+        minTs = tracker.getTS();
+      }
+      // track index hints for the next round. Hint if we need an update for that column for the
+      // next timestamp. These columns clearly won't need to update as we go through time as they
+      // already match the most recent possible thing.
+      boolean needsCleanup = false;
+      if (tracker.hasNewerTimestamps()) {
+        columnHints.add(tracker);
+        // this update also needs to be cleaned up at the next timestamp because it not the latest.
+        needsCleanup = true;
+      }
 
-    // add the tracker based on the right batch
-    ColumnTrackerQueueElement elem = new ColumnTrackerQueueElement(tracker.getTS());
-    if (!nextUpdateBatches.contains(elem)) {
-      nextUpdateBatches.add(elem);
-    } else {
-      // have to find the actual tracker from the batches
-      for (ColumnTrackerQueueElement next : nextUpdateBatches) {
-        if (next.equals(elem)) {
-          elem = next;
-          break;
+
+      // only make the put if the index update has been setup
+      if (update.isValid()) {
+        byte[] table = update.getTableName();
+        Mutation mutation = update.getUpdate();
+        updateMap.addIndexUpdate(table, mutation);
+
+        // only make the cleanup if we made a put and need cleanup
+        if (needsCleanup) {
+          // there is a TS for the interested columns that is greater than the columns in the
+          // put. Therefore, we need to issue a delete at the same timestamp
+          Delete d = new Delete(mutation.getRow());
+          d.setTimestamp(tracker.getTS());
+          updateMap.addIndexUpdate(table, d);
         }
       }
     }
-    elem.addTracker(tracker);
+    return minTs;
   }
 
   /**
-   * Smaller wrapper around the timestamp of a bunch of {@link ColumnTracker}s.
+   * Cleanup the index based on the current state from the given batch. Iterates over each timestamp
+   * (for the indexed rows) for the current state of the table and cleans up all the existing
+   * entries generated by the codec.
+   * <p>
+   * Adds all pending updates to the updateMap
+   * @param updateMap updated with the pending index updates from the codec
+   * @param batchTs timestamp from which we should cleanup
+   * @param state current state of the primary table. Should already by setup to the correct state
+   *          from which we want to cleanup.
    */
-  class ColumnTrackerQueueElement implements Comparable<ColumnTrackerQueueElement> {
-    private final long ts;
-    private final List<ColumnTracker> trackers = new ArrayList<ColumnTracker>();
-
-    public ColumnTrackerQueueElement(long ts) {
-      this.ts = ts;
-    }
-
-    public void addTracker(ColumnTracker... tracker) {
-      if (tracker == null) {
-        return;
+  private void cleanupIndexStateFromBatchOnward(IndexUpdateManager updateMap,
+      long batchTs, LocalTableState state) {
+    // get the cleanup for the current state
+    state.setCurrentTimestamp(batchTs);
+    addDeleteUpdatesToMap(updateMap, state, batchTs);
+    Set<ColumnTracker> trackers = state.getTrackedColumns();
+    long minTs = ColumnTracker.NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
+    for (ColumnTracker tracker : trackers) {
+      if (tracker.getTS() < minTs) {
+        minTs = tracker.getTS();
       }
-      this.trackers.addAll(Arrays.asList(tracker));
     }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof ColumnTrackerQueueElement)) {
-        return false;
-      }
-      ColumnTrackerQueueElement other = (ColumnTrackerQueueElement) o;
-      return other.ts == this.ts;
-    }
-
-    @Override
-    public int compareTo(ColumnTrackerQueueElement o) {
-      return Longs.compare(ts, o.ts);
+    state.resetTrackedColumns();
+    if (!ColumnTracker.isNewestTime(minTs)) {
+      state.setHints(Lists.newArrayList(trackers));
+      cleanupIndexStateFromBatchOnward(updateMap, minTs, state);
     }
   }
 
+
   /**
-   * Get the index deletes from the codec (IndexCodec{@link #getIndexDeletes(TableState)} and then add them to the update map.
- * @throws IOException 
+   * Get the index deletes from the codec (IndexCodec{@link #getIndexDeletes(TableState)} and then
+   * add them to the update map.
+   * <p>
+   * Expects the {@link LocalTableState} to already be correctly setup (correct timestamp, updates
+   * applied, etc).
    */
-  protected void addDeleteUpdatesToMap(Collection<Pair<Mutation, String>> updateMap,
-      LocalTableState state, long ts) throws IOException {
-    Iterable<Pair<Delete, byte[]>> cleanup = codec.getIndexDeletes(state);
+  protected void
+      addDeleteUpdatesToMap(IndexUpdateManager updateMap,
+      LocalTableState state, long ts) {
+    Iterable<IndexUpdate> cleanup = codec.getIndexDeletes(state);
     if (cleanup != null) {
-      for (Pair<Delete, byte[]> d : cleanup) {
+      for (IndexUpdate d : cleanup) {
+        if (!d.isValid()) {
+          continue;
+        }
         // override the timestamps in the delete to match the current batch.
-        Delete remove = d.getFirst();
+        Delete remove = (Delete)d.getUpdate();
         remove.setTimestamp(ts);
-        // TODO replace this as just storing a byte[], to avoid all the String <-> byte[] swapping
-        // HBase does
-        String table = Bytes.toString(d.getSecond());
-        updateMap.add(new Pair<Mutation, String>(remove, table));
+        updateMap.addIndexUpdate(d.getTableName(), remove);
       }
     }
   }
@@ -425,7 +428,7 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) throws IOException {
     // stores all the return values
-    List<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
+    IndexUpdateManager updateMap = new IndexUpdateManager();
 
     // We have to figure out which kind of delete it is, since we need to do different things if its
     // a general (row) delete, versus a delete of just a single column or family
@@ -469,7 +472,7 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
       batchMutationAndAddUpdates(updateMap, d);
     }
 
-    return updateMap;
+    return updateMap.toMap();
   }
 
   @Override

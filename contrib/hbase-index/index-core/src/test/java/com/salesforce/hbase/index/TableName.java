@@ -26,17 +26,21 @@ import org.junit.runner.Description;
  * Returns a {@code byte[]} containing the name of the currently running test method.
  */
 public class TableName extends TestWatcher {
-  private byte[] tableName;
+  private String tableName;
 
   /**
    * Invoked when a test is about to start
    */
   @Override
   protected void starting(Description description) {
-    tableName = Bytes.toBytes(description.getMethodName());
+    tableName = description.getMethodName();
   }
 
   public byte[] getTableName() {
-    return tableName;
+    return Bytes.toBytes(tableName);
+  }
+
+  public String getTableNameString() {
+    return this.tableName;
   }
 }

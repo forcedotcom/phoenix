@@ -75,7 +75,7 @@ public class FilteredKeyValueScanner implements KeyValueScanner {
       case INCLUDE:
       case INCLUDE_AND_NEXT_COL:
         return true;
-      // not included, so we need to go to th next row
+      // not included, so we need to go to the next row
       case SKIP:
       case NEXT_COL:
       case NEXT_ROW:

@@ -35,9 +35,8 @@ public interface IndexCodec {
    *          care about the latest column values, for each column you are indexing for each index
    *          table.
    * @return the pairs of (deletes, index table name) that should be applied.
- * @throws IOException 
    */
-  public Iterable<Pair<Delete, byte[]>> getIndexDeletes(TableState state) throws IOException;
+  public Iterable<IndexUpdate> getIndexDeletes(TableState state);
 
   // table state has the pending update already applied, before calling
   // get the new index entries
@@ -55,7 +54,6 @@ public interface IndexCodec {
    *          care about the latest column values, for each column you are indexing for each index
    *          table.
    * @return the pairs of (updates,index table name) that should be applied.
- * @throws IOException 
    */
-  public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException;
+  public Iterable<IndexUpdate> getIndexUpserts(TableState state);
 }

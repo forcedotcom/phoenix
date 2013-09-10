@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.index;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Collections;
 
@@ -42,7 +43,7 @@ import com.salesforce.hbase.index.builder.covered.filter.ApplyAndFilterDeletesFi
 /**
  * Test filter to ensure that it correctly handles KVs of different types correctly
  */
-public class ApplyAndFilterDeletesFilterTest {
+public class TestApplyAndFilterDeletesFilter {
 
   private byte[] row = Bytes.toBytes("row");
   private byte[] family = Bytes.toBytes("family");
@@ -80,15 +81,15 @@ public class ApplyAndFilterDeletesFilterTest {
         new ApplyAndFilterDeletesFilter(Collections.<byte[]> emptyList());
     filter.filterKeyValue(kv);
     // make sure the hint is our attempt at the end key, because we have no more families to seek
-    assertEquals("Didn't get END_KEY with no families to match",
-      ApplyAndFilterDeletesFilter.END_ROW_KEY, filter.getNextKeyHint(kv));
+    assertEquals("Didn't get END_KEY with no families to match", KeyValue.LOWESTKEY,
+      filter.getNextKeyHint(kv));
 
     // check for a family that comes before our family, so we always seek to the end as well
     filter = new ApplyAndFilterDeletesFilter(Collections.singletonList(Bytes.toBytes("afamily")));
     filter.filterKeyValue(kv);
     // make sure the hint is our attempt at the end key, because we have no more families to seek
-    assertEquals("Didn't get END_KEY with no families to match",
-      ApplyAndFilterDeletesFilter.END_ROW_KEY, filter.getNextKeyHint(kv));
+    assertEquals("Didn't get END_KEY with no families to match", KeyValue.LOWESTKEY,
+      filter.getNextKeyHint(kv));
 
     // check that we seek to the correct family that comes after our family
     byte[] laterFamily = Bytes.toBytes("zfamily");
@@ -131,5 +132,23 @@ public class ApplyAndFilterDeletesFilterTest {
   private KeyValue createKvForType(Type t, long timestamp) {
     return new KeyValue(row, family, qualifier, 0, qualifier.length, timestamp, t, value, 0,
         value.length);
+  }
+
+  /**
+   * Test that when we do a column delete at a given timestamp that we delete the entire column.
+   * @throws Exception
+   */
+  @Test
+  public void testCoverForDeleteColumn() throws Exception {
+    ApplyAndFilterDeletesFilter filter =
+        new ApplyAndFilterDeletesFilter(Collections.<byte[]> emptyList());
+    KeyValue dc = createKvForType(Type.DeleteColumn, 11);
+    KeyValue put = createKvForType(Type.Put, 10);
+    assertEquals("Didn't filter out delete column.", ReturnCode.SEEK_NEXT_USING_HINT,
+      filter.filterKeyValue(dc));
+    // seek past the given put
+    KeyValue seek = filter.getNextKeyHint(dc);
+    assertTrue("Seeked key wasn't past the expected put - didn't skip the column",
+      KeyValue.COMPARATOR.compare(seek, put) > 0);
   }
 }

@@ -32,6 +32,9 @@ import java.util.List;
 import org.apache.hadoop.hbase.KeyValue;
 
 import com.salesforce.hbase.index.builder.covered.ColumnReference;
+import com.salesforce.hbase.index.builder.covered.scanner.Scanner;
+import com.salesforce.phoenix.index.LazyValueGetter;
+import com.salesforce.phoenix.index.ValueGetter;
 
 /**
  * Utility class to help manage indexes
@@ -40,6 +43,10 @@ public class IndexUtil {
 
   private IndexUtil() {
     // private ctor for util classes
+  }
+
+  public static ValueGetter createGetterFromScanner(Scanner scanner, byte[] currentRow) {
+    return new LazyValueGetter(scanner, currentRow);
   }
 
   /** check to see if the kvs in the update  match any of the passed columns. Generally, this is useful to for an index codec to determine if a given update should even be indexed.
@@ -65,7 +72,7 @@ public class IndexUtil {
   }
   
   /**
-   * check to see if the kvs in the update match any of the passed columns. Generally, this is
+   * Check to see if the kvs in the update match any of the passed columns. Generally, this is
    * useful to for an index codec to determine if a given update should even be indexed. This
    * assumes that for any index, there are going to small number of kvs, versus the number of
    * columns in any one batch.
@@ -73,7 +80,7 @@ public class IndexUtil {
    * This employs the same logic as {@link #updateMatchesColumns(List, List)}, but is flips the
    * iteration logic to search columns before kvs.
    */
-  public static boolean columnMatchUpdate(
+  public static boolean columnMatchesUpdate(
       List<ColumnReference> columns, List<KeyValue> update) {
     boolean matches = false;
     outer: for (ColumnReference ref : columns) {

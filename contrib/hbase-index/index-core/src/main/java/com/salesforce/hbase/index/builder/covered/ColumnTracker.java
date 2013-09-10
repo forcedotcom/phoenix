@@ -43,6 +43,7 @@ import java.util.List;
 public class ColumnTracker implements IndexedColumnGroup {
 
   public static final long NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP = Long.MAX_VALUE;
+  public static final long GUARANTEED_NEWER_UPDATES = Long.MIN_VALUE;
   private final List<ColumnReference> columns;
   private long ts = NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
 
@@ -102,10 +103,18 @@ public class ColumnTracker implements IndexedColumnGroup {
   }
 
   /**
-   * @return if this set of columns has seen a column with a timestamp newer than the requested
-   *         timestamp
+   * @return <tt>true</tt> if this set of columns has seen a column with a timestamp newer than the
+   *         requested timestamp, <tt>false</tt> otherwise.
    */
   public boolean hasNewerTimestamps() {
-    return this.ts < NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
+    return !isNewestTime(this.ts);
+  }
+
+  /**
+   * @param ts timestamp to check
+   * @return <tt>true</tt> if the timestamp is at the most recent timestamp for a column
+   */
+  public static boolean isNewestTime(long ts) {
+    return ts == NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
   }
 }

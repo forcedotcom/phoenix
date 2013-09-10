@@ -1,7 +1,11 @@
 package org.apache.hadoop.hbase.regionserver.wal;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -36,8 +40,7 @@ public class IndexedWALEdit extends WALEdit {
 
   }
 
-  @Override
-public void setCompressionContext(CompressionContext context) {
+  public void setCompressionContext(CompressionContext context) {
     throw new UnsupportedOperationException(
         "Compression not supported for IndexedWALEdit! If you are using HBase 0.94.9+, use IndexedWALEditCodec instead.");
   }

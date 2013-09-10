@@ -46,7 +46,7 @@ import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
  * we are doing here. In the end, its simpler and about as efficient to just get the current state
  * of the row from HBase and let HBase manage caching the row from disk on its own.
  */
-public class LocalTable {
+public class LocalTable implements LocalHBaseState {
 
   private volatile HTableInterface localTable;
   private RegionCoprocessorEnvironment env;
@@ -55,14 +55,7 @@ public class LocalTable {
     this.env = env;
   }
 
-  /**
-   * @param m mutation for which we should get the current table state
-   * @return the full state of the given row. Includes all current versions (even if they are not
-   *         usually visible to the client (unless they are also doing a raw scan)). Never returns a
-   *         <tt>null</tt> {@link Result} - instead, when there is not data for the row, returns a
-   *         {@link Result} with no stored {@link KeyValue}s.
-   * @throws IOException if there is an issue reading the row
-   */
+  @Override
   public Result getCurrentRowState(Mutation m) throws IOException {
     byte[] row = m.getRow();
     // need to use a scan here so we can get raw state, which Get doesn't provide.

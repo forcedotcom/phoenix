@@ -113,8 +113,8 @@ public class CoveredColumnIndexSpecifierBuilder {
   public void build(HTableDescriptor desc) throws IOException {
     // add the codec for the index to the map of options
     Map<String, String> opts = this.convertToMap();
-    opts.put(PhoenixIndexBuilder.CODEC_CLASS_NAME_KEY, CoveredColumnIndexCodecV2.class.getName());
-    IndexUtil.enableIndexing(desc, CoveredColumnIndexerV2.class, opts);
+    opts.put(PhoenixIndexBuilder.CODEC_CLASS_NAME_KEY, CoveredColumnIndexCodec.class.getName());
+    IndexUtil.enableIndexing(desc, CoveredColumnIndexer.class, opts);
   }
 
   static List<ColumnGroup> getColumns(Configuration conf) {

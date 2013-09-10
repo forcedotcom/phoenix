@@ -43,14 +43,8 @@ public interface TableState {
    */
   public Map<String, byte[]> getUpdateAttributes();
 
-  // use this to get the cf:cq as of the current timestamp
-  public Scanner getNonIndexedColumnsTableState(List<? extends ColumnReference> columns)
-      throws IOException;
-
   /**
-   * Get a scanner on the columns that will be indexed. This is similar to
-   * {@link #getNonIndexedColumnsTableState(List)}, but should only be called for columns that you
-   * need to index to ensure we can properly cleanup the index in the case of out of order updates.
+   * Get a scanner on the columns that are needed by the index.
    * <p>
    * The returned scanner is already pre-seeked to the first {@link KeyValue} that matches the given
    * columns with a timestamp earlier than the timestamp to which the table is currently set (the
@@ -70,11 +64,6 @@ public interface TableState {
    * As a side-effect, we update a timestamp for the next-most-recent timestamp for the columns you
    * request - you will never see a column with the timestamp we are tracking, but the next oldest
    * timestamp for that column.
-   * <p>
-   * If you are always guaranteed to get the most recent update on the index columns for the primary
-   * table row (e.g. the client is not setting custom timestamps, but instead relying on the server
-   * to set them), then you don't need to use this method and can instead just use
-   * {@link #getNonIndexedColumnsTableState(List)}.
    * @param indexedColumns the columns to that will be indexed
    * @return an iterator over the columns and the {@link IndexUpdate} that should be passed back to
    *         the builder. Even if no update is necessary for the requested columns, you still need

@@ -59,10 +59,8 @@ public class TestEndToEndCoveredIndexing {
   private static final CoveredColumn col2 = new CoveredColumn(FAM2_STRING, null);
   private static final CoveredColumn col3 = new CoveredColumn(FAM2_STRING, indexed_qualifer);
   
-  //get a unqiue table name for each call
   @Rule
   public TableName TestTable = new TableName();
-
   
   private ColumnGroup fam1;
   private ColumnGroup fam2;
@@ -108,24 +106,7 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testSimpleTimestampedUpdates() throws Exception {
-    //setup the index 
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    CoveredColumnIndexerV2.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a put to the primary table
     Put p = new Put(row1);
@@ -157,24 +138,7 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testMultipleTimestampsInSinglePut() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a put to the primary table
     Put p = new Put(row1);
@@ -216,28 +180,7 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testMultipleConcurrentGroupsUpdated() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-    builder.addIndexGroup(fam2);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    String indexTableName = getIndexTableName();
-    String indexTableName2 = getIndexTableName() + "2";
-    CoveredColumnIndexer.createIndexTable(admin, indexTableName);
-    CoveredColumnIndexer.createIndexTable(admin, indexTableName2);
+    HTable primary = createSetupTables(fam1, fam2);
 
     // do a put to the primary table
     Put p = new Put(row1);
@@ -249,8 +192,8 @@ public class TestEndToEndCoveredIndexing {
     primary.flushCommits();
 
     // read the index for the expected values
-    HTable index1 = new HTable(UTIL.getConfiguration(), indexTableName);
-    HTable index2 = new HTable(UTIL.getConfiguration(), indexTableName2);
+    HTable index1 = new HTable(UTIL.getConfiguration(), fam1.getTable());
+    HTable index2 = new HTable(UTIL.getConfiguration(), fam2.getTable());
 
     // build the expected kvs
     List<Pair<byte[], CoveredColumn>> pairs = new ArrayList<Pair<byte[], CoveredColumn>>();
@@ -278,24 +221,7 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testOverwritingPutsCorrectlyGetIndexed() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a put to the primary table
     Put p = new Put(row1);
@@ -306,7 +232,7 @@ public class TestEndToEndCoveredIndexing {
     primary.flushCommits();
 
     // read the index for the expected values
-    HTable index1 = new HTable(UTIL.getConfiguration(), getIndexTableName());
+    HTable index1 = new HTable(UTIL.getConfiguration(), fam1.getTable());
 
     // build the expected kvs
     List<Pair<byte[], CoveredColumn>> pairs = new ArrayList<Pair<byte[], CoveredColumn>>();
@@ -340,24 +266,7 @@ public class TestEndToEndCoveredIndexing {
   
   @Test
   public void testSimpleDeletes() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a simple Put
     long ts = 10;
@@ -370,7 +279,7 @@ public class TestEndToEndCoveredIndexing {
     Delete d = new Delete(row1);
     primary.delete(d);
 
-    HTable index = new HTable(UTIL.getConfiguration(), getIndexTableName());
+    HTable index = new HTable(UTIL.getConfiguration(), fam1.getTable());
     List<KeyValue> expected = Collections.<KeyValue> emptyList();
     // scan over all time should cause the delete to be covered
     IndexTestingUtils.verifyIndexTableAtTimestamp(index, expected, 0, Long.MAX_VALUE, value1,
@@ -395,31 +304,14 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testDeletesWithoutPreviousState() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a delete on the primary table (no data, so no index updates...hopefully).
     long ts = 10;
     Delete d = new Delete(row1);
     primary.delete(d);
 
-    HTable index1 = new HTable(UTIL.getConfiguration(), getIndexTableName());
+    HTable index1 = new HTable(UTIL.getConfiguration(), fam1.getTable());
     List<KeyValue> expected = Collections.<KeyValue> emptyList();
     IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts, value1);
 
@@ -452,37 +344,19 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testMultipleTimestampsInSingleDelete() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a put to the primary table
     Put p = new Put(row1);
     long ts1 = 10, ts2 = 11, ts3 = 12;
     p.add(FAM, indexed_qualifer, ts1, value1);
-    p.add(FAM, regular_qualifer, ts1, value2);
     // our group indexes all columns in the this family, so any qualifier here is ok
     p.add(FAM2, regular_qualifer, ts2, value3);
     primary.put(p);
     primary.flushCommits();
 
     // check to make sure everything we expect is there
-    HTable index1 = new HTable(UTIL.getConfiguration(), getIndexTableName());
+    HTable index1 = new HTable(UTIL.getConfiguration(), fam1.getTable());
 
     // ts1, we just have v1
     List<Pair<byte[], CoveredColumn>> pairs = new ArrayList<Pair<byte[], CoveredColumn>>();
@@ -507,6 +381,7 @@ public class TestEndToEndCoveredIndexing {
     Delete d = new Delete(row1);
     // these deletes have to match the exact ts since we are doing an exact match (deleteColumn).
     d.deleteColumn(FAM, indexed_qualifer, ts1);
+    // since this doesn't match exactly, we actually shouldn't see a change in table state
     d.deleteColumn(FAM2, regular_qualifer, ts3);
     primary.delete(d);
 
@@ -522,9 +397,9 @@ public class TestEndToEndCoveredIndexing {
     expected = CoveredColumnIndexCodec.getIndexKeyValueForTesting(row1, ts2, pairs);
     IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts2, value1);
 
-    // final delete clears out everything, but only at ts3
-    expected = Collections.emptyList();
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts3, value1);
+    // the later delete is a point delete, so we shouldn't see any change at ts3
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts2, ts3, value1,
+      HConstants.EMPTY_END_ROW);
 
     // cleanup
     closeAndCleanupTables(primary, index1);
@@ -541,31 +416,12 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testDeleteColumnsInThePast() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a put to the primary table
     Put p = new Put(row1);
     long ts1 = 10, ts2 = 11, ts3 = 12;
     p.add(FAM, indexed_qualifer, ts1, value1);
-    p.add(FAM, regular_qualifer, ts1, value2);
-    // our group indexes all columns in the this family, so any qualifier here is ok
     p.add(FAM2, regular_qualifer, ts2, value3);
     primary.put(p);
     primary.flushCommits();
@@ -573,12 +429,12 @@ public class TestEndToEndCoveredIndexing {
     // now build up a delete with a couple different timestamps
     Delete d = new Delete(row1);
     // these deletes don't need to match the exact ts because they cover everything earlier
-    d.deleteColumn(FAM, indexed_qualifer, ts2);
-    d.deleteColumn(FAM2, regular_qualifer, ts3 + 1);
+    d.deleteColumns(FAM, indexed_qualifer, ts2);
+    d.deleteColumns(FAM2, regular_qualifer, ts3);
     primary.delete(d);
 
     // read the index for the expected values
-    HTable index1 = new HTable(UTIL.getConfiguration(), getIndexTableName());
+    HTable index1 = new HTable(UTIL.getConfiguration(), fam1.getTable());
 
     // build the expected kvs
     List<Pair<byte[], CoveredColumn>> pairs = new ArrayList<Pair<byte[], CoveredColumn>>();
@@ -612,25 +468,7 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testOutOfOrderUpdates() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = "testOutOfOrderUpdates";
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    pTable.addFamily(new HColumnDescriptor(FAM));
-    pTable.addFamily(new HColumnDescriptor(FAM2));
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-    primary.setAutoFlush(false);
-
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // do a put to the primary table
     Put p = new Put(row1);
@@ -640,7 +478,7 @@ public class TestEndToEndCoveredIndexing {
     primary.flushCommits();
 
     // read the index for the expected values
-    HTable index1 = new HTable(UTIL.getConfiguration(), getIndexTableName());
+    HTable index1 = new HTable(UTIL.getConfiguration(), fam1.getTable());
 
     // build the expected kvs
     List<Pair<byte[], CoveredColumn>> pairs = new ArrayList<Pair<byte[], CoveredColumn>>();
@@ -689,30 +527,13 @@ public class TestEndToEndCoveredIndexing {
   @Test
   public void testExceedVersionsOutOfOrderPut() throws Exception {
     // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam2);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    HColumnDescriptor col = new HColumnDescriptor(FAM2);
-    // override the max versions, so we don't need to put 4 different versions to verify this test.
-    col.setMaxVersions(2);
-    pTable.addFamily(col);
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-    primary.setAutoFlush(false);
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam2);
 
     // do a put to the primary table
     Put p = new Put(row1);
-    long ts1 = 1, ts2 = 2, ts3 = 3, ts4 = 4;
+    long ts1 = 1, ts2 = 2, ts3 = 3, ts4 = 4, ts5 = 5;
     byte[] value4 = Bytes.toBytes("val4");
+    byte[] value5 = Bytes.toBytes("val5");
     p.add(FAM2, indexed_qualifer, ts1, value1);
     primary.put(p);
     primary.flushCommits();
@@ -727,6 +548,26 @@ public class TestEndToEndCoveredIndexing {
     primary.put(p);
     primary.flushCommits();
 
+    p = new Put(row1);
+    p.add(FAM2, indexed_qualifer, ts5, value5);
+    primary.put(p);
+    primary.flushCommits();
+
+    // read the index for the expected values
+    HTable index = new HTable(UTIL.getConfiguration(), fam2.getTable());
+
+    // do a raw scan of everything in the table
+    if (LOG.isDebugEnabled()) {
+      // the whole table, all the keys
+      Scan s = new Scan();
+      s.setRaw(true);
+      ResultScanner scanner = index.getScanner(s);
+      for (Result r : scanner) {
+        LOG.debug("Found row:" + r);
+      }
+      scanner.close();
+    }
+
     /*
      * now we have definitely exceeded the number of versions visible to a usual client of the
      * primary table, so we should try doing a put 'back in time' an make sure that has the correct
@@ -737,15 +578,15 @@ public class TestEndToEndCoveredIndexing {
     primary.put(p);
     primary.flushCommits();
 
-    // read the index for the expected values
-    HTable index1 = new HTable(UTIL.getConfiguration(), getIndexTableName());
-
+    // // read the index for the expected values
+    // HTable index = new HTable(UTIL.getConfiguration(), fam2.getTable());
+    //
     // do a raw scan of everything in the table
     if (LOG.isDebugEnabled()) {
       // the whole table, all the keys
       Scan s = new Scan();
       s.setRaw(true);
-      ResultScanner scanner = index1.getScanner(s);
+      ResultScanner scanner = index.getScanner(s);
       for (Result r : scanner) {
         LOG.debug("Found row:" + r);
       }
@@ -758,20 +599,20 @@ public class TestEndToEndCoveredIndexing {
 
     // check the value1 should be present at the earliest timestamp
     List<KeyValue> expected = CoveredColumnIndexCodec.getIndexKeyValueForTesting(row1, ts1, pairs);
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts1, value1, value2);
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, expected, ts1, value1, value2);
 
     // and value1 should be removed at ts2 (even though it came later)
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, Collections.<KeyValue> emptyList(), ts1,
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, Collections.<KeyValue> emptyList(), ts1,
       ts2 + 1, value1, value2); // timestamp + 1 since its exclusive end timestamp
 
     // late added column should be there just fine at its timestamp
     pairs.clear();
     pairs.add(new Pair<byte[], CoveredColumn>(value2, col3));
     expected = CoveredColumnIndexCodec.getIndexKeyValueForTesting(row1, ts2, pairs);
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts2, value2);
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, expected, ts2, value2);
 
     // and check that the late entry also removes its self at the next timestamp up
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, Collections.<KeyValue> emptyList(), ts3,
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, Collections.<KeyValue> emptyList(), ts3,
       value2, value3);
 
     // then we should have the rest of the inserts at their appropriate timestamps. Everything else
@@ -781,25 +622,25 @@ public class TestEndToEndCoveredIndexing {
     pairs.clear();
     pairs.add(new Pair<byte[], CoveredColumn>(value3, col3));
     expected = CoveredColumnIndexCodec.getIndexKeyValueForTesting(row1, ts3, pairs);
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts3, value3);
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, expected, ts3, value3);
 
     // check the fourth entry
     pairs.clear();
     pairs.add(new Pair<byte[], CoveredColumn>(value4, col3));
     expected = CoveredColumnIndexCodec.getIndexKeyValueForTesting(row1, ts4, pairs);
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts4, value4);
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, expected, ts4, value4);
 
     // check the first entry at ts4
     pairs.clear();
     pairs.add(new Pair<byte[], CoveredColumn>(value2, col3));
     expected = CoveredColumnIndexCodec.getIndexKeyValueForTesting(row1, ts2, pairs);
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, expected, ts2, value2);
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, expected, ts2, value2);
     // verify that we remove the entry, even though its too far 'back in time'
-    IndexTestingUtils.verifyIndexTableAtTimestamp(index1, Collections.<KeyValue> emptyList(), ts3,
+    IndexTestingUtils.verifyIndexTableAtTimestamp(index, Collections.<KeyValue> emptyList(), ts3,
       value4);
 
     // cleanup
-    closeAndCleanupTables(primary, index1);
+    closeAndCleanupTables(primary, index);
   }
 
   /**
@@ -808,30 +649,7 @@ public class TestEndToEndCoveredIndexing {
    */
   @Test
   public void testExceedVersionsOutOfOrderUpdates() throws Exception {
-    // setup the index
-    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
-    builder.addIndexGroup(fam1);
-
-    // setup the primary table
-    String indexedTableName = Bytes.toString(TestTable.getTableName());
-    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
-    HColumnDescriptor col = new HColumnDescriptor(FAM);
-    // override the max versions, so we don't need to put 4 different versions to verify this test.
-    col.setMaxVersions(2);
-    pTable.addFamily(col);
-    col = new HColumnDescriptor(FAM2);
-    // override the max versions, so we don't need to put 4 different versions to verify this test.
-    col.setMaxVersions(2);
-    pTable.addFamily(col);
-    builder.build(pTable);
-
-    // create the primary table
-    HBaseAdmin admin = UTIL.getHBaseAdmin();
-    admin.createTable(pTable);
-    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
-    primary.setAutoFlush(false);
-    // create the index tables
-    CoveredColumnIndexer.createIndexTable(admin, getIndexTableName());
+    HTable primary = createSetupTables(fam1);
 
     // setup the data to store
     long ts1 = 1, ts2 = 2, ts3 = 3, ts4 = 4, ts5 = 5, ts6 = 6;
@@ -879,11 +697,10 @@ public class TestEndToEndCoveredIndexing {
     primary.flushCommits();
 
     // read the index for the expected values
-    HTable index1 = new HTable(UTIL.getConfiguration(), getIndexTableName());
+    HTable index1 = new HTable(UTIL.getConfiguration(), fam1.getTable());
 
     // do a raw scan of everything in the table
     if (LOG.isDebugEnabled()) {
-      // the whole table, all the keys
       Scan s = new Scan();
       s.setRaw(true);
       ResultScanner scanner = index1.getScanner(s);
@@ -996,6 +813,37 @@ public class TestEndToEndCoveredIndexing {
 
     // cleanup
     closeAndCleanupTables(primary, index1);
+  }
+
+  /**
+   * Create the primary table (to which you should write), setup properly for indexing the given
+   * {@link ColumnGroup}s. Also creates the necessary index tables to match the passes groups.
+   * @param groups {@link ColumnGroup}s to index, creating one index table per column group.
+   * @return reference to the primary table
+   * @throws IOException if there is an issue communicating with HBase
+   */
+  private HTable createSetupTables(ColumnGroup... groups) throws IOException {
+    HBaseAdmin admin = UTIL.getHBaseAdmin();
+    // setup the index
+    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
+    for (ColumnGroup group : groups) {
+      builder.addIndexGroup(group);
+      // create the index tables
+      CoveredColumnIndexer.createIndexTable(admin, group.getTable());
+    }
+
+    // setup the primary table
+    String indexedTableName = Bytes.toString(TestTable.getTableName());
+    HTableDescriptor pTable = new HTableDescriptor(indexedTableName);
+    pTable.addFamily(new HColumnDescriptor(FAM));
+    pTable.addFamily(new HColumnDescriptor(FAM2));
+    builder.build(pTable);
+
+    // create the primary table
+    admin.createTable(pTable);
+    HTable primary = new HTable(UTIL.getConfiguration(), indexedTableName);
+    primary.setAutoFlush(false);
+    return primary;
   }
 
   private void closeAndCleanupTables(HTable... tables) throws IOException {

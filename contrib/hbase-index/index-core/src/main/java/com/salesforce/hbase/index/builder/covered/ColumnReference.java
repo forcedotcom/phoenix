@@ -17,8 +17,6 @@
  */
 package com.salesforce.hbase.index.builder.covered;
 
-import java.util.Arrays;
-
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -44,12 +42,23 @@ public class ColumnReference implements Comparable<ColumnReference> {
     return this.qualifier;
   }
 
+  public boolean matches(KeyValue kv) {
+    if (matchesFamily(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength())) {
+      return matchesQualifier(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    }
+    return false;
+  }
+
   /**
    * @param qual to check against
    * @return <tt>true</tt> if this column covers the given qualifier.
    */
   public boolean matchesQualifier(byte[] qual) {
-    return allColumns() ? true : match(qual, qualifier);
+    return matchesQualifier(qual, 0, qual.length);
+  }
+
+  public boolean matchesQualifier(byte[] bytes, int offset, int length) {
+    return allColumns() ? true : match(bytes, offset, length, qualifier);
   }
 
   /**
@@ -57,7 +66,11 @@ public class ColumnReference implements Comparable<ColumnReference> {
    * @return <tt>true</tt> if this column covers the given family.
    */
   public boolean matchesFamily(byte[] family) {
-    return match(family, this.family);
+    return matchesFamily(family, 0, family.length);
+  }
+
+  public boolean matchesFamily(byte[] bytes, int offset, int length) {
+    return match(bytes, offset, length, family);
   }
 
   /**
@@ -73,8 +86,9 @@ public class ColumnReference implements Comparable<ColumnReference> {
    * @param storedKey the stored byte[], should never be <tt>null</tt>
    * @return <tt>true</tt> if they are byte-equal
    */
-  private boolean match(byte[] first, byte[] storedKey) {
-    return first == null ? false : Arrays.equals(first, storedKey);
+  private boolean match(byte[] first, int offset, int length, byte[] storedKey) {
+    return first == null ? false : Bytes.equals(first, offset, length, storedKey, 0,
+      storedKey.length);
   }
 
   public KeyValue getFirstKeyValueForRow(byte[] row) {

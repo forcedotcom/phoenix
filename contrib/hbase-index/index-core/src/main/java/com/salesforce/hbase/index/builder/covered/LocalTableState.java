@@ -53,13 +53,16 @@ import com.salesforce.hbase.index.builder.covered.scanner.ScannerBuilder;
  * Currently, this is a single-use object - you need to create a new one for each row that you need
  * to manage. In the future, we could make this object reusable, but for the moment its easier to
  * manage as a throw-away object.
+ * <p>
+ * This class is <b>not</b> thread-safe - it requires external synchronization is access
+ * concurrently.
  */
 public class LocalTableState implements TableState {
 
   private long ts;
   private RegionCoprocessorEnvironment env;
   private ExposedMemStore memstore;
-  private LocalTable table;
+  private LocalHBaseState table;
   private Mutation update;
   private Set<ColumnTracker> trackedColumns = new HashSet<ColumnTracker>();
   private boolean initialized;
@@ -67,7 +70,7 @@ public class LocalTableState implements TableState {
   private Collection<KeyValue> kvs = new ArrayList<KeyValue>();
   private List<? extends IndexedColumnGroup> hints;
 
-  public LocalTableState(RegionCoprocessorEnvironment environment, LocalTable table, Mutation update) {
+  public LocalTableState(RegionCoprocessorEnvironment environment, LocalHBaseState table, Mutation update) {
     this.env = environment;
     this.table = table;
     this.update = update;
@@ -82,8 +85,7 @@ public class LocalTableState implements TableState {
 
   public void addPendingUpdates(Collection<KeyValue> kvs) {
     if(kvs == null) return;
-    this.kvs.clear();
-    this.kvs.addAll(kvs);
+    setPendingUpdates(kvs);
     addUpdate(kvs);
   }
 
@@ -113,6 +115,10 @@ public class LocalTableState implements TableState {
     this.trackedColumns.clear();
   }
 
+  public Set<ColumnTracker> getTrackedColumns() {
+    return this.trackedColumns;
+  }
+
   @Override
   public Pair<Scanner, IndexUpdate> getIndexedColumnsTableState(
       Collection<? extends ColumnReference> indexedColumns) throws IOException {
@@ -132,7 +138,13 @@ public class LocalTableState implements TableState {
     return new Pair<Scanner, IndexUpdate>(scanner, new IndexUpdate(tracker));
   }
 
-  @Override
+  /**
+   * Similar to {@link #getIndexedColumnsTableState(Collection)}, but doesn't update any
+   * columnTrackers.
+   * @param columns columns to scan
+   * @return iterator over the requested columns
+   * @throws IOException on failure to read the underlying state
+   */
   public Scanner getNonIndexedColumnsTableState(List<? extends ColumnReference> columns)
       throws IOException {
     ensureLocalStateInitialized();
@@ -204,5 +216,32 @@ public class LocalTableState implements TableState {
   @Override
   public Collection<KeyValue> getPendingUpdate() {
     return this.kvs;
+  }
+
+  /**
+   * Set the {@link KeyValue}s in the update for which we are currently building an index update,
+   * but don't actually apply them.
+   * @param update pending {@link KeyValue}s
+   */
+  public void setPendingUpdates(Collection<KeyValue> update) {
+    this.kvs.clear();
+    this.kvs.addAll(update);
+  }
+
+  /**
+   * Apply the {@link KeyValue}s set in {@link #setPendingUpdates(Collection)}.
+   */
+  public void applyPendingUpdates() {
+    this.addUpdate(kvs);
+  }
+
+  /**
+   * Rollback all the given values from the underlying state.
+   * @param values
+   */
+  public void rollback(Collection<KeyValue> values) {
+    for (KeyValue kv : values) {
+      this.memstore.rollback(kv);
+    }
   }
 }
