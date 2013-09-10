@@ -40,7 +40,8 @@ public class IndexedWALEdit extends WALEdit {
 
   }
 
-  public void setCompressionContext(CompressionContext context) {
+  @Override
+public void setCompressionContext(CompressionContext context) {
     throw new UnsupportedOperationException(
         "Compression not supported for IndexedWALEdit! If you are using HBase 0.94.9+, use IndexedWALEditCodec instead.");
   }

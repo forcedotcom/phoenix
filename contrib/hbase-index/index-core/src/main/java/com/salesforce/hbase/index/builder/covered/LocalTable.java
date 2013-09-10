@@ -29,7 +29,6 @@ package com.salesforce.hbase.index.builder.covered;
 
 import java.io.IOException;
 
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;

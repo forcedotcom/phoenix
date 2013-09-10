@@ -209,7 +209,7 @@ public class TestCoveredColumnIndexCodec {
   }
 
   private void ensureNoUpdatesWhenCoveredByDelete(RegionCoprocessorEnvironment env, IndexCodec codec, List<KeyValue> currentState,
-      Delete d) {
+      Delete d) throws IOException {
     LocalHBaseState table = new SimpleTableState(new Result(currentState));
     LocalTableState state = new LocalTableState(env, table, d);
     state.setCurrentTimestamp(d.getTimeStamp());

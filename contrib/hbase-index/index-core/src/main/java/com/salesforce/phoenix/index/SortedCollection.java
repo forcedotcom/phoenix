@@ -95,6 +95,7 @@ class SortedCollection<T> implements Collection<T>, Iterable<T> {
     return this.queue.toArray();
   }
 
+  @SuppressWarnings("hiding")
   @Override
   public <T> T[] toArray(T[] a) {
     return this.queue.toArray(a);

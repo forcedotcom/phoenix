@@ -143,24 +143,27 @@ public class PhoenixIndexCodec implements IndexCodec {
 
     @SuppressWarnings("deprecation")
     @Override
-    public Iterable<Pair<Delete, byte[]>> getIndexDeletes(TableState state) throws IOException {
+    public Iterable<IndexUpdate> getIndexDeletes(TableState state) throws IOException {
         List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Pair<Delete, byte[]>> indexUpdates = Lists.newArrayList();
+        List<IndexUpdate> indexUpdates = Lists.newArrayList();
         // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
         byte[] dataRowKey = state.getCurrentRowKey();
         for (IndexMaintainer maintainer : indexMaintainers) {
             // TODO: if more efficient, I could do this just once with all columns in all indexes
             Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
             Scanner scanner = statePair.getFirst();
+            IndexUpdate indexUpdate = statePair.getSecond();
+            indexUpdate.setTable(maintainer.getIndexTableName());
             ValueGetter valueGetter = newValueGetter(scanner, maintainer.getAllColumns().size());
             ptr.set(dataRowKey);
             byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Delete delete = new Delete(rowKey);
             delete.setWriteToWAL(false);
-            indexUpdates.add(new Pair<Delete, byte[]>(delete, maintainer.getIndexTableName()));
+            indexUpdate.setUpdate(delete);
+            indexUpdates.add(indexUpdate);
         }
         return indexUpdates;
     }

@@ -2,7 +2,6 @@
 package com.salesforce.hbase.index.builder.covered;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 

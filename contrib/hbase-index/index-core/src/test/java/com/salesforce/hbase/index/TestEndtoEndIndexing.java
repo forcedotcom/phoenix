@@ -71,6 +71,7 @@ public class TestEndtoEndIndexing {
    * the values in the Put
    * @throws Exception on failure
    */
+  @SuppressWarnings("deprecation")
   @Test
   public void testPutWithoutWALGetsIndexed() throws Exception {
     byte[] k = new byte[] { 'a', 'a', 'a' };

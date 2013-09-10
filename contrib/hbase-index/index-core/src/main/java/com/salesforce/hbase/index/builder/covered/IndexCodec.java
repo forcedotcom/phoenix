@@ -2,10 +2,8 @@ package com.salesforce.hbase.index.builder.covered;
 
 import java.io.IOException;
 
-import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.util.Pair;
 
 /**
  * Codec for creating index updates from the current state of a table
@@ -35,8 +33,9 @@ public interface IndexCodec {
    *          care about the latest column values, for each column you are indexing for each index
    *          table.
    * @return the pairs of (deletes, index table name) that should be applied.
+ * @throws IOException 
    */
-  public Iterable<IndexUpdate> getIndexDeletes(TableState state);
+  public Iterable<IndexUpdate> getIndexDeletes(TableState state) throws IOException;
 
   // table state has the pending update already applied, before calling
   // get the new index entries
@@ -54,6 +53,7 @@ public interface IndexCodec {
    *          care about the latest column values, for each column you are indexing for each index
    *          table.
    * @return the pairs of (updates,index table name) that should be applied.
+ * @throws IOException 
    */
-  public Iterable<IndexUpdate> getIndexUpserts(TableState state);
+  public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException;
 }

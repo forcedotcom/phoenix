@@ -135,8 +135,9 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * @param updateMap index updates into which to add new updates. Modified as a side-effect.
    * @param state current state of the row for the mutation.
    * @param m mutation to batch
+ * @throws IOException 
    */
-  private void batchMutationAndAddUpdates(IndexUpdateManager manager, Mutation m) {
+  private void batchMutationAndAddUpdates(IndexUpdateManager manager, Mutation m) throws IOException {
     // split the mutation into timestamp-based batches
     Collection<Batch> batches = createTimestampBatchesFromMutation(m);
 
@@ -237,9 +238,10 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    *          cleanup.
    * @return <tt>true</tt> if we cleaned up the current state forward (had a back-in-time put),
    *         <tt>false</tt> otherwise
+ * @throws IOException 
    */
   private boolean addMutationsForBatch(IndexUpdateManager updateMap, Batch batch,
-      LocalTableState state, boolean requireCurrentStateCleanup) {
+      LocalTableState state, boolean requireCurrentStateCleanup) throws IOException {
 
     // need a temporary manager for the current batch. It should resolve any conflicts for the
     // current batch. Essentially, we can get the case where a batch doesn't change the current
@@ -288,14 +290,14 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
   }
 
   private long addUpdateForGivenTimestamp(long ts, LocalTableState state,
-      IndexUpdateManager updateMap) {
+      IndexUpdateManager updateMap) throws IOException {
     state.setCurrentTimestamp(ts);
     ts = addCurrentStateMutationsForBatch(updateMap, state);
     return ts;
   }
 
   private void addCleanupForCurrentBatch(IndexUpdateManager updateMap, long batchTs,
-      LocalTableState state) {
+      LocalTableState state) throws IOException {
     // get the cleanup for the current state
     state.setCurrentTimestamp(batchTs);
     addDeleteUpdatesToMap(updateMap, state, batchTs);
@@ -313,9 +315,10 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * @return the minimum timestamp across all index columns requested. If
    *         {@link ColumnTracker#isNewestTime(long)} returns <tt>true</tt> on the returned
    *         timestamp, we know that this <i>was not a back-in-time update</i>.
+ * @throws IOException 
    */
   private long
-      addCurrentStateMutationsForBatch(IndexUpdateManager updateMap, LocalTableState state) {
+      addCurrentStateMutationsForBatch(IndexUpdateManager updateMap, LocalTableState state) throws IOException {
 
     // get the index updates for this current batch
     Iterable<IndexUpdate> upserts = codec.getIndexUpserts(state);
@@ -380,9 +383,10 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * @param batchTs timestamp from which we should cleanup
    * @param state current state of the primary table. Should already by setup to the correct state
    *          from which we want to cleanup.
+ * @throws IOException 
    */
   private void cleanupIndexStateFromBatchOnward(IndexUpdateManager updateMap,
-      long batchTs, LocalTableState state) {
+      long batchTs, LocalTableState state) throws IOException {
     // get the cleanup for the current state
     state.setCurrentTimestamp(batchTs);
     addDeleteUpdatesToMap(updateMap, state, batchTs);
@@ -407,10 +411,11 @@ public class PhoenixIndexBuilder extends BaseIndexBuilder {
    * <p>
    * Expects the {@link LocalTableState} to already be correctly setup (correct timestamp, updates
    * applied, etc).
+ * @throws IOException 
    */
   protected void
       addDeleteUpdatesToMap(IndexUpdateManager updateMap,
-      LocalTableState state, long ts) {
+      LocalTableState state, long ts) throws IOException {
     Iterable<IndexUpdate> cleanup = codec.getIndexDeletes(state);
     if (cleanup != null) {
       for (IndexUpdate d : cleanup) {
