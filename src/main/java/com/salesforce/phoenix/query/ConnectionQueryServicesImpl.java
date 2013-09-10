@@ -825,14 +825,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult getTable(final byte[] tenantId, final byte[] schemaBytes, final byte[] tableBytes,
+    public MetaDataMutationResult getTable(byte[] tenantId, final byte[] schemaBytes, final byte[] tableBytes,
             final long tableTimestamp, final long clientTimestamp) throws SQLException {
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, ByteUtil.EMPTY_BYTE_ARRAY);
+        final byte[] nonNullTenantId = tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId;
+        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, nonNullTenantId);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
                     public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
-                      return instance.getTable(tenantId, schemaBytes, tableBytes, tableTimestamp, clientTimestamp);
+                      return instance.getTable(nonNullTenantId, schemaBytes, tableBytes, tableTimestamp, clientTimestamp);
                     }
                 });
     }
