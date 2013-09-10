@@ -31,7 +31,6 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PRow;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeySchema;
-import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.MetaDataUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -76,30 +75,27 @@ public class IndexTestUtil {
 
     public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation, ImmutableBytesWritable ptr) throws SQLException {
         byte[] dataRowKey = dataMutation.getRow();
-        int maxOffset = dataRowKey.length;
         RowKeySchema dataRowKeySchema = dataTable.getRowKeySchema();
         List<PColumn> dataPKColumns = dataTable.getPKColumns();
         int i = 0;
         int indexOffset = 0;
-        ptr.set(dataRowKey);
-        Boolean hasValue = dataRowKeySchema.first(ptr, i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
-        if (dataTable.getBucketNum() != null) { // Skip salt column
-            hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
-        }
+        Boolean hasValue;
+        // Skip salt column
+        int maxOffset = dataRowKeySchema.iterator(dataRowKey, ptr, dataTable.getBucketNum() == null ? i : ++i);
         List<PColumn> indexPKColumns = indexTable.getPKColumns();
         List<PColumn> indexColumns = indexTable.getColumns();
         int nIndexColumns = indexPKColumns.size();
         int maxIndexValues = indexColumns.size() - nIndexColumns - indexOffset;
         BitSet indexValuesSet = new BitSet(maxIndexValues);
         byte[][] indexValues = new byte[indexColumns.size() - indexOffset][];
-        while (hasValue != null) {
+        while ((hasValue = dataRowKeySchema.next(ptr, i, maxOffset)) != null) {
             if (hasValue) {
                 PColumn dataColumn = dataPKColumns.get(i);
                 PColumn indexColumn = indexTable.getColumn(IndexUtil.getIndexColumnName(dataColumn));
                 coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
                 indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
             }
-            hasValue=dataRowKeySchema.next(ptr, ++i, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
+            i++;
         }
         PRow row;
         long ts = MetaDataUtil.getClientTimeStamp(dataMutation);

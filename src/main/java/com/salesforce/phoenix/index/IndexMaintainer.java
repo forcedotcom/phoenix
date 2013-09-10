@@ -26,7 +26,6 @@ import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.SaltingUtil;
-import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.ValueSchema;
 import com.salesforce.phoenix.util.BitSet;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -205,8 +204,6 @@ public class IndexMaintainer implements Writable {
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedIndexRowKeyBytes);
         DataOutput output = new DataOutputStream(stream);
         try {
-            // Skip data table salt byte
-            ptr.set(rowKeyPtr.get(), rowKeyPtr.getOffset() + (isDataTableSalted ? SaltingUtil.NUM_SALTING_BYTES : 0) , rowKeyPtr.getLength());
             if (nIndexSaltBuckets > 0) {
                 output.write(0); // will be set at end to index salt byte
             }
@@ -214,12 +211,12 @@ public class IndexMaintainer implements Writable {
             // The dataRowKeySchema includes the salt byte field,
             // so we must adjust for that here.
             int dataPosOffset = isDataTableSalted ? 1 : 0 ;
-            int i = dataPosOffset;
             int nIndexedColumns = getIndexPkColumnCount();
-            int maxRowKeyOffset = rowKeyPtr.getOffset() + rowKeyPtr.getLength();
+            // Skip data table salt byte
+            int maxRowKeyOffset = dataRowKeySchema.iterator(rowKeyPtr, ptr, dataPosOffset);
             // Write index row key
-            // TODO: investigate bug in rowKeySchema.setAccessor causing it not to skip over separator bytes
-            for (Boolean hasValue = dataRowKeySchema.first(ptr, i, maxRowKeyOffset, ValueBitSet.EMPTY_VALUE_BITSET); i < dataRowKeySchema.getFieldCount(); hasValue=dataRowKeySchema.next(ptr, ++i, maxRowKeyOffset, ValueBitSet.EMPTY_VALUE_BITSET)) {
+            for (int i = dataPosOffset; i < dataRowKeySchema.getFieldCount(); i++) {
+                Boolean hasValue=dataRowKeySchema.next(ptr, i, maxRowKeyOffset);
                 int pos = rowKeyMetaData.getIndexPkPosition(i-dataPosOffset);
                 if (Boolean.TRUE.equals(hasValue)) {
                     dataRowKeyLocator[0][pos] = ptr.getOffset();
@@ -233,7 +230,7 @@ public class IndexMaintainer implements Writable {
             BitSet descDataColumnBitSet = rowKeyMetaData.getDescDataColumnBitSet();
             BitSet pkNotNullBitSet = rowKeyMetaData.getPkNotNullableBitSet();
             int j = 0;
-            for (i = 0; i < nIndexedColumns; i++) {
+            for (int i = 0; i < nIndexedColumns; i++) {
                 PDataType dataColumnType;
                 boolean isNullable = true;
                 boolean isDataColumnInverted = false;

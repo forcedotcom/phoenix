@@ -165,8 +165,7 @@ public class SkipScanFilter extends FilterBase {
         int lastSlot = slots.size()-1;
         if (!lowerUnbound) {
             // Find the position of the first slot of the lower range
-            ptr.set(lowerInclusiveKey);
-            schema.first(ptr, 0, ptr.getOffset()+ptr.getLength(), ValueBitSet.EMPTY_VALUE_BITSET);
+            schema.next(ptr, 0, schema.iterator(lowerInclusiveKey,ptr));
             startPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, 0);
             // Lower range is past last upper range of first slot, so cannot possibly be in range
             if (startPos >= slots.get(0).size()) {
@@ -177,8 +176,7 @@ public class SkipScanFilter extends FilterBase {
         int endPos = slots.get(0).size()-1;
         if (!upperUnbound) {
             // Find the position of the first slot of the upper range
-            ptr.set(upperExclusiveKey);
-            schema.first(ptr, 0, ptr.getOffset()+ptr.getLength(), ValueBitSet.EMPTY_VALUE_BITSET);
+            schema.next(ptr, 0, schema.iterator(upperExclusiveKey,ptr));
             endPos = ScanUtil.searchClosestKeyRangeWithUpperHigherThanPtr(slots.get(0), ptr, startPos);
             // Upper range lower than first lower range of first slot, so cannot possibly be in range
             if (endPos == 0 && Bytes.compareTo(upperExclusiveKey, slots.get(0).get(0).getLowerRange()) <= 0) {
@@ -294,8 +292,8 @@ public class SkipScanFilter extends FilterBase {
         int i = 0;
         boolean seek = false;
         int earliestRangeIndex = nSlots-1;
-        ptr.set(currentKey, offset, length);
-        schema.first(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET);
+        int maxOffset = schema.iterator(currentKey, offset, length, ptr);
+        schema.next(ptr, i, maxOffset);
         while (true) {
             // Increment to the next range while the upper bound of our current slot is less than our current key
             while (position[i] < slots.get(i).size() && slots.get(i).get(position[i]).compareUpperToLowerBound(ptr) < 0) {
@@ -368,7 +366,7 @@ public class SkipScanFilter extends FilterBase {
                 }
                 i++;
                 // If we run out of slots in our key, it means we have a partial key.
-                if (schema.next(ptr, i, offset + length, ValueBitSet.EMPTY_VALUE_BITSET) == null) {
+                if (schema.next(ptr, i, offset + length) == null) {
                     // If the rest of the slots are checking for IS NULL, then break because
                     // that's the case (since we don't store trailing nulls).
                     if (allTrailingNulls(i)) {

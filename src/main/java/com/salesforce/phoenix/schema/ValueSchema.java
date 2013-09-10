@@ -268,25 +268,50 @@ public abstract class ValueSchema implements Writable {
         }
         return false;
     }
-    
-    /**
-     * Move the bytes ptr to the current position 
-     * TODO: get rid of this and set the ptr length to 0 initially and just always use next
-     * @param ptr
-     * @param position
-     * @param maxOffset
-     * @param bitSet
-     * @return
-     */
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-            value="NP_BOOLEAN_RETURN_NULL", 
-            justification="Designed to return null.")
-    public Boolean first(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
-        if (ptr.getLength() == 0) {
-            return null;
+ 
+    public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
+        ptr.set(src, srcOffset, 0);
+        int maxOffset = srcOffset + srcLength;
+        for (int i = 0; i < position; i++) {
+            next(ptr, i, maxOffset, valueBitSet);
         }
-        ptr.set(ptr.get(), ptr.getOffset(), 0);
-        return positionPtr(ptr, position, maxOffset, bitSet);
+        return maxOffset;
+    }
+    
+    public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position) {
+        return iterator(src, srcOffset, srcLength, ptr, position, ValueBitSet.EMPTY_VALUE_BITSET);
+    }
+    
+    public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr) {
+        return iterator(src, srcOffset, srcLength, ptr, 0);
+    }
+    
+    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
+        return iterator(srcPtr.get(),srcPtr.getOffset(),srcPtr.getLength(), ptr, position, valueBitSet);
+    }
+    
+    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position) {
+        return iterator(srcPtr, ptr, position, ValueBitSet.EMPTY_VALUE_BITSET);
+    }
+    
+    public int iterator(ImmutableBytesWritable ptr, int position) {
+        return iterator(ptr, ptr, position);
+    }
+    
+    public int iterator(byte[] src, ImmutableBytesWritable ptr, int position) {
+        return iterator(src, 0, src.length, ptr, position);
+    }
+    
+    public int iterator(byte[] src, ImmutableBytesWritable ptr) {
+        return iterator(src, 0, src.length, ptr, 0);
+    }
+    
+    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr) {
+        return iterator(srcPtr, ptr, 0);
+    }
+    
+    public int iterator(ImmutableBytesWritable ptr) {
+        return iterator(ptr, ptr, 0);
     }
     
     /**
@@ -305,13 +330,17 @@ public abstract class ValueSchema implements Writable {
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL", 
             justification="Designed to return null.")
+    public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset) {
+        return next(ptr, position, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
+    }
+    
     public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
-        if (maxOffset == 0) {
+        if (maxOffset == ptr.getOffset()) {
             return null;
         }
         return positionPtr(ptr, position, maxOffset, bitSet);
     }
-    
+
     private int adjustReadFieldCount(int position, int nFields, ValueBitSet bitSet) {
         int nBit = position - this.minNullable;
         if (nBit < 0) {
