@@ -320,12 +320,8 @@ public abstract class ValueSchema implements Writable {
      * provided.
      * @param position zero-based index of the next field in the value schema
      * @param maxOffset max possible offset value when iterating
-     * @param bitSet bit set representing whether or not a value is null
      * @return true if a value was found and ptr was set, false if the value is null and ptr was not
      * set, and null if the value is null and there are no more values
-      * TODO: wrap these first, next calls into our own Iterator implementation
-      * that supports a reset method, so we don't need to instantiate a new one
-      * on each iteration.
       */
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL", 
@@ -334,6 +330,16 @@ public abstract class ValueSchema implements Writable {
         return next(ptr, position, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
     }
     
+    /**
+     * Move the bytes ptr to the next position relative to the current ptr
+     * @param ptr bytes pointer pointing to the value at the positional index
+     * provided.
+     * @param position zero-based index of the next field in the value schema
+     * @param maxOffset max possible offset value when iterating
+     * @param bitSet bit set representing whether or not a value is null
+     * @return true if a value was found and ptr was set, false if the value is null and ptr was not
+     * set, and null if the value is null and there are no more values
+      */
     public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
         if (maxOffset == ptr.getOffset()) {
             return null;
@@ -350,7 +356,9 @@ public abstract class ValueSchema implements Writable {
         }
     }
     
-    /**
+    public abstract Boolean previous(ImmutableBytesWritable ptr, int position, int maxOffset);
+    
+   /**
      * Similar to {@link #setAccessor(ImmutableBytesWritable, int)}, but allows for the bytes
      * pointer to be serially stepped through all or a subset of the values.
      * @param ptr pointer to bytes offset of startPosition (the length does not matter).
@@ -413,7 +421,7 @@ public abstract class ValueSchema implements Writable {
         return b;
     }
 
-    protected int nextField(ImmutableBytesWritable ptr, int position, int nFields, int maxOffset) {
+    private int nextField(ImmutableBytesWritable ptr, int position, int nFields, int maxOffset) {
         Field field = fields.get(fieldIndexByPosition[position]);
         if (field.getType().isFixedWidth()) {
             return positionFixedLength(ptr, position, nFields);
@@ -422,7 +430,7 @@ public abstract class ValueSchema implements Writable {
         }
     }
     
-    protected int positionFixedLength(ImmutableBytesWritable ptr, int position, int nFields) {
+    private int positionFixedLength(ImmutableBytesWritable ptr, int position, int nFields) {
         Field field = fields.get(fieldIndexByPosition[position]);
         PDataType type = field.getType();
         int length = (type.getByteSize() == null) ? field.getByteSize() : type.getByteSize();

@@ -138,4 +138,9 @@ public class RowKeySchema extends ValueSchema {
     public int getMaxFields() {
         return this.getMinNullable();
     }
+
+    @Override
+    public Boolean previous(ImmutableBytesWritable ptr, int position, int maxOffset) {
+        return null;
+    }
 }
