@@ -140,7 +140,54 @@ public class RowKeySchema extends ValueSchema {
     }
 
     @Override
-    public Boolean previous(ImmutableBytesWritable ptr, int position, int maxOffset) {
-        return null;
+    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset) {
+        if (position < 0) {
+            return null;
+        }
+        Field field = this.getField(position);
+        if (field.getType().isFixedWidth()) {
+            ptr.set(ptr.get(), minOffset, field.getByteSize());
+            return true;
+        }
+        if (position == 0) {
+            ptr.set(ptr.get(), minOffset, ptr.getOffset() - minOffset - 1);
+            return true;
+        }
+        field = this.getField(position-1);
+        // Field before the one we want to position at is variable length
+        // In this case, we can search backwards for our separator byte
+        // to determine the length
+        if (!field.getType().isFixedWidth()) {
+            byte[] buf = ptr.get();
+            int offset = ptr.getOffset()-1;
+            while (offset > minOffset /* sanity check*/ && buf[offset] != QueryConstants.SEPARATOR_BYTE) {
+                offset--;
+            }
+            if (offset == minOffset) { // shouldn't happen
+                ptr.set(buf, minOffset, ptr.getOffset()-minOffset-1);
+            } else {
+                ptr.set(buf,offset+1,ptr.getOffset()-offset-2);
+            }
+            return true;
+        }
+        int i,fixedOffset = field.getByteSize();
+        for (i = position-2; i >= 0 && this.getField(i).getType().isFixedWidth(); i--) {
+            fixedOffset += this.getField(i).getByteSize();
+        }
+        // All of the previous fields are fixed width, so we can calculate the offset
+        // based on the total fixed offset
+        if (i < 0) {
+            int length = ptr.getOffset() - 1 - fixedOffset;
+            ptr.set(ptr.get(),minOffset+fixedOffset, length);
+            return true;
+        }
+        // Otherwise we're stuck with starting from the minOffset and working all the way forward,
+        // because we can't infer the length of the previous position.
+        ptr.set(ptr.get(), minOffset, ptr.getOffset()-1-minOffset);
+        int maxOffset = this.iterator(ptr);
+        for (i = 0; i <= position; i++)  {
+            this.next(ptr,i,maxOffset);
+        }
+        return true;
     }
 }
