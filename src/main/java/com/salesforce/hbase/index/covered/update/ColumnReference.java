@@ -34,14 +34,25 @@ import org.apache.hadoop.hbase.util.Bytes;
  * 
  */
 public class ColumnReference implements Comparable<ColumnReference> {
+    
   public static byte[] ALL_QUALIFIERS = new byte[0];
+  
+  private static int calcHashCode(byte[] family, byte[] qualifier) {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + Bytes.hashCode(family);
+    result = prime * result + Bytes.hashCode(qualifier);
+    return result;
+  }
 
-  protected byte[] family;
-  protected byte[] qualifier;
+  private final int hashCode;
+  protected final byte[] family;
+  protected final byte[] qualifier;
 
   public ColumnReference(byte[] family, byte[] qualifier) {
     this.family = family;
     this.qualifier = qualifier;
+    this.hashCode = calcHashCode(family, qualifier);
   }
 
   public byte[] getFamily() {
@@ -119,7 +130,7 @@ public class ColumnReference implements Comparable<ColumnReference> {
   public boolean equals(Object o) {
     if (o instanceof ColumnReference) {
       ColumnReference other = (ColumnReference) o;
-      if (Bytes.equals(family, other.family)) {
+      if (hashCode == other.hashCode && Bytes.equals(family, other.family)) {
         return Bytes.equals(qualifier, other.qualifier);
       }
     }
@@ -128,7 +139,7 @@ public class ColumnReference implements Comparable<ColumnReference> {
 
   @Override
   public int hashCode() {
-    return Bytes.hashCode(family) + Bytes.hashCode(qualifier);
+    return hashCode;
   }
 
   @Override
