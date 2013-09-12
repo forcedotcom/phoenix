@@ -290,7 +290,7 @@ public class CoveredColumnIndexCodec implements IndexCodec {
     }
   
     byte[] rowKey = CoveredColumnIndexCodec.composeRowKey(pk, length, expected);
-    Put p = new Put(rowKey);
+    Put p = new Put(rowKey, timestamp);
     CoveredColumnIndexCodec.addColumnsToPut(p, expected);
     List<KeyValue> kvs = new ArrayList<KeyValue>();
     for (Entry<byte[], List<KeyValue>> entry : p.getFamilyMap().entrySet()) {
