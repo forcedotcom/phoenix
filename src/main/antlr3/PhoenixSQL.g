@@ -94,6 +94,7 @@ tokens
     ENABLE='enable';
     DISABLE='disable';
     SET='set';
+    CAST='cast';
 }
 
 
@@ -743,6 +744,7 @@ expression_term returns [ParseNode ret]
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }
+    |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
     ;
     
 expression_terms returns [List<ParseNode> ret]

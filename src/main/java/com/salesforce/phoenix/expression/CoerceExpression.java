@@ -48,7 +48,8 @@ public class CoerceExpression extends BaseSingleExpression {
         return toType == expression.getDataType() ? expression : expression instanceof LiteralExpression ? LiteralExpression.newConstant(((LiteralExpression)expression).getValue(), toType) : new CoerceExpression(expression, toType);
     }
     
-    private CoerceExpression(Expression expression, PDataType toType) {
+    //Package protected for tests
+    CoerceExpression(Expression expression, PDataType toType) {
         super(expression);
         this.toType = toType;
     }
@@ -99,7 +100,7 @@ public class CoerceExpression extends BaseSingleExpression {
     
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return null; // Not exposed in language, only inserted dynamically into server expression
+        return getChild().accept(visitor);
     }
     
     @Override

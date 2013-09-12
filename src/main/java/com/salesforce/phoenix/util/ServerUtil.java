@@ -48,7 +48,7 @@ public class ServerUtil {
         = new HashMap<Class<? extends Exception>, SQLExceptionCode>();
     static {
         // Map a normal exception into a corresponding SQLException.
-        errorcodeMap.put(ArithmeticException.class, SQLExceptionCode.SERVER_ARITHMATIC_ERROR);
+        errorcodeMap.put(ArithmeticException.class, SQLExceptionCode.SERVER_ARITHMETIC_ERROR);
     }
 
     public static void throwIOException(String msg, Throwable t) throws IOException {

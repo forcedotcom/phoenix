@@ -25,36 +25,47 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.parse;
 
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.schema.PDataType;
 
 /**
- * Exception thrown when we try to convert one type into a different incompatible type.
  * 
- * @author zhuang
- * @since 1.0
+ * Node representing the CAST operator in SQL.
+ * 
+ * @author samarth.jain
+ * @since 0.1
+ *
  */
-public class TypeMismatchException extends SQLException {
-    private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
+public class CastParseNode extends UnaryParseNode {
+	
+	private final PDataType dt;
+	
+	CastParseNode(ParseNode expr, String dataType) {
+		super(expr);
+		dt = PDataType.fromSqlTypeName(dataType);
+	}
+	
+	CastParseNode(ParseNode expr, PDataType dataType) {
+		super(expr);
+		dt = dataType;
+	}
 
-    public TypeMismatchException(PDataType type, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(type + " for " + location).build().toString(), code.getSQLState(), code.getErrorCode());
+	@Override
+    public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
+        List<T> l = Collections.emptyList();
+        if (visitor.visitEnter(this)) {
+            l = acceptChildren(visitor);
+        }
+        return visitor.visitLeave(this, l);
     }
 
-    public TypeMismatchException(PDataType lhs, PDataType rhs) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs).build().toString(), code.getSQLState(), code.getErrorCode());
-    }
+	public PDataType getDataType() {
+		return dt;
+	}
 
-    public TypeMismatchException(PDataType lhs, PDataType rhs, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState(), code.getErrorCode());
-    }
-
-    public TypeMismatchException(String lhs, String rhs, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState(), code.getErrorCode());
-    }
 }
