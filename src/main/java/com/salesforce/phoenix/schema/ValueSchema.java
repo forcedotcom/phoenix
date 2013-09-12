@@ -34,13 +34,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
 
 /**
  * 
@@ -232,115 +230,6 @@ public abstract class ValueSchema implements Writable {
         }
     }
     
-    public boolean isNull(int position, ValueBitSet bitSet) {
-        int nBit = position - getMinNullable();
-        return (nBit >= 0 && !bitSet.get(nBit));
-    }
-    
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-            value="NP_BOOLEAN_RETURN_NULL",
-            justification="Returns null by design.")
-    private Boolean positionPtr(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
-        if (position >= getFieldCount()) {
-            return null;
-        }
-        if (position < this.minNullable || bitSet.get(position - this.minNullable)) {
-            // Move the pointer past the current value and set length
-            // to 0 to ensure you never set the ptr past the end of the
-            // backing byte array.
-            ptr.set(ptr.get(), ptr.getOffset() + ptr.getLength(), 0);
-            int length = nextField(ptr, position, 1, maxOffset);
-            ptr.set(ptr.get(), ptr.getOffset()-length, length);
-            return ptr.getLength() > 0;
-        }
-        return false;
-    }
- 
-    public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
-        ptr.set(src, srcOffset, 0);
-        int maxOffset = srcOffset + srcLength;
-        for (int i = 0; i < position; i++) {
-            next(ptr, i, maxOffset, valueBitSet);
-        }
-        return maxOffset;
-    }
-    
-    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
-        return iterator(srcPtr.get(),srcPtr.getOffset(),srcPtr.getLength(), ptr, position, valueBitSet);
-    }
-    
-    public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position) {
-        return iterator(src, srcOffset, srcLength, ptr, position, ValueBitSet.EMPTY_VALUE_BITSET);
-    }
-    
-    public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr) {
-        return iterator(src, srcOffset, srcLength, ptr, 0);
-    }
-    
-    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position) {
-        return iterator(srcPtr, ptr, position, ValueBitSet.EMPTY_VALUE_BITSET);
-    }
-    
-    public int iterator(ImmutableBytesWritable ptr, int position) {
-        return iterator(ptr, ptr, position);
-    }
-    
-    public int iterator(byte[] src, ImmutableBytesWritable ptr, int position) {
-        return iterator(src, 0, src.length, ptr, position);
-    }
-    
-    public int iterator(byte[] src, ImmutableBytesWritable ptr) {
-        return iterator(src, 0, src.length, ptr, 0);
-    }
-    
-    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr) {
-        return iterator(srcPtr, ptr, 0);
-    }
-    
-    public int iterator(ImmutableBytesWritable ptr) {
-        return iterator(ptr, ptr, 0);
-    }
-    
-    /**
-     * Move the bytes ptr to the next position relative to the current ptr
-     * @param ptr bytes pointer pointing to the value at the positional index
-     * provided.
-     * @param position zero-based index of the next field in the value schema
-     * @param maxOffset max possible offset value when iterating
-     * @return true if a value was found and ptr was set, false if the value is null and ptr was not
-     * set, and null if the value is null and there are no more values
-      */
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-            value="NP_BOOLEAN_RETURN_NULL", 
-            justification="Designed to return null.")
-    public final Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset) {
-        return next(ptr, position, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
-    }
-    
-    /**
-     * Move the bytes ptr to the next position relative to the current ptr
-     * @param ptr bytes pointer pointing to the value at the positional index
-     * provided.
-     * @param position zero-based index of the next field in the value schema
-     * @param maxOffset max possible offset value when iterating
-     * @param bitSet bit set representing whether or not a value is null
-     * @return true if a value was found and ptr was set, false if the value is null and ptr was not
-     * set, and null if the value is null and there are no more values
-      */
-    public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
-        if (maxOffset == ptr.getOffset()) {
-            return null;
-        }
-        return positionPtr(ptr, position, maxOffset, bitSet);
-    }
-
-    public final Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset) {
-        return previous(ptr, position, minOffset, ValueBitSet.EMPTY_VALUE_BITSET);
-    }
-    
-    public abstract Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset, ValueBitSet valueSet);
-        
-    
     public int getEstimatedByteSize() {
         int size = 0;
         size += WritableUtils.getVIntSize(minNullable);
@@ -361,89 +250,6 @@ public abstract class ValueSchema implements Writable {
         return fields.get(fieldIndexByPosition[position]);
     }
     
-    private static byte[] ensureSize(byte[] b, int offset, int size) {
-        if (size > b.length) {
-            byte[] bBigger = new byte[Math.max(b.length * 2, size)];
-            System.arraycopy(b, 0, bBigger, 0, b.length);
-            return bBigger;
-        }
-        return b;
-    }
-
-    private int nextField(ImmutableBytesWritable ptr, int position, int nFields, int maxOffset) {
-        Field field = fields.get(fieldIndexByPosition[position]);
-        if (field.getType().isFixedWidth()) {
-            return positionFixedLength(ptr, position, nFields);
-        } else {
-            return positionVarLength(ptr, position, nFields, maxOffset);
-        }
-    }
-    
-    private int positionFixedLength(ImmutableBytesWritable ptr, int position, int nFields) {
-        Field field = fields.get(fieldIndexByPosition[position]);
-        int length = field.getByteSize();
-        ptr.set(ptr.get(),ptr.getOffset() + nFields * length, ptr.getLength());
-        return length;
-    }
-    
-    abstract public void reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset, ValueBitSet valueSet);
-    public void reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset) {
-        reposition(ptr, oldPosition, newPosition, minOffset, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
-    }
-    abstract protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxLength);
-    abstract protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset);
-    abstract protected int getVarLengthBytes(int length);
-    
-    /**
-     * @return byte representation of the ValueSchema
-     */
-    public byte[] toBytes(Aggregator[] aggregators, ValueBitSet valueSet, ImmutableBytesWritable ptr) {
-        int offset = 0;
-        int index = 0;
-        valueSet.clear();
-        int minNullableIndex = getMinNullable();
-        byte[] b = new byte[getEstimatedValueLength() + valueSet.getEstimatedLength()];
-        List<Field> fields = getFields();
-        // We can get away with checking if only nulls are left in the outer loop,
-        // since repeating fields will not span the non-null/null boundary.
-        for (int i = 0; i < fields.size(); i++) {
-            Field field = fields.get(i);
-            PDataType type = field.getType();
-            for (int j = 0; j < field.getCount(); j++) {
-                if (aggregators[index].evaluate(null, ptr)) { // Skip null values
-                    if (index >= minNullableIndex) {
-                        valueSet.set(index - minNullableIndex);
-                    }
-                    if (!type.isFixedWidth()) {
-                        b = ensureSize(b, offset, offset + getVarLengthBytes(ptr.getLength()));
-                        offset = writeVarLengthField(ptr, b, offset);
-                    } else {
-                        int nBytes = ptr.getLength();
-                        b = ensureSize(b, offset, offset + nBytes);
-                        System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, nBytes);
-                        offset += nBytes;
-                    }
-                }
-                index++;
-            }
-        }
-        // Add information about which values were set at end of value,
-        // so that we can quickly access them without needing to walk
-        // through the values using the schema.
-        // TODO: if there aren't any non null values, don't serialize anything
-        b = ensureSize(b, offset, offset + valueSet.getEstimatedLength());
-        offset = valueSet.toBytes(b, offset);
-
-        if (offset == b.length) {
-            return b;
-        } else {
-            byte[] bExact = new byte[offset];
-            System.arraycopy(b, 0, bExact, 0, offset);
-            return bExact;
-        }
-    }
-
-    
     @Override
     public void readFields(DataInput in) throws IOException {
         int minNullable = WritableUtils.readVInt(in);
@@ -456,8 +262,7 @@ public abstract class ValueSchema implements Writable {
         }
         init(minNullable, fields);
     }
-    
-        
+         
     @Override
     public void write(DataOutput out) throws IOException {
         WritableUtils.writeVInt(out, minNullable);

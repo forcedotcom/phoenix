@@ -84,63 +84,95 @@ public class RowKeySchema extends ValueSchema {
         }
     }
 
-    @Override
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-            value="NP_BOOLEAN_RETURN_NULL", 
-            justification="Designed to return null.")
-    public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
-        if (ptr.getOffset() + ptr.getLength() >= maxOffset) {
-            ptr.set(ptr.get(), maxOffset, 0);
-            return null;
-        }
-        // If positioned at SEPARATOR_BYTE, skip it.
-        if (position > 0 && !getField(position-1).getType().isFixedWidth() && position < getMaxFields() && ptr.get()[ptr.getOffset()+ptr.getLength()] == QueryConstants.SEPARATOR_BYTE) {
-            ptr.set(ptr.get(), ptr.getOffset()+ptr.getLength()+1, 0);
-        }
-        return super.next(ptr,position,maxOffset, bitSet);
-    }
-    
-    @Override
-    protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxOffset) {
-        int len = 0;
-        int initialOffset = ptr.getOffset();
-        while (nFields-- > 0) {
-            byte[] buf = ptr.get();
-            int offset = initialOffset;
-            if (position+1 == getFieldCount() && nFields == 0) { // Last field has no terminator
-                ptr.set(buf, maxOffset, 0);
-                return maxOffset - initialOffset;
-            }
-            while (offset < maxOffset && buf[offset] != SEPARATOR_BYTE) {
-                offset++;
-            }
-            ptr.set(buf, offset, 0);
-            len = offset - initialOffset;
-            initialOffset = offset + 1; // skip separator byte
-        }
-        return len;
-    }
-
-    @Override
-    protected int getVarLengthBytes(int length) {
-        return length + 1; // Size in bytes plus one for the separator byte
-    }
-    
-    @Override
-    protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset) {
-        int length = ptr.getLength();
-        System.arraycopy(ptr.get(), ptr.getOffset(), b, offset, length);
-        offset += length + 1;
-        b[offset-1] = QueryConstants.SEPARATOR_BYTE;
-        return offset;
-    }
-    
     public int getMaxFields() {
         return this.getMinNullable();
     }
 
-    @Override
-    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset, ValueBitSet valueSet) {
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
+    public Boolean iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position) {
+        Boolean hasValue = null;
+        ptr.set(src, srcOffset, 0);
+        int maxOffset = srcOffset + srcLength;
+        for (int i = 0; i < position; i++) {
+            hasValue = next(ptr, i, maxOffset);
+        }
+        return hasValue;
+    }
+    
+    public Boolean iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position) {
+        return iterator(srcPtr.get(), srcPtr.getOffset(), srcPtr.getLength(), ptr, position);
+    }
+    
+    public Boolean iterator(byte[] src, ImmutableBytesWritable ptr, int position) {
+        return iterator(src, 0, src.length, ptr, position);
+    }
+    
+    public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr) {
+        int maxOffset = srcOffset + srcLength;
+        iterator(src, srcOffset, srcLength, ptr, 0);
+        return maxOffset;
+    }
+    
+    public int iterator(byte[] src, ImmutableBytesWritable ptr) {
+        return iterator(src, 0, src.length, ptr);
+    }
+    
+    public int iterator(ImmutableBytesWritable ptr) {
+        return iterator(ptr.get(),ptr.getOffset(),ptr.getLength(), ptr);
+    }
+    
+    /**
+     * Move the bytes ptr to the next position relative to the current ptr
+     * @param ptr bytes pointer pointing to the value at the positional index
+     * provided.
+     * @param position zero-based index of the next field in the value schema
+     * @param maxOffset max possible offset value when iterating
+     * @return true if a value was found and ptr was set, false if the value is null and ptr was not
+     * set, and null if the value is null and there are no more values
+      */
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
+    public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset) {
+        if (ptr.getOffset() + ptr.getLength() >= maxOffset) {
+            ptr.set(ptr.get(), maxOffset, 0);
+            return null;
+        }
+        if (position >= getFieldCount()) {
+            return null;
+        }
+        // Move the pointer past the current value and set length
+        // to 0 to ensure you never set the ptr past the end of the
+        // backing byte array.
+        ptr.set(ptr.get(), ptr.getOffset() + ptr.getLength(), 0);
+        // If positioned at SEPARATOR_BYTE, skip it.
+        if (position > 0 && !getField(position-1).getType().isFixedWidth()) {
+            ptr.set(ptr.get(), ptr.getOffset()+ptr.getLength()+1, 0);
+        }
+        Field field = this.getField(position);
+        if (field.getType().isFixedWidth()) {
+            ptr.set(ptr.get(),ptr.getOffset(), field.getByteSize());
+        } else {
+            if (position+1 == getFieldCount() ) { // Last field has no terminator
+                ptr.set(ptr.get(), ptr.getOffset(), maxOffset - ptr.getOffset());
+            } else {
+                byte[] buf = ptr.get();
+                int offset = ptr.getOffset();
+                while (offset < maxOffset && buf[offset] != SEPARATOR_BYTE) {
+                    offset++;
+                }
+                ptr.set(buf, ptr.getOffset(), offset - ptr.getOffset());
+            }
+        }
+        return ptr.getLength() > 0;
+    }
+    
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
+    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset) {
         if (position < 0) {
             return null;
         }
@@ -185,23 +217,21 @@ public class RowKeySchema extends ValueSchema {
         }
         // Otherwise we're stuck with starting from the minOffset and working all the way forward,
         // because we can't infer the length of the previous position.
-        ptr.set(ptr.get(), minOffset, ptr.getOffset() - minOffset - offsetAdjustment);
-        int maxOffset = this.iterator(ptr);
-        for (i = 0; i <= position; i++)  {
-            this.next(ptr,i,maxOffset);
-        }
-        return true;
+        return iterator(ptr.get(), minOffset, ptr.getOffset() - minOffset - offsetAdjustment, ptr, position+1);
     }
 
-    @Override
-    public void reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset, ValueBitSet valueSet) {
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
+    public Boolean reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset) {
         if (newPosition == oldPosition) {
-            return;
+            return ptr.getLength() > 0;
         }
+        Boolean hasValue = null;
         if (newPosition > oldPosition) {
-            while (oldPosition++ < newPosition) {
-                next(ptr, oldPosition, maxOffset);
-            }
+            do {
+                hasValue = next(ptr, ++oldPosition, maxOffset);
+            }  while (hasValue != null && oldPosition < newPosition) ;
         } else {
             int nVarLengthFromBeginning = 0;
             for (int i = 0; i <= newPosition; i++) {
@@ -215,14 +245,14 @@ public class RowKeySchema extends ValueSchema {
                     nVarLengthBetween++;
                 }
             }
-            if (nVarLengthBetween < nVarLengthFromBeginning) {
-                while (oldPosition-- > newPosition) {
-                    previous(ptr, oldPosition, minOffset);
-                }
-            } else {
-                iterator(ptr.get(), minOffset, maxOffset-minOffset, ptr, newPosition+1);
+            if (nVarLengthBetween > nVarLengthFromBeginning) {
+                return iterator(ptr.get(), minOffset, maxOffset-minOffset, ptr, newPosition+1);
             }
+            do  {
+                hasValue = previous(ptr, --oldPosition, minOffset);
+            } while (hasValue != null && oldPosition > newPosition);
         }
         
+        return hasValue;
     }
 }

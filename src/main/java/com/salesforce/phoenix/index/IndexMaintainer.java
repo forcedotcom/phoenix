@@ -213,7 +213,8 @@ public class IndexMaintainer implements Writable {
             int dataPosOffset = isDataTableSalted ? 1 : 0 ;
             int nIndexedColumns = getIndexPkColumnCount();
             // Skip data table salt byte
-            int maxRowKeyOffset = dataRowKeySchema.iterator(rowKeyPtr, ptr, dataPosOffset);
+            int maxRowKeyOffset = rowKeyPtr.getOffset() + rowKeyPtr.getLength();
+            dataRowKeySchema.iterator(rowKeyPtr, ptr, dataPosOffset);
             // Write index row key
             for (int i = dataPosOffset; i < dataRowKeySchema.getFieldCount(); i++) {
                 Boolean hasValue=dataRowKeySchema.next(ptr, i, maxRowKeyOffset);

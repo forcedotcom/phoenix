@@ -65,9 +65,9 @@ public class ClientAggregators extends Aggregators {
         tempValueSet.clear();
         tempValueSet.or(ptr);
 
-        int i = 0;
+        int i = 0, maxOffset = ptr.getOffset() + ptr.getLength();
         Boolean hasValue;
-        int maxOffset = schema.iterator(ptr);
+        schema.iterator(ptr);
         while ((hasValue=schema.next(ptr, i, maxOffset, tempValueSet)) != null) {
             if (hasValue) {
                 aggregators[i].aggregate(result, ptr);

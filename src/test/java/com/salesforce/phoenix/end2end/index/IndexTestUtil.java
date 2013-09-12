@@ -81,7 +81,8 @@ public class IndexTestUtil {
         int indexOffset = 0;
         Boolean hasValue;
         // Skip salt column
-        int maxOffset = dataRowKeySchema.iterator(dataRowKey, ptr, dataTable.getBucketNum() == null ? i : ++i);
+        int maxOffset = dataRowKey.length;
+        dataRowKeySchema.iterator(dataRowKey, ptr, dataTable.getBucketNum() == null ? i : ++i);
         List<PColumn> indexPKColumns = indexTable.getPKColumns();
         List<PColumn> indexColumns = indexTable.getColumns();
         int nIndexColumns = indexPKColumns.size();

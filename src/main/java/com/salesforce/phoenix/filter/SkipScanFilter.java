@@ -338,7 +338,9 @@ public class SkipScanFilter extends FilterBase {
                     // From here on, we use startKey as our buffer (resetting minOffset and maxOffset)
                     // We've copied the part of the current key above that we need into startKey
                     // Reinitialize the iterator to be positioned at previous slot position
-                    maxOffset = schema.iterator(startKey, minOffset = 0, startKeyLength, ptr, j+1);
+                    minOffset = 0;
+                    maxOffset = startKeyLength;
+                    schema.iterator(startKey, minOffset, maxOffset, ptr, j+1);
                     // Do nextKey after setting the accessor b/c otherwise the null byte may have
                     // been incremented causing us not to find it
                     ByteUtil.nextKey(startKey, currentLength);
