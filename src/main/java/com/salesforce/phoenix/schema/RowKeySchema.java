@@ -140,17 +140,19 @@ public class RowKeySchema extends ValueSchema {
     }
 
     @Override
-    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset) {
+    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset, ValueBitSet valueSet) {
         if (position < 0) {
             return null;
         }
         Field field = this.getField(position);
         if (field.getType().isFixedWidth()) {
-            ptr.set(ptr.get(), minOffset, field.getByteSize());
+            ptr.set(ptr.get(), ptr.getOffset()-field.getByteSize(), field.getByteSize());
             return true;
         }
+        // If ptr has length of zero, it is assumed that we're at the end of the row key
+        int offsetAdjustment = position + 1 == this.getFieldCount() || ptr.getLength() == 0 ? 0 : 1;
         if (position == 0) {
-            ptr.set(ptr.get(), minOffset, ptr.getOffset() - minOffset - 1);
+            ptr.set(ptr.get(), minOffset, ptr.getOffset() - minOffset - offsetAdjustment);
             return true;
         }
         field = this.getField(position-1);
@@ -166,7 +168,7 @@ public class RowKeySchema extends ValueSchema {
             if (offset == minOffset) { // shouldn't happen
                 ptr.set(buf, minOffset, ptr.getOffset()-minOffset-1);
             } else {
-                ptr.set(buf,offset+1,ptr.getOffset()-offset-2);
+                ptr.set(buf,offset+1,ptr.getOffset()-offset-1);
             }
             return true;
         }
@@ -177,13 +179,13 @@ public class RowKeySchema extends ValueSchema {
         // All of the previous fields are fixed width, so we can calculate the offset
         // based on the total fixed offset
         if (i < 0) {
-            int length = ptr.getOffset() - 1 - fixedOffset;
+            int length = ptr.getOffset() - fixedOffset - minOffset - offsetAdjustment;
             ptr.set(ptr.get(),minOffset+fixedOffset, length);
             return true;
         }
         // Otherwise we're stuck with starting from the minOffset and working all the way forward,
         // because we can't infer the length of the previous position.
-        ptr.set(ptr.get(), minOffset, ptr.getOffset()-1-minOffset);
+        ptr.set(ptr.get(), minOffset, ptr.getOffset() - minOffset - offsetAdjustment);
         int maxOffset = this.iterator(ptr);
         for (i = 0; i <= position; i++)  {
             this.next(ptr,i,maxOffset);

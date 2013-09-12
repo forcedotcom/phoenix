@@ -77,7 +77,7 @@ public abstract class ValueSchema implements Writable {
             PDataType type = field.getType();
             Integer byteSize = type.getByteSize();
             if (type.isFixedWidth()) {
-                fieldEstLength += (byteSize == null ? field.getByteSize() : byteSize);
+                fieldEstLength += field.getByteSize();
             } else {
                 isFixedLength = false;
                 // Account for vint for length if not fixed
@@ -160,7 +160,7 @@ public abstract class ValueSchema implements Writable {
         
         private Field(Field field, int count) {
             this.type = field.getType();
-            this.byteSize = field.getByteSize();
+            this.byteSize = field.byteSize;
             this.count = count;
         }
         
@@ -169,7 +169,7 @@ public abstract class ValueSchema implements Writable {
         }
         
         public final int getByteSize() {
-            return byteSize;
+            return type.getByteSize() == null ? byteSize : type.getByteSize();
         }
         
         public final int getCount() {
@@ -237,23 +237,10 @@ public abstract class ValueSchema implements Writable {
         return (nBit >= 0 && !bitSet.get(nBit));
     }
     
-    /**
-     * Set the bytes ptr to the value at the zero-based positional index for
-     * a byte array valid against this schema.
-     * @param ptr bytes pointer whose offset is set to the beginning of the
-     *  bytes representing a byte array valid against this schema. The ptr
-     *  will be scoped down to point to the value at the position specified.
-     * @param position position the zero-based positional index of the value
-     * @return true if a value was found at the position and false if it is null.
-     */
-    public boolean setAccessor(ImmutableBytesWritable ptr, int position, ValueBitSet bitSet) {
-        return setAccessor(ptr, 0, position, bitSet);
-    }
-    
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL",
             justification="Returns null by design.")
-    protected Boolean positionPtr(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
+    private Boolean positionPtr(ImmutableBytesWritable ptr, int position, int maxOffset, ValueBitSet bitSet) {
         if (position >= getFieldCount()) {
             return null;
         }
@@ -326,7 +313,7 @@ public abstract class ValueSchema implements Writable {
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="NP_BOOLEAN_RETURN_NULL", 
             justification="Designed to return null.")
-    public Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset) {
+    public final Boolean next(ImmutableBytesWritable ptr, int position, int maxOffset) {
         return next(ptr, position, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
     }
     
@@ -347,50 +334,12 @@ public abstract class ValueSchema implements Writable {
         return positionPtr(ptr, position, maxOffset, bitSet);
     }
 
-    private int adjustReadFieldCount(int position, int nFields, ValueBitSet bitSet) {
-        int nBit = position - this.minNullable;
-        if (nBit < 0) {
-            return nFields;
-        } else {
-            return nFields - bitSet.getNullCount(nBit, nFields);
-        }
+    public final Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset) {
+        return previous(ptr, position, minOffset, ValueBitSet.EMPTY_VALUE_BITSET);
     }
     
-    public abstract Boolean previous(ImmutableBytesWritable ptr, int position, int maxOffset);
-    
-   /**
-     * Similar to {@link #setAccessor(ImmutableBytesWritable, int)}, but allows for the bytes
-     * pointer to be serially stepped through all or a subset of the values.
-     * @param ptr pointer to bytes offset of startPosition (the length does not matter).
-     *  Upon return, will be positioned to the value at endPosition.
-     * @param startPosition the position at which the ptr offset is positioned
-     * @param endPosition the position at which the ptr should be positioned upon return. The
-     *  length of ptr will be updated to the length of the value at endPosition.
-     *  TODO: should be able to use first for this instead
-     */
-    public boolean setAccessor(ImmutableBytesWritable ptr, int startPosition, int endPosition, ValueBitSet bitSet) {
-        if (isNull(endPosition, bitSet)) {
-            return false;
-        }
-        int maxLength = ptr.getLength();
-        int length = 0;
-        int position = startPosition;
-        while (position <= endPosition) {
-            Field field = fields.get(fieldIndexByPosition[position]);
-            // Need to step one by one for nullable fields, since any one of them could be null
-            int nRepeats = field.getCount();
-            // If the desired position is midway between the repeating field,
-            // then adjust nFields down properly
-            int nFields = Math.min(nRepeats, endPosition - position + 1);
-            int nSkipFields = adjustReadFieldCount(position, nFields, bitSet);
-            if (nSkipFields > 0) {
-                length = nextField(ptr, position, nSkipFields, maxLength); // remember last length so we can back up at end
-            }
-            position += nFields;
-        }
-        ptr.set(ptr.get(),ptr.getOffset()-length,length);
-        return true;
-    }
+    public abstract Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset, ValueBitSet valueSet);
+        
     
     public int getEstimatedByteSize() {
         int size = 0;
@@ -432,8 +381,7 @@ public abstract class ValueSchema implements Writable {
     
     private int positionFixedLength(ImmutableBytesWritable ptr, int position, int nFields) {
         Field field = fields.get(fieldIndexByPosition[position]);
-        PDataType type = field.getType();
-        int length = (type.getByteSize() == null) ? field.getByteSize() : type.getByteSize();
+        int length = field.getByteSize();
         ptr.set(ptr.get(),ptr.getOffset() + nFields * length, ptr.getLength());
         return length;
     }
@@ -514,5 +462,5 @@ public abstract class ValueSchema implements Writable {
             fields.get(i).write(out);
         }
     }
-    
+
 }

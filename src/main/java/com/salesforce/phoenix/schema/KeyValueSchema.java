@@ -103,7 +103,37 @@ public class KeyValueSchema extends ValueSchema {
     }
 
     @Override
-    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset) {
-        return null;
+    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset, ValueBitSet valueSet) {
+        if (position < 0) {
+            return null;
+        }
+        int currPtrOffsetAdjustment = 0;
+        int currPtrPosition = position + 1;
+        // Calculate the offset due to storing the length of the next position
+        // as a vint right before the current offset of ptr.
+        if (currPtrPosition < this.getFieldCount()) {
+            Field nextField = this.getField(currPtrPosition);
+            if (!nextField.getType().isFixedWidth() && !this.isNull(currPtrPosition, valueSet)) {
+                currPtrOffsetAdjustment = WritableUtils.getVIntSize(ptr.getLength());
+            }
+        }
+        // If the field of the position we're iterating to is fixed width, then we can
+        // update the ptr based on the fixed width length
+        Field field = this.getField(position);
+        if (field.getType().isFixedWidth()) {
+            if (this.isNull(position, valueSet)) {
+                return false;
+            }
+            ptr.set(ptr.get(), ptr.getOffset()-field.getByteSize()-currPtrOffsetAdjustment, field.getByteSize());
+            return true;
+        }
+        // Otherwise we're stuck with starting from the minOffset and working all the way forward,
+        // because we can't infer the length of the previous position.
+        ptr.set(ptr.get(), minOffset, ptr.getOffset()-currPtrOffsetAdjustment-minOffset);
+        int maxOffset = this.iterator(ptr);
+        for (int i = 0; i <= position; i++)  {
+            this.next(ptr,i,maxOffset);
+        }
+        return true;
     }
 }

@@ -49,7 +49,6 @@ import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.RowKeySchema;
-import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.ValueSchema.Field;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
@@ -251,7 +250,7 @@ public class SkipScanFilter extends FilterBase {
     @edu.umd.cs.findbugs.annotations.SuppressWarnings(
             value="QBA_QUESTIONABLE_BOOLEAN_ASSIGNMENT", 
             justification="Assignment designed to work this way.")
-    private ReturnCode navigate(final byte[] currentKey, int offset, int length, Terminate terminate) {
+    private ReturnCode navigate(final byte[] currentKey, final int offset, final int length, Terminate terminate) {
         int nSlots = slots.size();
         // First check to see if we're in-range until we reach our end key
         if (endKeyLength > 0) {
@@ -292,7 +291,8 @@ public class SkipScanFilter extends FilterBase {
         int i = 0;
         boolean seek = false;
         int earliestRangeIndex = nSlots-1;
-        int maxOffset = schema.iterator(currentKey, offset, length, ptr);
+        int minOffset = offset;
+        int maxOffset = schema.iterator(currentKey, minOffset, length, ptr);
         schema.next(ptr, i, maxOffset);
         while (true) {
             // Increment to the next range while the upper bound of our current slot is less than our current key
@@ -319,7 +319,7 @@ public class SkipScanFilter extends FilterBase {
                 // If we're positioned at a single key, no need to copy the current key and get the next key .
                 // Instead, just increment to the next key and continue.
                 boolean incremented = false;
-                while (i >= 0 && slots.get(i).get(position[i]).isSingleKey() && (incremented=true) && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
+                while (i >= 0 && slots.get(i).get(position[i]).isSingleKey() && (incremented=true) && schema.previous(ptr, i, minOffset) != null && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
                     i--;
                     incremented = false;
                 }
@@ -332,17 +332,12 @@ public class SkipScanFilter extends FilterBase {
                     // the current key, so we'll end up incrementing the start key until it's bigger than the
                     // current key.
                     setStartKey();
-                    ptr.set(ptr.get(), offset, length);
-                    // Reinitialize iterator to be positioned at previous slot position
-                    schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
                 } else {
-                    int currentLength = setStartKey(ptr, offset, i+1);
-                    // From here on, we use startKey as our buffer with offset reset to 0
+                    int currentLength = setStartKey(ptr, minOffset, i+1);
+                    // From here on, we use startKey as our buffer (resetting minOffset and maxOffset)
                     // We've copied the part of the current key above that we need into startKey
-                    ptr.set(startKey, offset = 0, length = startKeyLength);
-                    // Reinitialize iterator to be positioned at previous slot position
-                    // TODO: a schema.previous would potentially be more efficient
-                    schema.setAccessor(ptr, i, ValueBitSet.EMPTY_VALUE_BITSET);
+                    // Reinitialize the iterator to be positioned at previous slot position
+                    maxOffset = schema.iterator(startKey, minOffset = 0, startKeyLength, ptr, i+1);
                     // Do nextKey after setting the accessor b/c otherwise the null byte may have
                     // been incremented causing us not to find it
                     ByteUtil.nextKey(startKey, currentLength);
@@ -350,7 +345,7 @@ public class SkipScanFilter extends FilterBase {
             } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(ptr) > 0) {
                 // Our current key is less than the lower range of the current position in the current slot.
                 // Seek to the lower range, since it's bigger than the current key
-                setStartKey(ptr, offset, i);
+                setStartKey(ptr, minOffset, i);
                 return ReturnCode.SEEK_NEXT_USING_HINT;
             } else { // We're in range, check the next slot
                 if (!slots.get(i).get(position[i]).isSingleKey() && i < earliestRangeIndex) {
@@ -366,14 +361,14 @@ public class SkipScanFilter extends FilterBase {
                 }
                 i++;
                 // If we run out of slots in our key, it means we have a partial key.
-                if (schema.next(ptr, i, offset + length) == null) {
+                if (schema.next(ptr, i, maxOffset) == null) {
                     // If the rest of the slots are checking for IS NULL, then break because
                     // that's the case (since we don't store trailing nulls).
                     if (allTrailingNulls(i)) {
                         break;
                     }
                     // Otherwise we seek to the next start key because we're before it now
-                    setStartKey(ptr, offset, i);
+                    setStartKey(ptr, minOffset, i);
                     return ReturnCode.SEEK_NEXT_USING_HINT;
                 }
             }
@@ -385,7 +380,7 @@ public class SkipScanFilter extends FilterBase {
         // Else, we're in range for all slots and can include this row plus all rows 
         // up to the upper range of our last slot. We do this for ranges and single keys
         // since we potentially have multiple key values for the same row key.
-        setEndKey(ptr, offset, i);
+        setEndKey(ptr, minOffset, i);
         return ReturnCode.INCLUDE;
     }
 
