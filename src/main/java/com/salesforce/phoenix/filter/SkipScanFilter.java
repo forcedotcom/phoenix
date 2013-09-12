@@ -315,15 +315,15 @@ public class SkipScanFilter extends FilterBase {
                 // issuing a seek next hint.
                 seek = true;
                 Arrays.fill(position, i, position.length, 0);
-                i--;
+                int j  = i - 1;
                 // If we're positioned at a single key, no need to copy the current key and get the next key .
                 // Instead, just increment to the next key and continue.
                 boolean incremented = false;
-                while (i >= 0 && slots.get(i).get(position[i]).isSingleKey() && (incremented=true) && schema.previous(ptr, i, minOffset) != null && (position[i] = (position[i] + 1) % slots.get(i).size()) == 0) {
-                    i--;
+                while (j >= 0 && slots.get(j).get(position[j]).isSingleKey() && (incremented=true) && (position[j] = (position[j] + 1) % slots.get(j).size()) == 0) {
+                    j--;
                     incremented = false;
                 }
-                if (i < 0) {
+                if (j < 0) {
                     isDone = true;
                     return ReturnCode.NEXT_ROW;
                 }
@@ -332,16 +332,18 @@ public class SkipScanFilter extends FilterBase {
                     // the current key, so we'll end up incrementing the start key until it's bigger than the
                     // current key.
                     setStartKey();
+                    schema.reposition(ptr, i, j, minOffset, maxOffset);
                 } else {
-                    int currentLength = setStartKey(ptr, minOffset, i+1);
+                    int currentLength = setStartKey(ptr, minOffset, j+1);
                     // From here on, we use startKey as our buffer (resetting minOffset and maxOffset)
                     // We've copied the part of the current key above that we need into startKey
                     // Reinitialize the iterator to be positioned at previous slot position
-                    maxOffset = schema.iterator(startKey, minOffset = 0, startKeyLength, ptr, i+1);
+                    maxOffset = schema.iterator(startKey, minOffset = 0, startKeyLength, ptr, j+1);
                     // Do nextKey after setting the accessor b/c otherwise the null byte may have
                     // been incremented causing us not to find it
                     ByteUtil.nextKey(startKey, currentLength);
                 }
+                i = j;
             } else if (slots.get(i).get(position[i]).compareLowerToUpperBound(ptr) > 0) {
                 // Our current key is less than the lower range of the current position in the current slot.
                 // Seek to the lower range, since it's bigger than the current key

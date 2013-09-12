@@ -265,16 +265,16 @@ public abstract class ValueSchema implements Writable {
         return maxOffset;
     }
     
+    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
+        return iterator(srcPtr.get(),srcPtr.getOffset(),srcPtr.getLength(), ptr, position, valueBitSet);
+    }
+    
     public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position) {
         return iterator(src, srcOffset, srcLength, ptr, position, ValueBitSet.EMPTY_VALUE_BITSET);
     }
     
     public int iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr) {
         return iterator(src, srcOffset, srcLength, ptr, 0);
-    }
-    
-    public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
-        return iterator(srcPtr.get(),srcPtr.getOffset(),srcPtr.getLength(), ptr, position, valueBitSet);
     }
     
     public int iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position) {
@@ -386,6 +386,10 @@ public abstract class ValueSchema implements Writable {
         return length;
     }
     
+    abstract public void reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset, ValueBitSet valueSet);
+    public void reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset) {
+        reposition(ptr, oldPosition, newPosition, minOffset, maxOffset, ValueBitSet.EMPTY_VALUE_BITSET);
+    }
     abstract protected int positionVarLength(ImmutableBytesWritable ptr, int position, int nFields, int maxLength);
     abstract protected int writeVarLengthField(ImmutableBytesWritable ptr, byte[] b, int offset);
     abstract protected int getVarLengthBytes(int length);

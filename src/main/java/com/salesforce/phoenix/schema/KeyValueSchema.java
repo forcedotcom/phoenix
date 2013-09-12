@@ -136,4 +136,26 @@ public class KeyValueSchema extends ValueSchema {
         }
         return true;
     }
+
+    @Override
+    public void reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset, ValueBitSet valueSet) {
+        if (newPosition == oldPosition) {
+            return;
+        }
+        if (newPosition > oldPosition) {
+            while (oldPosition++ < newPosition) {
+                next(ptr, oldPosition, maxOffset, valueSet);
+            }
+        } else {
+            for (int i = oldPosition - 1; i >= newPosition; i--) {
+                if (!this.getField(i).getType().isFixedWidth()) {
+                    iterator(ptr.get(), minOffset, maxOffset-minOffset, ptr, newPosition+1, valueSet);
+                    return;
+                }
+            }
+            while (oldPosition-- > newPosition) {
+                previous(ptr, oldPosition, minOffset, valueSet);
+            }
+        }
+    }
 }

@@ -192,4 +192,37 @@ public class RowKeySchema extends ValueSchema {
         }
         return true;
     }
+
+    @Override
+    public void reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset, ValueBitSet valueSet) {
+        if (newPosition == oldPosition) {
+            return;
+        }
+        if (newPosition > oldPosition) {
+            while (oldPosition++ < newPosition) {
+                next(ptr, oldPosition, maxOffset);
+            }
+        } else {
+            int nVarLengthFromBeginning = 0;
+            for (int i = 0; i <= newPosition; i++) {
+                if (!this.getField(i).getType().isFixedWidth()) {
+                    nVarLengthFromBeginning++;
+                }
+            }
+            int nVarLengthBetween = 0;
+            for (int i = oldPosition - 1; i >= newPosition; i--) {
+                if (!this.getField(i).getType().isFixedWidth()) {
+                    nVarLengthBetween++;
+                }
+            }
+            if (nVarLengthBetween < nVarLengthFromBeginning) {
+                while (oldPosition-- > newPosition) {
+                    previous(ptr, oldPosition, minOffset);
+                }
+            } else {
+                iterator(ptr.get(), minOffset, maxOffset-minOffset, ptr, newPosition+1);
+            }
+        }
+        
+    }
 }
