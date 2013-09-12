@@ -534,13 +534,18 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
     @Override
     public Expression visitLeave(CastParseNode node, List<Expression> children) throws SQLException {
-        ParseNode childNode = node.getChildren().get(0);
-        Expression child = children.get(0);
+        final ParseNode childNode = node.getChildren().get(0);
+        final Expression child = children.get(0);
+        final PDataType dataType = child.getDataType();
+        final PDataType targetDataType = node.getDataType();
         
         if (childNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
         }
-        return CoerceExpression.create(child, node.getDataType()); 
+        if (dataType!= null && targetDataType != null && !dataType.isCoercibleTo(targetDataType)) {
+            throw new TypeMismatchException(dataType, targetDataType, child.toString());
+        }
+        return CoerceExpression.create(child, targetDataType); 
     }
 
     @Override
