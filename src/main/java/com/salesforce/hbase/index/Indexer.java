@@ -307,7 +307,7 @@ public class Indexer extends BaseRegionObserver {
     if (versions[1].equals("94")) {
       String pointVersion = versions[2];
       //remove -SNAPSHOT if applicable
-      int snapshot = pointVersion.indexOf("-SNAPSHOT");
+      int snapshot = pointVersion.indexOf("-");
       if(snapshot > 0){
         pointVersion = pointVersion.substring(0, snapshot);
       }
