@@ -45,7 +45,7 @@ import com.salesforce.phoenix.util.ScanUtil;
  * Utility methods related to transparent salting of row keys.
  */
 public class SaltingUtil {
-    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder().setMinNullable(1).addField(new PDatum() {
+    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
 
         @Override
         public boolean isNullable() {
@@ -77,7 +77,7 @@ public class SaltingUtil {
             return null;
         }
         
-    }).build();
+    }, false, null).build();
 
     public static final int NUM_SALTING_BYTES = 1;
     public static final Integer MAX_BUCKET_NUM = 256; // Unsigned byte.

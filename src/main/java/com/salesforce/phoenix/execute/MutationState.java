@@ -219,6 +219,10 @@ public class MutationState implements SQLCloseable {
      * @return list of HBase mutations for uncommitted data.
      */
     public Iterator<Pair<byte[],List<Mutation>>> toMutations() {
+        return toMutations(false);
+    }
+    
+    public Iterator<Pair<byte[],List<Mutation>>> toMutations(final boolean includeMutableIndexes) {
         final Iterator<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> iterator = this.mutations.entrySet().iterator();
         if (!iterator.hasNext()) {
             return Iterators.emptyIterator();
@@ -230,7 +234,7 @@ public class MutationState implements SQLCloseable {
             private Iterator<Pair<byte[],List<Mutation>>> innerIterator = init();
                     
             private Iterator<Pair<byte[],List<Mutation>>> init() {
-                return addRowMutations(current.getKey(), current.getValue(), timestamp, true);
+                return addRowMutations(current.getKey(), current.getValue(), timestamp, includeMutableIndexes);
             }
             
             @Override

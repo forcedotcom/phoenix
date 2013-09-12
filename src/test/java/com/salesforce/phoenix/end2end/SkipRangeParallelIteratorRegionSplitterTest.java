@@ -256,7 +256,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
     }
 
     private static RowKeySchema buildSchema(int[] widths) {
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder(10);
         for (final int width : widths) {
             builder.addField(new PDatum() {
                 @Override
@@ -283,7 +283,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
                 public ColumnModifier getColumnModifier() {
                     return null;
                 }
-            });
+            }, false, null);
         }
         return builder.build();
     }

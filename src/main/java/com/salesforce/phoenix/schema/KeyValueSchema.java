@@ -54,16 +54,14 @@ public class KeyValueSchema extends ValueSchema {
 
     public static class KeyValueSchemaBuilder extends ValueSchemaBuilder {
 
+        public KeyValueSchemaBuilder(int minNullable) {
+            super(minNullable);
+        }
+        
         @Override
         public KeyValueSchema build() {
             List<Field> condensedFields = buildFields();
             return new KeyValueSchema(this.minNullable, condensedFields);
-        }
-
-        @Override
-        public KeyValueSchemaBuilder setMinNullable(int minNullable) {
-            super.setMinNullable(minNullable);
-            return this;
         }
 
         @Override
@@ -72,9 +70,8 @@ public class KeyValueSchema extends ValueSchema {
             return this;
         }
         
-        @Override
         public KeyValueSchemaBuilder addField(PDatum datum) {
-            super.addField(datum);
+            super.addField(datum, fields.size() <  this.minNullable, null);
             return this;
         }
     }

@@ -18,9 +18,7 @@ package com.salesforce.phoenix.index;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
@@ -28,7 +26,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.IndexCodec;
 import com.salesforce.hbase.index.covered.IndexUpdate;
@@ -42,7 +39,6 @@ import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 /**
  * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
@@ -98,8 +94,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             IndexUpdate indexUpdate = statePair.getSecond();
             Scanner scanner = statePair.getFirst();
-            ValueGetter valueGetter =
-                IndexManagementUtil.createGetterFromScanner(scanner, state.getCurrentRowKey());
+            ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
             byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Put put = new Put(rowKey);
@@ -135,8 +130,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             Scanner scanner = statePair.getFirst();
             IndexUpdate indexUpdate = statePair.getSecond();
             indexUpdate.setTable(maintainer.getIndexTableName());
-            ValueGetter valueGetter =
-                IndexManagementUtil.createGetterFromScanner(scanner, state.getCurrentRowKey());
+            ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
             byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Delete delete = new Delete(rowKey);

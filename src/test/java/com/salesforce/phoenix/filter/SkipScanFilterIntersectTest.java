@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.util.Collection;
 import java.util.List;
@@ -41,7 +43,10 @@ import org.junit.runners.Parameterized.Parameters;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 
 
@@ -474,7 +479,7 @@ public class SkipScanFilterIntersectTest {
             byte[] upperExclusive, KeyRange[][] expectedRanges) {
         List<List<KeyRange>> slots = Lists.transform(Lists.newArrayList(ranges), ARRAY_TO_LIST);
         List<List<KeyRange>> expectedSlots = expectedRanges == null ? null : Lists.transform(Lists.newArrayList(expectedRanges), ARRAY_TO_LIST);
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder(10);
         for (final int width: widths) {
             builder.addField(
                     new PDatum() {
@@ -502,7 +507,7 @@ public class SkipScanFilterIntersectTest {
                         public ColumnModifier getColumnModifier() {
                             return null;
                         }
-                    });
+                    }, width <= 0, null);
         }
         List<Object> ret = Lists.newArrayList();
         ret.add(new Object[] {slots, builder.build(), lowerInclusive, upperExclusive, expectedSlots});

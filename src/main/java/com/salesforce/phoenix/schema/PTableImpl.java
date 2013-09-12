@@ -195,7 +195,6 @@ public class PTableImpl implements PTable {
         List<PColumn> pkColumns;
         PColumn[] allColumns;
 
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder();
         this.columnsByName = ArrayListMultimap.create(columns.size(), 1);
         if (bucketNum != null) {
             // Add salt column to allColumns and pkColumns, but don't add to
@@ -204,7 +203,6 @@ public class PTableImpl implements PTable {
             allColumns[SALTING_COLUMN.getPosition()] = SALTING_COLUMN;
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size()+1);
             pkColumns.add(SALTING_COLUMN);
-            builder.addField(SALTING_COLUMN);
         } else {
             allColumns = new PColumn[columns.size()];
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
@@ -215,7 +213,6 @@ public class PTableImpl implements PTable {
             PName familyName = column.getFamilyName();
             if (familyName == null) {
                 pkColumns.add(column);
-                builder.addField(column);
             }
             String columnName = column.getName().getString();
             if (columnsByName.put(columnName, column)) {
@@ -232,9 +229,9 @@ public class PTableImpl implements PTable {
         }
         this.bucketNum = bucketNum;
         this.pkColumns = ImmutableList.copyOf(pkColumns);
-        this.rowKeySchema = builder.setMinNullable(pkColumns.size()).build();
         this.allColumns = ImmutableList.copyOf(allColumns);
         
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder(pkColumns.size());
         // Two pass so that column order in column families matches overall column order
         // and to ensure that column family order is constant
         int maxExpectedSize = allColumns.length - pkColumns.size();
@@ -242,7 +239,9 @@ public class PTableImpl implements PTable {
         Map<PName, List<PColumn>> familyMap = Maps.newLinkedHashMap();
         for (PColumn column : allColumns) {
             PName familyName = column.getFamilyName();
-            if (familyName != null) {
+            if (familyName == null) {
+                builder.addField(column, column.isNullable(), column.getColumnModifier());
+            } else {
                 List<PColumn> columnsInFamily = familyMap.get(familyName);
                 if (columnsInFamily == null) {
                     columnsInFamily = Lists.newArrayListWithExpectedSize(maxExpectedSize);
@@ -252,6 +251,7 @@ public class PTableImpl implements PTable {
             }
         }
         
+        this.rowKeySchema = builder.build();
         Iterator<Map.Entry<PName,List<PColumn>>> iterator = familyMap.entrySet().iterator();
         PColumnFamily[] families = new PColumnFamily[familyMap.size()];
         ImmutableMap.Builder<String, PColumnFamily> familyByString = ImmutableMap.builder();

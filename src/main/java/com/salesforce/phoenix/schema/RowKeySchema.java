@@ -59,24 +59,17 @@ public class RowKeySchema extends ValueSchema {
     }
 
     public static class RowKeySchemaBuilder extends ValueSchemaBuilder {
+        public RowKeySchemaBuilder(int maxFields) {
+            super(maxFields);
+            setMaxFields(maxFields);
+        }
+        
         @Override
-        public RowKeySchemaBuilder setMinNullable(int minNullable) {
-            super.setMinNullable(minNullable);
+        public RowKeySchemaBuilder addField(PDatum datum, boolean isNullable, ColumnModifier columnModifier) {
+            super.addField(datum, isNullable, columnModifier);
             return this;
         }
 
-        @Override
-        public RowKeySchemaBuilder setMaxFields(int nFields) {
-            super.setMaxFields(nFields);
-            return this;
-        }
-        
-        @Override
-        public RowKeySchemaBuilder addField(PDatum datum) {
-            super.addField(datum);
-            return this;
-        }
-        
         @Override
         public RowKeySchema build() {
             List<Field> condensedFields = buildFields();

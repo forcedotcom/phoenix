@@ -27,6 +27,7 @@ import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.ValueSchema;
+import com.salesforce.phoenix.schema.ValueSchema.Field;
 import com.salesforce.phoenix.util.BitSet;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.IndexUtil;
@@ -39,7 +40,7 @@ import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
  * row and caches any covered columns. Client-side serializes into byte array using 
  * {@link #serialize(byte[], PTable, ImmutableBytesWritable)}
  * and transmits to server-side through either the 
- * {@link com.salesforce.index.phoenix.PhoenixIndexCodec#INDEX_MD}
+ * {@link com.salesforce.phoenix.index.PhoenixIndexCodec#INDEX_MD}
  * Mutation attribute or as a separate RPC call using 
  * {@link com.salesforce.phoenix.cache.ServerCacheClient})
  *
@@ -73,12 +74,6 @@ public class IndexMaintainer implements Writable {
             if (isPKColumn) {
                 int dataPkPos = dataTable.getPKColumns().indexOf(column) - (dataTable.getBucketNum() == null ? 0 : 1);
                 rowKeyMetaData.setIndexPkPosition(dataPkPos, indexPos);
-                if (!column.isNullable()) {
-                    rowKeyMetaData.getPkNotNullableBitSet().set(indexPos);
-                }
-                if (column.getColumnModifier() != null) {
-                    rowKeyMetaData.getDescDataColumnBitSet().set(indexPos);
-                }
             } else {
                 maintainer.getIndexedColumnTypes().add(column.getDataType());
                 maintainer.getIndexedColumnSizes().add(column.getByteSize());
@@ -228,8 +223,6 @@ public class IndexMaintainer implements Writable {
                 }
             }
             BitSet descIndexColumnBitSet = rowKeyMetaData.getDescIndexColumnBitSet();
-            BitSet descDataColumnBitSet = rowKeyMetaData.getDescDataColumnBitSet();
-            BitSet pkNotNullBitSet = rowKeyMetaData.getPkNotNullableBitSet();
             int j = 0;
             for (int i = 0; i < nIndexedColumns; i++) {
                 PDataType dataColumnType;
@@ -246,11 +239,12 @@ public class IndexMaintainer implements Writable {
                     }
                     j++;
                } else {
-                    dataColumnType = dataRowKeySchema.getField(dataPkPosition[i]).getType();
+                   Field field = dataRowKeySchema.getField(dataPkPosition[i]);
+                    dataColumnType = field.getType();
                     ptr.set(rowKeyPtr.get(), dataRowKeyLocator[0][i], dataRowKeyLocator[1][i]);
-                    isDataColumnInverted = descDataColumnBitSet.get(i);
-                    dataColumnModifier = isDataColumnInverted ? ColumnModifier.SORT_DESC : null;
-                    isNullable = !pkNotNullBitSet.get(i);
+                    dataColumnModifier = field.getColumnModifier();
+                    isDataColumnInverted = dataColumnModifier != null;
+                    isNullable = field.isNullable();
                 }
                 PDataType indexColumnType = IndexUtil.getIndexColumnDataType(isNullable, dataColumnType);
                 boolean isBytesComparable = dataColumnType.isBytesComparableWith(indexColumnType) ;
@@ -400,11 +394,18 @@ public class IndexMaintainer implements Writable {
         // index table, not the data type of the data table
         int indexedColumnTypesPos = indexedColumnTypes.size()-1;
         int indexPkPos = nIndexPkColumns-1;
-        BitSet pkNotNullableBitSet = this.rowKeyMetaData.getPkNotNullableBitSet();
         while (indexPkPos >= 0) {
             int dataPkPos = dataPkPosition[indexPkPos];
-            PDataType dataType = dataPkPos == -1 ? indexedColumnTypes.get(indexedColumnTypesPos--) : dataRowKeySchema.getField(dataPkPos).getType();
-            boolean isDataNullable = dataPkPos == -1 ? true: !pkNotNullableBitSet.get(indexPkPos);
+            boolean isDataNullable;
+            PDataType dataType;
+            if (dataPkPos == -1) {
+                isDataNullable = true;
+                dataType = indexedColumnTypes.get(indexedColumnTypesPos--);
+            } else {
+                Field dataField = dataRowKeySchema.getField(dataPkPos);
+                dataType = dataField.getType();
+                isDataNullable = dataField.isNullable();
+            }
             PDataType indexDataType = IndexUtil.getIndexColumnDataType(isDataNullable, dataType);
             if (indexDataType.isFixedWidth()) {
                 break;
@@ -486,17 +487,13 @@ public class IndexMaintainer implements Writable {
     }
     
     private abstract class RowKeyMetaData implements Writable {
-        private BitSet descDataColumnBitSet;
         private BitSet descIndexColumnBitSet;
-        private BitSet pkNotNullableBitSet;
         
         private RowKeyMetaData() {
         }
         
         private RowKeyMetaData(int nIndexedColumns) {
-            descDataColumnBitSet = BitSet.withCapacity(nIndexedColumns);
             descIndexColumnBitSet = BitSet.withCapacity(nIndexedColumns);
-            pkNotNullableBitSet = BitSet.withCapacity(nIndexedColumns);
       }
         
         protected int getByteSize() {
@@ -509,29 +506,17 @@ public class IndexMaintainer implements Writable {
         @Override
         public void readFields(DataInput input) throws IOException {
             int length = getIndexPkColumnCount();
-            descDataColumnBitSet = BitSet.read(input, length);
             descIndexColumnBitSet = BitSet.read(input, length);
-            pkNotNullableBitSet = BitSet.read(input, length);
         }
         
         @Override
         public void write(DataOutput output) throws IOException {
             int length = getIndexPkColumnCount();
-            BitSet.write(output, descDataColumnBitSet, length);
             BitSet.write(output, descIndexColumnBitSet, length);
-            BitSet.write(output, pkNotNullableBitSet, length);
-        }
-
-        private BitSet getDescDataColumnBitSet() {
-            return descDataColumnBitSet;
         }
 
         private BitSet getDescIndexColumnBitSet() {
             return descIndexColumnBitSet;
-        }
-        
-        private BitSet getPkNotNullableBitSet() {
-            return pkNotNullableBitSet;
         }
     }
     
