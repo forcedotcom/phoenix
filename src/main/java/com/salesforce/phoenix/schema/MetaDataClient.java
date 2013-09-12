@@ -373,6 +373,11 @@ public class MetaDataClient {
         PrimaryKeyConstraint pk = statement.getIndexConstraint();
         TableName indexTableName = statement.getIndexTableName();
         String dataTableName = statement.getTable().getName().getTableName();
+        
+        int hbaseVersion = connection.getQueryServices().getLowestClusterHBaseVersion();
+        if (hbaseVersion < PhoenixDatabaseMetaData.MUTABLE_SI_VERSION_THRESHOLD) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NO_MUTABLE_INDEXES).setTableName(indexTableName.getTableName()).build().buildException();
+        }
         List<Pair<ColumnName, ColumnModifier>> indexedPkColumns = pk.getColumnNames();
         List<ColumnName> includedColumns = statement.getIncludeColumns();
         TableRef tableRef = null;

@@ -158,6 +158,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     // Version below which we should turn off essential column family.
     public static final int ESSENTIAL_FAMILY_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "7");
+    // Version below which we should disallow usage of mutable secondary indexing.
+    public static final int MUTABLE_SI_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "10");
 
     PhoenixDatabaseMetaData(PhoenixConnection connection) throws SQLException {
         this.emptyResultSet = new PhoenixResultSet(EMPTY_SCANNER, new PhoenixStatement(connection));

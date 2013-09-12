@@ -190,7 +190,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public int getLowestClusterHBaseVersion() {
-        return 0;
+        return Integer.MAX_VALUE; // Allow everything for connectionless
     }
 
     @Override
