@@ -81,8 +81,8 @@ import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.salesforce.hbase.index.IndexUtil;
 import com.salesforce.hbase.index.Indexer;
+import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.coprocessor.MetaDataEndpointImpl;
@@ -97,7 +97,6 @@ import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
-import com.salesforce.phoenix.index.PhoenixIndexBuilder;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
@@ -507,8 +506,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             // Since indexes can't have indexes, don't install our indexing coprocessor for indexes
             if (tableType != PTableType.INDEX && !descriptor.hasCoprocessor(Indexer.class.getName())) {
                 Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
-                opts.put(PhoenixIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
-                IndexUtil.enableIndexing(descriptor, PhoenixIndexBuilder.class, opts);
+                opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
+                Indexer.enableIndexing(descriptor, CoveredColumnsIndexBuilder.class, opts);
             }
             
             // Setup split policy on Phoenix metadata table to ensure that the key values of a Phoenix table

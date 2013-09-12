@@ -20,9 +20,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
-import com.salesforce.hbase.index.builder.covered.ColumnReference;
+import com.salesforce.hbase.index.ValueGetter;
+import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.phoenix.end2end.index.IndexTestUtil;
-import com.salesforce.phoenix.index.PhoenixIndexCodec.ValueGetter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.schema.PTable;
@@ -56,7 +56,7 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         return new ValueGetter() {
 
             @Override
-            public byte[] getValue(ColumnReference ref) {
+            public byte[] getLatestValue(ColumnReference ref) {
                 return valueMap.get(ref);
             }
             

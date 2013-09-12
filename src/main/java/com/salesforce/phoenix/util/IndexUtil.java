@@ -39,11 +39,11 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
-import com.salesforce.hbase.index.builder.covered.ColumnReference;
+import com.salesforce.hbase.index.ValueGetter;
+import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.index.IndexMaintainer;
-import com.salesforce.phoenix.index.PhoenixIndexCodec.ValueGetter;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -137,7 +137,7 @@ public class IndexUtil {
                 ValueGetter valueGetter = new ValueGetter() {
     
                     @Override
-                    public byte[] getValue(ColumnReference ref) {
+                    public byte[] getLatestValue(ColumnReference ref) {
                         Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
                         byte[] family = ref.getFamily();
                         List<KeyValue> kvs = familyMap.get(family);
@@ -163,14 +163,18 @@ public class IndexUtil {
                 byte[] indexRowKey = maintainer.buildRowKey(valueGetter, ptr);
                 Put put = new Put(indexRowKey);
                 for (ColumnReference ref : maintainer.getCoverededColumns()) {
-                    byte[] value = valueGetter.getValue(ref);
-                    if (value != null) {
-                        KeyValue kv = KeyValueUtil.newKeyValue(put.getRow(), ref.getFamily(), ref.getQualifier(), ts, value);
-                        try {
-                            put.add(kv);
-                        } catch (IOException e) {
-                            throw new SQLException(e); // Impossible
+                    try{
+                        byte[] value = valueGetter.getLatestValue(ref);
+                        if (value != null) {
+                            KeyValue kv = KeyValueUtil.newKeyValue(put.getRow(), ref.getFamily(), ref.getQualifier(), ts, value);
+                            try {
+                                put.add(kv);
+                            } catch (IOException e) {
+                                throw new SQLException(e); // Impossible
+                            }
                         }
+                    }catch(IOException e){
+                      throw new RuntimeException("Inmemory ValueGetter threw exception!",e);
                     }
                 }
                 put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);

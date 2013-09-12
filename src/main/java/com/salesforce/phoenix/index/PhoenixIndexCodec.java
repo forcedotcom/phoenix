@@ -29,17 +29,20 @@ import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.salesforce.hbase.index.builder.covered.ColumnReference;
-import com.salesforce.hbase.index.builder.covered.IndexCodec;
-import com.salesforce.hbase.index.builder.covered.IndexUpdate;
-import com.salesforce.hbase.index.builder.covered.TableState;
-import com.salesforce.hbase.index.builder.covered.scanner.Scanner;
+import com.salesforce.hbase.index.ValueGetter;
+import com.salesforce.hbase.index.covered.IndexCodec;
+import com.salesforce.hbase.index.covered.IndexUpdate;
+import com.salesforce.hbase.index.covered.TableState;
+import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.scanner.Scanner;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 /**
  * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
@@ -79,32 +82,6 @@ public class PhoenixIndexCodec implements IndexCodec {
         }
         return indexMaintainers;
     }
-
-    /* 
-     * Looks up the current value based on a ColumnReference. Used for both mutable secondary indexes
-     * as well as immutable secondary indexes (where an existing map already backs the retrieval of a
-     * value given a PColumn).
-     * TODO: For Jesse to move to one of his indexing packages
-     */
-    public static interface ValueGetter {
-        byte[] getValue(ColumnReference ref);
-    }
-    
-    private static ValueGetter newValueGetter(Scanner scanner, int expectedSize) throws IOException {
-        KeyValue kv;
-        final Map<ColumnReference,byte[]> valueMap = Maps.newHashMapWithExpectedSize(expectedSize);
-        while ((kv = scanner.next()) != null) {
-            valueMap.put(new ColumnReference(kv.getFamily(),kv.getQualifier()), kv.getValue());
-        }
-        return new ValueGetter() {
-
-            @Override
-            public byte[] getValue(ColumnReference ref) {
-                return valueMap.get(ref);
-            }
-            
-        };
-    }
     
     @SuppressWarnings("deprecation")
     @Override
@@ -121,7 +98,8 @@ public class PhoenixIndexCodec implements IndexCodec {
             Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             IndexUpdate indexUpdate = statePair.getSecond();
             Scanner scanner = statePair.getFirst();
-            ValueGetter valueGetter = newValueGetter(scanner, maintainer.getAllColumns().size());
+            ValueGetter valueGetter =
+                IndexManagementUtil.createGetterFromScanner(scanner, state.getCurrentRowKey());
             ptr.set(dataRowKey);
             byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Put put = new Put(rowKey);
@@ -129,7 +107,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             indexUpdate.setTable(maintainer.getIndexTableName());
             indexUpdate.setUpdate(put);
             for (ColumnReference ref : maintainer.getCoverededColumns()) {
-                byte[] value = valueGetter.getValue(ref);
+                byte[] value = valueGetter.getLatestValue(ref);
                 if (value != null) { // FIXME: is this right?
                     put.add(ref.getFamily(), ref.getQualifier(), value);
                 }
@@ -157,7 +135,8 @@ public class PhoenixIndexCodec implements IndexCodec {
             Scanner scanner = statePair.getFirst();
             IndexUpdate indexUpdate = statePair.getSecond();
             indexUpdate.setTable(maintainer.getIndexTableName());
-            ValueGetter valueGetter = newValueGetter(scanner, maintainer.getAllColumns().size());
+            ValueGetter valueGetter =
+                IndexManagementUtil.createGetterFromScanner(scanner, state.getCurrentRowKey());
             ptr.set(dataRowKey);
             byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
             Delete delete = new Delete(rowKey);

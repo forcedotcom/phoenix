@@ -16,8 +16,8 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Lists;
-import com.salesforce.hbase.index.builder.covered.ColumnReference;
-import com.salesforce.phoenix.index.PhoenixIndexCodec.ValueGetter;
+import com.salesforce.hbase.index.ValueGetter;
+import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
@@ -39,7 +39,7 @@ import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
  * row and caches any covered columns. Client-side serializes into byte array using 
  * {@link #serialize(byte[], PTable, ImmutableBytesWritable)}
  * and transmits to server-side through either the 
- * {@link com.salesforce.phoenix.index.PhoenixIndexCodec#INDEX_MD}
+ * {@link com.salesforce.index.phoenix.PhoenixIndexCodec#INDEX_MD}
  * Mutation attribute or as a separate RPC call using 
  * {@link com.salesforce.phoenix.cache.ServerCacheClient})
  *
@@ -238,7 +238,7 @@ public class IndexMaintainer implements Writable {
                 ColumnModifier dataColumnModifier = null;
                 if (dataPkPosition[i] == -1) {
                     dataColumnType = indexedColumnTypes.get(j);
-                    byte[] value = valueGetter.getValue(indexedColumns.get(j));
+                    byte[] value = valueGetter.getLatestValue(indexedColumns.get(j));
                     if (value == null) {
                         ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
                     } else {
