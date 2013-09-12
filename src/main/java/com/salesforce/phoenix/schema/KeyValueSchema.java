@@ -154,6 +154,31 @@ public class KeyValueSchema extends ValueSchema {
         return offset;
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="NP_BOOLEAN_RETURN_NULL", 
+            justification="Designed to return null.")
+    public Boolean iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
+        ptr.set(src, srcOffset, 0);
+        int maxOffset = srcOffset + srcLength;
+        Boolean hasValue = null;
+        for (int i = 0; i < position; i++) {
+            hasValue = next(ptr, i, maxOffset, valueBitSet);
+        }
+        return hasValue;
+    }
+    
+    public Boolean iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position, ValueBitSet valueSet) {
+        return iterator(srcPtr.get(),srcPtr.getOffset(),srcPtr.getLength(), ptr, position, valueSet);
+    }
+    
+    public Boolean iterator(ImmutableBytesWritable ptr, int position, ValueBitSet valueSet) {
+        return iterator(ptr, ptr, position, valueSet);
+    }
+    
+    public Boolean iterator(ImmutableBytesWritable ptr) {
+        return iterator(ptr, ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
+    }
+    
     /**
      * Move the bytes ptr to the next position relative to the current ptr
      * @param ptr bytes pointer pointing to the value at the positional index
@@ -189,89 +214,5 @@ public class KeyValueSchema extends ValueSchema {
             return ptr.getLength() > 0;
         }
         return false;
-    }
-    
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-            value="NP_BOOLEAN_RETURN_NULL", 
-            justification="Designed to return null.")
-    public Boolean iterator(byte[] src, int srcOffset, int srcLength, ImmutableBytesWritable ptr, int position, ValueBitSet valueBitSet) {
-        ptr.set(src, srcOffset, 0);
-        int maxOffset = srcOffset + srcLength;
-        Boolean hasValue = null;
-        for (int i = 0; i < position; i++) {
-            hasValue = next(ptr, i, maxOffset, valueBitSet);
-        }
-        return hasValue;
-    }
-    
-    public Boolean iterator(ImmutableBytesWritable srcPtr, ImmutableBytesWritable ptr, int position, ValueBitSet valueSet) {
-        return iterator(srcPtr.get(),srcPtr.getOffset(),srcPtr.getLength(), ptr, position, valueSet);
-    }
-    
-    public Boolean iterator(ImmutableBytesWritable ptr, int position, ValueBitSet valueSet) {
-        return iterator(ptr, ptr, position, valueSet);
-    }
-    
-    public Boolean iterator(ImmutableBytesWritable ptr) {
-        return iterator(ptr, ptr, 0, ValueBitSet.EMPTY_VALUE_BITSET);
-    }
-    
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-            value="NP_BOOLEAN_RETURN_NULL", 
-            justification="Designed to return null.")
-    public Boolean previous(ImmutableBytesWritable ptr, int position, int minOffset, ValueBitSet valueSet) {
-        if (position < 0) {
-            return null;
-        }
-        int currPtrOffsetAdjustment = 0;
-        int currPtrPosition = position + 1;
-        // Calculate the offset due to storing the length of the next position
-        // as a vint right before the current offset of ptr.
-        if (currPtrPosition < this.getFieldCount()) {
-            Field nextField = this.getField(currPtrPosition);
-            if (!nextField.getType().isFixedWidth() && !this.isNull(currPtrPosition, valueSet)) {
-                currPtrOffsetAdjustment = WritableUtils.getVIntSize(ptr.getLength());
-            }
-        }
-        // If the field of the position we're iterating to is fixed width, then we can
-        // update the ptr based on the fixed width length
-        Field field = this.getField(position);
-        if (field.getType().isFixedWidth()) {
-            if (this.isNull(position, valueSet)) {
-                return false;
-            }
-            ptr.set(ptr.get(), ptr.getOffset()-field.getByteSize()-currPtrOffsetAdjustment, field.getByteSize());
-            return true;
-        }
-        // Otherwise we're stuck with starting from the minOffset and working all the way forward,
-        // because we can't infer the length of the previous position.
-        ptr.set(ptr.get(), minOffset, ptr.getOffset()-currPtrOffsetAdjustment-minOffset);
-        return this.iterator(ptr, position+1, valueSet);
-    }
-
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-            value="NP_BOOLEAN_RETURN_NULL", 
-            justification="Designed to return null.")
-    public Boolean reposition(ImmutableBytesWritable ptr, int oldPosition, int newPosition, int minOffset, int maxOffset, ValueBitSet valueSet) {
-        if (newPosition == oldPosition) {
-            return ptr.getLength() > 0;
-        }
-        Boolean hasValue = null;
-        if (newPosition > oldPosition) {
-            do {
-                hasValue = next(ptr, ++oldPosition, maxOffset, valueSet);
-            }  while (hasValue != null && oldPosition < newPosition) ;
-
-        } else {
-            for (int i = oldPosition - 1; i >= newPosition; i--) {
-                if (!this.getField(i).getType().isFixedWidth()) {
-                    return iterator(ptr.get(), minOffset, maxOffset-minOffset, ptr, newPosition+1, valueSet);
-                }
-            }
-            do  {
-                hasValue = previous(ptr, --oldPosition, minOffset, valueSet);
-            } while (hasValue != null && oldPosition > newPosition);
-        }
-        return hasValue;
     }
 }
