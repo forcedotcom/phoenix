@@ -96,6 +96,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.SaltingUtil;
 
 
@@ -484,6 +485,7 @@ public class SchemaUtil {
     
     public static final String UPGRADE_TO_2_0 = "UpgradeTo20";
     public static final Integer SYSTEM_TABLE_NULLABLE_VAR_LENGTH_COLUMNS = 3;
+    public static final String UPGRADE_TO_2_1 = "UpgradeTo21";
 
     public static boolean isUpgradeTo2Necessary(ConnectionQueryServices connServices) throws SQLException {
         HTableInterface htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
@@ -659,6 +661,17 @@ public class SchemaUtil {
     }
     
     public static void upgradeTo2(PhoenixConnection conn) throws SQLException {
+        // Filter VIEWs from conversion
+        StringBuilder buf = new StringBuilder();
+        ResultSet rs = conn.getMetaData().getTables(null, null, null, new String[] {PTableType.VIEW.getSerializedValue()});
+        while (rs.next()) {
+            buf.append("(" + TABLE_SCHEM_NAME + " = " + rs.getString(2) + " and " + TABLE_NAME_NAME + " = " + rs.getString(3) + ") or ");
+        }
+        String filterViews = "";
+        if (buf.length() > 0) {
+            buf.setLength(buf.length() - " or ".length());
+            filterViews = " and not (" + buf.toString() + ")";
+        }
         /*
          * Our upgrade hack sets a property on the scan that gets activated by an ungrouped aggregate query. 
          * Our UngroupedAggregateRegionObserver coprocessors will perform the required upgrade.
@@ -673,9 +686,9 @@ public class SchemaUtil {
                 NULLABLE +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + TABLE_CAT_NAME + " is null " +
-                " and " + COLUMN_NAME + " is not null " +
+                " and " + COLUMN_NAME + " is not null " + filterViews +
                 " order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION + " DESC";
-        ResultSet rs = conn.createStatement().executeQuery(query);
+        rs = conn.createStatement().executeQuery(query);
         String currentTableName = null;
         int nColumns = 0;
         boolean skipToNext = false;

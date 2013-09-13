@@ -53,8 +53,8 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
 
 public class IndexUtil {
-    private static final String INDEX_COLUMN_NAME_SEP = ":";
-    private static final byte[] INDEX_COLUMN_NAME_SEP_BYTES = Bytes.toBytes(INDEX_COLUMN_NAME_SEP);
+    public static final String INDEX_COLUMN_NAME_SEP = ":";
+    public static final byte[] INDEX_COLUMN_NAME_SEP_BYTES = Bytes.toBytes(INDEX_COLUMN_NAME_SEP);
 
     private IndexUtil() {
     }
