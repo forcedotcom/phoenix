@@ -95,6 +95,7 @@ tokens
     DISABLE='disable';
     SET='set';
     ARRAY='array';
+    CAST='cast';
 }
 
 
@@ -373,7 +374,7 @@ create_table_node returns [CreateTableStatement ret]
 
 // Parse a create index statement.
 create_index_node returns [CreateIndexStatement ret]
-    :   CREATE INDEX i=index_name (IF NOT ex=EXISTS)? ON t=from_table_name
+    :   CREATE INDEX (IF NOT ex=EXISTS)? i=index_name ON t=from_table_name
         (LPAREN pk=index_pk_constraint RPAREN)
         (INCLUDE (LPAREN icrefs=column_names RPAREN))?
         (p=fam_properties)?
@@ -744,6 +745,7 @@ expression_term returns [ParseNode ret]
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }
+    |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
     ;
     
 expression_terms returns [List<ParseNode> ret]

@@ -29,8 +29,12 @@ package com.salesforce.phoenix.schema;
 
 import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
@@ -95,6 +99,12 @@ public class RowKeyValueAccessor implements Writable   {
         this.hasSeparator = !isFixedLength && (datum != data.get(data.size()-1));
     }
     
+    RowKeyValueAccessor(int[] offsets, boolean isFixedLength, boolean hasSeparator) {
+        this.offsets = offsets;
+        this.isFixedLength = isFixedLength;
+        this.hasSeparator = hasSeparator;
+    }
+
     private int index = -1; // Only available on client side
     private int[] offsets;
     private boolean isFixedLength;
@@ -138,7 +148,7 @@ public class RowKeyValueAccessor implements Writable   {
         hasSeparator = (length & 0x02) != 0;
         isFixedLength = (length & 0x01) != 0;
         length >>= 2;
-        offsets = ByteUtil.deserializeIntArray(input, length);
+        offsets = ByteUtil.deserializeVIntArray(input, length);
     }
 
     @Override
@@ -147,7 +157,7 @@ public class RowKeyValueAccessor implements Writable   {
         // (since there's plenty of room)
         int length = offsets.length << 2;
         length |= (hasSeparator ? 1 << 1 : 0) | (isFixedLength ? 1 : 0);
-        ByteUtil.serializeIntArray(output, offsets, length);
+        ByteUtil.serializeVIntArray(output, offsets, length);
     }
     
     /**
@@ -179,12 +189,11 @@ public class RowKeyValueAccessor implements Writable   {
      * @param keyLength the length of the entire row key
      * @return the length of the PK column value
      */
-    public int getLength(byte[] keyBuffer, int keyOffset, int keyLength) {
+    public int getLength(byte[] keyBuffer, int keyOffset, int maxOffset) {
         if (!hasSeparator) {
-            return keyLength;
+            return maxOffset - keyOffset;
         }
         int offset = keyOffset;
-        int maxOffset = keyOffset + keyLength;
         // FIXME: offset < maxOffset required because HBase passes bogus keys to filter to position scan (HBASE-6562)
         while (offset < maxOffset && keyBuffer[offset] != SEPARATOR_BYTE) {
             offset++;

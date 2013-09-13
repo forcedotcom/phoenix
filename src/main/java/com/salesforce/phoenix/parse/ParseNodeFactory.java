@@ -396,7 +396,15 @@ public class ParseNodeFactory {
     public LiteralParseNode literal(Object value) {
         return new LiteralParseNode(value);
     }
-
+    
+    public CastParseNode cast(ParseNode expression, String dataType) {
+    	return new CastParseNode(expression, dataType);
+    }
+    
+    public CastParseNode cast(ParseNode expression, PDataType dataType) {
+    	return new CastParseNode(expression, dataType);
+    }
+    
     private void checkTypeMatch (PDataType expectedType, PDataType actualType) throws SQLException {
         if (!expectedType.isCoercibleTo(actualType)) {
             throw new TypeMismatchException(expectedType, actualType);

@@ -39,7 +39,7 @@ import com.salesforce.phoenix.parse.BindableStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
-import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
 
@@ -150,9 +150,9 @@ public class StatementContext {
          * current time at execution time. In that case, we'll call MetaDataClient.updateCache
          * purely to bind the current time based on the server time.
          */
-        TableRef table = this.getResolver().getTables().get(0);
+        PTable table = this.getResolver().getTables().get(0).getTable();
         MetaDataClient client = new MetaDataClient(connection);
-        currentTime = Math.abs(client.updateCache(table.getSchema().getName(), table.getTable().getName().getString()));
+        currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;
     }
 }

@@ -40,7 +40,8 @@ import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.util.ObjectSerializer;
 import org.apache.pig.impl.util.UDFContext;
 
-import com.salesforce.phoenix.pig.hadoop.*;
+import com.salesforce.phoenix.pig.hadoop.PhoenixOutputFormat;
+import com.salesforce.phoenix.pig.hadoop.PhoenixRecord;
 import com.salesforce.phoenix.schema.PDataType;
 
 /**
@@ -133,9 +134,10 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		}
 	}
 
-	@Override
+	@SuppressWarnings("unchecked")
+    @Override
 	public void prepareToWrite(RecordWriter writer) throws IOException {
-		this.writer = (PhoenixRecordWriter)writer;
+		this.writer =writer;
 	}
 
 	@Override

@@ -37,6 +37,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.memory.*;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.AssertResults;
@@ -47,7 +48,7 @@ public class SpoolingResultIteratorTest {
     private final static byte[] A = Bytes.toBytes("a");
     private final static byte[] B = Bytes.toBytes("b");
 
-    private void testSpooling(int threshold) throws Throwable {
+    private void testSpooling(int threshold, long maxSizeSpool) throws Throwable {
         Tuple[] results = new Tuple[] {
                 new SingleKeyValueTuple(new KeyValue(A, SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, Bytes.toBytes(1))),
                 new SingleKeyValueTuple(new KeyValue(B, SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, Bytes.toBytes(1))),
@@ -60,17 +61,21 @@ public class SpoolingResultIteratorTest {
             };
 
         MemoryManager memoryManager = new DelegatingMemoryManager(new GlobalMemoryManager(threshold, 0));
-        ResultIterator scanner = new SpoolingResultIterator(iterator, memoryManager, threshold);
+        ResultIterator scanner = new SpoolingResultIterator(iterator, memoryManager, threshold, maxSizeSpool);
         AssertResults.assertResults(scanner, expectedResults);
     }
 
     @Test
     public void testInMemorySpooling() throws Throwable {
-        testSpooling(1024*1024);
+        testSpooling(1024*1024, QueryServicesOptions.DEFAULT_SPOOL_TO_DISK_BYTES);
     }
     @Test
     public void testOnDiskSpooling() throws Throwable {
-        testSpooling(1);
+        testSpooling(1, QueryServicesOptions.DEFAULT_SPOOL_TO_DISK_BYTES);
     }
 
+    @Test(expected = SpoolTooBigToDiskException.class)
+    public void testFailToSpool() throws Throwable{
+    		testSpooling(1, 0L);
+    }
 }

@@ -32,6 +32,7 @@ current_dir=$(cd $(dirname $0);pwd)
 phoenix_jar_path="$current_dir/../target"
 phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
 
+
 if [ -z "$1" ] 
   then echo -e "Zookeeper not specified. \nUsage: sqlline.sh <zookeeper> <optional_sql_file> \nExample: \n 1. sqlline.sh localhost \n 2. sqlline.sh localhost ../examples/stock_symbol.sql";
   exit;

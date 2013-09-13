@@ -27,29 +27,51 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.RowIdLifetime;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.ColumnProjector;
+import com.salesforce.phoenix.compile.ExpressionProjector;
+import com.salesforce.phoenix.compile.RowProjector;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.DelegateResultIterator;
+import com.salesforce.phoenix.iterate.MaterializedResultIterator;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.parse.HintNode.Hint;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.DelegateScanner;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.WrappedScanner;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.MetaDataUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -74,7 +96,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TYPE_SCHEMA_AND_TABLE = TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"";
     public static final byte[] TYPE_TABLE_BYTES = TYPE_TABLE.getBytes();
     public static final byte[] TYPE_SCHEMA_BYTES = TYPE_SCHEMA.getBytes();
-    public static final byte[] TYPE_TABLE_NAME = SchemaUtil.getTableName(TYPE_SCHEMA_BYTES, TYPE_TABLE_BYTES);
+    public static final byte[] TYPE_TABLE_NAME = SchemaUtil.getTableNameAsBytes(TYPE_SCHEMA_BYTES, TYPE_TABLE_BYTES);
     
     public static final String TABLE_NAME_NAME = "TABLE_NAME";
     public static final String TABLE_TYPE_NAME = "TABLE_TYPE";
@@ -126,8 +148,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String IMMUTABLE_ROWS = "IMMUTABLE_ROWS";
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
 
-    public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getString();
-    public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_NAME.getBytes();
+    public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
+    public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
     
     private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList(), 0, true));
     
@@ -136,6 +158,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     // Version below which we should turn off essential column family.
     public static final int ESSENTIAL_FAMILY_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "7");
+    // Version below which we should disallow usage of mutable secondary indexing.
+    public static final int MUTABLE_SI_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "10");
 
     PhoenixDatabaseMetaData(PhoenixConnection connection) throws SQLException {
         this.emptyResultSet = new PhoenixResultSet(EMPTY_SCANNER, new PhoenixStatement(connection));

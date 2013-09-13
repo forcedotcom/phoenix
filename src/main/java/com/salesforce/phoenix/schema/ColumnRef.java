@@ -31,7 +31,9 @@ import java.sql.SQLException;
 
 import org.apache.http.annotation.Immutable;
 
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.ColumnExpression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -112,10 +114,6 @@ public final class ColumnRef {
 
     public PTable getTable() {
         return tableRef.getTable();
-    }
-    
-    public PSchema getSchema() {
-        return tableRef.getSchema();
     }
     
     public TableRef getTableRef() {

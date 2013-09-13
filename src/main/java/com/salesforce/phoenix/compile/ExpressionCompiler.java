@@ -527,6 +527,26 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         return new NotExpression(child);
     }
     
+    @Override
+    public boolean visitEnter(CastParseNode node) throws SQLException {
+        return true;
+    }
+
+    @Override
+    public Expression visitLeave(CastParseNode node, List<Expression> children) throws SQLException {
+        final ParseNode childNode = node.getChildren().get(0);
+        final Expression child = children.get(0);
+        final PDataType dataType = child.getDataType();
+        final PDataType targetDataType = node.getDataType();
+        
+        if (childNode instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
+        }
+        if (dataType!= null && targetDataType != null && !dataType.isCoercibleTo(targetDataType)) {
+            throw new TypeMismatchException(dataType, targetDataType, child.toString());
+        }
+        return CoerceExpression.create(child, targetDataType); 
+    }
 
     @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {

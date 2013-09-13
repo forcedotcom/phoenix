@@ -27,19 +27,33 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
 import java.sql.Date;
-import java.util.*;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.util.Pair;
-import org.junit.*;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixDriver;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.SaltingUtil;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
@@ -55,32 +69,44 @@ public class ConnectionlessUpsertTest {
     
     @Test
     public void testConnectionlessUpsert() throws Exception {
+        testConnectionlessUpsert(null);
+    }
+    
+    @Test
+    public void testSaltedConnectionlessUpsert() throws Exception {
+        testConnectionlessUpsert(4);
+    }
+  
+    public void testConnectionlessUpsert(Integer saltBuckets) throws Exception {
         String dmlStmt = "create table core.entity_history(\n" +
         "    organization_id char(15) not null, \n" + 
         "    key_prefix char(3) not null,\n" +
         "    entity_history_id char(12) not null,\n" + 
         "    created_by varchar,\n" + 
         "    created_date date\n" +
-        "    CONSTRAINT pk PRIMARY KEY (organization_id, key_prefix, entity_history_id)\n" +
-        ")";
+        "    CONSTRAINT pk PRIMARY KEY (organization_id, key_prefix, entity_history_id) ) " +
+        (saltBuckets == null ? "" : (PhoenixDatabaseMetaData.SALT_BUCKETS + "=" + saltBuckets));
         Properties props = new Properties();
         Connection conn = DriverManager.getConnection(getUrl(), props);
         PreparedStatement statement = conn.prepareStatement(dmlStmt);
         statement.execute();
         
+        String orgId = "00D300000000XHP";
+        String keyPrefix1 = "111";
+        String entityHistoryId1 = "123456789012";
         Date now = new Date(System.currentTimeMillis());
         String upsertStmt = "upsert into core.entity_history(organization_id,key_prefix,entity_history_id, created_by, created_date)\n" +
         "values(?,?,?,?,?)";
         statement = conn.prepareStatement(upsertStmt);
-        statement.setString(1, "00D300000000XHP");
+        statement.setString(1, orgId);
         statement.setString(2, "112");
         statement.setString(3, "123456789012");
         statement.setString(4, "Simon");
         statement.setDate(5,now);
         statement.execute();
-        statement.setString(1, "00D300000000XHP");
-        statement.setString(2, "111");
-        statement.setString(3, "123456789012");
+        statement.setString(1, orgId);
+        statement.setString(2, keyPrefix1);
+        statement.setString(3, entityHistoryId1);
         statement.setString(4, "Eli");
         statement.setDate(5,now);
         statement.execute();
@@ -88,7 +114,15 @@ public class ConnectionlessUpsertTest {
         Iterator<Pair<byte[],List<KeyValue>>> dataIterator = PhoenixRuntime.getUncommittedDataIterator(conn);
         Iterator<KeyValue> iterator = dataIterator.next().getSecond().iterator();
         assertTrue(iterator.hasNext());
-        assertEquals("Eli", PDataType.VARCHAR.toObject(iterator.next().getValue()));
+        KeyValue kv = iterator.next();
+        byte[] expectedRowKey = ByteUtil.concat(saltBuckets == null ? ByteUtil.EMPTY_BYTE_ARRAY : new byte[1],
+                PDataType.CHAR.toBytes(orgId),PDataType.CHAR.toBytes(keyPrefix1),PDataType.CHAR.toBytes(entityHistoryId1));
+        if (saltBuckets != null) {
+            expectedRowKey[0] = SaltingUtil.getSaltingByte(expectedRowKey, 1, expectedRowKey.length-1, saltBuckets);
+        }
+        assertArrayEquals(expectedRowKey, kv.getRow());
+        
+        assertEquals("Eli", PDataType.VARCHAR.toObject(kv.getValue()));
         assertTrue(iterator.hasNext());
         assertEquals(now, PDataType.DATE.toObject(iterator.next().getValue()));
         assertTrue(iterator.hasNext());

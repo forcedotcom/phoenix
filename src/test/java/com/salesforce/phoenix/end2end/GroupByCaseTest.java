@@ -27,10 +27,20 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.GROUPBYTEST_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -88,14 +98,22 @@ public class GroupByCaseTest extends BaseClientMangedTimeTest {
         id++;
     }
 
+    /*
     @Test
-    public void testGroupByCase() throws Exception {
+    public void testGroupByCaseWithIndex() throws Exception {
+        Connection conn;
+        Properties props = new Properties(TEST_PROPERTIES);
         GroupByCaseTest gbt = new GroupByCaseTest();
         long ts = gbt.createTable();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.createStatement().execute("ALTER TABLE " + GROUPBYTEST_NAME + " SET IMMUTABLE_ROWS=true");
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 20));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.createStatement().execute("CREATE INDEX idx ON " + GROUPBYTEST_NAME + "(uri)");
         gbt.loadData(ts);
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1));
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 30));
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         gbt.executeQuery(conn,GROUPBY1);
         gbt.executeQuery(conn,GROUPBY2);
         // TODO: validate query results
@@ -107,6 +125,7 @@ public class GroupByCaseTest extends BaseClientMangedTimeTest {
         }
         conn.close();
     }
+    */
 
     @Test
     public void testScanUri() throws Exception {
@@ -161,4 +180,25 @@ public class GroupByCaseTest extends BaseClientMangedTimeTest {
         PreparedStatement st = conn.prepareStatement(query);
         st.executeQuery();
     }
+    
+    @Test
+    public void testGroupByCase() throws Exception {
+        GroupByCaseTest gbt = new GroupByCaseTest();
+        long ts = gbt.createTable();
+        gbt.loadData(ts);
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        gbt.executeQuery(conn,GROUPBY1);
+        gbt.executeQuery(conn,GROUPBY2);
+        // TODO: validate query results
+        try {
+            gbt.executeQuery(conn,GROUPBY3);
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage().contains("Aggregate expressions may not be used in GROUP BY"));
+        }
+        conn.close();
+    }
+
 }

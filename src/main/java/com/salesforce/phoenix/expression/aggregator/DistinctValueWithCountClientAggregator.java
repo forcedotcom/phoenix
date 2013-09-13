@@ -32,12 +32,13 @@ import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.io.WritableComparator;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.salesforce.phoenix.exception.PhoenixIOException;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
@@ -55,15 +56,22 @@ public abstract class DistinctValueWithCountClientAggregator extends BaseAggrega
     protected byte[] buffer;
     protected long totalCount = 0L;
 
-    public DistinctValueWithCountClientAggregator() {
-        super(null);
+    public DistinctValueWithCountClientAggregator(ColumnModifier columnModifier) {
+        super(columnModifier);
     }
 
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(ptr.get(),
-                ptr.getOffset(), ptr.getLength()));
+        InputStream is = new ByteArrayInputStream(ptr.get(), ptr.getOffset() + 1, ptr.getLength() - 1);
         try {
+            if (Bytes.equals(ptr.get(), ptr.getOffset(), 1, DistinctValueWithCountServerAggregator.COMPRESS_MARKER, 0,
+                    1)) {
+                InputStream decompressionStream = DistinctValueWithCountServerAggregator.COMPRESS_ALGO
+                        .createDecompressionStream(is,
+                                DistinctValueWithCountServerAggregator.COMPRESS_ALGO.getDecompressor(), 0);
+                is = decompressionStream;
+            }
+            DataInputStream in = new DataInputStream(is);
             int mapSize = WritableUtils.readVInt(in);
             for (int i = 0; i < mapSize; i++) {
                 int keyLen = WritableUtils.readVInt(in);
@@ -113,25 +121,21 @@ public abstract class DistinctValueWithCountClientAggregator extends BaseAggrega
         super.reset();
     }
     
-    protected Entry<ImmutableBytesPtr, Integer>[] getSortedValueVsCount(final boolean ascending) {
+    protected Map<Object, Integer> getSortedValueVsCount(final boolean ascending, final PDataType type) {
         // To sort the valueVsCount
-        @SuppressWarnings("unchecked")
-        Entry<ImmutableBytesPtr, Integer>[] entries = new Entry[valueVsCount.size()];
-        valueVsCount.entrySet().toArray(entries);
-        Comparator<Entry<ImmutableBytesPtr, Integer>> comparator = new Comparator<Entry<ImmutableBytesPtr, Integer>>() {
+        Comparator<Object> comparator = new Comparator<Object>() {
             @Override
-            public int compare(Entry<ImmutableBytesPtr, Integer> o1, Entry<ImmutableBytesPtr, Integer> o2) {
-                ImmutableBytesPtr k1 = o1.getKey();
-                ImmutableBytesPtr k2 = o2.getKey();
-                if (ascending) {
-                    return WritableComparator.compareBytes(k1.get(), k1.getOffset(), k1.getLength(),
-                        k2.get(), k2.getOffset(), k2.getLength());
+            public int compare(Object o1, Object o2) {
+                if (ascending) { 
+                    return type.compareTo(o1, o2); 
                 }
-                return WritableComparator.compareBytes(k2.get(), k2.getOffset(), k2.getLength(), k1.get(),
-                        k1.getOffset(), k1.getLength());
+                return type.compareTo(o2, o1);
             }
         };
-        Arrays.sort(entries, comparator);
-        return entries;
+        Map<Object, Integer> sorted = new TreeMap<Object, Integer>(comparator);
+        for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
+            sorted.put(type.toObject(entry.getKey(), columnModifier), entry.getValue());
+        }
+        return sorted;
     }
 }

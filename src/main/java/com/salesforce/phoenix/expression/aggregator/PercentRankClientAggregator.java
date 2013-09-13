@@ -28,15 +28,15 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
  * Client side Aggregator for PERCENT_RANK aggregations
@@ -49,7 +49,8 @@ public class PercentRankClientAggregator extends DistinctValueWithCountClientAgg
     private final List<Expression> exps;
     private BigDecimal cachedResult = null;
 
-    public PercentRankClientAggregator(List<Expression> exps) {
+    public PercentRankClientAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+        super(columnModifier);
         this.exps = exps;
     }
 
@@ -64,11 +65,11 @@ public class PercentRankClientAggregator extends DistinctValueWithCountClientAgg
 
             // Third expression will be LiteralExpression
             LiteralExpression valueExp = (LiteralExpression)exps.get(2);
-            Entry<ImmutableBytesPtr, Integer>[] entries = getSortedValueVsCount(isAscending);
+            Map<Object, Integer> sorted = getSortedValueVsCount(isAscending, columnExp.getDataType());
             long distinctCountsSum = 0;
-            for (Entry<ImmutableBytesPtr, Integer> entry : entries) {
-                Object value = valueExp.getValue();
-                Object colValue = columnExp.getDataType().toObject(entry.getKey());
+            Object value = valueExp.getValue();
+            for (Entry<Object, Integer> entry : sorted.entrySet()) {
+                Object colValue = entry.getKey();
                 int compareResult = columnExp.getDataType().compareTo(colValue, value, valueExp.getDataType());
                 boolean done = isAscending ? compareResult > 0 : compareResult <= 0;
                 if (done) break;

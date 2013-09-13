@@ -28,59 +28,44 @@
 package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
-import com.google.common.collect.*;
-import com.salesforce.phoenix.query.QueryConstants;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class PMetaDataImpl implements PMetaData {
-    public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PSchema>emptyMap());
-    private final Map<String,PSchema> metaData;
+    public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap());
+    private final Map<String,PTable> metaData;
     
-    public PMetaDataImpl(Map<String,PSchema> metaData) {
+    public PMetaDataImpl(Map<String,PTable> metaData) {
         this.metaData = ImmutableMap.copyOf(metaData);
     }
     
-    public PMetaDataImpl(PSchema schema) {
-        this.metaData = ImmutableMap.of(schema.getName(), schema);
-    }
-    
     @Override
-    public PSchema getSchemaOrNull(String name) {
-        return metaData.get(name);
-    }
-
-    @Override
-    public PSchema getSchema(String name) throws SchemaNotFoundException {
-        name = name == null ? QueryConstants.NULL_SCHEMA_NAME : name;
-        PSchema schema = metaData.get(name);
-        if (schema == null) {
-            throw new SchemaNotFoundException(name);
+    public PTable getTable(String name) throws TableNotFoundException {
+        PTable table = metaData.get(name);
+        if (table == null) {
+            throw new TableNotFoundException(name);
         }
-        return schema;
+        return table;
     }
 
     @Override
-    public Map<String,PSchema> getSchemas() {
+    public Map<String,PTable> getTables() {
         return metaData;
     }
 
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
-        Map<String,PTable> tables;
-        Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
-        schemaName = schemaName == null ? QueryConstants.NULL_SCHEMA_NAME : schemaName;
-        PSchema schema = schemas.get(schemaName);
-        if (schema == null) {
-            tables = Maps.newHashMapWithExpectedSize(5);
-        } else {
-            tables = Maps.newHashMap(schema.getTables());
-        }
+    public PMetaData addTable(PTable table) throws SQLException {
+        Map<String,PTable> tables = Maps.newHashMap(metaData);
         PTable oldTable = tables.put(table.getName().getString(), table);
-        if (table.getDataTableName() != null) { // Upsert new index table into parent data table list
-            String parentTableName = table.getDataTableName().getString();
-            PTable parentTable = tables.get(parentTableName);
+        if (table.getParentName() != null) { // Upsert new index table into parent data table list
+            String parentName = table.getParentName().getString();
+            PTable parentTable = tables.get(parentName);
             List<PTable> oldIndexes = parentTable.getIndexes();
             List<PTable> newIndexes = Lists.newArrayListWithExpectedSize(oldIndexes.size() + 1);
             newIndexes.addAll(oldIndexes);
@@ -88,63 +73,46 @@ public class PMetaDataImpl implements PMetaData {
                 newIndexes.remove(oldTable);
             }
             newIndexes.add(table);
-            tables.put(parentTableName, PTableImpl.makePTable(parentTable, table.getTimeStamp(), newIndexes));
+            tables.put(parentName, PTableImpl.makePTable(parentTable, table.getTimeStamp(), newIndexes));
         }
         for (PTable index : table.getIndexes()) {
             tables.put(index.getName().getString(), index);
         }
-        schema = new PSchemaImpl(schemaName, tables);
-        schemas.put(schemaName, schema);
-        return new PMetaDataImpl(schemas);
+        return new PMetaDataImpl(tables);
     }
 
     @Override
-    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> newColumns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException {
-        Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
-        PSchema schema = getSchema(schemaName);
-        PTable table = schema.getTable(tableName);
+    public PMetaData addColumn(String tableName, List<PColumn> newColumns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException {
+        PTable table = getTable(tableName);
+        Map<String,PTable> tables = Maps.newHashMap(metaData);
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(table.getColumns().size() + 1);
         columns.addAll(table.getColumns());
         columns.addAll(newColumns);
-        Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
         PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns, isImmutableRows);
         tables.put(tableName, newTable);
-        schema = new PSchemaImpl(schemaName, tables);
-        schemas.put(schema.getName(), schema);
-        return new PMetaDataImpl(schemas);
+        return new PMetaDataImpl(tables);
     }
 
     @Override
-    public PMetaData removeTable(String schemaName, String tableName) throws SQLException {
-        PSchema schema;
-        try {
-            schema = getSchema(schemaName);
-        } catch (SchemaNotFoundException e) {
-            throw new TableNotFoundException(schemaName, tableName);
-        }
-        Map<String,PTable> tables;
-        Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
-        tables = Maps.newHashMap(schema.getTables());
+    public PMetaData removeTable(String tableName) throws SQLException {
         PTable table;
+        Map<String,PTable> tables = Maps.newHashMap(metaData);
         if ((table=tables.remove(tableName)) == null) {
-            throw new TableNotFoundException(schemaName, tableName);
+            throw new TableNotFoundException(tableName);
         } else {
             for (PTable index : table.getIndexes()) {
                 if (tables.remove(index.getName().getString()) == null) {
-                    throw new TableNotFoundException(schemaName, index.getName().getString());
+                    throw new TableNotFoundException(index.getName().getString());
                 }
             }
         }
-        schema = new PSchemaImpl(schema.getName(), tables);
-        schemas.put(schema.getName(), schema);
-        return new PMetaDataImpl(schemas);
+        return new PMetaDataImpl(tables);
     }
     
     @Override
-    public PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName, long tableTimeStamp, long tableSeqNum) throws SQLException {
-        PSchema schema = getSchema(schemaName);
-        Map<String,PSchema> schemas = new HashMap<String,PSchema>(metaData);
-        PTable table = schema.getTable(tableName);
+    public PMetaData removeColumn(String tableName, String familyName, String columnName, long tableTimeStamp, long tableSeqNum) throws SQLException {
+        PTable table = getTable(tableName);
+        Map<String,PTable> tables = Maps.newHashMap(metaData);
         PColumn column;
         if (familyName == null) {
             column = table.getPKColumn(columnName);
@@ -162,11 +130,8 @@ public class PMetaDataImpl implements PMetaData {
             columns.add(newColumn);
         }
         
-        Map<String,PTable> tables = Maps.newHashMap(schema.getTables());
         PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns);
         tables.put(tableName, newTable);
-        schema = new PSchemaImpl(schemaName, tables);
-        schemas.put(schema.getName(), schema);
-        return new PMetaDataImpl(schemas);
+        return new PMetaDataImpl(tables);
     }
 }

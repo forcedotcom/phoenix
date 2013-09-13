@@ -29,14 +29,24 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
 import java.text.Format;
 import java.text.ParseException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
 
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -47,11 +57,15 @@ import com.google.common.collect.Ordering;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class ProductMetricsTest extends BaseClientMangedTimeTest {
     private static Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
     private static final String PRODUCT_METRICS_NAME = "PRODUCT_METRICS";
+    private static final String PRODUCT_METRICS_SCHEMA_NAME = "";
     private static final String DS1 = "1970-01-01 00:58:00";
     private static final String DS2 = "1970-01-01 01:02:00";
     private static final String DS3 = "1970-01-01 01:30:00";
@@ -1555,7 +1569,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
         try {
             initTableValues(tenantId, getSplits(tenantId), ts);
             admin = conn.unwrap(PhoenixConnection.class).getQueryServices().getAdmin();
-            admin.flush(SchemaUtil.getTableName(Bytes.toBytes(PRODUCT_METRICS_NAME)));
+            admin.flush(SchemaUtil.getTableNameAsBytes(PRODUCT_METRICS_SCHEMA_NAME,PRODUCT_METRICS_NAME));
             String query = "SELECT SUM(TRANSACTIONS) FROM " + PRODUCT_METRICS_NAME + " WHERE FEATURE=?";
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, F1);

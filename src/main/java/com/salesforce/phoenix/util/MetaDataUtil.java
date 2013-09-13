@@ -73,6 +73,13 @@ public class MetaDataUtil {
         return (int) (version >>> Byte.SIZE * 5);
     }
 
+    public static String decodeHBaseVersionAsString(int version) {
+        int major = version >>> 2 & 0XFF;
+        int minor = version >>> 1 & 0xFF;
+        int patch = version & 0xFF;
+        return major + "." + minor + "." + patch;
+    }
+
     public static long encodeHBaseAndPhoenixVersions(String hbaseVersion) {
         return (((long) encodeVersion(hbaseVersion)) << (Byte.SIZE * 5)) |
                 (((long) encodeVersion(MetaDataProtocol.PHOENIX_MAJOR_VERSION, MetaDataProtocol.PHOENIX_MINOR_VERSION,

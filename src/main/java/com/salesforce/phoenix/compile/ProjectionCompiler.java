@@ -145,7 +145,7 @@ public class ProjectionCompiler {
                 projectedExpressions.add(expression);
                 if (targetColumns != null && index < targetColumns.length && targetColumns[index].getDataType() != expression.getDataType()) {
                     PDataType targetType = targetColumns[index].getDataType();
-                    // Check if coerce allowed using more relaxed isComparible check, since we promote INTEGER to LONG 
+                    // Check if coerce allowed using more relaxed isComparable check, since we promote INTEGER to LONG 
                     // during expression evaluation and then convert back to INTEGER on UPSERT SELECT (and we don't have
                     // (an actual value we can specifically check against).
                     if (expression.getDataType() != null && !expression.getDataType().isComparableTo(targetType)) {
