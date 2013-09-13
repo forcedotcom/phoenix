@@ -63,6 +63,7 @@ public class TestFailForUnsupportedHBaseVersions {
   @Test
   public void testDoesNotSupportCompressedWAL() {
     Configuration conf = HBaseConfiguration.create();
+    IndexTestingUtils.setupConfig(conf);
     // get the current version
     String version = VersionInfo.getVersion();
     
@@ -111,6 +112,7 @@ public class TestFailForUnsupportedHBaseVersions {
   @Test(timeout = 300000 /* 5 mins */)
   public void testDoesNotStartRegionServerForUnsupportedCompressionAndVersion() throws Exception {
     Configuration conf = HBaseConfiguration.create();
+    IndexTestingUtils.setupConfig(conf);
     // enable WAL Compression
     conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
 

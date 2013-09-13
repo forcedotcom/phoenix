@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -68,6 +69,8 @@ public class TestEndtoEndIndexing {
 
   @BeforeClass
   public static void setupCluster() throws Exception {
+    Configuration conf = UTIL.getConfiguration();
+    IndexTestingUtils.setupConfig(conf);
     UTIL.startMiniCluster();
   }
 
