@@ -20,12 +20,14 @@ package com.salesforce.hbase.index.covered.example;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -351,5 +353,12 @@ public class CoveredColumnIndexCodec implements IndexCodec {
     }
 
     return true;
+  }
+
+  @Override
+  public boolean isEnabled(Mutation m) {
+    // this could be a bit smarter, looking at the groups for the mutation, but we leave it at this
+    // simple check for the moment.
+    return groups.size() > 0;
   }
 }

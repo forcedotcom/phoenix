@@ -109,6 +109,9 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
 
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) throws IOException {
+    if (!codec.isEnabled()) {
+      return null;
+    }
     // build the index updates for each group
     IndexUpdateManager updateMap = new IndexUpdateManager();
 
@@ -428,6 +431,9 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
 
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) throws IOException {
+    if (!codec.isEnabled()) {
+      return null;
+    }
     // stores all the return values
     IndexUpdateManager updateMap = new IndexUpdateManager();
 
