@@ -53,13 +53,13 @@ public class TableResultIterator extends ExplainTable implements ResultIterator 
     private final HTableInterface htable;
     private final ResultIterator delegate;
 
-    public TableResultIterator(StatementContext context, TableRef table) throws SQLException {
-        this(context, table, context.getScan());
+    public TableResultIterator(StatementContext context, TableRef tableRef) throws SQLException {
+        this(context, tableRef, context.getScan());
     }
 
-    public TableResultIterator(StatementContext context, TableRef table, Scan scan) throws SQLException {
-        super(context, table);
-        htable = context.getConnection().getQueryServices().getTable(table.getTableName());
+    public TableResultIterator(StatementContext context, TableRef tableRef, Scan scan) throws SQLException {
+        super(context, tableRef);
+        htable = context.getConnection().getQueryServices().getTable(tableRef.getTable().getName().getBytes());
         try {
             delegate = new ScanningResultIterator(htable.getScanner(scan));
         } catch (IOException e) {

@@ -40,9 +40,13 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 
 
@@ -58,7 +62,7 @@ public class ScanUtilTest {
     private final Bound bound;
 
     public ScanUtilTest(List<List<KeyRange>> slots, int[] widths, byte[] expectedKey, Bound bound) throws Exception {
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(widths.length);
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder(widths.length);
         for (final int width : widths) {
             if (width > 0) {
                 builder.addField(new PDatum() {
@@ -86,7 +90,7 @@ public class ScanUtilTest {
                     public ColumnModifier getColumnModifier() {
                         return null;
                     }
-                });
+                }, false, null);
             } else {
                 builder.addField(new PDatum() {
                     @Override
@@ -113,7 +117,7 @@ public class ScanUtilTest {
                     public ColumnModifier getColumnModifier() {
                         return null;
                     }
-                });
+                }, false, null);
             }
         }
         this.schema = builder.build();

@@ -78,7 +78,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             DatabaseMetaData dbmd = conn.getMetaData();
             ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.getSerializedValue(), PTableType.VIEW.getSerializedValue()});
             while (rs.next()) {
-                String fullTableName = SchemaUtil.getTableDisplayName(
+                String fullTableName = SchemaUtil.getTableName(
                         rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
                 conn.createStatement().executeUpdate("DROP " + (PTableType.fromSerializedValue(rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME)) == PTableType.VIEW ? "VIEW " : "TABLE ") + fullTableName);

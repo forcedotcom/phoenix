@@ -40,11 +40,10 @@ import com.google.common.base.Preconditions;
  * @since 1.2
  */
 public enum ColumnModifier {
-        
     /**
      * Invert the bytes in the src byte array to support descending ordering of row keys.
      */
-    SORT_DESC() {
+    SORT_DESC(1) {
         @Override
         public byte[] apply(byte[] src, int srcOffset, byte[] dest, int dstOffset, int length) {
             Preconditions.checkNotNull(src);            
@@ -79,6 +78,15 @@ public enum ColumnModifier {
         }
     };
         
+    private final int serializationId;
+    
+    ColumnModifier(int serializationId) {
+        this.serializationId = serializationId;
+    }
+    
+    public int getSerializationId() {
+        return serializationId;
+    }
     /**
      * Returns the ColumnModifier for the specified DDL stmt keyword.
      */
@@ -98,10 +106,12 @@ public enum ColumnModifier {
     * Returns the ColumnModifier for the specified internal value.
     */
     public static ColumnModifier fromSystemValue(int value) {
-        switch (value) {
-            case 1: return SORT_DESC;
-            default: return null;
+        for (ColumnModifier mod : ColumnModifier.values()) {
+            if (mod.getSerializationId() == value) {
+                return mod;
+            }
         }
+        return null;
     }
 
     /**
@@ -109,12 +119,9 @@ public enum ColumnModifier {
      */
     public static int toSystemValue(ColumnModifier columnModifier) {
         if (columnModifier == null) {
-            return Integer.MIN_VALUE;
+            return 0;
         }
-        switch (columnModifier) {
-            case SORT_DESC: return 1;
-            default: return Integer.MIN_VALUE;
-        }
+        return columnModifier.getSerializationId();
     }
 
     /**

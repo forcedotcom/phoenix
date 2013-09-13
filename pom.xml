@@ -63,11 +63,10 @@
     <test.output.tofile>true</test.output.tofile>
 
     <!-- Dependency versions -->
-    <hbase.version>0.94.7</hbase.version>
+    <hbase.version>0.94.10</hbase.version>
     <commons-cli.version>1.2</commons-cli.version>
     <hadoop.version>1.0.4</hadoop.version>
     <pig.version>0.11.0</pig.version>
-    <junit.version>4.11</junit.version>
     <jackson.version>1.8.8</jackson.version>
     <antlr.version>3.5</antlr.version>
     <opencsv.version>2.3</opencsv.version>
@@ -80,6 +79,11 @@
     <commons-lang.version>2.5</commons-lang.version>
     <commons-logging.version>1.1.1</commons-logging.version>
     <sqlline.version>1.1.2</sqlline.version>
+    <guava.version>12.0.1</guava.version>
+
+    <!-- Test Dependencies -->
+    <mockito-all.version>1.8.5</mockito-all.version>
+    <junit.version>4.11</junit.version>
 
     <!-- Plugin versions -->
     <maven-eclipse-plugin.version>2.8</maven-eclipse-plugin.version>
@@ -356,6 +360,12 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase</artifactId>
       <version>${hbase.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>jline</groupId>
@@ -367,6 +377,12 @@
       <artifactId>sqlline</artifactId>
       <version>${sqlline.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
+    </dependency>
+    
     <!-- Test Dependencies -->
     <dependency>
       <groupId>org.apache.hbase</groupId>
@@ -374,6 +390,12 @@
       <version>${hbase.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <!-- Needed by HBase to run the minicluster -->
     <dependency>
@@ -404,6 +426,12 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+      <version>${mockito-all.version}</version>
       <scope>test</scope>
     </dependency>
 

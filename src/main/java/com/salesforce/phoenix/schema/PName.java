@@ -27,6 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.util.ByteUtil;
+
 
 /**
  * 
@@ -37,6 +40,38 @@ package com.salesforce.phoenix.schema;
  * @since 0.1
  */
 public interface PName {
+    public static PName EMPTY_NAME = new PName() {
+        @Override
+        public String getString() {
+            return "";
+        }
+
+        @Override
+        public byte[] getBytes() {
+            return ByteUtil.EMPTY_BYTE_ARRAY;
+        }
+        
+        @Override
+        public String toString() {
+            return getString();
+        }
+    };
+    public static PName EMPTY_COLUMN_NAME = new PName() {
+        @Override
+        public String getString() {
+            return QueryConstants.EMPTY_COLUMN_NAME;
+        }
+
+        @Override
+        public byte[] getBytes() {
+            return QueryConstants.EMPTY_COLUMN_BYTES;
+        }
+        
+        @Override
+        public String toString() {
+            return getString();
+        }
+    };
     /**
      * Get the client-side, normalized name as referenced
      * in a SQL statement.

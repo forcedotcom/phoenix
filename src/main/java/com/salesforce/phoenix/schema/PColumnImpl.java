@@ -153,9 +153,9 @@ public class PColumnImpl implements PColumn {
     @Override
     public void readFields(DataInput input) throws IOException {
         byte[] columnNameBytes = Bytes.readByteArray(input);
-        PName columnName = new PNameImpl(columnNameBytes);
+        PName columnName = PNameFactory.newName(columnNameBytes);
         byte[] familyNameBytes = Bytes.readByteArray(input);
-        PName familyName = familyNameBytes.length == 0 ? null : new PNameImpl(familyNameBytes);
+        PName familyName = familyNameBytes.length == 0 ? null : PNameFactory.newName(familyNameBytes);
         // TODO: optimize the reading/writing of this b/c it could likely all fit in a single byte or two
         PDataType dataType = PDataType.values()[WritableUtils.readVInt(input)];
         int maxLength = WritableUtils.readVInt(input);

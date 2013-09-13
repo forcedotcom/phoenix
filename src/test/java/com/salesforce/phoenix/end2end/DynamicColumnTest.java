@@ -16,13 +16,26 @@
 
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_DYNAMIC_COLUMNS;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_DYNAMIC_COLUMNS_SCHEMA_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Row;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -41,8 +54,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 
 public class DynamicColumnTest extends BaseClientMangedTimeTest {
-    private static final byte[] HBASE_DYNAMIC_COLUMNS_BYTES = SchemaUtil.getTableName(Bytes
-            .toBytes(HBASE_DYNAMIC_COLUMNS));
+    private static final byte[] HBASE_DYNAMIC_COLUMNS_BYTES = SchemaUtil.getTableNameAsBytes(null, HBASE_DYNAMIC_COLUMNS);
     private static final byte[] FAMILY_NAME = Bytes.toBytes(SchemaUtil.normalizeIdentifier("A"));
     private static final byte[] FAMILY_NAME2 = Bytes.toBytes(SchemaUtil.normalizeIdentifier("B"));
 
@@ -63,7 +75,7 @@ public class DynamicColumnTest extends BaseClientMangedTimeTest {
 
     private static void initTableValues() throws Exception {
         ConnectionQueryServices services = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES);
-        HTableInterface hTable = services.getTable(SchemaUtil.getTableName(Bytes.toBytes(HBASE_DYNAMIC_COLUMNS)));
+        HTableInterface hTable = services.getTable(SchemaUtil.getTableNameAsBytes(HBASE_DYNAMIC_COLUMNS_SCHEMA_NAME,HBASE_DYNAMIC_COLUMNS));
         try {
             // Insert rows using standard HBase mechanism with standard HBase "types"
             List<Row> mutations = new ArrayList<Row>();

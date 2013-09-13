@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
+import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 
 
@@ -52,6 +53,8 @@ public interface PTable extends Writable {
      * @return table name
      */
     PName getName();
+    PName getSchemaName(); 
+    PName getTableName(); 
 
     /**
      * @return the table type
@@ -176,6 +179,10 @@ public interface PTable extends Writable {
      * For a table of index type, return the name of the data table.
      * @return the name of the data table that this index is on.
      */
-    PName getDataTableName();
+    PName getParentTableName();
+    PName getParentName();
     boolean isImmutableRows();
+    
+    void getIndexMaintainers(ImmutableBytesWritable ptr);
+    IndexMaintainer getIndexMaintainer(PTable dataTable);
 }

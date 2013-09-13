@@ -36,41 +36,25 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class SchemaUtilTest {
 
     @Test
-    public void testGetTableDisplayName() {
-        String tableDisplayName = SchemaUtil.getTableDisplayName("schemaName", "tableName");
+    public void testGetTableName() {
+        String tableDisplayName = SchemaUtil.getTableName("schemaName", "tableName");
         assertEquals(tableDisplayName, "schemaName.tableName");
-        tableDisplayName = SchemaUtil.getTableDisplayName(null, "tableName");
+        tableDisplayName = SchemaUtil.getTableName(null, "tableName");
         assertEquals(tableDisplayName, "tableName");
-        tableDisplayName = SchemaUtil.getTableDisplayName("schemaName", null);
-        assertEquals(tableDisplayName, "schemaName");
     }
 
     @Test
-    public void testGetColumnDisplayName() {
+    public void testGetColumnName() {
         String columnDisplayName;
-        columnDisplayName = SchemaUtil.getColumnDisplayName("schemaName", "tableName", "familyName", "columnName");
+        columnDisplayName = SchemaUtil.getColumnName("schemaName", "tableName", "familyName", "columnName");
         assertEquals(columnDisplayName, "schemaName.tableName.familyName.columnName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName(null, "tableName", "familyName", "columnName");
+        columnDisplayName = SchemaUtil.getColumnName(null, "tableName", "familyName", "columnName");
         assertEquals(columnDisplayName, "tableName.familyName.columnName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName("schemaName", null, "familyName", "columnName");
-        assertEquals(columnDisplayName, "schemaName.familyName.columnName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName("schemaName", "tableName", null, "columnName");
+        columnDisplayName = SchemaUtil.getColumnName("schemaName", "tableName", null, "columnName");
         assertEquals(columnDisplayName, "schemaName.tableName.columnName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName("schemaName", "tableName", "familyName", null);
-        assertEquals(columnDisplayName, "schemaName.tableName.familyName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName(null, null, "familyName", "columnName");
+        columnDisplayName = SchemaUtil.getColumnName(null, null, "familyName", "columnName");
         assertEquals(columnDisplayName, "familyName.columnName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName("schemaName", "tableName", null, null);
-        assertEquals(columnDisplayName, "schemaName.tableName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName(null, "tableName", "familyName", null);
-        assertEquals(columnDisplayName, "tableName.familyName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName("schemaName", null, null, "columnName");
-        assertEquals(columnDisplayName, "schemaName.columnName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName(null, null, null, "columnName");
+        columnDisplayName = SchemaUtil.getColumnName(null, null, null, "columnName");
         assertEquals(columnDisplayName, "columnName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName(null, null, "familyName", null);
-        assertEquals(columnDisplayName, "familyName");
-        columnDisplayName = SchemaUtil.getColumnDisplayName(null, null, null, null);
-        assertEquals(columnDisplayName, "");
     }
 }
