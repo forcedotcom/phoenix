@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
 import com.salesforce.hbase.index.covered.IndexCodec;
@@ -71,5 +72,10 @@ public class CoveredIndexCodecForTesting implements IndexCodec {
   @Override
   public void initialize(RegionCoprocessorEnvironment env) throws IOException {
     // noop
+  }
+
+  @Override
+  public boolean isEnabled(Mutation m) {
+    return true;
   }
 }

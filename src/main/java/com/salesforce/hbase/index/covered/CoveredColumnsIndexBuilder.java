@@ -109,7 +109,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
 
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) throws IOException {
-    if (!codec.isEnabled()) {
+        if (!codec.isEnabled(p)) {
       return null;
     }
     // build the index updates for each group
@@ -431,7 +431,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
 
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) throws IOException {
-    if (!codec.isEnabled()) {
+        if (!codec.isEnabled(d)) {
       return null;
     }
     // stores all the return values
