@@ -33,7 +33,7 @@ import static com.salesforce.phoenix.query.QueryServices.DATE_FORMAT_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.IMMUTABLE_ROWS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.KEEP_ALIVE_MS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MASTER_INFO_PORT_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_SERVER_CACHE_SIZE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MAX_MEMORY_PERC_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MAX_MEMORY_WAIT_MS_ATTRIB;
@@ -81,7 +81,7 @@ public class QueryServicesOptions {
 	public static final int DEFAULT_MAX_MEMORY_PERC = 50; // 50% of heap
 	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 10000;
 	public static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
-	public static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
+	public static final long DEFAULT_MAX_SERVER_CACHE_SIZE = 1024*1024*100;  // 100 Mb
     public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 32;
     public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 64;
     public static final String DEFAULT_DATE_FORMAT = DateUtil.DEFAULT_DATE_FORMAT;
@@ -137,7 +137,7 @@ public class QueryServicesOptions {
             .setIfUnset(MAX_MEMORY_PERC_ATTRIB, DEFAULT_MAX_MEMORY_PERC)
             .setIfUnset(MAX_MEMORY_WAIT_MS_ATTRIB, DEFAULT_MAX_MEMORY_WAIT_MS)
             .setIfUnset(MAX_TENANT_MEMORY_PERC_ATTRIB, DEFAULT_MAX_TENANT_MEMORY_PERC)
-            .setIfUnset(MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE)
+            .setIfUnset(MAX_SERVER_CACHE_SIZE_ATTRIB, DEFAULT_MAX_SERVER_CACHE_SIZE)
             .setIfUnset(SCAN_CACHE_SIZE_ATTRIB, DEFAULT_SCAN_CACHE_SIZE)
             .setIfUnset(TARGET_QUERY_CONCURRENCY_ATTRIB, DEFAULT_TARGET_QUERY_CONCURRENCY)
             .setIfUnset(MAX_QUERY_CONCURRENCY_ATTRIB, DEFAULT_MAX_QUERY_CONCURRENCY)
@@ -221,8 +221,8 @@ public class QueryServicesOptions {
         return set(MAX_TENANT_MEMORY_PERC_ATTRIB, maxTenantMemoryPerc);
     }
     
-    public QueryServicesOptions setMaxHashCacheSize(long maxHashCacheSize) {
-        return set(MAX_HASH_CACHE_SIZE_ATTRIB, maxHashCacheSize);
+    public QueryServicesOptions setMaxServerCacheSize(long maxServerCacheSize) {
+        return set(MAX_SERVER_CACHE_SIZE_ATTRIB, maxServerCacheSize);
     }
 
     public QueryServicesOptions setScanFetchSize(int scanFetchSize) {

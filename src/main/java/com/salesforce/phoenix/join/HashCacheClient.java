@@ -92,7 +92,7 @@ public class HashCacheClient  {
     }
     
     private void serialize(ImmutableBytesWritable ptr, Scanner scanner, List<Expression> onExpressions) throws SQLException {
-        long maxSize = serverCache.getConnection().getQueryServices().getProps().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MAX_HASH_CACHE_SIZE);
+        long maxSize = serverCache.getConnection().getQueryServices().getProps().getLong(QueryServices.MAX_SERVER_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MAX_SERVER_CACHE_SIZE);
         long estimatedSize = Math.min(scanner.getEstimatedSize(), maxSize);
         if (estimatedSize > Integer.MAX_VALUE) {
             throw new IllegalStateException("Estimated size(" + estimatedSize + ") must not be greater than Integer.MAX_VALUE(" + Integer.MAX_VALUE + ")");

@@ -421,7 +421,7 @@ public class SkipScanFilter extends FilterBase {
         startKey = copyKey(startKey, length + this.maxKeyLength, ptr.get(), offset, length);
         startKeyLength = length;
         // Add separator byte if we're at the end of the buffer, since trailing separator bytes are stripped
-        if (ptr.getOffset() + ptr.getLength() == offset + length && i-1 > 0 && !schema.getField(i-1).getType().isFixedWidth()) {
+        if (ptr.getOffset() + ptr.getLength() == offset + length && i-1 > 0 && !schema.getField(i-1).getDataType().isFixedWidth()) {
             startKey[startKeyLength++] = QueryConstants.SEPARATOR_BYTE;
         }
         startKeyLength += setKey(Bound.LOWER, startKey, startKeyLength, i);
@@ -455,7 +455,7 @@ public class SkipScanFilter extends FilterBase {
             // We won't have a terminator on the last PK column
             // unless it is variable length and exclusive, but
             // having the extra byte irregardless won't hurt anything
-            if (!field.getType().isFixedWidth()) {
+            if (!field.getDataType().isFixedWidth()) {
                 nTerminators++;
             }
         }

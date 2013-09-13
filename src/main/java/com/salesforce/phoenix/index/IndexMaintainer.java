@@ -240,7 +240,7 @@ public class IndexMaintainer implements Writable {
                     j++;
                } else {
                    Field field = dataRowKeySchema.getField(dataPkPosition[i]);
-                    dataColumnType = field.getType();
+                    dataColumnType = field.getDataType();
                     ptr.set(rowKeyPtr.get(), dataRowKeyLocator[0][i], dataRowKeyLocator[1][i]);
                     dataColumnModifier = field.getColumnModifier();
                     isDataColumnInverted = dataColumnModifier != null;
@@ -403,7 +403,7 @@ public class IndexMaintainer implements Writable {
                 dataType = indexedColumnTypes.get(indexedColumnTypesPos--);
             } else {
                 Field dataField = dataRowKeySchema.getField(dataPkPos);
-                dataType = dataField.getType();
+                dataType = dataField.getDataType();
                 isDataNullable = dataField.isNullable();
             }
             PDataType indexDataType = IndexUtil.getIndexColumnDataType(isDataNullable, dataType);

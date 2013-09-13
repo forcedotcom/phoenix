@@ -71,7 +71,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setSpoolThresholdBytes(DEFAULT_SPOOL_THRESHOLD_BYTES)
                 .setMaxMemoryWaitMs(DEFAULT_MAX_MEMORY_WAIT_MS)
                 .setMaxTenantMemoryPerc(DEFAULT_MAX_TENANT_MEMORY_PERC)
-                .setMaxHashCacheSize(DEFAULT_MAX_HASH_CACHE_SIZE)
+                .setMaxServerCacheSize(DEFAULT_MAX_HASH_CACHE_SIZE)
                 .setTargetQueryConcurrency(DEFAULT_TARGET_QUERY_CONCURRENCY)
                 .setMaxQueryConcurrency(DEFAULT_MAX_QUERY_CONCURRENCY)
                 .setRowKeyOrderSaltedTable(true)

@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.hbase.index;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
 import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
@@ -41,9 +42,11 @@ public class TestEndtoEndIndexingWithCompression extends TestEndtoEndIndexing{
   @BeforeClass
   public static void setupCluster() throws Exception {
     //add our codec and enable WAL compression
-    UTIL.getConfiguration().set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY,
-      IndexedWALEditCodec.class.getName());
-    UTIL.getConfiguration().setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
+    Configuration conf = UTIL.getConfiguration();
+    IndexTestingUtils.setupConfig(conf);
+    conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY,
+    IndexedWALEditCodec.class.getName());
+    conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
     
     //start the mini-cluster
     UTIL.startMiniCluster();
