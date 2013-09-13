@@ -28,6 +28,9 @@
 package com.salesforce.phoenix.job;
 
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
  * 
@@ -38,6 +41,9 @@ import java.util.concurrent.*;
  */
 @SuppressWarnings("rawtypes")
 public class JobManager<T> extends AbstractRoundRobinQueue<T> {
+	
+    private static final AtomicLong PHOENIX_POOL_INDEX = new AtomicLong(1);
+	
     public JobManager(int maxSize) {
         super(maxSize, true); // true -> new producers move to front of queue; this reduces latency.
     }
@@ -58,7 +64,9 @@ public class JobManager<T> extends AbstractRoundRobinQueue<T> {
         } else {
             queue = new JobManager<Runnable>(queueSize);
         }
-        ThreadFactory threadFactory = Executors.defaultThreadFactory();
+        ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(
+				"phoenix-" + PHOENIX_POOL_INDEX.getAndIncrement()
+						+ "-thread-%s").build();
         // For thread pool, set core threads = max threads -- we don't ever want to exceed core threads, but want to go up to core threads *before* using the queue.
         ThreadPoolExecutor exec = new ThreadPoolExecutor(size, size, keepAliveMs, TimeUnit.MILLISECONDS, queue, threadFactory) {
             @Override
