@@ -57,10 +57,9 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 
+import com.salesforce.hbase.index.IndexTestingUtils;
 import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.TableName;
-import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
-import com.salesforce.hbase.index.covered.IndexCodec;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.scanner.Scanner;
 
@@ -104,6 +103,7 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
   @BeforeClass
   public static void setupCluster() throws Exception {
     Configuration conf = UTIL.getConfiguration();
+    IndexTestingUtils.setupConfig(conf);
     // disable version checking, so we can test against whatever version of HBase happens to be
     // installed (right now, its generally going to be SNAPSHOT versions).
     conf.setBoolean(Indexer.CHECK_VERSION_CONF_KEY, false);

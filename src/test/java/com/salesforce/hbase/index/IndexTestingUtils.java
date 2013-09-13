@@ -35,6 +35,7 @@ import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTable;
@@ -50,10 +51,17 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class IndexTestingUtils {
 
   private static final Log LOG = LogFactory.getLog(IndexTestingUtils.class);
+  private static final String MASTER_INFO_PORT_KEY = "hbase.master.info.port";
+  private static final String RS_INFO_PORT_KEY = "hbase.regionserver.info.port";
+  
   private IndexTestingUtils() {
     // private ctor for util class
   }
 
+  public static void setupConfig(Configuration conf) {
+      conf.setInt(MASTER_INFO_PORT_KEY, -1);
+      conf.setInt(RS_INFO_PORT_KEY, -1);
+  }
   /**
    * Verify the state of the index table between the given key and time ranges against the list of
    * expected keyvalues.

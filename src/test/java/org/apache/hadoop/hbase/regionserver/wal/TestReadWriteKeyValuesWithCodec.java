@@ -20,6 +20,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.salesforce.hbase.index.IndexTestingUtils;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
 
 /**
@@ -35,6 +36,7 @@ public class TestReadWriteKeyValuesWithCodec {
   @BeforeClass
   public static void setupCodec() {
     Configuration conf = UTIL.getConfiguration();
+    IndexTestingUtils.setupConfig(conf);
     conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class.getName());
   }
 

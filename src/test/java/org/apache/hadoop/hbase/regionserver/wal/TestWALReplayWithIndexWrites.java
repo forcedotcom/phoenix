@@ -37,6 +37,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import com.salesforce.hbase.index.IndexTestingUtils;
 import com.salesforce.hbase.index.builder.example.ColumnFamilyIndexer;
 
 /**
@@ -64,6 +65,7 @@ public class TestWALReplayWithIndexWrites {
     conf.setInt("zookeeper.recovery.retry.intervalmill", 100);
     conf.setInt(HConstants.ZK_SESSION_TIMEOUT, 30000);
     conf.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, 5000);
+    IndexTestingUtils.setupConfig(conf);
 
     // enable appends
     conf.setBoolean("dfs.support.append", true);
