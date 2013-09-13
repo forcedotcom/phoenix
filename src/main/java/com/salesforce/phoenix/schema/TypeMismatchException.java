@@ -43,18 +43,18 @@ public class TypeMismatchException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
 
     public TypeMismatchException(PDataType type, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(type + " for " + location).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage(type + " for " + location).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 
     public TypeMismatchException(PDataType lhs, PDataType rhs) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 
     public TypeMismatchException(PDataType lhs, PDataType rhs, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 
     public TypeMismatchException(String lhs, String rhs, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage(lhs + " and " + rhs + " for " + location).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 }

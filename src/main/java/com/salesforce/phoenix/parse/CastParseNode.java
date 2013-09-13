@@ -25,59 +25,47 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.parse;
 
+import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 
-import org.apache.hadoop.conf.Configuration;
-
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.MaxAggregator;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 
-
-
 /**
- * Built-in function for finding MAX.
  * 
- * @author syyang
+ * Node representing the CAST operator in SQL.
+ * 
+ * @author samarth.jain
  * @since 0.1
+ *
  */
-@BuiltInFunction(name=MaxAggregateFunction.NAME, nodeClass=MaxAggregateParseNode.class, args= {@Argument()} )
-public class MaxAggregateFunction extends MinAggregateFunction {
-    public static final String NAME = "MAX";
+public class CastParseNode extends UnaryParseNode {
+	
+	private final PDataType dt;
+	
+	CastParseNode(ParseNode expr, String dataType) {
+		super(expr);
+		dt = PDataType.fromSqlTypeName(dataType);
+	}
+	
+	CastParseNode(ParseNode expr, PDataType dataType) {
+		super(expr);
+		dt = dataType;
+	}
 
-    public MaxAggregateFunction() {
-    }
-    
-    public MaxAggregateFunction(List<Expression> childExpressions, CountAggregateFunction delegate) {
-        super(childExpressions, delegate);
+	@Override
+    public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
+        List<T> l = Collections.emptyList();
+        if (visitor.visitEnter(this)) {
+            l = acceptChildren(visitor);
+        }
+        return visitor.visitLeave(this, l);
     }
 
-    @Override 
-    public Aggregator newServerAggregator(Configuration conf) {
-        final PDataType type = getAggregatorExpression().getDataType();
-        ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
-        return new MaxAggregator(columnModifier) {
-            @Override
-            public PDataType getDataType() {
-                return type;
-            }
-        };
-    }
-    
-    @Override
-    public String getName() {
-        return NAME;
-    }
-    
-    @Override
-    public ColumnModifier getColumnModifier() {
-       return getAggregatorExpression().getColumnModifier(); 
-    }    
+	public PDataType getDataType() {
+		return dt;
+	}
+
 }

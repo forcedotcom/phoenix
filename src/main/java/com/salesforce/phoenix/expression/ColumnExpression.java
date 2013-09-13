@@ -27,16 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.*;
 
 /**
  * 
@@ -126,10 +122,16 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
 
     @Override
     public void readFields(DataInput input) throws IOException {
-        // read/write type ordinal and isNullable bit together to save space
-        int typeAndNullable = WritableUtils.readVInt(input);
-        isNullable = (typeAndNullable & 0x01) != 0;
-        type = PDataType.values()[typeAndNullable >>> 1];
+        // read/write type ordinal, maxLength presence, scale presence and isNullable bit together to save space
+        int typeAndFlag = WritableUtils.readVInt(input);
+        isNullable = (typeAndFlag & 0x01) != 0;
+        if ((typeAndFlag & 0x02) != 0) {
+            scale = WritableUtils.readVInt(input);
+        }
+        if ((typeAndFlag & 0x04) != 0) {
+            maxLength = WritableUtils.readVInt(input);
+        }
+        type = PDataType.values()[typeAndFlag >>> 3];
         if (type.isFixedWidth() && type.getByteSize() == null) {
             byteSize = WritableUtils.readVInt(input);
         }
@@ -138,9 +140,16 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
 
     @Override
     public void write(DataOutput output) throws IOException {
-        // read/write type ordinal and isNullable bit together to save space
-        int typeAndNullable = (isNullable ? 1 : 0) | (type.ordinal() << 1);
-        WritableUtils.writeVInt(output,typeAndNullable);
+        // read/write type ordinal, maxLength presence, scale presence and isNullable bit together to save space
+        int typeAndFlag = (isNullable ? 1 : 0) | (scale != null ? 1 : 0) << 1 | (maxLength != null ? 1 : 0) << 2
+                | (type.ordinal() << 3);
+        WritableUtils.writeVInt(output,typeAndFlag);
+        if (scale != null) {
+            WritableUtils.writeVInt(output, scale);
+        }
+        if (maxLength != null) {
+            WritableUtils.writeVInt(output, maxLength);
+        }
         if (byteSize != null) {
             WritableUtils.writeVInt(output, byteSize);
         }

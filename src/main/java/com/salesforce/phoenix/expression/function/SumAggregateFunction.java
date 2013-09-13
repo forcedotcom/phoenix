@@ -30,6 +30,7 @@ package com.salesforce.phoenix.expression.function;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
@@ -67,7 +68,7 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     }
     
     @Override
-    public Aggregator newServerAggregator() {
+    public Aggregator newServerAggregator(Configuration conf) {
         final PDataType type = getAggregatorExpression().getDataType();
         ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
         switch( type ) {

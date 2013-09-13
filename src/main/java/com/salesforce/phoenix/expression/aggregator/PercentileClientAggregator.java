@@ -28,15 +28,15 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
  * Client side Aggregator for PERCENTILE_CONT aggregations
@@ -49,7 +49,8 @@ public class PercentileClientAggregator extends DistinctValueWithCountClientAggr
     private final List<Expression> exps;
     private BigDecimal cachedResult = null;
 
-    public PercentileClientAggregator(List<Expression> exps) {
+    public PercentileClientAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+        super(columnModifier);
         this.exps = exps;
     }
 
@@ -65,33 +66,33 @@ public class PercentileClientAggregator extends DistinctValueWithCountClientAggr
             // Third expression will be LiteralExpression
             LiteralExpression percentileExp = (LiteralExpression)exps.get(2);
             float p = ((Number)percentileExp.getValue()).floatValue();
-            Entry<ImmutableBytesPtr, Integer>[] entries = getSortedValueVsCount(isAscending);
+            Map<Object, Integer> sorted = getSortedValueVsCount(isAscending, columnExp.getDataType());
             float i = (p * this.totalCount) + 0.5F;
             long k = (long)i;
             float f = i - k;
-            ImmutableBytesPtr pi1 = null;
-            ImmutableBytesPtr pi2 = null;
+            Object o1 = null;
+            Object o2 = null;
             long distinctCountsSum = 0;
-            for (Entry<ImmutableBytesPtr, Integer> entry : entries) {
-                if (pi1 != null) {
-                    pi2 = entry.getKey();
+            for (Entry<Object, Integer> entry : sorted.entrySet()) {
+                if (o1 != null) {
+                    o2 = entry.getKey();
                     break;
                 }
                 distinctCountsSum += entry.getValue();
                 if (distinctCountsSum == k) {
-                    pi1 = entry.getKey();
+                    o1 = entry.getKey();
                 } else if (distinctCountsSum > k) {
-                    pi1 = pi2 = entry.getKey();
+                    o1 = o2 = entry.getKey();
                     break;
                 }
             }
 
             double result = 0.0;
-            Number n1 = (Number)columnExp.getDataType().toObject(pi1);
-            if (pi2 == null || pi1 == pi2) {
+            Number n1 = (Number)o1;
+            if (o2 == null || o1 == o2) {
                 result = n1.doubleValue();
             } else {
-                Number n2 = (Number)columnExp.getDataType().toObject(pi2);
+                Number n2 = (Number)o2;
                 result = (n1.doubleValue() * (1.0F - f)) + (n2.doubleValue() * f);
             }
             this.cachedResult = new BigDecimal(result);

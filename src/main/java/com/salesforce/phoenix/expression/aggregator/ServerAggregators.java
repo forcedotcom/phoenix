@@ -31,6 +31,7 @@ import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
@@ -98,19 +99,24 @@ public class ServerAggregators extends Aggregators {
 
     @Override
     public Aggregator[] newAggregators() {
+        return newAggregators(null);
+    }
+
+    public Aggregator[] newAggregators(Configuration conf) {
         Aggregator[] aggregators = new Aggregator[functions.length];
         for (int i = 0; i < functions.length; i++) {
-            aggregators[i] = functions[i].newServerAggregator();
+            aggregators[i] = functions[i].newServerAggregator(conf);
         }
         return aggregators;
     }
-    
+
     /**
      * Deserialize aggregators from the serialized byte array representation
      * @param b byte array representation of a list of Aggregators
+     * @param conf Server side configuration used by HBase
      * @return newly instantiated Aggregators instance
      */
-    public static ServerAggregators deserialize(byte[] b) {
+    public static ServerAggregators deserialize(byte[] b, Configuration conf) {
         if (b == null) {
             return ServerAggregators.EMPTY_AGGREGATORS;
         }
@@ -124,7 +130,7 @@ public class ServerAggregators extends Aggregators {
             SingleAggregateFunction[] functions = new SingleAggregateFunction[len];
             for (int i = 0; i < aggregators.length; i++) {
                 SingleAggregateFunction aggFunc = (SingleAggregateFunction)ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
-                aggFunc.readFields(input);
+                aggFunc.readFields(input, conf);
                 functions[i] = aggFunc;
                 aggregators[i] = aggFunc.getAggregator();
                 expressions[i] = aggFunc.getAggregatorExpression();

@@ -27,19 +27,19 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
  * 
- * Built-in function for PERCENTILE_DIST(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
+ * Built-in function for PERCENTILE_DISC(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
  *
  * @author ramkrishna
  * @since 1.2.1
@@ -48,10 +48,11 @@ public class PercentileDiscClientAggregator extends
 		DistinctValueWithCountClientAggregator {
 
 	private final List<Expression> exps;
-	private byte[] cachedResult = null;
+	private Object cachedResult = null;
 	ColumnExpression columnExp = null;
 
-	public PercentileDiscClientAggregator(List<Expression> exps) {
+	public PercentileDiscClientAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+	    super(columnModifier);
 		this.exps = exps;
 	}
 
@@ -70,15 +71,14 @@ public class PercentileDiscClientAggregator extends
 			// Third expression will be LiteralExpression
 			LiteralExpression percentileExp = (LiteralExpression) exps.get(2);
 			float p = ((Number) percentileExp.getValue()).floatValue();
-			Entry<ImmutableBytesPtr, Integer>[] entries = getSortedValueVsCount(isAscending);
+			Map<Object, Integer> sorted = getSortedValueVsCount(isAscending, columnExp.getDataType());
 			int currValue = 0;
-			byte[] result = null;
+			Object result = null;
 			// Here the Percentile_disc returns the cum_dist() that is greater or equal to the
 			// Percentile (p) specified in the query.  So the result set will be of that of the
 			// datatype of the column being selected
-			for (Entry<ImmutableBytesPtr, Integer> entry : entries) {
-				ImmutableBytesPtr pi1 = entry.getKey();
-				result = pi1.get();
+			for (Entry<Object, Integer> entry : sorted.entrySet()) {
+				result = entry.getKey();
 				Integer value = entry.getValue();
 				currValue += value;
 				float cum_dist = (float) currValue / (float) totalCount;
@@ -94,7 +94,7 @@ public class PercentileDiscClientAggregator extends
 			buffer = new byte[columnExp.getDataType().getByteSize()];
 		}
 		// Copy the result to the buffer.
-		System.arraycopy(this.cachedResult, 0, buffer, 0, cachedResult.length);
+		System.arraycopy(columnExp.getDataType().toBytes(this.cachedResult), 0, buffer, 0, buffer.length);
 		ptr.set(buffer);
 		return true;
 	}

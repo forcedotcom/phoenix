@@ -27,31 +27,37 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
-import java.math.BigDecimal;
+import java.math.*;
 import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Pair;
 
+import com.salesforce.phoenix.expression.ColumnExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.BigDecimalUtil.Operation;
 
 /**
  * 
  * @author anoopsjohn
  * @since 1.2.1
  */
-public abstract class BaseStddevAggregator extends DistinctValueWithCountClientAggregator {
+public abstract class BaseDecimalStddevAggregator extends DistinctValueWithCountClientAggregator {
 
-    protected Expression stdDevColExp;
     private BigDecimal cachedResult = null;
+    private int colPrecision;
+    private int colScale;
 
-    public BaseStddevAggregator(List<Expression> exps, ColumnModifier columnModifier) {
+    public BaseDecimalStddevAggregator(List<Expression> exps, ColumnModifier columnModifier) {
         super(columnModifier);
-        this.stdDevColExp = exps.get(0);
+        ColumnExpression stdDevColExp = (ColumnExpression)exps.get(0);
+        this.colPrecision = stdDevColExp.getMaxLength();
+        this.colScale = stdDevColExp.getScale();
     }
 
     @Override
@@ -62,9 +68,25 @@ public abstract class BaseStddevAggregator extends DistinctValueWithCountClientA
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (cachedResult == null) {
-            double ssd = sumSquaredDeviation();
-            double result = Math.sqrt(ssd / getDataPointsCount());
-            cachedResult = new BigDecimal(result);
+            BigDecimal ssd = sumSquaredDeviation();
+            ssd = ssd.divide(new BigDecimal(getDataPointsCount()), PDataType.DEFAULT_MATH_CONTEXT);
+            // Calculate the precision for the stddev result.
+            // There are totalCount #Decimal values for which we are calculating the stddev
+            // The resultant precision depends on precision and scale of all these values. (See
+            // BigDecimalUtil.getResultPrecisionScale)
+            // As of now we are not using the actual precision and scale of individual values but just using the table
+            // column's max length(precision) and scale for each of the values.
+            int resultPrecision = colPrecision;
+            for (int i = 1; i < this.totalCount; i++) {
+                // Max precision that we can support is 38 See PDataType.MAX_PRECISION
+                if (resultPrecision >= PDataType.MAX_PRECISION) break;
+                Pair<Integer, Integer> precisionScale = BigDecimalUtil.getResultPrecisionScale(this.colPrecision,
+                        this.colScale, this.colPrecision, this.colScale, Operation.OTHERS);
+                resultPrecision = precisionScale.getFirst();
+            }
+            cachedResult = new BigDecimal(Math.sqrt(ssd.doubleValue()), new MathContext(resultPrecision,
+                    RoundingMode.HALF_UP));
+            cachedResult.setScale(this.colScale, RoundingMode.HALF_UP);
         }
         if (buffer == null) {
             initBuffer();
@@ -73,29 +95,29 @@ public abstract class BaseStddevAggregator extends DistinctValueWithCountClientA
         ptr.set(buffer);
         return true;
     }
-    
+
     protected abstract long getDataPointsCount();
-    
-    private double sumSquaredDeviation() {
-        double m = mean();
-        double result = 0.0;
+
+    private BigDecimal sumSquaredDeviation() {
+        BigDecimal m = mean();
+        BigDecimal result = BigDecimal.ZERO;
         for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
-            double colValue = (Double)PDataType.DOUBLE.toObject(entry.getKey(), this.stdDevColExp.getDataType());
-            double delta = colValue - m;
-            result += (delta * delta) * entry.getValue();
+            BigDecimal colValue = (BigDecimal)PDataType.DECIMAL.toObject(entry.getKey());
+            BigDecimal delta = colValue.subtract(m);
+            result = result.add(delta.multiply(delta).multiply(new BigDecimal(entry.getValue())));
         }
         return result;
     }
 
-    private double mean() {
-        double sum = 0.0;
+    private BigDecimal mean() {
+        BigDecimal sum = BigDecimal.ZERO;
         for (Entry<ImmutableBytesPtr, Integer> entry : valueVsCount.entrySet()) {
-            double colValue = (Double)PDataType.DOUBLE.toObject(entry.getKey(), this.stdDevColExp.getDataType());
-            sum += colValue * entry.getValue();
+            BigDecimal colValue = (BigDecimal)PDataType.DECIMAL.toObject(entry.getKey());
+            sum = sum.add(colValue.multiply(new BigDecimal(entry.getValue())));
         }
-        return sum / totalCount;
+        return sum.divide(new BigDecimal(totalCount), PDataType.DEFAULT_MATH_CONTEXT);
     }
-    
+
     @Override
     public void reset() {
         super.reset();

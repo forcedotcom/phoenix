@@ -585,7 +585,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 query = queries[i];
                 Scan scan = new Scan();
                 compileQuery(query, binds, scan);
-                ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
+                ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), null);
                 Aggregator aggregator = aggregators.getAggregators()[0];
                 assertTrue(aggregator instanceof CountAggregator);
             }
@@ -903,5 +903,52 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
+    }
+    
+    @Test
+    public void testCastingIntegerToDecimalInSelect() throws Exception {
+        String query = "SELECT CAST a_integer AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        compileQuery(query, binds, scan);
+    }
+    
+    @Test
+    public void testCastingStringToDecimalInSelect() throws Exception {
+        String query = "SELECT CAST b_string AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a string to decimal isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testCastingDecimalToIntegerInSelect() throws Exception {
+        String query = "SELECT CAST x_decimal AS INTEGER FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a decimal to integer isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testCastingStringToDecimalInWhere() throws Exception {
+        String query = "SELECT a_integer FROM aTable WHERE 2.5=CAST b_string AS DECIMAL/2 ";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a string to decimal isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }  
     }
 }
