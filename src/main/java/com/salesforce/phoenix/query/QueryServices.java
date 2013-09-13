@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.http.annotation.Immutable;
 
+import com.salesforce.phoenix.iterate.SpoolTooBigToDiskException;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.util.ReadOnlyProps;

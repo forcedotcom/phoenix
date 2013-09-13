@@ -40,6 +40,7 @@ import static com.salesforce.phoenix.query.QueryServices.MAX_MEMORY_WAIT_MS_ATTR
 import static com.salesforce.phoenix.query.QueryServices.MAX_MUTATION_SIZE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MAX_SERVER_CACHE_TIME_TO_LIVE_MS;
+import static com.salesforce.phoenix.query.QueryServices.MAX_SPOOL_TO_DISK_BYTES_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MAX_TENANT_MEMORY_PERC_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MUTATE_BATCH_SIZE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.QUEUE_SIZE_ATTRIB;
