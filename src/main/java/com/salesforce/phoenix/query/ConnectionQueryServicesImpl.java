@@ -697,7 +697,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     // This will work with the new and the old jar, so do the compatibility check now.
                     checkClientServerCompatibility();
                 }
-                if (updateTo2_1) {
+                if (updateTo2_1 && !updateTo2_0) {
                     upgradeTablesFrom2_0to2_1(admin, newDesc);
                 }
                 return false;
@@ -800,8 +800,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         Scan scan = new Scan();
         scan.addColumn(TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES);
         scan.addColumn(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES);
+        SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.CHAR.toBytes("a"));
+        filter.setFilterIfMissing(true);
         // Add filter so that we only get the table row and not the column rows
-        scan.setFilter(new SingleColumnValueFilter(TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.CHAR.toBytes("a")));
+        scan.setFilter(filter);
         HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
         ResultScanner scanner = table.getScanner(scan);
         Result result = null;

@@ -984,7 +984,7 @@ public class MetaDataClient {
                         }
                         return new MutationState(0,connection);
                     }
-                    connection.addColumn(tableName, columns, result.getMutationTime(), seqNum, isImmutableRows);
+                    connection.addColumn(SchemaUtil.getTableName(schemaName, tableName), columns, result.getMutationTime(), seqNum, isImmutableRows);
                     if (emptyCF != null) {
                         Long scn = connection.getSCN();
                         connection.setAutoCommit(true);
@@ -1108,7 +1108,7 @@ public class MetaDataClient {
                         }
                         return new MutationState(0, connection);
                     }
-                    connection.removeColumn(tableName, familyName, columnToDrop.getName().getString(), result.getMutationTime(), seqNum);
+                    connection.removeColumn(SchemaUtil.getTableName(schemaName, tableName), familyName, columnToDrop.getName().getString(), result.getMutationTime(), seqNum);
                     // If we have a VIEW, then only delete the metadata, and leave the table data alone
                     if (table.getType() != PTableType.VIEW) {
                         connection.setAutoCommit(true);
