@@ -82,7 +82,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   public static final String CODEC_CLASS_NAME_KEY = "com.salesforce.hbase.index.codec.class";
 
   protected RegionCoprocessorEnvironment env;
-  private IndexCodec codec;
+  protected IndexCodec codec;
   protected LocalHBaseState localTable;
 
   @Override
@@ -109,9 +109,6 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
 
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) throws IOException {
-        if (!codec.isEnabled(p)) {
-      return null;
-    }
     // build the index updates for each group
     IndexUpdateManager updateMap = new IndexUpdateManager();
 
@@ -431,9 +428,6 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
 
   @Override
   public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) throws IOException {
-        if (!codec.isEnabled(d)) {
-      return null;
-    }
     // stores all the return values
     IndexUpdateManager updateMap = new IndexUpdateManager();
 

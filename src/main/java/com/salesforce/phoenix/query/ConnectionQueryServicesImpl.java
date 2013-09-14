@@ -104,6 +104,7 @@ import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.index.PhoenixIndexBuilder;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
@@ -517,7 +518,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (tableType != PTableType.INDEX && !descriptor.hasCoprocessor(Indexer.class.getName())) {
                 Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
                 opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
-                Indexer.enableIndexing(descriptor, CoveredColumnsIndexBuilder.class, opts);
+                Indexer.enableIndexing(descriptor, PhoenixIndexBuilder.class, opts);
             }
             
             // Setup split policy on Phoenix metadata table to ensure that the key values of a Phoenix table
@@ -834,7 +835,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     } else if (!existingDesc.hasCoprocessor(Indexer.class.getName())) {
                         Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
                         opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
-                        Indexer.enableIndexing(existingDesc, CoveredColumnsIndexBuilder.class, opts);
+                        Indexer.enableIndexing(existingDesc, PhoenixIndexBuilder.class, opts);
                         wasModified = true;
                     }
                     if (wasModified) {
