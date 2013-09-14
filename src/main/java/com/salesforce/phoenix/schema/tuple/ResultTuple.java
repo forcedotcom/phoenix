@@ -30,6 +30,7 @@ package com.salesforce.phoenix.schema.tuple;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.util.ResultUtil;
 
@@ -80,5 +81,18 @@ public class ResultTuple implements Tuple {
     @Override
     public KeyValue getValue(int index) {
         return result.raw()[index];
+    }
+
+    @Override
+    public boolean getKey(ImmutableBytesWritable ptr, byte[] cfPrefix) {
+        for (KeyValue kv : result.raw()) {
+            int len = kv.getFamilyLength();
+            if (len >= cfPrefix.length 
+                    && Bytes.equals(cfPrefix, 0, cfPrefix.length, kv.getBuffer(), kv.getFamilyOffset(), len)) {
+                ptr.set(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+                return true;
+            }
+        }
+        return false;
     }
 }

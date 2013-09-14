@@ -53,6 +53,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.join.HashJoinInfo;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.*;

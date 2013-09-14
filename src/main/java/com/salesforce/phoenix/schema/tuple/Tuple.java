@@ -61,6 +61,18 @@ public interface Tuple {
     public void getKey(ImmutableBytesWritable ptr);
     
     /**
+     * Get the row key for the Tuple where the row key is contained
+     * in a KeyValue having the specified column family prefix.
+     * This is used for searching a joined result for a row key from
+     * a specific table.
+     * @param ptr the bytes pointer that will be updated to point to
+     * the key buffer.
+     * @param cfPrefix the column family prefix.
+     * @return true if the specified KeyValue is found.
+     */
+    public boolean getKey(ImmutableBytesWritable ptr, byte[] cfPrefix);
+    
+    /**
      * Get the KeyValue at the given index.
      * @param index the zero-based KeyValue index between 0 and {@link #size()} exclusive
      * @return the KeyValue at the given index

@@ -107,4 +107,15 @@ public class SingleKeyValueTuple implements Tuple {
         }
         return keyValue;
     }
+
+    @Override
+    public boolean getKey(ImmutableBytesWritable ptr, byte[] cfPrefix) {
+        int len = keyValue.getFamilyLength();
+        if (len >= cfPrefix.length 
+                && Bytes.equals(cfPrefix, 0, cfPrefix.length, keyValue.getBuffer(), keyValue.getFamilyOffset(), len)) {
+            ptr.set(keyValue.getBuffer(), keyValue.getKeyOffset(), keyValue.getKeyLength());
+            return true;
+        }
+        return false;
+    }
 }

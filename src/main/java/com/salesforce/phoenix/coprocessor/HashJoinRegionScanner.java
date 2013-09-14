@@ -40,6 +40,7 @@ import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import com.salesforce.phoenix.cache.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;

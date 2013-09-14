@@ -46,6 +46,10 @@ public class FromCompiler {
         public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void setDisambiguateWithTable(boolean disambiguateWithTable) {
+        }
     };
 
     public static ColumnResolver getResolver(final CreateTableStatement statement, final PhoenixConnection connection)
@@ -69,7 +73,6 @@ public class FromCompiler {
     public static ColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection)
             throws SQLException {
         List<TableNode> fromNodes = statement.getFrom();
-        if (fromNodes.size() > 1) { throw new SQLFeatureNotSupportedException("Joins not supported"); }
         MultiTableColumnResolver visitor = new MultiTableColumnResolver(connection);
         for (TableNode node : fromNodes) {
             node.accept(visitor);
@@ -147,10 +150,17 @@ public class FromCompiler {
     private static abstract class BaseColumnResolver implements ColumnResolver {
         protected final PhoenixConnection connection;
         protected final MetaDataClient client;
+        protected boolean disambiguateWithTable;
         
         private BaseColumnResolver(PhoenixConnection connection) {
         	this.connection = connection;
             this.client = new MetaDataClient(connection);
+            this.disambiguateWithTable = false;
+        }
+        
+        @Override
+        public void setDisambiguateWithTable(boolean disambiguateWithTable) {
+            this.disambiguateWithTable = disambiguateWithTable;
         }
 
         protected PTable addDynamicColumns(List<ColumnDef> dynColumns, PTable theTable)
@@ -200,7 +210,7 @@ public class FromCompiler {
 
         @Override
         public void visit(JoinTableNode joinNode) throws SQLException {
-            throw new SQLFeatureNotSupportedException();
+            joinNode.getTable().accept(this);
         }
 
         @SuppressWarnings("serial")
@@ -324,18 +334,18 @@ public class FromCompiler {
 
                     }
                 }
-                if (theTableRef != null) { return new ColumnRef(theTableRef, theColumnPosition); }
+                if (theTableRef != null) { return new ColumnRef(theTableRef, theColumnPosition, disambiguateWithTable); }
                 throw new ColumnNotFoundException(colName);
             } else {
                 try {
                     TableRef tableRef = resolveTable(schemaName, tableName);
                     PColumn column = tableRef.getTable().getColumn(colName);
-                    return new ColumnRef(tableRef, column.getPosition());
+                    return new ColumnRef(tableRef, column.getPosition(), disambiguateWithTable);
                 } catch (TableNotFoundException e) {
                     // Try using the tableName as a columnFamily reference instead
                     ColumnFamilyRef cfRef = resolveColumnFamily(schemaName, tableName);
                     PColumn column = cfRef.getFamily().getColumn(colName);
-                    return new ColumnRef(cfRef.getTableRef(), column.getPosition());
+                    return new ColumnRef(cfRef.getTableRef(), column.getPosition(), disambiguateWithTable);
                 }
             }
         }

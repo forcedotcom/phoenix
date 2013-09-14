@@ -69,14 +69,15 @@ public class StatementContext {
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
-    private final boolean prefixColumnFamily;
+    private final boolean disambiguateWithTable;
     private final HashCacheClient hashClient;
+    private TableRef currentTable;
     
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
         this(statement, connection, resolver, binds, scan, false, null);
     }
     
-    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, boolean prefixColumnFamily, HashCacheClient hashClient) {
+    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, boolean disambiguateWithTable, HashCacheClient hashClient) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -88,8 +89,9 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
-        this.prefixColumnFamily = prefixColumnFamily;
+        this.disambiguateWithTable = disambiguateWithTable;
         this.hashClient = hashClient;
+        this.currentTable = resolver.getTables().get(0);
     }
 
     public String getDateFormat() {
@@ -116,12 +118,20 @@ public class StatementContext {
         return binds;
     }
     
-    public boolean shouldPrefixColumnFamily() {
-        return prefixColumnFamily;
+    public boolean disambiguateWithTable() {
+        return disambiguateWithTable;
     }
     
     public HashCacheClient getHashClient() {
         return hashClient;
+    }
+    
+    public TableRef getCurrentTable() {
+        return currentTable;
+    }
+    
+    public void setCurrentTable(TableRef table) {
+        this.currentTable = table;
     }
 
     public AggregationManager getAggregationManager() {

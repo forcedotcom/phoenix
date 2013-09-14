@@ -31,6 +31,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.util.KeyValueUtil;
 
@@ -78,5 +79,18 @@ public class MultiKeyValueTuple implements Tuple {
     @Override
     public KeyValue getValue(int index) {
         return values.get(index);
+    }
+
+    @Override
+    public boolean getKey(ImmutableBytesWritable ptr, byte[] cfPrefix) {
+        for (KeyValue kv : values) {
+            int len = kv.getFamilyLength();
+            if (len >= cfPrefix.length 
+                    && Bytes.equals(cfPrefix, 0, cfPrefix.length, kv.getBuffer(), kv.getFamilyOffset(), len)) {
+                ptr.set(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+                return true;
+            }
+        }
+        return false;
     }
 }

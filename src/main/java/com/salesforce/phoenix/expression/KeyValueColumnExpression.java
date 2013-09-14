@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -57,6 +58,12 @@ public class KeyValueColumnExpression extends ColumnExpression {
     public KeyValueColumnExpression(PColumn column) {
         super(column);
         this.cf = column.getFamilyName().getBytes();
+        this.cq = column.getName().getBytes();
+    }
+
+    public KeyValueColumnExpression(PColumn column, byte[] cfPrefix) {
+        super(column);
+        this.cf = ScanProjector.getPrefixedColumnFamily(column.getFamilyName().getBytes(), cfPrefix);
         this.cq = column.getName().getBytes();
     }
 

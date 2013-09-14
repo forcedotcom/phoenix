@@ -116,6 +116,11 @@ public class PostDDLCompiler {
                             public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
                                 throw new UnsupportedOperationException();
                             }
+                            @Override
+                            public void setDisambiguateWithTable(
+                                    boolean disambiguateWithTable) {
+                                throw new UnsupportedOperationException();
+                            }
                         };
                         StatementContext context = new StatementContext(SelectStatement.COUNT_ONE, connection, resolver, Collections.<Object>emptyList(), scan);
                         ScanUtil.setTimeRange(scan, timestamp);

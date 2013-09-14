@@ -103,7 +103,7 @@ public class ProjectionCompiler {
         // Setup projected columns in Scan
         SelectClauseVisitor selectVisitor = new SelectClauseVisitor(context, groupBy);
         List<ExpressionProjector> projectedColumns = new ArrayList<ExpressionProjector>();
-        TableRef tableRef = context.getResolver().getTables().get(0);
+        TableRef tableRef = context.getCurrentTable();
         PTable table = tableRef.getTable();
         boolean isWildcard = false;
         Scan scan = context.getScan();
@@ -118,14 +118,26 @@ public class ProjectionCompiler {
                     ExpressionCompiler.throwNonAggExpressionInAggException(node.toString());
                 }
                 isWildcard = true;
-                for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getColumns().size(); i++) {
-                    ColumnRef ref = new ColumnRef(tableRef,i);
-                    Expression expression = ref.newColumnExpression();
-                    projectedExpressions.add(expression);
-                    projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), expression, false));
+                boolean disambiguateWithTable = context.disambiguateWithTable();
+                List<TableRef> tableRefs;
+                if (context.disambiguateWithTable()) {
+                    tableRefs = context.getResolver().getTables();
+                } else {
+                    tableRefs = new ArrayList<TableRef>();
+                    tableRefs.add(tableRef);
+                }
+                for (TableRef tRef : tableRefs) {
+                    PTable t = tRef.getTable();
+                    for (int i = t.getBucketNum() == null ? 0 : 1; i < t.getColumns().size(); i++) {
+                        ColumnRef ref = new ColumnRef(tRef,i,disambiguateWithTable);
+                        Expression expression = ref.newColumnExpression();
+                        projectedExpressions.add(expression);
+                        projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), t.getName().getString(), expression, false));
+                    }                    
                 }
             } else if (node instanceof  FamilyParseNode){
                 // Project everything for SELECT cf.*
+                // TODO: support cf.* expressions for multiple tables the same way with *.
         		PColumnFamily pfamily = table.getColumnFamily(((FamilyParseNode) node).getFamilyName());
         		// Delay projecting to scan, as when any other column in the column family gets
         		// added to the scan, it overwrites that we want to project the entire column
@@ -164,12 +176,15 @@ public class ProjectionCompiler {
                 String columnAlias = aliasedNode.getAlias();
                 boolean isCaseSensitive = aliasedNode.isCaseSensitve() || selectVisitor.isCaseSensitive;
                 String name = columnAlias == null ? node.toString() : columnAlias;
-                projectedColumns.add(new ExpressionProjector(name, table.getName().getString(), expression, isCaseSensitive));
+                List<PTable> tables = selectVisitor.getTables();
+                String tableName = tables.isEmpty() ? table.getName().getString() : tables.get(0).getName().getString();
+                projectedColumns.add(new ExpressionProjector(name, tableName, expression, isCaseSensitive));
             }
             selectVisitor.reset();
             index++;
         }
 
+        // TODO make estimatedByteSize more accurate by counting the joined columns.
         int estimatedKeySize = table.getRowKeySchema().getEstimatedValueLength();
         int estimatedByteSize = 0;
         for (Map.Entry<byte[],NavigableSet<byte[]>> entry : scan.getFamilyMap().entrySet()) {

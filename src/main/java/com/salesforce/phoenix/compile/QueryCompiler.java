@@ -39,7 +39,6 @@ import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinTable;
 import com.salesforce.phoenix.compile.JoinCompiler.StarJoinType;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
-import com.salesforce.phoenix.coprocessor.ScanProjector;
 import com.salesforce.phoenix.execute.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
@@ -50,7 +49,7 @@ import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.*;
@@ -128,15 +127,14 @@ public class QueryCompiler {
         assert(binds.size() == statement.getBindCount());
         
         statement = StatementNormalizer.normalize(statement);
-        List<TableNode> fromNodes = statement.getFrom();
-        if (fromNodes.size() == 1) {
-            ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+        if (statement.getFrom().size() == 1) {
             StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
             return compileSingleQuery(context, statement, binds);
         }
         
-        JoinSpec join = JoinCompiler.getJoinSpec(statement, connection);
-        StatementContext context = new StatementContext(statement, connection, join.getColumnResolver(), binds, scan, true, new HashCacheClient(connection));
+        StatementContext context = new StatementContext(statement, connection, resolver, binds, scan, true, new HashCacheClient(connection));
+        JoinSpec join = JoinCompiler.getJoinSpec(context, statement);
         return compileJoinQuery(context, statement, binds, join);
     }
     
@@ -144,12 +142,15 @@ public class QueryCompiler {
     protected QueryPlan compileJoinQuery(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
         List<JoinTable> joinTables = join.getJoinTables();
         if (joinTables.isEmpty()) {
+            context.setCurrentTable(join.getMainTable());
+            join.projectColumns(context.getScan(), join.getMainTable());
             ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
             return compileSingleQuery(context, statement, binds);
         }
         
         StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
-        if (starJoin == StarJoinType.BASIC || starJoin == StarJoinType.EXTENDED) {
+        if (starJoin == StarJoinType.BASIC /* TODO || starJoin == StarJoinType.EXTENDED */) {
+            context.setCurrentTable(context.getResolver().getTables().get(0));
             int count = joinTables.size();
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[count];
             List<Expression>[] joinExpressions = (List<Expression>[]) new List[count];
@@ -159,18 +160,19 @@ public class QueryCompiler {
             for (int i = 0; i < count; i++) {
                 JoinTable joinTable = joinTables.get(i);
                 joinIds[i] = new ImmutableBytesPtr(); // place-holder
-                joinExpressions[i] = joinTable.compileLeftTableConditions();
-                hashExpressions[i] = joinTable.compileRightTableConditions();
+                joinExpressions[i] = joinTable.compileLeftTableConditions(context);
+                hashExpressions[i] = joinTable.compileRightTableConditions(context);
                 joinTypes[i] = joinTable.getType();
                 try {
                     Scan subScan = new Scan(scanCopy);
+                    join.projectColumns(subScan, joinTable.getTable());
                     ScanProjector.serializeProjectorIntoScan(subScan, joinTable.getScanProjector());
                     joinPlans[i] = compile(joinTable.getAsSubquery(), binds, subScan);
                 } catch (IOException e) {
                     throw new SQLException(e);
                 }
             }
-            Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, null);
+            Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, null);
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
             ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
@@ -181,12 +183,13 @@ public class QueryCompiler {
         JoinTable lastJoinTable = joinTables.get(joinTables.size() - 1);
         JoinType type = lastJoinTable.getType();
         if (type == JoinType.Full)
-            throw new UnsupportedOperationException("Does not support full join.");
+            throw new SQLFeatureNotSupportedException("Full joins not supported.");
         
         if (type == JoinType.Right
                 || (type == JoinType.Inner && joinTables.size() > 1)) {
             SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoin(statement, join);
             SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(statement, join);
+            context.setCurrentTable(lastJoinTable.getTable());
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpec(join);
             Scan subScan;
             try {
@@ -194,45 +197,52 @@ public class QueryCompiler {
             } catch (IOException e) {
                 throw new SQLException(e);
             }
-            StatementContext lhsCtx = new StatementContext(statement, connection, join.getColumnResolver(), binds, subScan, true, context.getHashClient());
+            StatementContext lhsCtx = new StatementContext(statement, connection, context.getResolver(), binds, subScan, true, context.getHashClient());
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr()};
-            Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, lastJoinTable);
-            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.compileRightTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+            Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, lastJoinTable);
+            List<Expression> joinExpressions = lastJoinTable.compileRightTableConditions(context);
+            List<Expression> hashExpressions = lastJoinTable.compileLeftTableConditions(context);
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
             HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
             ScanProjector.serializeProjectorIntoScan(context.getScan(), lastJoinTable.getScanProjector());
             BasicQueryPlan rhsPlan = compileSingleQuery(context, rhs, binds);
-            return new HashJoinPlan(rhsPlan, joinIds, new List[] {lastJoinTable.compileLeftTableConditions()}, new QueryPlan[] {lhsPlan});
+            return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
         }
         
         SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoinAsFinalPlan(statement, join);
         SelectStatement rhs = lastJoinTable.getAsSubquery();
+        context.setCurrentTable(context.getResolver().getTables().get(0));
         Scan subScan;
         try {
             subScan = new Scan(scanCopy);
         } catch (IOException e) {
             throw new SQLException(e);
         }
+        join.projectColumns(subScan, lastJoinTable.getTable());
         ScanProjector.serializeProjectorIntoScan(subScan, lastJoinTable.getScanProjector());
         QueryPlan rhsPlan = compile(rhs, binds, subScan);
         ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr()};
-        Expression postJoinFilterExpression = JoinCompiler.getPostJoinFilterExpression(join, null);
-        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {lastJoinTable.compileLeftTableConditions()}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+        Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, null);
+        List<Expression> joinExpressions = lastJoinTable.compileLeftTableConditions(context);
+        List<Expression> hashExpressions = lastJoinTable.compileRightTableConditions(context);
+        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
         HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
         ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
         BasicQueryPlan lhsPlan = compileSingleQuery(context, lhs, binds);
-        return new HashJoinPlan(lhsPlan, joinIds, new List[] {lastJoinTable.compileRightTableConditions()}, new QueryPlan[] {rhsPlan});
+        return new HashJoinPlan(lhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});
     }
     
     protected BasicQueryPlan compileSingleQuery(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
         ColumnResolver resolver = context.getResolver();
-        TableRef tableRef = resolver.getTables().get(0);
+        TableRef tableRef = context.getCurrentTable();
         // Short circuit out if we're compiling an index query and the index isn't active.
         // We must do this after the ColumnResolver resolves the table, as we may be updating the local
         // cache of the index table and it may now be inactive.
         if (tableRef.getTable().getType() == PTableType.INDEX && tableRef.getTable().getIndexState() != PIndexState.ACTIVE) {
             return new DegenerateQueryPlan(context, statement, tableRef);
         }
+        resolver.setDisambiguateWithTable(context.disambiguateWithTable());
         Map<String, ParseNode> aliasMap = ProjectionCompiler.buildAliasMap(context, statement);
         Integer limit = LimitCompiler.compile(context, statement);
 
@@ -243,7 +253,9 @@ public class QueryCompiler {
         Expression having = HavingCompiler.compile(context, statement, groupBy);
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
+        resolver.setDisambiguateWithTable(false);
         WhereCompiler.compile(context, statement);
+        resolver.setDisambiguateWithTable(context.disambiguateWithTable());
         OrderBy orderBy = OrderByCompiler.compile(context, statement, aliasMap, groupBy, limit); 
         RowProjector projector = ProjectionCompiler.compile(context, statement, groupBy, targetColumns);
         

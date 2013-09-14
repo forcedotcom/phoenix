@@ -110,12 +110,16 @@ public class WhereCompiler {
             // Track if we need to compare KeyValue during filter evaluation
             // using column family. If the column qualifier is enough, we
             // just use that.
-            try {
-                if (!SchemaUtil.isPKColumn(ref.getColumn())) {
-                    table.getColumn(ref.getColumn().getName().getString());
-                }
-            } catch (AmbiguousColumnException e) {
+            if (ref.disambiguateWithTable()) {
                 disambiguateWithFamily = true;
+            } else {
+                try {
+                    if (!SchemaUtil.isPKColumn(ref.getColumn())) {
+                        table.getColumn(ref.getColumn().getName().getString());
+                    }
+                } catch (AmbiguousColumnException e) {
+                    disambiguateWithFamily = true;
+                }
             }
             return ref;
         }
@@ -140,6 +144,21 @@ public class WhereCompiler {
 
             }
         }
+
+        public void increment(RowKeyColumnExpression column) {
+            switch (count) {
+                case NONE:
+                    count = Count.MULTIPLE;
+                    break;
+                case SINGLE:
+                    count = Count.MULTIPLE;
+                    break;
+                case MULTIPLE:
+                    break;
+
+            }
+        }
+        
         public Count getCount() {
             return count;
         }
@@ -172,6 +191,12 @@ public class WhereCompiler {
 
                 @Override
                 public Void visit(KeyValueColumnExpression expression) {
+                    counter.increment(expression);
+                    return null;
+                }
+                
+                @Override
+                public Void visit(RowKeyColumnExpression expression) {
                     counter.increment(expression);
                     return null;
                 }

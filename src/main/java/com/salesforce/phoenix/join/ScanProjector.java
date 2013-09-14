@@ -25,7 +25,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.coprocessor;
+package com.salesforce.phoenix.join;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -37,9 +37,11 @@ import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.KeyValueUtil;
@@ -48,12 +50,37 @@ public class ScanProjector {
     
     public enum ProjectionType {TABLE, CF, CQ};
     
-    private static final String SCAN_PROJECTOR = "scanProjector";
+    private static final String SCAN_PROJECTOR = "scanProjector";    
+    private static final byte[] PREFIX_SEPERATOR = Bytes.toBytes(":");
     
     private final ProjectionType type;
     private final byte[] tablePrefix;
     private final Map<ImmutableBytesPtr, byte[]> cfProjectionMap;
     private final Map<ImmutableBytesPtr, Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> cqProjectionMap;
+
+    public static byte[] getPrefixedColumnFamily(byte[] columnFamily, byte[] cfPrefix) {
+        return ByteUtil.concat(cfPrefix, PREFIX_SEPERATOR, columnFamily);
+    }
+    
+    public static int getPrefixLength(byte[] columnFamily) {
+        return getPrefixLength(columnFamily, 0, columnFamily.length);
+    }
+
+    public static int getPrefixLength(byte[] cfBuffer, int offset, int length) {
+        for (int i = offset + length - 1; i >= offset; i--) {
+            if (cfBuffer[i] == PREFIX_SEPERATOR[0]) {
+                return (i - offset);
+            }
+        }
+        return 0;
+    }
+    
+    public static byte[] getPrefixForTable(TableRef table) {
+        if (table.getTableAlias() == null)
+            return table.getTableName();
+        
+        return Bytes.toBytes(table.getTableAlias());
+    }
     
     public ScanProjector(ProjectionType type, byte[] tablePrefix, 
             Map<ImmutableBytesPtr, byte[]> cfProjectionMap, Map<ImmutableBytesPtr, 
@@ -181,7 +208,7 @@ public class ScanProjector {
     
     public KeyValue getProjectedKeyValue(KeyValue kv) {
         if (type == ProjectionType.TABLE) {
-            byte[] cf = ByteUtil.concat(tablePrefix, kv.getFamily());
+            byte[] cf = getPrefixedColumnFamily(kv.getFamily(), tablePrefix);
             return KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength(), 
                     cf, kv.getQualifier(), kv.getTimestamp(), kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
         }
