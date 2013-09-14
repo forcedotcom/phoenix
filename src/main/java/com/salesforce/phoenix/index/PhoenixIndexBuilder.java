@@ -25,54 +25,20 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index.builder;
-
-import java.io.IOException;
+package com.salesforce.phoenix.index;
 
 import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
-import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
 
 /**
- * Basic implementation of the {@link IndexBuilder} that doesn't do any actual work of indexing.
- * <p>
- * You should extend this class, rather than implementing IndexBuilder directly to maintain
- * compatability going forward.
- * <p>
- * Generally, you should consider using one of the implemented IndexBuilders (e.g
- * {@link CoveredColumnsIndexBuilder}) as there is a lot of work required to keep an index table
- * up-to-date.
+ * Index builder for covered-columns index that ties into phoenix for faster use.
  */
-public abstract class BaseIndexBuilder implements IndexBuilder {
+public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
 
-  @Override
-  public void extendBaseIndexBuilderInstead() { }
-  
-  @Override
-  public void setup(RegionCoprocessorEnvironment conf) throws IOException {
-    // noop
-  }
-
-  @Override
-  public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) {
-    // noop
-  }
-
-  @Override
-  public void batchCompleted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) {
-    // noop
-  }
-  
-  /**
-   * By default, we always attempt to index the mutation. Commonly this can be slow (because the
-   * framework spends the time to do the indexing, only to realize that you don't need it) or not
-   * ideal (if you want to turn on/off indexing on a table without completely reloading it).
-   */
   @Override
   public boolean isEnabled(Mutation m) {
-    return true; 
+    // ask the codec to see if we should even attempt indexing
+    return this.codec.isEnabled(m);
   }
 }
