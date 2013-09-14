@@ -108,4 +108,18 @@ public interface IndexBuilder {
    * @param miniBatchOp the full batch operation to be written
    */
   public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp);
+
+  /**
+   * This allows the codec to dynamically change whether or not indexing should take place for a
+   * table. If it doesn't take place, we can save a lot of time on the regular Put patch. By making
+   * it dynamic, we can save offlining and then onlining a table just to turn indexing on.
+   * <p>
+   * We can also be smart about even indexing a given update here too - if the update doesn't
+   * contain any columns that we care about indexing, we can save the effort of analyzing the put
+   * and further.
+   * @param m mutation that should be indexed.
+   * @return <tt>true</tt> if indexing is enabled for the given table. This should be on a per-table
+   *         basis, as each codec is instantiated per-region.
+   */
+  public boolean isEnabled(Mutation m);
 }

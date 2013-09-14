@@ -121,7 +121,9 @@ public class CSVLoader {
     			    if (columnInfo[index] == null) {
     			        continue;
     			    }
-    				upsertValue = convertTypeSpecificValue(nextLine[index], columnInfo[index].getSqlType());
+                    String line = nextLine[index];
+                    Integer info = columnInfo[index].getSqlType();
+                    upsertValue = convertTypeSpecificValue(line, info);
     				if (upsertValue != null) {
     					stmt.setObject(index + 1, upsertValue, columnInfo[index].getSqlType());
     				} else {

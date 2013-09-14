@@ -150,6 +150,9 @@ public class Indexer extends BaseRegionObserver {
   public void prePut(final ObserverContext<RegionCoprocessorEnvironment> c, final Put put,
       final WALEdit edit, final boolean writeToWAL) throws IOException {
     // get the mapping for index column -> target index table
+    if (!this.builder.isEnabled(put)) {
+      return;
+    }
     Collection<Pair<Mutation, String>> indexUpdates = this.builder.getIndexUpdate(put);
 
     doPre(indexUpdates, edit, writeToWAL);
@@ -158,6 +161,10 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void preDelete(ObserverContext<RegionCoprocessorEnvironment> e, Delete delete,
       WALEdit edit, boolean writeToWAL) throws IOException {
+    // short circuit so we don't waste time
+    if (!this.builder.isEnabled(delete)) {
+      return;
+    }
     // get the mapping for index column -> target index table
     Collection<Pair<Mutation, String>> indexUpdates = this.builder.getIndexUpdate(delete);
 
@@ -207,25 +214,32 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void postPut(ObserverContext<RegionCoprocessorEnvironment> e, Put put, WALEdit edit,
       boolean writeToWAL) throws IOException {
-    doPost(edit, writeToWAL);
+    doPost(edit, put, writeToWAL);
   }
 
   @Override
   public void postDelete(ObserverContext<RegionCoprocessorEnvironment> e, Delete delete,
       WALEdit edit, boolean writeToWAL) throws IOException {
-    doPost(edit, writeToWAL);
+    doPost(edit,delete, writeToWAL);
   }
 
   /**
    * @param edit
    * @param writeToWAL
    */
-  private void doPost(WALEdit edit, boolean writeToWAL) {
+  private void doPost(WALEdit edit, Mutation m, boolean writeToWAL) {
     if (!writeToWAL) {
       // already did the index update in prePut, so we are done
       return;
     }
 
+    // turns out, even doing the checking here for the index updates will cause a huge slowdown. Its
+    // up to the codec to be smart about how it manages this (and leak a little of the
+    // implementation here, but that's the way optimization go).
+    if(!this.builder.isEnabled(m)){
+      return;
+    }
+    
     Collection<Pair<Mutation, String>> indexUpdates = extractIndexUpdate(edit);
 
     // early exit - we have nothing to write, so we don't need to do anything else. NOTE: we don't
