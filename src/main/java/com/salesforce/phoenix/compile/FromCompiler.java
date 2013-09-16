@@ -55,7 +55,6 @@ import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PNameFactory;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
-import com.salesforce.phoenix.schema.SchemaNotFoundException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -150,10 +149,8 @@ public class FromCompiler {
                         logger.debug("Re-resolved stale table " + fullTableName + " with seqNum " + tableRef.getTable().getSequenceNumber() + " at timestamp " + tableRef.getTable().getTimeStamp() + " with " + tableRef.getTable().getColumns().size() + " columns: " + tableRef.getTable().getColumns());
                     }
                     break;
-                } catch (SchemaNotFoundException e) {
-                    sqlE = new TableNotFoundException(schemaName, tableName);
                 } catch (TableNotFoundException e) {
-                    sqlE = new TableNotFoundException(schemaName, tableName);
+                    sqlE = e;
                 }
                 if (retry && client.updateCache(schemaName, tableName) < 0) {
                     retry = false;
@@ -300,7 +297,7 @@ public class FromCompiler {
             String fullTableName = SchemaUtil.getTableName(schemaName, tableName);
             List<TableRef> tableRefs = tableMap.get(fullTableName);
             if (tableRefs.size() == 0) {
-                throw new TableNotFoundException(schemaName, tableName);
+                throw new TableNotFoundException(fullTableName);
             } else if (tableRefs.size() > 1) {
                 throw new AmbiguousTableException(tableName);
             } else {

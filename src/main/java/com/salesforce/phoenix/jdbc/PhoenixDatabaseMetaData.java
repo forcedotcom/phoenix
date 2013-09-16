@@ -96,7 +96,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TYPE_SCHEMA_AND_TABLE = TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"";
     public static final byte[] TYPE_TABLE_BYTES = TYPE_TABLE.getBytes();
     public static final byte[] TYPE_SCHEMA_BYTES = TYPE_SCHEMA.getBytes();
-    public static final byte[] TYPE_TABLE_NAME = SchemaUtil.getTableNameAsBytes(TYPE_SCHEMA_BYTES, TYPE_TABLE_BYTES);
+    public static final String TYPE_TABLE_NAME = SchemaUtil.getTableName(TYPE_SCHEMA, TYPE_TABLE);
+    public static final byte[] TYPE_TABLE_NAME_BYTES = SchemaUtil.getTableNameAsBytes(TYPE_SCHEMA_BYTES, TYPE_TABLE_BYTES);
     
     public static final String TABLE_NAME_NAME = "TABLE_NAME";
     public static final String TABLE_TYPE_NAME = "TABLE_TYPE";
