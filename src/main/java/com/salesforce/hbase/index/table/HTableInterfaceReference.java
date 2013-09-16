@@ -82,4 +82,14 @@ public class HTableInterfaceReference implements Writable {
   public void write(DataOutput out) throws IOException {
     out.writeUTF(this.tableName);
   }
+
+  @Override
+  public int hashCode() {
+    return this.tableName.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return o == null ? false : this.hashCode() == o.hashCode();
+  }
 }

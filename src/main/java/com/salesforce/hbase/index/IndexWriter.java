@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
@@ -46,6 +47,8 @@ import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEdit;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
@@ -79,8 +82,8 @@ public class IndexWriter {
    * Just write the index update portions of of the edit, if it is an {@link IndexedWALEdit}. If it
    * is not passed an {@link IndexedWALEdit}, any further actions are ignored.
    * <p>
-   * Internally, uses {@link #wri to make the write and if is receives a {
-   * @link CannotReachIndexException}, it attempts to move (
+   * Internally, uses {@link #write(Collection)} to make the write and if is receives a
+   * {@link CannotReachIndexException}, it attempts to move (
    * {@link HBaseAdmin#unassign(byte[], boolean)}) the region and then failing that calls
    * {@link System#exit(int)} to kill the server.
    */
@@ -101,37 +104,36 @@ public class IndexWriter {
    */
   public void write(Collection<Pair<Mutation, String>> updates)
       throws CannotReachIndexException {
-    // conver the strings to htableinterfaces to which we can talk
-    Collection<Pair<Mutation, HTableInterfaceReference>> toWrite =
+    // convert the strings to htableinterfaces to which we can talk and group by TABLE
+    Multimap<HTableInterfaceReference, Mutation> toWrite =
         resolveTableReferences(factory, updates);
 
     // write each mutation, as a part of a batch, to its respective table
-    List<Mutation> singleMutation = new ArrayList<Mutation>(1);
+    List<Mutation> mutations;
     Set<HTableInterface> tables = new HashSet<HTableInterface>();
-    for (Pair<Mutation, HTableInterfaceReference> entry : toWrite) {
-      // do the put into the index table
-      singleMutation.add(entry.getFirst());
+    for (Entry<HTableInterfaceReference, Collection<Mutation>> entry : toWrite.asMap().entrySet()) {
+      // get the mutations for each table. We leak the implementation here a little bit to save
+      // doing a complete copy over of all the index update for each table.
+      mutations = (List<Mutation>) entry.getValue();
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Writing index update:" + entry.getFirst() + " to table: "
-            + entry.getSecond().getTableName());
+        LOG.debug("Writing index update:" + mutations + " to table: "
+            + entry.getKey().getTableName());
       }
       try {
         HTableInterface table;
 
         if (factory == null) {
-          table = entry.getSecond().getTable();
+          table = entry.getKey().getTable();
         } else {
-          table = entry.getSecond().getTable(factory);
+          table = entry.getKey().getTable(factory);
         }
-        // do the update
-        table.batch(singleMutation);
+        table.batch(mutations);
         tables.add(table);
       } catch (IOException e) {
-        throw new CannotReachIndexException(entry.getSecond().getTableName(), entry.getFirst(), e);
+        throw new CannotReachIndexException(entry.getKey().getTableName(), mutations, e);
       } catch (InterruptedException e) {
-        throw new CannotReachIndexException(entry.getSecond().getTableName(), entry.getFirst(), e);
+        throw new CannotReachIndexException(entry.getKey().getTableName(), mutations, e);
       }
-      singleMutation.clear();
     }
     // go through each reference and close the connection
     // we can't do this earlier as we may reuse table references between different index entries,
@@ -169,11 +171,10 @@ public class IndexWriter {
    * @param indexUpdates from the index builder
    * @return pairs that can then be written by an {@link IndexWriter}.
    */
-  public static Collection<Pair<Mutation, HTableInterfaceReference>> resolveTableReferences(
+  public static Multimap<HTableInterfaceReference, Mutation> resolveTableReferences(
       HTableFactory factory, Collection<Pair<Mutation, String>> indexUpdates) {
-
-    Collection<Pair<Mutation, HTableInterfaceReference>> updates =
-        new ArrayList<Pair<Mutation, HTableInterfaceReference>>(indexUpdates.size());
+    Multimap<HTableInterfaceReference, Mutation> updates =
+        ArrayListMultimap.<HTableInterfaceReference, Mutation> create();
     Map<String, HTableInterfaceReference> tables =
         new HashMap<String, HTableInterfaceReference>(updates.size());
     for (Pair<Mutation, String> entry : indexUpdates) {
@@ -183,7 +184,7 @@ public class IndexWriter {
         table = new HTableInterfaceReference(entry.getSecond(), factory);
         tables.put(tableName, table);
       }
-      updates.add(new Pair<Mutation, HTableInterfaceReference>(entry.getFirst(), table));
+      updates.put(table, entry.getFirst());
     }
 
     return updates;
