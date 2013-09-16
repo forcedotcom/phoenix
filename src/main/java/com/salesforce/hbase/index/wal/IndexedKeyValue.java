@@ -15,6 +15,8 @@ public class IndexedKeyValue extends KeyValue {
 
   String indexTableName;
   Mutation mutation;
+  // optimization check to ensure that batches don't get replayed to the index more than once
+  private boolean batchFinished = false;
   
   public IndexedKeyValue() {
   }
@@ -43,7 +45,7 @@ public class IndexedKeyValue extends KeyValue {
 
   @Override
   public String toString() {
-    return "IndexWrite - table: " + indexTableName + ", mutation:" + mutation;
+    return "IndexWrite:\n\ttable: " + indexTableName + "\n\tmutation:" + mutation;
   }
 
   /**
@@ -124,5 +126,13 @@ public class IndexedKeyValue extends KeyValue {
     } catch (IllegalAccessException e) {
       throw new IOException(e);
     }
+  }
+
+  public boolean getBatchFinished() {
+    return this.batchFinished;
+  }
+
+  public void markBatchFinished() {
+    this.batchFinished = true;
   }
 }

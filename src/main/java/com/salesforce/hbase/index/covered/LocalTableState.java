@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
@@ -78,7 +79,11 @@ public class LocalTableState implements TableState {
     this.env = environment;
     this.table = table;
     this.update = update;
-    this.memstore = new ExposedMemStore(this.env.getConfiguration(), KeyValue.COMPARATOR);
+    // ensure that the memstore just uses the KV references, rather than copying them into the
+    // memstore
+    Configuration conf = new Configuration(environment.getConfiguration());
+    ExposedMemStore.disableMemSLAB(conf);
+    this.memstore = new ExposedMemStore(conf, KeyValue.COMPARATOR);
     this.scannerBuilder = new ScannerBuilder(memstore, update);
   }
 

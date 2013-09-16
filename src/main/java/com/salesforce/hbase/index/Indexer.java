@@ -239,23 +239,55 @@ public class Indexer extends BaseRegionObserver {
     if(!this.builder.isEnabled(m)){
       return;
     }
-    
-    Collection<Pair<Mutation, String>> indexUpdates = extractIndexUpdate(edit);
-
-    // early exit - we have nothing to write, so we don't need to do anything else. NOTE: we don't
-    // release the WAL Rolling lock (INDEX_UPDATE_LOCK) since we never take it in doPre if there are
-    // no index updates.
-    if (indexUpdates.size() == 0) {
+    // there is a little bit of excess here- we iterate all the non-index kvs for this check first
+    // and then do it again later when getting out the index updates. This should be pretty minor
+    // though, compared to the rest of the runtime
+    IndexedKeyValue ikv = getFirstIndexedKeyValue(edit);
+    /*
+     * early exit - we have nothing to write, so we don't need to do anything else. NOTE: we don't
+     * release the WAL Rolling lock (INDEX_UPDATE_LOCK) since we never take it in doPre if there are
+     * no index updates.
+     */
+    if (ikv == null) {
       return;
     }
 
-    // the WAL edit is kept in memory and we already specified the factory when we created the
-    // references originally - therefore, we just pass in a null factory here and use the ones
-    // already specified on each reference
-    writer.writeAndKillYourselfOnFailure(indexUpdates);
+    /*
+     * only write the update if we haven't already seen this batch. We only want to write the batch
+     * once (this hook gets called with the same WALEdit for each Put/Delete in a batch, which can
+     * lead to writing all the index updates for each Put/Delete).
+     */
+    if (!ikv.getBatchFinished()) {
+      Collection<Pair<Mutation, String>> indexUpdates = extractIndexUpdate(edit);
+
+      // the WAL edit is kept in memory and we already specified the factory when we created the
+      // references originally - therefore, we just pass in a null factory here and use the ones
+      // already specified on each reference
+      writer.writeAndKillYourselfOnFailure(indexUpdates);
+
+      // mark the batch as having been written. In the single-update case, this never gets check
+      // again, but in the batch case, we will check it again (see above).
+      ikv.markBatchFinished();
+    }
 
     // release the lock on the index, we wrote everything properly
+    // we took the lock for each Put/Delete, so we have to release it a matching number of times
     INDEX_UPDATE_LOCK.unlock();
+  }
+
+  /**
+   * Search the {@link WALEdit} for the first {@link IndexedKeyValue} present
+   * @param edit {@link WALEdit}
+   * @return the first {@link IndexedKeyValue} in the {@link WALEdit} or <tt>null</tt> if not
+   *         present
+   */
+  private IndexedKeyValue getFirstIndexedKeyValue(WALEdit edit) {
+    for (KeyValue kv : edit.getKeyValues()) {
+      if (kv instanceof IndexedKeyValue) {
+        return (IndexedKeyValue) kv;
+      }
+    }
+    return null;
   }
 
   /**

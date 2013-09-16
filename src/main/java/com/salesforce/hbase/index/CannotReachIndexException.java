@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.hbase.index;
 
+import java.util.List;
+
 import org.apache.hadoop.hbase.client.Mutation;
 
 /**
@@ -35,7 +37,9 @@ import org.apache.hadoop.hbase.client.Mutation;
 @SuppressWarnings("serial")
 public class CannotReachIndexException extends Exception {
 
-  public CannotReachIndexException(String targetTableName, Mutation m, Exception cause) {
-    super("Cannot reach index table " + targetTableName + " to update index for edit: " + m, cause);
+  public CannotReachIndexException(String targetTableName, List<Mutation> mutations, Exception cause) {
+    super(
+        "Cannot reach index table " + targetTableName + " to update index for edit: " + mutations,
+        cause);
   }
 }
