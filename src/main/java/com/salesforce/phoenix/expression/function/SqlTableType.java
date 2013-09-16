@@ -25,27 +25,64 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.index;
+package com.salesforce.phoenix.expression.function;
 
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
-import org.apache.hadoop.hbase.util.Pair;
+import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
+
 
 /**
- * Index builder for covered-columns index that ties into phoenix for faster use.
+ * 
+ * Function used to get the SQL table type name from the serialized table type.
+ * Usage:
+ * SqlTableType('v') will return 'VIEW' based on
+ * {@link java.sql.DatabaseMetaData#getTableTypes()}
+ * 
+ * @author jtaylor
+ * @since 2.2
  */
-public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
+@BuiltInFunction(name=SqlTableType.NAME, args= {
+    @Argument(allowedTypes=PDataType.CHAR)} )
+public class SqlTableType extends ScalarFunction {
+    public static final String NAME = "SqlTableType";
 
+    public SqlTableType() {
+    }
+    
+    public SqlTableType(List<Expression> children) throws SQLException {
+        super(children);
+    }
+    
     @Override
-    public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) {
-      // TODO
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        Expression child = children.get(0);
+        if (!child.evaluate(tuple, ptr)) {
+            return false;
+        }
+        if (ptr.getLength() == 0) {
+            return true;
+        }
+        PTableType tableType = PTableType.fromSerializedValue(ptr.get()[ptr.getOffset()]);
+        ptr.set(tableType.getValue().getBytes());
+        return true;
     }
 
-  @Override
-  public boolean isEnabled(Mutation m) {
-    // ask the codec to see if we should even attempt indexing
-    return this.codec.isEnabled(m);
-  }
+    @Override
+    public PDataType getDataType() {
+        return PDataType.VARCHAR;
+    }
+    
+    @Override
+    public String getName() {
+        return NAME;
+    }
 }

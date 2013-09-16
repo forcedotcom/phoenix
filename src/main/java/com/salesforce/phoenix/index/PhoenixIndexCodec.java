@@ -160,8 +160,6 @@ public class PhoenixIndexCodec implements IndexCodec {
     
   @Override
   public boolean isEnabled(Mutation m) {
-      // TODO cache these maintainers so we don't need to rediscover them later (e.g. when building
-      // the index update)
       List<IndexMaintainer> maintainers = getIndexMaintainers(m.getAttributesMap());
       return maintainers.size() > 0;
   }
