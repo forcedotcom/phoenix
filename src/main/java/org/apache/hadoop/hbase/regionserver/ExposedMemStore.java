@@ -81,4 +81,12 @@ public class ExposedMemStore extends MemStore {
     return super.heapSizeChange(kv, notpresent);
   }
 
+  /**
+   * Disable the memstore MemSLAB in the given configuration.
+   * @param conf to update
+   */
+  public static void disableMemSLAB(Configuration conf) {
+    conf.setBoolean(MemStore.USEMSLAB_KEY, false);
+  }
+
 }
