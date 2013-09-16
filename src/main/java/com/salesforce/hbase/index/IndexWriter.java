@@ -111,8 +111,10 @@ public class IndexWriter {
     for (Pair<Mutation, HTableInterfaceReference> entry : toWrite) {
       // do the put into the index table
       singleMutation.add(entry.getFirst());
-      LOG.info("Writing index update:" + entry.getFirst() + " to table: "
-          + entry.getSecond().getTableName());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Writing index update:" + entry.getFirst() + " to table: "
+            + entry.getSecond().getTableName());
+      }
       try {
         HTableInterface table;
 
