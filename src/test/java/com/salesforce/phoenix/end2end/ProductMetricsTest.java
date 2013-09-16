@@ -341,6 +341,26 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testTableAliasSameAsTableName() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        String query = "SELECT sum(transactions) FROM PRODUCT_METRICS PRODUCT_METRICS";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            initTableValues(tenantId, getSplits(tenantId), ts);
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(2100, rs.getLong(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testPartiallyEvaluableAnd() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();

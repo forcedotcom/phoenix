@@ -27,13 +27,42 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.C_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.E_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.MILLIS_IN_DAY;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.ROW1;
+import static com.salesforce.phoenix.util.TestUtil.ROW2;
+import static com.salesforce.phoenix.util.TestUtil.ROW3;
+import static com.salesforce.phoenix.util.TestUtil.ROW4;
+import static com.salesforce.phoenix.util.TestUtil.ROW5;
+import static com.salesforce.phoenix.util.TestUtil.ROW6;
+import static com.salesforce.phoenix.util.TestUtil.ROW7;
+import static com.salesforce.phoenix.util.TestUtil.ROW8;
+import static com.salesforce.phoenix.util.TestUtil.ROW9;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
 import java.sql.Date;
-import java.util.*;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;

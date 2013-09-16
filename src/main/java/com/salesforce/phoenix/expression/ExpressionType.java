@@ -47,6 +47,7 @@ import com.salesforce.phoenix.expression.function.RegexpReplaceFunction;
 import com.salesforce.phoenix.expression.function.RegexpSubstrFunction;
 import com.salesforce.phoenix.expression.function.ReverseFunction;
 import com.salesforce.phoenix.expression.function.RoundFunction;
+import com.salesforce.phoenix.expression.function.SqlTableType;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.expression.function.StddevPopFunction;
 import com.salesforce.phoenix.expression.function.StddevSampFunction;
@@ -123,7 +124,8 @@ public enum ExpressionType {
     DoubleSubtractExpression(DoubleSubtractExpression.class),
     DoubleMultiplyExpression(DoubleMultiplyExpression.class),
     DoubleDivideExpression(DoubleDivideExpression.class),
-    MD5Function(MD5Function.class);
+    MD5Function(MD5Function.class),
+    SqlTableType(SqlTableType.class);
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
