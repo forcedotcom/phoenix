@@ -35,16 +35,26 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.FunctionParseNode.*;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 @BuiltInFunction(name = MD5Function.NAME,  args={@Argument()})
 public class MD5Function extends ScalarFunction {
   public static final String NAME = "MD5";
+  public static final Integer LENGTH = 16;
 
   private final MessageDigest messageDigest;
 
+  public MD5Function() throws SQLException {
+      try {
+          messageDigest = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException e) {
+          throw new SQLException(e);
+        }      
+  }
+  
   public MD5Function(List<Expression> children) throws SQLException {
     super(children);
     try {
@@ -53,17 +63,11 @@ public class MD5Function extends ScalarFunction {
       throw new RuntimeException(e);
     }
   }
-
+  
   @Override
   public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
     if (!getChildExpression().evaluate(tuple, ptr)) {
       return false;
-    }
-
-    String sourceStr = (String) PDataType.VARCHAR.toObject(ptr, getChildExpression().getColumnModifier());
-
-    if (sourceStr == null) {
-      return true;
     }
 
     // Update the digest value
@@ -76,6 +80,16 @@ public class MD5Function extends ScalarFunction {
   @Override
   public PDataType getDataType() {
     return PDataType.BINARY;
+  }
+
+  @Override
+  public Integer getMaxLength() {
+    return LENGTH;
+  }
+
+  @Override
+  public Integer getByteSize() {
+    return LENGTH;
   }
 
   @Override
