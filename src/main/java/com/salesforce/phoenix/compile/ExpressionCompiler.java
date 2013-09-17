@@ -30,7 +30,10 @@ package com.salesforce.phoenix.compile;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -38,11 +41,63 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.CaseExpression;
+import com.salesforce.phoenix.expression.CoerceExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
+import com.salesforce.phoenix.expression.DateAddExpression;
+import com.salesforce.phoenix.expression.DateSubtractExpression;
+import com.salesforce.phoenix.expression.DecimalAddExpression;
+import com.salesforce.phoenix.expression.DecimalDivideExpression;
+import com.salesforce.phoenix.expression.DecimalMultiplyExpression;
+import com.salesforce.phoenix.expression.DecimalSubtractExpression;
+import com.salesforce.phoenix.expression.DoubleAddExpression;
+import com.salesforce.phoenix.expression.DoubleDivideExpression;
+import com.salesforce.phoenix.expression.DoubleMultiplyExpression;
+import com.salesforce.phoenix.expression.DoubleSubtractExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.InListExpression;
+import com.salesforce.phoenix.expression.IsNullExpression;
+import com.salesforce.phoenix.expression.LikeExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.LongAddExpression;
+import com.salesforce.phoenix.expression.LongDivideExpression;
+import com.salesforce.phoenix.expression.LongMultiplyExpression;
+import com.salesforce.phoenix.expression.LongSubtractExpression;
+import com.salesforce.phoenix.expression.NotExpression;
+import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.expression.StringConcatExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.AddParseNode;
+import com.salesforce.phoenix.parse.AndParseNode;
+import com.salesforce.phoenix.parse.ArithmeticParseNode;
+import com.salesforce.phoenix.parse.BindParseNode;
+import com.salesforce.phoenix.parse.CaseParseNode;
+import com.salesforce.phoenix.parse.CastParseNode;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.ComparisonParseNode;
+import com.salesforce.phoenix.parse.DivideParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.parse.InListParseNode;
+import com.salesforce.phoenix.parse.IsNullParseNode;
+import com.salesforce.phoenix.parse.LikeParseNode;
+import com.salesforce.phoenix.parse.LiteralParseNode;
+import com.salesforce.phoenix.parse.MultiplyParseNode;
+import com.salesforce.phoenix.parse.NotParseNode;
+import com.salesforce.phoenix.parse.OrParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.StringConcatParseNode;
+import com.salesforce.phoenix.parse.SubtractParseNode;
+import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.DelegateDatum;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -230,6 +285,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         Iterator<Expression> iterator = children.iterator();
         while (iterator.hasNext()) {
             Expression child = iterator.next();
+            if (child.getDataType() != PDataType.BOOLEAN) {
+                throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), child.toString());
+            }
             if (child == LiteralExpression.FALSE_EXPRESSION) {
                 return child;
             }
@@ -255,6 +313,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         Iterator<Expression> iterator = children.iterator();
         while (iterator.hasNext()) {
             Expression child = iterator.next();
+            if (child.getDataType() != PDataType.BOOLEAN) {
+                throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), child.toString());
+            }
             if (child == LiteralExpression.FALSE_EXPRESSION) {
                 iterator.remove();
             }

@@ -40,7 +40,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
 
     @Override
     public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) {
-      // TODO
+      // TODO: use skip scan here
     }
 
   @Override

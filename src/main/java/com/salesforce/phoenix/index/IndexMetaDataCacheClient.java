@@ -1,22 +1,17 @@
 package com.salesforce.phoenix.index;
 
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
-import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.join.MaxServerCacheSizeExceededException;
-import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ScanUtil;
 
 public class IndexMetaDataCacheClient {
     private static final int USE_CACHE_THRESHOLD = 10;
@@ -56,15 +51,10 @@ public class IndexMetaDataCacheClient {
      * size
      */
     public ServerCache addIndexMetadataCache(List<Mutation> mutations, ImmutableBytesWritable ptr) throws SQLException {
-        List<KeyRange> keys = Lists.newArrayListWithExpectedSize(mutations.size());
-        for (Mutation m : mutations) {
-            keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
-        }
-        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
         /**
          * Serialize and compress hashCacheTable
          */
-        return serverCache.addServerCache(keyRanges, ptr, new IndexMetaDataCacheFactory());
+        return serverCache.addServerCache(ScanUtil.newScanRanges(mutations), ptr, new IndexMetaDataCacheFactory());
     }
     
 }
