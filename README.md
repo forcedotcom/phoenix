@@ -1,5 +1,5 @@
-<h1>Phoenix: A SQL skin over HBase<br /> 
-<em><sup><sup>'We put the SQL back in NoSQL'</sup></sup></em></h1>
+![logo](http://forcedotcom.github.com/phoenix/images/logo.jpg)
+
 Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki), and download it [here](https://github.com/forcedotcom/phoenix/wiki/Download).
 ## Mission
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
