@@ -28,19 +28,29 @@
 package com.salesforce.phoenix.util;
 
 import java.io.IOException;
-import java.util.*;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.filter.SkipScanFilter;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.SaltingUtil;
 
 
 /**
@@ -381,5 +391,14 @@ public class ScanUtil {
         } else {
             return ++mid;
         }
+    }
+    
+    public static ScanRanges newScanRanges(List<Mutation> mutations) throws SQLException {
+        List<KeyRange> keys = Lists.newArrayListWithExpectedSize(mutations.size());
+        for (Mutation m : mutations) {
+            keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
+        }
+        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
+        return keyRanges;
     }
 }

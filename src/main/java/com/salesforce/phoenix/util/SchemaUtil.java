@@ -41,6 +41,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -270,9 +271,12 @@ public class SchemaUtil {
         return Bytes.toString(getTableNameAsBytes(schemaName,tableName));
     }
 
-    public static String getColumnName(String schemaName, String tableName, String familyName, String columnName) {
-        if ((schemaName == null || schemaName.isEmpty()) && tableName == null || tableName.isEmpty()) {
+    public static String getMetaDataEntityName(String schemaName, String tableName, String familyName, String columnName) {
+        if ((schemaName == null || schemaName.isEmpty()) && (tableName == null || tableName.isEmpty())) {
             return getName(familyName, columnName);
+        }
+        if ((familyName == null || familyName.isEmpty()) && (columnName == null || columnName.isEmpty())) {
+            return getName(schemaName, tableName);
         }
         return getName(getName(schemaName, tableName), getName(familyName, columnName));
     }
@@ -399,7 +403,7 @@ public class SchemaUtil {
     }
 
     public static boolean isMetaTable(byte[] tableName) {
-        return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
+        return Bytes.compareTo(tableName, TYPE_TABLE_NAME_BYTES) == 0;
     }
     
     public static byte[] padChar(byte[] byteValue, Integer byteSize) {
@@ -488,7 +492,7 @@ public class SchemaUtil {
     public static final String UPGRADE_TO_2_1 = "UpgradeTo21";
 
     public static boolean isUpgradeTo2Necessary(ConnectionQueryServices connServices) throws SQLException {
-        HTableInterface htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+        HTableInterface htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
         try {
             return (htable.getTableDescriptor().getValue(SchemaUtil.UPGRADE_TO_2_0) == null);
         } catch (IOException e) {
@@ -598,7 +602,7 @@ public class SchemaUtil {
             info.remove(SchemaUtil.UPGRADE_TO_2_0); // Remove this property and ignore, since upgrade has already been done
             return false;
         }
-        return true;
+        return isUpgradeNecessary;
     }
 
     public static String getEscapedTableName(String schemaName, String tableName) {
@@ -634,9 +638,9 @@ public class SchemaUtil {
     }
     
     public static void updateSystemTableTo2(PhoenixConnection metaConnection, PTable table) throws SQLException {
-        PTable metaTable = metaConnection.getPMetaData().getTable(SchemaUtil.getTableName(PhoenixDatabaseMetaData.TYPE_SCHEMA, PhoenixDatabaseMetaData.TYPE_TABLE));
+        PTable metaTable = metaConnection.getPMetaData().getTable(TYPE_TABLE_NAME);
         // Execute alter table statement for each column that was added if not already added
-        if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
+        if (table.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
             // Causes row key of system table to be upgraded
             if (checkIfUpgradeTo2Necessary(metaConnection.getQueryServices(), metaConnection.getURL(), metaConnection.getClientInfo())) {
                 metaConnection.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE).next();
@@ -734,12 +738,12 @@ public class SchemaUtil {
         HTableInterface htable = null;
         HBaseAdmin admin = connServices.getAdmin();
         try {
-            htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
             HTableDescriptor htd = new HTableDescriptor(htable.getTableDescriptor());
             htd.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
-            admin.disableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
-            admin.modifyTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME, htd);
-            admin.enableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            admin.disableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
+            admin.modifyTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES, htd);
+            admin.enableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
         } catch (IOException e) {
             throw new SQLException(e);
         } finally {

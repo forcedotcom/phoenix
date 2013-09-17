@@ -273,7 +273,7 @@ public class TestUtil {
 
     public static void clearMetaDataCache(Connection conn) throws Throwable {
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        HTableInterface htable = pconn.getQueryServices().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+        HTableInterface htable = pconn.getQueryServices().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
         htable.coprocessorExec(MetaDataProtocol.class, HConstants.EMPTY_START_ROW,
                 HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataProtocol, Void>() {
             @Override

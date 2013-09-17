@@ -359,7 +359,9 @@ public class MutationState implements SQLCloseable {
                 HTableInterface hTable = connection.getQueryServices().getTable(htableName);
                 try {
                     if (logger.isDebugEnabled()) logMutationSize(hTable, mutations);
+                    long startTime = System.currentTimeMillis();
                     hTable.batch(mutations);
+                    if (logger.isDebugEnabled()) logger.debug("Total time for batch call of  " + mutations.size() + " mutations into " + table.getName().getString() + ": " + (System.currentTimeMillis() - startTime) + " ms");
                     committedList.add(entry);
                 } catch (Exception e) {
                     // Throw to client with both what was committed so far and what is left to be committed.

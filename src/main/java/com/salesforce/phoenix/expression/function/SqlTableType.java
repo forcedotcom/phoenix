@@ -25,24 +25,64 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.expression.function;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import java.sql.SQLException;
+import java.util.List;
 
-public class SchemaNotFoundException extends MetaDataEntityNotFoundException {
-    private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.SCHEMA_NOT_FOUND;
-    private final String schemaName;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-    public SchemaNotFoundException(String schemaName) {
-        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).build().toString(),
-                code.getSQLState(), code.getErrorCode());
-        this.schemaName = schemaName;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
+
+
+/**
+ * 
+ * Function used to get the SQL table type name from the serialized table type.
+ * Usage:
+ * SqlTableType('v') will return 'VIEW' based on
+ * {@link java.sql.DatabaseMetaData#getTableTypes()}
+ * 
+ * @author jtaylor
+ * @since 2.2
+ */
+@BuiltInFunction(name=SqlTableType.NAME, args= {
+    @Argument(allowedTypes=PDataType.CHAR)} )
+public class SqlTableType extends ScalarFunction {
+    public static final String NAME = "SqlTableType";
+
+    public SqlTableType() {
+    }
+    
+    public SqlTableType(List<Expression> children) throws SQLException {
+        super(children);
+    }
+    
+    @Override
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        Expression child = children.get(0);
+        if (!child.evaluate(tuple, ptr)) {
+            return false;
+        }
+        if (ptr.getLength() == 0) {
+            return true;
+        }
+        PTableType tableType = PTableType.fromSerializedValue(ptr.get()[ptr.getOffset()]);
+        ptr.set(tableType.getValue().getBytes());
+        return true;
     }
 
-    public String getSchemaName() {
-        return schemaName;
+    @Override
+    public PDataType getDataType() {
+        return PDataType.VARCHAR;
     }
-
+    
+    @Override
+    public String getName() {
+        return NAME;
+    }
 }
