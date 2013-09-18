@@ -344,7 +344,7 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
     public void testTableAliasSameAsTableName() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        String query = "SELECT sum(transactions) FROM PRODUCT_METRICS PRODUCT_METRICS";
+        String query = "SELECT sum(PRODUCT_METRICS.transactions) FROM PRODUCT_METRICS PRODUCT_METRICS";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
