@@ -184,7 +184,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     private void addIndexToTable(PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException, SQLException {
-        byte[] key = SchemaUtil.getTableKey(schemaName.getBytes(), indexName.getBytes(), ByteUtil.EMPTY_BYTE_ARRAY);
+        byte[] key = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName.getBytes(), indexName.getBytes());
         PTable indexTable = doGetTable(key, clientTimeStamp);
         if (indexTable == null) {
             ServerUtil.throwIOException("Invalid meta data state", new TableNotFoundException(schemaName.getString(), tableName.getString()));
@@ -387,8 +387,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
-            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName, tenantIdBytes);
-            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName, tenantIdBytes);
+            byte[] lockKey = SchemaUtil.getTableKey(tenantIdBytes, schemaName, lockTableName);
+            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(tenantIdBytes, schemaName, tableName);
             byte[] parentKey = parentTableName == null ? null : lockKey;
             
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
@@ -484,8 +484,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
-            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName, tenantIdBytes);
-            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName, tenantIdBytes);
+            byte[] lockKey = SchemaUtil.getTableKey(tenantIdBytes, schemaName, lockTableName);
+            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(tenantIdBytes, schemaName, tableName);
             
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
             HRegion region = env.getRegion();
@@ -570,12 +570,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
         invalidateList.add(cacheKey);
-        byte[][] rowKeyMetaData = new byte[4][];
+        byte[][] rowKeyMetaData = new byte[5][];
         byte[] rowKey;
         do {
             rowKey = results.get(0).getRow();
             int nColumns = getVarChars(rowKey, rowKeyMetaData);
-            if (nColumns == 4 && rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX].length == 0 && rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX].length > 0) {
+            if (nColumns == 5 && rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX].length == 0 && rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX].length > 0) {
                 indexNames.add(rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX]);
             }
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
@@ -590,7 +590,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         
         // Recursively delete indexes
         for (byte[] indexName : indexNames) {
-            byte[] indexKey = SchemaUtil.getTableKey(schemaName, indexName, ByteUtil.EMPTY_BYTE_ARRAY);
+            byte[] indexKey = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName, indexName);
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
             // FIXME: the version of the Delete constructor without the lock args was introduced
             // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
@@ -612,13 +612,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     private MetaDataMutationResult mutateColumn(List<Mutation> tableMetadata, Verifier verifier) throws IOException {
-        byte[][] rowKeyMetaData = new byte[4][];
+        byte[][] rowKeyMetaData = new byte[5][];
         MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(schemaName,tableName, ByteUtil.EMPTY_BYTE_ARRAY);
+            byte[] key = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName, tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {
@@ -703,7 +703,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return mutateColumn(tableMetaData, new Verifier() {
             @Override
             public MetaDataMutationResult checkColumns(PTable table, byte[][] rowKeyMetaData, List<Mutation> tableMetaData) {
-                int keyOffset = rowKeyMetaData[SCHEMA_NAME_INDEX].length + rowKeyMetaData[TABLE_NAME_INDEX].length + 2;
+                int keyOffset = rowKeyMetaData[TENANT_ID_INDEX].length + rowKeyMetaData[SCHEMA_NAME_INDEX].length + rowKeyMetaData[TABLE_NAME_INDEX].length + 2;
                 for (Mutation m : tableMetaData) {
                     byte[] key = m.getRow();
                     int pkCount = getVarChars(key, keyOffset, key.length-keyOffset, 2, rowKeyMetaData);
@@ -733,7 +733,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return mutateColumn(tableMetaData, new Verifier() {
             @Override
             public MetaDataMutationResult checkColumns(PTable table, byte[][] rowKeyMetaData, List<Mutation> tableMetaData) {
-                int keyOffset = rowKeyMetaData[SCHEMA_NAME_INDEX].length + rowKeyMetaData[TABLE_NAME_INDEX].length + 2;
+                int keyOffset = rowKeyMetaData[TENANT_ID_INDEX].length + rowKeyMetaData[SCHEMA_NAME_INDEX].length + rowKeyMetaData[TABLE_NAME_INDEX].length + 2;
                 boolean deletePKColumn = false;
                 for (Mutation m : tableMetaData) {
                     byte[] key = m.getRow();
@@ -774,7 +774,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     @Override
     public MetaDataMutationResult getTable(byte[] tenantId, byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
         try {
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName, tenantId);
+            byte[] key = SchemaUtil.getTableKey(tenantId, schemaName, tableName);
             
             // get the co-processor environment
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
@@ -873,7 +873,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName, ByteUtil.EMPTY_BYTE_ARRAY);
+            byte[] key = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName, tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {

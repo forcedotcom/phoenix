@@ -813,7 +813,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         if (tenantIdBytes.length == 0)
             ensureTableCreated(tableName, tableType == PTableType.VIEW, tableProps, families, splits);
 
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, tenantIdBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -828,7 +828,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     public MetaDataMutationResult getTable(byte[] tenantId, final byte[] schemaBytes, final byte[] tableBytes,
             final long tableTimestamp, final long clientTimestamp) throws SQLException {
         final byte[] nonNullTenantId = tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId;
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, nonNullTenantId);
+        byte[] tableKey = SchemaUtil.getTableKey(nonNullTenantId, schemaBytes, tableBytes);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
@@ -845,7 +845,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, tenantIdBytes == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantIdBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantIdBytes, schemaBytes, tableBytes);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
@@ -860,9 +860,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[][] rowKeyMetaData = new byte[3][];
         byte[] rowKey = tableMetaData.get(0).getRow();
         SchemaUtil.getVarChars(rowKey, rowKeyMetaData);
+        byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, ByteUtil.EMPTY_BYTE_ARRAY);
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
         if (family != null) {
             ensureFamilyCreated(tableName, readOnly, family);
@@ -881,10 +882,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, byte[] emptyCF) throws SQLException {
         byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
+        byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableName = SchemaUtil.getTableName(schemaBytes, tableBytes);
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes, ByteUtil.EMPTY_BYTE_ARRAY);
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         if (emptyCF != null) {
             this.ensureFamilyCreated(tableName, false, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
         }
@@ -990,8 +992,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     public MetaDataMutationResult updateIndexState(final List<Mutation> tableMetaData, String parentTableName) throws SQLException {
         byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
-        byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX],
-                ByteUtil.EMPTY_BYTE_ARRAY);
+        byte[] tableKey = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override

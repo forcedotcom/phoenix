@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import static com.salesforce.phoenix.schema.PTableType.INDEX;
+
 import java.sql.SQLException;
 import java.util.*;
 
@@ -78,7 +80,7 @@ public class PMetaDataImpl implements PMetaData {
             tables = Maps.newHashMap(schema.getTables());
         }
         PTable oldTable = tables.put(table.getName().getString(), table);
-        if (table.getDataTableName() != null) { // Upsert new index table into parent data table list
+        if (table.getType() == INDEX && table.getDataTableName() != null) { // Upsert new index table into parent data table list
             String parentTableName = table.getDataTableName().getString();
             PTable parentTable = tables.get(parentTableName);
             List<PTable> oldIndexes = parentTable.getIndexes();
