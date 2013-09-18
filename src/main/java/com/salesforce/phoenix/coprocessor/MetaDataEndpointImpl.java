@@ -183,8 +183,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    private void addIndexToTable(PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException, SQLException {
-        byte[] key = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName.getBytes(), indexName.getBytes());
+    private void addIndexToTable(PName tenantId, PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException, SQLException {
+        byte[] key = SchemaUtil.getTableKey(tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId.getBytes(), schemaName.getBytes(), indexName.getBytes());
         PTable indexTable = doGetTable(key, clientTimeStamp);
         if (indexTable == null) {
             ServerUtil.throwIOException("Invalid meta data state", new TableNotFoundException(schemaName.getString(), tableName.getString()));
@@ -320,7 +320,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             int colKeyOffset = offset + colName.getBytes().length + 1;
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
             if (colName.getString().isEmpty() && famName != null) {
-                addIndexToTable(schemaName, famName, dataTableName, clientTimeStamp, indexes);                
+                addIndexToTable(tenantId, schemaName, famName, dataTableName, clientTimeStamp, indexes);                
             } else {
                 addColumnToTable(results, colName, famName, colKeyValues, columns, posOffset);
             }
@@ -614,11 +614,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private MetaDataMutationResult mutateColumn(List<Mutation> tableMetadata, Verifier verifier) throws IOException {
         byte[][] rowKeyMetaData = new byte[5][];
         MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantId = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName, tableName);
+            byte[] key = SchemaUtil.getTableKey(tenantId, schemaName, tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {
@@ -869,11 +870,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws IOException {
         byte[][] rowKeyMetaData = new byte[3][];
         MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantId = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName, tableName);
+            byte[] key = SchemaUtil.getTableKey(tenantId, schemaName, tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {
