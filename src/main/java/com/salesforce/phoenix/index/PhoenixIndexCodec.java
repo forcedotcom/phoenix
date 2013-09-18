@@ -25,6 +25,7 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
@@ -51,35 +52,38 @@ public class PhoenixIndexCodec implements IndexCodec {
     private List<IndexMaintainer> indexMaintainers;
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
     private Configuration conf;
+    private byte[] uuid;
 
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
       this.conf = env.getConfiguration();
     }
 
-    private List<IndexMaintainer> getIndexMaintainers(TableState state) {
-       return getIndexMaintainers(state.getUpdateAttributes());
+    private List<IndexMaintainer> getIndexMaintainers() {
+       return indexMaintainers;
     }
     
     /**
-     * @param attributes attributes from a primary table update
+     * @param m mutation that is being processed
      * @return the {@link IndexMaintainer}s that would maintain the index for an update with the
      *         attributes.
      */
-    private List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes) {
-        if (indexMaintainers != null) {
-            return indexMaintainers;
-        }
-
-        byte[] md;
+    private boolean initIndexMaintainers(Mutation m) {
+        Map<String, byte[]> attributes = m.getAttributesMap();
         byte[] uuid = attributes.get(INDEX_UUID);
         if (uuid == null) {
-            md = attributes.get(INDEX_MD);
-            if (md == null) {
-                indexMaintainers = Collections.emptyList();
-            } else {
-                indexMaintainers = IndexMaintainer.deserialize(md);
-            }
+            this.uuid = null;
+            indexMaintainers = Collections.emptyList();
+            return false;
+        }
+        if (this.uuid != null && Bytes.compareTo(this.uuid, uuid) == 0) {
+            return true;
+        }
+        this.uuid = uuid;
+
+        byte[] md = attributes.get(INDEX_MD);
+        if (md != null) {
+            indexMaintainers = IndexMaintainer.deserialize(md);
         } else {
             byte[] tenantIdBytes = attributes.get(PhoenixRuntime.TENANT_ID_ATTRIB);
             ImmutableBytesWritable tenantId =
@@ -89,12 +93,12 @@ public class PhoenixIndexCodec implements IndexCodec {
                     (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
             this.indexMaintainers = indexCache.getIndexMaintainers();
         }
-        return indexMaintainers;
+        return true;
     }
     
     @Override
     public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException {
-        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers();
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
@@ -119,7 +123,7 @@ public class PhoenixIndexCodec implements IndexCodec {
 
     @Override
     public Iterable<IndexUpdate> getIndexDeletes(TableState state) throws IOException {
-        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers();
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
@@ -143,7 +147,6 @@ public class PhoenixIndexCodec implements IndexCodec {
     
   @Override
   public boolean isEnabled(Mutation m) {
-      List<IndexMaintainer> maintainers = getIndexMaintainers(m.getAttributesMap());
-      return maintainers.size() > 0;
+      return initIndexMaintainers(m);
   }
 }

@@ -151,7 +151,7 @@ public class ServerCacheClient {
         closeables.add(chunk);
         ServerCache hashCacheSpec = null;
         SQLException firstException = null;
-        final byte[] cacheId = nextId();
+        final byte[] cacheId = generateId();
         /**
          * Execute EndPoint in parallel on each server to send compressed hash cache 
          */
@@ -272,7 +272,7 @@ public class ServerCacheClient {
     /**
      * Create an ID to keep the cached information across other operations independent
      */
-    private static byte[] nextId() {
+    public static byte[] generateId() {
         return Bytes.toBytes(UUID.randomUUID().toString());
     }
 }

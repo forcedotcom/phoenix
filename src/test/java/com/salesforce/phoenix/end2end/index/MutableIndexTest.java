@@ -1,7 +1,5 @@
 package com.salesforce.phoenix.end2end.index;
 
-import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
-import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -37,6 +35,8 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
     private static final int INDEX_SPLITS = 4;
     private static final byte[] DATA_TABLE_FULL_NAME = SchemaUtil.getTableNameAsBytes(null, "T");
     private static final byte[] INDEX_TABLE_FULL_NAME = SchemaUtil.getTableNameAsBytes(null, "I");
+    public static final String MINDEX_DATA_SCHEMA = "MINDEX_TEST";
+    public static final String MINDEX_DATA_TABLE = "MINDEX_DATA_TABLE";
     
     @BeforeClass
     public static void doSetup() throws Exception {
@@ -47,12 +47,36 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
     
+    private static void createTestTable() throws SQLException {
+        String ddl = " create table if not exists " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE + "(" +
+                "   varchar_pk VARCHAR NOT NULL, " +
+                "   char_pk CHAR(5) NOT NULL, " +
+                "   int_pk INTEGER NOT NULL, "+ 
+                "   long_pk BIGINT NOT NULL, " +
+                "   decimal_pk DECIMAL(31, 10) NOT NULL, " +
+                "   a.varchar_col1 VARCHAR, " +
+                "   a.char_col1 CHAR(5), " +
+                "   a.int_col1 INTEGER, " +
+                "   a.long_col1 BIGINT, " +
+                "   a.decimal_col1 DECIMAL(31, 10), " +
+                "   b.varchar_col2 VARCHAR, " +
+                "   b.char_col2 CHAR(5), " +
+                "   b.int_col2 INTEGER, " +
+                "   b.long_col2 BIGINT, " +
+                "   b.decimal_col2 DECIMAL(31, 10) " +
+                "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk DESC, decimal_pk))";
+            Properties props = new Properties(TEST_PROPERTIES);
+            Connection conn = DriverManager.getConnection(getUrl(), props);
+            conn.createStatement().execute(ddl);
+            conn.close();
+    }
+    
     // Populate the test table with data.
     private static void populateTestTable() throws SQLException {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
-            String upsert = "UPSERT INTO " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+            String upsert = "UPSERT INTO " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE
                     + " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = conn.prepareStatement(upsert);
             stmt.setString(1, "varchar1");
@@ -275,15 +299,15 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         try {
-            ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+            createTestTable();
             populateTestTable();
-            String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+            String ddl = "CREATE INDEX IDX ON " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE
                     + " (char_col1 ASC, int_col1 ASC)"
                     + " INCLUDE (long_col1, long_col2)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
-            String query = "SELECT char_col1, int_col1 from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+            String query = "SELECT char_col1, int_col1 from " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE;
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
             assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER INDEX_TEST.IDX", QueryUtil.getExplainPlan(rs));
             
@@ -298,6 +322,67 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
             assertEquals("chara", rs.getString(1));
             assertEquals(4, rs.getInt(2));
             assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testCoveredColumnUpdates() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String tableName = MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE;
+            createTestTable();
+            populateTestTable();
+            String ddl = "CREATE INDEX IDX ON " + tableName
+                    + " (char_col1 ASC, int_col1 ASC)"
+                    + " INCLUDE (long_col1, long_col2)";
+            PreparedStatement stmt = conn.prepareStatement(ddl);
+            stmt.execute();
+            
+            String query = "SELECT char_col1, int_col1, long_col2 from " +tableName;
+            ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER MINDEX_TEST.IDX", QueryUtil.getExplainPlan(rs));
+            
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(2, rs.getInt(2));
+            assertEquals(3L, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(3, rs.getInt(2));
+            assertEquals(4L, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(4, rs.getInt(2));
+            assertEquals(5L, rs.getLong(3));
+            assertFalse(rs.next());
+            
+            stmt = conn.prepareStatement("UPSERT INTO " + tableName
+                    + "(varchar_pk, char_pk, int_pk, long_pk , decimal_pk, long_col2) SELECT varchar_pk, char_pk, int_pk, long_pk , decimal_pk, long_col2+1 FROM "
+                    + tableName + " WHERE long_col2=?");
+            stmt.setLong(1,4L);
+            assertEquals(1,stmt.executeUpdate());
+            conn.commit();
+            
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(2, rs.getInt(2));
+            assertEquals(3L, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(3, rs.getInt(2));
+            assertEquals(5L, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(4, rs.getInt(2));
+            assertEquals(5L, rs.getLong(3));
+            assertFalse(rs.next());
+            
         } finally {
             conn.close();
         }

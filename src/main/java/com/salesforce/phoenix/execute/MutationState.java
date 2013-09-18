@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
@@ -337,21 +338,23 @@ public class MutationState implements SQLCloseable {
                 
                 ServerCache cache = null;
                 if (hasIndexMaintainers && isDataTable) {
-                    String attribName;
-                    byte[] attribValue;
+                    byte[] attribValue = null;
+                    byte[] uuidValue;
                     if (IndexMetaDataCacheClient.useIndexMetadataCache(mutations, tempPtr.getLength())) {
                         IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
                         cache = client.addIndexMetadataCache(mutations, tempPtr);
-                        attribName = PhoenixIndexCodec.INDEX_UUID;
-                        attribValue = cache.getId();
+                        uuidValue = cache.getId();
                     } else {
-                        attribName = PhoenixIndexCodec.INDEX_MD;
                         attribValue = ByteUtil.copyKeyBytesIfNecessary(tempPtr);
+                        uuidValue = ServerCacheClient.generateId();
                     }
                     // Either set the UUID to be able to access the index metadata from the cache
                     // or set the index metadata directly on the Mutation
                     for (Mutation mutation : mutations) {
-                        mutation.setAttribute(attribName, attribValue);
+                        mutation.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
+                        if (attribValue != null) {
+                            mutation.setAttribute(PhoenixIndexCodec.INDEX_MD, attribValue);
+                        }
                     }
                 }
                 
