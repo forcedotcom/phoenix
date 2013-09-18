@@ -86,6 +86,8 @@ public class CoveredColumnIndexCodec implements IndexCodec {
       Scanner kvs = stateInfo.getFirst();
       Pair<Integer, List<ColumnEntry>> columns =
           getNextEntries(refs, kvs, state.getCurrentRowKey());
+      // make sure we close the scanner
+      kvs.close();
       if (columns.getFirst().intValue() == 0) {
         return stateInfo.getSecond();
       }
@@ -143,6 +145,8 @@ public class CoveredColumnIndexCodec implements IndexCodec {
       Pair<Scanner, IndexUpdate> kvs = state.getIndexedColumnsTableState(refs);
       Pair<Integer, List<ColumnEntry>> columns =
           getNextEntries(refs, kvs.getFirst(), state.getCurrentRowKey());
+      // make sure we close the scanner reference
+      kvs.getFirst().close();
       // no change, just return the passed update
       if (columns.getFirst() == 0) {
         return kvs.getSecond();

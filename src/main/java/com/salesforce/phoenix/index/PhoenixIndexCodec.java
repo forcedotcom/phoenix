@@ -116,6 +116,8 @@ public class PhoenixIndexCodec implements IndexCodec {
             Mutation put = maintainer.buildUpdateMutations(valueGetter, ptr).get(0);
             indexUpdate.setTable(maintainer.getIndexTableName());
             indexUpdate.setUpdate(put);
+            //make sure we close the scanner when we are done
+            scanner.close();
             indexUpdates.add(indexUpdate);
         }
         return indexUpdates;
@@ -139,6 +141,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
             Delete delete = maintainer.buildDeleteMutation(valueGetter, ptr);
+            scanner.close();
             indexUpdate.setUpdate(delete);
             indexUpdates.add(indexUpdate);
         }

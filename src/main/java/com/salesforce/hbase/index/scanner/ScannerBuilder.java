@@ -153,6 +153,11 @@ public class ScannerBuilder {
       public KeyValue peek() throws IOException {
         return kvScanner.peek();
       }
+
+      @Override
+      public void close() {
+        kvScanner.close();
+      }
     };
   }
 }

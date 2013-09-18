@@ -1,5 +1,6 @@
 package com.salesforce.hbase.index.scanner;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -8,7 +9,7 @@ import org.apache.hadoop.hbase.KeyValue;
  * Scan the primary table. This is similar to HBase's scanner, but ensures that you will never see
  * deleted columns/rows
  */
-public interface Scanner {
+public interface Scanner extends Closeable {
 
   /**
    * @return the next keyvalue in the scanner or <tt>null</tt> if there is no next {@link KeyValue}
