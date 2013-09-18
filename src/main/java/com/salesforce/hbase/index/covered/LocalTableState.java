@@ -38,6 +38,7 @@ import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.KeyValue.KVComparator;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
@@ -45,6 +46,7 @@ import org.apache.hadoop.hbase.regionserver.ExposedMemStore;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.google.common.primitives.Longs;
 import com.salesforce.hbase.index.covered.data.LocalHBaseState;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.covered.update.ColumnTracker;
@@ -70,10 +72,64 @@ public class LocalTableState implements TableState {
   private LocalHBaseState table;
   private Mutation update;
   private Set<ColumnTracker> trackedColumns = new HashSet<ColumnTracker>();
-  private boolean initialized;
   private ScannerBuilder scannerBuilder;
   private List<KeyValue> kvs = new ArrayList<KeyValue>();
   private List<? extends IndexedColumnGroup> hints;
+  private CoveredColumns columnSet;
+
+  // TODO remove this when we replace the ExposedMemStore with our own implementation. Its really
+  // ugly to need to do this kind of thing, which is mostly due to the way the MemStore is written
+  // (e.g. we don't really care about read-points - everything we read from the HRegion is correctly
+  // visible). Leaving it for now as its a lot of work to replace that, though it could be a big
+  // win.
+  /**
+   * Just does a shallow copy of the wrapped keyvalue so we can mark it as a KeyValue to insert,
+   * rather than one already in the table
+   */
+  static class PendingKeyValue extends KeyValue {
+
+    /**
+     * @param kv to shallow copy
+     */
+    public PendingKeyValue(KeyValue kv) {
+      super(kv.getBuffer(), kv.getOffset(), kv.getLength());
+      this.setMemstoreTS(kv.getMemstoreTS());
+    }
+
+  }
+
+  public static KVComparator PENDING_UPDATE_FIRST_COMPARATOR = new KVComparator() {
+
+    @Override
+    public int compare(final KeyValue left, final KeyValue right) {
+      // do the raw comparison for kvs
+      int ret =
+          getRawComparator().compare(left.getBuffer(), left.getOffset() + KeyValue.ROW_OFFSET,
+            left.getKeyLength(), right.getBuffer(), right.getOffset() + KeyValue.ROW_OFFSET,
+            right.getKeyLength());
+      if (ret != 0) return ret;
+      // then always ensure that our KVS sort first
+      if (left instanceof PendingKeyValue) {
+        if (right instanceof PendingKeyValue) {
+          // both pending, base it on the memstore ts
+          return compareMemstoreTs(left, right);
+        }
+        // left is, but right isn't so left sorts first
+        return -1;
+      }
+      // right is, but left isn't, so right sorts first
+      else if (right instanceof PendingKeyValue) {
+        return 1;
+      }
+
+      // both are regular KVs, so we just do the usual MemStore compare
+      return compareMemstoreTs(left, right);
+    }
+
+    private int compareMemstoreTs(KeyValue left, KeyValue right) {
+      return -Longs.compare(left.getMemstoreTS(), right.getMemstoreTS());
+    }
+  };
 
   public LocalTableState(RegionCoprocessorEnvironment environment, LocalHBaseState table, Mutation update) {
     this.env = environment;
@@ -83,8 +139,9 @@ public class LocalTableState implements TableState {
     // memstore
     Configuration conf = new Configuration(environment.getConfiguration());
     ExposedMemStore.disableMemSLAB(conf);
-    this.memstore = new ExposedMemStore(conf, ExposedMemStore.IGNORE_MEMSTORE_TS_COMPARATOR);
+    this.memstore = new ExposedMemStore(conf, PENDING_UPDATE_FIRST_COMPARATOR);
     this.scannerBuilder = new ScannerBuilder(memstore, update);
+    this.columnSet = new CoveredColumns();
   }
 
   public void addPendingUpdates(KeyValue... kvs) {
@@ -131,7 +188,7 @@ public class LocalTableState implements TableState {
   @Override
   public Pair<Scanner, IndexUpdate> getIndexedColumnsTableState(
       Collection<? extends ColumnReference> indexedColumns) throws IOException {
-    ensureLocalStateInitialized();
+    ensureLocalStateInitialized(indexedColumns);
     // filter out things with a newer timestamp and track the column references to which it applies
     ColumnTracker tracker = new ColumnTracker(indexedColumns);
     synchronized (this.trackedColumns) {
@@ -156,7 +213,7 @@ public class LocalTableState implements TableState {
    */
   public Scanner getNonIndexedColumnsTableState(List<? extends ColumnReference> columns)
       throws IOException {
-    ensureLocalStateInitialized();
+    ensureLocalStateInitialized(columns);
     return this.scannerBuilder.buildNonIndexedColumnsScanner(columns, ts);
   }
 
@@ -166,13 +223,17 @@ public class LocalTableState implements TableState {
    * Even then, there is still fairly low contention as each new Put/Delete will have its own table
    * state.
    */
-  private synchronized void ensureLocalStateInitialized() throws IOException {
-    // check the local memstore - is it initialized?
-    if (!initialized){
-      // add the current state of the row
-      this.addUpdate(this.table.getCurrentRowState(update).list());
-      this.initialized = true;
+  private synchronized void ensureLocalStateInitialized(
+      Collection<? extends ColumnReference> columns) throws IOException {
+    // check to see if we haven't initialized any columns yet
+    Collection<? extends ColumnReference> toCover = this.columnSet.findNonCoveredColumns(columns);
+    // we have all the columns loaded, so we are good to go.
+    if (toCover.isEmpty()) {
+      return;
     }
+
+    // add the current state of the row
+    this.addUpdate(this.table.getCurrentRowState(update, toCover).list());
   }
 
   @Override

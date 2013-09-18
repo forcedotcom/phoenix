@@ -473,6 +473,10 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
       batchMutationAndAddUpdates(updateMap, d);
     }
 
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Found index updates for Delete: " + updateMap);
+    }
+
     return updateMap.toMap();
   }
 

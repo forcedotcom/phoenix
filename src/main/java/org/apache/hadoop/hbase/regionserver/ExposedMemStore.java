@@ -17,18 +17,6 @@ import org.apache.hadoop.hbase.KeyValue.KVComparator;
  */
 public class ExposedMemStore extends MemStore {
 
-  public static KVComparator IGNORE_MEMSTORE_TS_COMPARATOR = new KVComparator() {
-
-    @Override
-    public int compare(final KeyValue left, final KeyValue right) {
-      int ret =
-          getRawComparator().compare(left.getBuffer(), left.getOffset() + KeyValue.ROW_OFFSET,
-            left.getKeyLength(), right.getBuffer(), right.getOffset() + KeyValue.ROW_OFFSET,
-            right.getKeyLength());
-      return ret;
-    }
-  };
-
   public ExposedMemStore(Configuration conf, KVComparator comparator) {
     super(conf, comparator);
   }

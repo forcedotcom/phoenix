@@ -29,6 +29,7 @@ package com.salesforce.hbase.index.covered.data;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -38,6 +39,8 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
+
+import com.salesforce.hbase.index.covered.update.ColumnReference;
 
 /**
  * Wrapper around a lazily instantiated, local HTable.
@@ -57,11 +60,16 @@ public class LocalTable implements LocalHBaseState {
   }
 
   @Override
-  public Result getCurrentRowState(Mutation m) throws IOException {
+  public Result getCurrentRowState(Mutation m, Collection<? extends ColumnReference> columns)
+      throws IOException {
     byte[] row = m.getRow();
     // need to use a scan here so we can get raw state, which Get doesn't provide.
     Scan s = new Scan(row, row);
     s.setRaw(true);
+    //add the necessary columns to the scan
+    for(ColumnReference column: columns){
+      s.addFamily(column.getFamily());
+    }
     s.setMaxVersions();
     HRegion region = this.env.getRegion();
     RegionScanner scanner = region.getScanner(s);

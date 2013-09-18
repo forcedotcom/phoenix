@@ -28,47 +28,32 @@
 package com.salesforce.hbase.index.covered;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import org.apache.hadoop.hbase.KeyValue;
-
-import com.salesforce.hbase.index.covered.LocalTableState.PendingKeyValue;
+import com.salesforce.hbase.index.covered.update.ColumnReference;
 
 /**
- * A collection of {@link KeyValue KeyValues} to the primary table
+ * Manage a set of {@link ColumnReference}s for the {@link LocalTableState}.
  */
-public class Batch {
+public class CoveredColumns {
 
-  private static final long pointDeleteCode = KeyValue.Type.Delete.getCode();
-  private final long timestamp;
-  private List<KeyValue> batch = new ArrayList<KeyValue>();
-  private boolean allPointDeletes = true;
+  Set<ColumnReference> columns = new HashSet<ColumnReference>();
 
-  /**
-   * @param ts
-   */
-  public Batch(long ts) {
-    this.timestamp = ts;
-  }
-
-  public void add(KeyValue kv){
-    if (pointDeleteCode != kv.getType()) {
-      allPointDeletes = false;
+  public Collection<? extends ColumnReference> findNonCoveredColumns(
+      Collection<? extends ColumnReference> columns2) {
+    List<ColumnReference> uncovered = new ArrayList<ColumnReference>();
+    for (ColumnReference column : columns2) {
+      if (!columns.contains(column)) {
+        uncovered.add(column);
+      }
     }
-    // wrap kvs with our special type so they get correctly added/rolled-back
-    kv = new PendingKeyValue(kv);
-    batch.add(kv);
+    return uncovered;
   }
 
-  public boolean isAllPointDeletes() {
-    return allPointDeletes;
-  }
-
-  public long getTimestamp() {
-    return this.timestamp;
-  }
-
-  public List<KeyValue> getKvs() {
-    return this.batch;
+  public void addColumn(ColumnReference column) {
+    this.columns.add(column);
   }
 }
