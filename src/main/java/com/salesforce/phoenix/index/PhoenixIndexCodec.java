@@ -23,7 +23,6 @@ import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
@@ -33,14 +32,11 @@ import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.IndexCodec;
 import com.salesforce.hbase.index.covered.IndexUpdate;
 import com.salesforce.hbase.index.covered.TableState;
-import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.scanner.Scanner;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
 import com.salesforce.phoenix.cache.TenantCache;
-import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 /**
@@ -59,10 +55,6 @@ public class PhoenixIndexCodec implements IndexCodec {
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
       this.conf = env.getConfiguration();
-    }
-
-    public List<IndexMaintainer> getIndexMaintainers() {
-        return indexMaintainers;
     }
 
     private List<IndexMaintainer> getIndexMaintainers(TableState state) {
@@ -100,7 +92,6 @@ public class PhoenixIndexCodec implements IndexCodec {
         return indexMaintainers;
     }
     
-    @SuppressWarnings("deprecation")
     @Override
     public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException {
         List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
@@ -117,25 +108,15 @@ public class PhoenixIndexCodec implements IndexCodec {
             Scanner scanner = statePair.getFirst();
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
-            Put put = new Put(rowKey);
-            put.setWriteToWAL(false);
+            // TODO: handle the case of a Put and Delete coming back
+            Mutation put = maintainer.buildUpdateMutations(valueGetter, ptr).get(0);
             indexUpdate.setTable(maintainer.getIndexTableName());
             indexUpdate.setUpdate(put);
-            for (ColumnReference ref : maintainer.getCoverededColumns()) {
-                byte[] value = valueGetter.getLatestValue(ref);
-                if (value != null) { // FIXME: is this right?
-                    put.add(ref.getFamily(), ref.getQualifier(), value);
-                }
-            }
-            // Add the empty key value
-            put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ByteUtil.EMPTY_BYTE_ARRAY);
             indexUpdates.add(indexUpdate);
         }
         return indexUpdates;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public Iterable<IndexUpdate> getIndexDeletes(TableState state) throws IOException {
         List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
@@ -153,9 +134,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             indexUpdate.setTable(maintainer.getIndexTableName());
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
-            Delete delete = new Delete(rowKey);
-            delete.setWriteToWAL(false);
+            Delete delete = maintainer.buildDeleteMutation(valueGetter, ptr);
             indexUpdate.setUpdate(delete);
             indexUpdates.add(indexUpdate);
         }
