@@ -8,8 +8,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.KVComparator;
 
-import com.google.common.primitives.Longs;
-
 /**
  * A {@link MemStore} that exposes all the package-protected methods.
  * <p>
@@ -21,6 +19,7 @@ public class ExposedMemStore extends MemStore {
 
   public static KVComparator IGNORE_MEMSTORE_TS_COMPARATOR = new KVComparator() {
 
+    @Override
     public int compare(final KeyValue left, final KeyValue right) {
       int ret =
           getRawComparator().compare(left.getBuffer(), left.getOffset() + KeyValue.ROW_OFFSET,

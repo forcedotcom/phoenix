@@ -32,10 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.HRegion;
@@ -52,7 +50,6 @@ import org.apache.hadoop.hbase.regionserver.RegionScanner;
  */
 public class LocalTable implements LocalHBaseState {
 
-  private volatile HTableInterface localTable;
   private RegionCoprocessorEnvironment env;
 
   public LocalTable(RegionCoprocessorEnvironment env) {
@@ -75,22 +72,5 @@ public class LocalTable implements LocalHBaseState {
     Result r = new Result(kvs);
     scanner.close();
     return r;
-  }
-
-  /**
-   * Ensure we have a connection to the local table. We need to do this after
-   * {@link #setup(RegionCoprocessorEnvironment)} because we are created on region startup and the
-   * table isn't actually accessible until later.
-   * @throws IOException if we can't reach the table
-   */
-  private HTableInterface getLocalTable() throws IOException {
-    if (this.localTable == null) {
-      synchronized (this) {
-        if (this.localTable == null) {
-          localTable = env.getTable(env.getRegion().getTableDesc().getName());
-        }
-      }
-    }
-    return this.localTable;
   }
 }
