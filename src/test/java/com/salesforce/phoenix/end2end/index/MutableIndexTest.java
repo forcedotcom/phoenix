@@ -309,7 +309,7 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
             
             String query = "SELECT char_col1, int_col1 from " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE;
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER INDEX_TEST.IDX", QueryUtil.getExplainPlan(rs));
+            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER MINDEX_TEST.IDX", QueryUtil.getExplainPlan(rs));
             
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
