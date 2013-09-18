@@ -106,8 +106,9 @@ public interface IndexBuilder {
    * <i>after</i> the {@link #getIndexUpdate} methods. Therefore, you will likely need an attribute
    * on your {@link Put}/{@link Delete} to indicate it is a batch operation.
    * @param miniBatchOp the full batch operation to be written
+ * @throws IOException 
    */
-  public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp);
+  public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException;
 
   /**
    * This allows the codec to dynamically change whether or not indexing should take place for a

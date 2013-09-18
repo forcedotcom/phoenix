@@ -61,6 +61,10 @@ public class PhoenixIndexCodec implements IndexCodec {
       this.conf = env.getConfiguration();
     }
 
+    public List<IndexMaintainer> getIndexMaintainers() {
+        return indexMaintainers;
+    }
+
     private List<IndexMaintainer> getIndexMaintainers(TableState state) {
        return getIndexMaintainers(state.getUpdateAttributes());
     }

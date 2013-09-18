@@ -72,7 +72,7 @@ public class LocalTableState implements TableState {
   private Set<ColumnTracker> trackedColumns = new HashSet<ColumnTracker>();
   private boolean initialized;
   private ScannerBuilder scannerBuilder;
-  private Collection<KeyValue> kvs = new ArrayList<KeyValue>();
+  private List<KeyValue> kvs = new ArrayList<KeyValue>();
   private List<? extends IndexedColumnGroup> hints;
 
   public LocalTableState(RegionCoprocessorEnvironment environment, LocalHBaseState table, Mutation update) {
@@ -83,7 +83,7 @@ public class LocalTableState implements TableState {
     // memstore
     Configuration conf = new Configuration(environment.getConfiguration());
     ExposedMemStore.disableMemSLAB(conf);
-    this.memstore = new ExposedMemStore(conf, KeyValue.COMPARATOR);
+    this.memstore = new ExposedMemStore(conf, ExposedMemStore.IGNORE_MEMSTORE_TS_COMPARATOR);
     this.scannerBuilder = new ScannerBuilder(memstore, update);
   }
 
@@ -92,13 +92,13 @@ public class LocalTableState implements TableState {
     addPendingUpdates(Arrays.asList(kvs));
   }
 
-  public void addPendingUpdates(Collection<KeyValue> kvs) {
+  public void addPendingUpdates(List<KeyValue> kvs) {
     if(kvs == null) return;
     setPendingUpdates(kvs);
     addUpdate(kvs);
   }
 
-  private void addUpdate(Collection<KeyValue> list) {
+  private void addUpdate(List<KeyValue> list) {
     if (list == null) return;
     for (KeyValue kv : list) {
       this.memstore.add(kv);

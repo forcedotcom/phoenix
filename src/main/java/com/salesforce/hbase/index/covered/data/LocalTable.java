@@ -28,13 +28,18 @@
 package com.salesforce.hbase.index.covered.data;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.regionserver.RegionScanner;
 
 /**
  * Wrapper around a lazily instantiated, local HTable.
@@ -61,12 +66,15 @@ public class LocalTable implements LocalHBaseState {
     Scan s = new Scan(row, row);
     s.setRaw(true);
     s.setMaxVersions();
-    ResultScanner results = getLocalTable().getScanner(s);
-    Result r = results.next();
-    assert results.next() == null : "Got more than one result when scanning"
-        + " a single row in the primary table!";
-    results.close();
-    return r == null ? new Result() : r;
+    HRegion region = this.env.getRegion();
+    RegionScanner scanner = region.getScanner(s);
+    List<KeyValue> kvs = new ArrayList<KeyValue>();
+    boolean more = scanner.next(kvs);
+    assert !more : "Got more than one result when scanning" + " a single row in the primary table!";
+
+    Result r = new Result(kvs);
+    scanner.close();
+    return r;
   }
 
   /**
