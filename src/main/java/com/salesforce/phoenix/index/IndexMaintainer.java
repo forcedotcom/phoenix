@@ -12,10 +12,10 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
@@ -293,17 +293,39 @@ public class IndexMaintainer implements Writable {
         }
     }
 
-    public List<Mutation> buildUpdateMutations(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {
-        return buildUpdateMutations(valueGetter, dataRowKeyPtr, HConstants.LATEST_TIMESTAMP);
+    // TODO: remove once Jesse handles a Put and Delete on the same row
+    @SuppressWarnings("deprecation")
+    public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {
+        byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
+        Put put = new Put(indexRowKey);
+        for (int i = 0; i < this.getCoverededColumns().size(); i++) {
+            ColumnReference ref  = this.getCoverededColumns().get(i);
+            byte[] iq = this.indexQualifiers.get(i);
+            byte[] value = valueGetter.getLatestValue(ref);
+            if (value == null) {
+                // TODO: we should use a Delete here, but Jesse's framework can't handle that yet.
+                // This will work, but will cause an otherwise sparse index to be bloated with empty
+                // values for any unset covered columns.
+                put.add(ref.getFamily(), iq, ByteUtil.EMPTY_BYTE_ARRAY);
+            } else {
+                put.add(ref.getFamily(), iq, value);
+            }
+        }
+        // Add the empty key value
+        put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ByteUtil.EMPTY_BYTE_ARRAY);
+        put.setWriteToWAL(false);
+        return put;
+    }
+
+    public Pair<Put,Delete> buildUpdateMutations(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {
+        return buildUpdateMutation(valueGetter, dataRowKeyPtr, HConstants.LATEST_TIMESTAMP);
     }
     
     @SuppressWarnings("deprecation")
-    public List<Mutation> buildUpdateMutations(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
+    public Pair<Put,Delete> buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
         byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
-        List<Mutation> mutations = Lists.newArrayListWithExpectedSize(2);
         Delete delete = null;
         Put put = new Put(indexRowKey);
-        mutations.add(put);
         for (int i = 0; i < this.getCoverededColumns().size(); i++) {
             ColumnReference ref  = this.getCoverededColumns().get(i);
             byte[] iq = this.indexQualifiers.get(i);
@@ -311,7 +333,6 @@ public class IndexMaintainer implements Writable {
             if (value == null) {
                 if (delete == null) {
                     delete = new Delete(indexRowKey);
-                    mutations.add(delete);
                     delete.setWriteToWAL(false);
                 }
                 delete.deleteColumns(ref.getFamily(), iq, ts);
@@ -322,7 +343,7 @@ public class IndexMaintainer implements Writable {
         // Add the empty key value
         put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
         put.setWriteToWAL(false);
-        return mutations;
+        return new Pair<Put,Delete>(put,delete);
     }
     
     public Delete buildDeleteMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {

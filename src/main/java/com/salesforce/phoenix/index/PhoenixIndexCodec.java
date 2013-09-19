@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -59,7 +60,7 @@ public class PhoenixIndexCodec implements IndexCodec {
       this.conf = env.getConfiguration();
     }
 
-    private List<IndexMaintainer> getIndexMaintainers() {
+    List<IndexMaintainer> getIndexMaintainers() {
        return indexMaintainers;
     }
     
@@ -112,8 +113,8 @@ public class PhoenixIndexCodec implements IndexCodec {
             Scanner scanner = statePair.getFirst();
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            // TODO: handle the case of a Put and Delete coming back
-            Mutation put = maintainer.buildUpdateMutations(valueGetter, ptr).get(0);
+            // TODO: handle Pair<Put,Delete> because otherwise we'll bloat a sparse covered index
+            Put put = maintainer.buildUpdateMutation(valueGetter, ptr);
             indexUpdate.setTable(maintainer.getIndexTableName());
             indexUpdate.setUpdate(put);
             //make sure we close the scanner when we are done

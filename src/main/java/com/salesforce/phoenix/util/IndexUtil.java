@@ -158,7 +158,7 @@ public class IndexUtil {
                 long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
                 ptr.set(dataMutation.getRow());
                 try {
-                    indexMutations.addAll(maintainer.buildUpdateMutations(valueGetter, ptr, ts));
+                    indexMutations.add(maintainer.buildUpdateMutation(valueGetter, ptr, ts).getFirst());
                 } catch (IOException e) {
                     throw new SQLException(e);
                 }

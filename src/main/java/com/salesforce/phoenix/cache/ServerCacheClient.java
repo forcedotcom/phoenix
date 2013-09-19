@@ -36,8 +36,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +75,9 @@ import com.salesforce.phoenix.util.SQLCloseables;
  * @since 0.1
  */
 public class ServerCacheClient {
+    public static final int UUID_LENGTH = Bytes.SIZEOF_LONG;
     private static final Log LOG = LogFactory.getLog(ServerCacheClient.class);
+    private static final Random RANDOM = new Random();
     private final PhoenixConnection connection;
     private final TableRef cacheUsingTableRef;
 
@@ -270,9 +272,12 @@ public class ServerCacheClient {
     }
 
     /**
-     * Create an ID to keep the cached information across other operations independent
+     * Create an ID to keep the cached information across other operations independent.
+     * Using simple long random number, since the length of time we need this to be unique
+     * is very limited. 
      */
     public static byte[] generateId() {
-        return Bytes.toBytes(UUID.randomUUID().toString());
+        long rand = RANDOM.nextLong();
+        return Bytes.toBytes(rand);
     }
 }

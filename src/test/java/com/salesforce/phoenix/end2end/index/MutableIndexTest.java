@@ -16,6 +16,7 @@ import java.util.Properties;
 
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -23,7 +24,6 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.QueryUtil;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -33,10 +33,11 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class MutableIndexTest extends BaseHBaseManagedTimeTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
-    private static final byte[] DATA_TABLE_FULL_NAME = SchemaUtil.getTableNameAsBytes(null, "T");
-    private static final byte[] INDEX_TABLE_FULL_NAME = SchemaUtil.getTableNameAsBytes(null, "I");
-    public static final String MINDEX_DATA_SCHEMA = "MINDEX_TEST";
-    public static final String MINDEX_DATA_TABLE = "MINDEX_DATA_TABLE";
+    public static final String SCHEMA_NAME = "";
+    public static final String DATA_TABLE_NAME = "T";
+    public static final String INDEX_TABLE_NAME = "I";
+    private static final String DATA_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "T");
+    private static final String INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "I");
     
     @BeforeClass
     public static void doSetup() throws Exception {
@@ -48,7 +49,7 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
     }
     
     private static void createTestTable() throws SQLException {
-        String ddl = " create table if not exists " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE + "(" +
+        String ddl = "create table if not exists " + DATA_TABLE_FULL_NAME + "(" +
                 "   varchar_pk VARCHAR NOT NULL, " +
                 "   char_pk CHAR(5) NOT NULL, " +
                 "   int_pk INTEGER NOT NULL, "+ 
@@ -76,7 +77,7 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
-            String upsert = "UPSERT INTO " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE
+            String upsert = "UPSERT INTO " + DATA_TABLE_FULL_NAME
                     + " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = conn.prepareStatement(upsert);
             stmt.setString(1, "varchar1");
@@ -136,7 +137,8 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
         }
     }
     
-    private static void destroyTables() throws Exception {
+    @Before
+    public void destroyTables() throws Exception {
         // Physically delete HBase table so that splits occur as expected for each test
         Properties props = new Properties(TEST_PROPERTIES);
         ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
@@ -152,7 +154,7 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
                 admin.deleteTable(DATA_TABLE_FULL_NAME);
             } catch (TableNotFoundException e) {
             }
-        } finally {
+       } finally {
                 admin.close();
         }
     }
@@ -173,124 +175,120 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
     }
 
     private void testMutableTableIndexMaintanence(Integer tableSaltBuckets, Integer indexSaltBuckets) throws Exception {
-        try {
-            String query;
-            ResultSet rs;
-            
-            Properties props = new Properties(TEST_PROPERTIES);
-            Connection conn = DriverManager.getConnection(getUrl(), props);
-            conn.setAutoCommit(false);
-            conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)  " +  (tableSaltBuckets == null ? "" : " SALT_BUCKETS=" + tableSaltBuckets));
-            query = "SELECT * FROM t";
-            rs = conn.createStatement().executeQuery(query);
-            assertFalse(rs.next());
-            
-            conn.createStatement().execute("CREATE INDEX i ON t (v DESC)" + (indexSaltBuckets == null ? "" : " SALT_BUCKETS=" + indexSaltBuckets));
-            query = "SELECT * FROM i";
-            rs = conn.createStatement().executeQuery(query);
-            assertFalse(rs.next());
-    
-            PreparedStatement stmt = conn.prepareStatement("UPSERT INTO t VALUES(?,?)");
-            stmt.setString(1,"a");
-            stmt.setString(2, "x");
-            stmt.execute();
-            stmt.setString(1,"b");
-            stmt.setString(2, "y");
-            stmt.execute();
-            conn.commit();
-            
-            query = "SELECT * FROM i";
-            rs = conn.createStatement().executeQuery(query);
-            assertTrue(rs.next());
-            assertEquals("y",rs.getString(1));
-            assertEquals("b",rs.getString(2));
-            assertTrue(rs.next());
-            assertEquals("x",rs.getString(1));
-            assertEquals("a",rs.getString(2));
-            assertFalse(rs.next());
-    
-            query = "SELECT k,v FROM t WHERE v = 'y'";
-            rs = conn.createStatement().executeQuery(query);
-            assertTrue(rs.next());
-            assertEquals("b",rs.getString(1));
-            assertEquals("y",rs.getString(2));
-            assertFalse(rs.next());
-            
-            String expectedPlan;
-            rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            expectedPlan = indexSaltBuckets == null ? 
-                 "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'" : 
-                ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 KEYS OVER I 0...3,'y'\n" + 
-                 "CLIENT MERGE SORT");
-            assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
-    
-            // Will use index, so rows returned in DESC order.
-            // This is not a bug, though, because we can
-            // return in any order.
-            query = "SELECT k,v FROM t WHERE v >= 'x'";
-            rs = conn.createStatement().executeQuery(query);
-            assertTrue(rs.next());
-            assertEquals("b",rs.getString(1));
-            assertEquals("y",rs.getString(2));
-            assertTrue(rs.next());
-            assertEquals("a",rs.getString(1));
-            assertEquals("x",rs.getString(2));
-            assertFalse(rs.next());
-            rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            expectedPlan = indexSaltBuckets == null ? 
-                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']" :
-                ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
-                 "CLIENT MERGE SORT");
-            assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
-            
-            // Will still use index, since there's no LIMIT clause
-            query = "SELECT k,v FROM t WHERE v >= 'x' ORDER BY k";
-            rs = conn.createStatement().executeQuery(query);
-            assertTrue(rs.next());
-            assertEquals("a",rs.getString(1));
-            assertEquals("x",rs.getString(2));
-            assertTrue(rs.next());
-            assertEquals("b",rs.getString(1));
-            assertEquals("y",rs.getString(2));
-            assertFalse(rs.next());
-            rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            // Turns into an ORDER BY, which could be bad if lots of data is
-            // being returned. Without stats we don't know. The alternative
-            // would be a full table scan.
-            expectedPlan = indexSaltBuckets == null ? 
-                ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']\n" + 
-                 "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
-                 "CLIENT MERGE SORT") :
-                ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
-                 "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
-                 "CLIENT MERGE SORT");
-            assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
-            
-            // Will use data table now, since there's a LIMIT clause and
-            // we're able to optimize out the ORDER BY, unless the data
-            // table is salted.
-            query = "SELECT k,v FROM t WHERE v >= 'x' ORDER BY k LIMIT 2";
-            rs = conn.createStatement().executeQuery(query);
-            assertTrue(rs.next());
-            assertEquals("a",rs.getString(1));
-            assertEquals("x",rs.getString(2));
-            assertTrue(rs.next());
-            assertEquals("b",rs.getString(1));
-            assertEquals("y",rs.getString(2));
-            assertFalse(rs.next());
-            rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            expectedPlan = tableSaltBuckets == null ? 
-                 "CLIENT PARALLEL 1-WAY FULL SCAN OVER T\n" + 
-                 "    SERVER FILTER BY V >= 'x'\n" + 
-                 "    SERVER 2 ROW LIMIT\n" + 
-                 "CLIENT 2 ROW LIMIT" :
-                 "CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
-                 "    SERVER TOP 2 ROWS SORTED BY [:K]\n" + 
-                 "CLIENT MERGE SORT";
-            assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
-        } finally {
-            destroyTables();
-        }
+        String query;
+        ResultSet rs;
+        
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        conn.createStatement().execute("CREATE TABLE " + DATA_TABLE_FULL_NAME + " (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)  " +  (tableSaltBuckets == null ? "" : " SALT_BUCKETS=" + tableSaltBuckets));
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+        
+        conn.createStatement().execute("CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME + " (v DESC)" + (indexSaltBuckets == null ? "" : " SALT_BUCKETS=" + indexSaltBuckets));
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+
+        PreparedStatement stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?)");
+        stmt.setString(1,"a");
+        stmt.setString(2, "x");
+        stmt.execute();
+        stmt.setString(1,"b");
+        stmt.setString(2, "y");
+        stmt.execute();
+        conn.commit();
+        
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("y",rs.getString(1));
+        assertEquals("b",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("x",rs.getString(1));
+        assertEquals("a",rs.getString(2));
+        assertFalse(rs.next());
+
+        query = "SELECT k,v FROM " + DATA_TABLE_FULL_NAME + " WHERE v = 'y'";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertFalse(rs.next());
+        
+        String expectedPlan;
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        expectedPlan = indexSaltBuckets == null ? 
+             "CLIENT PARALLEL 1-WAY RANGE SCAN OVER " + INDEX_TABLE_FULL_NAME + " 'y'" : 
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 KEYS OVER " + INDEX_TABLE_FULL_NAME + " 0...3,'y'\n" + 
+             "CLIENT MERGE SORT");
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
+
+        // Will use index, so rows returned in DESC order.
+        // This is not a bug, though, because we can
+        // return in any order.
+        query = "SELECT k,v FROM " + DATA_TABLE_FULL_NAME + " WHERE v >= 'x'";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        expectedPlan = indexSaltBuckets == null ? 
+            "CLIENT PARALLEL 1-WAY RANGE SCAN OVER " + INDEX_TABLE_FULL_NAME + " (*-'x']" :
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER " + INDEX_TABLE_FULL_NAME + " 0...3,(*-'x']\n" + 
+             "CLIENT MERGE SORT");
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
+        
+        // Will still use index, since there's no LIMIT clause
+        query = "SELECT k,v FROM " + DATA_TABLE_FULL_NAME + " WHERE v >= 'x' ORDER BY k";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        // Turns into an ORDER BY, which could be bad if lots of data is
+        // being returned. Without stats we don't know. The alternative
+        // would be a full table scan.
+        expectedPlan = indexSaltBuckets == null ? 
+            ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER " + INDEX_TABLE_FULL_NAME + " (*-'x']\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+             "CLIENT MERGE SORT") :
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER " + INDEX_TABLE_FULL_NAME + " 0...3,(*-'x']\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+             "CLIENT MERGE SORT");
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
+        
+        // Will use data table now, since there's a LIMIT clause and
+        // we're able to optimize out the ORDER BY, unless the data
+        // table is salted.
+        query = "SELECT k,v FROM " + DATA_TABLE_FULL_NAME + " WHERE v >= 'x' ORDER BY k LIMIT 2";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        expectedPlan = tableSaltBuckets == null ? 
+             "CLIENT PARALLEL 1-WAY FULL SCAN OVER " + DATA_TABLE_FULL_NAME + "\n" +
+             "    SERVER FILTER BY V >= 'x'\n" + 
+             "    SERVER 2 ROW LIMIT\n" + 
+             "CLIENT 2 ROW LIMIT" :
+             "CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER " + INDEX_TABLE_FULL_NAME + " 0...3,(*-'x']\n" + 
+             "    SERVER TOP 2 ROWS SORTED BY [:K]\n" + 
+             "CLIENT MERGE SORT";
+        assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
     }
 
     @Test
@@ -301,15 +299,15 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
         try {
             createTestTable();
             populateTestTable();
-            String ddl = "CREATE INDEX IDX ON " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE
+            String ddl = "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME
                     + " (char_col1 ASC, int_col1 ASC)"
                     + " INCLUDE (long_col1, long_col2)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
-            String query = "SELECT char_col1, int_col1 from " + MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE;
+            String query = "SELECT char_col1, int_col1 from " + DATA_TABLE_FULL_NAME;
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER MINDEX_TEST.IDX", QueryUtil.getExplainPlan(rs));
+            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
             
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
@@ -333,18 +331,17 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
         try {
-            String tableName = MINDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MINDEX_DATA_TABLE;
             createTestTable();
             populateTestTable();
-            String ddl = "CREATE INDEX IDX ON " + tableName
+            String ddl = "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME
                     + " (char_col1 ASC, int_col1 ASC)"
                     + " INCLUDE (long_col1, long_col2)";
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
-            String query = "SELECT char_col1, int_col1, long_col2 from " +tableName;
+            String query = "SELECT char_col1, int_col1, long_col2 from " + DATA_TABLE_FULL_NAME;
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER MINDEX_TEST.IDX", QueryUtil.getExplainPlan(rs));
+            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
             
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
@@ -361,9 +358,9 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
             assertEquals(5L, rs.getLong(3));
             assertFalse(rs.next());
             
-            stmt = conn.prepareStatement("UPSERT INTO " + tableName
-                    + "(varchar_pk, char_pk, int_pk, long_pk , decimal_pk, long_col2) SELECT varchar_pk, char_pk, int_pk, long_pk , decimal_pk, long_col2+1 FROM "
-                    + tableName + " WHERE long_col2=?");
+            stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME
+                    + "(varchar_pk, char_pk, int_pk, long_pk , decimal_pk, long_col2) SELECT varchar_pk, char_pk, int_pk, long_pk , decimal_pk, long_col2*2 FROM "
+                    + DATA_TABLE_FULL_NAME + " WHERE long_col2=?");
             stmt.setLong(1,4L);
             assertEquals(1,stmt.executeUpdate());
             conn.commit();
@@ -376,7 +373,30 @@ public class MutableIndexTest extends BaseHBaseManagedTimeTest{
             assertTrue(rs.next());
             assertEquals("chara", rs.getString(1));
             assertEquals(3, rs.getInt(2));
+            assertEquals(8L, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(4, rs.getInt(2));
             assertEquals(5L, rs.getLong(3));
+            assertFalse(rs.next());
+            
+            stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME
+                    + "(varchar_pk, char_pk, int_pk, long_pk , decimal_pk, long_col2) SELECT varchar_pk, char_pk, int_pk, long_pk , decimal_pk, null FROM "
+                    + DATA_TABLE_FULL_NAME + " WHERE long_col2=?");
+            stmt.setLong(1,3L);
+            assertEquals(1,stmt.executeUpdate());
+            conn.commit();
+            
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(2, rs.getInt(2));
+            assertEquals(0, rs.getLong(3));
+            assertTrue(rs.wasNull());
+            assertTrue(rs.next());
+            assertEquals("chara", rs.getString(1));
+            assertEquals(3, rs.getInt(2));
+            assertEquals(8L, rs.getLong(3));
             assertTrue(rs.next());
             assertEquals("chara", rs.getString(1));
             assertEquals(4, rs.getInt(2));

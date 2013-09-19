@@ -15,8 +15,6 @@ import com.salesforce.phoenix.util.ScanUtil;
 
 public class IndexMetaDataCacheClient {
     private static final int USE_CACHE_THRESHOLD = 10;
-    // Would expect 128 bits as bytes would be 16 bytes, but these UUIDs end up being 36 bytes
-    private static final int UUID_BYTE_LENGTH = 36; 
 
     private final ServerCacheClient serverCache;
     
@@ -40,7 +38,7 @@ public class IndexMetaDataCacheClient {
      * @return
      */
     public static boolean useIndexMetadataCache(List<Mutation> mutations, int indexMetaDataByteLength) {
-        return (indexMetaDataByteLength > UUID_BYTE_LENGTH && mutations.size() > USE_CACHE_THRESHOLD);
+        return (indexMetaDataByteLength > ServerCacheClient.UUID_LENGTH && mutations.size() > USE_CACHE_THRESHOLD);
     }
     
     /**

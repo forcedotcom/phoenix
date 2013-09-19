@@ -64,6 +64,7 @@ public class TestLocalTableState {
   private static final byte[] val = Bytes.toBytes("val");
   private static final long ts = 10;
 
+  @SuppressWarnings("unchecked")
   @Test
   public void testCorrectOrderingWithLazyLoadingColumns() throws Exception {
     Put m = new Put(row);
