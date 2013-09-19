@@ -46,12 +46,12 @@ import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.builder.BaseIndexBuilder;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * Simple indexer that just indexes rows based on their column families
@@ -94,7 +94,7 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
     Indexer.enableIndexing(desc, ColumnFamilyIndexer.class, opts);
   }
 
-  private Map<ImmutableBytesWritable, String> columnTargetMap;
+  private Map<ImmutableBytesPtr, String> columnTargetMap;
 
   @Override
   public void setup(RegionCoprocessorEnvironment env) {
@@ -102,11 +102,11 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
     String[] families = conf.get(INDEX_TO_TABLE_COUNT_KEY).split(SEPARATOR);
 
     // build up our mapping of column - > index table
-    columnTargetMap = new HashMap<ImmutableBytesWritable, String>(families.length);
+    columnTargetMap = new HashMap<ImmutableBytesPtr, String>(families.length);
     for (int i = 0; i < families.length; i++) {
       byte[] fam = Bytes.toBytes(families[i]);
       String indexTable = conf.get(INDEX_TO_TABLE_CONF_PREFX + families[i]);
-      columnTargetMap.put(new ImmutableBytesWritable(fam), indexTable);
+      columnTargetMap.put(new ImmutableBytesPtr(fam), indexTable);
     }
   }
 
@@ -121,7 +121,7 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
     Set<byte[]> keys = p.getFamilyMap().keySet();
     for (Entry<byte[], List<KeyValue>> entry : p.getFamilyMap().entrySet()) {
       String ref = columnTargetMap
-          .get(new ImmutableBytesWritable(entry.getKey()));
+          .get(new ImmutableBytesPtr(entry.getKey()));
       // no reference for that column, skip it
       if (ref == null) {
         continue;
@@ -172,7 +172,7 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
     Collection<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
     for (Entry<byte[], List<KeyValue>> entry : d.getFamilyMap().entrySet()) {
       String ref = columnTargetMap
-          .get(new ImmutableBytesWritable(entry.getKey()));
+          .get(new ImmutableBytesPtr(entry.getKey()));
       // no reference for that column, skip it
       if (ref == null) {
         continue;

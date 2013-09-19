@@ -32,8 +32,8 @@ import java.util.List;
 
 import org.apache.http.annotation.Immutable;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 
 /**

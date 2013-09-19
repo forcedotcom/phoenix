@@ -37,11 +37,11 @@ import java.util.Map.Entry;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * Keeps track of the index updates
@@ -104,8 +104,8 @@ public class IndexUpdateManager {
   private static final String PHOENIX_HBASE_TEMP_DELETE_MARKER = "phoenix.hbase.temp.delete.marker";
   private static final byte[] TRUE_MARKER = new byte[] { 1 };
 
-  protected final Map<ImmutableBytesWritable, Collection<Mutation>> map =
-      new HashMap<ImmutableBytesWritable, Collection<Mutation>>();
+  protected final Map<ImmutableBytesPtr, Collection<Mutation>> map =
+      new HashMap<ImmutableBytesPtr, Collection<Mutation>>();
 
   /**
    * Add an index update. Keeps the latest {@link Put} for a given timestamp
@@ -114,7 +114,7 @@ public class IndexUpdateManager {
    */
   public void addIndexUpdate(byte[] tableName, Mutation m) {
     // we only keep the most recent update
-    ImmutableBytesWritable key = new ImmutableBytesWritable(tableName);
+    ImmutableBytesPtr key = new ImmutableBytesPtr(tableName);
     Collection<Mutation> updates = map.get(key);
     if (updates == null) {
       updates = new SortedCollection<Mutation>(COMPARATOR);
@@ -186,7 +186,7 @@ public class IndexUpdateManager {
 
   public List<Pair<Mutation, String>> toMap() {
     List<Pair<Mutation, String>> updateMap = Lists.newArrayList();
-    for (Entry<ImmutableBytesWritable, Collection<Mutation>> updates : map.entrySet()) {
+    for (Entry<ImmutableBytesPtr, Collection<Mutation>> updates : map.entrySet()) {
       // get is ok because we always set with just the bytes
       byte[] tableName = updates.getKey().get();
       // TODO replace this as just storing a byte[], to avoid all the String <-> byte[] swapping
@@ -219,7 +219,7 @@ public class IndexUpdateManager {
   @Override
   public String toString() {
     StringBuffer sb = new StringBuffer("IndexUpdates:\n");
-    for (Entry<ImmutableBytesWritable, Collection<Mutation>> entry : map.entrySet()) {
+    for (Entry<ImmutableBytesPtr, Collection<Mutation>> entry : map.entrySet()) {
       String tableName = Bytes.toString(entry.getKey().get());
       sb.append(" " + tableName + ":\n");
       for (Mutation m : entry.getValue()) {
