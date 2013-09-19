@@ -317,46 +317,27 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
     }
     
-	private class ExecutableCreateSequenceStatement extends
-			CreateSequenceStatement implements ExecutableStatement {
+	private class ExecutableCreateSequenceStatement extends	CreateSequenceStatement implements ExecutableStatement {
 
-		public ExecutableCreateSequenceStatement(TableName sequenceName,
-				LiteralParseNode startWith, LiteralParseNode incrementBy,
-				int bindCount) {
+		public ExecutableCreateSequenceStatement(TableName sequenceName, LiteralParseNode startWith, LiteralParseNode incrementBy, int bindCount) {
 			super(sequenceName, startWith, incrementBy, bindCount);
 		}
 
 		@Override
 		public PhoenixResultSet executeQuery() throws SQLException {
-			throw new ExecuteQueryNotApplicableException("CREATE SEQUENCE",
-					this.toString());
+			throw new ExecuteQueryNotApplicableException("CREATE SEQUENCE",	this.toString());
 		}
 
 		@Override
 		public boolean execute() throws SQLException {
-			try {
-				final String schemaName = getTableName().getSchemaName();
-				final String sequenceName = getTableName().getTableName();
-				final int startWith = ((Integer) getStartWith().getValue()).intValue();
-				final int incrementBy = ((Integer) getIncrementBy().getValue()).intValue();
-
-				String statement = "UPSERT INTO SYSTEM.\"SEQUENCE\" (SEQUENCE_SCHEMA, SEQUENCE_NAME, CURRENT_VALUE, INCREMENT_BY) VALUES(?,?,?,?)";
-				PreparedStatement upsertStatement = connection
-						.prepareStatement(statement);
-				upsertStatement.setString(1, schemaName);
-				upsertStatement.setString(2, sequenceName);
-				upsertStatement.setInt(3, startWith);
-				upsertStatement.setInt(4, incrementBy);				
-				upsertStatement.execute();
-			} finally {
-				connection.commit();
-			}
-			return false;
+		    MutationPlan plan = compilePlan(getParameters());
+		    plan.execute();
+		    return false;
 		}
 
 		@Override
 		public int executeUpdate() throws SQLException {
-			return 0;
+		    return 0;      
 		}
 
 		@Override
@@ -365,14 +346,13 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 		}
 
 		@Override
-		public StatementPlan compilePlan(List<Object> binds)
-				throws SQLException {
-			return null;
+		public MutationPlan compilePlan(List<Object> binds) throws SQLException {
+		    CreateSequenceCompiler compiler = new CreateSequenceCompiler(connection);
+            return compiler.compile(this, binds);
 		}
 
         @Override
-        public StatementPlan optimizePlan() throws SQLException {
-            // TODO Auto-generated method stub
+        public StatementPlan optimizePlan() throws SQLException {            
             return null;
         }
 	}

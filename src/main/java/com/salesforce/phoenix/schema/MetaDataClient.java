@@ -242,6 +242,23 @@ public class MetaDataClient {
         }
     }
 
+    public MutationState createSequence(CreateSequenceStatement statement) throws SQLException {
+        final String schemaName = statement.getSequenceName().getSchemaName();
+        final String sequenceName = statement.getSequenceName().getTableName();
+        final Long startWith = new Long((Integer)statement.getStartWith().getValue());
+        final Long incrementBy = new Long(((Integer)statement.getIncrementBy().getValue()));
+
+        String sql = "UPSERT INTO SYSTEM.\"SEQUENCE\" (SEQUENCE_SCHEMA, SEQUENCE_NAME, CURRENT_VALUE, INCREMENT_BY) VALUES(?,?,?,?)";
+        PreparedStatement upsertStatement = connection.prepareStatement(sql);
+        upsertStatement.setString(1, schemaName);
+        upsertStatement.setString(2, sequenceName);
+        upsertStatement.setLong(3, startWith);
+        upsertStatement.setLong(4, incrementBy);
+        upsertStatement.execute();
+        connection.commit();
+        return new MutationState(0, connection);
+    }
+    
     public MutationState createTable(CreateTableStatement statement, byte[][] splits) throws SQLException {
         
         PTable table = createTable(statement, splits, null);
