@@ -855,14 +855,14 @@ PERCENTILE_DISC is an inverse distribution function that assumes a discrete dist
 PERCENTILE_DISC( 0.9 ) WITHIN GROUP (ORDER BY X DESC)
 "
 
-"Functions (Aggregate)","PERCENTILE_RANK","
-PERCENTILE_RANK( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } { ASC | DESC } )
+"Functions (Aggregate)","PERCENT_RANK","
+PERCENT_RANK( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } { ASC | DESC } )
 ","
 The percentile rank for a hypothetical value, if inserted into the column.
 Aggregates are only allowed in select statements.
 The returned value is of decimal data type.
 ","
-PERCENTILE_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)
+PERCENT_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)
 "
 
 "Functions (Aggregate)","STDDEV_POP","
