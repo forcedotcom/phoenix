@@ -44,7 +44,7 @@ public final class TableRef {
         this.alias = alias;
         this.table = table;
         this.schema = schema;
-        this.tableName = getPhysicalTableName(schema.getName(), (table.getTenantId() != null && table.getDataTableName() != null) ?
+        this.tableName = getPhysicalTableName(schema.getName(), table.isTenantSpecificTable() ?
                 table.getDataTableName() : table.getName());
         this.timeStamp = timeStamp;
         this.hasDynamicCols = hasDynamicCols;

@@ -92,4 +92,30 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
+    
+    @Test
+    public void testAddColumn() throws Exception {
+        createTestTable(getUrl(), PARENT_TABLE_DDL);
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL);
+        
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
+        conn.setAutoCommit(true);
+        try {
+            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Viva Las Vegas')");
+            
+            conn.createStatement().execute("alter table TENANT_TABLE add tenant_col2 char(1) null");
+            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col2) values ('" + TENANT_ID + "', 2, 'a')");
+            
+            ResultSet rs = conn.createStatement().executeQuery("select count(*) from TENANT_TABLE");
+            rs.next();
+            assertEquals(2, rs.getInt(1));
+            
+            rs = conn.createStatement().executeQuery("select count(*) from TENANT_TABLE where tenant_col2 = 'a'");
+            rs.next();
+            assertEquals(1, rs.getInt(1));
+        }
+        finally {
+            conn.close();
+        }
+    }
 }

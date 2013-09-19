@@ -30,6 +30,8 @@ package com.salesforce.phoenix.query;
 import java.sql.SQLException;
 import java.util.*;
 
+import javax.annotation.Nullable;
+
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -119,13 +121,13 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, boolean isView, Pair<byte[],Map<String,Object>> family) throws SQLException {
-        return getDelegate().addColumn(tabeMetaData, isView, family);
+    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, boolean isView, Pair<byte[],Map<String,Object>> family, @Nullable byte[] dataTable) throws SQLException {
+        return getDelegate().addColumn(tabeMetaData, isView, family, dataTable);
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, byte[] emptyCF) throws SQLException {
-        return getDelegate().dropColumn(tabeMetaData, emptyCF);
+    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, byte[] emptyCF, @Nullable byte[] dataTable) throws SQLException {
+        return getDelegate().dropColumn(tabeMetaData, emptyCF, dataTable);
     }
 
     @Override

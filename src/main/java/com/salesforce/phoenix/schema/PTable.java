@@ -179,6 +179,10 @@ public interface PTable extends Writable {
      */
     PName getDataTableName();
     boolean isImmutableRows();
-    
-    PName getTenantId();
+    /**
+     * Is this a logical (tenant-specific) table, whose data is stored in a different physical table defined by {@link #getDataTableName()}?
+     * @see #getDataTableName()
+     */
+    boolean isTenantSpecificTable();
+
 }
