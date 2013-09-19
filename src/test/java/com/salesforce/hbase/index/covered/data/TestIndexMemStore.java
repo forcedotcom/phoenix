@@ -25,46 +25,46 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index.covered;
+package com.salesforce.hbase.index.covered.data;
 
-import java.util.ArrayList;
-import java.util.List;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.KeyValue.Type;
+import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.Test;
 
-/**
- * A collection of {@link KeyValue KeyValues} to the primary table
- */
-public class Batch {
+public class TestIndexMemStore {
 
-  private static final long pointDeleteCode = KeyValue.Type.Delete.getCode();
-  private final long timestamp;
-  private List<KeyValue> batch = new ArrayList<KeyValue>();
-  private boolean allPointDeletes = true;
+  private static final byte[] row = Bytes.toBytes("row");
+  private static final byte[] family = Bytes.toBytes("family");
+  private static final byte[] qual = Bytes.toBytes("qual");
+  private static final byte[] val = Bytes.toBytes("val");
+  private static final byte[] val2 = Bytes.toBytes("val2");
 
-  /**
-   * @param ts
-   */
-  public Batch(long ts) {
-    this.timestamp = ts;
-  }
+  @Test
+  public void testCorrectOverwritting() throws Exception {
+    IndexMemStore store = new IndexMemStore(IndexMemStore.COMPARATOR);
+    long ts = 10;
+    KeyValue kv = new KeyValue(row, family, qual, ts, Type.Put, val);
+    kv.setMemstoreTS(2);
+    KeyValue kv2 = new KeyValue(row, family, qual, ts, Type.Put, val2);
+    kv2.setMemstoreTS(0);
+    store.add(kv, true);
+    // adding the exact same kv shouldn't change anything stored if not overwritting
+    store.add(kv2, false);
+    KeyValueScanner scanner = store.getScanner();
+    KeyValue first = KeyValue.createFirstOnRow(row);
+    scanner.seek(first);
+    assertTrue("Overwrote kv when specifically not!", kv == scanner.next());
+    scanner.close();
 
-  public void add(KeyValue kv){
-    if (pointDeleteCode != kv.getType()) {
-      allPointDeletes = false;
-    }
-    batch.add(kv);
-  }
-
-  public boolean isAllPointDeletes() {
-    return allPointDeletes;
-  }
-
-  public long getTimestamp() {
-    return this.timestamp;
-  }
-
-  public List<KeyValue> getKvs() {
-    return this.batch;
+    // now when we overwrite, we should get the newer one
+    store.add(kv2, true);
+    scanner = store.getScanner();
+    scanner.seek(first);
+    assertTrue("Didn't overwrite kv when specifically requested!", kv2 == scanner.next());
+    scanner.close();
   }
 }
