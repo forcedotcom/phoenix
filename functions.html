@@ -40,7 +40,7 @@ The top level commands, SQL syntax, built-in functions, and supported data types
 
     <a href="#percentile_disc" >PERCENTILE_DISC</a><br />
 
-    <a href="#percentile_rank" >PERCENTILE_RANK</a><br />
+    <a href="#percentile_rank" >PERCENT_RANK</a><br />
 
     <a href="#stddev_pop" >STDDEV_POP</a><br />
 
@@ -67,7 +67,7 @@ syntax-end -->
             
                 <a href="#percentile_disc" >PERCENTILE_DISC</a><br />
             
-                <a href="#percentile_rank" >PERCENTILE_RANK</a><br />
+                <a href="#percentile_rank" >PERCENT_RANK</a><br />
                     </td><td class="index">
             
                 <a href="#stddev_pop" >STDDEV_POP</a><br />
@@ -326,23 +326,23 @@ syntax-end -->
 <p>Example:</p>
 <p class="notranslate">PERCENTILE_DISC( 0.9 ) WITHIN GROUP (ORDER BY X DESC)</p>
 
-<h3 id="percentile_rank" class="notranslate">PERCENTILE_RANK</h3>
+<h3 id="percentile_rank" class="notranslate">PERCENT_RANK</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-PERCENTILE_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENT_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_RANK ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENT_RANK ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-PERCENTILE_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENT_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 syntax-end -->
 <p>The percentile rank for a hypothetical value, if inserted into the column. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
 <p>Example:</p>
-<p class="notranslate">PERCENTILE_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)</p>
+<p class="notranslate">PERCENT_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)</p>
 
 <h3 id="stddev_pop" class="notranslate">STDDEV_POP</h3>
 <!-- railroad-start -->
