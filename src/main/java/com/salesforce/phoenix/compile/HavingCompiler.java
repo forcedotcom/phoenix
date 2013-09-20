@@ -28,34 +28,15 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.parse.AddParseNode;
-import com.salesforce.phoenix.parse.AndParseNode;
-import com.salesforce.phoenix.parse.BetweenParseNode;
-import com.salesforce.phoenix.parse.CaseParseNode;
-import com.salesforce.phoenix.parse.ColumnParseNode;
-import com.salesforce.phoenix.parse.ComparisonParseNode;
-import com.salesforce.phoenix.parse.DivideParseNode;
-import com.salesforce.phoenix.parse.FunctionParseNode;
-import com.salesforce.phoenix.parse.IsNullParseNode;
-import com.salesforce.phoenix.parse.MultiplyParseNode;
-import com.salesforce.phoenix.parse.OrParseNode;
-import com.salesforce.phoenix.parse.ParseNode;
-import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.SelectStatementRewriter;
-import com.salesforce.phoenix.parse.SubtractParseNode;
-import com.salesforce.phoenix.parse.TraverseNoParseNodeVisitor;
-import com.salesforce.phoenix.schema.ColumnRef;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.TypeMismatchException;
+import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.schema.*;
 
 
 public class HavingCompiler {
@@ -244,5 +225,10 @@ public class HavingCompiler {
         public boolean visitEnter(BetweenParseNode node) throws SQLException {
             return true;
         }
+
+		@Override
+		public Void visit(NextSequenceValueParseNode node) throws SQLException {			
+			return null;
+		}
     }
 }

@@ -25,41 +25,50 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.compile;
 
-import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.SchemaUtil;
+import java.sql.ParameterMetaData;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 
-public class TableName {
-    private final String tableName;
-    private final String schemaName;
-    
-    public TableName(String schemaName, String tableName) {
-        this.tableName = SchemaUtil.normalizeIdentifier(tableName);
-        this.schemaName = schemaName == null ? null : SchemaUtil.normalizeIdentifier(schemaName);
+import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.CreateSequenceStatement;
+import com.salesforce.phoenix.schema.MetaDataClient;
+
+
+public class CreateSequenceCompiler {
+    private final PhoenixConnection connection;
+
+    public CreateSequenceCompiler(PhoenixConnection connection) {
+        this.connection = connection;
     }
 
-    public String getTableName() {
-        return tableName;
-    }
+    public MutationPlan compile(final CreateSequenceStatement statement, List<Object> binds) throws SQLException {
+        final MetaDataClient client = new MetaDataClient(connection);        
+        return new MutationPlan() {           
 
-    public String getSchemaName() {
-        return schemaName;
-    }
-    
-    @Override
-    public String toString() {
-        return (schemaName == null ? "" : schemaName + QueryConstants.NAME_SEPARATOR)  + tableName;
-    }
-    
-    @Override
-    public boolean equals(Object object) {
-    	boolean result = false;
-    	if (object instanceof TableName){
-        TableName that = (TableName) object;
-    	result = (that.getSchemaName().equals(this.schemaName)) &&
-    			(that.getTableName().equals(this.getTableName()));
-    	}
-    	return result;    			
+            @Override
+            public MutationState execute() throws SQLException {
+                return client.createSequence(statement);
+            }
+
+            @Override
+            public ExplainPlan getExplainPlan() throws SQLException {
+                return new ExplainPlan(Collections.singletonList("CREATE SEQUENCE"));
+            }
+
+            @Override
+            public PhoenixConnection getConnection() {
+                return connection;
+            }
+
+            @Override
+            public ParameterMetaData getParameterMetaData() {                
+                return null;
+            }
+
+        };
     }
 }

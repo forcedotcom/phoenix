@@ -109,6 +109,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     public static final String TYPE_SCHEMA = "SYSTEM";
     public static final String TYPE_TABLE = "TABLE";
+    public static final String TYPE_SEQUENCE = "SEQUENCE";
     public static final String TYPE_SCHEMA_AND_TABLE = TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"";
     public static final byte[] TYPE_TABLE_BYTES = TYPE_TABLE.getBytes();
     public static final byte[] TYPE_SCHEMA_BYTES = TYPE_SCHEMA.getBytes();
@@ -118,6 +119,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TABLE_NAME_NAME = "TABLE_NAME";
     public static final String TABLE_TYPE_NAME = "TABLE_TYPE";
     public static final byte[] TABLE_TYPE_BYTES = Bytes.toBytes(TABLE_TYPE_NAME);
+    
+    // Metadata for the SYSTEM.SEQUENCE table
+    public static final String SEQUENCE_SCHEMA_COLUMN = "SEQUENCE_SCHEMA";
+    public static final String SEQUENCE_NAME_COLUMN = "SEQUENCE_NAME";
+    public static final String CURRENT_VALUE_COLUMN = "CURRENT_VALUE";
+    public static final String INCREMENT_BY_COLUMN = "INCREMENT_BY";
     
     public static final String TABLE_CAT_NAME = "TABLE_CAT";
     public static final String TABLE_CATALOG_NAME = "TABLE_CATALOG";

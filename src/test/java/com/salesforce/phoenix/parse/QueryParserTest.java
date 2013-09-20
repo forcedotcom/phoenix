@@ -135,6 +135,31 @@ public class QueryParserTest {
             ));
         parser.parseStatement();
     }
+    
+	@Test
+	public void testCreateSequence() throws Exception {
+		SQLParser parser = new SQLParser(new StringReader(
+				"create sequence foo.bar\n" + 
+						"start with 0\n"	+ 
+						"increment by 1\n"));
+		parser.parseStatement();
+	}
+	
+	@Test
+	public void testNextValueForSelect() throws Exception {
+		SQLParser parser = new SQLParser(new StringReader(
+				"select next value for foo.bar \n" + 
+						"from core.custom_entity_data\n"));						
+		parser.parseStatement();
+	}
+	
+	@Test
+    public void testNextValueForWhere() throws Exception {
+        SQLParser parser = new SQLParser(new StringReader(
+                "upsert into core.custom_entity_data\n" + 
+                        "select next value for foo.bar from core.custom_entity_data\n"));                    
+        parser.parseStatement();
+    }
 
     @Test
     public void testParseJoin1() throws Exception {

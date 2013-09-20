@@ -93,8 +93,15 @@ tokens
     WITHIN='within';
     ENABLE='enable';
     DISABLE='disable';
-    SET='set';
+    SET='set';    
     CAST='cast';
+    SEQUENCE='sequence';
+    START='start';
+    WITH='with';
+    INCREMENT='increment';
+    NEXT='next';
+    VALUE='value';
+    FOR='for';
 }
 
 
@@ -337,6 +344,7 @@ query returns [SelectStatement ret]
 oneStatement returns [BindableStatement ret]
     :   (q=select_node {$ret=q;} 
     |    ns=non_select_node {$ret=ns;}
+    |	 cs=create_sequence_node {$ret=cs;}
         )
     ;
 
@@ -369,6 +377,14 @@ create_table_node returns [CreateTableStatement ret]
         (p=fam_properties)?
         (SPLIT ON v=values)?
         {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
+    ;
+    
+// Parse a create sequence statement.
+create_sequence_node returns [CreateSequenceStatement ret]
+    :   CREATE SEQUENCE t=from_table_name ?
+    	START WITH s=int_literal	?
+    	INCREMENT BY i=int_literal 
+        {ret = factory.createSequence(t, s, i, getBindCount()); }
     ;
 
 // Parse a create index statement.
@@ -568,7 +584,7 @@ select_list returns [List<AliasedNode> ret]
 selectable returns [AliasedNode ret]
     :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
       | familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
-      | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'    
+      | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'         
     ;
 
 
@@ -577,7 +593,7 @@ group_by returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>();}
     :   expr=expression { ret.add(expr); }
         (COMMA expr = expression {ret.add(expr); })*
-    ;
+    ;    
 
 // Parse an order by statement
 order_by returns [List<OrderByNode> ret]
@@ -585,7 +601,7 @@ order_by returns [List<OrderByNode> ret]
     :   field=parseOrderByField { ret.add(field); }
         (COMMA field = parseOrderByField {ret.add(field); })*
     ;
-
+    
 //parse the individual field for an order by clause
 parseOrderByField returns [OrderByNode ret]
 @init{boolean isAscending = true; boolean nullsLast = false;}
@@ -745,6 +761,7 @@ expression_term returns [ParseNode ret]
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }
     |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
+    |   NEXT VALUE FOR s=from_table_name { $ret = factory.nextValueFor(s);}
     ;
     
 expression_terms returns [List<ParseNode> ret]

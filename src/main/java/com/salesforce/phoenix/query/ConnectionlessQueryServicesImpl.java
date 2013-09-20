@@ -30,37 +30,22 @@ package com.salesforce.phoenix.query;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
 
 import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Properties;
+import java.util.*;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.phoenix.compile.MutationPlan;
-import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.coprocessor.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.schema.PColumn;
-import com.salesforce.phoenix.schema.PIndexState;
-import com.salesforce.phoenix.schema.PMetaData;
-import com.salesforce.phoenix.schema.PMetaDataImpl;
-import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.schema.PTableImpl;
-import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -164,7 +149,8 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
         PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);
         SQLException sqlE = null;
         try {
-            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);
         } catch (SQLException e) {
             sqlE = e;
         } finally {
@@ -212,6 +198,12 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
         return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, index);
     }
 
+    @Override
+    public Long incrementSequence(byte[] schemaName, byte[] tableName) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+    
     @Override
     public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return null;

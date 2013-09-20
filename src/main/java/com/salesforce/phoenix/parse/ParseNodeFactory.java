@@ -262,6 +262,10 @@ public class ParseNodeFactory {
         return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
     }
     
+    public CreateSequenceStatement createSequence(TableName tableName, LiteralParseNode startsWith, LiteralParseNode incrementBy, int bindCount){
+    	return new CreateSequenceStatement(tableName, startsWith, incrementBy, bindCount);
+    }
+    
     public CreateIndexStatement createIndex(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
         return new CreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
@@ -377,6 +381,10 @@ public class ParseNodeFactory {
 
     public JoinTableNode join (String alias, NamedTableNode table, ParseNode on, JoinType type) {
         return new JoinTableNode(alias, table, on, type);
+    }
+    
+    public NextSequenceValueParseNode nextValueFor(TableName tableName){
+    	return new NextSequenceValueParseNode(tableName);
     }
 
     public DerivedTableNode subselect (String alias, SelectStatement select) {

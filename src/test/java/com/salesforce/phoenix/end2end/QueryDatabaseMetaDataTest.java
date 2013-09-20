@@ -27,43 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
-import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
-import static com.salesforce.phoenix.util.TestUtil.ATABLE_SCHEMA_NAME;
-import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
-import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_FULL_NAME;
-import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_NAME;
-import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_SCHEMA_NAME;
-import static com.salesforce.phoenix.util.TestUtil.GROUPBYTEST_NAME;
-import static com.salesforce.phoenix.util.TestUtil.MDTEST_NAME;
-import static com.salesforce.phoenix.util.TestUtil.MDTEST_SCHEMA_NAME;
-import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
-import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
-import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
-import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.util.TestUtil.*;
+import static org.junit.Assert.*;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -74,15 +47,8 @@ import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.join.HashJoiningRegionObserver;
-import com.salesforce.phoenix.schema.ColumnNotFoundException;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.ReadOnlyTableException;
-import com.salesforce.phoenix.schema.TableNotFoundException;
-import com.salesforce.phoenix.util.PhoenixRuntime;
-import com.salesforce.phoenix.util.SchemaUtil;
-import com.salesforce.phoenix.util.StringUtil;
-import com.salesforce.phoenix.util.TestUtil;
+import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.util.*;
 
 
 public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
@@ -109,6 +75,10 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertFalse(rs.next());
         
         rs = dbmd.getTables(null, null, null, null);
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
+        assertEquals(rs.getString("TABLE_NAME"), TYPE_SEQUENCE);
+        assertEquals(PTableType.SYSTEM.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
         assertEquals(rs.getString("TABLE_NAME"),TYPE_TABLE);
@@ -964,4 +934,18 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         conn5.createStatement().executeUpdate("SHOW TABLES");
         conn5.close();
     }
+    
+	@Test
+	public void testSequenceTable() throws Exception {
+		long ts = nextTimestamp();
+		Properties props = new Properties();
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
+		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+		DatabaseMetaData dbmd = conn.getMetaData();
+		String schemaName = "SYSTEM";
+		String tableName = StringUtil.escapeLike("SEQUENCE");		
+		ResultSet rs = dbmd.getTables(null, schemaName, tableName, null);
+		assertTrue(rs.next());
+		assertEquals(rs.getString("TABLE_NAME"), tableName);
+	}
 }

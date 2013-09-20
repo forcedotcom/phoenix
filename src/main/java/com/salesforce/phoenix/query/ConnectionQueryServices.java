@@ -76,6 +76,7 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, PTableType tableType, byte[] emptyCF) throws SQLException;
     public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata, String parentTableName) throws SQLException;
     public MutationState updateData(MutationPlan plan) throws SQLException;
+    public Long incrementSequence(byte[] schemaName, byte[] tableName);
 
     public void init(String url, Properties props) throws SQLException;
 

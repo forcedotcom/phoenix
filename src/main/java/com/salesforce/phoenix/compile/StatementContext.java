@@ -29,13 +29,16 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.text.Format;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.BindableStatement;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
@@ -64,6 +67,7 @@ public class StatementContext {
     private final String numberFormat;
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
+    private final Map<TableName, Long> sequenceMap;
     
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
@@ -80,6 +84,7 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
+        this.sequenceMap = new HashMap<TableName, Long>();
     }
 
     public String getDateFormat() {
@@ -154,5 +159,12 @@ public class StatementContext {
         MetaDataClient client = new MetaDataClient(connection);
         currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;
+    }
+    public void setNextSequenceValue(TableName tableName, Long value){
+    	sequenceMap.put(tableName, value);
+    }
+    
+    public Long getNextSequenceValue(TableName tableName){
+    	return sequenceMap.get(tableName);
     }
 }

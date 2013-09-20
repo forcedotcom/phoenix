@@ -316,6 +316,46 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             return compilePlan(getParameters());
         }
     }
+    
+	private class ExecutableCreateSequenceStatement extends	CreateSequenceStatement implements ExecutableStatement {
+
+		public ExecutableCreateSequenceStatement(TableName sequenceName, LiteralParseNode startWith, LiteralParseNode incrementBy, int bindCount) {
+			super(sequenceName, startWith, incrementBy, bindCount);
+		}
+
+		@Override
+		public PhoenixResultSet executeQuery() throws SQLException {
+			throw new ExecuteQueryNotApplicableException("CREATE SEQUENCE",	this.toString());
+		}
+
+		@Override
+		public boolean execute() throws SQLException {
+		    MutationPlan plan = compilePlan(getParameters());
+		    plan.execute();
+		    return false;
+		}
+
+		@Override
+		public int executeUpdate() throws SQLException {
+		    return 0;      
+		}
+
+		@Override
+		public ResultSetMetaData getResultSetMetaData() throws SQLException {
+			return null;
+		}
+
+		@Override
+		public MutationPlan compilePlan(List<Object> binds) throws SQLException {
+		    CreateSequenceCompiler compiler = new CreateSequenceCompiler(connection);
+            return compiler.compile(this, binds);
+		}
+
+        @Override
+        public StatementPlan optimizePlan() throws SQLException {            
+            return null;
+        }
+	}
 
     private class ExecutableCreateIndexStatement extends CreateIndexStatement implements ExecutableStatement {
 
@@ -808,6 +848,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, PTableType tableType, boolean ifNotExists, int bindCount) {
             return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
+        }
+        
+        @Override
+        public CreateSequenceStatement createSequence(TableName tableName, LiteralParseNode startsWith, LiteralParseNode incrementBy, int bindCount){
+        	return new ExecutableCreateSequenceStatement(tableName, startsWith, incrementBy, bindCount);
         }
         
         @Override

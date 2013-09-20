@@ -28,51 +28,14 @@
 package com.salesforce.phoenix.query;
 
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BUFFER_LENGTH;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CHAR_OCTET_LENGTH;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_DEF;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_AUTOINCREMENT;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_NULLABLE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NUM_PREC_RADIX;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.PK_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.REF_GENERATION_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.REMARKS_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SALT_BUCKETS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCOPE_CATALOG;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCOPE_SCHEMA;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCOPE_TABLE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SELF_REFERENCING_COL_NAME_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SOURCE_DATA_TYPE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SQL_DATA_TYPE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SQL_DATETIME_SUB;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_CAT_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
-import com.salesforce.phoenix.schema.PName;
-import com.salesforce.phoenix.schema.PNormalizedName;
+import com.salesforce.phoenix.schema.*;
 
 
 /**
@@ -125,8 +88,8 @@ public interface QueryConstants {
     public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = EMPTY_COLUMN_BYTES;
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
     public static final String SYSTEM_TABLE_PK_NAME = "pk";
-
-    public static final String CREATE_METADATA =
+    
+    public static final String CREATE_TABLE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
@@ -171,4 +134,15 @@ public interface QueryConstants {
             + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
-}
+    
+    // Create a SYSTEM.SEQUENCE table to store metadata related to sequence values
+    public static final String CREATE_SEQUENCE_METADATA =
+            "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_SEQUENCE + "\"(\n" +                                    
+    		SEQUENCE_SCHEMA_COLUMN + " VARCHAR NULL, \n" + 
+            SEQUENCE_NAME_COLUMN +  " VARCHAR NOT NULL, \n" +
+    		CURRENT_VALUE_COLUMN + " BIGINT NOT NULL, \n" + 
+            INCREMENT_BY_COLUMN  + " BIGINT NOT NULL \n" + 
+    		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + SEQUENCE_SCHEMA_COLUMN + "," + SEQUENCE_NAME_COLUMN+ "))\n" + 
+    		HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
+            HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
+	}

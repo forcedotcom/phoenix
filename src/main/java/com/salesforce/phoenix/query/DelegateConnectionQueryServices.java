@@ -154,6 +154,12 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
+    public Long incrementSequence(byte[] schemaName, byte[] tableName) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+    
+    @Override
     public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return getDelegate().getTableDescriptor(tableName);
     }

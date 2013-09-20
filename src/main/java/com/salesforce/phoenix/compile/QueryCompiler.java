@@ -128,9 +128,10 @@ public class QueryCompiler {
         Expression having = HavingCompiler.compile(context, statement, groupBy);
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
+        SequenceCompiler.resolveSequences(context, statement.getSelect());
         WhereCompiler.compile(context, statement);
         OrderBy orderBy = OrderByCompiler.compile(context, statement, aliasMap, groupBy, limit); 
-        RowProjector projector = ProjectionCompiler.compile(context, statement, groupBy, targetColumns);
+        RowProjector projector = ProjectionCompiler.compile(context, statement, groupBy, targetColumns);        
         
         // Final step is to build the query plan
         if (maxRows > 0) {
