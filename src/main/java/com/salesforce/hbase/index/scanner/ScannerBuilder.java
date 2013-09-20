@@ -13,10 +13,11 @@ import org.apache.hadoop.hbase.filter.FamilyFilter;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.QualifierFilter;
-import org.apache.hadoop.hbase.regionserver.ExposedMemStore;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
+import com.salesforce.hbase.index.covered.KeyValueStore;
+import com.salesforce.hbase.index.covered.data.IndexMemStore;
 import com.salesforce.hbase.index.covered.filter.ApplyAndFilterDeletesFilter;
 import com.salesforce.hbase.index.covered.filter.ColumnTrackingNextLargestTimestampFilter;
 import com.salesforce.hbase.index.covered.filter.MaxTimestampFilter;
@@ -28,11 +29,11 @@ import com.salesforce.hbase.index.covered.update.ColumnTracker;
  */
 public class ScannerBuilder {
 
-  private ExposedMemStore memstore;
+  private KeyValueStore memstore;
   private Mutation update;
 
 
-  public ScannerBuilder(ExposedMemStore memstore, Mutation update) {
+  public ScannerBuilder(KeyValueStore memstore, Mutation update) {
     this.memstore = memstore;
     this.update = update;
   }

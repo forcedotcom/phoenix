@@ -47,7 +47,6 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import com.salesforce.hbase.index.covered.LocalTableState.PendingKeyValue;
 import com.salesforce.hbase.index.covered.data.LocalHBaseState;
 import com.salesforce.hbase.index.covered.data.LocalTable;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
@@ -139,7 +138,7 @@ public class TestLocalTableState {
     LocalHBaseState state = new LocalTable(env);
     LocalTableState table = new LocalTableState(env, state, m);
     // add the kvs from the mutation
-    KeyValue kv = new LocalTableState.PendingKeyValue(m.get(fam, qual).get(0));
+    KeyValue kv = m.get(fam, qual).get(0);
     kv.setMemstoreTS(0);
     table.addPendingUpdates(kv);
 

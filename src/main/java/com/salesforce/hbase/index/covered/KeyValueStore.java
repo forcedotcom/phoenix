@@ -27,44 +27,17 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.covered;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 
 /**
- * A collection of {@link KeyValue KeyValues} to the primary table
+ * Store a collection of KeyValues in memory.
  */
-public class Batch {
+public interface KeyValueStore {
 
-  private static final long pointDeleteCode = KeyValue.Type.Delete.getCode();
-  private final long timestamp;
-  private List<KeyValue> batch = new ArrayList<KeyValue>();
-  private boolean allPointDeletes = true;
+  public void add(KeyValue kv, boolean overwrite);
 
-  /**
-   * @param ts
-   */
-  public Batch(long ts) {
-    this.timestamp = ts;
-  }
+  public KeyValueScanner getScanner();
 
-  public void add(KeyValue kv){
-    if (pointDeleteCode != kv.getType()) {
-      allPointDeletes = false;
-    }
-    batch.add(kv);
-  }
-
-  public boolean isAllPointDeletes() {
-    return allPointDeletes;
-  }
-
-  public long getTimestamp() {
-    return this.timestamp;
-  }
-
-  public List<KeyValue> getKvs() {
-    return this.batch;
-  }
+  public void rollback(KeyValue kv);
 }
