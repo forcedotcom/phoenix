@@ -27,33 +27,25 @@
  ******************************************************************************/
 package com.salesforce.hbase.index;
 
-import java.util.List;
-
-import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.Abortable;
 
 /**
- * Exception thrown if we cannot successfully write to an index table.
+ * TEst helper to stub out an {@link Abortable} when needed.
  */
-@SuppressWarnings("serial")
-public class CannotReachIndexException extends Exception {
+public class StubAbortable implements Abortable {
+  private static final Log LOG = LogFactory.getLog(StubAbortable.class);
+  private boolean abort;
 
-  /**
-   * Cannot reach the index, but not sure of the table or the mutations that caused the failure
-   * @param msg more description of what happened
-   * @param cause original cause
-   */
-  public CannotReachIndexException(String msg, Throwable cause) {
-    super(msg, cause);
+  @Override
+  public void abort(String reason, Throwable e) {
+    LOG.info("Aborting: " + reason, e);
+    abort = true;
   }
 
-  /**
-   * Failed to write the passed mutations to an index table for some reason.
-   * @param targetTableName index table to which we attempted to write
-   * @param mutations mutations that were attempted
-   * @param cause underlying reason for the failure
-   */
-  public CannotReachIndexException(String targetTableName, List<Mutation> mutations, Exception cause) {
-    super("Failed to make index update:\n\t table: " + targetTableName + "\n\t edits: " + mutations
-        + "\n\tcause: " + cause == null ? "UNKNOWN" : cause.getMessage(), cause);
+  @Override
+  public boolean isAborted() {
+    return abort;
   }
 }
