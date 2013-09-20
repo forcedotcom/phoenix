@@ -38,26 +38,26 @@ import java.sql.SQLException;
  * @since 1.2
  */
 
-public class FamilyParseNode extends TerminalParseNode {
-	private String familyName = null;
-	
-	public FamilyParseNode(String familyName){	
-		this.familyName  = familyName;
-	}
-	
-	public String getFamilyName(){
-		return familyName;
-	}
-	
+public class FamilyWildcardParseNode extends NamedParseNode {
+    private final boolean isRewrite;
+    
+    public FamilyWildcardParseNode(String familyName, boolean isRewrite){
+        super(familyName);
+        this.isRewrite = isRewrite;
+    }
+    
+    public FamilyWildcardParseNode(FamilyWildcardParseNode familyName, boolean isRewrite){
+        super(familyName);
+        this.isRewrite = isRewrite;
+    }
+    
 	@Override
 	public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
 		return visitor.visit(this);
 	}
-	
-	@Override
-	   public String toString() {
-	       return familyName+".*";
-	}    
-	
+
+    public boolean isRewrite() {
+        return isRewrite;
+    }
 }
 

@@ -33,7 +33,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
-public class IndexTest extends BaseHBaseManagedTimeTest{
+public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
     private static final byte[] DATA_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "T"));

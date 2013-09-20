@@ -96,7 +96,10 @@ public final class ColumnRef {
         if (SchemaUtil.isPKColumn(this.getColumn())) {
             return new RowKeyColumnExpression(getColumn(), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));
         } else {
-            return new KeyValueColumnExpression(getColumn());
+            PColumn column = getColumn();
+            boolean isIndex = tableRef.getTable().getType() == PTableType.INDEX;
+            String alias = isIndex ? SchemaUtil.getColumnDisplayName(column.getName().getBytes()) : null;
+            return new KeyValueColumnExpression(column, alias);
         }
     }
 

@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.Arrays;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -35,9 +37,9 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -50,12 +52,22 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class KeyValueColumnExpression extends ColumnExpression {
     private byte[] cf;
     private byte[] cq;
+    private final String alias; // not serialized
 
     public KeyValueColumnExpression() {
+        this.alias = null;
     }
 
     public KeyValueColumnExpression(PColumn column) {
         super(column);
+        this.alias = null;
+        this.cf = column.getFamilyName().getBytes();
+        this.cq = column.getName().getBytes();
+    }
+
+    public KeyValueColumnExpression(PColumn column, String alias) {
+        super(column);
+        this.alias = alias;
         this.cf = column.getFamilyName().getBytes();
         this.cq = column.getName().getBytes();
     }
@@ -91,7 +103,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
 
     @Override
     public String toString() {
-        return (Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? "" : (Bytes.toStringBinary(cf) + QueryConstants.NAME_SEPARATOR)) + Bytes.toStringBinary(cq);
+        return alias != null ? alias :  SchemaUtil.getColumnDisplayName(cf, cq);
     }
 
     @Override

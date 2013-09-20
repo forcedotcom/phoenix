@@ -321,7 +321,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
     
     @Override
-    public ParseNode visit(FamilyParseNode node) throws SQLException {
+    public ParseNode visit(FamilyWildcardParseNode node) throws SQLException {
         return node;
     }
     

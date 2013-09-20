@@ -36,7 +36,9 @@ import org.apache.hadoop.hbase.client.Scan;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
-import com.salesforce.phoenix.execute.*;
+import com.salesforce.phoenix.execute.AggregatePlan;
+import com.salesforce.phoenix.execute.DegenerateQueryPlan;
+import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
@@ -45,7 +47,13 @@ import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableNotFoundException;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 

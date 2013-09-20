@@ -27,8 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.ParameterMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
@@ -47,13 +53,34 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
-import com.salesforce.phoenix.jdbc.*;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixResultSet;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.parse.BindParseNode;
+import com.salesforce.phoenix.parse.ColumnName;
+import com.salesforce.phoenix.parse.LiteralParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.UpsertStatement;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.ConstraintViolationException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableImpl;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SchemaUtil;
 

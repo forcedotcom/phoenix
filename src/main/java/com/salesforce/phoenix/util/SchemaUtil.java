@@ -268,7 +268,15 @@ public class SchemaUtil {
     }
 
     public static String getTableName(byte[] schemaName, byte[] tableName) {
-        return Bytes.toString(getTableNameAsBytes(schemaName,tableName));
+        return getName(schemaName, tableName);
+    }
+
+    public static String getColumnDisplayName(byte[] cf, byte[] cq) {
+        return getName(Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? ByteUtil.EMPTY_BYTE_ARRAY : cf, cq);
+    }
+
+    public static String getColumnDisplayName(byte[] cq) {
+        return getName(ByteUtil.EMPTY_BYTE_ARRAY, cq);
     }
 
     public static String getMetaDataEntityName(String schemaName, String tableName, String familyName, String columnName) {
@@ -304,6 +312,10 @@ public class SchemaUtil {
         } else {
             return ByteUtil.concat(nameOne, QueryConstants.NAME_SEPARATOR_BYTES, nameTwo);
         }
+    }
+
+    public static String getName(byte[] nameOne, byte[] nameTwo) {
+        return Bytes.toString(getNameAsBytes(nameOne,nameTwo));
     }
 
     public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
@@ -416,6 +428,7 @@ public class SchemaUtil {
 
     // Given the splits and the rowKeySchema, find out the keys that 
     public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum, boolean defaultRowKeyOrder) throws SQLException {
+        // FIXME: shouldn't this return if splits.length == 0?
         if (splits == null) return null;
         // We do not accept user specified splits if the table is salted and we specify defaultRowKeyOrder. In this case,
         // throw an exception.

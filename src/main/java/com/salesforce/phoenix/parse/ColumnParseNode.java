@@ -28,19 +28,25 @@ import com.salesforce.phoenix.query.QueryConstants;
 public class ColumnParseNode extends NamedParseNode {
     private final TableName tableName;
     private final String fullName;
+    private final String alias;
 
     ColumnParseNode(String name) {
-        this(null, name);
+        this(null, name, null);
     }
 
-    public ColumnParseNode(TableName tableName, String name) {
+    public ColumnParseNode(TableName tableName, String name, String alias) {
         // Upper case here so our Maps can depend on this (and we don't have to upper case and create a string on every
         // lookup
         super(name);
+        this.alias = alias;
         this.tableName = tableName;
         fullName = tableName == null ? getName() : tableName.toString() + QueryConstants.NAME_SEPARATOR + getName();
     }
 
+    public ColumnParseNode(TableName tableName, String name) {
+        this(tableName, name, null);
+    }
+    
     @Override
     public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
         return visitor.visit(this);
@@ -60,7 +66,7 @@ public class ColumnParseNode extends NamedParseNode {
 
     @Override
     public String toString() {
-        return getName();
+        return alias == null ? getName() : alias;
     }
 
 }
