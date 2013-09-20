@@ -752,6 +752,7 @@ public class MetaDataClient {
             sb.append(" = ?");
             binds.add(schemaName);
         }
+        sb.append(" LIMIT 1");
         
         PreparedStatement ps = connection.prepareStatement(sb.toString());
         for (int i = 0; i < binds.size(); i++) {
