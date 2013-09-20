@@ -69,7 +69,7 @@ public interface IndexBuilder {
    * @return a Map of the mutations to make -> target index table name
    * @throws IOException on failure
    */
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Put put) throws IOException;
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Put put) throws IOException;
 
   /**
    * The counter-part to {@link #getIndexUpdate(Put)} - your opportunity to update any/all index
@@ -79,7 +79,7 @@ public interface IndexBuilder {
    * @return a {@link Map} of the mutations to make -> target index table name
    * @throws IOException on failure
    */
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Delete delete) throws IOException;
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Delete delete) throws IOException;
 
   /**
    * Build an index update to cleanup the index when we remove {@link KeyValue}s via the normal
@@ -89,7 +89,7 @@ public interface IndexBuilder {
    * @return a {@link Map} of the mutations to make -> target index table name
    * @throws IOException on failure
    */
-  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdateForFilteredRows(
       Collection<KeyValue> filtered)
       throws IOException;
 

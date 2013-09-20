@@ -108,7 +108,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) throws IOException {
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Put p) throws IOException {
     // build the index updates for each group
     IndexUpdateManager updateMap = new IndexUpdateManager();
 
@@ -427,7 +427,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) throws IOException {
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Delete d) throws IOException {
     // stores all the return values
     IndexUpdateManager updateMap = new IndexUpdateManager();
 
@@ -481,7 +481,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdateForFilteredRows(
       Collection<KeyValue> filtered) throws IOException {
     // TODO Implement IndexBuilder.getIndexUpdateForFilteredRows
     return null;

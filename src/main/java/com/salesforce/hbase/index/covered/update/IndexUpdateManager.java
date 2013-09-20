@@ -184,20 +184,19 @@ public class IndexUpdateManager {
     m.setAttribute(PHOENIX_HBASE_TEMP_DELETE_MARKER, TRUE_MARKER);
   }
 
-  public List<Pair<Mutation, String>> toMap() {
-    List<Pair<Mutation, String>> updateMap = Lists.newArrayList();
+  public List<Pair<Mutation, byte[]>> toMap() {
+    List<Pair<Mutation, byte[]>> updateMap = Lists.newArrayList();
     for (Entry<ImmutableBytesPtr, Collection<Mutation>> updates : map.entrySet()) {
       // get is ok because we always set with just the bytes
       byte[] tableName = updates.getKey().get();
       // TODO replace this as just storing a byte[], to avoid all the String <-> byte[] swapping
       // HBase does
-      String table = Bytes.toString(tableName);
       for (Mutation m : updates.getValue()) {
         // skip elements that have been marked for delete
         if (shouldBeRemoved(m)) {
           continue;
         }
-        updateMap.add(new Pair<Mutation, String>(m, table));
+        updateMap.add(new Pair<Mutation, byte[]>(m, tableName));
       }
     }
     return updateMap;

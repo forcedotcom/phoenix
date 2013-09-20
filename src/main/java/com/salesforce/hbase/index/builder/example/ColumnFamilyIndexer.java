@@ -111,13 +111,13 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) {
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Put p) {
     // if not columns to index, we are done and don't do anything special
     if (columnTargetMap == null || columnTargetMap.size() == 0) {
       return null;
     }
 
-    Collection<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
+    Collection<Pair<Mutation, byte[]>> updateMap = new ArrayList<Pair<Mutation, byte[]>>();
     Set<byte[]> keys = p.getFamilyMap().keySet();
     for (Entry<byte[], List<KeyValue>> entry : p.getFamilyMap().entrySet()) {
       String ref = columnTargetMap
@@ -157,19 +157,19 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
       }
 
       // add the mapping
-      updateMap.add(new Pair<Mutation, String>(put, ref));
+      updateMap.add(new Pair<Mutation, byte[]>(put, Bytes.toBytes(ref)));
     }
     return updateMap;
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) {
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Delete d) {
     // if no columns to index, we are done and don't do anything special
     if (columnTargetMap == null || columnTargetMap.size() == 0) {
       return null;
     }
 
-    Collection<Pair<Mutation, String>> updateMap = new ArrayList<Pair<Mutation, String>>();
+    Collection<Pair<Mutation, byte[]>> updateMap = new ArrayList<Pair<Mutation, byte[]>>();
     for (Entry<byte[], List<KeyValue>> entry : d.getFamilyMap().entrySet()) {
       String ref = columnTargetMap
           .get(new ImmutableBytesPtr(entry.getKey()));
@@ -186,7 +186,7 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
       // column family from the original update
       Delete delete = new Delete(kvs.get(0).getFamily());
       // add the mapping
-      updateMap.add(new Pair<Mutation, String>(delete, ref));
+      updateMap.add(new Pair<Mutation, byte[]>(delete, Bytes.toBytes(ref)));
     }
     return updateMap;
   }
@@ -209,7 +209,7 @@ public class ColumnFamilyIndexer extends BaseIndexBuilder {
    * Doesn't do any index cleanup. This is just a basic example case.
    */
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdateForFilteredRows(
       Collection<KeyValue> filtered)
       throws IOException {
     return null;

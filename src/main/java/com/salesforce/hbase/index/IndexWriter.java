@@ -50,6 +50,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * Do the actual work of writing to the index tables. Ensures that if we do fail to write to the
@@ -86,26 +87,27 @@ public class IndexWriter {
    * {@link HBaseAdmin#unassign(byte[], boolean)}) the region and then failing that calls
    * {@link System#exit(int)} to kill the server.
    */
-  public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, String>> indexUpdates) {
+  public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, byte[]>> indexUpdates) {
     try {
       write(indexUpdates);
     } catch (Exception e) {
       killYourself(e);
     }
   }
+  
   /**
    * Write the mutations to their respective table using the provided factory.
    * <p>
    * This method is not thread-safe and if accessed in a non-serial manner could leak HTables.
-   * @param updates Updates to write
+   * @param indexUpdates Updates to write
    * @throws CannotReachIndexException if we cannot successfully write a single index entry. We stop
    *           immediately on the first failed index write, rather than attempting all writes.
    */
-  public void write(Collection<Pair<Mutation, String>> updates)
+  public void write(Collection<Pair<Mutation, byte[]>> indexUpdates)
       throws CannotReachIndexException {
     // convert the strings to htableinterfaces to which we can talk and group by TABLE
     Multimap<HTableInterfaceReference, Mutation> toWrite =
-        resolveTableReferences(factory, updates);
+        resolveTableReferences(factory, indexUpdates);
 
     // write each mutation, as a part of a batch, to its respective table
     List<Mutation> mutations;
@@ -171,17 +173,19 @@ public class IndexWriter {
    * @return pairs that can then be written by an {@link IndexWriter}.
    */
   public static Multimap<HTableInterfaceReference, Mutation> resolveTableReferences(
-      HTableFactory factory, Collection<Pair<Mutation, String>> indexUpdates) {
+      HTableFactory factory, Collection<Pair<Mutation, byte[]>> indexUpdates) {
     Multimap<HTableInterfaceReference, Mutation> updates =
         ArrayListMultimap.<HTableInterfaceReference, Mutation> create();
-    Map<String, HTableInterfaceReference> tables =
-        new HashMap<String, HTableInterfaceReference>(updates.size());
-    for (Pair<Mutation, String> entry : indexUpdates) {
-      String tableName = entry.getSecond();
-      HTableInterfaceReference table = tables.get(tableName);
+    // simple map to make lookups easy while we build the map of tables to create
+    Map<ImmutableBytesPtr, HTableInterfaceReference> tables =
+        new HashMap<ImmutableBytesPtr, HTableInterfaceReference>(updates.size());
+    for (Pair<Mutation, byte[]> entry : indexUpdates) {
+      byte[] tableName = entry.getSecond();
+      ImmutableBytesPtr ptr = new ImmutableBytesPtr(tableName);
+      HTableInterfaceReference table = tables.get(ptr);
       if (table == null) {
-        table = new HTableInterfaceReference(entry.getSecond(), factory);
-        tables.put(tableName, table);
+        table = new HTableInterfaceReference(ptr, factory);
+        tables.put(ptr, table);
       }
       updates.put(table, entry.getFirst());
     }

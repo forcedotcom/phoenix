@@ -6,8 +6,9 @@ import java.io.IOException;
 
 import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
+
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * Reference to an HTableInterface that only gets the underlying {@link HTableInterface} from the
@@ -27,7 +28,7 @@ import org.apache.hadoop.io.Writable;
  */
 public class HTableInterfaceReference implements Writable {
 
-  private String tableName;
+  private ImmutableBytesPtr tableName;
   private HTableInterface table;
   private HTableFactory factory;
 
@@ -39,12 +40,12 @@ public class HTableInterfaceReference implements Writable {
   public HTableInterfaceReference() {
   }
 
-  public HTableInterfaceReference(String tablename) {
-    this.tableName = tablename;
+  public HTableInterfaceReference(ImmutableBytesPtr tableName) {
+    this.tableName = tableName;
   }
 
-  public HTableInterfaceReference(String tablename, HTableFactory factory) {
-    this.tableName = tablename;
+  public HTableInterfaceReference(ImmutableBytesPtr tableName, HTableFactory factory) {
+    this(tableName);
     this.factory = factory;
   }
 
@@ -54,7 +55,7 @@ public class HTableInterfaceReference implements Writable {
 
   public HTableInterface getTable(HTableFactory e) throws IOException {
     if (this.table == null) {
-      this.table = e.getTable(Bytes.toBytes(tableName));
+      this.table = e.getTable(this.tableName.copyBytes());
     }
     return this.table;
   }
@@ -69,18 +70,18 @@ public class HTableInterfaceReference implements Writable {
   }
 
   public String getTableName() {
-    return this.tableName;
+    return this.tableName.toString();
   }
 
   @Override
   public void readFields(DataInput in) throws IOException {
-    this.tableName = in.readUTF();
-
+    this.tableName = new ImmutableBytesPtr();
+    this.tableName.readFields(in);
   }
 
   @Override
   public void write(DataOutput out) throws IOException {
-    out.writeUTF(this.tableName);
+    this.tableName.write(out);
   }
 
   @Override

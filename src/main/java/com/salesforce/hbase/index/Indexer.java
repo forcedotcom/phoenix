@@ -153,7 +153,7 @@ public class Indexer extends BaseRegionObserver {
     if (!this.builder.isEnabled(put)) {
       return;
     }
-    Collection<Pair<Mutation, String>> indexUpdates = this.builder.getIndexUpdate(put);
+    Collection<Pair<Mutation, byte[]>> indexUpdates = this.builder.getIndexUpdate(put);
 
     doPre(indexUpdates, edit, writeToWAL);
   }
@@ -166,15 +166,15 @@ public class Indexer extends BaseRegionObserver {
       return;
     }
     // get the mapping for index column -> target index table
-    Collection<Pair<Mutation, String>> indexUpdates = this.builder.getIndexUpdate(delete);
+    Collection<Pair<Mutation, byte[]>> indexUpdates = this.builder.getIndexUpdate(delete);
 
     doPre(indexUpdates, edit, writeToWAL);
   }
 
-  private void doPre(Collection<Pair<Mutation, String>> updates,
+  private void doPre(Collection<Pair<Mutation, byte[]>> indexUpdates,
       final WALEdit edit, final boolean writeToWAL) throws IOException {
     // no index updates, so we are done
-    if (updates == null || updates.size() == 0) {
+    if (indexUpdates == null || indexUpdates.size() == 0) {
       return;
     }
 
@@ -182,16 +182,16 @@ public class Indexer extends BaseRegionObserver {
     // update right away
     if (!writeToWAL) {
       try {
-        this.writer.write(updates);
+        this.writer.write(indexUpdates);
         return;
       } catch (CannotReachIndexException e) {
-        LOG.error("Failed to update index with entries:" + updates, e);
+        LOG.error("Failed to update index with entries:" + indexUpdates, e);
         throw new IOException(e);
       }
     }
 
     // we have all the WAL durability, so we just update the WAL entry and move on
-    for (Pair<Mutation, String> entry : updates) {
+    for (Pair<Mutation, byte[]> entry : indexUpdates) {
       edit.add(new IndexedKeyValue(entry.getSecond(), entry.getFirst()));
     }
 
@@ -258,7 +258,7 @@ public class Indexer extends BaseRegionObserver {
      * lead to writing all the index updates for each Put/Delete).
      */
     if (!ikv.getBatchFinished()) {
-      Collection<Pair<Mutation, String>> indexUpdates = extractIndexUpdate(edit);
+      Collection<Pair<Mutation, byte[]>> indexUpdates = extractIndexUpdate(edit);
 
       // the WAL edit is kept in memory and we already specified the factory when we created the
       // references originally - therefore, we just pass in a null factory here and use the ones
@@ -295,13 +295,12 @@ public class Indexer extends BaseRegionObserver {
    * @param edit to search for index updates
    * @return the mutations to apply to the index tables
    */
-  private Collection<Pair<Mutation, String>> extractIndexUpdate(WALEdit edit) {
-    Collection<Pair<Mutation, String>> indexUpdates = new ArrayList<Pair<Mutation, String>>();
+  private Collection<Pair<Mutation, byte[]>> extractIndexUpdate(WALEdit edit) {
+    Collection<Pair<Mutation, byte[]>> indexUpdates = new ArrayList<Pair<Mutation, byte[]>>();
     for (KeyValue kv : edit.getKeyValues()) {
       if (kv instanceof IndexedKeyValue) {
         IndexedKeyValue ikv = (IndexedKeyValue) kv;
-        indexUpdates.add(new Pair<Mutation, String>(ikv.getMutation(), ikv
-            .getIndexTable()));
+        indexUpdates.add(new Pair<Mutation, byte[]>(ikv.getMutation(), ikv.getIndexTable()));
       }
     }
 
@@ -311,7 +310,7 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void preWALRestore(ObserverContext<RegionCoprocessorEnvironment> env, HRegionInfo info,
       HLogKey logKey, WALEdit logEdit) throws IOException {
-    Collection<Pair<Mutation, String>> indexUpdates = extractIndexUpdate(logEdit);
+    Collection<Pair<Mutation, byte[]>> indexUpdates = extractIndexUpdate(logEdit);
     writer.writeAndKillYourselfOnFailure(indexUpdates);
   }
 

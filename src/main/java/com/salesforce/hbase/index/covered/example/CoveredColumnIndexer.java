@@ -92,7 +92,7 @@ public class CoveredColumnIndexer extends CoveredColumnsIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdateForFilteredRows(
       Collection<KeyValue> filtered) throws IOException {
 
     // stores all the return values
