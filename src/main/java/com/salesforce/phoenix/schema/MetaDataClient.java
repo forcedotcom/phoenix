@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import static com.google.common.collect.Lists.newArrayListWithCapacity;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
@@ -738,10 +739,36 @@ public class MetaDataClient {
         return dropTable(schemaName, tableName, parentTableName, PTableType.INDEX, statement.ifExists());
     }
 
+    private boolean hasTenantSpecificTables(String schemaName, String parentTableName) throws SQLException {
+        List<String> binds = newArrayListWithCapacity(2);
+        binds.add(parentTableName);
+        
+        StringBuilder sb = new StringBuilder("SELECT 1 FROM " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" WHERE " + TENANT_ID + " IS NOT NULL AND " + 
+                DATA_TABLE_NAME + " = ? AND " + TABLE_SCHEM_NAME);
+        if (schemaName == null) {
+            sb.append(" IS NULL");
+        }
+        else {
+            sb.append(" = ?");
+            binds.add(schemaName);
+        }
+        
+        PreparedStatement ps = connection.prepareStatement(sb.toString());
+        for (int i = 0; i < binds.size(); i++) {
+            ps.setString(i+1, binds.get(i));
+        }
+        ResultSet rs = ps.executeQuery();
+        return rs.next();
+    }
+    
     private MutationState dropTable(String schemaName, String tableName, String parentTableName, PTableType tableType, boolean ifExists) throws SQLException {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
+            if (hasTenantSpecificTables(schemaName, tableName)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
+            }
             byte[] tenantIdBytes = connection.getTenantId();
             if (tenantIdBytes == null) tenantIdBytes = ByteUtil.EMPTY_BYTE_ARRAY;
             byte[] key = SchemaUtil.getTableKey(tenantIdBytes, schemaName, tableName);

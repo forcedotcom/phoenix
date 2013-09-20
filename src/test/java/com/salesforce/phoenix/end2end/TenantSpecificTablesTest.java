@@ -27,16 +27,17 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
+import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
 import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.*;
 
 import java.sql.*;
-import java.util.Properties;
 
 import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
+
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 
 /**
  * @author elilevine
@@ -47,32 +48,46 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     private static final String TENANT_ID = "ZZTop";
     private static final String PHOENIX_JDBC_TENANT_SPECIFIC_URL = getUrl() + ';' + TENANT_ID_ATTRIB + '=' + TENANT_ID;
     
-    private static final String PARENT_TABLE_DDL = "CREATE TABLE PARENT_TABLE ( \n" + 
+    private static final String PARENT_TABLE_NAME = "PARENT_TABLE";
+    private static final String PARENT_TABLE_DDL = "CREATE TABLE " + PARENT_TABLE_NAME + " ( \n" + 
             "                user VARCHAR ,\n" + 
             "                tenant_id VARCHAR(5) NOT NULL,\n" + 
             "                id INTEGER NOT NULL \n" + 
             "                CONSTRAINT pk PRIMARY KEY (tenant_id, id))";
     
-    private static final String TENANT_TABLE_DDL = "CREATE TABLE TENANT_TABLE ( \n" + 
+    private static final String TENANT_TABLE_NAME = "TENANT_TABLE";
+    private static final String TENANT_TABLE_DDL = "CREATE TABLE " + TENANT_TABLE_NAME + " ( \n" + 
             "                tenant_col VARCHAR ,\n" + 
             "                tenant_id VARCHAR(5) NOT NULL,\n" + 
             "                id INTEGER NOT NULL \n" + 
             "                CONSTRAINT pk PRIMARY KEY (tenant_id, id)) \n" +
             "                BASE_TABLE='PARENT_TABLE'";
     
-    private Properties props = new Properties(TEST_PROPERTIES);
-
     @Before
-    public void initProperties() {
-        props.clear();
+    public void createTables() throws SQLException {
+        createTestTable(getUrl(), PARENT_TABLE_DDL);
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL);
+    }
+    
+    @After
+    public void dropTables() throws SQLException {
+        dropTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_NAME);
+        dropTable(getUrl(), PARENT_TABLE_NAME);
+    }
+    
+    private void dropTable(String url, String tableName) throws SQLException {
+        Connection conn = DriverManager.getConnection(url);
+        try {
+            conn.createStatement().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+        finally {
+            conn.close();
+        }
     }
     
     @Test
     public void testBasicUpsertSelect() throws Exception {
-        createTestTable(getUrl(), PARENT_TABLE_DDL);
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL);
-        
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         try {
             conn.setAutoCommit(false);
             conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Cheap Sunglasses')");
@@ -94,11 +109,8 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testAddColumn() throws Exception {
-        createTestTable(getUrl(), PARENT_TABLE_DDL);
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL);
-        
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
+    public void testAddDropColumn() throws Exception {
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         conn.setAutoCommit(true);
         try {
             conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Viva Las Vegas')");
@@ -113,6 +125,32 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             rs = conn.createStatement().executeQuery("select count(*) from TENANT_TABLE where tenant_col2 = 'a'");
             rs.next();
             assertEquals(1, rs.getInt(1));
+            
+            conn.createStatement().execute("alter table TENANT_TABLE drop column tenant_col");
+            
+            rs = conn.createStatement().executeQuery("select count(*) from TENANT_TABLE");
+            rs.next();
+            assertEquals(2, rs.getInt(1));
+            
+            try {
+                rs = conn.createStatement().executeQuery("select tenant_col from TENANT_TABLE");
+            }
+            catch (ColumnNotFoundException expected) {}
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDropParentTableWithExistingTenantTable() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().executeUpdate("drop table " + PARENT_TABLE_NAME);
+            fail("Should not have been allowed to drop a parent table to which tenant-specific tables still point.");
+        }
+        catch (SQLException expected) {
+            assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
         }
         finally {
             conn.close();
