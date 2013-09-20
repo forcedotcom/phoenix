@@ -43,9 +43,34 @@ import org.apache.hadoop.hbase.regionserver.TimeRangeTracker;
 import com.salesforce.hbase.index.covered.KeyValueStore;
 
 /**
- * Like the HBase {@link MemStore}, but without all that exta work around maintaining snapshots and
+ * Like the HBase {@link MemStore}, but without all that extra work around maintaining snapshots and
  * sizing (for right now). We still support the concurrent access (in case indexes are built in
- * parallel). Essentially, this is a light wrapper around a ConcurrentSkipListMap.
+ * parallel).
+ * <p>
+ * 
+ We basically wrap a KeyValueSkipListSet, just like a regular MemStore, except we are:
+ * <ol>
+ *  <li>not dealing with
+ *    <ul>
+ *      <li>space considerations</li>
+ *      <li>a snapshot set</li>
+ *    </ul>
+ *  </li>
+ *  <li>ignoring memstore timestamps in favor of deciding when we want to overwrite keys based on how
+ * we obtain them</li>
+ * </ol>
+ * <p>
+ * We can ignore the memstore timestamps because we know that anything we get from the local region
+ * is going to be MVCC visible - so it should just go in. However, we also want overwrite any
+ * existing state with our pending write that we are indexing, so that needs to clobber the KVs we
+ * get from the HRegion. This got really messy with a regular memstore as each KV from the MemStore
+ * frequently has a higher MemStoreTS, but we can't just up the pending KVs' MemStoreTs b/c a
+ * memstore relies on the MVCC readpoint, which generally is < Long.MAX_VALUE.
+ * <p>
+ * By realizing that we don't need the snapshot or space requirements, we can go much faster than
+ * the previous implementation. Further, by being smart about how we manage the KVs, we can drop the
+ * extra object creation we were doing to wrap the pending KVs (which we did previously to ensure
+ * they sorted before the ones we got from the HRegion).
  */
 public class IndexMemStore implements KeyValueStore {
 
