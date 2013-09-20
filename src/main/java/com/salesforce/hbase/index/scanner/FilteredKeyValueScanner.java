@@ -10,6 +10,8 @@ import org.apache.hadoop.hbase.filter.Filter.ReturnCode;
 import org.apache.hadoop.hbase.regionserver.ExposedMemStore;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 
+import com.salesforce.hbase.index.covered.KeyValueStore;
+
 /**
  * Combine a simplified version of the logic in the ScanQueryMatcher and the KeyValueScanner. We can
  * get away with this here because we are only concerned with a single {@link ExposedMemStore} for
@@ -21,8 +23,8 @@ public class FilteredKeyValueScanner implements KeyValueScanner {
   private KeyValueScanner delegate;
   private Filter filter;
 
-  public FilteredKeyValueScanner(Filter filter, ExposedMemStore store) {
-    this(filter, store.getScanners().get(0));
+  public FilteredKeyValueScanner(Filter filter, KeyValueStore store) {
+    this(filter, store.getScanner());
   }
 
   private FilteredKeyValueScanner(Filter filter, KeyValueScanner delegate) {
