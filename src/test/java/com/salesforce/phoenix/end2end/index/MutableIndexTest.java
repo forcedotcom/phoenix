@@ -27,16 +27,16 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 public class MutableIndexTest extends BaseMutableIndexTest {
-    @BeforeClass     // FIXME: We should not need to do this
+    @BeforeClass 
     public static void doSetup() throws Exception {
         Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
-        // Don't cache meta information for this test because the splits change between tests
-        props.put(QueryServices.REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB, Integer.toString(0));
+        // Don't split intra region so we can more easily know that the n-way parallelization is for the explain plan
+        props.put(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.toString(1));
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
         
-    @Before // FIXME: We should not need to destroy the tables between these tests
+    @Before // FIXME: this shouldn't be necessary, but the tests hang without it.
     public void destroyTables() throws Exception {
         // Physically delete HBase table so that splits occur as expected for each test
         Properties props = new Properties(TEST_PROPERTIES);
@@ -58,7 +58,6 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         }
     }
     
-
     @Test
     public void testIndexWithNullableFixedWithCols() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
@@ -80,6 +79,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
             assertEquals("chara", rs.getString(1));
+            assertEquals("chara", rs.getString("char_col1"));
             assertEquals(2, rs.getInt(2));
             assertTrue(rs.next());
             assertEquals("chara", rs.getString(1));
@@ -109,9 +109,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
             
             String query = "SELECT char_col1, int_col1, long_col2 from " + DATA_TABLE_FULL_NAME;
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-            // FIXME: Why is this a 4 way parallel scan while the data table is a 1 way scan?
-            // Because of lack of stats initially. To account for this, what should we do? 
-            assertEquals("CLIENT PARALLEL 4-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
+            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
             
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
@@ -209,7 +207,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         
         query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals("CLIENT PARALLEL 4-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
+        assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
 
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
@@ -266,7 +264,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
 
         query = "SELECT a.* FROM " + DATA_TABLE_FULL_NAME;
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals("CLIENT PARALLEL 4-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
+        assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
         assertEquals("y",rs.getString(1));
