@@ -36,7 +36,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.*;
 
 
 public class HavingCompiler {
@@ -44,13 +44,16 @@ public class HavingCompiler {
     private HavingCompiler() {
     }
 
-    public static Expression getExpression(SelectStatement statement, StatementContext context, GroupBy groupBy) throws SQLException {
+    public static Expression compile(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException {
         ParseNode having = statement.getHaving();
         if (having == null) {
             return null;
         }
         ExpressionCompiler expressionBuilder = new ExpressionCompiler(context, groupBy);
         Expression expression = having.accept(expressionBuilder);
+        if (expression.getDataType() != PDataType.BOOLEAN) {
+            throw new TypeMismatchException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
+        }
         if (LiteralExpression.FALSE_EXPRESSION == expression) {
             context.setScanRanges(ScanRanges.NOTHING);
             return null;
@@ -60,11 +63,10 @@ public class HavingCompiler {
         if (!expressionBuilder.isAggregate()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.ONLY_AGGREGATE_IN_HAVING_CLAUSE).build().buildException();
         }
-        context.setAggregate(true);
         return expression;
     }
 
-    public static SelectStatement moveToWhereClause(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException {
+    public static SelectStatement rewrite(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException {
         ParseNode having = statement.getHaving();
         if (having == null) {
             return statement;
@@ -216,6 +218,11 @@ public class HavingCompiler {
 
         @Override
         public boolean visitEnter(DivideParseNode node) throws SQLException {
+            return true;
+        }
+
+        @Override
+        public boolean visitEnter(BetweenParseNode node) throws SQLException {
             return true;
         }
 

@@ -38,8 +38,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.OrderByExpression;
-import com.salesforce.phoenix.parse.OrderByNode;
-import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 /**
@@ -50,22 +49,17 @@ import com.salesforce.phoenix.schema.ColumnModifier;
  */
 public class OrderByCompiler {
     public static class OrderBy {
-        public static final OrderBy EMPTY_ORDER_BY = new OrderBy(false, Collections.<OrderByExpression>emptyList());
+        public static final OrderBy EMPTY_ORDER_BY = new OrderBy(Collections.<OrderByExpression>emptyList());
         /**
-         * Used to indicate that there was an ORDER BY, but it was optimized out because 
+         * Used to indicate that there was an ORDER BY, but it was optimized out because
+         * rows are already returned in this order. 
          */
-        public static final OrderBy ROW_KEY_ORDER_BY = new OrderBy(false, Collections.<OrderByExpression>emptyList());
+        public static final OrderBy ROW_KEY_ORDER_BY = new OrderBy(Collections.<OrderByExpression>emptyList());
         
-        private final boolean isAggregate;
         private final List<OrderByExpression> orderByExpressions;
         
-        private OrderBy(boolean isAggregate, List<OrderByExpression> orderByExpressions) {
-            this.isAggregate = isAggregate;
+        private OrderBy(List<OrderByExpression> orderByExpressions) {
             this.orderByExpressions = ImmutableList.copyOf(orderByExpressions);
-        }
-
-        public boolean isAggregate() {
-            return isAggregate;
         }
 
         public List<OrderByExpression> getOrderByExpressions() {
@@ -76,44 +70,40 @@ public class OrderByCompiler {
      * Gets a list of columns in the ORDER BY clause
      * @param context the query context for tracking various states
      * associated with the given select statement
-     * @param orderByNodes the list of ORDER BY expressions
-     * @param groupBy the list of columns in the GROUP BY clause
-     * @param isDistinct true if SELECT DISTINCT and false otherwise
-     * @param limit the row limit or null if no limit
-     * @param aliasParseNodeMap the map of aliased parse nodes used
+     * @param statement TODO
+     * @param aliasMap the map of aliased parse nodes used
      * to resolve alias usage in the ORDER BY clause
-     * 
+     * @param groupBy the list of columns in the GROUP BY clause
+     * @param limit the row limit or null if no limit
      * @return the compiled ORDER BY clause
      * @throws SQLException
      */
-    public static OrderBy getOrderBy(StatementContext context,
-                                     List<OrderByNode> orderByNodes,
-                                     GroupBy groupBy, boolean isDistinct,
-                                     Integer limit, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
+    public static OrderBy compile(StatementContext context,
+                                  FilterableStatement statement,
+                                  Map<String, ParseNode> aliasMap, GroupBy groupBy,
+                                  Integer limit) throws SQLException {
+        List<OrderByNode> orderByNodes = statement.getOrderBy();
         if (orderByNodes.isEmpty()) {
             return OrderBy.EMPTY_ORDER_BY;
         }
         // accumulate columns in ORDER BY
         TrackOrderPreservingExpressionCompiler visitor = 
                 new TrackOrderPreservingExpressionCompiler(context, groupBy, 
-                        aliasParseNodeMap, orderByNodes.size(), Ordering.ORDERED);
-        Expression nonAggregateExpression = null;
+                        aliasMap, orderByNodes.size(), Ordering.ORDERED);
         LinkedHashSet<OrderByExpression> orderByExpressions = Sets.newLinkedHashSetWithExpectedSize(orderByNodes.size());
         for (OrderByNode node : orderByNodes) {
             boolean isAscending = node.isAscending();
             Expression expression = node.getNode().accept(visitor);
             if (visitor.addEntry(expression, isAscending ? null : ColumnModifier.SORT_DESC)) {
-                if (!visitor.isAggregate()) {
-                    nonAggregateExpression = expression;
-                }
                 // Detect mix of aggregate and non aggregates (i.e. ORDER BY txns, SUM(txns)
-                if (nonAggregateExpression != null) {
-                    if (context.isAggregate()) {
-                        if (isDistinct) {
+                if (!visitor.isAggregate()) {
+                    if (statement.isAggregate() || statement.isDistinct()) {
+                        // Detect ORDER BY not in SELECT DISTINCT: SELECT DISTINCT count(*) FROM t ORDER BY x
+                        if (statement.isDistinct()) {
                             throw new SQLExceptionInfo.Builder(SQLExceptionCode.ORDER_BY_NOT_IN_SELECT_DISTINCT)
-                            .setMessage(nonAggregateExpression.toString()).build().buildException();
+                            .setMessage(expression.toString()).build().buildException();
                         }
-                        ExpressionCompiler.throwNonAggExpressionInAggException(nonAggregateExpression.toString());
+                        ExpressionCompiler.throwNonAggExpressionInAggException(expression.toString());
                     }
                 }
                 if (expression.getColumnModifier() == ColumnModifier.SORT_DESC) {
@@ -133,7 +123,7 @@ public class OrderByCompiler {
             return OrderBy.ROW_KEY_ORDER_BY;
         }
 
-        return new OrderBy(context.isAggregate(), Lists.newArrayList(orderByExpressions.iterator()));
+        return new OrderBy(Lists.newArrayList(orderByExpressions.iterator()));
     }
 
 

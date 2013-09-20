@@ -39,13 +39,30 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.visitor.KeyValueExpressionVisitor;
-import com.salesforce.phoenix.filter.*;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.filter.MultiCFCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.MultiCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
+import com.salesforce.phoenix.filter.SingleCFCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.SingleCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.parse.HintNode.Hint;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeFactory;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -64,22 +81,24 @@ public class WhereCompiler {
     /**
      * Pushes where clause filter expressions into scan by building and setting a filter.
      * @param context the shared context during query compilation
-     * @param where the select statement
+     * @param statement TODO
      * @throws SQLException if mismatched types are found, bind value do not match binds,
      * or invalid function arguments are encountered.
      * @throws SQLFeatureNotSupportedException if an unsupported expression is encountered.
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public static Expression getWhereClause(StatementContext context, ParseNode where) throws SQLException {
-        return compileWhereClause(context, where, Sets.<Expression>newHashSet());
+    public static Expression compile(StatementContext context, FilterableStatement statement) throws SQLException {
+        return compileWhereClause(context, statement, Sets.<Expression>newHashSet());
     }
 
     /**
      * Used for testing to get access to the expressions that were used to form the start/stop key of the scan
+     * @param statement TODO
      */
-    public static Expression compileWhereClause(StatementContext context, ParseNode where,
+    public static Expression compileWhereClause(StatementContext context, FilterableStatement statement,
             Set<Expression> extractedNodes) throws SQLException {
+        ParseNode where = statement.getWhere();
         if (where == null) {
             return null;
         }
@@ -88,8 +107,11 @@ public class WhereCompiler {
         if (whereCompiler.isAggregate()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
         }
-        expression = WhereOptimizer.pushKeyExpressionsToScan(context, expression, extractedNodes);
-        setScanFilter(context, expression, whereCompiler.disambiguateWithFamily);
+        if (expression.getDataType() != PDataType.BOOLEAN) {
+            throw new TypeMismatchException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
+        }
+        expression = WhereOptimizer.pushKeyExpressionsToScan(context, statement, expression, extractedNodes);
+        setScanFilter(context, statement, expression, whereCompiler.disambiguateWithFamily);
 
         return expression;
     }
@@ -148,7 +170,7 @@ public class WhereCompiler {
      * @param context the shared context during query compilation
      * @param whereClause the final where clause expression.
      */
-    private static void setScanFilter(StatementContext context, Expression whereClause, boolean disambiguateWithFamily) {
+    private static void setScanFilter(StatementContext context, FilterableStatement statement, Expression whereClause, boolean disambiguateWithFamily) {
         Filter filter = null;
         Scan scan = context.getScan();
         assert scan.getFilter() == null;
@@ -193,8 +215,8 @@ public class WhereCompiler {
 
         scan.setFilter(filter);
         ScanRanges scanRanges = context.getScanRanges();
-        boolean forcedSkipScan = context.hasHint(Hint.SKIP_SCAN);
-        boolean forcedRangeScan = context.hasHint(Hint.RANGE_SCAN);
+        boolean forcedSkipScan = statement.getHint().hasHint(Hint.SKIP_SCAN);
+        boolean forcedRangeScan = statement.getHint().hasHint(Hint.RANGE_SCAN);
         if (forcedSkipScan || (scanRanges.useSkipScanFilter() && !forcedRangeScan)) {
             ScanUtil.andFilterAtBeginning(scan, scanRanges.getSkipScanFilter());
         }

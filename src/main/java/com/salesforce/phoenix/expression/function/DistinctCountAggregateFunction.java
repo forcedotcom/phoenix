@@ -29,8 +29,8 @@ package com.salesforce.phoenix.expression.function;
 
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.*;
@@ -52,8 +52,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class DistinctCountAggregateFunction extends DelegateConstantToCountAggregateFunction {
     public static final String NAME = "DISTINCT_COUNT";
     public static final String NORMALIZED_NAME = SchemaUtil.normalizeIdentifier(NAME);
-    public final static byte[] ZERO = Bytes.toBytes(0);
-    public final static byte[] ONE = Bytes.toBytes(1);
+    public final static byte[] ZERO = PDataType.LONG.toBytes(0L);
+    public final static byte[] ONE = PDataType.LONG.toBytes(1L);
     
     public DistinctCountAggregateFunction() {
     }
@@ -92,17 +92,17 @@ public class DistinctCountAggregateFunction extends DelegateConstantToCountAggre
 
     @Override
     public PDataType getDataType() {
-        return PDataType.VARBINARY;
+        return PDataType.LONG;
     }
 
     @Override 
     public Aggregator newClientAggregator() {
-        return new DistinctCountClientAggregator();
+        return new DistinctCountClientAggregator(getAggregatorExpression().getColumnModifier());
     }
     
     @Override 
-    public Aggregator newServerAggregator() {
-        return new DistinctValueWithCountServerAggregator();
+    public Aggregator newServerAggregator(Configuration conf) {
+        return new DistinctValueWithCountServerAggregator(conf);
     }
     
     @Override

@@ -27,11 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.cache;
 
+import java.io.Closeable;
 import java.sql.SQLException;
-import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
 import com.salesforce.phoenix.memory.MemoryManager;
 
 
@@ -44,8 +46,7 @@ import com.salesforce.phoenix.memory.MemoryManager;
  */
 public interface TenantCache {
     MemoryManager getMemoryManager();
-    ScheduledExecutorService getTimerExecutor();
-    HashCache getHashCache(ImmutableBytesWritable joinId);
-    HashCache addHashCache(ImmutableBytesWritable joinId, ImmutableBytesWritable hashCacheBytes) throws SQLException;
-    HashCache removeHashCache(ImmutableBytesWritable joinId) throws SQLException;
+    Closeable getServerCache(ImmutableBytesPtr cacheId);
+    Closeable addServerCache(ImmutableBytesPtr cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory cacheFactory) throws SQLException;
+    void removeServerCache(ImmutableBytesPtr cacheId) throws SQLException;
 }

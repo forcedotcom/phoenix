@@ -46,7 +46,7 @@ public class StringUtil {
     public static final byte[] MOD_SPACE_UTF8 = new byte[ColumnModifier.values().length];
     static {
         for (ColumnModifier columnModifier : ColumnModifier.values()) {
-            MOD_SPACE_UTF8[columnModifier.ordinal()] = columnModifier.apply(new byte[] {SPACE_UTF8}, new byte[1], 0, 1)[0];
+            MOD_SPACE_UTF8[columnModifier.ordinal()] = columnModifier.apply(new byte[] {SPACE_UTF8}, 0, new byte[1], 0, 1)[0];
         }
     }
 

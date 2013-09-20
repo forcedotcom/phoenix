@@ -36,7 +36,7 @@ import com.google.common.collect.*;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.PTableType;
 
-public class CreateTableStatement implements SQLStatement {
+public class CreateTableStatement implements BindableStatement {
     private final TableName tableName;
     private final PTableType tableType;
     private final List<ColumnDef> columns;

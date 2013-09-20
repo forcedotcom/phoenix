@@ -56,9 +56,22 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
     public static final String TO_NUMBER_TABLE_DDL = "create table " + TO_NUMBER_TABLE_NAME +
         "(a_id integer not null, \n" + 
         "a_string char(4) not null, \n" +
-        "b_string char(4) not null \n" + 
+        "b_string char(4) not null, \n" + 
+        "a_date date not null, \n" + 
+        "a_time date not null, \n" + 
+        "a_timestamp timestamp not null \n" + 
         "CONSTRAINT my_pk PRIMARY KEY (a_id, a_string))";
-
+    
+    private Date row1Date;
+    private Date row2Date;
+    private Date row3Date;
+    private Time row1Time;
+    private Time row2Time;
+    private Time row3Time;
+    private Timestamp row1Timestamp;
+    private Timestamp row2Timestamp;
+    private Timestamp row3Timestamp;
+    
     @Before
     public void initTable() throws Exception {
         long ts = nextTimestamp();
@@ -72,22 +85,43 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
                 "upsert into " + TO_NUMBER_TABLE_NAME +
                 "    (a_id, " +
                 "    a_string," +
-                "    b_string)" +
-                "VALUES (?, ?, ?)");
+                "    b_string," +
+                "    a_date," +
+                "    a_time," +
+                "    a_timestamp)" +
+                "VALUES (?, ?, ?, ?, ?, ?)");
         
         stmt.setInt(1, 1);
         stmt.setString(2, "   1");
         stmt.setString(3, "   1");
+        row1Date = new Date(System.currentTimeMillis() - 1000);
+        row1Time = new Time(System.currentTimeMillis() - 1000);
+        row1Timestamp = new Timestamp(System.currentTimeMillis() + 10000);
+        stmt.setDate(4, row1Date);
+        stmt.setTime(5, row1Time);
+        stmt.setTimestamp(6, row1Timestamp);
         stmt.execute();
         
         stmt.setInt(1, 2);
         stmt.setString(2, " 2.2");
         stmt.setString(3, " 2.2");
+        row2Date = new Date(System.currentTimeMillis() - 10000);
+        row2Time = new Time(System.currentTimeMillis() - 1234);
+        row2Timestamp = new Timestamp(System.currentTimeMillis() + 1234567);
+        stmt.setDate(4, row2Date);
+        stmt.setTime(5, row2Time);
+        stmt.setTimestamp(6, row2Timestamp);
         stmt.execute();
         
         stmt.setInt(1, 3);
         stmt.setString(2, "$3.3");
         stmt.setString(3, "$3.3");
+        row3Date = new Date(System.currentTimeMillis() - 100);
+        row3Time = new Time(System.currentTimeMillis() - 789);
+        row3Timestamp = new Timestamp(System.currentTimeMillis() + 78901);
+        stmt.setDate(4, row3Date);
+        stmt.setTime(5, row3Time);
+        stmt.setTimestamp(6, row3Timestamp);
         stmt.execute();
         
         conn.commit();
@@ -107,7 +141,7 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
         int expectedId = 2;
         runOneRowQueryTest(query, expectedId);
     }
-    
+
     @Test
     public void testNonKeyFilterWithIntegerValue() throws Exception {
         String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(b_string) = 1";
@@ -164,6 +198,67 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
         runOneRowQueryTest(query, expectedId);
     }
     
+    @Test
+    public void testDateFilter() throws Exception {
+    	String pattern = "yyyyMMddHHmmssZ";
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_date, '" + pattern + "') = " + row1Date.getTime() ;
+        int expectedId = 1;
+        runOneRowQueryTest(query, expectedId);
+    }
+    
+    
+    @Test
+    public void testTimeFilter() throws Exception {
+    	String pattern = "HH:mm:ss z";
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_time, '" + pattern + "') = " + row1Time.getTime() ;
+        int expectedId = 1;
+        runOneRowQueryTest(query, expectedId);
+    }
+    
+    @Test
+    public void testDateFilterWithoutPattern() throws Exception {
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_date) = " + row2Date.getTime() ;
+        int expectedId = 2;
+        runOneRowQueryTest(query, expectedId);
+    }
+    
+    
+    @Test
+    public void testTimeFilterWithoutPattern() throws Exception {
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_time) = " + row2Time.getTime() ;
+        int expectedId = 2;
+        runOneRowQueryTest(query, expectedId);
+    }
+    
+    @Test
+    public void testTimeStampFilter() throws Exception {
+    	String pattern = "yyMMddHHmmssZ";
+        String query = "SELECT a_id FROM " + TO_NUMBER_TABLE_NAME + " WHERE to_number(a_timestamp, '" + pattern + "') = " + row1Timestamp.getTime() ;
+        int expectedId = 1;
+        runOneRowQueryTest(query, expectedId);
+    }
+    
+    @Test
+    public void testDateProjection() throws Exception {
+        String query = "select to_number(a_date) from " + TO_NUMBER_TABLE_NAME + " where a_id = 1";
+        BigDecimal expectedDecimalValue = new BigDecimal(row1Date.getTime());
+        runOneRowQueryTest(query, expectedDecimalValue);
+    }
+    
+    @Test
+    public void testTimeProjection() throws Exception {
+        String query = "select to_number(a_time) from " + TO_NUMBER_TABLE_NAME + " where a_id = 2";
+        BigDecimal expectedDecimalValue = new BigDecimal(row2Time.getTime());
+        runOneRowQueryTest(query, expectedDecimalValue);
+    }
+    
+    @Test
+    public void testTimeStampProjection() throws Exception {
+        String query = "select to_number(a_timestamp) from " + TO_NUMBER_TABLE_NAME + " where a_id = 3";
+        BigDecimal expectedDecimalValue = new BigDecimal(row3Timestamp.getTime());
+        runOneRowQueryTest(query, expectedDecimalValue);
+    }
+    
     private void runOneRowQueryTest(String oneRowQuery, BigDecimal expectedDecimalValue) throws Exception {
     	runOneRowQueryTest(oneRowQuery, false, null, expectedDecimalValue);
     }
@@ -182,7 +277,7 @@ public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
             if (isIntegerColumn)
             	assertEquals(expectedIntValue.intValue(), rs.getInt(1));
             else
-            	assertEquals(expectedDecimalValue, rs.getBigDecimal(1));
+            	assertTrue(expectedDecimalValue == rs.getBigDecimal(1) || (expectedDecimalValue != null && expectedDecimalValue.compareTo(rs.getBigDecimal(1)) == 0));
             assertFalse(rs.next());
         }
         finally {

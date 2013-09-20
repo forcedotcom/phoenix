@@ -48,6 +48,7 @@ import com.salesforce.phoenix.schema.*;
 public interface QueryConstants {
     public static final String NAME_SEPARATOR = ".";
     public final static byte[] NAME_SEPARATOR_BYTES = Bytes.toBytes(NAME_SEPARATOR);
+    public static final byte NAME_SEPARATOR_BYTE = NAME_SEPARATOR_BYTES[0];
     public static final String NULL_SCHEMA_NAME = "";
     public static final String NULL_DISPLAY_TEXT = "<null>";
     public static final long UNSET_TIMESTAMP = -1;
@@ -84,12 +85,11 @@ public interface QueryConstants {
     public static final String EMPTY_COLUMN_NAME = "_0";
     public static final byte[] EMPTY_COLUMN_BYTES = Bytes.toBytes(EMPTY_COLUMN_NAME);
     public static final String DEFAULT_COLUMN_FAMILY = EMPTY_COLUMN_NAME;
-    public static final PName DEFAULT_COLUMN_FAMILY_NAME = new PNameImpl(DEFAULT_COLUMN_FAMILY);
-    public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = DEFAULT_COLUMN_FAMILY_NAME.getBytes();
+    public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = EMPTY_COLUMN_BYTES;
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
-    public static final PName SYSTEM_TABLE_PK_NAME = new PNameImpl("pk");    
+    public static final String SYSTEM_TABLE_PK_NAME = "pk";
     
-    public static final String CREATE_TABLE =
+    public static final String CREATE_TABLE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
@@ -106,9 +106,6 @@ public interface QueryConstants {
             REF_GENERATION_NAME + " VARCHAR," +
             TABLE_SEQ_NUM + " BIGINT," +
             COLUMN_COUNT + " INTEGER," +
-            SALT_BUCKETS + " INTEGER," +
-            // Index metadata
-            DATA_TABLE_NAME + " VARCHAR NULL," +
             // Column metadata (will be null for table row)
             COLUMN_SIZE + " INTEGER," +
             BUFFER_LENGTH + " INTEGER," +
@@ -126,7 +123,11 @@ public interface QueryConstants {
             SCOPE_TABLE + " VARCHAR," +
             SOURCE_DATA_TYPE + " INTEGER," + // supposed to be SHORT
             IS_AUTOINCREMENT + " VARCHAR," +
+            // Columns added in 1.2.1
             COLUMN_MODIFIER + " INTEGER," +
+            SALT_BUCKETS + " INTEGER," +
+            // Columns added in 2.0.0
+            DATA_TABLE_NAME + " VARCHAR NULL," +
             INDEX_STATE + " CHAR(1)\n," +
             IMMUTABLE_ROWS + " BOOLEAN\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
@@ -135,7 +136,7 @@ public interface QueryConstants {
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
     
     // Create a SYSTEM.SEQUENCE table to store metadata related to sequence values
-    public static final String CREATE_SEQUENCE =
+    public static final String CREATE_SEQUENCE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_SEQUENCE + "\"(\n" +                                    
     		SEQUENCE_SCHEMA_COLUMN + " VARCHAR NULL, \n" + 
             SEQUENCE_NAME_COLUMN +  " VARCHAR NOT NULL, \n" +

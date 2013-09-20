@@ -30,6 +30,7 @@ package com.salesforce.phoenix.iterate;
 import java.sql.SQLException;
 
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -38,10 +39,10 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public class ParallelIteratorRegionSplitterFactory {
 
-    public static ParallelIteratorRegionSplitter getSplitter(StatementContext context, TableRef table) throws SQLException {
+    public static ParallelIteratorRegionSplitter getSplitter(StatementContext context, TableRef table, HintNode hintNode) throws SQLException {
         if (context.getScanRanges().useSkipScanFilter()) {
-            return SkipRangeParallelIteratorRegionSplitter.getInstance(context, table);
+            return SkipRangeParallelIteratorRegionSplitter.getInstance(context, table, hintNode);
         }
-        return DefaultParallelIteratorRegionSplitter.getInstance(context, table);
+        return DefaultParallelIteratorRegionSplitter.getInstance(context, table, hintNode);
     }
 }

@@ -31,13 +31,18 @@ import java.text.Format;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.*;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList;
+import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
+import org.apache.hadoop.hbase.filter.PageFilter;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.ScanRanges;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 public abstract class ExplainTable {
@@ -87,7 +92,7 @@ public abstract class ExplainTable {
         } else {
             hasSkipScanFilter = explainSkipScan(buf);
         }
-        buf.append("OVER " + SchemaUtil.getTableDisplayName(this.table.getSchema().getName(), table.getTable().getName().getString()));
+        buf.append("OVER " + table.getTable().getName().getString());
         appendKeyRanges(buf);
         planSteps.add(buf.toString());
         
@@ -95,26 +100,46 @@ public abstract class ExplainTable {
         Filter filter = scan.getFilter();
         PageFilter pageFilter = null;
         if (filter != null) {
+            int offset = 0;
+            boolean hasFirstKeyOnlyFilter = false;
             String filterDesc = "";
             if (hasSkipScanFilter) {
                 if (filter instanceof FilterList) {
-                    FilterList filterList = (FilterList) filter;
-                    filterDesc = filterList.getFilters().get(1).toString();
-                    if (filterList.getFilters().size() > 2) {
-                        pageFilter = (PageFilter) filterList.getFilters().get(2);
+                    List<Filter> filterList = ((FilterList) filter).getFilters();
+                    if (filterList.get(0) instanceof FirstKeyOnlyFilter) {
+                        hasFirstKeyOnlyFilter = true;
+                        offset = 1;
+                    }
+                    if (filterList.size() > offset+1) {
+                        filterDesc = filterList.get(offset+1).toString();
+                        if (filterList.size() > offset+2) {
+                            pageFilter = (PageFilter) filterList.get(offset+2);
+                        }
                     }
                 }
             } else if (filter instanceof FilterList) {
-                FilterList filterList = (FilterList) filter;
-                filterDesc = filterList.getFilters().get(0).toString();
-                if (filterList.getFilters().size() > 1) {
-                    pageFilter = (PageFilter) filterList.getFilters().get(1);
+                List<Filter> filterList = ((FilterList) filter).getFilters();
+                if (filterList.get(0) instanceof FirstKeyOnlyFilter) {
+                    hasFirstKeyOnlyFilter = true;
+                    offset = 1;
+                }
+                if (filterList.size() > offset) {
+                    filterDesc = filterList.get(offset).toString();
+                    if (filterList.size() > offset+1) {
+                        pageFilter = (PageFilter) filterList.get(offset+1);
+                    }
                 }
             } else {
-                filterDesc = filter.toString();
+                if (filter instanceof FirstKeyOnlyFilter) {
+                    hasFirstKeyOnlyFilter = true;
+                } else {
+                    filterDesc = filter.toString();
+                }
             }
             if (filterDesc.length() > 0) {
-                planSteps.add("    SERVER FILTER BY " + filterDesc);
+                planSteps.add("    SERVER FILTER BY " + (hasFirstKeyOnlyFilter ? "FIRST KEY ONLY AND " : "") + filterDesc);
+            } else if (hasFirstKeyOnlyFilter) {
+                planSteps.add("    SERVER FILTER BY FIRST KEY ONLY");
             }
             if (pageFilter != null) {
                 planSteps.add("    SERVER " + pageFilter.getPageSize() + " ROW LIMIT");
@@ -129,10 +154,10 @@ public abstract class ExplainTable {
             return;
         }
         ScanRanges scanRanges = context.getScanRanges();
-        PDataType type = scanRanges.getSchema().getField(slotIndex).getType();
+        PDataType type = scanRanges.getSchema().getField(slotIndex).getDataType();
         ColumnModifier modifier = table.getTable().getPKColumns().get(slotIndex).getColumnModifier();
         if (modifier != null) {
-            range = modifier.apply(range, new byte[range.length], 0, range.length);
+            range = modifier.apply(range, 0, new byte[range.length], 0, range.length);
         }
         Format formatter = context.getConnection().getFormatter(type);
         buf.append(type.toStringLiteral(range, formatter));

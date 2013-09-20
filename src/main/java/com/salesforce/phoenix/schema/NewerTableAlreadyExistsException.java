@@ -30,8 +30,8 @@ package com.salesforce.phoenix.schema;
 public class NewerTableAlreadyExistsException extends TableAlreadyExistsException {
 	private static final long serialVersionUID = 1L;
 
-    public NewerTableAlreadyExistsException(String schemaName, String tableName) {
-        super(schemaName, tableName);
+    public NewerTableAlreadyExistsException(String schemaName, String tableName, PTable table) {
+        super(schemaName, tableName, table);
     }
 
 }

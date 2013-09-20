@@ -27,7 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public class DropIndexStatement implements SQLStatement {
+public class DropIndexStatement implements BindableStatement {
     private final TableName tableName;
     private final NamedNode indexName;
     private final boolean ifExists;

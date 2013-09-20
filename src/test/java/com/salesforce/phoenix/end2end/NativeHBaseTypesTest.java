@@ -27,22 +27,43 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_NATIVE;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_NATIVE_SCHEMA_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Row;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -55,7 +76,7 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
-    private static final byte[] HBASE_NATIVE_BYTES = SchemaUtil.getTableName(Bytes.toBytes(HBASE_NATIVE));
+    private static final byte[] HBASE_NATIVE_BYTES = SchemaUtil.getTableNameAsBytes(HBASE_NATIVE_SCHEMA_NAME, HBASE_NATIVE);
     private static final byte[] FAMILY_NAME = Bytes.toBytes(SchemaUtil.normalizeIdentifier("1"));
     private static final byte[][] SPLITS = new byte[][] {Bytes.toBytes(20), Bytes.toBytes(30)};
     private static final long ts = nextTimestamp();
@@ -82,7 +103,7 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
     
     private static void initTableValues() throws Exception {
         ConnectionQueryServices services = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES);
-        HTableInterface hTable = services.getTable(SchemaUtil.getTableName(Bytes.toBytes(HBASE_NATIVE)));
+        HTableInterface hTable = services.getTable(SchemaUtil.getTableNameAsBytes(HBASE_NATIVE_SCHEMA_NAME, HBASE_NATIVE));
         try {
             // Insert rows using standard HBase mechanism with standard HBase "types"
             List<Row> mutations = new ArrayList<Row>();
@@ -257,11 +278,11 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNegativeCompareNegativeValue() throws Exception {
-        String query = "SELECT uint_key, ulong_key, string_key FROM HBASE_NATIVE WHERE uint_key > ulong_key";
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        String query = "SELECT string_key FROM HBASE_NATIVE WHERE uint_key > 100000";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 7); // Run query at timestamp 7
         Properties props = new Properties(TEST_PROPERTIES);
         PhoenixConnection conn = DriverManager.getConnection(url, props).unwrap(PhoenixConnection.class);
-        HTableInterface hTable = conn.getQueryServices().getTable(SchemaUtil.getTableName(Bytes.toBytes(HBASE_NATIVE)));
+        HTableInterface hTable = conn.getQueryServices().getTable(SchemaUtil.getTableNameAsBytes(HBASE_NATIVE_SCHEMA_NAME, HBASE_NATIVE));
         
         List<Row> mutations = new ArrayList<Row>();
         byte[] family = Bytes.toBytes("1");
@@ -270,15 +291,24 @@ public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
         byte[] key;
         Put put;
         
+        // Need to use native APIs because the Phoenix APIs wouldn't let you insert a
+        // negative number for an unsigned type
         key = ByteUtil.concat(Bytes.toBytes(-10), Bytes.toBytes(100L), Bytes.toBytes("e"));
         put = new Put(key);
-        put.add(family, uintCol, ts, Bytes.toBytes(10));
-        put.add(family, ulongCol, ts, Bytes.toBytes(100L));
+        // Insert at later timestamp than other queries in this test are using, so that
+        // we don't affect them
+        put.add(family, uintCol, ts+6, Bytes.toBytes(10));
+        put.add(family, ulongCol, ts+6, Bytes.toBytes(100L));
+        put.add(family, QueryConstants.EMPTY_COLUMN_BYTES, ts+6, ByteUtil.EMPTY_BYTE_ARRAY);
         mutations.add(put);
         hTable.batch(mutations);
     
+        // Demonstrates weakness of HBase Bytes serialization. Negative numbers
+        // show up as bigger than positive numbers
         PreparedStatement statement = conn.prepareStatement(query);
         ResultSet rs = statement.executeQuery();
+        assertTrue(rs.next());
+        assertEquals("e", rs.getString(1));
         assertFalse(rs.next());
     }
 }

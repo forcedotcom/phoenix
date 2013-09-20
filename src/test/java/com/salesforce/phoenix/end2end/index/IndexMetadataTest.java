@@ -22,6 +22,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.util.StringUtil;
@@ -88,11 +89,11 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             ResultSet rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 1, "A:VARCHAR_COL1", Order.ASC);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 2, "B:VARCHAR_COL2", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 3, "INT_PK", Order.DESC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 4, "VARCHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 5, "CHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 6, "LONG_PK", Order.DESC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 7, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 3, ":INT_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 4, ":VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 5, ":CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 6, ":LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 7, ":DECIMAL_PK", Order.ASC);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 8, "A:INT_COL1", null);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 9, "B:INT_COL2", null);
             assertFalse(rs.next());
@@ -106,7 +107,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             ddl = "ALTER INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " DISABLE";
             conn.createStatement().execute(ddl);
             // Verify the metadata for index is correct.
-            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.getSerializedValue()});
+            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
             assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
@@ -140,21 +141,21 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             rs = conn.getMetaData().getIndexInfo(null, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, false, false);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 1, "A:VARCHAR_COL1", Order.ASC);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 2, "B:VARCHAR_COL2", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 3, "INT_PK", Order.DESC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 4, "VARCHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 5, "CHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 6, "LONG_PK", Order.DESC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 7, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 3, ":INT_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 4, ":VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 5, ":CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 6, ":LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 7, ":DECIMAL_PK", Order.ASC);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 8, "A:INT_COL1", null);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX1", 9, "B:INT_COL2", null);
 
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 1, "A:VARCHAR_COL1", Order.ASC);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 2, "B:VARCHAR_COL2", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 3, "INT_PK", Order.DESC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 4, "VARCHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 5, "CHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 6, "LONG_PK", Order.DESC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 7, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 3, ":INT_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 4, ":VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 5, ":CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 6, ":LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 7, ":DECIMAL_PK", Order.ASC);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX2", 8, "B:INT_COL2", null);
             assertFalse(rs.next());
             
@@ -193,11 +194,11 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 1, "A:CHAR_COL1", Order.ASC, Types.VARCHAR);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 2, "B:INT_COL2", Order.ASC, Types.DECIMAL);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 3, "B:LONG_COL2", Order.DESC, Types.DECIMAL);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 4, "VARCHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 5, "CHAR_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 6, "INT_PK", Order.ASC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 7, "LONG_PK", Order.DESC);
-            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 8, "DECIMAL_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 4, ":VARCHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 5, ":CHAR_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 6, ":INT_PK", Order.ASC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 7, ":LONG_PK", Order.DESC);
+            assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 8, ":DECIMAL_PK", Order.ASC);
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, INDEX_DATA_TABLE, "IDX", 9, "A:INT_COL1", null);
             assertFalse(rs.next());
             
@@ -209,7 +210,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             ddl = "ALTER INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " DISABLE";
             conn.createStatement().execute(ddl);
             // Verify the metadata for index is correct.
-            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.getSerializedValue()});
+            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
             assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
@@ -258,38 +259,25 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
+        String ddl = "create table test_table (char_pk varchar not null,"
+        		+ " a.int_col integer, a.long_col integer,"
+        		+ " b.int_col integer, b.long_col integer"
+        		+ " constraint pk primary key (char_pk))";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ddl = "CREATE INDEX IDX1 ON test_table (a.int_col, b.int_col)";
+        stmt = conn.prepareStatement(ddl);
+        stmt.execute();
         try {
-            String ddl = "create table test_table (char_pk varchar not null,"
-            		+ " a.int_col integer, a.long_col integer,"
-            		+ " b.int_col integer, b.long_col integer"
-            		+ " constraint pk primary key (char_pk))";
-            PreparedStatement stmt = conn.prepareStatement(ddl);
-            stmt.execute();
-            
-            ddl = "CREATE INDEX IDX ON test_table (int_col ASC, long_cal ASC)";
+            ddl = "CREATE INDEX IDX2 ON test_table (int_col)";
             stmt = conn.prepareStatement(ddl);
             stmt.execute();
-            fail("Should have caught exception.");
-        } catch (SQLException e) {
-        	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1023 (42Y82): Index may only be created on a table with immutable rows."));
+            fail("Should have caught exception");
+        } catch (AmbiguousColumnException e) {
+            assertEquals(SQLExceptionCode.AMBIGUOUS_COLUMN.getErrorCode(), e.getErrorCode());
         } finally {
             conn.close();
         }
-    }
-    
-    @Test
-    public void testSetImmutableRowsOnExistingTable() throws Exception {
-        Properties props = new Properties(TEST_PROPERTIES);
-        Connection conn = DriverManager.getConnection(getUrl(), props);
-        conn.setAutoCommit(false);
-        conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)");
-        try {
-            conn.createStatement().execute("CREATE INDEX i ON t (v DESC)");
-            fail();
-        } catch (SQLException e) {
-            assertEquals(SQLExceptionCode.INDEX_ONLY_ON_IMMUTABLE_TABLE.getErrorCode(), e.getErrorCode());
-        }
-        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true");
-        conn.createStatement().execute("CREATE INDEX i ON t (v DESC)");
     }
 }

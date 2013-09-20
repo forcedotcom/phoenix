@@ -27,12 +27,17 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.sql.*;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.IndexUtil;
 
 
@@ -99,13 +104,13 @@ public class PostIndexDDLCompiler {
                     }
                     dataColumns.setLength(dataColumns.length()-1);
                     indexColumns.setLength(indexColumns.length()-1);
-                    String schemaName = dataTableRef.getSchema().getName();
-                    String tableName = indexTable.getName().getString();
+                    String schemaName = dataTableRef.getTable().getSchemaName().getString();
+                    String tableName = indexTable.getTableName().getString();
                     
                     StringBuilder updateStmtStr = new StringBuilder();
                     updateStmtStr.append("UPSERT INTO ").append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(tableName).append("\"(")
                         .append(indexColumns).append(") SELECT ").append(dataColumns).append(" FROM ")
-                        .append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(dataTableRef.getTable().getName().getString()).append('"');
+                        .append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(dataTableRef.getTable().getTableName().getString()).append('"');
                     PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());
                     int rowsUpdated = 0;
                     updateStmt.execute();

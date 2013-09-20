@@ -2,10 +2,12 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeRewriter;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.util.IndexUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 public class IndexStatementRewriter extends ParseNodeRewriter {
     private final ColumnResolver resolver;
@@ -29,9 +31,6 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
     @Override
     public ParseNode visit(ColumnParseNode node) throws SQLException {
         ColumnRef ref = resolver.resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
-        if (SchemaUtil.isPKColumn(ref.getColumn())) {
-            return node;
-        }
         node = NODE_FACTORY.column(IndexUtil.getIndexColumnName(ref.getColumn()));
         return node;
     }

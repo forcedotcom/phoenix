@@ -45,14 +45,18 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class RowProjector {
-    public static final RowProjector EMPTY_PROJECTOR = new RowProjector(Collections.<ColumnProjector>emptyList(),0);
+    public static final RowProjector EMPTY_PROJECTOR = new RowProjector(Collections.<ColumnProjector>emptyList(),0, true);
 
     private final List<? extends ColumnProjector> columnProjectors;
     private final Map<String,Integer> reverseIndex;
     private final boolean allCaseSensitive;
     private final boolean someCaseSensitive;
     private final int estimatedSize;
+    private final boolean isProjectEmptyKeyValue;
     
+    public RowProjector(RowProjector projector, boolean isProjectEmptyKeyValue) {
+        this(projector.getColumnProjectors(), projector.getEstimatedRowByteSize(), isProjectEmptyKeyValue);
+    }
     /**
      * Construct RowProjector based on a list of ColumnProjectors.
      * @param columnProjectors ordered list of ColumnProjectors corresponding to projected columns in SELECT clause
@@ -60,7 +64,7 @@ public class RowProjector {
      * be null.
      * @param estimatedRowSize 
      */
-    public RowProjector(List<? extends ColumnProjector> columnProjectors, int estimatedRowSize) {
+    public RowProjector(List<? extends ColumnProjector> columnProjectors, int estimatedRowSize, boolean isProjectEmptyKeyValue) {
         this.columnProjectors = Collections.unmodifiableList(columnProjectors);
         int position = columnProjectors.size();
         reverseIndex = Maps.newHashMapWithExpectedSize(position);
@@ -75,6 +79,11 @@ public class RowProjector {
         this.allCaseSensitive = allCaseSensitive;
         this.someCaseSensitive = someCaseSensitive;
         this.estimatedSize = estimatedRowSize;
+        this.isProjectEmptyKeyValue = isProjectEmptyKeyValue;
+    }
+    
+    public boolean isProjectEmptyKeyValue() {
+        return isProjectEmptyKeyValue;
     }
     
     public List<? extends ColumnProjector> getColumnProjectors() {
@@ -117,7 +126,7 @@ public class RowProjector {
         return buf.toString();
     }
 
-    public int getEstimatedByteSize() {
+    public int getEstimatedRowByteSize() {
         return estimatedSize;
     }
 }

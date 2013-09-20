@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.StringReader;
 import java.sql.SQLException;
@@ -415,15 +417,6 @@ public class QueryParserTest {
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \"where\" at line 2, column 1."));
         }
-        try {
-            SQLParser parser = new SQLParser(new StringReader(
-                    "select a from b\n" +
-                    "where d\n"));
-            parser.parseStatement();
-            fail("Should have caught exception.");
-        } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"d\" at line 2, column 7."));
-        }
     }
 
     @Test
@@ -549,6 +542,45 @@ public class QueryParserTest {
         SQLParser parser = new SQLParser(
                 new StringReader(
                         "select PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testSingleTopLevelNot() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where not c = 5"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testTopLevelNot() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where not c"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testHavingWithNot() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select\n" + 
+                        "\"WEB_STAT_ALIAS\".\"DOMAIN\" as \"c0\"\n" + 
+                        "from \"WEB_STAT\" \"WEB_STAT_ALIAS\"\n" + 
+                        "group by \"WEB_STAT_ALIAS\".\"DOMAIN\" having\n" + 
+                        "(\n" + 
+                        "(\n" + 
+                        "NOT\n" + 
+                        "(\n" + 
+                        "(sum(\"WEB_STAT_ALIAS\".\"ACTIVE_VISITOR\") is null)\n" + 
+                        ")\n" + 
+                        "OR NOT((sum(\"WEB_STAT_ALIAS\".\"ACTIVE_VISITOR\") is null))\n" + 
+                        ")\n" + 
+                        "OR NOT((sum(\"WEB_STAT_ALIAS\".\"ACTIVE_VISITOR\") is null))\n" + 
+                        ")\n" + 
+                        "order by CASE WHEN \"WEB_STAT_ALIAS\".\"DOMAIN\" IS NULL THEN 1 ELSE 0 END,\n" + 
+                        "\"WEB_STAT_ALIAS\".\"DOMAIN\" ASC"));
         parser.parseStatement();
     }
 }

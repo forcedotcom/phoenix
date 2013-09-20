@@ -88,12 +88,17 @@ abstract public class UnsupportedAllParseNodeVisitor<E> extends BaseParseNodeVis
     public boolean visitEnter(ComparisonParseNode node) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
-
+    
+    @Override
+    public boolean visitEnter(BetweenParseNode node) throws SQLException{
+        throw new SQLFeatureNotSupportedException(node.toString());
+    }
+    
     @Override
     public E visitLeave(AndParseNode node, List<E> l) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
-
+    
     @Override
     public E visitLeave(OrParseNode node, List<E> l) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
@@ -123,17 +128,32 @@ abstract public class UnsupportedAllParseNodeVisitor<E> extends BaseParseNodeVis
     public E visitLeave(NotParseNode node, List<E> l) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
-
+    
     @Override
     public boolean visitEnter(NotParseNode node) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
-
+    
+    @Override
+    public E visitLeave(CastParseNode node, List<E> l) throws SQLException {
+        throw new SQLFeatureNotSupportedException(node.toString());
+    }
+    
+    @Override
+    public boolean visitEnter(CastParseNode node) throws SQLException {
+        throw new SQLFeatureNotSupportedException(node.toString());
+    }
+    
     @Override
     public E visitLeave(InListParseNode node, List<E> l) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
 
+    @Override
+    public E visitLeave(BetweenParseNode node, List<E> l) throws SQLException {
+        throw new SQLFeatureNotSupportedException(node.toString());
+    }
+    
     @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());

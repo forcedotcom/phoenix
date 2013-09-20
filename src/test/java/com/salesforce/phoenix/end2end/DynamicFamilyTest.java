@@ -17,15 +17,27 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Time;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Row;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.salesforce.phoenix.exception.PhoenixParserException;
@@ -47,8 +59,9 @@ import com.salesforce.phoenix.util.SchemaUtil;
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
         value="RV_RETURN_VALUE_IGNORED", 
         justification="Designed to ignore.")
-public class DynamicFamilyTest extends BaseClientMangedTimeTest {
+public class DynamicFamilyTest extends BaseHBaseManagedTimeTest {
     private static final String WEB_STATS = "WEB_STATS";
+    private static final String WEB_STATS_SCHEMA_NAME = "";
     private static final byte[] A_CF = Bytes.toBytes(SchemaUtil.normalizeIdentifier("A"));
     private static final byte[] B_CF = Bytes.toBytes(SchemaUtil.normalizeIdentifier("B"));
     private static final String USER_ID1 = "u0001";
@@ -77,8 +90,8 @@ public class DynamicFamilyTest extends BaseClientMangedTimeTest {
     private static final Time ENTRY3_USER_ID2_LOGIN_TIME = new Time(System.currentTimeMillis()+360000);
     private static final Time ENTRY3_USER_ID3_LOGIN_TIME = new Time(System.currentTimeMillis()+420000);
 
-    @BeforeClass
-    public static void doBeforeTestSetup() throws Exception {
+    @Before
+    public void doBeforeTestSetup() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         String ddl = "create table if not exists  " + WEB_STATS
@@ -92,7 +105,7 @@ public class DynamicFamilyTest extends BaseClientMangedTimeTest {
 
     private static void initTableValues() throws Exception {
         ConnectionQueryServices services = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES);
-        HTableInterface hTable = services.getTable(SchemaUtil.getTableName(Bytes.toBytes(WEB_STATS)));
+        HTableInterface hTable = services.getTable(SchemaUtil.getTableNameAsBytes(WEB_STATS_SCHEMA_NAME,WEB_STATS));
         try {
             // Insert rows using standard HBase mechanism with standard HBase "types"
             Put put;
@@ -317,4 +330,29 @@ public class DynamicFamilyTest extends BaseClientMangedTimeTest {
         }
     }
 
+    @Test
+    public void testSelectEntireColumnFamily() throws Exception {
+        ResultSet rs;
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.setAutoCommit(true);
+        conn.createStatement().execute("CREATE TABLE TESTTABLE (Id VARCHAR NOT NULL PRIMARY KEY, COLFAM1.A VARCHAR, COLFAM1.B VARCHAR, COLFAM2.A VARCHAR )");
+        conn.createStatement().execute("UPSERT INTO TESTTABLE (Id, COLFAM1.A, COLFAM1.B, COLFAM2.A) values ('row-2', '100', '200', '300')");
+        rs = conn.createStatement().executeQuery("SELECT COLFAM1.A,COLFAM1.B FROM TESTTABLE");
+        assertTrue(rs.next());
+        assertEquals("100",rs.getString(1));
+        assertEquals("200",rs.getString(2));
+        assertFalse(rs.next());
+
+        rs = conn.createStatement().executeQuery("SELECT COLFAM1.* FROM TESTTABLE");
+        assertTrue(rs.next());
+        assertEquals("100",rs.getString(1));
+        assertEquals("200",rs.getString(2));
+        assertFalse(rs.next());
+
+        rs = conn.createStatement().executeQuery("SELECT COLFAM1.*,COLFAM1.A FROM TESTTABLE");
+        assertTrue(rs.next());
+        assertEquals("100",rs.getString(1));
+        assertEquals("200",rs.getString(2));
+        assertFalse(rs.next());
+    }
 }

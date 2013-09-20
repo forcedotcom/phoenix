@@ -27,7 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public abstract class SingleTableSQLStatement implements SQLStatement {
+public abstract class SingleTableSQLStatement implements BindableStatement {
     private final NamedTableNode table;
     private final int bindCount;
 

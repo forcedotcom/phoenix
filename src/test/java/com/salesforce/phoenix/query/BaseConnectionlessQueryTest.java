@@ -27,7 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.FUNKY_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MULTI_CF_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_CONNECTIONLESS_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
 
 import java.sql.DriverManager;
 import java.util.Properties;
@@ -71,7 +75,7 @@ public class BaseConnectionlessQueryTest extends BaseTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_TABLE_TIMESTAMP));
         PhoenixConnection conn = DriverManager.getConnection(PHOENIX_CONNECTIONLESS_JDBC_URL, props).unwrap(PhoenixConnection.class);
         try {
-            PTable table = conn.getPMetaData().getSchema(ATABLE_SCHEMA_NAME).getTable(ATABLE_NAME);
+            PTable table = conn.getPMetaData().getTable(ATABLE_NAME);
             ATABLE = table;
             ORGANIZATION_ID = table.getColumn("ORGANIZATION_ID");
             ENTITY_ID = table.getColumn("ENTITY_ID");

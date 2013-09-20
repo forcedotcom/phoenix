@@ -29,17 +29,18 @@ package com.salesforce.phoenix.cache;
 
 import static com.salesforce.phoenix.query.QueryServices.*;
 
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.memory.ChildMemoryManager;
 import com.salesforce.phoenix.memory.GlobalMemoryManager;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 
 /**
@@ -51,10 +52,10 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
  * @since 0.1
  */
 public class GlobalCache extends TenantCacheImpl {
-    public static final String HASH_CACHE_AGE_OUT_THREAD_NAME = "PhoenixHashCacheAgeOutThread";
     private static volatile GlobalCache INSTANCE = null; 
     
     private final Configuration config;
+    // TODO: Use Guava cache with auto removal after lack of access 
     private final ConcurrentMap<ImmutableBytesWritable,TenantCache> perTenantCacheMap = new ConcurrentHashMap<ImmutableBytesWritable,TenantCache>();
     // Cache for lastest PTable for a given Phoenix table
     private final ConcurrentHashMap<ImmutableBytesPtr,PTable> metaDataCacheMap = new ConcurrentHashMap<ImmutableBytesPtr,PTable>();
@@ -88,11 +89,10 @@ public class GlobalCache extends TenantCacheImpl {
     }
     
     private GlobalCache(Configuration config) {
-        super(Executors.newSingleThreadScheduledExecutor(),
-              new GlobalMemoryManager(Runtime.getRuntime().totalMemory() * 
+        super(new GlobalMemoryManager(Runtime.getRuntime().totalMemory() * 
                                           config.getInt(MAX_MEMORY_PERC_ATTRIB, QueryServicesOptions.DEFAULT_MAX_MEMORY_PERC) / 100,
                                       config.getInt(MAX_MEMORY_WAIT_MS_ATTRIB, QueryServicesOptions.DEFAULT_MAX_MEMORY_WAIT_MS)),
-              config.getInt(QueryServices.MAX_HASH_CACHE_TIME_TO_LIVE_MS, QueryServicesOptions.DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS));
+              config.getInt(QueryServices.MAX_SERVER_CACHE_TIME_TO_LIVE_MS, QueryServicesOptions.DEFAULT_MAX_SERVER_CACHE_TIME_TO_LIVE_MS));
         this.config = config;
     }
     
@@ -109,8 +109,8 @@ public class GlobalCache extends TenantCacheImpl {
         TenantCache tenantCache = perTenantCacheMap.get(tenantId);
         if (tenantCache == null) {
             int maxTenantMemoryPerc = config.getInt(MAX_TENANT_MEMORY_PERC_ATTRIB, QueryServicesOptions.DEFAULT_MAX_TENANT_MEMORY_PERC);
-            int maxHashCacheTimeToLive = config.getInt(QueryServices.MAX_HASH_CACHE_TIME_TO_LIVE_MS, QueryServicesOptions.DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS);
-            TenantCacheImpl newTenantCache = new TenantCacheImpl(getTimerExecutor(), new ChildMemoryManager(getMemoryManager(), maxTenantMemoryPerc), maxHashCacheTimeToLive);
+            int maxServerCacheTimeToLive = config.getInt(QueryServices.MAX_SERVER_CACHE_TIME_TO_LIVE_MS, QueryServicesOptions.DEFAULT_MAX_SERVER_CACHE_TIME_TO_LIVE_MS);
+            TenantCacheImpl newTenantCache = new TenantCacheImpl(new ChildMemoryManager(getMemoryManager(), maxTenantMemoryPerc), maxServerCacheTimeToLive);
             tenantCache = perTenantCacheMap.putIfAbsent(tenantId, newTenantCache);
             if (tenantCache == null) {
                 tenantCache = newTenantCache;

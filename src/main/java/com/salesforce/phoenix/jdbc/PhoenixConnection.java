@@ -73,6 +73,11 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     
     private boolean isClosed = false;
     
+    public PhoenixConnection(PhoenixConnection connection) throws SQLException {
+        this(connection.getQueryServices(), connection.getURL(), connection.getClientInfo(), connection.getPMetaData());
+        this.isAutoCommit = connection.isAutoCommit;
+    }
+    
     public PhoenixConnection(ConnectionQueryServices services, String url, Properties info, PMetaData metaData) throws SQLException {
         this.url = url;
         // Copy so client cannot change
@@ -549,40 +554,40 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
+    public PMetaData addTable(PTable table) throws SQLException {
         // TODO: since a connection is only used by one thread at a time,
         // we could modify this metadata in place since it's not shared.
         if (scn == null || scn > table.getTimeStamp()) {
-            metaData = metaData.addTable(schemaName, table);
+            metaData = metaData.addTable(table);
         }
         //Cascade through to connectionQueryServices too
-        getQueryServices().addTable(schemaName, table);
+        getQueryServices().addTable(table);
         return metaData;
     }
 
     @Override
-    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> columns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows)
+    public PMetaData addColumn(String tableName, List<PColumn> columns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows)
             throws SQLException {
-        metaData = metaData.addColumn(schemaName, tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
+        metaData = metaData.addColumn(tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
         //Cascade through to connectionQueryServices too
-        getQueryServices().addColumn(schemaName, tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
+        getQueryServices().addColumn(tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
         return metaData;
     }
 
     @Override
-    public PMetaData removeTable(String schemaName, String tableName) throws SQLException {
-        metaData = metaData.removeTable(schemaName, tableName);
+    public PMetaData removeTable(String tableName) throws SQLException {
+        metaData = metaData.removeTable(tableName);
         //Cascade through to connectionQueryServices too
-        getQueryServices().removeTable(schemaName, tableName);
+        getQueryServices().removeTable(tableName);
         return metaData;
     }
 
     @Override
-    public PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName,
-            long tableTimeStamp, long tableSeqNum) throws SQLException {
-        metaData = metaData.removeColumn(schemaName, tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
+    public PMetaData removeColumn(String tableName, String familyName, String columnName, long tableTimeStamp,
+            long tableSeqNum) throws SQLException {
+        metaData = metaData.removeColumn(tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
         //Cascade through to connectionQueryServices too
-        getQueryServices().removeColumn(schemaName, tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
+        getQueryServices().removeColumn(tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
         return metaData;
     }
 }

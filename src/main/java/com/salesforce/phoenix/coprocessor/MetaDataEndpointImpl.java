@@ -27,18 +27,44 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.FAMILY_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.PK_NAME_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SALT_BUCKETS_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
@@ -46,13 +72,33 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.PNameFactory;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableImpl;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableNotFoundException;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.MetaDataUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 
 /**
  * 
@@ -70,6 +116,7 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements MetaDataProtocol {
+    private static final Logger logger = LoggerFactory.getLogger(MetaDataEndpointImpl.class);
 
     // KeyValues for Table
     private static final KeyValue TABLE_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES);
@@ -136,7 +183,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         // TODO: PNameImpl that doesn't need to copy the bytes
         byte[] pnameBuf = new byte[length];
         System.arraycopy(keyBuffer, keyOffset, pnameBuf, 0, length);
-        return new PNameImpl(pnameBuf);
+        return PNameFactory.newName(pnameBuf);
     }
     
     private static Scan newTableRowsScan(byte[] key, long startTimeStamp, long stopTimeStamp) throws IOException {
@@ -162,7 +209,17 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 return null;
             }
             if (oldTable == null || tableTimeStamp < newTable.getTimeStamp()) {
-                metaDataCache.put(cacheKey, newTable);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Caching table " + Bytes.toStringBinary(cacheKey.get(), cacheKey.getOffset(), cacheKey.getLength()) + " at seqNum " + newTable.getSequenceNumber() + " with newer timestamp " + newTable.getTimeStamp() + " versus " + tableTimeStamp);
+                }
+                oldTable = metaDataCache.put(cacheKey, newTable);
+                if (logger.isDebugEnabled()) {
+                    if (oldTable == null) {
+                        logger.debug("No previously cached table " + Bytes.toStringBinary(cacheKey.get(), cacheKey.getOffset(), cacheKey.getLength()));
+                    } else {
+                        logger.debug("Previously cached table " + Bytes.toStringBinary(cacheKey.get(), cacheKey.getOffset(), cacheKey.getLength()) + " was at seqNum " + oldTable.getSequenceNumber() + " with timestamp " + oldTable.getTimeStamp());
+                    }
+                }
             }
             return newTable;
         } finally {
@@ -174,7 +231,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] key = SchemaUtil.getTableKey(schemaName.getBytes(), indexName.getBytes());
         PTable indexTable = doGetTable(key, clientTimeStamp);
         if (indexTable == null) {
-            ServerUtil.throwIOException("Invalid meta data state", new TableNotFoundException(schemaName.getString(), tableName.getString()));
+            ServerUtil.throwIOException("Index not found", new TableNotFoundException(schemaName.getString(), indexName.getString()));
             return;
         }
         indexes.add(indexTable);
@@ -191,14 +248,16 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             if (cmp == 0) {
                 colKeyValues[j++] = kv;
                 i++;
-            } else {
+            } else if (cmp > 0) {
                 colKeyValues[j++] = null;
+            } else {
+                i++; // shouldn't happen - means unexpected KV in system table column row
             }
         }
         // COLUMN_SIZE and DECIMAL_DIGIT are optional. NULLABLE, DATA_TYPE and ORDINAL_POSITION_KV are required.
         if (colKeyValues[SQL_DATA_TYPE_INDEX] == null || colKeyValues[NULLABLE_INDEX] == null
                 || colKeyValues[ORDINAL_POSITION_INDEX] == null) {
-            throw new IllegalStateException("Didn't find all required key values in column metadata row");
+            throw new IllegalStateException("Didn't find all required key values in '" + colName.getString() + "' column metadata row");
         }
         KeyValue columnSizeKv = colKeyValues[COLUMN_SIZE_INDEX];
         Integer maxLength = columnSizeKv == null ? null : PDataType.INTEGER.getCodec().decodeInt(columnSizeKv.getBuffer(), columnSizeKv.getValueOffset(), null);
@@ -232,10 +291,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         int keyLength = keyValue.getRowLength();
         int keyOffset = keyValue.getRowOffset();
         PName schemaName = newPName(keyBuffer, keyOffset, keyLength);
-        int offset = getVarCharLength(keyBuffer, keyOffset, keyLength) + 1;
-        PName tableName = newPName(keyBuffer, keyOffset + offset, keyLength-offset);
+        int schemaNameLength = schemaName.getBytes().length;
+        int tableNameLength = keyLength-schemaNameLength-1;
+        byte[] tableNameBytes = new byte[tableNameLength];
+        System.arraycopy(keyBuffer, keyOffset+schemaNameLength+1, tableNameBytes, 0, tableNameLength);
+        PName tableName = PNameFactory.newName(tableNameBytes);
         
-        offset += tableName.getBytes().length + 1;
+        int offset = schemaNameLength + tableNameLength + 2;
         // This will prevent the client from continually looking for the current
         // table when we know that there will never be one since we disallow updates
         // unless the table is the latest
@@ -261,7 +323,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 tableKeyValues[j++] = kv;
                 i++;
             } else if (cmp > 0) {
-                j++;
+                tableKeyValues[j++] = null;
+            } else {
+                i++; // shouldn't happen - means unexpected KV in system table header row
             }
         }
         // TABLE_TYPE, TABLE_SEQ_NUM and COLUMN_COUNT are required.
@@ -301,13 +365,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             int colKeyOffset = offset + colName.getBytes().length + 1;
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
             if (colName.getString().isEmpty() && famName != null) {
-                addIndexToTable(schemaName, famName, dataTableName, clientTimeStamp, indexes);                
+                addIndexToTable(schemaName, famName, tableName, clientTimeStamp, indexes);                
             } else {
                 addColumnToTable(results, colName, famName, colKeyValues, columns, posOffset);
             }
         }
         
-        return PTableImpl.makePTable(tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows);
+        return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -404,7 +468,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 PTable table = loadTable(env, key, cacheKey, clientTimeStamp, HConstants.LATEST_TIMESTAMP);
                 if (table != null) {
                     if (table.getTimeStamp() < clientTimeStamp) {
-                        // If the table is older than the client time stamp and its deleted, continue
+                        // If the table is older than the client time stamp and it's deleted, continue
                         if (!isTableDeleted(table)) {
                             return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table);
                         }
@@ -429,7 +493,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 releaseLocks(region, lids);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -498,7 +562,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 releaseLocks(region, lids);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -610,6 +674,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
                 Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
                 PTable table = metaDataCache.get(cacheKey);
+                if (logger.isDebugEnabled()) {
+                    if (table == null) {
+                        logger.debug("Table " + Bytes.toStringBinary(key) + " not found in cache. Will build through scan");
+                    } else {
+                        logger.debug("Table " + Bytes.toStringBinary(key) + " found in cache with timestamp " + table.getTimeStamp() + " seqNum " + table.getSequenceNumber());
+                    }
+                }
                 // Get client timeStamp from mutations
                 long clientTimeStamp = MetaDataUtil.getClientTimeStamp(tableMetadata);
                 if (table == null && (table = buildTable(key, cacheKey, region, HConstants.LATEST_TIMESTAMP)) == null) {
@@ -626,13 +697,19 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 }
                     
                 long expectedSeqNum = MetaDataUtil.getSequenceNumber(tableMetadata) - 1; // lookup TABLE_SEQ_NUM in tableMetaData
+                if (logger.isDebugEnabled()) {
+                    logger.debug("For table " + Bytes.toStringBinary(key) + " expecting seqNum " + expectedSeqNum + " and found seqNum " + table.getSequenceNumber() + " with " + table.getColumns().size() + " columns: " + table.getColumns());
+                }
                 if (expectedSeqNum != table.getSequenceNumber()) {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("For table " + Bytes.toStringBinary(key) + " returning CONCURRENT_TABLE_MUTATION due to unexpected seqNum");
+                    }
                     return new MetaDataMutationResult(MutationCode.CONCURRENT_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), table);
                 }
                 
-                // Disallow mutation of a system or index table
+                // Disallow mutation of an index table
                 PTableType type = table.getType();
-                if (type == PTableType.SYSTEM || type == PTableType.INDEX) {
+                if (type == PTableType.INDEX) {
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 
@@ -643,7 +720,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 
                 region.mutateRowsWithLocks(tableMetadata, Collections.<byte[]>emptySet());
                 // Invalidate from cache
-                metaDataCache.remove(cacheKey);
+                PTable invalidatedTable = metaDataCache.remove(cacheKey);
+                if (logger.isDebugEnabled()) {
+                    if (invalidatedTable == null) {
+                        logger.debug("Attempted to invalidated table key " + Bytes.toStringBinary(cacheKey.get(),cacheKey.getOffset(),cacheKey.getLength()) + " but found no cached table");
+                    } else {
+                        logger.debug("Invalidated table key " + Bytes.toStringBinary(cacheKey.get(),cacheKey.getOffset(),cacheKey.getLength()) + " with timestamp " + invalidatedTable.getTimeStamp() + " and seqNum " + invalidatedTable.getSequenceNumber());
+                    }
+                }
                 // Get client timeStamp from mutations, since it may get updated by the mutateRowsWithLocks call
                 long currentTime = MetaDataUtil.getClientTimeStamp(tableMetadata);
                 return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, null);
@@ -651,7 +735,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 region.releaseRowLock(lid);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -751,7 +835,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
             return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, table.getTimeStamp() != tableTimeStamp ? table : null);
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -818,8 +902,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     @Override
     public long getVersion() {
-        // The first 3 bytes of the long is used to encoding the HBase version as major.minor.patch.
-        // The next 3 bytes of the value is used to encode the Phoenix version as major.minor.patch.
+        // The first 5 bytes of the long is used to encoding the HBase version as major.minor.patch.
+        // The next 5 bytes of the value is used to encode the Phoenix version as major.minor.patch.
         return MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
     }
 
@@ -879,7 +963,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 region.releaseRowLock(lid);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }

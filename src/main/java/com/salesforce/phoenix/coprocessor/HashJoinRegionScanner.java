@@ -37,8 +37,8 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 
-import com.salesforce.phoenix.cache.GlobalCache;
-import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.cache.*;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
@@ -97,8 +97,9 @@ public class HashJoinRegionScanner implements RegionScanner {
             Tuple tuple = new ResultTuple(new Result(result));
             boolean cont = true;
             for (int i = 0; i < count; i++) {
-                ImmutableBytesWritable key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
-                tuples[i] = cache.getHashCache(joinInfo.getJoinIds()[i]).get(key);
+                ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
+                HashCache hashCache = (HashCache)cache.getServerCache(joinInfo.getJoinIds()[i]);
+                tuples[i] = hashCache.get(key);
                 JoinType type = joinInfo.getJoinTypes()[i];
                 if (type == JoinType.Inner && (tuples[i] == null || tuples[i].isEmpty())) {
                     cont = false;

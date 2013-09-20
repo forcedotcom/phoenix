@@ -122,9 +122,13 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if (rhsValue != null) {
             // Comparing an unsigned int/long against a negative int/long would be an example. We just need to take
             // into account the comparison operator.
-            if (rhs.getDataType() != lhs.getDataType() || rhs.getColumnModifier() != lhs.getColumnModifier()) {
+            if (rhs.getDataType() != lhs.getDataType() 
+                    || rhs.getColumnModifier() != lhs.getColumnModifier()
+                    || (rhs.getMaxLength() != null && lhs.getMaxLength() != null && rhs.getMaxLength() < lhs.getMaxLength())) {
+                // TODO: if lengths are unequal and fixed width?
                 if (rhs.getDataType().isCoercibleTo(lhs.getDataType(), rhsValue)) { // will convert 2.0 -> 2
-                    children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhs.getDataType(), lhs.getColumnModifier()));
+                    children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhs.getDataType(), 
+                            lhs.getMaxLength(), null, lhs.getColumnModifier()));
                 } else if (node.getFilterOp() == CompareOp.EQUAL) {
                     return LiteralExpression.FALSE_EXPRESSION;
                 } else if (node.getFilterOp() == CompareOp.NOT_EQUAL) {
@@ -200,13 +204,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 }
             }
             
-            // Determine if we know the expression must be TRUE or FALSE based on the byte size of
+            // Determine if we know the expression must be TRUE or FALSE based on the max size of
             // a fixed length expression.
-            // TODO: For variable length expressions, getByteSize() returns null. Instead, if
-            // it returned the max size, we could have another condition for the
-            // rhsByteSize > lhsByteSize.
-            Integer lhsByteSize = lhs.getByteSize();
-            if (lhsByteSize != null && !lhsByteSize.equals(children.get(1).getByteSize())) {
+            if (children.get(1).getMaxLength() != null && lhs.getMaxLength() != null && lhs.getMaxLength() < children.get(1).getMaxLength()) {
                 switch (node.getFilterOp()) {
                     case EQUAL:
                         return LiteralExpression.FALSE_EXPRESSION;
@@ -230,6 +230,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         Iterator<Expression> iterator = children.iterator();
         while (iterator.hasNext()) {
             Expression child = iterator.next();
+            if (child.getDataType() != PDataType.BOOLEAN) {
+                throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), child.toString());
+            }
             if (child == LiteralExpression.FALSE_EXPRESSION) {
                 return child;
             }
@@ -255,6 +258,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         Iterator<Expression> iterator = children.iterator();
         while (iterator.hasNext()) {
             Expression child = iterator.next();
+            if (child.getDataType() != PDataType.BOOLEAN) {
+                throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), child.toString());
+            }
             if (child == LiteralExpression.FALSE_EXPRESSION) {
                 iterator.remove();
             }
@@ -285,7 +291,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             }
             this.aggregateFunction = node;
             this.isAggregate = true;
-            this.context.setAggregate(true);
             
         }
         return true;
@@ -528,6 +533,26 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         return new NotExpression(child);
     }
     
+    @Override
+    public boolean visitEnter(CastParseNode node) throws SQLException {
+        return true;
+    }
+
+    @Override
+    public Expression visitLeave(CastParseNode node, List<Expression> children) throws SQLException {
+        final ParseNode childNode = node.getChildren().get(0);
+        final Expression child = children.get(0);
+        final PDataType dataType = child.getDataType();
+        final PDataType targetDataType = node.getDataType();
+        
+        if (childNode instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
+        }
+        if (dataType!= null && targetDataType != null && !dataType.isCoercibleTo(targetDataType)) {
+            throw new TypeMismatchException(dataType, targetDataType, child.toString());
+        }
+        return CoerceExpression.create(child, targetDataType); 
+    }
 
     @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {

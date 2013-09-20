@@ -27,10 +27,31 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.C_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.E_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.MILLIS_IN_DAY;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.ROW1;
+import static com.salesforce.phoenix.util.TestUtil.ROW2;
+import static com.salesforce.phoenix.util.TestUtil.ROW3;
+import static com.salesforce.phoenix.util.TestUtil.ROW4;
+import static com.salesforce.phoenix.util.TestUtil.ROW5;
+import static com.salesforce.phoenix.util.TestUtil.ROW6;
+import static com.salesforce.phoenix.util.TestUtil.ROW7;
+import static com.salesforce.phoenix.util.TestUtil.ROW8;
+import static com.salesforce.phoenix.util.TestUtil.ROW9;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Types;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -40,7 +61,9 @@ import org.junit.BeforeClass;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.BaseTest;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 /**
@@ -76,12 +99,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
             DatabaseMetaData dbmd = conn.getMetaData();
-            ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.getSerializedValue(), PTableType.VIEW.getSerializedValue()});
+            ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
             while (rs.next()) {
-                String fullTableName = SchemaUtil.getTableDisplayName(
+                String fullTableName = SchemaUtil.getTableName(
                         rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-                conn.createStatement().executeUpdate("DROP " + (PTableType.fromSerializedValue(rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME)) == PTableType.VIEW ? "VIEW " : "TABLE ") + fullTableName);
+                conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
             }
         } finally {
             conn.close();
@@ -106,31 +129,43 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                     "SumDoubleTest(" +
                     "    id, " +
                     "    d, " +
-                    "    f) " +
-                    "VALUES (?, ?, ?)");
+                    "    f, " +
+                    "    ud, " +
+                    "    uf) " +
+                    "VALUES (?, ?, ?, ?, ?)");
             stmt.setString(1, "1");
             stmt.setDouble(2, 0.001);
             stmt.setFloat(3, 0.01f);
+            stmt.setDouble(4, 0.001);
+            stmt.setFloat(5, 0.01f);
             stmt.execute();
                 
             stmt.setString(1, "2");
             stmt.setDouble(2, 0.002);
             stmt.setFloat(3, 0.02f);
+            stmt.setDouble(4, 0.002);
+            stmt.setFloat(5, 0.02f);
             stmt.execute();
                 
             stmt.setString(1, "3");
             stmt.setDouble(2, 0.003);
             stmt.setFloat(3, 0.03f);
+            stmt.setDouble(4, 0.003);
+            stmt.setFloat(5, 0.03f);
             stmt.execute();
                 
             stmt.setString(1, "4");
             stmt.setDouble(2, 0.004);
             stmt.setFloat(3, 0.04f);
+            stmt.setDouble(4, 0.004);
+            stmt.setFloat(5, 0.04f);
             stmt.execute();
                 
             stmt.setString(1, "5");
             stmt.setDouble(2, 0.005);
             stmt.setFloat(3, 0.05f);
+            stmt.setDouble(4, 0.005);
+            stmt.setFloat(5, 0.05f);
             stmt.execute();
                 
             conn.commit();
@@ -177,8 +212,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                     "    A_BYTE," +
                     "    A_SHORT," +
                     "    A_FLOAT," +
-                    "    A_DOUBLE)" +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    "    A_DOUBLE," +
+                    "    A_UNSIGNED_FLOAT," +
+                    "    A_UNSIGNED_DOUBLE)" +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             stmt.setString(1, tenantId);
             stmt.setString(2, ROW1);
             stmt.setString(3, A_VALUE);
@@ -193,6 +230,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 128);
             stmt.setFloat(13, 0.01f);
             stmt.setDouble(14, 0.0001);
+            stmt.setFloat(15, 0.01f);
+            stmt.setDouble(16, 0.0001);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -209,6 +248,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 129);
             stmt.setFloat(13, 0.02f);
             stmt.setDouble(14, 0.0002);
+            stmt.setFloat(15, 0.02f);
+            stmt.setDouble(16, 0.0002);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -225,6 +266,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 130);
             stmt.setFloat(13, 0.03f);
             stmt.setDouble(14, 0.0003);
+            stmt.setFloat(15, 0.03f);
+            stmt.setDouble(16, 0.0003);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -241,6 +284,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 131);
             stmt.setFloat(13, 0.04f);
             stmt.setDouble(14, 0.0004);
+            stmt.setFloat(15, 0.04f);
+            stmt.setDouble(16, 0.0004);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -257,6 +302,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 132);
             stmt.setFloat(13, 0.05f);
             stmt.setDouble(14, 0.0005);
+            stmt.setFloat(15, 0.05f);
+            stmt.setDouble(16, 0.0005);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -273,6 +320,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 133);
             stmt.setFloat(13, 0.06f);
             stmt.setDouble(14, 0.0006);
+            stmt.setFloat(15, 0.06f);
+            stmt.setDouble(16, 0.0006);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -289,6 +338,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 134);
             stmt.setFloat(13, 0.07f);
             stmt.setDouble(14, 0.0007);
+            stmt.setFloat(15, 0.07f);
+            stmt.setDouble(16, 0.0007);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -307,6 +358,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 135);
             stmt.setFloat(13, 0.08f);
             stmt.setDouble(14, 0.0008);
+            stmt.setFloat(15, 0.08f);
+            stmt.setDouble(16, 0.0008);
             stmt.execute();
                 
             stmt.setString(1, tenantId);
@@ -325,6 +378,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             stmt.setShort(12, (short) 0);
             stmt.setFloat(13, 0.09f);
             stmt.setDouble(14, 0.0009);
+            stmt.setFloat(15, 0.09f);
+            stmt.setDouble(16, 0.0009);
             stmt.execute();
                 
             conn.commit();

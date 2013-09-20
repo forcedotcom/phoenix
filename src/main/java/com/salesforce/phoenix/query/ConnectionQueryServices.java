@@ -72,8 +72,8 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     public MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimetamp) throws SQLException;
     public MetaDataMutationResult createTable(List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException;
     public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, PTableType tableType) throws SQLException;
-    public MetaDataMutationResult addColumn(List<Mutation> tableMetaData, boolean isView, Pair<byte[],Map<String,Object>> family) throws SQLException;
-    public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, byte[] emptyCF) throws SQLException;
+    public MetaDataMutationResult addColumn(List<Mutation> tableMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException;
+    public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, PTableType tableType, byte[] emptyCF) throws SQLException;
     public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata, String parentTableName) throws SQLException;
     public MutationState updateData(MutationPlan plan) throws SQLException;
     public Long incrementSequence(byte[] schemaName, byte[] tableName);

@@ -28,27 +28,28 @@
 package com.salesforce.phoenix.pig;
 
 import java.io.IOException;
-import java.sql.*;
-import java.util.*;
+import java.util.Properties;
 
-import org.apache.commons.cli.*;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.*;
-import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
-import org.apache.pig.*;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.OutputFormat;
+import org.apache.hadoop.mapreduce.RecordWriter;
+import org.apache.pig.ResourceSchema;
 import org.apache.pig.ResourceSchema.ResourceFieldSchema;
-import org.apache.pig.data.DataType;
+import org.apache.pig.StoreFuncInterface;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.util.ObjectSerializer;
 import org.apache.pig.impl.util.UDFContext;
 
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.util.ColumnInfo;
-import com.salesforce.phoenix.util.QueryUtil;
+import com.salesforce.phoenix.pig.hadoop.PhoenixOutputFormat;
+import com.salesforce.phoenix.pig.hadoop.PhoenixRecord;
 
 /**
  * StoreFunc that uses Phoenix to store data into HBase.
@@ -73,26 +74,21 @@ import com.salesforce.phoenix.util.QueryUtil;
 @SuppressWarnings("rawtypes")
 public class PhoenixHBaseStorage implements StoreFuncInterface {
 
-	private List<ColumnInfo> columnMetadataList = new LinkedList<ColumnInfo>();
-
-	private static final Log LOG = LogFactory.getLog(PhoenixHBaseStorage.class);
-
+	private PhoenixPigConfiguration config;
 	private String tableName;
-	private PreparedStatement statement;
-	private final String server;
-	private PhoenixConnection conn;
-	
-	private int batchSize;
-	private int rowCount;
+	private RecordWriter<NullWritable, PhoenixRecord> writer;
+	private String contextSignature = null;
+	private ResourceSchema schema;	
+	private long batchSize;
+	private final PhoenixOutputFormat outputFormat = new PhoenixOutputFormat();
 
 	// Set of options permitted
 	private final static Options validOptions = new Options();
-	private final CommandLine configuredOptions;
 	private final static CommandLineParser parser = new GnuParser();
-	
-	private String contextSignature = null;
-	private ResourceSchema schema;
-	private static final String SCHEMA = "_schema";
+	private final static String SCHEMA = "_schema";
+
+	private final CommandLine configuredOptions;
+	private final String server;
 
 	public PhoenixHBaseStorage(String server) throws ParseException {
 		this(server, null);
@@ -112,8 +108,7 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 			throw e;
 		}
 
-		rowCount = 0;
-		batchSize = Integer.parseInt(configuredOptions.getOptionValue("batchSize"));
+		batchSize = Long.parseLong(configuredOptions.getOptionValue("batchSize"));
 	}
 
 	private static void populateValidOptions() {
@@ -124,8 +119,7 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	 * Returns UDFProperties based on <code>contextSignature</code>.
 	 */
 	private Properties getUDFProperties() {
-		return UDFContext.getUDFContext().getUDFProperties(this.getClass(),
-				new String[] { contextSignature });
+		return UDFContext.getUDFContext().getUDFProperties(this.getClass(), new String[] { contextSignature });
 	}
 
 	
@@ -134,86 +128,41 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	 */
 	@Override
 	public void setStoreLocation(String location, Job job) throws IOException {
-		if (location.startsWith("hbase://")) {
-			tableName = location.substring(8);
+		String prefix = "hbase://";
+		if (location.startsWith(prefix)) {
+			tableName = location.substring(prefix.length());
 		}
+		config = new PhoenixPigConfiguration(job.getConfiguration());
+		config.configure(server, tableName, batchSize);
 
-		Configuration conf = job.getConfiguration();
-		PhoenixPigConfiguration.configure(conf);
-		
-        String serializedSchema = getUDFProperties().getProperty(contextSignature + SCHEMA);
-        if (serializedSchema!= null) {
-            schema = (ResourceSchema) ObjectSerializer.deserialize(serializedSchema);
-        }
-
+		String serializedSchema = getUDFProperties().getProperty(contextSignature + SCHEMA);
+		if (serializedSchema != null) {
+			schema = (ResourceSchema) ObjectSerializer.deserialize(serializedSchema);
+		}
 	}
 
-	/**
-	 * This method gets called before putNext(Tuple t). Initialize
-	 * driver/connections here
-	 */
-	@Override
+	@SuppressWarnings("unchecked")
+    @Override
 	public void prepareToWrite(RecordWriter writer) throws IOException {
-		try {
-			Properties props = new Properties();
-			conn = DriverManager.getConnection(QueryUtil.getUrl(server), props).unwrap(PhoenixConnection.class);
-			// Default to config defined upsert batch size if user did not specify it.
-			batchSize = batchSize <= 0 ? conn.getMutateBatchSize() : batchSize;
-			String[] tableMetadata = getTableMetadata(tableName);
-			ResultSet rs = conn.getMetaData().getColumns(null, tableMetadata[0], tableMetadata[1], null);
-			while (rs.next()) {
-				columnMetadataList.add(new ColumnInfo(rs.getString(QueryUtil.COLUMN_NAME_POSITION), rs.getInt(QueryUtil.DATA_TYPE_POSITION)));
-			}
-			
-			// Generating UPSERT statement without column name information.
-			String upsertStmt = QueryUtil.constructUpsertStatement(null, tableName, columnMetadataList.size());
-			LOG.info("Phoenix Upsert Statement: " + upsertStmt);
-			statement = conn.prepareStatement(upsertStmt);
-
-		} catch (SQLException e) {
-			LOG.error("Error in constructing PreparedStatement: " + e);
-			throw new RuntimeException(e);
-		}
+		this.writer =writer;
 	}
 
 	@Override
 	public void putNext(Tuple t) throws IOException {
-		Object upsertValue = null;
         ResourceFieldSchema[] fieldSchemas = (schema == null) ? null : schema.getFields();      
         
+        PhoenixRecord record = new PhoenixRecord(fieldSchemas);
+        
+        for(int i=0; i<t.size(); i++) {
+        	record.add(t.get(i));
+        }
         
 		try {
-			for (int i = 0; i < columnMetadataList.size(); i++) {
-				Object o = t.get(i);
-				byte type = (fieldSchemas == null) ? DataType.findType(t.get(i)) : fieldSchemas[i].getType();
-				upsertValue = convertTypeSpecificValue(o, type, columnMetadataList
-						.get(i).getSqlType());
-
-				if (upsertValue != null) {
-					statement.setObject(i + 1, upsertValue, columnMetadataList
-							.get(i).getSqlType());
-				} else {
-					statement.setNull(i + 1, columnMetadataList.get(i)
-							.getSqlType());
-				}
-			}
-
-			statement.execute();
-			// Commit when batch size is reached
-			if(++rowCount % batchSize == 0) {
-				conn.commit();
-				LOG.info("Rows upserted: "+rowCount);
-			}
-		} catch (SQLException e) {
-			LOG.error("Error during upserting to HBase table "+tableName, e);
+			writer.write(null, record);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
 		}
-
-	}
-
-	private Object convertTypeSpecificValue(Object o, byte type, Integer sqlType) {
-		PDataType pDataType = PDataType.fromSqlType(sqlType);
-
-		return TypeUtil.castPigTypeToPhoenix(o, type, pDataType);
+        
 	}
 
 	@Override
@@ -225,51 +174,24 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 	public void cleanupOnFailure(String location, Job job) throws IOException {
 	}
 
-    @Override
-    public void cleanupOnSuccess(String location, Job job) throws IOException {
-        // Commit the remaining executes after the last commit in putNext()
-        if (rowCount % batchSize != 0) {
-            try {
-                conn.commit();
-                LOG.info("Rows upserted: " + rowCount);
-            } catch (SQLException e) {
-                LOG.error("Error during upserting to HBase table " + tableName, e);
-            }
-        }
-    }
+	@Override
+	public void cleanupOnSuccess(String location, Job job) throws IOException {
+	}
 
 	@Override
-	public String relToAbsPathForStoreLocation(String location, Path curDir)
-			throws IOException {
+	public String relToAbsPathForStoreLocation(String location, Path curDir) throws IOException {
 		return location;
 	}
 
-	/**
-	 * This method sets {@link OutputFormat} to be used while writing data. Note
-	 * we do not need an OutputFormat as Phoenix encapsulates the writes to
-	 * HBase. Pig needs an OutputFormat to be specified, using
-	 * {@link NullOutputFormat}
-	 */
 	@Override
 	public OutputFormat getOutputFormat() throws IOException {
-		return new NullOutputFormat();
+		return outputFormat;
 	}
 
 	@Override
 	public void checkSchema(ResourceSchema s) throws IOException {
 		schema = s;
-		getUDFProperties().setProperty(contextSignature + SCHEMA,
-				ObjectSerializer.serialize(schema));
+		getUDFProperties().setProperty(contextSignature + SCHEMA, ObjectSerializer.serialize(schema));
 	}
 
-	private String[] getTableMetadata(String table) {
-		String[] schemaAndTable = table.split("\\.");
-		assert schemaAndTable.length >= 1;
-
-		if (schemaAndTable.length == 1) {
-			return new String[] { "", schemaAndTable[0] };
-		}
-
-		return new String[] { schemaAndTable[0], schemaAndTable[1] };
-	}
 }

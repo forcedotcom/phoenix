@@ -40,22 +40,16 @@ import com.google.common.base.Preconditions;
  * @since 1.2
  */
 public enum ColumnModifier {
-        
     /**
      * Invert the bytes in the src byte array to support descending ordering of row keys.
      */
-    SORT_DESC() {
+    SORT_DESC(1) {
         @Override
-        public byte[] apply(byte[] src, byte[] dest, int offset, int length) {
+        public byte[] apply(byte[] src, int srcOffset, byte[] dest, int dstOffset, int length) {
             Preconditions.checkNotNull(src);            
             Preconditions.checkNotNull(dest);            
-            int maxIndex = length + offset;
-            for (int i = 0; i < src.length; i++) {
-                if (i >= offset && i < maxIndex) {
-                    dest[i] = (byte)(src[i] ^ 0xFF);
-                } else {
-                    dest[i] = src[i];
-                }
+            for (int i = 0; i < length; i++) {
+                dest[dstOffset+i] = (byte)(src[srcOffset+i] ^ 0xFF);
             }                       
             return dest;
         }
@@ -84,6 +78,15 @@ public enum ColumnModifier {
         }
     };
         
+    private final int serializationId;
+    
+    ColumnModifier(int serializationId) {
+        this.serializationId = serializationId;
+    }
+    
+    public int getSerializationId() {
+        return serializationId;
+    }
     /**
      * Returns the ColumnModifier for the specified DDL stmt keyword.
      */
@@ -103,10 +106,12 @@ public enum ColumnModifier {
     * Returns the ColumnModifier for the specified internal value.
     */
     public static ColumnModifier fromSystemValue(int value) {
-        switch (value) {
-            case 1: return SORT_DESC;
-            default: return null;
+        for (ColumnModifier mod : ColumnModifier.values()) {
+            if (mod.getSerializationId() == value) {
+                return mod;
+            }
         }
+        return null;
     }
 
     /**
@@ -114,26 +119,23 @@ public enum ColumnModifier {
      */
     public static int toSystemValue(ColumnModifier columnModifier) {
         if (columnModifier == null) {
-            return Integer.MIN_VALUE;
+            return 0;
         }
-        switch (columnModifier) {
-            case SORT_DESC: return 1;
-            default: return Integer.MIN_VALUE;
-        }
+        return columnModifier.getSerializationId();
     }
 
     /**
-     * Copies the bytes from src array to dest array and applies the column modifier operation on the bytes
-     * starting at the specified offset index.  The column modifier is applied to the number of bytes matching the 
-     * specified length.  If dest is null, a new byte array is allocated.
-     * 
-     * @param src  the src byte array to copy from, cannot be null
-     * @param dest the byte array to copy into, if it is null, a new byte array with the same lenght as src is allocated
-     * @param offset  start applying the column modifier from this index
-     * @param length  apply the column modifier for this many bytes 
-     * @return  dest or a new byte array if dest is null
+     * Copies the bytes from source array to destination array and applies the column modifier operation on the bytes
+     * starting at the specified offsets.  The column modifier is applied to the number of bytes matching the 
+     * specified length.
+     * @param src  the source byte array to copy from, cannot be null
+     * @param srcOffset the offset into the source byte array at which to begin.
+     * @param dest the destination byte array into which to transfer the modified bytes.
+     * @param dstOffset the offset into the destination byte array at which to begin
+     * @param length the number of bytes for which to apply the modification
+     * @return the destination byte array
      */
-    public abstract byte[] apply(byte[] src, byte[] dest, int offset, int length);
+    public abstract byte[] apply(byte[] src, int srcOffset, byte[] dest, int dstOffset, int length);
     public abstract byte apply(byte b);
     
     public abstract CompareOp transform(CompareOp op);

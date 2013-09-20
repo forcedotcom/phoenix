@@ -37,13 +37,12 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.HintNode;
-import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.BindableStatement;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
-import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
 
@@ -68,22 +67,16 @@ public class StatementContext {
     private final String numberFormat;
     private final ImmutableBytesWritable tempPtr;
     private final PhoenixConnection connection;
-    private final HintNode hintNode;
     private final Map<TableName, Long> sequenceMap;
-
-    private boolean isAggregate;
+    
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan) {
-        this(connection, resolver, binds, bindCount, scan, null);
-    }
-    
-    public StatementContext(PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, int bindCount, Scan scan, HintNode hintNode) {
+    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
-        this.binds = new BindManager(binds, bindCount);
+        this.binds = new BindManager(binds, statement.getBindCount());
         this.aggregates = new AggregationManager();
         this.expressions = new ExpressionManager();
         this.dateFormat = connection.getQueryServices().getProps().get(QueryServices.DATE_FORMAT_ATTRIB, DateUtil.DEFAULT_DATE_FORMAT);
@@ -91,16 +84,7 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
-        this.hintNode = hintNode;
         this.sequenceMap = new HashMap<TableName, Long>();
-    }
-
-    public boolean hasHint(Hint hint) {
-        return hintNode == null ? false : hintNode.hasHint(hint);
-    }
-
-    public String getHint(Hint hint) {
-        return hintNode == null ? null : hintNode.getHint(hint);
     }
 
     public String getDateFormat() {
@@ -171,22 +155,11 @@ public class StatementContext {
          * current time at execution time. In that case, we'll call MetaDataClient.updateCache
          * purely to bind the current time based on the server time.
          */
-        TableRef table = this.getResolver().getTables().get(0);
+        PTable table = this.getResolver().getTables().get(0).getTable();
         MetaDataClient client = new MetaDataClient(connection);
-        currentTime = Math.abs(client.updateCache(table.getSchema().getName(), table.getTable().getName().getString()));
+        currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;
     }
-
-
-    public void setAggregate(boolean isAggregate) {
-        this.isAggregate = isAggregate;
-    }
-
-
-    public boolean isAggregate() {
-        return isAggregate;
-    }
-
     public void setNextSequenceValue(TableName tableName, Long value){
     	sequenceMap.put(tableName, value);
     }

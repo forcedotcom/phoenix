@@ -27,9 +27,18 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import java.io.*;
-import java.sql.*;
-import java.util.*;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
+import java.util.StringTokenizer;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -109,8 +118,8 @@ public class PhoenixRuntime {
                 "Examples:\n" +
                 "  psql localhost my_ddl.sql\n" +
                 "  psql localhost my_ddl.sql my_table.csv\n" +
-                "  psql my_cluster:1825 -t my_table my_table2012-Q3.csv\n" +
-                "  psql my_cluster -t my_table -h col1,col2,col3 my_table2012-Q3.csv\n"
+                "  psql -t my_table my_cluster:1825 my_table2012-Q3.csv\n" +
+                "  psql -t my_table -h col1,col2,col3 my_cluster:1825 my_table2012-Q3.csv\n"
         );
         System.exit(-1);
     }
@@ -203,6 +212,8 @@ public class PhoenixRuntime {
             }
         } catch (Throwable t) {
             t.printStackTrace();
+        } finally {
+            System.exit(0);
         }
     }
 
@@ -252,7 +263,18 @@ public class PhoenixRuntime {
      * @throws SQLException 
      */
     public static Iterator<Pair<byte[],List<KeyValue>>> getUncommittedDataIterator(Connection conn) throws SQLException {
-        final Iterator<Pair<byte[],List<Mutation>>> iterator = conn.unwrap(PhoenixConnection.class).getMutationState().toMutations();
+        return getUncommittedDataIterator(conn, false);
+    }
+    
+    /**
+     * Get the list of uncommitted KeyValues for the connection. Currently used to write an
+     * Phoenix-compliant HFile from a map/reduce job.
+     * @param conn an open JDBC connection
+     * @return the list of HBase mutations for uncommitted data
+     * @throws SQLException 
+     */
+    public static Iterator<Pair<byte[],List<KeyValue>>> getUncommittedDataIterator(Connection conn, boolean includeMutableIndexes) throws SQLException {
+        final Iterator<Pair<byte[],List<Mutation>>> iterator = conn.unwrap(PhoenixConnection.class).getMutationState().toMutations(includeMutableIndexes);
         return new Iterator<Pair<byte[],List<KeyValue>>>() {
 
             @Override

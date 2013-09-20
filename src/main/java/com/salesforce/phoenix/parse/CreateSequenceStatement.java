@@ -1,6 +1,6 @@
 package com.salesforce.phoenix.parse;
 
-public class CreateSequenceStatement implements SQLStatement {
+public class CreateSequenceStatement implements BindableStatement {
 
 	private final TableName sequenceName;
 	private final LiteralParseNode startWith;

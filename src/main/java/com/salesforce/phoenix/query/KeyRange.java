@@ -87,16 +87,16 @@ public class KeyRange implements Writable {
     public static final Comparator<KeyRange> COMPARATOR = new Comparator<KeyRange>() {
         @Override public int compare(KeyRange o1, KeyRange o2) {
             return ComparisonChain.start()
-                    .compare(o1.lowerUnbound(), o2.lowerUnbound())
+                    .compareFalseFirst(o1.lowerUnbound(), o2.lowerUnbound())
                     .compare(o1.getLowerRange(), o2.getLowerRange(), Bytes.BYTES_COMPARATOR)
                     // we want o1 lower inclusive to come before o2 lower inclusive, but
                     // false comes before true, so we have to negate
-                    .compare(!o1.isLowerInclusive(), !o2.isLowerInclusive())
+                    .compareTrueFirst(o1.isLowerInclusive(), o2.isLowerInclusive())
                     // for the same lower bounding, we want a finite upper bound to
                     // be ordered before an infinite upper bound
-                    .compare(!o1.upperUnbound(), !o2.upperUnbound())
+                    .compareTrueFirst(o1.upperUnbound(), o2.upperUnbound())
                     .compare(o1.getUpperRange(), o2.getUpperRange(), Bytes.BYTES_COMPARATOR)
-                    .compare(o1.isUpperInclusive(), o2.isUpperInclusive())
+                    .compareFalseFirst(o1.isUpperInclusive(), o2.isUpperInclusive())
                     .result();
         }
     };

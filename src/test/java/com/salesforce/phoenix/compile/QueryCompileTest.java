@@ -29,26 +29,40 @@ package com.salesforce.phoenix.compile;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.CountAggregator;
+import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 
@@ -306,7 +320,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testNonBooleanWhereExpression() throws Exception {
         try {
             // Select non agg column in aggregate query
-            String query = "SELECT a_integer FROM atable WHERE organization_id=? and CASE WHEN a_integer <= 2 THEN 'foo' WHEN a_integer = 3 THEN 2 WHEN a_integer <= 5 THEN 5 ELSE 5 END";
+            String query = "SELECT a_integer FROM atable WHERE organization_id=? and CASE WHEN a_integer <= 2 THEN 'foo' WHEN a_integer = 3 THEN 'bar' WHEN a_integer <= 5 THEN 'bas' ELSE 'blah' END";
             Properties props = new Properties(TestUtil.TEST_PROPERTIES);
             Connection conn = DriverManager.getConnection(getUrl(), props);
             try {
@@ -318,7 +332,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"CASE\" at line 1, column 58."));
+            assertTrue(e.getMessage().contains("ERROR 203 (22005): Type mismatch. BOOLEAN and VARCHAR for CASE WHEN A_INTEGER <= 2 THEN 'foo'WHEN A_INTEGER = 3 THEN 'bar'WHEN A_INTEGER <= 5 THEN 'bas' ELSE 'blah' END"));
         }
     }
 
@@ -361,36 +375,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertTrue(query, scan.getAttribute(GroupedAggregateRegionObserver.KEY_ORDERED_GROUP_BY_EXPRESSIONS) != null);
             assertTrue(query, scan.getAttribute(GroupedAggregateRegionObserver.UNORDERED_GROUP_BY_EXPRESSIONS) == null);
         }
-    }
-
-    @Test
-    public void testConstantCountForSingleCF() throws Exception {
-        // Select columns in PK
-        String query = "select count(1) from atable";
-        List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
-        // Projects nothing, but adds FirstKeyOnlyFilter
-        assertTrue(scan.getFamilyMap().isEmpty());
-        assertTrue(scan.getFilter() instanceof FirstKeyOnlyFilter);
-    }
-
-    @Test
-    public void testConstantCountForMultiCF() throws Exception {
-        // Select columns in PK
-        String query = "select count(1) from multi_cf";
-        List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
-        // Projects nothing, but adds FirstKeyOnlyFilter
-        Set<byte[]> projectedFamilies = scan.getFamilyMap().keySet();
-        assertEquals(1, scan.getFamilyMap().values().size());
-        // Empty column name
-        assertArrayEquals(QueryConstants.EMPTY_COLUMN_BYTES, scan.getFamilyMap().values().iterator().next().iterator().next());
-        assertEquals(1,projectedFamilies.size());
-        // Empty column name should be in first column family
-        assertTrue(projectedFamilies.contains(Bytes.toBytes(SchemaUtil.normalizeIdentifier("a"))));
-        assertNull(scan.getFilter());
     }
 
     @Test
@@ -562,35 +546,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testFirstKeyOnlyFilter() throws Exception {
-        // Select columns in PK
-        String[] queries = new String[] {
-            "SELECT count(1) FROM atable",
-        };
-        List<Object> binds = Collections.emptyList();
-        for (String query : queries) {
-            Scan scan = new Scan();
-            compileQuery(query, binds, scan);
-            assertTrue(scan.getFilter() instanceof FirstKeyOnlyFilter);
-        }
-    }
-
-    @Test
-    public void testNotFirstKeyOnlyFilter() throws Exception {
-        // Select columns in PK
-        String[] queries = new String[] {
-            "SELECT count(1) FROM atable GROUP BY a_string",
-            "SELECT count(b_string) FROM atable",
-        };
-        List<Object> binds = Collections.emptyList();
-        for (String query : queries) {
-            Scan scan = new Scan();
-            compileQuery(query, binds, scan);
-            assertFalse(scan.getFilter() instanceof FirstKeyOnlyFilter);
-        }
-    }
-
-    @Test
     public void testNotKeyOrderedGroupByOptimization() throws Exception {
         // Select columns in PK
         String[] queries = new String[] {
@@ -645,7 +600,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 query = queries[i];
                 Scan scan = new Scan();
                 compileQuery(query, binds, scan);
-                ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
+                ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), null);
                 Aggregator aggregator = aggregators.getAggregators()[0];
                 assertTrue(aggregator instanceof CountAggregator);
             }
@@ -914,21 +869,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
 
     @Test
-    public void testCreateIndexOnNonImmutableTable() throws Exception {
-        long ts = nextTimestamp();
-        String query = "CREATE INDEX idx ON atable(a_string)";
-        String url = getUrl() + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
-        Connection conn = DriverManager.getConnection(url);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            statement.execute();
-            fail();
-        } catch (SQLException e) { // expected
-            assertTrue(e.getErrorCode() == SQLExceptionCode.INDEX_ONLY_ON_IMMUTABLE_TABLE.getErrorCode());
-        }
-    }
-
-    @Test
     public void testSetSaltBucketOnAlterTable() throws Exception {
         long ts = nextTimestamp();
         String query = "ALTER TABLE atable ADD xyz INTEGER SALT_BUCKETS=4";
@@ -963,5 +903,52 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
+    }
+    
+    @Test
+    public void testCastingIntegerToDecimalInSelect() throws Exception {
+        String query = "SELECT CAST a_integer AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        compileQuery(query, binds, scan);
+    }
+    
+    @Test
+    public void testCastingStringToDecimalInSelect() throws Exception {
+        String query = "SELECT CAST b_string AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a string to decimal isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testCastingDecimalToIntegerInSelect() throws Exception {
+        String query = "SELECT CAST x_decimal AS INTEGER FROM aTable WHERE 5=a_integer";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a decimal to integer isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testCastingStringToDecimalInWhere() throws Exception {
+        String query = "SELECT a_integer FROM aTable WHERE 2.5=CAST b_string AS DECIMAL/2 ";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a string to decimal isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }  
     }
 }

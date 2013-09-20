@@ -75,6 +75,11 @@ public abstract class TraverseAllParseNodeVisitor<T> extends BaseParseNodeVisito
     }
     
     @Override
+    public boolean visitEnter(CastParseNode node) throws SQLException {
+        return true;
+    }
+    
+    @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {
         return true;
     }
@@ -105,6 +110,11 @@ public abstract class TraverseAllParseNodeVisitor<T> extends BaseParseNodeVisito
     }
 
     @Override
+    public boolean visitEnter(BetweenParseNode node) throws SQLException {
+        return true;
+    }
+    
+    @Override
     public T visit(ColumnParseNode node) throws SQLException {
         return null;
     }
@@ -133,6 +143,7 @@ public abstract class TraverseAllParseNodeVisitor<T> extends BaseParseNodeVisito
     public T visit(FamilyParseNode node) throws SQLException {
         return null;
     }
+    
     @Override
     public boolean visitEnter(StringConcatParseNode node) throws SQLException {
         return true;

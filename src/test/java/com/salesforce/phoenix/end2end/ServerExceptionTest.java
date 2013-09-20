@@ -1,13 +1,10 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -40,7 +37,7 @@ public class ServerExceptionTest extends BaseHBaseManagedTimeTest {
             rs.getInt(1);
             fail("Should have caught exception.");
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("ERROR 212 (22012): Arithmatic error on server. / by zero"));
+            assertTrue(e.getMessage().contains("ERROR 212 (22012): Arithmetic error on server. / by zero"));
         } finally {
             conn.close();
         }

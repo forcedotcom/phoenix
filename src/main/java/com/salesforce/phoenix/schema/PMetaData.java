@@ -33,7 +33,6 @@ import com.salesforce.phoenix.query.MetaDataMutated;
 
 
 public interface PMetaData extends MetaDataMutated {
-    public PSchema getSchema(String name) throws SchemaNotFoundException;
-    public PSchema getSchemaOrNull(String name);
-    public Map<String, PSchema> getSchemas();
+    public PTable getTable(String name) throws TableNotFoundException;
+    public Map<String, PTable> getTables();
 }

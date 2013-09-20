@@ -34,16 +34,21 @@ import java.util.concurrent.*;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.filter.PageFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
-import com.salesforce.phoenix.memory.MemoryManager;
+import com.salesforce.phoenix.parse.FilterableStatement;
+import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.*;
 
@@ -57,10 +62,15 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class ParallelIterators extends ExplainTable implements ResultIterators {
+	private static final Logger logger = LoggerFactory.getLogger(ParallelIterators.class);
     private final List<KeyRange> splits;
+    private final ParallelIteratorFactory iteratorFactory;
+    
+    public static interface ParallelIteratorFactory {
+        PeekingResultIterator newIterator(ResultIterator scanner) throws SQLException;
+    }
 
     private static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
-    private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 100; // 100K
 
     static final Function<Map.Entry<HRegionInfo, ServerName>, KeyRange> TO_KEY_RANGE = new Function<Map.Entry<HRegionInfo, ServerName>, KeyRange>() {
         @Override
@@ -69,22 +79,45 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
         }
     };
 
-    public ParallelIterators(StatementContext context, TableRef table, GroupBy groupBy, Integer limit) throws SQLException {
-        super(context, table, groupBy);
-        this.splits = getSplits(context, table);
+    public ParallelIterators(StatementContext context, TableRef tableRef, FilterableStatement statement, RowProjector projector, GroupBy groupBy, Integer limit, ParallelIteratorFactory iteratorFactory) throws SQLException {
+        super(context, tableRef, groupBy);
+        this.splits = getSplits(context, tableRef, statement.getHint());
+        this.iteratorFactory = iteratorFactory;
+        Scan scan = context.getScan();
+        PTable table = tableRef.getTable();
+        if (projector.isProjectEmptyKeyValue()) {
+            Map<byte [], NavigableSet<byte []>> familyMap = scan.getFamilyMap();
+            // If nothing projected into scan and we only have one column family, just allow everything
+            // to be projected and use a FirstKeyOnlyFilter to skip from row to row. This turns out to
+            // be quite a bit faster.
+            if (familyMap.isEmpty() && table.getColumnFamilies().size() == 1) {
+                // Project the one column family. We must project a column family since it's possible
+                // that there are other non declared column families that we need to ignore.
+                scan.addFamily(table.getColumnFamilies().get(0).getName().getBytes());
+                ScanUtil.andFilterAtBeginning(scan, new FirstKeyOnlyFilter());
+            } else {
+                byte[] ecf = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
+                // Project empty key value unless the column family containing it has
+                // been projected in its entirety.
+                if (!familyMap.containsKey(ecf) || familyMap.get(ecf) != null) {
+                    scan.addColumn(ecf, QueryConstants.EMPTY_COLUMN_BYTES);
+                }
+            }
+        }
         if (limit != null) {
-            ScanUtil.andFilterAtEnd(context.getScan(), new PageFilter(limit));
+            ScanUtil.andFilterAtEnd(scan, new PageFilter(limit));
         }
     }
 
     /**
      * Splits the given scan's key range so that each split can be queried in parallel
+     * @param hintNode TODO
      *
      * @return the key ranges that should be scanned in parallel
      */
     // exposed for tests
-    public static List<KeyRange> getSplits(StatementContext context, TableRef table) throws SQLException {
-        return ParallelIteratorRegionSplitterFactory.getSplitter(context, table).getSplits();
+    public static List<KeyRange> getSplits(StatementContext context, TableRef table, HintNode hintNode) throws SQLException {
+        return ParallelIteratorRegionSplitterFactory.getSplitter(context, table, hintNode).getSplits();
     }
 
     public List<KeyRange> getSplits() {
@@ -104,11 +137,10 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
             int numSplits = splits.size();
             List<PeekingResultIterator> iterators = new ArrayList<PeekingResultIterator>(numSplits);
             List<Pair<byte[],Future<PeekingResultIterator>>> futures = new ArrayList<Pair<byte[],Future<PeekingResultIterator>>>(numSplits);
+            final UUID scanId = UUID.randomUUID();
             try {
                 ExecutorService executor = services.getExecutor();
-                final MemoryManager mm = services.getMemoryManager();
-                final int spoolThresholdBytes = props.getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, DEFAULT_SPOOL_THRESHOLD_BYTES);
-                for (KeyRange split : splits) {
+                for (final KeyRange split : splits) {
                     final Scan splitScan = new Scan(this.context.getScan());
                     // Intersect with existing start/stop key
                     if (ScanUtil.intersectScanRange(splitScan, split.getLowerRange(), split.getUpperRange(), this.context.getScanRanges().useSkipScanFilter())) {
@@ -118,8 +150,12 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                             @Override
                             public PeekingResultIterator call() throws Exception {
                                 // TODO: different HTableInterfaces for each thread or the same is better?
+                            	long startTime = System.currentTimeMillis();
                                 ResultIterator scanner = new TableResultIterator(context, table, splitScan);
-                                return new SpoolingResultIterator(scanner, mm, spoolThresholdBytes);
+                                if (logger.isDebugEnabled()) {
+                                	logger.debug("Id: " + scanId + ", Time: " + (System.currentTimeMillis() - startTime) + "ms, Scan: " + split);
+                                }
+                                return iteratorFactory.newIterator(scanner);
                             }
     
                             /**

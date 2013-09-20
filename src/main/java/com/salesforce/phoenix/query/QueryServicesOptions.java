@@ -27,12 +27,39 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.query.QueryServices.*;
+import static com.salesforce.phoenix.query.QueryServices.CALL_QUEUE_PRODUCER_ATTRIB_NAME;
+import static com.salesforce.phoenix.query.QueryServices.CALL_QUEUE_ROUND_ROBIN_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.DATE_FORMAT_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.IMMUTABLE_ROWS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.KEEP_ALIVE_MS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MASTER_INFO_PORT_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_SERVER_CACHE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_MEMORY_PERC_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_MEMORY_WAIT_MS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_MUTATION_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_SERVER_CACHE_TIME_TO_LIVE_MS;
+import static com.salesforce.phoenix.query.QueryServices.MAX_SPOOL_TO_DISK_BYTES_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_TENANT_MEMORY_PERC_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MUTATE_BATCH_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.QUEUE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.REGIONSERVER_INFO_PORT_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.REGIONSERVER_LEASE_PERIOD_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.RPC_TIMEOUT_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.SCAN_CACHE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.THREAD_POOL_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.THREAD_TIMEOUT_MS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.USE_INDEXES_ATTRIB;
 
 import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 
 import com.salesforce.phoenix.util.DateUtil;
@@ -46,32 +73,35 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
  * @since 0.1
  */
 public class QueryServicesOptions {
-	public static final int DEFAULT_KEEP_ALIVE_MS = 1000;
-	public static final int DEFAULT_THREAD_POOL_SIZE = 20;
-	public static final int DEFAULT_QUEUE_SIZE = 250;
-	public static final int DEFAULT_THREAD_TIMEOUT_MS = 60000; // 1min
-	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 20; // 50m
+	public static final int DEFAULT_KEEP_ALIVE_MS = 60000;
+	public static final int DEFAULT_THREAD_POOL_SIZE = 128;
+	public static final int DEFAULT_QUEUE_SIZE = 500;
+	public static final int DEFAULT_THREAD_TIMEOUT_MS = 600000; // 10min
+	public static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024 * 20; // 20m
 	public static final int DEFAULT_MAX_MEMORY_PERC = 50; // 50% of heap
-	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 5000;
+	public static final int DEFAULT_MAX_MEMORY_WAIT_MS = 10000;
 	public static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
-	public static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*100;  // 100 Mb
-    public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 8;
-    public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 12;
+	public static final long DEFAULT_MAX_SERVER_CACHE_SIZE = 1024*1024*100;  // 100 Mb
+    public static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 32;
+    public static final int DEFAULT_MAX_QUERY_CONCURRENCY = 64;
     public static final String DEFAULT_DATE_FORMAT = DateUtil.DEFAULT_DATE_FORMAT;
     public static final int DEFAULT_STATS_UPDATE_FREQ_MS = 15 * 60000; // 15min
     public static final int DEFAULT_MAX_STATS_AGE_MS = 24 * 60 * 60000; // 1 day
     public static final boolean DEFAULT_CALL_QUEUE_ROUND_ROBIN = true; 
     public static final int DEFAULT_MAX_MUTATION_SIZE = 500000;
-    public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = false; // Merge sort on client to ensure salted tables are row key ordered
+    public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = true; // Merge sort on client to ensure salted tables are row key ordered
     public static final boolean DEFAULT_USE_INDEXES = true; // Use indexes
     public static final boolean DEFAULT_IMMUTABLE_ROWS = false; // Tables rows may be updated
     
-    public final static int DEFAULT_MUTATE_BATCH_SIZE = 10000; // Batch size for UPSERT SELECT and DELETE
+    public final static int DEFAULT_MUTATE_BATCH_SIZE = 1000; // Batch size for UPSERT SELECT and DELETE
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
-	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 60000; // How long to cache region boundary info for parallelization calculation
-    public static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 30000; // 30 sec (with no activity)
+	public static final int DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS = 15000; // How long to cache region boundary info for parallelization calculation
+    public static final int DEFAULT_MAX_SERVER_CACHE_TIME_TO_LIVE_MS = 30000; // 30 sec (with no activity)
     public static final int DEFAULT_SCAN_CACHE_SIZE = 1000;
     public static final int DEFAULT_MAX_INTRA_REGION_PARALLELIZATION = DEFAULT_MAX_QUERY_CONCURRENCY;
+    public static final int DEFAULT_DISTINCT_VALUE_COMPRESS_THRESHOLD = 1024 * 1024 * 1; // 1 Mb
+    
+    public static final long DEFAULT_SPOOL_TO_DISK_BYTES = -1;
     
     private final Configuration config;
     
@@ -97,7 +127,7 @@ public class QueryServicesOptions {
     }
 
     public static QueryServicesOptions withDefaults() {
-        Configuration config = HBaseConfiguration.create();
+        Configuration config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
         QueryServicesOptions options = new QueryServicesOptions(config)
             .setIfUnset(KEEP_ALIVE_MS_ATTRIB, DEFAULT_KEEP_ALIVE_MS)
             .setIfUnset(THREAD_POOL_SIZE_ATTRIB, DEFAULT_THREAD_POOL_SIZE)
@@ -107,7 +137,7 @@ public class QueryServicesOptions {
             .setIfUnset(MAX_MEMORY_PERC_ATTRIB, DEFAULT_MAX_MEMORY_PERC)
             .setIfUnset(MAX_MEMORY_WAIT_MS_ATTRIB, DEFAULT_MAX_MEMORY_WAIT_MS)
             .setIfUnset(MAX_TENANT_MEMORY_PERC_ATTRIB, DEFAULT_MAX_TENANT_MEMORY_PERC)
-            .setIfUnset(MAX_HASH_CACHE_SIZE_ATTRIB, DEFAULT_MAX_HASH_CACHE_SIZE)
+            .setIfUnset(MAX_SERVER_CACHE_SIZE_ATTRIB, DEFAULT_MAX_SERVER_CACHE_SIZE)
             .setIfUnset(SCAN_CACHE_SIZE_ATTRIB, DEFAULT_SCAN_CACHE_SIZE)
             .setIfUnset(TARGET_QUERY_CONCURRENCY_ATTRIB, DEFAULT_TARGET_QUERY_CONCURRENCY)
             .setIfUnset(MAX_QUERY_CONCURRENCY_ATTRIB, DEFAULT_MAX_QUERY_CONCURRENCY)
@@ -120,6 +150,7 @@ public class QueryServicesOptions {
             .setIfUnset(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)
             .setIfUnset(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES)
             .setIfUnset(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS)
+            .setIfUnset(MAX_SPOOL_TO_DISK_BYTES_ATTRIB, DEFAULT_SPOOL_TO_DISK_BYTES);
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
@@ -190,8 +221,8 @@ public class QueryServicesOptions {
         return set(MAX_TENANT_MEMORY_PERC_ATTRIB, maxTenantMemoryPerc);
     }
     
-    public QueryServicesOptions setMaxHashCacheSize(long maxHashCacheSize) {
-        return set(MAX_HASH_CACHE_SIZE_ATTRIB, maxHashCacheSize);
+    public QueryServicesOptions setMaxServerCacheSize(long maxServerCacheSize) {
+        return set(MAX_SERVER_CACHE_SIZE_ATTRIB, maxServerCacheSize);
     }
 
     public QueryServicesOptions setScanFetchSize(int scanFetchSize) {
@@ -302,8 +333,8 @@ public class QueryServicesOptions {
         return config.getBoolean(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS);
     }
 
-    public QueryServicesOptions setMaxHashCacheTTLMs(int ttl) {
-        return set(MAX_HASH_CACHE_TIME_TO_LIVE_MS, ttl);
+    public QueryServicesOptions setMaxServerCacheTTLMs(int ttl) {
+        return set(MAX_SERVER_CACHE_TIME_TO_LIVE_MS, ttl);
     }
     
     public QueryServicesOptions setMasterInfoPort(int port) {
