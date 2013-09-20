@@ -110,6 +110,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
             String query = "SELECT char_col1, int_col1, long_col2 from " + DATA_TABLE_FULL_NAME;
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
             // FIXME: Why is this a 4 way parallel scan while the data table is a 1 way scan?
+            // Because of lack of stats initially. To account for this, what should we do? 
             assertEquals("CLIENT PARALLEL 4-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
             
             rs = conn.createStatement().executeQuery(query);
