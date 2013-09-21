@@ -52,22 +52,12 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class KeyValueColumnExpression extends ColumnExpression {
     private byte[] cf;
     private byte[] cq;
-    private final String alias; // not serialized
 
     public KeyValueColumnExpression() {
-        this.alias = null;
     }
 
     public KeyValueColumnExpression(PColumn column) {
         super(column);
-        this.alias = null;
-        this.cf = column.getFamilyName().getBytes();
-        this.cq = column.getName().getBytes();
-    }
-
-    public KeyValueColumnExpression(PColumn column, String alias) {
-        super(column);
-        this.alias = alias;
         this.cf = column.getFamilyName().getBytes();
         this.cq = column.getName().getBytes();
     }
@@ -103,7 +93,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
 
     @Override
     public String toString() {
-        return alias != null ? alias :  SchemaUtil.getColumnDisplayName(cf, cq);
+        return SchemaUtil.getColumnDisplayName(cf, cq);
     }
 
     @Override

@@ -91,5 +91,14 @@ public class ImmutableBytesPtr extends ImmutableBytesWritable {
         hashCode = super.hashCode();
     }
 
+    /**
+     * @return the backing byte array, copying only if necessary
+     */
+    public byte[] copyBytesIfNecessary() {
+        if (this.getOffset() == 0 && this.getLength() == this.get().length) {
+            return this.get();
+        }
+        return this.copyBytes();
+    }
 
 }

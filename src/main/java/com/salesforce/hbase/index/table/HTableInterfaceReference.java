@@ -55,7 +55,7 @@ public class HTableInterfaceReference implements Writable {
 
   public HTableInterface getTable(HTableFactory e) throws IOException {
     if (this.table == null) {
-      this.table = e.getTable(this.tableName.copyBytes());
+      this.table = e.getTable(this.tableName.copyBytesIfNecessary());
     }
     return this.table;
   }
@@ -86,11 +86,17 @@ public class HTableInterfaceReference implements Writable {
 
   @Override
   public int hashCode() {
-    return this.tableName.hashCode();
+      return tableName.hashCode();
   }
 
   @Override
-  public boolean equals(Object o) {
-    return o == null ? false : this.hashCode() == o.hashCode();
+  public boolean equals(Object obj) {
+      if (this == obj) return true;
+      if (obj == null) return false;
+      if (getClass() != obj.getClass()) return false;
+      HTableInterfaceReference other = (HTableInterfaceReference)obj;
+      return tableName.equals(other.tableName);
   }
+
+  
 }

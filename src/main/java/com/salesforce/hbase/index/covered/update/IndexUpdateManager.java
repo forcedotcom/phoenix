@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Longs;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
@@ -60,7 +61,7 @@ public class IndexUpdateManager {
       }
 
       // if same row, sort by reverse timestamp (larger first)
-      compare = -(new Long(o1.getTimeStamp()).compareTo(o2.getTimeStamp()));
+      compare = Longs.compare(o2.getTimeStamp(), o1.getTimeStamp());
       if (compare != 0) {
         return compare;
       }
@@ -94,7 +95,7 @@ public class IndexUpdateManager {
         // TODO: make this a real comparison
         // this is a little cheating, but we don't really need to worry too much about this being
         // the same - chances are that exact matches here are really the same update.
-        return new Long(p1.heapSize()).compareTo(p2.heapSize());
+        return Longs.compare(p1.heapSize(), p2.heapSize());
       }
       return compare;
     }

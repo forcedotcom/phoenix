@@ -17,7 +17,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.covered.KeyValueStore;
-import com.salesforce.hbase.index.covered.data.IndexMemStore;
 import com.salesforce.hbase.index.covered.filter.ApplyAndFilterDeletesFilter;
 import com.salesforce.hbase.index.covered.filter.ColumnTrackingNextLargestTimestampFilter;
 import com.salesforce.hbase.index.covered.filter.MaxTimestampFilter;

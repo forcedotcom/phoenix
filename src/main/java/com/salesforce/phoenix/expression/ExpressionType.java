@@ -125,7 +125,8 @@ public enum ExpressionType {
     DoubleMultiplyExpression(DoubleMultiplyExpression.class),
     DoubleDivideExpression(DoubleDivideExpression.class),
     MD5Function(MD5Function.class),
-    SqlTableType(SqlTableType.class);
+    SqlTableType(SqlTableType.class),
+    IndexKeyValue(IndexKeyValueColumnExpression.class);
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
