@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.*;
@@ -38,6 +40,7 @@ import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.junit.*;
 
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PTableType;
 
 /**
  * @author elilevine
@@ -151,6 +154,43 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         }
         catch (SQLException expected) {
             assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testTableMetadataScan() throws Exception {
+        // make sure connections w/o tenant id only see parent tables
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            DatabaseMetaData meta = conn.getMetaData();
+            ResultSet rs = meta.getTables(null, null, null, null);
+            assertTrue(rs.next());
+            assertEquals(TYPE_SCHEMA, rs.getString("TABLE_SCHEM"));
+            assertEquals(TYPE_TABLE, rs.getString("TABLE_NAME"));
+            assertEquals(PTableType.SYSTEM.getSerializedValue(), rs.getString("TABLE_TYPE"));
+            assertTrue(rs.next());
+            assertEquals(null, rs.getString("TABLE_SCHEM"));
+            assertEquals(PARENT_TABLE_NAME, rs.getString("TABLE_NAME"));
+            assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+            assertFalse(rs.next());
+        }
+        finally {
+            conn.close();
+        }
+        
+        // make sure tenant-specific connections only see their own tables
+        conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+        try {
+            DatabaseMetaData meta = conn.getMetaData();
+            ResultSet rs = meta.getTables(null, null, null, null);
+            assertTrue(rs.next());
+            assertEquals(null, rs.getString("TABLE_SCHEM"));
+            assertEquals(TENANT_TABLE_NAME, rs.getString("TABLE_NAME"));
+            assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+            assertFalse(rs.next());
         }
         finally {
             conn.close();

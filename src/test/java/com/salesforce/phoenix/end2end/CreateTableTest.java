@@ -77,7 +77,6 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
         assertEquals(0, admin.listTables("TENANT_SPECIFIC_TABLE").length);
         
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
         conn = DriverManager.getConnection(getUrl(), props);
         conn.createStatement().execute("DROP TABLE TENANT_SPECIFIC_TABLE");
         conn.close();
