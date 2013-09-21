@@ -178,7 +178,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
     }
     
     @Test
-    public void testSelectAll() throws Exception {
+    public void testSelectAllAndAliasWithIndex() throws Exception {
         String query;
         ResultSet rs;
         
@@ -225,6 +225,18 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         assertEquals("a",rs.getString("k"));
         assertEquals("x",rs.getString("v1"));
         assertEquals("1",rs.getString("v2"));
+        assertFalse(rs.next());
+        
+        query = "SELECT v1 as foo FROM " + DATA_TABLE_FULL_NAME + " WHERE v2 = '1' ORDER BY foo";
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER " +INDEX_TABLE_FULL_NAME + " '1'\n" + 
+                "    SERVER TOP -1 ROWS SORTED BY [V1]\n" + 
+                "CLIENT MERGE SORT", QueryUtil.getExplainPlan(rs));
+
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("x",rs.getString(1));
+        assertEquals("x",rs.getString("foo"));
         assertFalse(rs.next());
     }
     

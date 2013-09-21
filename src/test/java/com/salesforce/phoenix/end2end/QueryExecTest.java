@@ -1080,7 +1080,8 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string";
+        // Tests that you don't get an ambiguous column exception when using the same alias as the column name
+        String query = "SELECT a_string as a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);

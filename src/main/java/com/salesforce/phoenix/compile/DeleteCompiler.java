@@ -118,7 +118,7 @@ public class DeleteCompiler {
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
         final Integer limit = LimitCompiler.compile(context, statement);
-        final OrderBy orderBy = OrderByCompiler.compile(context, statement, Collections.<String,ParseNode>emptyMap(), GroupBy.EMPTY_GROUP_BY, limit); 
+        final OrderBy orderBy = OrderByCompiler.compile(context, statement, GroupBy.EMPTY_GROUP_BY, limit); 
         Expression whereClause = WhereCompiler.compile(context, statement);
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         

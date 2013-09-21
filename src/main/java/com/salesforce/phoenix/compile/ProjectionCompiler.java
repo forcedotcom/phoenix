@@ -41,7 +41,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
@@ -96,18 +95,6 @@ public class ProjectionCompiler {
     private static void projectColumnFamily(PTable table, Scan scan, byte[] family) {
         // Will project all colmuns for given CF
         scan.addFamily(family);
-    }
-    
-    public static Map<String, ParseNode> buildAliasMap(StatementContext context, SelectStatement statement) {
-        List<AliasedNode> aliasedNodes = statement.getSelect();
-        Map<String, ParseNode> aliasParseNodeMap = Maps.newHashMapWithExpectedSize(aliasedNodes.size());
-        for (AliasedNode aliasedNode : aliasedNodes) {
-            String alias = aliasedNode.getAlias();
-            if (alias != null) {
-                aliasParseNodeMap.put(alias, aliasedNode.getNode());
-            }
-        }
-        return aliasParseNodeMap;
     }
     
     public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException  {
@@ -192,7 +179,6 @@ public class ProjectionCompiler {
         int index = 0;
         List<Expression> projectedExpressions = Lists.newArrayListWithExpectedSize(aliasedNodes.size());
         List<byte[]> projectedFamilies = Lists.newArrayListWithExpectedSize(aliasedNodes.size());
-        // TODO: support cf.* expressions in projection to project all columns in a  CF
         for (AliasedNode aliasedNode : aliasedNodes) {
             ParseNode node = aliasedNode.getNode();
             // TODO: visitor?

@@ -1,10 +1,12 @@
 package com.salesforce.phoenix.expression;
 
+import org.apache.hadoop.hbase.util.Bytes;
+
 import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class IndexKeyValueColumnExpression extends KeyValueColumnExpression {
-
     public IndexKeyValueColumnExpression() {
     }
 
@@ -14,8 +16,11 @@ public class IndexKeyValueColumnExpression extends KeyValueColumnExpression {
     
     @Override
     public String toString() {
-        // Just display the column name part, since it's guaranteed to be unique
-        return SchemaUtil.getColumnDisplayName(this.getColumnName());
+        // Translate to the data table column name
+        String indexColumnName = Bytes.toString(this.getColumnName());
+        String dataFamilyName = IndexUtil.getDataColumnFamilyName(indexColumnName);
+        String dataColumnName = IndexUtil.getDataColumnName(indexColumnName);
+        return SchemaUtil.getColumnDisplayName(dataFamilyName, dataColumnName);
     }
 
 }

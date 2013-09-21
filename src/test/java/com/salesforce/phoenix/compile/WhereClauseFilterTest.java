@@ -27,15 +27,34 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.and;
+import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
+import static com.salesforce.phoenix.util.TestUtil.columnComparison;
+import static com.salesforce.phoenix.util.TestUtil.constantComparison;
+import static com.salesforce.phoenix.util.TestUtil.in;
+import static com.salesforce.phoenix.util.TestUtil.kvColumn;
+import static com.salesforce.phoenix.util.TestUtil.multiKVFilter;
+import static com.salesforce.phoenix.util.TestUtil.not;
+import static com.salesforce.phoenix.util.TestUtil.or;
+import static com.salesforce.phoenix.util.TestUtil.singleKVFilter;
 import static java.util.Collections.emptyList;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.text.Format;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -46,23 +65,29 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.SubstrFunction;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
     private static SelectStatement compileStatement(StatementContext context, SelectStatement statement, ColumnResolver resolver, List<Object> binds, Scan scan, Integer expectedExtractedNodesSize, Integer expectedLimit) throws SQLException {
-        statement = StatementNormalizer.normalize(statement);
+        statement = StatementNormalizer.normalize(statement, resolver);
         Integer limit = LimitCompiler.compile(context, statement);
         assertEquals(expectedLimit, limit);
 

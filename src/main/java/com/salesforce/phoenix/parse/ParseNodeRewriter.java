@@ -30,8 +30,13 @@ package com.salesforce.phoenix.parse;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.salesforce.phoenix.compile.ColumnResolver;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 
 /**
  * 
@@ -53,6 +58,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
      * @throws SQLException 
      */
     public static SelectStatement rewrite(SelectStatement statement, ParseNodeRewriter rewriter) throws SQLException {
+        Map<String,ParseNode> aliasMap = rewriter.getAliasMap();
         ParseNode where = statement.getWhere();
         ParseNode normWhere = where;
         if (where != null) {
@@ -81,8 +87,22 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             if (selectNodes == normSelectNodes) {
                 normSelectNodes = Lists.newArrayList(selectNodes.subList(0, i));
             }
-            normSelectNodes.add(NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode));
+            AliasedNode normAliasNode = NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode);
+            normSelectNodes.add(normAliasNode);
         }
+        // Add to map in separate pass so that we don't try to use aliases
+        // while processing the select expressions
+        if (aliasMap != null) {
+            for (int i = 0; i < normSelectNodes.size(); i++) {
+                AliasedNode aliasedNode = normSelectNodes.get(i);
+                ParseNode selectNode = aliasedNode.getNode();
+                String alias = aliasedNode.getAlias();
+                if (alias != null) {
+                    aliasMap.put(alias, selectNode);
+                }
+            }
+        }
+        
         List<ParseNode> groupByNodes = statement.getGroupBy();
         List<ParseNode> normGroupByNodes = groupByNodes;
         for (int i = 0; i < groupByNodes.size(); i++) {
@@ -129,6 +149,23 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
         return NODE_FACTORY.select(statement.getFrom(), statement.getHint(), statement.isDistinct(),
                 normSelectNodes, normWhere, normGroupByNodes, normHaving, normOrderByNodes,
                 statement.getLimit(), statement.getBindCount(), statement.isAggregate());
+    }
+    
+    private Map<String, ParseNode> getAliasMap() {
+        return aliasMap;
+    }
+
+    private final ColumnResolver resolver;
+    private final Map<String, ParseNode> aliasMap;
+    
+    protected ParseNodeRewriter() {
+        aliasMap = null;
+        resolver = null;
+    }
+    
+    protected ParseNodeRewriter(ColumnResolver resolver, int maxAliasCount) {
+        this.resolver = resolver;
+        aliasMap = Maps.newHashMapWithExpectedSize(maxAliasCount);
     }
     
     protected void reset() {
@@ -302,6 +339,22 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     
     @Override
     public ParseNode visit(ColumnParseNode node) throws SQLException {
+        // If we're resolving aliases and we have an unqualified ColumnParseNode,
+        // check if we find the name in our alias map.
+        if (aliasMap != null && node.getTableName() == null) {
+            ParseNode aliasedNode = aliasMap.get(node.getName());
+            // If we found something, then try to resolve it unless the two nodes are the same
+            if (aliasedNode != null && !node.equals(aliasedNode)) {
+                try {
+                    // If we're able to resolve it, that means we have a conflict
+                    resolver.resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
+                    throw new AmbiguousColumnException(node.getName());
+                } catch (ColumnNotFoundException e) {
+                    // Not able to resolve alias as a column name as well, so we use the alias
+                    return aliasedNode;
+                }
+            }
+        }
         return node;
     }
 

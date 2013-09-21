@@ -69,4 +69,17 @@ public class ColumnParseNode extends NamedParseNode {
         return alias == null ? getName() : alias;
     }
 
+    @Override
+    public int hashCode() {
+        return fullName.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        ColumnParseNode other = (ColumnParseNode)obj;
+        return fullName.equals(other.fullName);
+    }
 }

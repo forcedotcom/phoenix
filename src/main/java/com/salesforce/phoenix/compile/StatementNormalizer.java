@@ -31,7 +31,12 @@ import java.sql.SQLException;
 import java.util.List;
 
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.BetweenParseNode;
+import com.salesforce.phoenix.parse.ComparisonParseNode;
+import com.salesforce.phoenix.parse.LessThanOrEqualParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeRewriter;
+import com.salesforce.phoenix.parse.SelectStatement;
 
 
 /**
@@ -45,15 +50,20 @@ import com.salesforce.phoenix.parse.*;
  */
 public class StatementNormalizer extends ParseNodeRewriter {
     
+    public StatementNormalizer(ColumnResolver resolver, int expectedAliasCount) {
+        super(resolver, expectedAliasCount);
+    }
+
     /**
      * Rewrite the select statement by switching any constants to the right hand side
      * of the expression.
      * @param statement the select statement
+     * @param resolver 
      * @return new select statement
      * @throws SQLException 
      */
-    public static SelectStatement normalize(SelectStatement statement) throws SQLException {
-        return rewrite(statement, new StatementNormalizer());
+    public static SelectStatement normalize(SelectStatement statement, ColumnResolver resolver) throws SQLException {
+        return rewrite(statement, new StatementNormalizer(resolver, statement.getSelect().size()));
     }
     
     @Override

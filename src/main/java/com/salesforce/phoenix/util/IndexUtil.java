@@ -88,7 +88,11 @@ public class IndexUtil {
     
 
     public static String getDataColumnName(String name) {
-        return name.substring(name.indexOf(INDEX_COLUMN_NAME_SEP));
+        return name.substring(name.indexOf(INDEX_COLUMN_NAME_SEP) + 1);
+    }
+
+    public static String getDataColumnFamilyName(String name) {
+        return name.substring(0,name.indexOf(INDEX_COLUMN_NAME_SEP));
     }
 
     public static String getIndexColumnName(String dataColumnFamilyName, String dataColumnName) {

@@ -169,12 +169,27 @@ public class FromCompiler {
 		public ColumnRef resolveColumn(String schemaName, String tableName,
 				String colName) throws SQLException {
 			TableRef tableRef = tableRefs.get(0);
-			if (schemaName != null && !schemaName.equals(alias)) {
-			    throw new ColumnNotFoundException(schemaName, tableName, null, colName);
+			boolean resolveCF = false;
+			if (schemaName != null || tableName != null) {
+			    String resolvedTableName = tableRef.getTable().getTableName().getString();
+			    String resolvedSchemaName = tableRef.getTable().getSchemaName().getString();
+			    if (schemaName != null && tableName != null) {
+                    if ( ! ( schemaName.equals(resolvedSchemaName)  &&
+                             tableName.equals(resolvedTableName) )) {
+                        if (!(resolveCF = schemaName.equals(alias))) {
+                            throw new ColumnNotFoundException(schemaName, tableName, null, colName);
+                        }
+                    }
+			    } else { // schemaName == null && tableName != null
+                    if (!tableName.equals(alias) && (!tableName.equals(resolvedTableName) || !resolvedSchemaName.equals(""))) {
+                        resolveCF = true;
+                   }
+			    }
+			    
 			}
-        	PColumn column = tableName == null || (schemaName == null && tableName.equals(alias)) ? 
-        			tableRef.getTable().getColumn(colName) : 
-        			tableRef.getTable().getColumnFamily(tableName).getColumn(colName);
+        	PColumn column = resolveCF
+        	        ? tableRef.getTable().getColumnFamily(tableName).getColumn(colName)
+        			: tableRef.getTable().getColumn(colName);
             return new ColumnRef(tableRef, column.getPosition());
 		}
 
