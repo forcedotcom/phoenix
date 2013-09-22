@@ -27,33 +27,50 @@
  ******************************************************************************/
 package com.salesforce.hbase.index;
 
-import java.util.List;
-
-import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.Abortable;
 
 /**
- * Exception thrown if we cannot successfully write to an index table.
+ * {@link Abortable} that can rethrow the cause of the abort.
  */
-@SuppressWarnings("serial")
-public class CannotReachIndexException extends Exception {
+public class CapturingAbortable implements Abortable {
 
-  /**
-   * Cannot reach the index, but not sure of the table or the mutations that caused the failure
-   * @param msg more description of what happened
-   * @param cause original cause
-   */
-  public CannotReachIndexException(String msg, Throwable cause) {
-    super(msg, cause);
+  private Abortable delegate;
+  private Throwable cause;
+  private String why;
+
+  public CapturingAbortable(Abortable delegate) {
+    this.delegate = delegate;
+  }
+
+  @Override
+  public void abort(String why, Throwable e) {
+    if (delegate.isAborted()) {
+      return;
+    }
+    this.why = why;
+    this.cause = e;
+    delegate.abort(why, e);
+
+  }
+
+  @Override
+  public boolean isAborted() {
+    return delegate.isAborted();
   }
 
   /**
-   * Failed to write the passed mutations to an index table for some reason.
-   * @param targetTableName index table to which we attempted to write
-   * @param mutations mutations that were attempted
-   * @param cause underlying reason for the failure
+   * Throw the cause of the abort, if <tt>this</tt> was aborted. If there was an exception causing
+   * the abort, re-throws that. Otherwise, just throws a generic {@link Exception} with the reason
+   * why the abort was caused.
+   * @throws Throwable the cause of the abort.
    */
-  public CannotReachIndexException(String targetTableName, List<Mutation> mutations, Exception cause) {
-    super("Failed to make index update:\n\t table: " + targetTableName + "\n\t edits: " + mutations
-        + "\n\tcause: " + cause == null ? "UNKNOWN" : cause.getMessage(), cause);
+  public void throwCauseIfAborted() throws Throwable {
+    if (!this.isAborted()) {
+      return;
+    }
+    if (cause == null) {
+      throw new Exception(why);
+    }
+    throw cause;
   }
 }

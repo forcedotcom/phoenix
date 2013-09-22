@@ -86,8 +86,6 @@ public class Indexer extends BaseRegionObserver {
   /** WAL on this server */
   private HLog log;
   protected IndexWriter writer;
-  protected HTableFactory factory;
-
   protected IndexBuilder builder;
 
   /** Configuration key for the {@link IndexBuilder} to use */
@@ -107,7 +105,6 @@ public class Indexer extends BaseRegionObserver {
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
-    this.factory = new CoprocessorHTableFactory(e);
 
     final RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) e;
 
@@ -143,7 +140,12 @@ public class Indexer extends BaseRegionObserver {
 
     // and setup the actual index writer
     this.writer = new IndexWriter("Region: " + env.getRegion().getRegionNameAsString(),
-            env.getRegionServerServices(), factory);
+            env.getRegionServerServices(), env, conf);
+  }
+
+  @Override
+  public void stop(CoprocessorEnvironment e) throws IOException {
+    this.writer.stop("Indexer is being stopped");
   }
 
   @Override
