@@ -40,7 +40,6 @@ import com.salesforce.phoenix.execute.DegenerateQueryPlan;
 import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.SelectStatement;
@@ -81,7 +80,7 @@ public class QueryCompiler {
     }
     
     public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan) {
-        this(connection, maxRows, scan, null, new SpoolingResultIteratorFactory(connection.getQueryServices()));
+        this(connection, maxRows, scan, null, null);
     }
     
     public QueryCompiler(PhoenixConnection connection, int maxRows, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory) {

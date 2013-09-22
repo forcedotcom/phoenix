@@ -29,7 +29,9 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
@@ -41,17 +43,27 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
-import com.salesforce.phoenix.execute.*;
+import com.salesforce.phoenix.execute.AggregatePlan;
+import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.parse.DeleteStatement;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 public class DeleteCompiler {
@@ -156,7 +168,7 @@ public class DeleteCompiler {
             // Ignoring ORDER BY, since with auto commit on and no limit makes no difference
             SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, statement.getHint());
             final RowProjector projector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
-            final QueryPlan plan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services), GroupBy.EMPTY_GROUP_BY, null);
+            final QueryPlan plan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
             return new MutationPlan() {
 
                 @Override

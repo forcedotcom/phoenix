@@ -63,8 +63,6 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.builder.IndexBuilder;
-import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
-import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
 
 /**
