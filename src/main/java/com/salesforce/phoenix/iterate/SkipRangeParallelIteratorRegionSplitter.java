@@ -28,10 +28,9 @@
 package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.HRegionLocation;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
@@ -56,23 +55,23 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
     }
 
     @Override
-    protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
-        NavigableMap<HRegionInfo, ServerName> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
+    protected List<HRegionLocation> getAllRegions() throws SQLException {
+        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(tableRef.getTable().getName().getBytes());
         return filterRegions(allTableRegions, context.getScanRanges());
     }
 
-    public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, final ScanRanges ranges) {
-        Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
+    public static List<HRegionLocation> filterRegions(List<HRegionLocation> allTableRegions, final ScanRanges ranges) {
+        Iterable<HRegionLocation> regions;
         if (ranges == ScanRanges.EVERYTHING) {
-            regions = allTableRegions.entrySet();
-        } else if (ranges == ScanRanges.NOTHING) {
-            return Lists.<Map.Entry<HRegionInfo, ServerName>>newArrayList();
+            return allTableRegions;
+        } else if (ranges == ScanRanges.NOTHING) { // TODO: why not emptyList?
+            return Lists.<HRegionLocation>newArrayList();
         } else {
-            regions = Iterables.filter(allTableRegions.entrySet(),
-                    new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
+            regions = Iterables.filter(allTableRegions,
+                    new Predicate<HRegionLocation>() {
                     @Override
-                    public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
-                        return ranges.intersect(region.getKey().getStartKey(), region.getKey().getEndKey());
+                    public boolean apply(HRegionLocation region) {
+                        return ranges.intersect(region.getRegionInfo().getStartKey(), region.getRegionInfo().getEndKey());
                     }
             });
         }

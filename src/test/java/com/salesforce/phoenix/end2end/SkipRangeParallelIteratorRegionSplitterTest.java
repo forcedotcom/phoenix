@@ -40,11 +40,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
@@ -115,12 +113,12 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        TableRef table = new TableRef(null,pconn.getPMetaData().getTable(SchemaUtil.getTableName(SCHEMA_NAME, TABLE_NAME)),ts, false);
-        NavigableMap<HRegionInfo, ServerName> regions = pconn.getQueryServices().getAllTableRegions(table);
+        TableRef tableRef = new TableRef(null,pconn.getPMetaData().getTable(SchemaUtil.getTableName(SCHEMA_NAME, TABLE_NAME)),ts, false);
+        List<HRegionLocation> regions = pconn.getQueryServices().getAllTableRegions(tableRef.getTable().getName().getBytes());
         
         conn.close();
         initTableValues();
-        List<KeyRange> ranges = getSplits(table, scan, regions, scanRanges);
+        List<KeyRange> ranges = getSplits(tableRef, scan, regions, scanRanges);
         assertEquals("Unexpected number of splits: " + ranges.size(), expectedSplits.size(), ranges.size());
         for (int i=0; i<expectedSplits.size(); i++) {
             assertEquals(expectedSplits.get(i), ranges.get(i));
@@ -345,7 +343,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
 
-    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final NavigableMap<HRegionInfo, ServerName> regions,
+    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final List<HRegionLocation> regions,
             final ScanRanges scanRanges) throws SQLException {
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, connection, null, Collections.emptyList(), scan);
