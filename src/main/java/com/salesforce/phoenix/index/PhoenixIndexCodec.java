@@ -135,13 +135,13 @@ public class PhoenixIndexCodec implements IndexCodec {
         byte[] dataRowKey = state.getCurrentRowKey();
         for (IndexMaintainer maintainer : indexMaintainers) {
             // TODO: if more efficient, I could do this just once with all columns in all indexes
-            Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
+            Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             Scanner scanner = statePair.getFirst();
             IndexUpdate indexUpdate = statePair.getSecond();
             indexUpdate.setTable(maintainer.getIndexTableName());
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            Delete delete = maintainer.buildDeleteMutation(valueGetter, ptr);
+            Delete delete = maintainer.buildDeleteMutation(valueGetter, ptr, state.getPendingUpdate());
             scanner.close();
             indexUpdate.setUpdate(delete);
             indexUpdates.add(indexUpdate);

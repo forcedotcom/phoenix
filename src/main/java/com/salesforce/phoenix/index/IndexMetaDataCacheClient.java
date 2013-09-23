@@ -14,7 +14,7 @@ import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ScanUtil;
 
 public class IndexMetaDataCacheClient {
-    private static final int USE_CACHE_THRESHOLD = 10;
+    private static final int USE_CACHE_THRESHOLD = 5;
 
     private final ServerCacheClient serverCache;
     

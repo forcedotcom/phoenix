@@ -27,10 +27,14 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.util;
 
+import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 
+import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.data.LazyValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
@@ -45,6 +49,19 @@ public class IndexManagementUtil {
     // private ctor for util classes
   }
 
+  public static ValueGetter createGetterFromKeyValues (Collection<KeyValue> pendingUpdates) {
+      final Map<ColumnReference, byte[]> valueMap = Maps.newHashMapWithExpectedSize(pendingUpdates.size());
+      for (KeyValue kv : pendingUpdates) {
+          valueMap.put(new ColumnReference(kv.getFamily(), kv.getQualifier()), kv.getValue());
+      }
+      return new ValueGetter() {
+        @Override
+        public byte[] getLatestValue(ColumnReference ref) throws IOException {
+            return valueMap.get(ref);
+        }
+      };
+      
+  }
   public static ValueGetter createGetterFromScanner(Scanner scanner, byte[] currentRow) {
     return new LazyValueGetter(scanner, currentRow);
   }
@@ -53,7 +70,7 @@ public class IndexManagementUtil {
   * This assumes that for any index, there are going to small number of columns, versus the number of
   * kvs in any one batch.
   */
-  public static boolean updateMatchesColumns(List<KeyValue> update,
+  public static boolean updateMatchesColumns(Collection<KeyValue> update,
       List<ColumnReference> columns) {
     // check to see if the kvs in the new update even match any of the columns requested
     // assuming that for any index, there are going to small number of columns, versus the number of
@@ -81,7 +98,7 @@ public class IndexManagementUtil {
    * iteration logic to search columns before kvs.
    */
   public static boolean columnMatchesUpdate(
-      List<ColumnReference> columns, List<KeyValue> update) {
+      List<ColumnReference> columns, Collection<KeyValue> update) {
     boolean matches = false;
     outer: for (ColumnReference ref : columns) {
       for (KeyValue kv : update) {

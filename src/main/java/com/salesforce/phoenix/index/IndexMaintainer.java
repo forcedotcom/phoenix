@@ -7,21 +7,25 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
@@ -293,69 +297,68 @@ public class IndexMaintainer implements Writable {
         }
     }
 
-    // TODO: remove once Jesse handles a Put and Delete on the same row
     @SuppressWarnings("deprecation")
-    public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {
+    public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
         byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
         Put put = new Put(indexRowKey);
         for (int i = 0; i < this.getCoverededColumns().size(); i++) {
             ColumnReference ref  = this.getCoverededColumns().get(i);
-            byte[] iq = this.indexQualifiers.get(i);
+            byte[] cq = this.indexQualifiers.get(i);
             byte[] value = valueGetter.getLatestValue(ref);
-            if (value == null) {
-                // TODO: we should use a Delete here, but Jesse's framework can't handle that yet.
-                // This will work, but will cause an otherwise sparse index to be bloated with empty
-                // values for any unset covered columns.
-                put.add(ref.getFamily(), iq, ByteUtil.EMPTY_BYTE_ARRAY);
-            } else {
-                put.add(ref.getFamily(), iq, value);
-            }
+            put.add(ref.getFamily(), cq, ts, value);
         }
         // Add the empty key value
-        put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ByteUtil.EMPTY_BYTE_ARRAY);
+        put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
+        // TODO: Jesse thinks I should remove this
         put.setWriteToWAL(false);
         return put;
     }
 
-    public Pair<Put,Delete> buildUpdateMutations(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {
+    public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {
         return buildUpdateMutation(valueGetter, dataRowKeyPtr, HConstants.LATEST_TIMESTAMP);
     }
     
-    @SuppressWarnings("deprecation")
-    public Pair<Put,Delete> buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
-        byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
-        Delete delete = null;
-        Put put = new Put(indexRowKey);
-        for (int i = 0; i < this.getCoverededColumns().size(); i++) {
-            ColumnReference ref  = this.getCoverededColumns().get(i);
-            byte[] iq = this.indexQualifiers.get(i);
-            byte[] value = valueGetter.getLatestValue(ref);
-            if (value == null) {
-                if (delete == null) {
-                    delete = new Delete(indexRowKey);
-                    delete.setWriteToWAL(false);
+    public Delete buildDeleteMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, Collection<KeyValue> pendingUpdates) throws IOException {
+        return buildDeleteMutation(valueGetter, dataRowKeyPtr, pendingUpdates, HConstants.LATEST_TIMESTAMP);
+    }
+    
+    private boolean indexedColumnsChanged(ValueGetter oldState, ValueGetter newState) throws IOException {
+        for (int i = 0; i < indexedColumns.size(); i++) {
+            ColumnReference ref = indexedColumns.get(i);
+            byte[] newValue = newState.getLatestValue(ref);
+            if (newValue != null) { // Indexed column was changed
+                byte[] oldValue = oldState.getLatestValue(ref);
+                if (oldValue == null || !Arrays.equals(newValue, oldValue)) {
+                    return true;
                 }
-                delete.deleteColumns(ref.getFamily(), iq, ts);
-            } else {
-                put.add(ref.getFamily(), iq, ts, value);
             }
         }
-        // Add the empty key value
-        put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
-        put.setWriteToWAL(false);
-        return new Pair<Put,Delete>(put,delete);
-    }
-    
-    public Delete buildDeleteMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr) throws IOException {
-        return buildDeleteMutation(valueGetter, dataRowKeyPtr, HConstants.LATEST_TIMESTAMP);
+        return false;
     }
     
     @SuppressWarnings("deprecation")
-    public Delete buildDeleteMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
-        byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
-        Delete delete = new Delete(indexRowKey, ts, null);
-        delete.setWriteToWAL(false);
-        return delete;
+    public Delete buildDeleteMutation(ValueGetter oldState, ImmutableBytesWritable dataRowKeyPtr, Collection<KeyValue> pendingUpdates, long ts) throws IOException {
+        byte[] indexRowKey = this.buildRowKey(oldState, dataRowKeyPtr);
+        // Delete the entire row if any of the indexed columns changed
+        if (pendingUpdates.isEmpty() || indexedColumnsChanged(oldState, IndexManagementUtil.createGetterFromKeyValues(pendingUpdates))) { // Deleting the entire row
+            Delete delete = new Delete(indexRowKey, ts, null);
+            delete.setWriteToWAL(false);
+            return delete;
+        } else { // Delete columns for missing key values
+            Delete delete = new Delete(indexRowKey);
+            Set<ColumnReference> pendingRefs = Sets.newHashSetWithExpectedSize(pendingUpdates.size());
+            for (KeyValue kv : pendingUpdates) {
+                pendingRefs.add(new ColumnReference(kv.getFamily(), kv.getQualifier()));
+            }
+            for (int i = 0; i < this.getCoverededColumns().size(); i++) {
+                ColumnReference ref  = this.getCoverededColumns().get(i);
+                if (oldState.getLatestValue(ref) != null && !pendingRefs.contains(ref)) {
+                    byte[] cq = this.indexQualifiers.get(i);
+                    delete.deleteColumns(ref.getFamily(), cq, ts);
+                }
+            }
+            return delete;
+        }
     }
 
     public byte[] getIndexTableName() {
