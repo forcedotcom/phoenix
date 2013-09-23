@@ -73,9 +73,11 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
                 "                ) BASE_TABLE='PARENT_TABLE'");
         conn.close();
         
-        // ensure we didn't create a physical HBase table for the tenannt-specifidc table
+        // ensure we didn't create a physical HBase table for the tenant-specific table
         HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
         assertEquals(0, admin.listTables("TENANT_SPECIFIC_TABLE").length);
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
         
         conn = DriverManager.getConnection(getUrl(), props);
         conn.createStatement().execute("DROP TABLE TENANT_SPECIFIC_TABLE");

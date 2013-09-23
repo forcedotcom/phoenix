@@ -27,9 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
+import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
@@ -42,6 +44,7 @@ import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
+import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -376,6 +379,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return null;
     }
     
+    
     @Override
     public MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException {
         byte[][] rowKeyMetaData = new byte[3][];
@@ -469,6 +473,26 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
     
+    /**
+     * @param tableName parent table
+     * @return true if there exist tenant-specific tables that use this table as their parent.
+     */
+    private boolean hasTenantSpecificTables(HRegion region, byte[] tableName) throws IOException {
+        Scan scan = new Scan();
+        scan.setStartRow(new byte[1]); // we are looking for keys with non-null tenantId, which is the leading rowkey component
+        SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, tableName);
+        filter.setFilterIfMissing(true);
+        scan.setFilter(filter);
+        RegionScanner scanner = region.getScanner(scan);
+        try {
+            List<KeyValue> results = newArrayList();
+            scanner.next(results);
+            return results.size() > 0;
+        }
+        finally {
+            scanner.close();
+        }
+    }
     
     @Override
     public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, String tableType) throws IOException {
@@ -498,6 +522,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 acquireLock(region, lockKey, lids);
                 if (key != lockKey) {
                     acquireLock(region, key, lids);
+                }
+                if (hasTenantSpecificTables(region, tableName)) {
+                    return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
                 result = doDropTable(key, tenantIdBytes, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids);
