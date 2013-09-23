@@ -4,9 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -34,11 +32,16 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import com.salesforce.hbase.index.IndexTestingUtils;
-import com.salesforce.hbase.index.builder.example.ColumnFamilyIndexer;
+import com.salesforce.hbase.index.TableName;
+import com.salesforce.hbase.index.covered.example.ColumnGroup;
+import com.salesforce.hbase.index.covered.example.CoveredColumn;
+import com.salesforce.hbase.index.covered.example.CoveredColumnIndexSpecifierBuilder;
+import com.salesforce.hbase.index.covered.example.CoveredColumnIndexer;
 
 /**
  * most of the underlying work (creating/splitting the WAL, etc) is from
@@ -49,7 +52,10 @@ public class TestWALReplayWithIndexWrites {
 
   public static final Log LOG = LogFactory.getLog(TestWALReplay.class);
   static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
-  private static final String INDEX_TABLE_NAME = "IndexTable";
+  @Rule
+  public TableName table = new TableName();
+  private String INDEX_TABLE_NAME = table.getTableNameString() + "_INDEX";
+
   private Path hbaseRootDir = null;
   private Path oldLogDir;
   private Path logDir;
@@ -131,10 +137,13 @@ public class TestWALReplayWithIndexWrites {
     final HTableDescriptor htd = createBasic3FamilyHTD(tableNameStr);
     
     //setup basic indexing for the table
-    Map<byte[], String> familyMap = new HashMap<byte[], String>();
-    byte[] indexedFamily = new byte[] {'a'};
-    familyMap.put(indexedFamily, INDEX_TABLE_NAME);
-    ColumnFamilyIndexer.enableIndexing(htd, familyMap);
+    // enable indexing to a non-existant index table
+    byte[] family = new byte[] { 'a' };
+    ColumnGroup fam1 = new ColumnGroup(INDEX_TABLE_NAME);
+    fam1.add(new CoveredColumn(family, CoveredColumn.ALL_QUALIFIERS));
+    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
+    builder.addIndexGroup(fam1);
+    builder.build(htd);
 
     // create the region + its WAL
     HRegion region0 = HRegion.createHRegion(hri, hbaseRootDir, this.conf, htd);
@@ -154,8 +163,8 @@ public class TestWALReplayWithIndexWrites {
     //make an attempted write to the primary that should also be indexed
     byte[] rowkey = Bytes.toBytes("indexed_row_key");
     Put p = new Put(rowkey);
-    p.add(indexedFamily, Bytes.toBytes("qual"), Bytes.toBytes("value"));
-    region.put(p);
+    p.add(family, Bytes.toBytes("qual"), Bytes.toBytes("value"));
+    region.put(new Put[] { p });
 
     // we should then see the server go down
     Mockito.verify(mockRS, Mockito.times(1)).abort(Mockito.anyString(),
@@ -164,7 +173,7 @@ public class TestWALReplayWithIndexWrites {
     wal.close();
 
     // then create the index table so we are successful on WAL replay
-    ColumnFamilyIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
+    CoveredColumnIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
 
     // run the WAL split and setup the region
     runWALSplit(this.conf);

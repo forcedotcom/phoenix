@@ -119,7 +119,6 @@ public class TestIndexWriter {
   public void testSynchronouslyCompletesAllWrites() throws Exception {
     LOG.info("Starting " + testName.getTableNameString());
     LOG.info("Current thread is interrupted: " + Thread.interrupted());
-    // LOG.info("Current thread is interrupted: " + Thread.interrupted());
     Abortable abort = new StubAbortable();
     ExecutorService exec = Executors.newFixedThreadPool(1);
     Map<ImmutableBytesPtr, HTableInterface> tables = new HashMap<ImmutableBytesPtr, HTableInterface>();
@@ -166,7 +165,6 @@ public class TestIndexWriter {
    * @throws Exception on failure
    */
   @SuppressWarnings("unchecked")
-// @Ignore
   @Test
   public void testFailureOnRunningUpdateAbortsPending() throws Exception {
     Abortable abort = new StubAbortable();

@@ -16,6 +16,7 @@
 package com.salesforce.phoenix.index;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -47,9 +48,11 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
         // table rows being indexed into the block cache, as the index maintenance code
         // does a point scan per row
         List<KeyRange> keys = Lists.newArrayListWithExpectedSize(miniBatchOp.size());
+        List<IndexMaintainer> maintainers = new ArrayList<IndexMaintainer>();
         for (int i = 0; i < miniBatchOp.size(); i++) {
             Mutation m = miniBatchOp.getOperation(i).getFirst();
             keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
+            maintainers.addAll(getCodec().getIndexMaintainers(m.getAttributesMap()));
         }
         ScanRanges scanRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
         Scan scan = new Scan();
@@ -58,7 +61,6 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
         // delete the old index row. We use the columns that we pass through for
         // the Delete use case, as it includes indexed and covered columns as well
         // as the empty key value column (which we use to detect a delete of the entire row).
-        List<IndexMaintainer> maintainers = getCodec().getIndexMaintainers();
         for (int i = 0; i < maintainers.size(); i++) {
             IndexMaintainer maintainer = maintainers.get(i);
             for (int j = 0; j < maintainer.getAllColumns().size(); j++) {
@@ -98,5 +100,10 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
     public boolean isEnabled(Mutation m) {
         // ask the codec to see if we should even attempt indexing
         return this.codec.isEnabled(m);
+    }
+    
+    @Override
+    public byte[] getBatchId(Mutation m){
+        return this.codec.getBatchId(m);
     }
 }

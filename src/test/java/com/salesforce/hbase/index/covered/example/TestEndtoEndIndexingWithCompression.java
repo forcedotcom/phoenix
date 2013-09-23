@@ -25,78 +25,35 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema.tuple;
+package com.salesforce.hbase.index.covered.example;
 
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
+import org.junit.BeforeClass;
 
-import com.salesforce.phoenix.util.ResultUtil;
+import com.salesforce.hbase.index.IndexTestingUtils;
+import com.salesforce.hbase.index.Indexer;
 
+/**
+ * Test secondary indexing from an end-to-end perspective (client to server to index table).
+ */
+public class TestEndtoEndIndexingWithCompression extends TestEndToEndCoveredIndexing {
 
-public class ResultTuple implements Tuple {
-    private Result result;
+  @BeforeClass
+  public static void setupCluster() throws Exception {
+    //add our codec and enable WAL compression
+    Configuration conf = UTIL.getConfiguration();
+    IndexTestingUtils.setupConfig(conf);
+    // disable version checking, so we can test against whatever version of HBase happens to be
+    // installed (right now, its generally going to be SNAPSHOT versions).
+    conf.setBoolean(Indexer.CHECK_VERSION_CONF_KEY, false);
+    conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY,
+    IndexedWALEditCodec.class.getName());
+    conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
     
-    public ResultTuple(Result result) {
-        this.result = result;
-    }
-    
-    public ResultTuple() {
-    }
-    
-    public Result getResult() {
-        return this.result;
-    }
-
-    public void setResult(Result result) {
-        this.result = result;
-    }
-    
-    @Override
-    public void getKey(ImmutableBytesWritable ptr) {
-        ResultUtil.getKey(result, ptr);
-    }
-
-    @Override
-    public boolean isImmutable() {
-        return true;
-    }
-
-    @Override
-    public KeyValue getValue(byte[] family, byte[] qualifier) {
-        return result.getColumnLatest(family, qualifier);
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder sb = new StringBuilder();
-      sb.append("keyvalues=");
-      if(this.result.isEmpty()) {
-        sb.append("NONE");
-        return sb.toString();
-      }
-      sb.append("{");
-      boolean moreThanOne = false;
-      for(KeyValue kv : this.result.list()) {
-        if(moreThanOne) {
-          sb.append(", \n");
-        } else {
-          moreThanOne = true;
-        }
-        sb.append(kv.toString()+"/value="+Bytes.toString(kv.getValue()));
-      }
-      sb.append("}\n");
-      return sb.toString();
-    }
-
-    @Override
-    public int size() {
-        return result.size();
-    }
-
-    @Override
-    public KeyValue getValue(int index) {
-        return result.raw()[index];
-    }
+    //start the mini-cluster
+    UTIL.startMiniCluster();
+  }
 }

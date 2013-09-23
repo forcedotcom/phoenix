@@ -33,9 +33,15 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
+import com.salesforce.phoenix.index.BaseIndexCodec;
+
 
 /**
- * Codec for creating index updates from the current state of a table
+ * Codec for creating index updates from the current state of a table.
+ * <p>
+ * Generally, you should extend {@link BaseIndexCodec} instead, so help maintain compatibility as
+ * features need to be added to the codec, as well as potentially not haivng to implement some
+ * methods.
  */
 public interface IndexCodec {
 
@@ -46,7 +52,6 @@ public interface IndexCodec {
    */
   public void initialize(RegionCoprocessorEnvironment env) throws IOException;
 
-  // JY: used for both batch case and covering delete case
   /**
    * Get the index cleanup entries. Currently, this must return just single row deletes (where just
    * the row-key is specified and no columns are returned) mapped to the table name. For instance,
@@ -99,4 +104,16 @@ public interface IndexCodec {
    *         basis, as each codec is instantiated per-region.
    */
   public boolean isEnabled(Mutation m);
+
+  /**
+   * Get the batch identifier of the given mutation. Generally, updates to the table will take place
+   * in a batch of updates; if we know that the mutation is part of a batch, we can build the state
+   * much more intelligently.
+   * <p>
+   * <b>If you have batches that have multiple updates to the same row state, you must specify a
+   * batch id for each batch. Otherwise, we cannot guarantee index correctness</b>
+   * @param m mutation that may or may not be part of the batch
+   * @return <tt>null</tt> if the mutation is not part of a batch or an id for the batch.
+   */
+  public byte[] getBatchId(Mutation m);
 }

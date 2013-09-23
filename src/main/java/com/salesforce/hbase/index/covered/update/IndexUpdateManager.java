@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -218,18 +219,27 @@ public class IndexUpdateManager {
 
   @Override
   public String toString() {
-    StringBuffer sb = new StringBuffer("IndexUpdates:\n");
+    StringBuffer sb = new StringBuffer("Pending Index Updates:\n");
     for (Entry<ImmutableBytesPtr, Collection<Mutation>> entry : map.entrySet()) {
       String tableName = Bytes.toString(entry.getKey().get());
-      sb.append(" " + tableName + ":\n");
+      sb.append("   Table: '" + tableName + "'\n");
       for (Mutation m : entry.getValue()) {
         sb.append("\t");
         if (shouldBeRemoved(m)) {
           sb.append("[REMOVED]");
         }
-        sb.append("\t" + m.getClass().getSimpleName() + ": "
-            + ((m instanceof Put) ? m.getTimeStamp() + " " : "") + m);
+        sb.append(m.getClass().getSimpleName() + ":"
+            + ((m instanceof Put) ? m.getTimeStamp() + " " : ""));
         sb.append("\n");
+        if (m.getFamilyMap().isEmpty()) {
+          sb.append("=== EMPTY ===");
+        }
+        for (List<KeyValue> kvs : m.getFamilyMap().values()) {
+          for (KeyValue kv : kvs) {
+            sb.append("\t\t" + kv.toString() + "/value=" + Bytes.toStringBinary(kv.getValue()));
+            sb.append("\n");
+          }
+        }
       }
     }
     return sb.toString();

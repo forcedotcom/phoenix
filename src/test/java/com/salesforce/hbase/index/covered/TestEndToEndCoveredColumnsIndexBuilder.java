@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,7 +157,11 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
         int count = 0;
         KeyValue kv;
         while ((kv = kvs.next()) != null) {
-          assertEquals(msg + ": Unexpected kv in table state!", expectedKvs.get(count++), kv);
+          KeyValue next = expectedKvs.get(count++);
+          assertEquals(
+            msg + ": Unexpected kv in table state!\nexpected v1: "
+                + Bytes.toString(next.getValue()) + "\nactual v1:" + Bytes.toString(kv.getValue()),
+            next, kv);
         }
 
         assertEquals(msg + ": Didn't find enough kvs in table state!", expectedKvs.size(), count);
@@ -240,12 +245,9 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
 
   /**
    * Similar to {@link #testExpectedResultsInTableStateForSinglePut()}, but against batches of puts.
-   * This case is a little more complicated as we need to use the row cache (based on the response
-   * from the BatchCache) and keep updating the row cache with each part of the batch.
-   * <p>
-   * This test actually verifies the rather odd behavior documented in the
-   * {@link PhoenixIndexBuilder} where two updates to the same row in the same batch are completely
-   * independent in the state of the row they see.
+   * Previous implementations managed batches by playing current state against each element in the
+   * batch, rather than combining all the per-row updates into a single mutation for the batch. This
+   * test ensures that we see the correct expected state.
    * @throws Exception on failure
    */
   @Test
@@ -261,25 +263,29 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
     // since we need to iterate the batch.
 
     // get all the underlying kvs for the put
-    final List<KeyValue> expectedKvs = new ArrayList<KeyValue>();
-    final List<KeyValue> allKvs = new ArrayList<KeyValue>(p1.getFamilyMap().get(family));
+    final List<KeyValue> allKvs = new ArrayList<KeyValue>(2);
+    allKvs.addAll(p2.getFamilyMap().get(family));
+    allKvs.addAll(p1.getFamilyMap().get(family));
 
     // setup the verifier for the data we expect to write
-    // first call shouldn't have anything in the table
+    // both puts should be put into a single batch
     final ColumnReference familyRef =
         new ColumnReference(TestEndToEndCoveredColumnsIndexBuilder.family, ColumnReference.ALL_QUALIFIERS);
     VerifyingIndexCodec codec = state.codec;
-    codec.verifiers.add(new ListMatchingVerifier("cleanup state 1", expectedKvs, familyRef));
-    codec.verifiers.add(new ListMatchingVerifier("put state 1", allKvs, familyRef));
+    // no previous state in the table
+    codec.verifiers.add(new ListMatchingVerifier("cleanup state 1", Collections
+        .<KeyValue> emptyList(), familyRef));
+    codec.verifiers.add(new ListMatchingVerifier("put state 1", p1.getFamilyMap().get(family),
+        familyRef));
 
-    // second set is completely independent of the first set
-    List<KeyValue> expectedKvs2 = new ArrayList<KeyValue>();
-    List<KeyValue> allKvs2 = new ArrayList<KeyValue>(p2.get(family, qual));
-    codec.verifiers.add(new ListMatchingVerifier("cleanup state 2", expectedKvs2, familyRef));
-    codec.verifiers.add(new ListMatchingVerifier("put state 2", allKvs2, familyRef));
+    codec.verifiers.add(new ListMatchingVerifier("cleanup state 2", p1.getFamilyMap().get(family),
+        familyRef));
+    // kvs from both puts should be in the table now
+    codec.verifiers.add(new ListMatchingVerifier("put state 2", allKvs, familyRef));
 
     // do the actual put (no indexing will actually be done)
     HTable primary = state.table;
+    primary.setAutoFlush(false);
     primary.put(Arrays.asList(p1, p2));
     primary.flushCommits();
 

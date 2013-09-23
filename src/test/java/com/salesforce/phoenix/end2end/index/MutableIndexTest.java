@@ -133,7 +133,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
             stmt.setLong(1,4L);
             assertEquals(1,stmt.executeUpdate());
             conn.commit();
-            
+
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
             assertEquals("chara", rs.getString(1));
@@ -385,7 +385,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         assertFalse(rs.next());
     }
 
-    // @Test Broken, but Jesse is fixing
+    @Test
     public void testCompoundIndexKey() throws Exception {
         String query;
         ResultSet rs;
@@ -393,6 +393,8 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
+
+        // make sure that the tables are empty, but reachable
         conn.createStatement().execute("CREATE TABLE " + DATA_TABLE_FULL_NAME + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR)");
         query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
         rs = conn.createStatement().executeQuery(query);
@@ -403,6 +405,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         rs = conn.createStatement().executeQuery(query);
         assertFalse(rs.next());
 
+        // load some data into the table
         PreparedStatement stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?,?)");
         stmt.setString(1,"a");
         stmt.setString(2, "x");
@@ -433,16 +436,97 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         assertEquals("a",rs.getString(3));
         assertFalse(rs.next());
 
-       query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
         assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
-
+        //make sure the data table looks like what we expect
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
         assertEquals("a",rs.getString(1));
-        assertNull(rs.getString(2));
-        assertEquals("y",rs.getString(3));
+        assertEquals("y",rs.getString(2));
+        assertNull(rs.getString(3));
         assertFalse(rs.next());
     }
+ 
+    /**
+     * There was a case where if there were multiple updates to a single row in the same batch, the
+     * index wouldn't be updated correctly as each element of the batch was evaluated with the state
+     * previous to the batch, rather than with the rest of the batch. This meant you could do a put
+     * and a delete on a row in the same batch and the index result would contain the current + put
+     * and current + delete, but not current + put + delete.
+     * @throws Exception on failure
+     */
+    @Test
+    public void testMultipleUpdatesToSingleRow() throws Exception {
+        String query;
+        ResultSet rs;
     
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+    
+        // make sure that the tables are empty, but reachable
+        conn.createStatement().execute(
+          "CREATE TABLE " + DATA_TABLE_FULL_NAME
+              + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR)");
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        conn.createStatement().execute(
+          "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME + " (v1, v2)");
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        // load some data into the table
+        PreparedStatement stmt =
+            conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "x");
+        stmt.setString(3, "1");
+        stmt.execute();
+        conn.commit();
+        
+        // make sure the index is working as expected
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("x", rs.getString(1));
+        assertEquals("1", rs.getString(2));
+        assertEquals("a", rs.getString(3));
+        assertFalse(rs.next());
+
+        // do multiple updates to the same row, in the same batch
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + "(k, v1) VALUES(?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "y");
+        stmt.execute();
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + "(k,v2) VALUES(?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, null);
+        stmt.execute();
+        conn.commit();
+    
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("y", rs.getString(1));
+        assertNull(rs.getString(2));
+        assertEquals("a", rs.getString(3));
+        assertFalse(rs.next());
+    
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME,
+          QueryUtil.getExplainPlan(rs));
+    
+        // check that the data table matches as expected
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a", rs.getString(1));
+        assertEquals("y", rs.getString(2));
+        assertNull(rs.getString(3));
+        assertFalse(rs.next());
+    }
 }

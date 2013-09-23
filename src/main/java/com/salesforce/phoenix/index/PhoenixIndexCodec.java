@@ -46,60 +46,43 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * {@link #getIndexDeletes(TableState)}) as well as what the new index state should be (
  * {@link #getIndexUpserts(TableState)}).
  */
-public class PhoenixIndexCodec implements IndexCodec {
+public class PhoenixIndexCodec extends BaseIndexCodec {
     public static final String INDEX_MD = "IdxMD";
     public static final String INDEX_UUID = "IdxUUID";
 
-    private List<IndexMaintainer> indexMaintainers;
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
     private Configuration conf;
-    private byte[] uuid;
 
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
       this.conf = env.getConfiguration();
     }
 
-    List<IndexMaintainer> getIndexMaintainers() {
-       return indexMaintainers;
-    }
-    
-    /**
-     * @param m mutation that is being processed
-     * @return the {@link IndexMaintainer}s that would maintain the index for an update with the
-     *         attributes.
-     */
-    private boolean initIndexMaintainers(Mutation m) {
-        Map<String, byte[]> attributes = m.getAttributesMap();
+    List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes){
         byte[] uuid = attributes.get(INDEX_UUID);
         if (uuid == null) {
-            this.uuid = null;
-            indexMaintainers = Collections.emptyList();
-            return false;
+            return Collections.emptyList();
         }
-        if (this.uuid != null && Bytes.compareTo(this.uuid, uuid) == 0) {
-            return true;
-        }
-        this.uuid = uuid;
-
         byte[] md = attributes.get(INDEX_MD);
+        List<IndexMaintainer> indexMaintainers;
         if (md != null) {
             indexMaintainers = IndexMaintainer.deserialize(md);
         } else {
             byte[] tenantIdBytes = attributes.get(PhoenixRuntime.TENANT_ID_ATTRIB);
             ImmutableBytesWritable tenantId =
-                    tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
+                tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
             TenantCache cache = GlobalCache.getTenantCache(conf, tenantId);
             IndexMetaDataCache indexCache =
-                    (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
-            this.indexMaintainers = indexCache.getIndexMaintainers();
+                (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
+            indexMaintainers = indexCache.getIndexMaintainers();
         }
-        return true;
+    
+        return indexMaintainers;
     }
     
     @Override
     public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException {
-        List<IndexMaintainer> indexMaintainers = getIndexMaintainers();
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state.getUpdateAttributes());
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
@@ -113,8 +96,7 @@ public class PhoenixIndexCodec implements IndexCodec {
             Scanner scanner = statePair.getFirst();
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            // TODO: handle Pair<Put,Delete> because otherwise we'll bloat a sparse covered index
-            Put put = maintainer.buildUpdateMutation(valueGetter, ptr);
+            Put put = maintainer.buildUpdateMutation(valueGetter, ptr, state.getCurrentTimestamp());
             indexUpdate.setTable(maintainer.getIndexTableName());
             indexUpdate.setUpdate(put);
             //make sure we close the scanner when we are done
@@ -126,7 +108,7 @@ public class PhoenixIndexCodec implements IndexCodec {
 
     @Override
     public Iterable<IndexUpdate> getIndexDeletes(TableState state) throws IOException {
-        List<IndexMaintainer> indexMaintainers = getIndexMaintainers();
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state.getUpdateAttributes());
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
@@ -141,7 +123,9 @@ public class PhoenixIndexCodec implements IndexCodec {
             indexUpdate.setTable(maintainer.getIndexTableName());
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            Delete delete = maintainer.buildDeleteMutation(valueGetter, ptr, state.getPendingUpdate());
+            Delete delete =
+                maintainer.buildDeleteMutation(valueGetter, ptr, state.getPendingUpdate(),
+                  state.getCurrentTimestamp());
             scanner.close();
             indexUpdate.setUpdate(delete);
             indexUpdates.add(indexUpdate);
@@ -151,6 +135,12 @@ public class PhoenixIndexCodec implements IndexCodec {
     
   @Override
   public boolean isEnabled(Mutation m) {
-      return initIndexMaintainers(m);
+      return !getIndexMaintainers(m.getAttributesMap()).isEmpty();
+  }
+  
+  @Override
+  public byte[] getBatchId(Mutation m) {
+    Map<String, byte[]> attributes = m.getAttributesMap();
+    return attributes.get(INDEX_UUID);
   }
 }

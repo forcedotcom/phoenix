@@ -75,4 +75,16 @@ public abstract class BaseIndexBuilder implements IndexBuilder {
   public boolean isEnabled(Mutation m) {
     return true; 
   }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * By default, assumes that all mutations should <b>not be batched</b>. That is to say, each
+   * mutation always applies to different rows, even if they are in the same batch, or are
+   * independent updates.
+   */
+  @Override
+  public byte[] getBatchId(Mutation m) {
+    return null;
+  }
 }

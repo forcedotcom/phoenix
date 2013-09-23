@@ -33,15 +33,15 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
-import com.salesforce.hbase.index.covered.IndexCodec;
 import com.salesforce.hbase.index.covered.IndexUpdate;
 import com.salesforce.hbase.index.covered.TableState;
 import com.salesforce.hbase.index.scanner.Scanner;
+import com.salesforce.phoenix.index.BaseIndexCodec;
 
 /**
  *
  */
-public class CoveredColumnIndexCodec implements IndexCodec {
+public class CoveredColumnIndexCodec extends BaseIndexCodec {
 
   private static final byte[] EMPTY_BYTES = new byte[0];
   public static final byte[] INDEX_ROW_COLUMN_FAMILY = Bytes.toBytes("INDEXED_COLUMNS");

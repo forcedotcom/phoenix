@@ -10,7 +10,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
@@ -22,7 +21,6 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
@@ -297,7 +295,6 @@ public class IndexMaintainer implements Writable {
         }
     }
 
-    @SuppressWarnings("deprecation")
     public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
         byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
         Put put = new Put(indexRowKey);
@@ -309,8 +306,6 @@ public class IndexMaintainer implements Writable {
         }
         // Add the empty key value
         put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
-        // TODO: Jesse thinks I should remove this
-        put.setWriteToWAL(false);
         return put;
     }
 
@@ -335,31 +330,38 @@ public class IndexMaintainer implements Writable {
         }
         return false;
     }
-    
+
     @SuppressWarnings("deprecation")
     public Delete buildDeleteMutation(ValueGetter oldState, ImmutableBytesWritable dataRowKeyPtr, Collection<KeyValue> pendingUpdates, long ts) throws IOException {
         byte[] indexRowKey = this.buildRowKey(oldState, dataRowKeyPtr);
         // Delete the entire row if any of the indexed columns changed
         if (pendingUpdates.isEmpty() || indexedColumnsChanged(oldState, IndexManagementUtil.createGetterFromKeyValues(pendingUpdates))) { // Deleting the entire row
             Delete delete = new Delete(indexRowKey, ts, null);
-            delete.setWriteToWAL(false);
-            return delete;
-        } else { // Delete columns for missing key values
-            Delete delete = new Delete(indexRowKey);
-            Set<ColumnReference> pendingRefs = Sets.newHashSetWithExpectedSize(pendingUpdates.size());
-            for (KeyValue kv : pendingUpdates) {
-                pendingRefs.add(new ColumnReference(kv.getFamily(), kv.getQualifier()));
-            }
-            for (int i = 0; i < this.getCoverededColumns().size(); i++) {
-                ColumnReference ref  = this.getCoverededColumns().get(i);
-                if (oldState.getLatestValue(ref) != null && !pendingRefs.contains(ref)) {
-                    byte[] cq = this.indexQualifiers.get(i);
-                    delete.deleteColumns(ref.getFamily(), cq, ts);
-                }
-            }
             return delete;
         }
-    }
+        // Delete columns for missing key values
+        Delete delete = new Delete(indexRowKey);
+        boolean hasColumns = false;
+        for (KeyValue kv : pendingUpdates) {
+            if (kv.getType() == KeyValue.Type.Put.getCode()) {
+                continue;
+            }
+            hasColumns = true;
+            byte[] family = kv.getFamily();
+            byte[] qual = kv.getQualifier();
+            byte[] indexQual = IndexUtil.getIndexColumnName(family, qual);
+            for (ColumnReference col : this.getCoverededColumns()) {
+                if (col.matches(kv)) {
+                    delete.deleteColumns(family, indexQual, ts);
+                }
+          }
+        }
+        // only return a delete if we need to cleanup some columns
+        if (hasColumns) {
+            return delete;
+        }
+        return null;
+  }
 
     public byte[] getIndexTableName() {
         return indexTableName;

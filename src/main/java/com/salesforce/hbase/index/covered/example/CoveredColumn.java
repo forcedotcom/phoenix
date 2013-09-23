@@ -14,15 +14,9 @@ public class CoveredColumn extends ColumnReference {
   String familyString;
   private final int hashCode;
 
-  private static int calcHashCode(String familyString, byte[] qualifier) {
-      final int prime = 31;
-      int result = 1;
-      result = prime * result + familyString.hashCode();
-      if (qualifier != null) {
-          result = prime * result + Bytes.hashCode(qualifier);
-      }
-      return result;
-    }
+  public CoveredColumn(byte[] family, byte[] qualifier){
+    this(Bytes.toString(family), qualifier);
+  }
 
   public CoveredColumn(String family, byte[] qualifier) {
     super(Bytes.toBytes(family), qualifier == null ? ColumnReference.ALL_QUALIFIERS : qualifier);
@@ -62,22 +56,32 @@ public class CoveredColumn extends ColumnReference {
   }
 
   @Override
-public int hashCode() {
+  public int hashCode() {
     return hashCode;
-}
+  }
 
-@Override
-public boolean equals(Object obj) {
+  private static int calcHashCode(String familyString, byte[] qualifier) {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + familyString.hashCode();
+    if (qualifier != null) {
+      result = prime * result + Bytes.hashCode(qualifier);
+    }
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
     if (this == obj) return true;
     if (!super.equals(obj)) return false;
     if (getClass() != obj.getClass()) return false;
-    CoveredColumn other = (CoveredColumn)obj;
+    CoveredColumn other = (CoveredColumn) obj;
     if (hashCode != other.hashCode) return false;
     if (!familyString.equals(other.familyString)) return false;
     return Bytes.equals(qualifier, other.qualifier);
-}
+  }
 
-@Override
+  @Override
   public String toString() {
     String qualString = qualifier == null ? "null" : Bytes.toString(qualifier);
     return "CoveredColumn:[" + familyString + ":" + qualString + "]";

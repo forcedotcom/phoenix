@@ -31,6 +31,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.SortedSet;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.KeyComparator;
 import org.apache.hadoop.hbase.client.Scan;
@@ -39,6 +41,7 @@ import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 import org.apache.hadoop.hbase.regionserver.MemStore;
 import org.apache.hadoop.hbase.regionserver.NonLazyKeyValueScanner;
 import org.apache.hadoop.hbase.regionserver.TimeRangeTracker;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.hbase.index.covered.KeyValueStore;
 
@@ -74,6 +77,7 @@ import com.salesforce.hbase.index.covered.KeyValueStore;
  */
 public class IndexMemStore implements KeyValueStore {
 
+  private static final Log LOG = LogFactory.getLog(IndexMemStore.class);
   private IndexKeyValueSkipListSet kvset;
   private TimeRangeTracker timeRangeTracker = new TimeRangeTracker();
   private Comparator<KeyValue> comparator;
@@ -107,6 +111,9 @@ public class IndexMemStore implements KeyValueStore {
 
   @Override
   public void add(KeyValue kv, boolean overwrite) {
+    if (LOG.isDebugEnabled()) {
+      LOG.info("Inserting: " + toString(kv));
+    }
     // if overwriting, we will always update
     boolean updated = true;
     if (!overwrite) {
@@ -116,11 +123,27 @@ public class IndexMemStore implements KeyValueStore {
       kvset.add(kv);
     }
 
+    // TODO do we even need to update this? I don't think we really even use it
     // if we updated, we need to do some tracking work
     if (updated) {
       // update the max timestamp
       this.timeRangeTracker.includeTimestamp(kv);
+      if (LOG.isDebugEnabled()) {
+        dump();
+      }
     }
+  }
+
+  private void dump() {
+    LOG.debug("Current kv state:\n");
+    for (KeyValue kv : this.kvset) {
+      LOG.debug("KV: " + toString(kv));
+    }
+    LOG.debug("========== END MemStore Dump ==================\n");
+  }
+
+  private String toString(KeyValue kv) {
+    return kv.toString() + "/value=" + Bytes.toString(kv.getValue());
   }
 
   @Override

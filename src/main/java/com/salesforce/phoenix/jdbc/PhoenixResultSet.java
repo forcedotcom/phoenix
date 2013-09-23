@@ -1216,4 +1216,9 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
         return (T) getObject(columnLabel); // Just ignore type since we only support built-in types
     }
+
+    @Override
+    public String toString(){
+      return "ResultSet:\n"+ "\tclosed: "+this.isClosed+"\n\tcurrent row: "+currentRow;
+    }
 }

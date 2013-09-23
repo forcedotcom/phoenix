@@ -25,30 +25,44 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.phoenix.index;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
-import org.junit.BeforeClass;
+import java.io.IOException;
 
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+
+import com.salesforce.hbase.index.covered.IndexCodec;
 
 /**
- * Test secondary indexing from an end-to-end perspective (client to server to index table).
+ *
  */
-public class TestEndtoEndIndexingWithCompression extends TestEndtoEndIndexing{
+public abstract class BaseIndexCodec implements IndexCodec {
 
-  @BeforeClass
-  public static void setupCluster() throws Exception {
-    //add our codec and enable WAL compression
-    Configuration conf = UTIL.getConfiguration();
-    IndexTestingUtils.setupConfig(conf);
-    conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY,
-    IndexedWALEditCodec.class.getName());
-    conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
-    
-    //start the mini-cluster
-    UTIL.startMiniCluster();
+  @Override
+  public void initialize(RegionCoprocessorEnvironment env) throws IOException {
+    // noop
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * By default, the codec is always enabled. Subclasses should override this method if they want do
+   * decide to index on a per-mutation basis.
+   */
+  @Override
+  public boolean isEnabled(Mutation m) {
+    return true;
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * Assumes each mutation is not in a batch. Subclasses that have different batching behavior
+   * should override this.
+   */
+  @Override
+  public byte[] getBatchId(Mutation m) {
+    return null;
   }
 }

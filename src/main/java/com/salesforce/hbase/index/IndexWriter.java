@@ -44,6 +44,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -88,7 +89,7 @@ public class IndexWriter implements Stoppable {
   private final CapturingAbortable abortable;
   private final HTableFactory factory;
   private ListeningExecutorService writerPool;
-  private boolean stopped;
+  private AtomicBoolean stopped = new AtomicBoolean(false);
 
   /**
    * @param sourceInfo log info string about where we are writing from
@@ -217,7 +218,7 @@ public class IndexWriter implements Stoppable {
       final List<Mutation> mutations = (List<Mutation>) entry.getValue();
       final HTableInterfaceReference tableReference = entry.getKey();
       // early exit - no need to submit new tasks if we are shutting down
-      if (this.stopped || this.abortable.isAborted()) {
+      if (this.stopped.get() || this.abortable.isAborted()) {
         break;
       }
 
@@ -263,7 +264,7 @@ public class IndexWriter implements Stoppable {
         }
 
         private void throwFailureIfDone() throws CannotReachIndexException {
-          if (stopped || abortable.isAborted() || Thread.currentThread().isInterrupted()) {
+          if (stopped.get() || abortable.isAborted() || Thread.currentThread().isInterrupted()) {
             throw new CannotReachIndexException(
                 "Pool closed, not attempting to write to the index!", null);
           }
@@ -336,8 +337,8 @@ public class IndexWriter implements Stoppable {
     try {
       this.abortable.abort(msg, cause);
     } catch (Exception e) {
-      LOG.fatal("Couldn't abort this server to preserve index writes, attempting to hard kill the server from"
-          + this.sourceInfo);
+      LOG.fatal("Couldn't abort this server to preserve index writes, "
+          + "attempting to hard kill the server from" + this.sourceInfo);
       System.exit(1);
     }
   }
@@ -371,10 +372,10 @@ public class IndexWriter implements Stoppable {
 
   @Override
   public void stop(String why) {
-    if (this.stopped) {
+    if (!this.stopped.compareAndSet(false, true)) {
+      // already stopped
       return;
     }
-    this.stopped = true;
     LOG.debug("Stopping because " + why);
     this.writerPool.shutdownNow();
     this.factory.shutdown();
@@ -382,6 +383,6 @@ public class IndexWriter implements Stoppable {
 
   @Override
   public boolean isStopped() {
-    return this.stopped;
+    return this.stopped.get();
   }
 }
