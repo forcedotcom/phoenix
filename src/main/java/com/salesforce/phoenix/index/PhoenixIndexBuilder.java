@@ -53,6 +53,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
         }
         ScanRanges scanRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
         Scan scan = new Scan();
+        scan.setRaw(true);
         // Project into scan only the columns we need to build the new index row and
         // delete the old index row. We use the columns that we pass through for
         // the Delete use case, as it includes indexed and covered columns as well
@@ -62,7 +63,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
             IndexMaintainer maintainer = maintainers.get(i);
             for (int j = 0; j < maintainer.getAllColumns().size(); j++) {
                 ColumnReference ref = maintainer.getAllColumns().get(j);
-                scan.addColumn(ref.getFamily(), ref.getQualifier());
+                scan.addFamily(ref.getFamily());
             }
         }
         scan.setFilter(scanRanges.getSkipScanFilter());
