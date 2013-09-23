@@ -28,10 +28,15 @@
 package com.salesforce.phoenix.query;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-import org.apache.hadoop.hbase.*;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.HRegionLocation;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -40,7 +45,6 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResul
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.TableRef;
 
 
 public interface ConnectionQueryServices extends QueryServices, MetaDataMutated {
@@ -65,7 +69,7 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     public StatsManager getStatsManager();
 
-    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException;
+    public List<HRegionLocation> getAllTableRegions(byte[] tableName) throws SQLException;
 
     public PhoenixConnection connect(String url, Properties info) throws SQLException;
 

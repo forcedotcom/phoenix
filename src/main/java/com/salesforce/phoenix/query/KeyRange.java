@@ -29,8 +29,14 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -85,7 +91,6 @@ public class KeyRange implements Writable {
         }
     };
     public static final Comparator<KeyRange> COMPARATOR = new Comparator<KeyRange>() {
-        @SuppressWarnings("deprecation")
         @Override public int compare(KeyRange o1, KeyRange o2) {
             return ComparisonChain.start()
                     .compare(o1.lowerUnbound(), o2.lowerUnbound())

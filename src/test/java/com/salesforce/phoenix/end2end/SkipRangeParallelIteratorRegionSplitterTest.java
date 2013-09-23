@@ -30,11 +30,19 @@ package com.salesforce.phoenix.end2end;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
@@ -55,8 +63,12 @@ import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 
@@ -67,6 +79,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 @RunWith(Parameterized.class)
 public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMangedTimeTest {
 
+    private static final String SCHEMA_NAME = "";
     private static final String TABLE_NAME = "TEST_SKIP_RANGE_PARALLEL_ITERATOR";
     private static final String DDL = "CREATE TABLE " + TABLE_NAME + " (id char(3) NOT NULL PRIMARY KEY, value integer)";
     private static final byte[] Ka1A = Bytes.toBytes("a1A");
@@ -99,13 +112,12 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        PSchema schema = pconn.getPMetaData().getSchemas().get("");
-        TableRef table = new TableRef(null,schema.getTable(TABLE_NAME),schema, ts, false);
-        NavigableMap<HRegionInfo, ServerName> regions = pconn.getQueryServices().getAllTableRegions(table);
+        TableRef tableRef = new TableRef(null,pconn.getPMetaData().getSchema(SCHEMA_NAME).getTable(TABLE_NAME),pconn.getPMetaData().getSchema(SCHEMA_NAME),ts, false);
+        List<HRegionLocation> regions = pconn.getQueryServices().getAllTableRegions(tableRef.getTableName());
         
         conn.close();
         initTableValues();
-        List<KeyRange> ranges = getSplits(table, scan, regions, scanRanges);
+        List<KeyRange> ranges = getSplits(tableRef, scan, regions, scanRanges);
         assertEquals("Unexpected number of splits: " + ranges.size(), expectedSplits.size(), ranges.size());
         for (int i=0; i<expectedSplits.size(); i++) {
             assertEquals(expectedSplits.get(i), ranges.get(i));
@@ -330,7 +342,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
 
-    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final NavigableMap<HRegionInfo, ServerName> regions,
+    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final List<HRegionLocation> regions,
             final ScanRanges scanRanges) throws SQLException {
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, connection, null, Collections.emptyList(), scan);

@@ -27,16 +27,26 @@
  ******************************************************************************/
 package com.salesforce.phoenix.join;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.HRegionLocation;
+import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
@@ -48,11 +58,18 @@ import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.Closeables;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SQLCloseables;
+import com.salesforce.phoenix.util.ServerUtil;
+import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
+import com.salesforce.phoenix.util.TupleUtil;
 
 /**
  * 
@@ -95,9 +112,9 @@ public class HashCacheClient {
     public class HashCache implements SQLCloseable {
         private final int size;
         private final byte[] joinId;
-        private final ImmutableSet<ServerName> servers;
+        private final ImmutableSet<HRegionLocation> servers;
         
-        public HashCache(byte[] joinId, Set<ServerName> servers, int size) {
+        public HashCache(byte[] joinId, Set<HRegionLocation> servers, int size) {
             this.joinId = joinId;
             this.servers = ImmutableSet.copyOf(servers);
             this.size = size;
@@ -175,16 +192,16 @@ public class HashCacheClient {
         ExecutorService executor = services.getExecutor();
         List<Future<Boolean>> futures = Collections.emptyList();
         try {
-            NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(iterateOverTableName);
+            List<HRegionLocation> locations = services.getAllTableRegions(iterateOverTableName.getTableName());
             int nRegions = locations.size();
             // Size these based on worst case
             futures = new ArrayList<Future<Boolean>>(nRegions);
-            Set<ServerName> servers = new HashSet<ServerName>(nRegions);
-            for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
+            Set<HRegionLocation> servers = new HashSet<HRegionLocation>(nRegions);
+            for (HRegionLocation entry : locations) {
                 // Keep track of servers we've sent to and only send once
-                if (!servers.contains(entry.getValue())) {  // Call RPC once per server
-                    servers.add(entry.getValue());
-                    final byte[] key = entry.getKey().getStartKey();
+                if (!servers.contains(entry)) {  // Call RPC once per server
+                    servers.add(entry);
+                    final byte[] key = entry.getRegionInfo().getStartKey();
                     final HTableInterface iterateOverTable = services.getTable(iterateOverTableName.getTableName());
                     closeables.add(iterateOverTable);
                     futures.add(executor.submit(new JobCallable<Boolean>() {
@@ -249,21 +266,21 @@ public class HashCacheClient {
      * @throws SQLException
      * @throws IllegalStateException if hashed table cannot be removed on any region server on which it was added
      */
-    private void removeHashCache(byte[] joinId, Set<ServerName> servers) throws SQLException {
+    private void removeHashCache(byte[] joinId, Set<HRegionLocation> servers) throws SQLException {
         Throwable lastThrowable = null;
         HTableInterface iterateOverTable = services.getTable(iterateOverTableName.getTableName());
-        NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(iterateOverTableName);
-        Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
-        for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
-            if (remainingOnServers.contains(entry.getValue())) {  // Call once per server
+        List<HRegionLocation> locations = services.getAllTableRegions(iterateOverTableName.getTableName());
+        Set<HRegionLocation> remainingOnServers = new HashSet<HRegionLocation>(servers); 
+        for (HRegionLocation entry : locations) {
+            if (remainingOnServers.contains(entry)) {  // Call once per server
                 try {
-                    byte[] key = entry.getKey().getStartKey();
+                    byte[] key = entry.getRegionInfo().getStartKey();
                     HashCacheProtocol protocol = iterateOverTable.coprocessorProxy(HashCacheProtocol.class, key);
                     protocol.removeHashCache(tenantId, joinId);
-                    remainingOnServers.remove(entry.getValue());
+                    remainingOnServers.remove(entry);
                 } catch (Throwable t) {
                     lastThrowable = t;
-                    LOG.error("Error trying to remove hash cache for " + entry.getValue(), t);
+                    LOG.error("Error trying to remove hash cache for " + entry, t);
                 }
             }
         }
