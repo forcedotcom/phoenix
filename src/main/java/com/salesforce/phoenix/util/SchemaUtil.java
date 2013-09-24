@@ -50,7 +50,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +88,6 @@ import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
-import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
@@ -112,7 +110,6 @@ import com.salesforce.phoenix.schema.SaltingUtil;
 public class SchemaUtil {
     private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
-    private static final byte PAD_BYTE = (byte)0;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
     /**
@@ -318,16 +315,6 @@ public class SchemaUtil {
         return Bytes.toString(getNameAsBytes(nameOne,nameTwo));
     }
 
-    public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
-        int i = offset + length -1;
-        // If bytes are inverted, we need to invert the byte we're looking for too
-        byte padByte = columnModifier == null ? PAD_BYTE : columnModifier.apply(PAD_BYTE);
-        while(i > offset && b[i] == padByte) {
-            i--;
-        }
-        return i - offset + 1;
-    }
-    
     public static int getVarCharLength(byte[] buf, int keyOffset, int maxLength) {
         return getVarCharLength(buf, keyOffset, maxLength, 1);
     }
@@ -418,10 +405,6 @@ public class SchemaUtil {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME_BYTES) == 0;
     }
     
-    public static byte[] padChar(byte[] byteValue, Integer byteSize) {
-        return Arrays.copyOf(byteValue, byteSize);
-    }
-
     public static boolean isMetaTable(String schemaName, String tableName) {
         return PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(schemaName) && PhoenixDatabaseMetaData.TYPE_TABLE.equals(tableName);
     }

@@ -82,6 +82,7 @@ import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
@@ -350,7 +351,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes(keyPrefix), new byte[15-keyPrefix.length()]),scan.getStartRow());
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes(tenantId), StringUtil.padChar(Bytes.toBytes(keyPrefix), 15)),scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(scan.getStartRow()),scan.getStopRow());
     }
 
@@ -834,8 +835,8 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
 
         assertNull(scan.getFilter());
-        byte[] wideLower = ByteUtil.nextKey(ByteUtil.fillKey(Bytes.toBytes(tenantId1), 15));
-        byte[] wideUpper = ByteUtil.fillKey(Bytes.toBytes(tenantId2), 15);
+        byte[] wideLower = ByteUtil.nextKey(StringUtil.padChar(Bytes.toBytes(tenantId1), 15));
+        byte[] wideUpper = StringUtil.padChar(Bytes.toBytes(tenantId2), 15);
         assertArrayEquals(wideLower, scan.getStartRow());
         assertArrayEquals(wideUpper, scan.getStopRow());
     }
