@@ -25,7 +25,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.write;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +45,7 @@ import java.util.concurrent.Executors;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.Abortable;
+import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -57,57 +57,17 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import com.salesforce.hbase.index.table.HTableFactory;
+import com.salesforce.hbase.index.CannotReachIndexException;
+import com.salesforce.hbase.index.StubAbortable;
+import com.salesforce.hbase.index.TableName;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 public class TestIndexWriter {
   private static final Log LOG = LogFactory.getLog(TestIndexWriter.class);
   @Rule
   public TableName testName = new TableName();
-
-  /**
-   * Simple table factory that just looks up the tables based on name. Useful for mocking up
-   * {@link HTableInterface}s without having to mock up the factory too.
-   */
-  private class FakeTableFactory implements HTableFactory {
-
-    boolean shutdown = false;
-    private Map<ImmutableBytesPtr, HTableInterface> tables;
-
-    public FakeTableFactory(Map<ImmutableBytesPtr, HTableInterface> tables) {
-      this.tables = tables;
-    }
-
-    @Override
-    public HTableInterface getTable(ImmutableBytesPtr tablename) throws IOException {
-      return this.tables.get(tablename);
-    }
-
-    @Override
-    public void shutdown() {
-      shutdown = true;
-    }
-  }
-
   private final byte[] row = Bytes.toBytes("row");
 
-  /**
-   * Test that we correctly shutdown/cleanup all the resources the writer creates
-   * @throws Exception on failure
-   */
-  @Test
-  public void correctlyCleanupResources() throws Exception {
-    Abortable abort = new StubAbortable();
-    ExecutorService exec = Executors.newFixedThreadPool(1);
-    FakeTableFactory factory = new FakeTableFactory(
-        Collections.<ImmutableBytesPtr, HTableInterface> emptyMap());
-
-    // create a simple writer
-    IndexWriter writer = new IndexWriter(this.testName.getTableNameString(), abort, exec, factory);
-    writer.stop(this.testName.getTableNameString() + " finished");
-    assertTrue("Factory didn't get shutdown after writer#stop!", factory.shutdown);
-    assertTrue("ExectorService isn't terminated after writer#stop!", exec.isShutdown());
-  }
 
   /**
    * With the move to using a pool of threads to write, we need to ensure that we still block until
@@ -120,6 +80,7 @@ public class TestIndexWriter {
     LOG.info("Starting " + testName.getTableNameString());
     LOG.info("Current thread is interrupted: " + Thread.interrupted());
     Abortable abort = new StubAbortable();
+    Stoppable stop = Mockito.mock(Stoppable.class);
     ExecutorService exec = Executors.newFixedThreadPool(1);
     Map<ImmutableBytesPtr, HTableInterface> tables = new HashMap<ImmutableBytesPtr, HTableInterface>();
     FakeTableFactory factory = new FakeTableFactory(tables);
@@ -145,7 +106,12 @@ public class TestIndexWriter {
     // add the table to the set of tables, so its returned to the writer
     tables.put(new ImmutableBytesPtr(tableName), table);
 
-    IndexWriter writer = new IndexWriter(this.testName.getTableNameString(), abort, exec, factory);
+    // setup the writer and failure policy
+    ParallelWriterIndexCommitter committer = new ParallelWriterIndexCommitter();
+    committer.setup(factory, exec, abort, stop);
+    KillServerOnFailurePolicy policy = new KillServerOnFailurePolicy();
+    policy.setup(stop, abort);
+    IndexWriter writer = new IndexWriter(committer, policy);
     writer.write(indexUpdates);
     assertTrue("Writer returned before the table batch completed! Likely a race condition tripped",
       completed[0]);
@@ -168,6 +134,7 @@ public class TestIndexWriter {
   @Test
   public void testFailureOnRunningUpdateAbortsPending() throws Exception {
     Abortable abort = new StubAbortable();
+    Stoppable stop = Mockito.mock(Stoppable.class);
     // single thread factory so the older request gets queued
     ExecutorService exec = Executors.newFixedThreadPool(1);
     Map<ImmutableBytesPtr, HTableInterface> tables = new HashMap<ImmutableBytesPtr, HTableInterface>();
@@ -213,7 +180,11 @@ public class TestIndexWriter {
     tables.put(new ImmutableBytesPtr(tableName), table);
     tables.put(new ImmutableBytesPtr(tableName2), table2);
 
-    IndexWriter writer = new IndexWriter(this.testName.getTableNameString(), abort, exec, factory);
+    ParallelWriterIndexCommitter committer = new ParallelWriterIndexCommitter();
+    committer.setup(factory, exec, abort, stop);
+    KillServerOnFailurePolicy policy = new KillServerOnFailurePolicy();
+    policy.setup(stop, abort);
+    IndexWriter writer = new IndexWriter(committer, policy);
     try {
       writer.write(indexUpdates);
       fail("Should not have successfully completed all index writes");
@@ -238,7 +209,7 @@ public class TestIndexWriter {
   @SuppressWarnings("unchecked")
   @Test
   public void testShutdownInterruptsAsExpected() throws Exception {
-
+    Stoppable stop = Mockito.mock(Stoppable.class);
     Abortable abort = new StubAbortable();
     // single thread factory so the older request gets queued
     ExecutorService exec = Executors.newFixedThreadPool(1);
@@ -269,8 +240,11 @@ public class TestIndexWriter {
     indexUpdates.add(new Pair<Mutation, byte[]>(m, tableName));
 
     // setup the writer
-    final IndexWriter writer = new IndexWriter(this.testName.getTableNameString(), abort, exec,
-        factory);
+    ParallelWriterIndexCommitter committer = new ParallelWriterIndexCommitter();
+    committer.setup(factory, exec, abort, stop);
+    KillServerOnFailurePolicy policy = new KillServerOnFailurePolicy();
+    policy.setup(stop, abort);
+    final IndexWriter writer = new IndexWriter(committer, policy);
 
     final boolean[] failedWrite = new boolean[] { false };
     Thread primaryWriter = new Thread() {

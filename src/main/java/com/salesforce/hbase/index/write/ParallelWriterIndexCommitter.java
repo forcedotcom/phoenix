@@ -25,13 +25,11 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.write;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -44,7 +42,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -52,56 +49,64 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Abortable;
 import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.Stoppable;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEdit;
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.Threads;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.salesforce.hbase.index.CannotReachIndexException;
+import com.salesforce.hbase.index.CapturingAbortable;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
-import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
- * Do the actual work of writing to the index tables. Ensures that if we do fail to write to the
- * index table that we cleanly kill the region/server to ensure that the region's WAL gets replayed.
- * <p>
- * We attempt to do the index updates in parallel using a backing threadpool. All threads are daemon
- * threads, so it will not block the region from shutting down.
+ *
  */
-public class IndexWriter implements Stoppable {
+public class ParallelWriterIndexCommitter implements IndexCommitter {
+
+  private static final Log LOG = LogFactory.getLog(ParallelWriterIndexCommitter.class);
 
   public static String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.writer.threads.max";
-  private static final Log LOG = LogFactory.getLog(IndexWriter.class);
   private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
   private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
       "index.writer.threads.keepalivetime";
 
-  private final String sourceInfo;
-  private final CapturingAbortable abortable;
-  private final HTableFactory factory;
   private ListeningExecutorService writerPool;
-  private AtomicBoolean stopped = new AtomicBoolean(false);
+  private HTableFactory factory;
+  private CapturingAbortable abortable;
+  private Stoppable stopped;
+
+  @Override
+  public void setup(IndexWriter parent, RegionCoprocessorEnvironment env) {
+    Configuration conf = env.getConfiguration();
+    setup(getDefaultDelegateHTableFactory(env), getDefaultExecutor(conf),
+      env.getRegionServerServices(), parent);
+  }
 
   /**
-   * @param sourceInfo log info string about where we are writing from
-   * @param abortable to notify in the case of failure
-   * @param env Factory to use when resolving the {@link HTableInterfaceReference}. If <tt>null</tt>
-   *          , its assumed that the {@link HTableInterfaceReference} already has its factory set
-   *          (e.g. by {@link HTableInterfaceReference#setFactory(HTableFactory)} - if its not
-   *          already set, a {@link NullPointerException} is thrown.
+   * Setup <tt>this</tt>.
+   * <p>
+   * Exposed for TESTING
    */
-  public IndexWriter(String sourceInfo, Abortable abortable, RegionCoprocessorEnvironment env,
-      Configuration conf) {
-    this(sourceInfo, abortable, env, getDefaultExecutor(conf));
+  void setup(HTableFactory factory, ExecutorService pool, Abortable abortable, Stoppable stop) {
+    this.writerPool = MoreExecutors.listeningDecorator(pool);
+    this.factory = new CachingHTableFactory(factory);
+    this.abortable = new CapturingAbortable(abortable);
+    this.stopped = stop;
+  }
+
+  private static HTableFactory getDefaultDelegateHTableFactory(CoprocessorEnvironment env) {
+    // create a simple delegate factory, setup the way we need
+    Configuration conf = env.getConfiguration();
+    // only have one thread per table - all the writes are already batched per table.
+
+    conf.setInt("hbase.htable.threads.max", 1);
+    return new CoprocessorHTableFactory(env);
   }
 
   /**
@@ -133,72 +138,9 @@ public class IndexWriter implements Stoppable {
     return pool;
   }
 
-  public IndexWriter(String sourceInfo, Abortable abortable, CoprocessorEnvironment env,
-      ExecutorService pool) {
-    this(sourceInfo, abortable, pool, getDefaultDelegateHTableFactory(env));
-  }
-
-  private static HTableFactory getDefaultDelegateHTableFactory(CoprocessorEnvironment env) {
-    // create a simple delegate factory, setup the way we need
-    Configuration conf = env.getConfiguration();
-    // only have one thread per table - all the writes are already batched per table.
-
-    conf.setInt("hbase.htable.threads.max", 1);
-    return new CoprocessorHTableFactory(env);
-  }
-
-  /**
-   * Internal constructor - Exposed for testing!
-   * @param sourceInfo
-   * @param abortable
-   * @param pool
-   * @param delegate
-   */
-  IndexWriter(String sourceInfo, Abortable abortable, ExecutorService pool, HTableFactory delegate) {
-    this.sourceInfo = sourceInfo;
-    this.abortable = new CapturingAbortable(abortable);
-    this.writerPool = MoreExecutors.listeningDecorator(pool);
-    this.factory = new CachingHTableFactory(delegate);
-  }
-
-  /**
-   * Just write the index update portions of of the edit, if it is an {@link IndexedWALEdit}. If it
-   * is not passed an {@link IndexedWALEdit}, any further actions are ignored.
-   * <p>
-   * Internally, uses {@link #write(Collection)} to make the write and if is receives a
-   * {@link CannotReachIndexException}, it attempts to move (
-   * {@link HBaseAdmin#unassign(byte[], boolean)}) the region and then failing that calls
-   * {@link System#exit(int)} to kill the server.
-   */
-  public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, byte[]>> indexUpdates) {
-    try {
-      write(indexUpdates);
-    } catch (Exception e) {
-      killYourself(e);
-    }
-  }
-
-  /**
-   * Write the mutations to their respective table.
-   * <p>
-   * This method is blocking and could potentially cause the writer to block for a long time as we
-   * write the index updates. We only return when either:
-   * <ol>
-   *   <li>All index writes have returned, OR</li>
-   *   <li>Any single index write has failed</li>
-   * </ol>
-   * We attempt to quickly determine if any write has failed and not write to the remaining indexes
-   * to ensure a timely recovery of the failed index writes.
-   * @param indexUpdates Updates to write
-   * @throws CannotReachIndexException if we cannot successfully write a single index entry. We stop
-   *           immediately on the first failed index write, rather than attempting all writes.
-   */
-  public void write(Collection<Pair<Mutation, byte[]>> indexUpdates)
+  @Override
+  public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
       throws CannotReachIndexException {
-    // convert the strings to htableinterfaces to which we can talk and group by TABLE
-    Multimap<HTableInterfaceReference, Mutation> toWrite = resolveTableReferences(factory,
-      indexUpdates);
-
     /*
      * This bit here is a little odd, so let's explain what's going on. Basically, we want to do the
      * writes in parallel to each index table, so each table gets its own task and is submitted to
@@ -218,7 +160,7 @@ public class IndexWriter implements Stoppable {
       final List<Mutation> mutations = (List<Mutation>) entry.getValue();
       final HTableInterfaceReference tableReference = entry.getKey();
       // early exit - no need to submit new tasks if we are shutting down
-      if (this.stopped.get() || this.abortable.isAborted()) {
+      if (this.stopped.isStopped() || this.abortable.isAborted()) {
         break;
       }
 
@@ -264,7 +206,8 @@ public class IndexWriter implements Stoppable {
         }
 
         private void throwFailureIfDone() throws CannotReachIndexException {
-          if (stopped.get() || abortable.isAborted() || Thread.currentThread().isInterrupted()) {
+          if (stopped.isStopped() || abortable.isAborted()
+              || Thread.currentThread().isInterrupted()) {
             throw new CannotReachIndexException(
                 "Pool closed, not attempting to write to the index!", null);
           }
@@ -321,68 +264,17 @@ public class IndexWriter implements Stoppable {
           e);
     }
 
-    LOG.info("Done writing all index updates!");
-  }
-
-  /**
-   * @param logEdit edit for which we need to kill ourselves
-   * @param info region from which we are attempting to write the log
-   */
-  private void killYourself(Throwable cause) {
-    // cleanup resources
-    this.stop("Killing ourselves because of an error:" + cause);
-    // notify the regionserver of the failure
-    String msg = "Could not update the index table, killing server region from: " + this.sourceInfo;
-    LOG.error(msg);
-    try {
-      this.abortable.abort(msg, cause);
-    } catch (Exception e) {
-      LOG.fatal("Couldn't abort this server to preserve index writes, "
-          + "attempting to hard kill the server from" + this.sourceInfo);
-      System.exit(1);
-    }
-  }
-
-  /**
-   * Convert the passed index updates to {@link HTableInterfaceReference}s.
-   * @param factory factory to use when resolving the table references.
-   * @param indexUpdates from the index builder
-   * @return pairs that can then be written by an {@link IndexWriter}.
-   */
-  public static Multimap<HTableInterfaceReference, Mutation> resolveTableReferences(
-      HTableFactory factory, Collection<Pair<Mutation, byte[]>> indexUpdates) {
-    Multimap<HTableInterfaceReference, Mutation> updates = ArrayListMultimap
-        .<HTableInterfaceReference, Mutation> create();
-    // simple map to make lookups easy while we build the map of tables to create
-    Map<ImmutableBytesPtr, HTableInterfaceReference> tables =
-        new HashMap<ImmutableBytesPtr, HTableInterfaceReference>(updates.size());
-    for (Pair<Mutation, byte[]> entry : indexUpdates) {
-      byte[] tableName = entry.getSecond();
-      ImmutableBytesPtr ptr = new ImmutableBytesPtr(tableName);
-      HTableInterfaceReference table = tables.get(ptr);
-      if (table == null) {
-        table = new HTableInterfaceReference(ptr);
-        tables.put(ptr, table);
-      }
-      updates.put(table, entry.getFirst());
-    }
-
-    return updates;
   }
 
   @Override
   public void stop(String why) {
-    if (!this.stopped.compareAndSet(false, true)) {
-      // already stopped
-      return;
-    }
-    LOG.debug("Stopping because " + why);
+    LOG.info("Shutting down " + this.getClass().getSimpleName());
     this.writerPool.shutdownNow();
     this.factory.shutdown();
   }
 
   @Override
   public boolean isStopped() {
-    return this.stopped.get();
+    return this.stopped.isStopped();
   }
 }
