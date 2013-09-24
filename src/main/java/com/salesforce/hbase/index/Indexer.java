@@ -68,6 +68,7 @@ import org.apache.hadoop.hbase.util.Pair;
 import com.salesforce.hbase.index.builder.IndexBuilder;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
+import com.salesforce.hbase.index.write.IndexWriter;
 
 /**
  * Do all the work of managing index updates from a single coprocessor. All Puts/Delets are passed
@@ -149,8 +150,7 @@ public class Indexer extends BaseRegionObserver {
     log.registerWALActionsListener(new IndexLogRollSynchronizer(INDEX_READ_WRITE_LOCK.writeLock()));
 
     // and setup the actual index writer
-    this.writer = new IndexWriter("Region: " + env.getRegion().getRegionNameAsString(),
-            env.getRegionServerServices(), env, conf);
+    this.writer = new IndexWriter(env);
   }
 
   @Override

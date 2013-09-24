@@ -25,46 +25,27 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.write;
 
-import java.util.List;
-
+import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+
+import com.google.common.collect.Multimap;
+import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
 /**
- * Exception thrown if we cannot successfully write to an index table.
+ * Handle failures to write to the index tables.
  */
-@SuppressWarnings("serial")
-public class CannotReachIndexException extends Exception {
+public interface IndexFailurePolicy extends Stoppable {
 
-  private String table;
-
-  /**
-   * Cannot reach the index, but not sure of the table or the mutations that caused the failure
-   * @param msg more description of what happened
-   * @param cause original cause
-   */
-  public CannotReachIndexException(String msg, Throwable cause) {
-    super(msg, cause);
-  }
+  public void setup(Stoppable parent, RegionCoprocessorEnvironment env);
 
   /**
-   * Failed to write the passed mutations to an index table for some reason.
-   * @param targetTableName index table to which we attempted to write
-   * @param mutations mutations that were attempted
-   * @param cause underlying reason for the failure
+   * Handle the failure of the attempted index updates
+   * @param attempted map of target table -> mutations to apply
+   * @param cause reason why there was a failure
    */
-  public CannotReachIndexException(String targetTableName, List<Mutation> mutations, Exception cause) {
-    super("Failed to make index update:\n\t table: " + targetTableName + "\n\t edits: " + mutations
-        + "\n\tcause: " + cause == null ? "UNKNOWN" : cause.getMessage(), cause);
-    this.table = targetTableName;
-  }
-
-  /**
-   * @return The table to which we failed to write the index updates. If unknown, returns
-   *         <tt>null</tt>
-   */
-  public String getTableName() {
-    return this.table;
-  }
+  public void
+      handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause);
 }
