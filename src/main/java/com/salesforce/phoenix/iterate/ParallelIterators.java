@@ -182,7 +182,7 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                     }
                 });
                 for (Pair<byte[],Future<PeekingResultIterator>> future : futures) {
-                    iterators.add(future.getSecond().get(timeoutMs, TimeUnit.MILLISECONDS));
+                    iterators.add(future.getSecond().get(1200000, TimeUnit.MILLISECONDS));
                 }
 
                 success = true;

@@ -95,7 +95,8 @@ public enum ExpressionType {
     DoubleAddExpression(DoubleAddExpression.class),
     DoubleSubtractExpression(DoubleSubtractExpression.class),
     DoubleMultiplyExpression(DoubleMultiplyExpression.class),
-    DoubleDivideExpression(DoubleDivideExpression.class);
+    DoubleDivideExpression(DoubleDivideExpression.class),
+    RowValueConstructorExpression(RowValueConstructorExpression.class);
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
     }

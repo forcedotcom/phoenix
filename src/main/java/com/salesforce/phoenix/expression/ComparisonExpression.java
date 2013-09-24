@@ -121,12 +121,22 @@ public class ComparisonExpression extends BaseCompoundExpression {
             lhsLength = SchemaUtil.getUnpaddedCharLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
         }
         
+        
         int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
                 rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
+        printBytes(lhsBytes);
+        printBytes(rhsBytes);
+        System.out.println("Result: " + comparisonResult);
         ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;
     }
     
+    private static void printBytes(byte[] bytes) {
+        for (int i = 0; i<bytes.length; i++) {
+            System.out.print(bytes[i]);
+            System.out.println("\n");
+        }
+    }
     @Override
     public void readFields(DataInput input) throws IOException {
         op = CompareOp.values()[WritableUtils.readVInt(input)];

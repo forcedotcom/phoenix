@@ -200,4 +200,13 @@ public abstract class BaseExpressionVisitor<E> implements ExpressionVisitor<E> {
     public E visitLeave(StringConcatExpression node, List<E> l) {
         return null;
     }
+    
+    @Override
+    public Iterator<Expression> visitEnter(RowValueConstructorExpression node) {
+        return null;
+    }
+    @Override
+    public E visitLeave(RowValueConstructorExpression node, List<E> l) {
+        return null;
+    }
 }

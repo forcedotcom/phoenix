@@ -95,5 +95,7 @@ public interface ExpressionVisitor<E> {
 	public Iterator<Expression> visitEnter(StringConcatExpression node);
 	public E visitLeave(StringConcatExpression node, List<E> l);
 	
-	
+	public Iterator<Expression> visitEnter(RowValueConstructorExpression node);
+    public E visitLeave(RowValueConstructorExpression node, List<E> l);
+    
 }
