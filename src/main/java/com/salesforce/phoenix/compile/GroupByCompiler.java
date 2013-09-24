@@ -28,7 +28,10 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import org.apache.http.annotation.Immutable;
 
@@ -42,8 +45,12 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.parse.AliasedNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 /**
@@ -134,12 +141,11 @@ public class GroupByCompiler {
      * Get list of columns in the GROUP BY clause.
      * @param context query context kept between compilation of different query clauses
      * @param statement SQL statement being compiled
-     * @param aliasParseNodeMap map to resolve alias name references to parse node
      * @return the {@link GroupBy} instance encapsulating the group by clause
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public static GroupBy compile(StatementContext context, SelectStatement statement, Map<String, ParseNode> aliasParseNodeMap) throws SQLException {
+    public static GroupBy compile(StatementContext context, SelectStatement statement) throws SQLException {
         List<ParseNode> groupByNodes = statement.getGroupBy();
         /**
          * Distinct can use an aggregate plan if there's no group by.
@@ -163,8 +169,8 @@ public class GroupByCompiler {
        // Accumulate expressions in GROUP BY
         TrackOrderPreservingExpressionCompiler groupByVisitor =
                 new TrackOrderPreservingExpressionCompiler(context, 
-                        GroupBy.EMPTY_GROUP_BY, aliasParseNodeMap, 
-                        groupByNodes.size(), Ordering.UNORDERED);
+                        GroupBy.EMPTY_GROUP_BY, groupByNodes.size(), 
+                        Ordering.UNORDERED);
         for (ParseNode node : groupByNodes) {
             Expression expression = node.accept(groupByVisitor);
             if (groupByVisitor.isAggregate()) {

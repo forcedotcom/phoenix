@@ -41,7 +41,9 @@ import org.junit.runners.Parameterized.Parameters;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -480,7 +482,7 @@ public class ScanRangesTest {
     private static Collection<?> foreach(KeyRange[][] ranges, int[] widths, KeyRange keyRange,
             boolean expectedResult) {
         List<List<KeyRange>> slots = Lists.transform(Lists.newArrayList(ranges), ARRAY_TO_LIST);
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(10);
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder(10);
         for (final int width : widths) {
             if (width > 0) {
                 builder.addField(new PDatum() {
@@ -508,7 +510,7 @@ public class ScanRangesTest {
                     public ColumnModifier getColumnModifier() {
                         return null;
                     }
-                });
+                }, false, null);
             } else {
                 builder.addField(new PDatum() {
                     @Override
@@ -535,7 +537,7 @@ public class ScanRangesTest {
                     public ColumnModifier getColumnModifier() {
                         return null;
                     }
-                });
+                }, false, null);
             }
         }
         ScanRanges scanRanges = ScanRanges.create(slots, builder.build());

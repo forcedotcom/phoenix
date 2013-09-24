@@ -31,7 +31,10 @@ import java.sql.SQLException;
 
 import org.apache.http.annotation.Immutable;
 
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.ColumnExpression;
+import com.salesforce.phoenix.expression.IndexKeyValueColumnExpression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -94,7 +97,11 @@ public final class ColumnRef {
         if (SchemaUtil.isPKColumn(this.getColumn())) {
             return new RowKeyColumnExpression(getColumn(), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));
         } else {
-            return new KeyValueColumnExpression(getColumn());
+            if (tableRef.getTable().getType() == PTableType.INDEX) {
+                return new IndexKeyValueColumnExpression(getColumn());
+            } else {
+                return new KeyValueColumnExpression(getColumn());
+            }
         }
     }
 
@@ -112,10 +119,6 @@ public final class ColumnRef {
 
     public PTable getTable() {
         return tableRef.getTable();
-    }
-    
-    public PSchema getSchema() {
-        return tableRef.getSchema();
     }
     
     public TableRef getTableRef() {

@@ -35,12 +35,12 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.memory.ChildMemoryManager;
 import com.salesforce.phoenix.memory.GlobalMemoryManager;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 
 /**

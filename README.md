@@ -1,11 +1,11 @@
-<h1>Phoenix: A SQL skin over HBase<br /> 
-<em><sup><sup>'We put the SQL back in NoSQL'</sup></sup></em></h1>
+![logo](http://forcedotcom.github.com/phoenix/images/logo.jpg)
+
 Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki), and download it [here](https://github.com/forcedotcom/phoenix/wiki/Download).
 ## Mission
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
 
 ## Quick Start
-Tired of reading already and just want to get started? Jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping) and start querying now.
+Tired of reading already and just want to get started? Listen to the Phoenix talks from [Hadoop Summit 2013](http://www.youtube.com/watch?v=YHsHdQ08trg) and [HBaseConn 2013](http://www.cloudera.com/content/cloudera/en/resources/library/hbasecon/hbasecon-2013--how-and-why-phoenix-puts-the-sql-back-into-nosql-video.html), check out our [FAQs](https://github.com/forcedotcom/phoenix/wiki/F.A.Q.), and jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping) and start querying now.
 
 ## How It Works ##
 
@@ -42,6 +42,7 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 
 ## Getting Started ##
+Wanted to get started quickly? Take a look at our [FAQs](https://github.com/forcedotcom/phoenix/wiki/F.A.Q.) and take our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less).
 
 <h4>Command Line</h4>
 

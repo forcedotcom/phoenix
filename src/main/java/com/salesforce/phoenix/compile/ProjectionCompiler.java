@@ -28,11 +28,20 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableSet;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Bytes;
 
-import com.google.common.collect.*;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.expression.CoerceExpression;
@@ -41,8 +50,24 @@ import com.salesforce.phoenix.expression.aggregator.ClientAggregators;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
 import com.salesforce.phoenix.expression.visitor.SingleAggregateFunctionVisitor;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.parse.AliasedNode;
+import com.salesforce.phoenix.parse.BindParseNode;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.FamilyWildcardParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.WildcardParseNode;
+import com.salesforce.phoenix.schema.ArgumentTypeMismatchException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SizedUtil;
 
 
@@ -72,20 +97,64 @@ public class ProjectionCompiler {
         scan.addFamily(family);
     }
     
-    public static Map<String, ParseNode> buildAliasMap(StatementContext context, SelectStatement statement) {
-        List<AliasedNode> aliasedNodes = statement.getSelect();
-        Map<String, ParseNode> aliasParseNodeMap = Maps.newHashMapWithExpectedSize(aliasedNodes.size());
-        for (AliasedNode aliasedNode : aliasedNodes) {
-            String alias = aliasedNode.getAlias();
-            if (alias != null) {
-                aliasParseNodeMap.put(alias, aliasedNode.getNode());
-            }
-        }
-        return aliasParseNodeMap;
-    }
-    
     public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException  {
         return compile(context, statement, groupBy, null);
+    }
+    
+    private static void projectAllTableColumns(StatementContext context, TableRef tableRef, List<Expression> projectedExpressions, List<ExpressionProjector> projectedColumns) throws SQLException {
+        PTable table = tableRef.getTable();
+        for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getColumns().size(); i++) {
+            ColumnRef ref = new ColumnRef(tableRef,i);
+            Expression expression = ref.newColumnExpression();
+            projectedExpressions.add(expression);
+            projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), expression, false));
+        }
+    }
+    
+    private static void projectAllIndexColumns(StatementContext context, TableRef tableRef, List<Expression> projectedExpressions, List<ExpressionProjector> projectedColumns) throws SQLException {
+        PTable index = tableRef.getTable();
+        PTable table = context.getConnection().getPMetaData().getTable(index.getParentName().getString());
+        int tableOffset = table.getBucketNum() == null ? 0 : 1;
+        int indexOffset = index.getBucketNum() == null ? 0 : 1;
+        if (index.getColumns().size()-indexOffset != table.getColumns().size()-tableOffset) {
+            // We'll end up not using this by the optimizer, so just throw
+            throw new ColumnNotFoundException(WildcardParseNode.INSTANCE.toString());
+        }
+        for (int i = tableOffset; i < table.getColumns().size(); i++) {
+            PColumn tableColumn = table.getColumns().get(i);
+            PColumn indexColumn = index.getColumn(IndexUtil.getIndexColumnName(tableColumn));
+            ColumnRef ref = new ColumnRef(tableRef,indexColumn.getPosition());
+            Expression expression = ref.newColumnExpression();
+            projectedExpressions.add(expression);
+            ExpressionProjector projector = new ExpressionProjector(tableColumn.getName().getString(), table.getName().getString(), expression, false);
+            projectedColumns.add(projector);
+        }
+    }
+    
+    private static void projectTableColumnFamily(StatementContext context, String cfName, TableRef tableRef, List<Expression> projectedExpressions, List<ExpressionProjector> projectedColumns) throws SQLException {
+        PTable table = tableRef.getTable();
+        PColumnFamily pfamily = table.getColumnFamily(cfName);
+        for (PColumn column : pfamily.getColumns()) {
+            ColumnRef ref = new ColumnRef(tableRef, column.getPosition());
+            Expression expression = ref.newColumnExpression();
+            projectedExpressions.add(expression);
+            projectedColumns.add(new ExpressionProjector(column.getName().toString(), table.getName()
+                    .getString(), expression, false));
+        }
+    }
+
+    private static void projectIndexColumnFamily(StatementContext context, String cfName, TableRef tableRef, List<Expression> projectedExpressions, List<ExpressionProjector> projectedColumns) throws SQLException {
+        PTable index = tableRef.getTable();
+        PTable table = context.getConnection().getPMetaData().getTable(index.getParentName().getString());
+        PColumnFamily pfamily = table.getColumnFamily(cfName);
+        for (PColumn column : pfamily.getColumns()) {
+            PColumn indexColumn = index.getColumn(IndexUtil.getIndexColumnName(column));
+            ColumnRef ref = new ColumnRef(tableRef, indexColumn.getPosition());
+            Expression expression = ref.newColumnExpression();
+            projectedExpressions.add(expression);
+            projectedColumns.add(new ExpressionProjector(column.getName().toString(), 
+                    table.getName().getString(), expression, false));
+        }
     }
     
     /**
@@ -110,36 +179,34 @@ public class ProjectionCompiler {
         int index = 0;
         List<Expression> projectedExpressions = Lists.newArrayListWithExpectedSize(aliasedNodes.size());
         List<byte[]> projectedFamilies = Lists.newArrayListWithExpectedSize(aliasedNodes.size());
-        // TODO: support cf.* expressions in projection to project all columns in a  CF
         for (AliasedNode aliasedNode : aliasedNodes) {
             ParseNode node = aliasedNode.getNode();
-            if (node == WildcardParseNode.INSTANCE) {
+            // TODO: visitor?
+            if (node instanceof WildcardParseNode) {
                 if (statement.isAggregate()) {
                     ExpressionCompiler.throwNonAggExpressionInAggException(node.toString());
                 }
                 isWildcard = true;
-                for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getColumns().size(); i++) {
-                    ColumnRef ref = new ColumnRef(tableRef,i);
-                    Expression expression = ref.newColumnExpression();
-                    projectedExpressions.add(expression);
-                    projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), expression, false));
+               if (tableRef.getTable().getType() == PTableType.INDEX && ((WildcardParseNode)node).isRewrite()) {
+                   projectAllIndexColumns(context, tableRef, projectedExpressions, projectedColumns);
+                } else {
+                    projectAllTableColumns(context, tableRef, projectedExpressions, projectedColumns);
                 }
-            } else if (node instanceof  FamilyParseNode){
+            } else if (node instanceof  FamilyWildcardParseNode){
                 // Project everything for SELECT cf.*
-        		PColumnFamily pfamily = table.getColumnFamily(((FamilyParseNode) node).getFamilyName());
-        		// Delay projecting to scan, as when any other column in the column family gets
-        		// added to the scan, it overwrites that we want to project the entire column
-        		// family. Instead, we do the projection at the end.
-        		// TODO: consider having a ScanUtil.addColumn and ScanUtil.addFamily to work
-        		// around this, as this code depends on this function being the last place where
-        		// columns are projected (which is currently true, but could change).
-        		projectedFamilies.add(pfamily.getName().getBytes());
-        		for (PColumn column : pfamily.getColumns()) {
-        			ColumnRef ref = new ColumnRef(tableRef,column.getPosition());
-                    Expression expression = ref.newColumnExpression();
-                    projectedExpressions.add(expression);
-        		 	projectedColumns.add(new ExpressionProjector(column.getName().toString(), table.getName().getString(),expression, false));
-        		}
+                String cfName = ((FamilyWildcardParseNode) node).getName();
+                // Delay projecting to scan, as when any other column in the column family gets
+                // added to the scan, it overwrites that we want to project the entire column
+                // family. Instead, we do the projection at the end.
+                // TODO: consider having a ScanUtil.addColumn and ScanUtil.addFamily to work
+                // around this, as this code depends on this function being the last place where
+                // columns are projected (which is currently true, but could change).
+               projectedFamilies.add(Bytes.toBytes(cfName));
+               if (tableRef.getTable().getType() == PTableType.INDEX && ((FamilyWildcardParseNode)node).isRewrite()) {
+                   projectIndexColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
+                } else {
+                    projectTableColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
+                }
             } else {
                 Expression expression = node.accept(selectVisitor);
                 projectedExpressions.add(expression);

@@ -27,12 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -47,7 +51,7 @@ public class RowKeyColumnExpression  extends ColumnExpression {
     private PDataType fromType;
     private RowKeyValueAccessor accessor;
     
-    private final String name;
+    protected final String name;
     
     public RowKeyColumnExpression() {
         name = null; // Only on client
@@ -96,16 +100,16 @@ public class RowKeyColumnExpression  extends ColumnExpression {
         int offset = accessor.getOffset(ptr.get(), ptr.getOffset());
         // Null is represented in the last expression of a multi-part key 
         // by the bytes not being present.
-        if (offset < ptr.getOffset() + ptr.getLength()) {
+        int maxOffset = ptr.getOffset() + ptr.getLength();
+        if (offset < maxOffset) {
             byte[] buffer = ptr.get();
-            int maxByteSize = ptr.getLength() - (offset - ptr.getOffset());
             int fixedByteSize = -1;
             // FIXME: fixedByteSize <= maxByteSize ? fixedByteSize : 0 required because HBase passes bogus keys to filter to position scan (HBASE-6562)
             if (fromType.isFixedWidth()) {
                 fixedByteSize = getByteSize();
-                fixedByteSize = fixedByteSize <= maxByteSize ? fixedByteSize : 0;
+                fixedByteSize = fixedByteSize <= maxOffset ? fixedByteSize : 0;
             }
-            int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxByteSize);
+            int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxOffset);
             // In the middle of the key, an empty variable length byte array represents null
             if (length > 0) {
                 if (type == fromType) {

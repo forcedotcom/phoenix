@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.ColumnExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.ColumnModifier;

@@ -27,13 +27,27 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.STABLE_SCHEMA_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
@@ -45,11 +59,17 @@ import com.salesforce.phoenix.iterate.DefaultParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.StatsManager;
+import com.salesforce.phoenix.query.StatsManagerImpl;
 import com.salesforce.phoenix.query.StatsManagerImpl.TimeKeeper;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ReadOnlyProps;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -105,20 +125,19 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
 
     private static TableRef getTableRef(Connection conn, long ts) throws SQLException {
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        PSchema schema = pconn.getPMetaData().getSchemas().get(STABLE_SCHEMA_NAME);
-        TableRef table = new TableRef(null,schema.getTable(STABLE_NAME),schema, ts, false);
+        TableRef table = new TableRef(null,pconn.getPMetaData().getTable(SchemaUtil.getTableName(STABLE_SCHEMA_NAME, STABLE_NAME)),ts, false);
         return table;
     }
     
     private static List<KeyRange> getSplits(Connection conn, long ts, final Scan scan)
             throws SQLException {
-        TableRef table = getTableRef(conn, ts);
+        TableRef tableRef = getTableRef(conn, ts);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        final NavigableMap<HRegionInfo, ServerName> regions =  pconn.getQueryServices().getAllTableRegions(table);
+        final List<HRegionLocation> regions =  pconn.getQueryServices().getAllTableRegions(tableRef.getTable().getName().getBytes());
         StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, pconn, null, Collections.emptyList(), scan);
-        DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, table, HintNode.EMPTY_HINT_NODE) {
+        DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, tableRef, HintNode.EMPTY_HINT_NODE) {
             @Override
-            protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
+            protected List<HRegionLocation> getAllRegions() throws SQLException {
                 return DefaultParallelIteratorRegionSplitter.filterRegions(regions, scan.getStartRow(), scan.getStopRow());
             }
         };

@@ -30,11 +30,17 @@ package com.salesforce.phoenix.expression;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PNameFactory;
 
 public class ColumnExpressionTest {
 
@@ -42,7 +48,7 @@ public class ColumnExpressionTest {
     public void testSerialization() throws Exception {
         int maxLen = 30;
         int scale = 5;
-        PColumn column = new PColumnImpl(new PNameImpl("c1"), new PNameImpl("f1"), PDataType.DECIMAL, maxLen, scale,
+        PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.DECIMAL, maxLen, scale,
                 true, 20, null);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -62,7 +68,7 @@ public class ColumnExpressionTest {
     @Test
     public void testSerializationWithNullScale() throws Exception {
         int maxLen = 30;
-        PColumn column = new PColumnImpl(new PNameImpl("c1"), new PNameImpl("f1"), PDataType.BINARY, maxLen, null,
+        PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.BINARY, maxLen, null,
                 true, 20, null);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -82,7 +88,7 @@ public class ColumnExpressionTest {
     @Test
     public void testSerializationWithNullMaxLength() throws Exception {
         int scale = 5;
-        PColumn column = new PColumnImpl(new PNameImpl("c1"), new PNameImpl("f1"), PDataType.VARCHAR, null, scale,
+        PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.VARCHAR, null, scale,
                 true, 20, null);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -101,7 +107,7 @@ public class ColumnExpressionTest {
 
     @Test
     public void testSerializationWithNullScaleAndMaxLength() throws Exception {
-        PColumn column = new PColumnImpl(new PNameImpl("c1"), new PNameImpl("f1"), PDataType.DECIMAL, null, null, true,
+        PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.DECIMAL, null, null, true,
                 20, null);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

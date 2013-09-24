@@ -27,14 +27,46 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.C_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.E_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.MILLIS_IN_DAY;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.ROW1;
+import static com.salesforce.phoenix.util.TestUtil.ROW2;
+import static com.salesforce.phoenix.util.TestUtil.ROW3;
+import static com.salesforce.phoenix.util.TestUtil.ROW4;
+import static com.salesforce.phoenix.util.TestUtil.ROW5;
+import static com.salesforce.phoenix.util.TestUtil.ROW6;
+import static com.salesforce.phoenix.util.TestUtil.ROW7;
+import static com.salesforce.phoenix.util.TestUtil.ROW8;
+import static com.salesforce.phoenix.util.TestUtil.ROW9;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
 import java.sql.Date;
-import java.util.*;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -42,6 +74,7 @@ import org.junit.Test;
 
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
@@ -1051,7 +1084,8 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string";
+        // Tests that you don't get an ambiguous column exception when using the same alias as the column name
+        String query = "SELECT a_string as a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -2968,4 +3002,65 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
+    public void testSplitWithCachedMeta() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        // Tests that you don't get an ambiguous column exception when using the same alias as the column name
+        String query = "SELECT a_string, b_string, count(1) FROM atable WHERE organization_id=? and entity_id<=? GROUP BY a_string,b_string";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        HBaseAdmin admin = null;
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setString(2,ROW4);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(A_VALUE, rs.getString(1));
+            assertEquals(B_VALUE, rs.getString(2));
+            assertEquals(2, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals(A_VALUE, rs.getString(1));
+            assertEquals(C_VALUE, rs.getString(2));
+            assertEquals(1, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals(A_VALUE, rs.getString(1));
+            assertEquals(E_VALUE, rs.getString(2));
+           assertEquals(1, rs.getLong(3));
+            assertFalse(rs.next());
+            
+            byte[] tableName = Bytes.toBytes(ATABLE_NAME);
+            admin = conn.unwrap(PhoenixConnection.class).getQueryServices().getAdmin();
+            HTable htable = (HTable)conn.unwrap(PhoenixConnection.class).getQueryServices().getTable(tableName);
+            htable.clearRegionCache();
+            int nRegions = htable.getRegionLocations().size();
+            admin.split(tableName, ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes("00A3")));
+            do {
+                Thread.sleep(2000);
+                htable.clearRegionCache();
+            } while (htable.getRegionLocations().size() == nRegions);
+            
+            statement.setString(1, tenantId);
+            rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(A_VALUE, rs.getString(1));
+            assertEquals(B_VALUE, rs.getString(2));
+            assertEquals(2, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals(A_VALUE, rs.getString(1));
+            assertEquals(C_VALUE, rs.getString(2));
+            assertEquals(1, rs.getLong(3));
+            assertTrue(rs.next());
+            assertEquals(A_VALUE, rs.getString(1));
+            assertEquals(E_VALUE, rs.getString(2));
+           assertEquals(1, rs.getLong(3));
+            assertFalse(rs.next());
+            
+        } finally {
+            conn.close();
+        }
+    }
+
 }

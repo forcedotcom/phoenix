@@ -27,7 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -36,6 +41,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 
@@ -142,11 +148,11 @@ public class ByteUtil {
         }
     }
 
-    public static byte[] serializeIntArray(int[] intArray) {
-        return serializeIntArray(intArray,intArray.length);
+    public static byte[] serializeVIntArray(int[] intArray) {
+        return serializeVIntArray(intArray,intArray.length);
     }
 
-    public static byte[] serializeIntArray(int[] intArray, int encodedLength) {
+    public static byte[] serializeVIntArray(int[] intArray, int encodedLength) {
         int size = WritableUtils.getVIntSize(encodedLength);
         for (int i = 0; i < intArray.length; i++) {
             size += WritableUtils.getVIntSize(intArray[i]);
@@ -160,8 +166,8 @@ public class ByteUtil {
         return out;
     }
 
-    public static void serializeIntArray(DataOutput output, int[] intArray) throws IOException {
-        serializeIntArray(output, intArray, intArray.length);
+    public static void serializeVIntArray(DataOutput output, int[] intArray) throws IOException {
+        serializeVIntArray(output, intArray, intArray.length);
     }
 
     /**
@@ -171,10 +177,24 @@ public class ByteUtil {
      * @param encodedLength
      * @throws IOException
      */
-    public static void serializeIntArray(DataOutput output, int[] intArray, int encodedLength) throws IOException {
+    public static void serializeVIntArray(DataOutput output, int[] intArray, int encodedLength) throws IOException {
         WritableUtils.writeVInt(output, encodedLength);
         for (int i = 0; i < intArray.length; i++) {
             WritableUtils.writeVInt(output, intArray[i]);
+        }
+    }
+
+    public static long[] readFixedLengthLongArray(DataInput input, int length) throws IOException {
+        long[] longArray = new long[length];
+        for (int i = 0; i < length; i++) {
+            longArray[i] = input.readLong();
+        }
+        return longArray;
+    }
+
+    public static void writeFixedLengthLongArray(DataOutput output, long[] longArray) throws IOException {
+        for (int i = 0; i < longArray.length; i++) {
+            output.writeLong(longArray[i]);
         }
     }
 
@@ -183,12 +203,12 @@ public class ByteUtil {
      * @param b byte array storing serialized vints
      * @return int array
      */
-    public static int[] deserializeIntArray(byte[] b) {
+    public static int[] deserializeVIntArray(byte[] b) {
         ByteArrayInputStream bytesIn = new ByteArrayInputStream(b);
         DataInputStream in = new DataInputStream(bytesIn);
         try {
             int length = WritableUtils.readVInt(in);
-            return deserializeIntArray(in, length);
+            return deserializeVIntArray(in, length);
         } catch (IOException e) {
             throw new RuntimeException(e); // not possible
         } finally {
@@ -200,11 +220,11 @@ public class ByteUtil {
         }
     }
 
-    public static int[] deserializeIntArray(DataInput in) throws IOException {
-        return deserializeIntArray(in, WritableUtils.readVInt(in));
+    public static int[] deserializeVIntArray(DataInput in) throws IOException {
+        return deserializeVIntArray(in, WritableUtils.readVInt(in));
     }
 
-    public static int[] deserializeIntArray(DataInput in, int length) throws IOException {
+    public static int[] deserializeVIntArray(DataInput in, int length) throws IOException {
         int i = 0;
         int[] intArray = new int[length];
         while (i < length) {
@@ -219,11 +239,11 @@ public class ByteUtil {
      * @param length number of serialized vints
      * @return int array
      */
-    public static int[] deserializeIntArray(byte[] b, int length) {
+    public static int[] deserializeVIntArray(byte[] b, int length) {
         ByteArrayInputStream bytesIn = new ByteArrayInputStream(b);
         DataInputStream in = new DataInputStream(bytesIn);
         try {
-            return deserializeIntArray(in,length);
+            return deserializeVIntArray(in,length);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

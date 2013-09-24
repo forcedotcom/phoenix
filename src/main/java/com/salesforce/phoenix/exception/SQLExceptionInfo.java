@@ -126,7 +126,7 @@ public class SQLExceptionInfo {
         if (message != null) {
             builder.append(" ").append(message);
         }
-        String columnDisplayName = SchemaUtil.getColumnDisplayName(schemaName, tableName, familyName, columnName);
+        String columnDisplayName = SchemaUtil.getMetaDataEntityName(schemaName, tableName, familyName, columnName);
         if (columnName != null) {
             builder.append(" ").append(COLUMN_NAME).append("=").append(columnDisplayName);
         } else if (familyName != null) {

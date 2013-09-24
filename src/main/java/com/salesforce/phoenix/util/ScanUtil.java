@@ -28,19 +28,29 @@
 package com.salesforce.phoenix.util;
 
 import java.io.IOException;
-import java.util.*;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.filter.SkipScanFilter;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.SaltingUtil;
 
 
 /**
@@ -204,7 +214,7 @@ public class ScanUtil {
         for (int i = 0; i < position.length; i++) {
             position[i] = bound == Bound.LOWER ? 0 : slots.get(i).size()-1;
             KeyRange range = slots.get(i).get(position[i]);
-            maxLength += range.getRange(bound).length + (schema.getField(i).getType().isFixedWidth() ? 0 : 1);
+            maxLength += range.getRange(bound).length + (schema.getField(i).getDataType().isFixedWidth() ? 0 : 1);
         }
         byte[] key = new byte[maxLength];
         int length = setKey(schema, slots, position, bound, key, 0, 0, position.length);
@@ -227,7 +237,7 @@ public class ScanUtil {
                 maxLowerRangeLength = Math.max(maxLowerRangeLength, range.getLowerRange().length); 
                 maxUpperRangeLength = Math.max(maxUpperRangeLength, range.getUpperRange().length);
             }
-            int trailingByte = (schema.getField(schemaStartIndex).getType().isFixedWidth() ||
+            int trailingByte = (schema.getField(schemaStartIndex).getDataType().isFixedWidth() ||
                     schemaStartIndex == schema.getFieldCount() - 1 ? 0 : 1);
             maxLowerKeyLength += maxLowerRangeLength + trailingByte;
             maxUpperKeyLength += maxUpperKeyLength + trailingByte;
@@ -264,7 +274,7 @@ public class ScanUtil {
             // Build up the key by appending the bound of each key range
             // from the current position of each slot. 
             KeyRange range = slots.get(i).get(position[i]);
-            boolean isFixedWidth = schema.getField(schemaStartIndex++).getType().isFixedWidth();
+            boolean isFixedWidth = schema.getField(schemaStartIndex++).getDataType().isFixedWidth();
             /*
              * If the current slot is unbound then stop if:
              * 1) setting the upper bound. There's no value in
@@ -332,7 +342,7 @@ public class ScanUtil {
         // byte.
         if (bound == Bound.LOWER) {
             while (schemaStartIndex > 0 && offset > byteOffset && 
-                    !schema.getField(--schemaStartIndex).getType().isFixedWidth() && 
+                    !schema.getField(--schemaStartIndex).getDataType().isFixedWidth() && 
                     key[offset-1] == QueryConstants.SEPARATOR_BYTE) {
                 offset--;
             }
@@ -381,5 +391,14 @@ public class ScanUtil {
         } else {
             return ++mid;
         }
+    }
+    
+    public static ScanRanges newScanRanges(List<Mutation> mutations) throws SQLException {
+        List<KeyRange> keys = Lists.newArrayListWithExpectedSize(mutations.size());
+        for (Mutation m : mutations) {
+            keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
+        }
+        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
+        return keyRanges;
     }
 }

@@ -30,39 +30,53 @@ package com.salesforce.phoenix.cache;
 import java.io.Closeable;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.HRegionLocation;
+import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableSet;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.TableRef;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.Closeables;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SQLCloseables;
 
 /**
  * 
  * Client for sending cache to each region server
- *306
+ * 
  * @author jtaylor
  * @since 0.1
  */
 public class ServerCacheClient {
+    public static final int UUID_LENGTH = Bytes.SIZEOF_LONG;
     private static final Log LOG = LogFactory.getLog(ServerCacheClient.class);
+    private static final Random RANDOM = new Random();
     private final PhoenixConnection connection;
     private final TableRef cacheUsingTableRef;
-    private final KeyRange minMaxKeyRange;
 
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
@@ -70,15 +84,21 @@ public class ServerCacheClient {
      * @param connection the client connection
      * @param cacheUsingTableRef table name
      * @param minMaxKeyRange KeyRange specifying the min and max keys for the operation involving cacheUsingTableRef
+     * 
+     * TODO: instead of minMaxKeyRange, have an interface for iterating through ranges as we may be sending to
+     * servers when we don't have to if the min is in first region and max is in last region, especially for point queries.
      */
-    public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, KeyRange minMaxKeyRange) {
+    public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
         this.connection = connection;
         this.cacheUsingTableRef = cacheUsingTableRef;
-        this.minMaxKeyRange = minMaxKeyRange;
     }
 
     public PhoenixConnection getConnection() {
         return connection;
+    }
+    
+    public TableRef getTableRef() {
+        return cacheUsingTableRef;
     }
     
     /**
@@ -91,9 +111,9 @@ public class ServerCacheClient {
     public class ServerCache implements SQLCloseable {
         private final int size;
         private final byte[] id;
-        private final ImmutableSet<ServerName> servers;
+        private final ImmutableSet<HRegionLocation> servers;
         
-        public ServerCache(byte[] id, Set<ServerName> servers, int size) {
+        public ServerCache(byte[] id, Set<HRegionLocation> servers, int size) {
             this.id = id;
             this.servers = ImmutableSet.copyOf(servers);
             this.size = size;
@@ -123,14 +143,14 @@ public class ServerCacheClient {
 
     }
     
-    public ServerCache addServerCache(final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory) throws SQLException {
+    public ServerCache addServerCache(ScanRanges keyRanges, final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         MemoryChunk chunk = services.getMemoryManager().allocate(cachePtr.getLength());
         List<Closeable> closeables = new ArrayList<Closeable>();
         closeables.add(chunk);
         ServerCache hashCacheSpec = null;
         SQLException firstException = null;
-        final byte[] cacheId = nextId();
+        final byte[] cacheId = generateId();
         /**
          * Execute EndPoint in parallel on each server to send compressed hash cache 
          */
@@ -140,18 +160,18 @@ public class ServerCacheClient {
         ExecutorService executor = services.getExecutor();
         List<Future<Boolean>> futures = Collections.emptyList();
         try {
-            NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(cacheUsingTableRef);
+            List<HRegionLocation> locations = services.getAllTableRegions(cacheUsingTableRef.getTable().getName().getBytes());
             int nRegions = locations.size();
             // Size these based on worst case
             futures = new ArrayList<Future<Boolean>>(nRegions);
-            Set<ServerName> servers = new HashSet<ServerName>(nRegions);
-            for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
+            Set<HRegionLocation> servers = new HashSet<HRegionLocation>(nRegions);
+            for (HRegionLocation entry : locations) {
                 // Keep track of servers we've sent to and only send once
-                if ( ! servers.contains(entry.getValue()) && 
-                       minMaxKeyRange.intersect(KeyRange.getKeyRange(entry.getKey().getStartKey(), entry.getKey().getEndKey())) != KeyRange.EMPTY_RANGE) {  // Call RPC once per server
-                    servers.add(entry.getValue());
-                    final byte[] key = entry.getKey().getStartKey();
-                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTableName());
+                if ( ! servers.contains(entry) && 
+                        keyRanges.intersect(entry.getRegionInfo().getStartKey(), entry.getRegionInfo().getEndKey())) {  // Call RPC once per server
+                    servers.add(entry);
+                    final byte[] key = entry.getRegionInfo().getStartKey();
+                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTable().getName().getBytes());
                     closeables.add(htable);
                     futures.add(executor.submit(new JobCallable<Boolean>() {
                         
@@ -218,22 +238,29 @@ public class ServerCacheClient {
      * @throws SQLException
      * @throws IllegalStateException if hashed table cannot be removed on any region server on which it was added
      */
-    private void removeServerCache(byte[] cacheId, Set<ServerName> servers) throws SQLException {
+    private void removeServerCache(byte[] cacheId, Set<HRegionLocation> servers) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         Throwable lastThrowable = null;
-        HTableInterface iterateOverTable = services.getTable(cacheUsingTableRef.getTableName());
-        NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(cacheUsingTableRef);
-        Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
-        for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
-            if (remainingOnServers.contains(entry.getValue())) {  // Call once per server
+        byte[] tableName = cacheUsingTableRef.getTable().getName().getBytes();
+        HTableInterface iterateOverTable = services.getTable(tableName);
+        List<HRegionLocation> locations = services.getAllTableRegions(tableName);
+        Set<HRegionLocation> remainingOnServers = new HashSet<HRegionLocation>(servers);
+        /**
+         * Allow for the possibility that the region we based where to send our cache has split and been
+         * relocated to another region server *after* we sent it, but before we removed it. To accommodate
+         * this, we iterate through the current metadata boundaries and remove the cache once for each
+         * server that we originally sent to.
+         */
+        for (HRegionLocation entry : locations) {
+            if (remainingOnServers.contains(entry)) {  // Call once per server
                 try {
-                    byte[] key = entry.getKey().getStartKey();
+                    byte[] key = entry.getRegionInfo().getStartKey();
                     ServerCachingProtocol protocol = iterateOverTable.coprocessorProxy(ServerCachingProtocol.class, key);
                     protocol.removeServerCache(connection.getTenantId(), cacheId);
-                    remainingOnServers.remove(entry.getValue());
+                    remainingOnServers.remove(entry);
                 } catch (Throwable t) {
                     lastThrowable = t;
-                    LOG.error("Error trying to remove hash cache for " + entry.getValue(), t);
+                    LOG.error("Error trying to remove hash cache for " + entry, t);
                 }
             }
         }
@@ -243,9 +270,12 @@ public class ServerCacheClient {
     }
 
     /**
-     * Create an ID to keep the cached information across other operations independent
+     * Create an ID to keep the cached information across other operations independent.
+     * Using simple long random number, since the length of time we need this to be unique
+     * is very limited. 
      */
-    private static byte[] nextId() {
-        return Bytes.toBytes(UUID.randomUUID().toString());
+    public static byte[] generateId() {
+        long rand = RANDOM.nextLong();
+        return Bytes.toBytes(rand);
     }
 }

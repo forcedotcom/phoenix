@@ -38,7 +38,7 @@ import com.salesforce.phoenix.schema.KeyValueSchema.KeyValueSchemaBuilder;
 public class ValueBitSetTest {
     private static final int FIXED_WIDTH_CHAR_SIZE = 10;
     private KeyValueSchema generateSchema(int nFields, int nRepeating, final int nNotNull) {
-        KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder();
+        KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder(nNotNull);
         for (int i = 0; i < nFields; i++) {
             final int fieldIndex = i;
             for (int j = 0; j < nRepeating; j++) {
@@ -71,7 +71,6 @@ public class ValueBitSetTest {
                 builder.addField(datum);
             }
         }
-        builder.setMinNullable(nNotNull);
         KeyValueSchema schema = builder.build();
         return schema;
     }

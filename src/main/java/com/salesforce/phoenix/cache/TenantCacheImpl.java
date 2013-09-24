@@ -35,11 +35,11 @@ import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.cache.*;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.util.Closeables;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
  * 

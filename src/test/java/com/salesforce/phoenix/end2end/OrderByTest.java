@@ -27,10 +27,25 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.ROW1;
+import static com.salesforce.phoenix.util.TestUtil.ROW2;
+import static com.salesforce.phoenix.util.TestUtil.ROW3;
+import static com.salesforce.phoenix.util.TestUtil.ROW4;
+import static com.salesforce.phoenix.util.TestUtil.ROW5;
+import static com.salesforce.phoenix.util.TestUtil.ROW6;
+import static com.salesforce.phoenix.util.TestUtil.ROW7;
+import static com.salesforce.phoenix.util.TestUtil.ROW8;
+import static com.salesforce.phoenix.util.TestUtil.ROW9;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -52,23 +67,23 @@ public abstract class OrderByTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW1);
+            assertEquals(ROW1,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW4);
+            assertEquals(ROW4,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW7);
+            assertEquals(ROW7,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW2);
+            assertEquals(ROW2,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW5);
+            assertEquals(ROW5,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW8);
+            assertEquals(ROW8,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW3);
+            assertEquals(ROW3,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW6);
+            assertEquals(ROW6,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW9);
+            assertEquals(ROW9,rs.getString(1));
 
             assertFalse(rs.next());
         } finally {
@@ -90,23 +105,23 @@ public abstract class OrderByTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW9);
+            assertEquals(ROW9,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW6);
+            assertEquals(ROW6,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW3);
+            assertEquals(ROW3,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW8);
+            assertEquals(ROW8,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW5);
+            assertEquals(ROW5,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW2);
+            assertEquals(ROW2,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW7);
+            assertEquals(ROW7,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW4);
+            assertEquals(ROW4,rs.getString(1));
             assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW1);
+            assertEquals(ROW1,rs.getString(1));
 
             assertFalse(rs.next());
         } finally {

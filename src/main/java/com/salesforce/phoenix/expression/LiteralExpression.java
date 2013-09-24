@@ -40,7 +40,7 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 
@@ -125,7 +125,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             byte[] b = type.toBytes(value, columnModifier);
             if (type == PDataType.VARCHAR || type == PDataType.CHAR) {
                 if (type == PDataType.CHAR && maxLength != null  && b.length < maxLength) {
-                    b = SchemaUtil.padChar(b, maxLength);
+                    b = StringUtil.padChar(b, maxLength);
                 } else if (value != null) {
                     maxLength = ((String)value).length();
                 }
