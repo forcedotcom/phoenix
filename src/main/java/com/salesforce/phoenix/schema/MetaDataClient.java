@@ -560,10 +560,11 @@ public class MetaDataClient {
                 
                 Collection<Pair<String,Object>> props = statement.getProps().get(QueryConstants.ALL_FAMILY_PROPERTIES_KEY);
                 for (Pair<String,Object> prop : props) {
-                    if (defaultDescriptor.getValue(prop.getFirst()) == null) {
-                        tableProps.put(prop.getFirst(), prop.getSecond());
+                	final String keyProperty = SchemaUtil.normalizeIdentifier( prop.getFirst() );
+                    if (defaultDescriptor.getValue(keyProperty) == null) {
+                        tableProps.put(keyProperty, prop.getSecond());
                     } else {
-                        commonFamilyProps.put(prop.getFirst(), prop.getSecond());
+                        commonFamilyProps.put(keyProperty, prop.getSecond());
                     }
                 }
             }
