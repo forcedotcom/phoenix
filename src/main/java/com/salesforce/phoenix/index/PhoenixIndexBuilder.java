@@ -35,7 +35,7 @@ import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.SaltingUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
  * Index builder for covered-columns index that ties into phoenix for faster use.
@@ -54,7 +54,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
             keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
             maintainers.addAll(getCodec().getIndexMaintainers(m.getAttributesMap()));
         }
-        ScanRanges scanRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
+        ScanRanges scanRanges = ScanRanges.create(Collections.singletonList(keys), SchemaUtil.VAR_BINARY_SCHEMA);
         Scan scan = new Scan();
         scan.setRaw(true);
         // Project into scan only the columns we need to build the new index row and

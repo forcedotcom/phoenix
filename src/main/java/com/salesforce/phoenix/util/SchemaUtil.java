@@ -88,14 +88,18 @@ import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.SaltingUtil;
 
 
@@ -112,6 +116,40 @@ public class SchemaUtil {
     private static final int VAR_LENGTH_ESTIMATE = 10;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
+    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
+    
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+    
+        @Override
+        public PDataType getDataType() {
+            return PDataType.VARBINARY;
+        }
+    
+        @Override
+        public Integer getByteSize() {
+            return null;
+        }
+    
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+    
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+    
+        @Override
+        public ColumnModifier getColumnModifier() {
+            return null;
+        }
+        
+    }, false, null).build();
+    
     /**
      * May not be instantiated
      */
