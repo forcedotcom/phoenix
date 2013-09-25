@@ -144,7 +144,7 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
-        conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true " +  (tableSaltBuckets == null ? "" : ", SALT_BUCKETS=" + tableSaltBuckets));
+        conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) immutable_rows=true " +  (tableSaltBuckets == null ? "" : ", SALT_BUCKETS=" + tableSaltBuckets));
         query = "SELECT * FROM t";
         rs = conn.createStatement().executeQuery(query);
         assertFalse(rs.next());
