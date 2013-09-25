@@ -232,7 +232,7 @@ public class IndexUpdateManager {
             + ((m instanceof Put) ? m.getTimeStamp() + " " : ""));
         sb.append("\n");
         if (m.getFamilyMap().isEmpty()) {
-          sb.append("=== EMPTY ===");
+          sb.append("\t\t=== EMPTY ===\n");
         }
         for (List<KeyValue> kvs : m.getFamilyMap().values()) {
           for (KeyValue kv : kvs) {
