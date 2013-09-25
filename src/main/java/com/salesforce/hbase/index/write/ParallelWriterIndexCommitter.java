@@ -85,7 +85,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
   public void setup(IndexWriter parent, RegionCoprocessorEnvironment env) {
     Configuration conf = env.getConfiguration();
     setup(getDefaultDelegateHTableFactory(env), getDefaultExecutor(conf),
-      env.getRegionServerServices(), parent);
+      env.getRegionServerServices(), parent, CachingHTableFactory.getCacheSize(conf));
   }
 
   /**
@@ -93,9 +93,10 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
    * <p>
    * Exposed for TESTING
    */
-  void setup(HTableFactory factory, ExecutorService pool, Abortable abortable, Stoppable stop) {
+  void setup(HTableFactory factory, ExecutorService pool, Abortable abortable, Stoppable stop,
+      int cacheSize) {
     this.writerPool = MoreExecutors.listeningDecorator(pool);
-    this.factory = new CachingHTableFactory(factory);
+    this.factory = new CachingHTableFactory(factory, cacheSize);
     this.abortable = new CapturingAbortable(abortable);
     this.stopped = stop;
   }

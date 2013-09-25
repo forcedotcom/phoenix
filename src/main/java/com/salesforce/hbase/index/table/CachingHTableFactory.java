@@ -28,13 +28,12 @@
 package com.salesforce.hbase.index.table;
 
 import java.io.IOException;
-import java.lang.ref.ReferenceQueue;
-import java.lang.ref.SoftReference;
-import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.collections.map.LRUMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -42,8 +41,8 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * A simple cache that just uses usual GC mechanisms to cleanup unused {@link HTableInterface}s.
- * When requesting an {@link HTableInterface} via {@link #getTable(byte[])}, you may get the same
- * table as last time, or it may be a new table.
+ * When requesting an {@link HTableInterface} via {@link #getTable}, you may get the same table as
+ * last time, or it may be a new table.
  * <p>
  * You <b>should not call {@link HTableInterface#close()} </b> that is handled when the table goes
  * out of scope. Along the same lines, you must ensure to not keep a reference to the table for
@@ -51,36 +50,64 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
  */
 public class CachingHTableFactory implements HTableFactory {
 
+  /**
+   * LRUMap that closes the {@link HTableInterface} when the table is evicted
+   */
+  @SuppressWarnings("serial")
+  public class HTableInterfaceLRUMap extends LRUMap {
+
+    public HTableInterfaceLRUMap(int cacheSize) {
+      super(cacheSize);
+    }
+
+    @Override
+    protected boolean removeLRU(LinkEntry entry) {
+      HTableInterface table = (HTableInterface) entry.getValue();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Closing connection to table: " + Bytes.toString(table.getTableName())
+            + " because it was evicted from the cache.");
+      }
+      try {
+        table.close();
+      } catch (IOException e) {
+        LOG.info("Failed to correctly close HTable: " + Bytes.toString(table.getTableName())
+            + " ignoring since being removed from queue.");
+      }
+      return true;
+    }
+  }
+
+  public static int getCacheSize(Configuration conf) {
+    return conf.getInt(CACHE_SIZE_KEY, DEFAULT_CACHE_SIZE);
+  }
+
   private static final Log LOG = LogFactory.getLog(CachingHTableFactory.class);
+  private static final String CACHE_SIZE_KEY = "index.tablefactory.cache.size";
+  private static final int DEFAULT_CACHE_SIZE = 10;
+
   private HTableFactory delegate;
 
-  Map<ImmutableBytesPtr, SoftReference<HTableInterface>> openTables =
-      new HashMap<ImmutableBytesPtr, SoftReference<HTableInterface>>();
+  @SuppressWarnings("rawtypes")
+  Map openTables;
 
-  private ReferenceQueue<HTableInterface> referenceQueue;
+  public CachingHTableFactory(HTableFactory tableFactory, Configuration conf) {
+    this(tableFactory, getCacheSize(conf));
+  }
 
-  private Thread cleanupThread;
-
-  public CachingHTableFactory(HTableFactory tableFactory) {
-    this.delegate = tableFactory;
-    this.referenceQueue = new ReferenceQueue<HTableInterface>();
-    this.cleanupThread = new Thread(new TableCleaner(referenceQueue), "cached-table-cleanup");
-    cleanupThread.setDaemon(true);
-    cleanupThread.start();
+  public CachingHTableFactory(HTableFactory factory, int cacheSize) {
+    this.delegate = factory;
+    openTables = new HTableInterfaceLRUMap(cacheSize);
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public HTableInterface getTable(ImmutableBytesPtr tablename) throws IOException {
     ImmutableBytesPtr tableBytes = new ImmutableBytesPtr(tablename);
     synchronized (openTables) {
-      SoftReference<HTableInterface> ref = openTables.get(tableBytes);
-      // the reference may be null, in which case this is a new table, or the underlying HTable may
-      // have been GC'ed.
-      @SuppressWarnings("resource")
-      HTableInterface table = ref == null ? null : ref.get();
+      HTableInterface table = (HTableInterface) openTables.get(tableBytes);
       if (table == null) {
         table = delegate.getTable(tablename);
-        openTables.put(tableBytes, new SoftReference<HTableInterface>(table, referenceQueue));
+        openTables.put(tableBytes, table);
       }
       return table;
     }
@@ -88,49 +115,6 @@ public class CachingHTableFactory implements HTableFactory {
 
   @Override
   public void shutdown() {
-    this.cleanupThread.interrupt();
     this.delegate.shutdown();
-  }
-
-  /**
-   * Cleaner to ensure that any tables that are GC'ed are also closed.
-   */
-  private class TableCleaner implements Runnable {
-
-    private ReferenceQueue<HTableInterface> queue;
-
-    public TableCleaner(ReferenceQueue<HTableInterface> referenceQueue) {
-      this.queue = referenceQueue;
-    }
-
-    @Override
-    public void run() {
-      try {
-        HTableInterface table = this.queue.remove().get();
-        if (table != null) {
-          try {
-            table.close();
-          } catch (IOException e) {
-            LOG.error(
-              "Failed to correctly close htable, ignoring it further since it is being GC'ed", e);
-          }
-        }
-      } catch (InterruptedException e) {
-        LOG.info("Recieved an interrupt - assuming system is going down. Closing all remaining HTables and quitting!");
-        for (SoftReference<HTableInterface> ref : openTables.values()) {
-          HTableInterface table = ref.get();
-          if (table != null) {
-            try {
-              LOG.info("Closing connection to index table: " + Bytes.toString(table.getTableName()));
-              table.close();
-            } catch (IOException ioe) {
-              LOG.error(
-                "Failed to correctly close htable on shutdown! Ignoring and closing remaining tables",
-                ioe);
-            }
-          }
-        }
-      }
-    }
   }
 }

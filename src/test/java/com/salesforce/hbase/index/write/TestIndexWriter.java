@@ -126,7 +126,7 @@ public class TestIndexWriter {
 
     // setup the writer and failure policy
     ParallelWriterIndexCommitter committer = new ParallelWriterIndexCommitter();
-    committer.setup(factory, exec, abort, stop);
+    committer.setup(factory, exec, abort, stop, 2);
     KillServerOnFailurePolicy policy = new KillServerOnFailurePolicy();
     policy.setup(stop, abort);
     IndexWriter writer = new IndexWriter(committer, policy);
@@ -199,7 +199,7 @@ public class TestIndexWriter {
     tables.put(new ImmutableBytesPtr(tableName2), table2);
 
     ParallelWriterIndexCommitter committer = new ParallelWriterIndexCommitter();
-    committer.setup(factory, exec, abort, stop);
+    committer.setup(factory, exec, abort, stop, 2);
     KillServerOnFailurePolicy policy = new KillServerOnFailurePolicy();
     policy.setup(stop, abort);
     IndexWriter writer = new IndexWriter(committer, policy);
@@ -259,7 +259,7 @@ public class TestIndexWriter {
 
     // setup the writer
     ParallelWriterIndexCommitter committer = new ParallelWriterIndexCommitter();
-    committer.setup(factory, exec, abort, stop);
+    committer.setup(factory, exec, abort, stop, 2);
     KillServerOnFailurePolicy policy = new KillServerOnFailurePolicy();
     policy.setup(stop, abort);
     final IndexWriter writer = new IndexWriter(committer, policy);
