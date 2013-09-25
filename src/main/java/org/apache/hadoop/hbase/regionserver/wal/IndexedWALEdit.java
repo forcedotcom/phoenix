@@ -27,6 +27,7 @@ public class IndexedWALEdit extends WALEdit {
    * Copy-constructor. Only does a surface copy of the delegates fields - no actual data is copied, only referenced.
    * @param delegate to copy
    */
+  @SuppressWarnings("deprecation")
   public IndexedWALEdit(WALEdit delegate) {
     this.delegate = delegate;
     // reset the delegate's fields
@@ -46,6 +47,7 @@ public void setCompressionContext(CompressionContext context) {
         "Compression not supported for IndexedWALEdit! If you are using HBase 0.94.9+, use IndexedWALEditCodec instead.");
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public void readFields(DataInput in) throws IOException {
     delegate.getKeyValues().clear();

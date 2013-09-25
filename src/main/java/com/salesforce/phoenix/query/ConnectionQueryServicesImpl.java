@@ -107,7 +107,6 @@ import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
-import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -856,7 +855,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     indexRowsToUpdate.add(keyRange);
                 }
             }
-            ScanRanges ranges = ScanRanges.create(Collections.singletonList(indexRowsToUpdate), SaltingUtil.VAR_BINARY_SCHEMA);
+            ScanRanges ranges = ScanRanges.create(Collections.singletonList(indexRowsToUpdate), SchemaUtil.VAR_BINARY_SCHEMA);
             Scan indexScan = new Scan();
             scan.addFamily(TABLE_FAMILY_BYTES);
             indexScan.setFilter(ranges.getSkipScanFilter());

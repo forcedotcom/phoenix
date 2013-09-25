@@ -50,7 +50,6 @@ import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeySchema;
-import com.salesforce.phoenix.schema.SaltingUtil;
 
 
 /**
@@ -398,7 +397,7 @@ public class ScanUtil {
         for (Mutation m : mutations) {
             keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
         }
-        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
+        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SchemaUtil.VAR_BINARY_SCHEMA);
         return keyRanges;
     }
 }

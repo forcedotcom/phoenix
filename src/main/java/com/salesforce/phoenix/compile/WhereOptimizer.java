@@ -27,22 +27,43 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.InListExpression;
+import com.salesforce.phoenix.expression.IsNullExpression;
+import com.salesforce.phoenix.expression.LikeExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.SaltingUtil;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -157,13 +178,13 @@ public class WhereOptimizer {
                 if (ScanUtil.isAllSingleRowScan(cnf, table.getRowKeySchema())) {
                     cnf.addFirst(SALT_PLACEHOLDER);
                     ranges = SaltingUtil.flattenRanges(cnf, table.getRowKeySchema(), table.getBucketNum());
-                    schema = SaltingUtil.VAR_BINARY_SCHEMA;
+                    schema = SchemaUtil.VAR_BINARY_SCHEMA;
                 } else {
                     cnf.addFirst(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
                 }
             }
         }
-        context.setScanRanges(ScanRanges.create(ranges, schema));
+        context.setScanRanges(ScanRanges.create(ranges, schema, statement.getHint().hasHint(Hint.RANGE_SCAN)));
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
     }
 
