@@ -36,7 +36,6 @@ package com.salesforce.phoenix.expression;
 
 import java.io.DataInput;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -51,6 +50,7 @@ import com.salesforce.phoenix.util.*;
 public class RowValueConstructorExpression extends BaseCompoundExpression {
     
     private ImmutableBytesWritable ptrs[];
+    private boolean literalsOnly;
     private ImmutableBytesWritable literalExprPtr;
     private int counter;
     private int size;
@@ -82,15 +82,15 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     
     private void init() {
         ptrs = new ImmutableBytesWritable[children.size()];
-        boolean allLiterals = true;
+        literalsOnly = true;
    
         for(Expression e : children) {
             if(!(e instanceof LiteralExpression)) {
-                 allLiterals = false;
+                 literalsOnly = false;
                  break;
             }
         }
-        if(allLiterals) {
+        if(literalsOnly) {
             ImmutableBytesWritable ptr = new ImmutableBytesWritable();
             this.evaluate(null, ptr);
             literalExprPtr = new ImmutableBytesWritable();
@@ -112,8 +112,8 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if(literalExprPtr != null) {
-            //if determined during construction that the row value constructor is just comprised of literal expressions, 
+        if(literalsOnly && literalExprPtr != null) {
+            // if determined during construction that the row value constructor is just comprised of literal expressions, 
             // let's just return the ptr we have already computed and be done with evaluation.
             ptr.set(literalExprPtr.get(), literalExprPtr.getOffset(), literalExprPtr.getLength());
             return true;
@@ -124,13 +124,14 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
             for(j = counter; j < numChildExpressions; j++) {
                 final Expression expression = children.get(j);
                 if(expression.evaluate(tuple, ptr)) {
-                    PDataType dt = IndexUtil.getIndexColumnDataType(true , expression.getDataType(), null);
+                    PDataType dt = IndexUtil.getIndexColumnDataType(true , expression.getDataType());
                     dt.coerceBytes(ptr, expression.getDataType(), expression.getColumnModifier(), expression.getColumnModifier());
                     ptrs[j] = new ImmutableBytesWritable();
                     ptrs[j].set(ptr.get(), ptr.getOffset(), ptr.getLength());
                     size = size + (dt.isFixedWidth() ? ptr.getLength() : ptr.getLength() + 1);
                     counter++;
                 } else if(tuple == null || tuple.isImmutable()) {
+                    ptrs[j] = new ImmutableBytesWritable();
                     ptrs[j].set(ByteUtil.EMPTY_BYTE_ARRAY);
                     counter++;
                 } else {
@@ -146,7 +147,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                         if(tempPtr != null) {
                             if(i > 0) {
                                 final Expression expression = children.get(i);
-                                if (!IndexUtil.getIndexColumnDataType(true , expression.getDataType(), null).isFixedWidth()) {
+                                if (!IndexUtil.getIndexColumnDataType(true , expression.getDataType()).isFixedWidth()) {
                                     output.write(QueryConstants.SEPARATOR_BYTE);
                                 }
                             }
@@ -171,8 +172,6 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
             return false;
         } catch (IOException e) {
             throw new RuntimeException(e); //Impossible.
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 }

@@ -27,43 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
-import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
-import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
-import static com.salesforce.phoenix.util.TestUtil.C_VALUE;
-import static com.salesforce.phoenix.util.TestUtil.E_VALUE;
-import static com.salesforce.phoenix.util.TestUtil.MILLIS_IN_DAY;
-import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
-import static com.salesforce.phoenix.util.TestUtil.ROW1;
-import static com.salesforce.phoenix.util.TestUtil.ROW2;
-import static com.salesforce.phoenix.util.TestUtil.ROW3;
-import static com.salesforce.phoenix.util.TestUtil.ROW4;
-import static com.salesforce.phoenix.util.TestUtil.ROW5;
-import static com.salesforce.phoenix.util.TestUtil.ROW6;
-import static com.salesforce.phoenix.util.TestUtil.ROW7;
-import static com.salesforce.phoenix.util.TestUtil.ROW8;
-import static com.salesforce.phoenix.util.TestUtil.ROW9;
-import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static com.salesforce.phoenix.util.TestUtil.*;
+import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
+import java.sql.*;
 import java.sql.Date;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
@@ -2933,75 +2903,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testRowValueConstructorInWhereWithEqualsExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) = (7, 5)";
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            statement.setString(1, tenantId);
-            ResultSet rs = statement.executeQuery();
-            int count = 0;
-            while(rs.next()) {
-                count++;
-            }
-            assertTrue(count == 1);
-        } finally {
-            conn.close();
-        }
-    }
-    
-    @Test
-    public void testRowValueConstructorInWhereWithGreaterThanExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) >= (7, 5)";
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            statement.setString(1, tenantId);
-            ResultSet rs = statement.executeQuery();
-            int count = 0;
-            while(rs.next()) {
-                count++;
-            }
-            assertTrue(count == 3);
-        } finally {
-            conn.close();
-        }
-    }
-    
-    @Test
-    public void testRowValueConstructorInWhereWithUnEqualNumberArgs() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer, y_integer) >= (7)";
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            statement.setString(1, tenantId);
-            ResultSet rs = statement.executeQuery();
-            int count = 0;
-            while(rs.next()) {
-                System.out.println(rs.getInt(1));
-                System.out.println(rs.getInt(2));
-                count++;
-            }
-            assertTrue(count == 3);
-        } finally {
-            conn.close();
-        }
-    }
     public void testSplitWithCachedMeta() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
@@ -3063,4 +2964,108 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         }
     }
 
+    @Test
+    public void testRowValueConstructorInWhereWithEqualsExpression() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) = (7, 5)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) == 7);
+                assertTrue(rs.getInt(2) == 5);
+                count++;
+            }
+            assertTrue(count == 1);
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorInWhereWithGreaterThanExpression() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) >= (4, 4)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) >= 4);
+                assertTrue(rs.getInt(1) == 4 ? rs.getInt(2) >= 4 : rs.getInt(2) >= 0);
+                count++;
+            }
+            // we have 6 values for a_integer present in the atable where a >= 4. x_integer is null for a_integer = 4. So the query should have returned 5 rows.
+            assertTrue(count == 5);   
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorInWhereWithUnEqualNumberArgs() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer, y_integer) >= (7, 5)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) >= 7);
+                assertTrue(rs.getInt(1) == 7 ? rs.getInt(2) >= 5 : rs.getInt(2) >= 0);
+                count++;
+            }
+            // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
+            assertTrue(count == 3); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testBindVarsInRowValueConstructor() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) = (?, ?)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setInt(2, 7);
+            statement.setInt(3, 5);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) == 7);
+                assertTrue(rs.getInt(2) == 5);
+                count++;
+            }
+            assertTrue(count == 1); 
+        } finally {
+            conn.close();
+        }
+    }
+    
 }

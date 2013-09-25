@@ -71,5 +71,10 @@ public class EvaluateOnCompletionVisitor extends TraverseAllExpressionVisitor<Vo
         evaluateOnCompletion = true;
         return null;
     }
+    @Override
+    public Iterator<Expression> visitEnter(RowValueConstructorExpression node) {
+        evaluateOnCompletion = true;
+        return null;
+    }
 
 }

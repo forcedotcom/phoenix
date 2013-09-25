@@ -30,35 +30,7 @@ package com.salesforce.phoenix.expression;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
-import com.salesforce.phoenix.expression.function.CoalesceFunction;
-import com.salesforce.phoenix.expression.function.CountAggregateFunction;
-import com.salesforce.phoenix.expression.function.DistinctCountAggregateFunction;
-import com.salesforce.phoenix.expression.function.LTrimFunction;
-import com.salesforce.phoenix.expression.function.LengthFunction;
-import com.salesforce.phoenix.expression.function.LowerFunction;
-import com.salesforce.phoenix.expression.function.MD5Function;
-import com.salesforce.phoenix.expression.function.MaxAggregateFunction;
-import com.salesforce.phoenix.expression.function.MinAggregateFunction;
-import com.salesforce.phoenix.expression.function.PercentRankAggregateFunction;
-import com.salesforce.phoenix.expression.function.PercentileContAggregateFunction;
-import com.salesforce.phoenix.expression.function.PercentileDiscAggregateFunction;
-import com.salesforce.phoenix.expression.function.RTrimFunction;
-import com.salesforce.phoenix.expression.function.RegexpReplaceFunction;
-import com.salesforce.phoenix.expression.function.RegexpSubstrFunction;
-import com.salesforce.phoenix.expression.function.ReverseFunction;
-import com.salesforce.phoenix.expression.function.RoundFunction;
-import com.salesforce.phoenix.expression.function.SqlTableType;
-import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
-import com.salesforce.phoenix.expression.function.StddevPopFunction;
-import com.salesforce.phoenix.expression.function.StddevSampFunction;
-import com.salesforce.phoenix.expression.function.SubstrFunction;
-import com.salesforce.phoenix.expression.function.SumAggregateFunction;
-import com.salesforce.phoenix.expression.function.ToCharFunction;
-import com.salesforce.phoenix.expression.function.ToDateFunction;
-import com.salesforce.phoenix.expression.function.ToNumberFunction;
-import com.salesforce.phoenix.expression.function.TrimFunction;
-import com.salesforce.phoenix.expression.function.TruncFunction;
-import com.salesforce.phoenix.expression.function.UpperFunction;
+import com.salesforce.phoenix.expression.function.*;
 
 /**
  * 
@@ -124,7 +96,7 @@ public enum ExpressionType {
     DoubleSubtractExpression(DoubleSubtractExpression.class),
     DoubleMultiplyExpression(DoubleMultiplyExpression.class),
     DoubleDivideExpression(DoubleDivideExpression.class),
-    RowValueConstructorExpression(RowValueConstructorExpression.class);
+    RowValueConstructorExpression(RowValueConstructorExpression.class),
     MD5Function(MD5Function.class),
     SqlTableType(SqlTableType.class),
     IndexKeyValue(IndexKeyValueColumnExpression.class);

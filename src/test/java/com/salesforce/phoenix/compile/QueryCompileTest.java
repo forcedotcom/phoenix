@@ -29,20 +29,10 @@ package com.salesforce.phoenix.compile;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
+import java.sql.*;
+import java.util.*;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -50,19 +40,14 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.CountAggregator;
-import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.expression.aggregator.*;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.PhoenixRuntime;
-import com.salesforce.phoenix.util.SchemaUtil;
-import com.salesforce.phoenix.util.TestUtil;
+import com.salesforce.phoenix.util.*;
 
 
 
@@ -950,5 +935,18 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
         }  
+    }
+    
+    @Test
+    public void testUsingNonCoercibleDataTypesInRowValueConstructorFails() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) > (2, 'abc')";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a integer to string isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
     }
 }
