@@ -57,7 +57,8 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 public class IndexWriter implements Stoppable {
 
   private static final Log LOG = LogFactory.getLog(IndexWriter.class);
-  private static final String INDEX_COMMITTER_CONF_KEY = null;
+  private static final String INDEX_COMMITTER_CONF_KEY = "index.writer.commiter.class";
+  private static final String INDEX_FAILURE_POLICY_CONF_KEY = "index.writer.failurepolicy.class";
   private AtomicBoolean stopped = new AtomicBoolean(false);
   private IndexCommitter writer;
   private IndexFailurePolicy failurePolicy;
@@ -72,7 +73,7 @@ public class IndexWriter implements Stoppable {
     this.failurePolicy.setup(this, env);
   }
 
-  private static IndexCommitter getCommitter(RegionCoprocessorEnvironment env) throws IOException {
+  static IndexCommitter getCommitter(RegionCoprocessorEnvironment env) throws IOException {
     Configuration conf = env.getConfiguration();
     try {
       IndexCommitter committer =
@@ -86,12 +87,12 @@ public class IndexWriter implements Stoppable {
     }
   }
 
-  private static IndexFailurePolicy getFailurePolicy(RegionCoprocessorEnvironment env)
+  static IndexFailurePolicy getFailurePolicy(RegionCoprocessorEnvironment env)
       throws IOException {
     Configuration conf = env.getConfiguration();
     try {
       IndexFailurePolicy committer =
-          conf.getClass(INDEX_COMMITTER_CONF_KEY, KillServerOnFailurePolicy.class,
+          conf.getClass(INDEX_FAILURE_POLICY_CONF_KEY, KillServerOnFailurePolicy.class,
             IndexFailurePolicy.class).newInstance();
       return committer;
     } catch (InstantiationException e) {

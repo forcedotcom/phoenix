@@ -28,6 +28,7 @@
 package com.salesforce.hbase.index.write;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -44,11 +45,13 @@ import java.util.concurrent.Executors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Abortable;
 import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.junit.Rule;
@@ -68,6 +71,21 @@ public class TestIndexWriter {
   public TableName testName = new TableName();
   private final byte[] row = Bytes.toBytes("row");
 
+  @Test
+  public void getDefaultWriter() throws Exception {
+    Configuration conf = new Configuration(false);
+    RegionCoprocessorEnvironment env = Mockito.mock(RegionCoprocessorEnvironment.class);
+    Mockito.when(env.getConfiguration()).thenReturn(conf);
+    assertNotNull(IndexWriter.getCommitter(env));
+  }
+
+  @Test
+  public void getDefaultFailurePolicy() throws Exception {
+    Configuration conf = new Configuration(false);
+    RegionCoprocessorEnvironment env = Mockito.mock(RegionCoprocessorEnvironment.class);
+    Mockito.when(env.getConfiguration()).thenReturn(conf);
+    assertNotNull(IndexWriter.getFailurePolicy(env));
+  }
 
   /**
    * With the move to using a pool of threads to write, we need to ensure that we still block until
