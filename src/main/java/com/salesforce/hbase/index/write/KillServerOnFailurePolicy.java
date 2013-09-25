@@ -25,46 +25,64 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.write;
 
-import java.util.List;
-
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.Abortable;
+import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+
+import com.google.common.collect.Multimap;
+import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
 /**
- * Exception thrown if we cannot successfully write to an index table.
+ * Naive failure policy - kills the server on which it resides
  */
-@SuppressWarnings("serial")
-public class CannotReachIndexException extends Exception {
+public class KillServerOnFailurePolicy implements IndexFailurePolicy {
 
-  private String table;
+  private static final Log LOG = LogFactory.getLog(KillServerOnFailurePolicy.class);
+  private Abortable abortable;
+  private Stoppable stoppable;
 
-  /**
-   * Cannot reach the index, but not sure of the table or the mutations that caused the failure
-   * @param msg more description of what happened
-   * @param cause original cause
-   */
-  public CannotReachIndexException(String msg, Throwable cause) {
-    super(msg, cause);
+  @Override
+  public void setup(Stoppable parent, RegionCoprocessorEnvironment env) {
+    setup(parent, env.getRegionServerServices());
   }
 
-  /**
-   * Failed to write the passed mutations to an index table for some reason.
-   * @param targetTableName index table to which we attempted to write
-   * @param mutations mutations that were attempted
-   * @param cause underlying reason for the failure
-   */
-  public CannotReachIndexException(String targetTableName, List<Mutation> mutations, Exception cause) {
-    super("Failed to make index update:\n\t table: " + targetTableName + "\n\t edits: " + mutations
-        + "\n\tcause: " + cause == null ? "UNKNOWN" : cause.getMessage(), cause);
-    this.table = targetTableName;
+  public void setup(Stoppable parent, Abortable abort) {
+    this.stoppable = parent;
+    this.abortable = abort;
   }
 
-  /**
-   * @return The table to which we failed to write the index updates. If unknown, returns
-   *         <tt>null</tt>
-   */
-  public String getTableName() {
-    return this.table;
+  @Override
+  public void stop(String why) {
+    // noop
   }
+
+  @Override
+  public boolean isStopped() {
+    return this.stoppable.isStopped();
+  }
+
+  @Override
+  public void
+      handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) {
+    // cleanup resources
+    this.stop("Killing ourselves because of an error:" + cause);
+    // notify the regionserver of the failure
+    String msg =
+        "Could not update the index table, killing server region because couldn't write to an index table";
+    LOG.error(msg, cause);
+    try {
+      this.abortable.abort(msg, cause);
+    } catch (Exception e) {
+      LOG.fatal("Couldn't abort this server to preserve index writes, "
+          + "attempting to hard kill the server");
+      System.exit(1);
+    }
+
+  }
+
 }
