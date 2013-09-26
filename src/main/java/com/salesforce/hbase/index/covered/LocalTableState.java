@@ -177,6 +177,11 @@ public class LocalTableState implements TableState {
 
     // add the current state of the row
     this.addUpdate(this.table.getCurrentRowState(update, toCover).list(), false);
+
+    // add the covered columns to the set
+    for (ColumnReference ref : toCover) {
+      this.columnSet.addColumn(ref);
+    }
   }
 
   @Override
