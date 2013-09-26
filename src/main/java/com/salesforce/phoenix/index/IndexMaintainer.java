@@ -23,6 +23,7 @@ import org.apache.hadoop.io.WritableUtils;
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -238,11 +239,11 @@ public class IndexMaintainer implements Writable {
                 ColumnModifier dataColumnModifier = null;
                 if (dataPkPosition[i] == -1) {
                     dataColumnType = indexedColumnTypes.get(j);
-                    byte[] value = valueGetter.getLatestValue(indexedColumns.get(j));
+                    ImmutableBytesPtr value = valueGetter.getLatestValue(indexedColumns.get(j));
                     if (value == null) {
                         ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
                     } else {
-                        ptr.set(value);
+                        ptr.set(value.copyBytesIfNecessary());
                     }
                     j++;
                } else {
@@ -301,8 +302,8 @@ public class IndexMaintainer implements Writable {
         for (int i = 0; i < this.getCoverededColumns().size(); i++) {
             ColumnReference ref  = this.getCoverededColumns().get(i);
             byte[] cq = this.indexQualifiers.get(i);
-            byte[] value = valueGetter.getLatestValue(ref);
-            put.add(ref.getFamily(), cq, ts, value);
+            ImmutableBytesPtr value = valueGetter.getLatestValue(ref);
+            put.add(ref.getFamily(), cq, ts, value == null ? null : value.copyBytesIfNecessary());
         }
         // Add the empty key value
         put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
@@ -320,10 +321,10 @@ public class IndexMaintainer implements Writable {
     private boolean indexedColumnsChanged(ValueGetter oldState, ValueGetter newState) throws IOException {
         for (int i = 0; i < indexedColumns.size(); i++) {
             ColumnReference ref = indexedColumns.get(i);
-            byte[] newValue = newState.getLatestValue(ref);
+            ImmutableBytesPtr newValue = newState.getLatestValue(ref);
             if (newValue != null) { // Indexed column was changed
-                byte[] oldValue = oldState.getLatestValue(ref);
-                if (oldValue == null || !Arrays.equals(newValue, oldValue)) {
+                ImmutableBytesPtr oldValue = oldState.getLatestValue(ref);
+                if (oldValue == null || !oldValue.equals(newValue)){
                     return true;
                 }
             }

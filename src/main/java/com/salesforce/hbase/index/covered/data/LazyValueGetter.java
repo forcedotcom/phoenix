@@ -37,6 +37,7 @@ import org.apache.hadoop.hbase.KeyValue;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.scanner.Scanner;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * {@link ValueGetter} that uses lazy initialization to get the value for the given
@@ -45,7 +46,7 @@ import com.salesforce.hbase.index.scanner.Scanner;
 public class LazyValueGetter implements ValueGetter {
 
   private Scanner scan;
-  private volatile Map<ColumnReference, byte[]> values;
+  private volatile Map<ColumnReference, ImmutableBytesPtr> values;
   private byte[] row;
   
   /**
@@ -59,16 +60,16 @@ public class LazyValueGetter implements ValueGetter {
   }
 
   @Override
-  public byte[] getLatestValue(ColumnReference ref) throws IOException {
+  public ImmutableBytesPtr getLatestValue(ColumnReference ref) throws IOException {
     // ensure we have a backing map
     if (values == null) {
       synchronized (this) {
-        values = Collections.synchronizedMap(new HashMap<ColumnReference, byte[]>());
+        values = Collections.synchronizedMap(new HashMap<ColumnReference, ImmutableBytesPtr>());
       }
     }
 
     // check the value in the map
-    byte[] value = values.get(ref);
+    ImmutableBytesPtr value = values.get(ref);
     if (value == null) {
       value = get(ref);
       values.put(ref, value);
@@ -81,7 +82,7 @@ public class LazyValueGetter implements ValueGetter {
    * @param ref
    * @return the first value on the scanner for the given column
    */
-  private byte[] get(ColumnReference ref) throws IOException {
+  private ImmutableBytesPtr get(ColumnReference ref) throws IOException {
     KeyValue first = ref.getFirstKeyValueForRow(row);
     if (!scan.seek(first)) {
       return null;
@@ -89,7 +90,7 @@ public class LazyValueGetter implements ValueGetter {
     // there is a next value - we only care about the current value, so we can just snag that
     KeyValue next = scan.next();
     if (ref.matches(next)) {
-      return next.getValue();
+      return new ImmutableBytesPtr(next.getBuffer(), next.getValueOffset(), next.getValueLength());
     }
     return null;
   }
