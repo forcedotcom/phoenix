@@ -146,6 +146,9 @@ public class WhereCompiler {
         }
 
         public void increment(RowKeyColumnExpression column) {
+            if (column.getCFPrefix() == null)
+                return;
+            
             switch (count) {
                 case NONE:
                     count = Count.MULTIPLE;
