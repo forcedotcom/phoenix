@@ -49,19 +49,67 @@ public class IndexManagementUtil {
     // private ctor for util classes
   }
 
-  public static ValueGetter createGetterFromKeyValues (Collection<KeyValue> pendingUpdates) {
-      final Map<ColumnReference, byte[]> valueMap = Maps.newHashMapWithExpectedSize(pendingUpdates.size());
-      for (KeyValue kv : pendingUpdates) {
-          valueMap.put(new ColumnReference(kv.getFamily(), kv.getQualifier()), kv.getValue());
+  public static ValueGetter createGetterFromKeyValues(Collection<KeyValue> pendingUpdates) {
+    final Map<ReferencingColumn, ImmutableBytesPtr> valueMap =
+        Maps.newHashMapWithExpectedSize(pendingUpdates.size());
+    for (KeyValue kv : pendingUpdates) {
+      // create new pointers to each part of the kv
+      ImmutableBytesPtr family =
+          new ImmutableBytesPtr(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength());
+      ImmutableBytesPtr qual =
+          new ImmutableBytesPtr(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+      ImmutableBytesPtr value =
+          new ImmutableBytesPtr(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+      valueMap.put(new ReferencingColumn(family, qual), value);
+    }
+    return new ValueGetter() {
+      @Override
+      public ImmutableBytesPtr getLatestValue(ColumnReference ref) throws IOException {
+        return valueMap.get(ReferencingColumn.wrap(ref));
       }
-      return new ValueGetter() {
-        @Override
-        public byte[] getLatestValue(ColumnReference ref) throws IOException {
-            return valueMap.get(ref);
-        }
-      };
-      
+    };
   }
+
+  private static class ReferencingColumn {
+    ImmutableBytesPtr family;
+    ImmutableBytesPtr qual;
+
+    static ReferencingColumn wrap(ColumnReference ref) {
+      ImmutableBytesPtr family = new ImmutableBytesPtr(ref.getFamily());
+      ImmutableBytesPtr qual = new ImmutableBytesPtr(ref.getQualifier());
+      return new ReferencingColumn(family, qual);
+    }
+
+    public ReferencingColumn(ImmutableBytesPtr family, ImmutableBytesPtr qual) {
+      this.family = family;
+      this.qual = qual;
+    }
+
+    @Override
+    public int hashCode() {
+      final int prime = 31;
+      int result = 1;
+      result = prime * result + ((family == null) ? 0 : family.hashCode());
+      result = prime * result + ((qual == null) ? 0 : qual.hashCode());
+      return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) return true;
+      if (obj == null) return false;
+      if (getClass() != obj.getClass()) return false;
+      ReferencingColumn other = (ReferencingColumn) obj;
+      if (family == null) {
+        if (other.family != null) return false;
+      } else if (!family.equals(other.family)) return false;
+      if (qual == null) {
+        if (other.qual != null) return false;
+      } else if (!qual.equals(other.qual)) return false;
+      return true;
+    }
+  }
+
   public static ValueGetter createGetterFromScanner(Scanner scanner, byte[] currentRow) {
     return new LazyValueGetter(scanner, currentRow);
   }

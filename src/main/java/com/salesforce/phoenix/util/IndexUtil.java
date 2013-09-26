@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.index.IndexMaintainer;
@@ -144,7 +145,7 @@ public class IndexUtil {
                 ValueGetter valueGetter = new ValueGetter() {
     
                     @Override
-                    public byte[] getLatestValue(ColumnReference ref) {
+                    public ImmutableBytesPtr getLatestValue(ColumnReference ref) {
                         Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
                         byte[] family = ref.getFamily();
                         List<KeyValue> kvs = familyMap.get(family);
@@ -155,7 +156,7 @@ public class IndexUtil {
                         for (KeyValue kv : kvs) {
                             if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), family, 0, family.length) == 0 &&
                                 Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), qualifier, 0, qualifier.length) == 0) {
-                                return kv.getValue();
+                                return new ImmutableBytesPtr(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
                             }
                         }
                         return null;

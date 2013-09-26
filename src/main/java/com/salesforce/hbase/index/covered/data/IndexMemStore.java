@@ -40,7 +40,6 @@ import org.apache.hadoop.hbase.regionserver.IndexKeyValueSkipListSet;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 import org.apache.hadoop.hbase.regionserver.MemStore;
 import org.apache.hadoop.hbase.regionserver.NonLazyKeyValueScanner;
-import org.apache.hadoop.hbase.regionserver.TimeRangeTracker;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.hbase.index.covered.KeyValueStore;
@@ -79,7 +78,6 @@ public class IndexMemStore implements KeyValueStore {
 
   private static final Log LOG = LogFactory.getLog(IndexMemStore.class);
   private IndexKeyValueSkipListSet kvset;
-  private TimeRangeTracker timeRangeTracker = new TimeRangeTracker();
   private Comparator<KeyValue> comparator;
 
   /**
@@ -115,22 +113,15 @@ public class IndexMemStore implements KeyValueStore {
       LOG.info("Inserting: " + toString(kv));
     }
     // if overwriting, we will always update
-    boolean updated = true;
     if (!overwrite) {
       // null if there was no previous value, so we added the kv
-      updated = (kvset.putIfAbsent(kv) == null);
+      kvset.putIfAbsent(kv);
     } else {
       kvset.add(kv);
     }
 
-    // TODO do we even need to update this? I don't think we really even use it
-    // if we updated, we need to do some tracking work
-    if (updated) {
-      // update the max timestamp
-      this.timeRangeTracker.includeTimestamp(kv);
-      if (LOG.isDebugEnabled()) {
-        dump();
-      }
+    if (LOG.isDebugEnabled()) {
+      dump();
     }
   }
 
@@ -306,8 +297,8 @@ public class IndexMemStore implements KeyValueStore {
 
     @Override
     public boolean shouldUseScanner(Scan scan, SortedSet<byte[]> columns, long oldestUnexpiredTS) {
-      return (timeRangeTracker.includesTimeRange(scan.getTimeRange()) && (timeRangeTracker
-          .getMaximumTimestamp() >= oldestUnexpiredTS));
+      throw new UnsupportedOperationException(this.getClass().getName()
+          + " doesn't support checking to see if it should use a scanner!");
     }
   }
 }

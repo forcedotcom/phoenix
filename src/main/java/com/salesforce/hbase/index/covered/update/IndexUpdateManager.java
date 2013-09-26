@@ -230,6 +230,7 @@ public class IndexUpdateManager {
         }
         sb.append(m.getClass().getSimpleName() + ":"
             + ((m instanceof Put) ? m.getTimeStamp() + " " : ""));
+        sb.append(" row=" + Bytes.toString(m.getRow()));
         sb.append("\n");
         if (m.getFamilyMap().isEmpty()) {
           sb.append("\t\t=== EMPTY ===\n");

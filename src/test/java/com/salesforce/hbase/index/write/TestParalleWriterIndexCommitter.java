@@ -56,9 +56,9 @@ import com.salesforce.hbase.index.TableName;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
-public class TestParalleIndexWriter {
+public class TestParalleWriterIndexCommitter {
 
-  private static final Log LOG = LogFactory.getLog(TestParalleIndexWriter.class);
+  private static final Log LOG = LogFactory.getLog(TestParalleWriterIndexCommitter.class);
   @Rule
   public TableName test = new TableName();
   private final byte[] row = Bytes.toBytes("row");

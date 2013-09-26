@@ -25,22 +25,44 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.write;
 
-import java.io.IOException;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.Test;
+import org.mockito.Mockito;
 
-import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.table.CachingHTableFactory;
+import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
-public interface ValueGetter {
+public class TestCachingHTableFactory {
 
-  /**
-   * Get the most recent (largest timestamp) for the given column reference
-   * @param ref to match against an underlying key value. Uses the passed object to match the
-   *          keyValue via {@link ColumnReference#matches}
-   * @return the stored value for the given {@link ColumnReference}, or <tt>null</tt> if no value is
-   *         present.
-   * @throws IOException if there is an error accessing the underlying data storage
-   */
-  public ImmutableBytesPtr getLatestValue(ColumnReference ref) throws IOException;
+  @Test
+  public void testCacheCorrectlyExpiresTable() throws Exception {
+    // setup the mocks for the tables we will request
+    HTableFactory delegate = Mockito.mock(HTableFactory.class);
+    ImmutableBytesPtr t1 = new ImmutableBytesPtr(Bytes.toBytes("t1"));
+    ImmutableBytesPtr t2 = new ImmutableBytesPtr(Bytes.toBytes("t2"));
+    ImmutableBytesPtr t3 = new ImmutableBytesPtr(Bytes.toBytes("t3"));
+    HTableInterface table1 = Mockito.mock(HTableInterface.class);
+    HTableInterface table2 = Mockito.mock(HTableInterface.class);
+    HTableInterface table3 = Mockito.mock(HTableInterface.class);
+    Mockito.when(delegate.getTable(t1)).thenReturn(table1);
+    Mockito.when(delegate.getTable(t2)).thenReturn(table2);
+    Mockito.when(delegate.getTable(t3)).thenReturn(table3);
+    
+    // setup our factory with a cache size of 2
+    CachingHTableFactory factory = new CachingHTableFactory(delegate, 2);
+    factory.getTable(t1);
+    factory.getTable(t2);
+    factory.getTable(t3);
+    // get the same table a second time, after it has gone out of cache
+    factory.getTable(t1);
+    
+    Mockito.verify(delegate, Mockito.times(2)).getTable(t1);
+    Mockito.verify(delegate, Mockito.times(1)).getTable(t2);
+    Mockito.verify(delegate, Mockito.times(1)).getTable(t3);
+    Mockito.verify(table1).close();
+  }
 }
