@@ -91,7 +91,9 @@ public class StatementContext {
         this.tempPtr = new ImmutableBytesWritable();
         this.disambiguateWithTable = disambiguateWithTable;
         this.hashClient = hashClient;
-        this.currentTable = resolver.getTables().get(0);
+        if (!resolver.getTables().isEmpty()) {
+            this.currentTable = resolver.getTables().get(0);
+        }
     }
 
     public String getDateFormat() {
