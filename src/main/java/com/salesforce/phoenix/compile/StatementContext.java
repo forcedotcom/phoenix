@@ -91,7 +91,7 @@ public class StatementContext {
         this.tempPtr = new ImmutableBytesWritable();
         this.disambiguateWithTable = disambiguateWithTable;
         this.hashClient = hashClient;
-        if (!resolver.getTables().isEmpty()) {
+        if (resolver != null && !resolver.getTables().isEmpty()) {
             this.currentTable = resolver.getTables().get(0);
         }
     }
