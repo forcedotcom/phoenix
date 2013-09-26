@@ -108,7 +108,7 @@ public class TestLocalTableState {
    * Test that we correctly rollback the state of keyvalue
    * @throws Exception
    */
-  // @Test temporary to get perf numbers
+  @Test
   @SuppressWarnings("unchecked")
   public void testCorrectRollback() throws Exception {
     Put m = new Put(row);
