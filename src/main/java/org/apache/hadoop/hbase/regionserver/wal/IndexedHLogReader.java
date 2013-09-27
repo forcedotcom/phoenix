@@ -21,6 +21,13 @@ import org.apache.hadoop.io.Writable;
  * This is a little bit of a painful way of going about this, but saves the effort of hacking the
  * HBase source (and deal with getting it reviewed and backported, etc.) and still works.
  */
+/*
+ * TODO: Support splitting index updates into their own WAL entries on recovery (basically, just
+ * queue them up in next), if we know that the region was on the server when it crashed. However,
+ * this is kind of difficult as we need to know a lot of things the state of the system - basically,
+ * we need to track which of the regions were on the server when it crashed only only split those
+ * edits out into their respective regions.
+ */
 public class IndexedHLogReader implements Reader {
 
   private SequenceFileLogReader delegate;
@@ -40,8 +47,8 @@ public class IndexedHLogReader implements Reader {
 
     /**
      * we basically have to reproduce what the SequenceFile.Reader is doing in next(), but without
-     * the check out the value class, since we have a special value class that doesn't directly
-     * match what was specified in the file header
+     * the check on the value class, since we have a special value class that doesn't directly match
+     * what was specified in the file header
      */
     @Override
     public synchronized boolean next(Writable key, Writable val) throws IOException {

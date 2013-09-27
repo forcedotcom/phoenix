@@ -25,23 +25,27 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index.write;
-
-import org.apache.hadoop.hbase.Stoppable;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-
-import com.google.common.collect.Multimap;
-import com.salesforce.hbase.index.exception.IndexWriteException;
-import com.salesforce.hbase.index.table.HTableInterfaceReference;
+package com.salesforce.hbase.index.exception;
 
 /**
- * Write the index updates to the index tables
+ * Generic {@link Exception} that an index write has failed
  */
-public interface IndexCommitter extends Stoppable {
+@SuppressWarnings("serial")
+public class IndexWriteException extends Exception {
 
-  void setup(IndexWriter parent, RegionCoprocessorEnvironment env);
+  public IndexWriteException() {
+    super();
+  }
 
-  public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
-      throws IndexWriteException;
+  public IndexWriteException(String message, Throwable cause) {
+    super(message, cause);
+  }
+
+  public IndexWriteException(String message) {
+    super(message);
+  }
+
+  public IndexWriteException(Throwable cause) {
+    super(cause);
+  }
 }

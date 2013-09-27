@@ -65,10 +65,17 @@ import org.apache.hadoop.hbase.regionserver.wal.HLogKey;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.google.common.collect.Multimap;
 import com.salesforce.hbase.index.builder.IndexBuilder;
+import com.salesforce.hbase.index.exception.IndexWriteException;
+import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
+import com.salesforce.hbase.index.write.IndexFailurePolicy;
 import com.salesforce.hbase.index.write.IndexWriter;
+import com.salesforce.hbase.index.write.recovery.PerRegionIndexWriteCache;
+import com.salesforce.hbase.index.write.recovery.StoreFailuresInCachePolicy;
+import com.salesforce.hbase.index.write.recovery.TrackingParallelWriterIndexCommitter;
 
 /**
  * Do all the work of managing index updates from a single coprocessor. All Puts/Delets are passed
@@ -106,6 +113,8 @@ public class Indexer extends BaseRegionObserver {
    */
   public static final String CHECK_VERSION_CONF_KEY = "com.saleforce.hbase.index.checkversion";
 
+  private static final String INDEX_RECOVERY_FAILURE_POLICY_KEY = "com.salesforce.hbase.index.recovery.failurepolicy";
+
   /**
    * Marker {@link KeyValue} to indicate that we are doing a batch operation. Needed because the
    * coprocessor framework throws away the WALEdit from the prePut/preDelete hooks when checking a
@@ -113,6 +122,21 @@ public class Indexer extends BaseRegionObserver {
    * the preBatch hook, there won't be any WALEdits to which to add the index updates.
    */
   private static KeyValue BATCH_MARKER = new KeyValue();
+
+  /**
+   * cache the failed updates to the various regions. Used for making the WAL recovery mechanisms
+   * more robust in the face of recoverying index regions that were on the same server as the
+   * primary table region
+   */
+  private PerRegionIndexWriteCache failedIndexEdits = new PerRegionIndexWriteCache();
+
+  /**
+   * IndexWriter for writing the recovered index edits. Separate from the main indexer since we need
+   * different write/failure policies
+   */
+  private IndexWriter recoveryWriter;
+
+  public static String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
@@ -149,13 +173,35 @@ public class Indexer extends BaseRegionObserver {
     // add a synchronizer so we don't archive a WAL that we need
     log.registerWALActionsListener(new IndexLogRollSynchronizer(INDEX_READ_WRITE_LOCK.writeLock()));
 
-    // and setup the actual index writer
+    // setup the actual index writer
     this.writer = new IndexWriter(env);
+
+    // setup the recovery writer that does retries on the failed edits
+    TrackingParallelWriterIndexCommitter recoveryCommmiter =
+        new TrackingParallelWriterIndexCommitter();
+
+    try {
+      // get the specified failure policy. We only ever override it in tests, but we need to do it
+      // here
+      Class<? extends IndexFailurePolicy> policyClass = conf.getClass(
+        INDEX_RECOVERY_FAILURE_POLICY_KEY,
+      StoreFailuresInCachePolicy.class, IndexFailurePolicy.class);
+      IndexFailurePolicy policy = policyClass.getConstructor(PerRegionIndexWriteCache.class)
+          .newInstance(failedIndexEdits);
+      LOG.debug("Setting up recovery writter with committer: " + recoveryCommmiter.getClass()
+          + " and failure policy: " + policy.getClass());
+      recoveryWriter = new IndexWriter(recoveryCommmiter, policy, env);
+    } catch (Exception ex) {
+      throw new IOException("Could not instantiate recovery failure policy!", ex);
+    } 
+
   }
 
   @Override
   public void stop(CoprocessorEnvironment e) throws IOException {
-    this.writer.stop("Indexer is being stopped");
+    String msg = "Indexer is being stopped";
+    this.writer.stop(msg);
+    this.recoveryWriter.stop(msg);
   }
 
   @Override
@@ -266,7 +312,6 @@ public class Indexer extends BaseRegionObserver {
     /**
      * @param stored
      */
-    @SuppressWarnings("deprecation")
     public void addAll(Mutation stored) {
       // add all the kvs
       for (Entry<byte[], List<KeyValue>> kvs : stored.getFamilyMap().entrySet()) {
@@ -339,7 +384,7 @@ public class Indexer extends BaseRegionObserver {
       try {
         this.writer.write(indexUpdates);
         return false;
-      } catch (CannotReachIndexException e) {
+      } catch (IndexWriteException e) {
         LOG.error("Failed to update index with entries:" + indexUpdates, e);
         throw new IOException(e);
       }
@@ -455,10 +500,36 @@ public class Indexer extends BaseRegionObserver {
   }
 
   @Override
+  public void postOpen(final ObserverContext<RegionCoprocessorEnvironment> c) {
+    Multimap<HTableInterfaceReference, Mutation> updates = failedIndexEdits.getEdits(c.getEnvironment().getRegion());
+    
+    LOG.info("Found some outstanding index updates that didn't succeed during"
+        + " WAL replay - attempting to replay now.");
+    //if we have no pending edits to complete, then we are done
+    if (updates == null || updates.size() == 0) {
+      return;
+    }
+    
+    // do the usual writer stuff, killing the server again, if we can't manage to make the index
+    // writes succeed again
+    writer.writeAndKillYourselfOnFailure(updates);
+  }
+
+  @Override
   public void preWALRestore(ObserverContext<RegionCoprocessorEnvironment> env, HRegionInfo info,
       HLogKey logKey, WALEdit logEdit) throws IOException {
+    // TODO check the regions in transition. If the server on which the region lives is this one,
+    // then we should rety that write later in postOpen.
+    // we might be able to get even smarter here and pre-split the edits that are server-local
+    // into their own recovered.edits file. This then lets us do a straightforward recovery of each
+    // region (and more efficiently as we aren't writing quite as hectically from this one place).
+
+    /*
+     * Basically, we let the index regions recover for a little while long before retrying in the
+     * hopes they come up before the primary table finishes.
+     */
     Collection<Pair<Mutation, byte[]>> indexUpdates = extractIndexUpdate(logEdit);
-    writer.writeAndKillYourselfOnFailure(indexUpdates);
+    recoveryWriter.writeAndKillYourselfOnFailure(indexUpdates);
   }
 
   /**
