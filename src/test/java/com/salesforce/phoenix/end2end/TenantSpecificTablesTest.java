@@ -30,6 +30,8 @@ package com.salesforce.phoenix.end2end;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.schema.PTableType.SYSTEM;
+import static com.salesforce.phoenix.schema.PTableType.USER;
 import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.*;
@@ -41,6 +43,7 @@ import org.junit.*;
 
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
  * @author elilevine
@@ -162,38 +165,60 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testTableMetadataScan() throws Exception {
-        // make sure connections w/o tenant id only see parent tables
         Connection conn = DriverManager.getConnection(getUrl());
-        try {
+        try {   
+            // make sure connections w/o tenant id only see non-tenant-specific tables, both SYSTEM and USER
             DatabaseMetaData meta = conn.getMetaData();
             ResultSet rs = meta.getTables(null, null, null, null);
             assertTrue(rs.next());
-            assertEquals(TYPE_SCHEMA, rs.getString("TABLE_SCHEM"));
-            assertEquals(TYPE_TABLE, rs.getString("TABLE_NAME"));
-            assertEquals(PTableType.SYSTEM.getSerializedValue(), rs.getString("TABLE_TYPE"));
+            assertTableMetaData(rs, TYPE_SCHEMA, TYPE_TABLE, SYSTEM);
             assertTrue(rs.next());
-            assertEquals(null, rs.getString("TABLE_SCHEM"));
-            assertEquals(PARENT_TABLE_NAME, rs.getString("TABLE_NAME"));
-            assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+            assertTableMetaData(rs, null, PARENT_TABLE_NAME, USER);
             assertFalse(rs.next());
+            
+            // make sure connections w/o tenant id only see non-tenant-specific columns
+            rs = meta.getColumns(null, null, null, null);
+            while (rs.next()) {
+                assertNotEquals(TENANT_TABLE_NAME, rs.getString("TABLE_NAME"));
+            }
         }
         finally {
             conn.close();
         }
         
-        // make sure tenant-specific connections only see their own tables
         conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
-        try {
+        try {   
+            // make sure tenant-specific connections only see their own tables
             DatabaseMetaData meta = conn.getMetaData();
             ResultSet rs = meta.getTables(null, null, null, null);
             assertTrue(rs.next());
-            assertEquals(null, rs.getString("TABLE_SCHEM"));
-            assertEquals(TENANT_TABLE_NAME, rs.getString("TABLE_NAME"));
-            assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+            assertTableMetaData(rs, null, TENANT_TABLE_NAME, USER);
             assertFalse(rs.next());
+            
+            // make sure connections w/o tenant id only see non-tenant-specific columns
+            rs = meta.getColumns(null, null, null, null);
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_col");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_id");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "id");
+            assertFalse(rs.next()); 
         }
         finally {
             conn.close();
         }
+    }
+    
+    private void assertTableMetaData(ResultSet rs, String schema, String table, PTableType tableType) throws SQLException {
+        assertEquals(schema, rs.getString("TABLE_SCHEM"));
+        assertEquals(table, rs.getString("TABLE_NAME"));
+        assertEquals(tableType.getSerializedValue(), rs.getString("TABLE_TYPE"));
+    }
+    
+    private void assertColumnMetaData(ResultSet rs, String schema, String table, String column) throws SQLException {
+        assertEquals(schema, rs.getString("TABLE_SCHEM"));
+        assertEquals(table, rs.getString("TABLE_NAME"));
+        assertEquals(SchemaUtil.normalizeIdentifier(column), rs.getString("COLUMN_NAME"));
     }
 }
