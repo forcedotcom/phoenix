@@ -479,7 +479,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
      */
     private boolean hasTenantSpecificTables(HRegion region, byte[] tableName) throws IOException {
         Scan scan = new Scan();
-        scan.setStartRow(new byte[1]); // we are looking for keys with non-null tenantId, which is the leading rowkey component
+        scan.setStartRow(new byte[]{1}); // we are looking for keys with non-null tenantId, which is the leading rowkey component
         SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, tableName);
         filter.setFilterIfMissing(true);
         scan.setFilter(filter);
