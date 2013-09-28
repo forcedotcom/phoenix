@@ -105,7 +105,7 @@ public class TestLocalTableState {
   }
 
   /**
-   * Test that we correctly rollback the state of a keyvalue if its a {@link PendingKeyValue}.
+   * Test that we correctly rollback the state of keyvalue
    * @throws Exception
    */
   @Test
@@ -114,10 +114,7 @@ public class TestLocalTableState {
     Put m = new Put(row);
     m.add(fam, qual, ts, val);
     // setup mocks
-    Configuration conf = new Configuration(false);
     RegionCoprocessorEnvironment env = Mockito.mock(RegionCoprocessorEnvironment.class);
-    Mockito.when(env.getConfiguration()).thenReturn(conf);
-    Mockito.when(env.getConfiguration()).thenReturn(conf);
 
     HRegion region = Mockito.mock(HRegion.class);
     Mockito.when(env.getRegion()).thenReturn(region);
@@ -154,6 +151,53 @@ public class TestLocalTableState {
     table.rollback(Arrays.asList(kv));
     p = table.getIndexedColumnsTableState(Arrays.asList(col));
     s = p.getFirst();
-    assertEquals("Didn't correctly rollback the row - still found it!", storedKv, s.next());
+    assertEquals("Didn't correctly rollback the row - still found it!", null, s.next());
+    Mockito.verify(env, Mockito.times(1)).getRegion();
+    Mockito.verify(region, Mockito.times(1)).getScanner(Mockito.any(Scan.class));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testOnlyLoadsRequestedColumns() throws Exception {
+    // setup mocks
+    RegionCoprocessorEnvironment env = Mockito.mock(RegionCoprocessorEnvironment.class);
+
+    HRegion region = Mockito.mock(HRegion.class);
+    Mockito.when(env.getRegion()).thenReturn(region);
+    RegionScanner scanner = Mockito.mock(RegionScanner.class);
+    Mockito.when(region.getScanner(Mockito.any(Scan.class))).thenReturn(scanner);
+    final KeyValue storedKv =
+        new KeyValue(row, fam, qual, ts, Type.Put, Bytes.toBytes("stored-value"));
+    storedKv.setMemstoreTS(2);
+    Mockito.when(scanner.next(Mockito.any(List.class))).thenAnswer(new Answer<Boolean>() {
+      @Override
+      public Boolean answer(InvocationOnMock invocation) throws Throwable {
+        List<KeyValue> list = (List<KeyValue>) invocation.getArguments()[0];
+
+        list.add(storedKv);
+        return false;
+      }
+    });
+    LocalHBaseState state = new LocalTable(env);
+    Put pendingUpdate = new Put(row);
+    pendingUpdate.add(fam, qual, ts, val);
+    LocalTableState table = new LocalTableState(env, state, pendingUpdate);
+
+    // do the lookup for the given column
+    ColumnReference col = new ColumnReference(fam, qual);
+    table.setCurrentTimestamp(ts);
+    // check that the value is there
+    Pair<Scanner, IndexUpdate> p = table.getIndexedColumnsTableState(Arrays.asList(col));
+    Scanner s = p.getFirst();
+    // make sure it read the table the one time
+    assertEquals("Didn't get the stored keyvalue!", storedKv, s.next());
+
+    // on the second lookup it shouldn't access the underlying table again - the cached columns
+    // should know they are done
+    p = table.getIndexedColumnsTableState(Arrays.asList(col));
+    s = p.getFirst();
+    assertEquals("Lost already loaded update!", storedKv, s.next());
+    Mockito.verify(env, Mockito.times(1)).getRegion();
+    Mockito.verify(region, Mockito.times(1)).getScanner(Mockito.any(Scan.class));
   }
 }

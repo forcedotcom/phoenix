@@ -7,16 +7,15 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.Filter.ReturnCode;
-import org.apache.hadoop.hbase.regionserver.ExposedMemStore;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 
 import com.salesforce.hbase.index.covered.KeyValueStore;
 
 /**
  * Combine a simplified version of the logic in the ScanQueryMatcher and the KeyValueScanner. We can
- * get away with this here because we are only concerned with a single {@link ExposedMemStore} for
- * the index; we don't need to worry about multiple column families or minimizing seeking through
- * file - we just want to iterate the kvs quickly, in-memory.
+ * get away with this here because we are only concerned with a single MemStore for the index; we
+ * don't need to worry about multiple column families or minimizing seeking through file - we just
+ * want to iterate the kvs quickly, in-memory.
  */
 public class FilteredKeyValueScanner implements KeyValueScanner {
 
@@ -113,7 +112,8 @@ public class FilteredKeyValueScanner implements KeyValueScanner {
 
   @Override
   public boolean shouldUseScanner(Scan scan, SortedSet<byte[]> columns, long oldestUnexpiredTS) {
-    return this.delegate.shouldUseScanner(scan, columns, oldestUnexpiredTS);
+    throw new UnsupportedOperationException(this.getClass().getName()
+        + " doesn't support checking to see if it should use a scanner!");
   }
 
 

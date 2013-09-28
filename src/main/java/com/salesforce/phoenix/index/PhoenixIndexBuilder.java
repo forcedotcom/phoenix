@@ -63,8 +63,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
         // as the empty key value column (which we use to detect a delete of the entire row).
         for (int i = 0; i < maintainers.size(); i++) {
             IndexMaintainer maintainer = maintainers.get(i);
-            for (int j = 0; j < maintainer.getAllColumns().size(); j++) {
-                ColumnReference ref = maintainer.getAllColumns().get(j);
+            for (ColumnReference ref : maintainer.getAllColumns()) {
                 scan.addFamily(ref.getFamily());
             }
         }

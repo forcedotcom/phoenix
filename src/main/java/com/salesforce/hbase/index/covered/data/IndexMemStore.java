@@ -40,10 +40,10 @@ import org.apache.hadoop.hbase.regionserver.IndexKeyValueSkipListSet;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 import org.apache.hadoop.hbase.regionserver.MemStore;
 import org.apache.hadoop.hbase.regionserver.NonLazyKeyValueScanner;
-import org.apache.hadoop.hbase.regionserver.TimeRangeTracker;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.hbase.index.covered.KeyValueStore;
+import com.salesforce.hbase.index.covered.LocalTableState;
 
 /**
  * Like the HBase {@link MemStore}, but without all that extra work around maintaining snapshots and
@@ -60,26 +60,32 @@ import com.salesforce.hbase.index.covered.KeyValueStore;
  *    </ul>
  *  </li>
  *  <li>ignoring memstore timestamps in favor of deciding when we want to overwrite keys based on how
- * we obtain them</li>
+ *    we obtain them</li>
+ *   <li>ignoring time range updates (so 
+ *    {@link KeyValueScanner#shouldUseScanner(Scan, SortedSet, long)} isn't supported from 
+ *    {@link #getScanner()}).</li>
  * </ol>
  * <p>
  * We can ignore the memstore timestamps because we know that anything we get from the local region
  * is going to be MVCC visible - so it should just go in. However, we also want overwrite any
  * existing state with our pending write that we are indexing, so that needs to clobber the KVs we
  * get from the HRegion. This got really messy with a regular memstore as each KV from the MemStore
- * frequently has a higher MemStoreTS, but we can't just up the pending KVs' MemStoreTs b/c a
- * memstore relies on the MVCC readpoint, which generally is < Long.MAX_VALUE.
+ * frequently has a higher MemStoreTS, but we can't just up the pending KVs' MemStoreTs because a
+ * memstore relies on the MVCC readpoint, which generally is less than {@link Long#MAX_VALUE}.
  * <p>
  * By realizing that we don't need the snapshot or space requirements, we can go much faster than
  * the previous implementation. Further, by being smart about how we manage the KVs, we can drop the
  * extra object creation we were doing to wrap the pending KVs (which we did previously to ensure
- * they sorted before the ones we got from the HRegion).
+ * they sorted before the ones we got from the HRegion). We overwrite {@link KeyValue}s when we add
+ * them from external sources {@link #add(KeyValue, boolean)}, but then don't overwrite existing
+ * keyvalues when read them from the underlying table (because pending keyvalues should always
+ * overwrite current ones) - this logic is all contained in LocalTableState.
+ * @see LocalTableState
  */
 public class IndexMemStore implements KeyValueStore {
 
   private static final Log LOG = LogFactory.getLog(IndexMemStore.class);
   private IndexKeyValueSkipListSet kvset;
-  private TimeRangeTracker timeRangeTracker = new TimeRangeTracker();
   private Comparator<KeyValue> comparator;
 
   /**
@@ -115,22 +121,15 @@ public class IndexMemStore implements KeyValueStore {
       LOG.info("Inserting: " + toString(kv));
     }
     // if overwriting, we will always update
-    boolean updated = true;
     if (!overwrite) {
       // null if there was no previous value, so we added the kv
-      updated = (kvset.putIfAbsent(kv) == null);
+      kvset.putIfAbsent(kv);
     } else {
       kvset.add(kv);
     }
 
-    // TODO do we even need to update this? I don't think we really even use it
-    // if we updated, we need to do some tracking work
-    if (updated) {
-      // update the max timestamp
-      this.timeRangeTracker.includeTimestamp(kv);
-      if (LOG.isDebugEnabled()) {
-        dump();
-      }
+    if (LOG.isDebugEnabled()) {
+      dump();
     }
   }
 
@@ -148,8 +147,14 @@ public class IndexMemStore implements KeyValueStore {
 
   @Override
   public void rollback(KeyValue kv) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Rolling back: " + toString(kv));
+    }
     // If the key is in the store, delete it
     this.kvset.remove(kv);
+    if (LOG.isDebugEnabled()) {
+      dump();
+    }
   }
 
   @Override
@@ -306,8 +311,8 @@ public class IndexMemStore implements KeyValueStore {
 
     @Override
     public boolean shouldUseScanner(Scan scan, SortedSet<byte[]> columns, long oldestUnexpiredTS) {
-      return (timeRangeTracker.includesTimeRange(scan.getTimeRange()) && (timeRangeTracker
-          .getMaximumTimestamp() >= oldestUnexpiredTS));
+      throw new UnsupportedOperationException(this.getClass().getName()
+          + " doesn't support checking to see if it should use a scanner!");
     }
   }
 }

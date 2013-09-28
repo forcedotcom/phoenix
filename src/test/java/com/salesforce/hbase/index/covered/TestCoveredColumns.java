@@ -25,22 +25,31 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.covered;
 
-import java.io.IOException;
+import static org.junit.Assert.assertEquals;
+
+import java.util.Arrays;
+
+import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.Test;
 
 import com.salesforce.hbase.index.covered.update.ColumnReference;
-import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
-public interface ValueGetter {
+public class TestCoveredColumns {
 
-  /**
-   * Get the most recent (largest timestamp) for the given column reference
-   * @param ref to match against an underlying key value. Uses the passed object to match the
-   *          keyValue via {@link ColumnReference#matches}
-   * @return the stored value for the given {@link ColumnReference}, or <tt>null</tt> if no value is
-   *         present.
-   * @throws IOException if there is an error accessing the underlying data storage
-   */
-  public ImmutableBytesPtr getLatestValue(ColumnReference ref) throws IOException;
+  private static final byte[] fam = Bytes.toBytes("fam");
+  private static final byte[] qual = Bytes.toBytes("qual");
+
+  @Test
+  public void testCovering() {
+    ColumnReference ref = new ColumnReference(fam, qual);
+    CoveredColumns columns = new CoveredColumns();
+    assertEquals("Should have only found a single column to cover", 1, columns
+        .findNonCoveredColumns(Arrays.asList(ref)).size());
+
+    columns.addColumn(ref);
+    assertEquals("Shouldn't have any columns to cover", 0,
+      columns.findNonCoveredColumns(Arrays.asList(ref)).size());
+  }
 }
