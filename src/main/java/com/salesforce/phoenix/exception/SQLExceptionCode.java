@@ -132,6 +132,8 @@ public enum SQLExceptionCode {
     INDEX_ONLY_ON_IMMUTABLE_TABLE(1023, "42Y82", "Index may only be created on a table with immutable rows."),
     SALT_ONLY_ON_CREATE_TABLE(1024, "42Y83", "Salt bucket number may only be specified when creating a table."),
     SET_UNSUPPORTED_PROP_ON_ALTER_TABLE(1025, "42Y84", "Unsupported property set in ALTER TABLE command."),
+    CREATE_TENANT_TABLE_TENANT_ID(1026, "42Y85", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
+    CREATE_TENANT_TABLE_NO_PK(1027, "42Y86", "Defining PK columns not allowed for tenant-specific tables."),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),

@@ -65,11 +65,11 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         conn.close();
         
         props.setProperty(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
         conn = DriverManager.getConnection(getUrl(), props);
         
         conn.createStatement().execute("CREATE TABLE TENANT_SPECIFIC_TABLE ( \n" + 
-                "                tenantCol VARCHAR ,\n" + 
-                "                id INTEGER not null primary key desc\n" + 
+                "                tenantCol VARCHAR\n" + 
                 "                ) BASE_TABLE='PARENT_TABLE'");
         conn.close();
         
@@ -77,7 +77,7 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
         assertEquals(0, admin.listTables("TENANT_SPECIFIC_TABLE").length);
         
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 20));
         
         conn = DriverManager.getConnection(getUrl(), props);
         conn.createStatement().execute("DROP TABLE TENANT_SPECIFIC_TABLE");
@@ -128,8 +128,7 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.createStatement().execute("CREATE TABLE TENANT_SPECIFIC_TABLE ( \n" + 
-                "                tenantCol VARCHAR ,\n" + 
-                "                id INTEGER not null primary key desc\n" + 
+                "                tenantCol VARCHAR \n" + 
                 "                ) BASE_TABLE='PARENT_TABLE'");
         conn.close();
     }

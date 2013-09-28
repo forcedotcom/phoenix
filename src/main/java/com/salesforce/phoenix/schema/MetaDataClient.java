@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
 import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
@@ -41,6 +42,7 @@ import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.*;
 import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.*;
@@ -500,13 +502,6 @@ public class MetaDataClient {
                 pkName = pkConstraint.getName();
             }
             
-            List<ColumnDef> colDefs = statement.getColumnDefs();
-            List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
-            List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(colDefs.size() + 1); // in case salted
-            PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
-            Map<String, PName> familyNames = Maps.newLinkedHashMap();
-            boolean isPK = false;
-            
             Map<String,Object> tableProps = Maps.newHashMapWithExpectedSize(statement.getProps().size());
             Map<String,Object> commonFamilyProps = Collections.emptyMap();
             // Somewhat hacky way of determining if property is for HColumnDescriptor or HTableDescriptor
@@ -547,9 +542,38 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
             }
             
-            int position = 0;
+            byte[] tenantIdBytes = connection.getTenantId();
+            String tenantId = Bytes.toString(tenantIdBytes);
+            String baseTableName = (String)tableProps.remove(BASE_TABLE_PROP_NAME);
+            
+            if ((tenantId == null && baseTableName != null) || (tenantId != null && baseTableName == null)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                    .setSchemaName(schemaName).setTableName(tableName).setMessage("When creating tenant-specific table, both " +
+                    "TenantId connection property and " + BASE_TABLE_PROP_NAME + " DDL option must be set.").build().buildException();
+            }
+            
+            List<ColumnDef> colDefs = statement.getColumnDefs();
+            List<PColumn> columns;
+            List<PColumn> pkColumns;       
+            
+            if (tenantId != null) {
+                PTable baseTable = resolveTable(connection, schemaName, baseTableName);
+                columns = newArrayListWithExpectedSize(baseTable.getColumns().size() + colDefs.size());
+                columns.addAll(baseTable.getColumns());
+                pkColumns = ImmutableList.copyOf(baseTable.getPKColumns());
+            }
+            else {
+                columns = newArrayListWithExpectedSize(colDefs.size());
+                pkColumns = newArrayListWithExpectedSize(colDefs.size() + 1); // in case salted  
+            }
+            
+            PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
+            Map<String, PName> familyNames = Maps.newLinkedHashMap();
+            boolean isPK = false;
+            
+            int position = columns.size();
             if (isSalted) {
-                position = 1;
+                position++;
                 pkColumns.add(SaltingUtil.SALTING_COLUMN);
             }
             
@@ -568,7 +592,15 @@ public class MetaDataClient {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
                             .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                     }
+                    if (tenantId != null) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CREATE_TENANT_TABLE_NO_PK)
+                            .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
+                    }
                     pkColumns.add(column);
+                }
+                if (hasColumnWithSameNameAndFamily(columns, column)) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.COLUMN_EXIST_IN_DEF)
+                        .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException(); 
                 }
                 columns.add(column);
                 if (colDef.getDataType() == PDataType.VARBINARY 
@@ -582,7 +614,7 @@ public class MetaDataClient {
                     familyNames.put(column.getFamilyName().getString(),column.getFamilyName());
                 }
             }
-            if (!isPK && pkColumnsNames.isEmpty()) {
+            if (!isPK && pkColumnsNames.isEmpty() && tenantId == null) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
@@ -651,17 +683,7 @@ public class MetaDataClient {
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
             connection.rollback();
             
-            byte[] tenantIdBytes = connection.getTenantId();
-            String tenantId = Bytes.toString(tenantIdBytes);
-            String baseTable = (String)tableProps.remove(BASE_TABLE_PROP_NAME);
-            
-            if ((tenantId == null && baseTable != null) || (tenantId != null && baseTable == null)) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
-                    .setSchemaName(schemaName).setTableName(tableName).setMessage("When creating tenant-specific table, both " +
-                    "TenantId connection property and " + BASE_TABLE_PROP_NAME + " DDL option must be set.").build().buildException();
-            }
-            
-            String dataTableName = parent == null ? baseTable : parent.getName().getString();
+            String dataTableName = parent == null ? baseTableName : parent.getName().getString();
             PIndexState indexState = parent == null ? null : PIndexState.BUILDING;
             PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
             tableUpsert.setString(1, tenantId);
@@ -724,7 +746,22 @@ public class MetaDataClient {
             connection.setAutoCommit(wasAutoCommit);
         }
     }
+    
+    private static boolean hasColumnWithSameNameAndFamily(Collection<PColumn> columns, PColumn column) {
+        for (PColumn currColumn : columns) {
+           if (Objects.equal(currColumn.getFamilyName(), column.getFamilyName()) &&
+               Objects.equal(currColumn.getName(), column.getName())) {
+               return true;
+           }
+        }
+        return false;
+    }
 
+    private PTable resolveTable(PhoenixConnection connection, String schemaName, String tableName) throws SchemaNotFoundException, TableNotFoundException {
+        PSchema schema = connection.getPMetaData().getSchema(schemaName);
+        return schema.getTable(tableName);
+    }
+    
     public MutationState dropTable(DropTableStatement statement) throws SQLException {
         String schemaName = statement.getTableName().getSchemaName();
         String tableName = statement.getTableName().getTableName();

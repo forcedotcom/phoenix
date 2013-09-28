@@ -27,7 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.*;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 import static com.salesforce.phoenix.schema.PTableType.SYSTEM;
@@ -63,10 +63,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     
     private static final String TENANT_TABLE_NAME = "TENANT_TABLE";
     private static final String TENANT_TABLE_DDL = "CREATE TABLE " + TENANT_TABLE_NAME + " ( \n" + 
-            "                tenant_col VARCHAR ,\n" + 
-            "                tenant_id VARCHAR(5) NOT NULL,\n" + 
-            "                id INTEGER NOT NULL \n" + 
-            "                CONSTRAINT pk PRIMARY KEY (tenant_id, id)) \n" +
+            "                tenant_col VARCHAR)\n" + 
             "                BASE_TABLE='PARENT_TABLE'";
     
     @Before
@@ -96,11 +93,11 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         try {
             conn.setAutoCommit(false);
-            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Cheap Sunglasses')");
-            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 2, 'Viva Las Vegas')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Cheap Sunglasses')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 2, 'Viva Las Vegas')");
             conn.commit();
             
-            ResultSet rs = conn.createStatement().executeQuery("select tenant_col from TENANT_TABLE where id = 1");
+            ResultSet rs = conn.createStatement().executeQuery("select tenant_col from " + TENANT_TABLE_NAME + " where id = 1");
             assertTrue("Expected 1 row in result set", rs.next());
             assertEquals("Cheap Sunglasses", rs.getString(1));
             assertFalse("Expected 1 row in result set", rs.next());
@@ -119,22 +116,22 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         conn.setAutoCommit(true);
         try {
-            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Viva Las Vegas')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Viva Las Vegas')");
             
-            conn.createStatement().execute("alter table TENANT_TABLE add tenant_col2 char(1) null");
-            conn.createStatement().executeUpdate("upsert into TENANT_TABLE (tenant_id, id, tenant_col2) values ('" + TENANT_ID + "', 2, 'a')");
+            conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " add tenant_col2 char(1) null");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col2) values ('" + TENANT_ID + "', 2, 'a')");
             
-            ResultSet rs = conn.createStatement().executeQuery("select count(*) from TENANT_TABLE");
+            ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
             rs.next();
             assertEquals(2, rs.getInt(1));
             
-            rs = conn.createStatement().executeQuery("select count(*) from TENANT_TABLE where tenant_col2 = 'a'");
+            rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME + " where tenant_col2 = 'a'");
             rs.next();
             assertEquals(1, rs.getInt(1));
             
-            conn.createStatement().execute("alter table TENANT_TABLE drop column tenant_col");
+            conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " drop column tenant_col");
             
-            rs = conn.createStatement().executeQuery("select count(*) from TENANT_TABLE");
+            rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME + "");
             rs.next();
             assertEquals(2, rs.getInt(1));
             
@@ -195,18 +192,65 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             assertTableMetaData(rs, null, TENANT_TABLE_NAME, USER);
             assertFalse(rs.next());
             
-            // make sure connections w/o tenant id only see non-tenant-specific columns
+            // make sure tenants see paren table's columns and their own
             rs = meta.getColumns(null, null, null, null);
             assertTrue(rs.next());
-            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_col");
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "user");
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_id");
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "id");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_col");
             assertFalse(rs.next()); 
         }
         finally {
             conn.close();
+        }
+    }
+    
+    @Test
+    public void testTenantSpecificAndParentTablesMustBeInSameSchema() throws SQLException {
+        try {
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE DIFFSCHEMA.TENANT_TABLE2 ( \n" + 
+                    "                tenant_col VARCHAR) \n" + 
+                    "                BASE_TABLE='PARENT_TABLE'");
+        }
+        catch (SQLException expected) {
+            assertEquals(SCHEMA_NOT_FOUND.getErrorCode(), expected.getErrorCode());
+        }
+        finally {
+            dropTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DIFFSCHEMA.TENANT_TABLE2");
+        }
+    }
+    
+    @Test
+    public void testTenantSpecificTableCannotDeclarePK() throws SQLException {
+        try {
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 ( \n" + 
+                    "                tenant_col VARCHAR PRIMARY KEY) \n" + 
+                    "                BASE_TABLE='PARENT_TABLE'");
+        }
+        catch (SQLException expected) {
+            assertEquals(CREATE_TENANT_TABLE_NO_PK.getErrorCode(), expected.getErrorCode());
+        }
+        finally {
+            dropTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "TENANT_TABLE2");
+        }
+    }
+    
+    @Test
+    public void testTenantSpecificTableCannotOverrideParentCol() throws SQLException {
+        try {
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 ( \n" + 
+                    "                user INTEGER) \n" + 
+                    "                BASE_TABLE='PARENT_TABLE'");
+        }
+        catch (SQLException expected) {
+            assertEquals(COLUMN_EXIST_IN_DEF.getErrorCode(), expected.getErrorCode());
+        }
+        finally {
+            dropTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "TENANT_TABLE2");
         }
     }
     
