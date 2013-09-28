@@ -272,11 +272,13 @@ public class UpsertCompiler {
              * 1) the into table matches from table
              * 2) the select query isn't doing aggregation
              * 3) autoCommit is on
-             * 4) no limit clause
+             * 4) the table is not immutable, as the client is the one that figures out the additional
+             *    puts for index tables.
+             * 5) no limit clause
              * Otherwise, run the query to pull the data from the server
              * and populate the MutationState (upto a limit).
             */            
-            runOnServer = sameTable && isAutoCommit && !select.isAggregate() && !select.isDistinct() && select.getLimit() == null && table.getBucketNum() == null;
+            runOnServer = sameTable && isAutoCommit && !table.isImmutableRows() && !select.isAggregate() && !select.isDistinct() && select.getLimit() == null && table.getBucketNum() == null;
             ParallelIteratorFactory parallelIteratorFactory;
             // TODO: once MutationState is thread safe, then when auto commit is off, we can still run in parallel
             if (select.isAggregate() || select.isDistinct() || select.getLimit() != null) {
