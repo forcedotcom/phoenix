@@ -43,7 +43,7 @@ import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import com.salesforce.hbase.index.CannotReachIndexException;
+import com.salesforce.hbase.index.exception.IndexWriteException;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
@@ -68,12 +68,10 @@ public class IndexWriter implements Stoppable {
    *           instantiated
    */
   public IndexWriter(RegionCoprocessorEnvironment env) throws IOException {
-    this(getCommitter(env), getFailurePolicy(env));
-    this.writer.setup(this, env);
-    this.failurePolicy.setup(this, env);
+    this(getCommitter(env), getFailurePolicy(env), env);
   }
 
-  static IndexCommitter getCommitter(RegionCoprocessorEnvironment env) throws IOException {
+  public static IndexCommitter getCommitter(RegionCoprocessorEnvironment env) throws IOException {
     Configuration conf = env.getConfiguration();
     try {
       IndexCommitter committer =
@@ -87,7 +85,7 @@ public class IndexWriter implements Stoppable {
     }
   }
 
-  static IndexFailurePolicy getFailurePolicy(RegionCoprocessorEnvironment env)
+  public static IndexFailurePolicy getFailurePolicy(RegionCoprocessorEnvironment env)
       throws IOException {
     Configuration conf = env.getConfiguration();
     try {
@@ -103,35 +101,55 @@ public class IndexWriter implements Stoppable {
   }
 
   /**
-   * Exposed for TESTING! Does no setup of the {@link IndexFailurePolicy} or {@link IndexCommitter}.
+   * Directly specify the {@link IndexCommitter} and {@link IndexFailurePolicy}. Both are expected
+   * to be fully setup before calling.
+   * @param committer
+   * @param policy
+   * @param env
+   */
+  public IndexWriter(IndexCommitter committer, IndexFailurePolicy policy,
+      RegionCoprocessorEnvironment env) {
+    this(committer, policy);
+    this.writer.setup(this, env);
+    this.failurePolicy.setup(this, env);
+  }
+
+  /**
+   * Create an {@link IndexWriter} with an already setup {@link IndexCommitter} and
+   * {@link IndexFailurePolicy}.
+   * @param committer to write updates
+   * @param policy to handle failures
    */
   IndexWriter(IndexCommitter committer, IndexFailurePolicy policy) {
     this.writer = committer;
     this.failurePolicy = policy;
   }
+  
   /**
    * Write the mutations to their respective table.
    * <p>
    * This method is blocking and could potentially cause the writer to block for a long time as we
-   * write the index updates. We only return when either:
-   * <ol>
-   *  <li>All index writes have returned, OR</li>
-   *  <li>Any single index write has failed</li>
-   * </ol>
-   * We attempt to quickly determine if any write has failed and not write to the remaining indexes
-   * to ensure a timely recovery of the failed index writes.
+   * write the index updates. When we return depends on the specified {@link IndexCommitter}.
    * <p>
-   * If any of the index updates fails, we pass along the failure to the installed
-   * {@link IndexFailurePolicy}, which then decides how to handle the failure. By default, we use a
-   * {@link KillServerOnFailurePolicy}, which ensures that the server crashes when an index write
-   * fails, ensuring that we get WAL replay of the index edits.
+   * If update fails, we pass along the failure to the installed {@link IndexFailurePolicy}, which
+   * then decides how to handle the failure. By default, we use a {@link KillServerOnFailurePolicy},
+   * which ensures that the server crashes when an index write fails, ensuring that we get WAL
+   * replay of the index edits.
    * @param indexUpdates Updates to write
    */
   public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, byte[]>> indexUpdates) {
     // convert the strings to htableinterfaces to which we can talk and group by TABLE
     Multimap<HTableInterfaceReference, Mutation> toWrite = resolveTableReferences(indexUpdates);
+    writeAndKillYourselfOnFailure(toWrite);
+  }
+
+  /**
+   * see {@link #writeAndKillYourselfOnFailure(Collection)}.
+   * @param toWrite
+   */
+  public void writeAndKillYourselfOnFailure(Multimap<HTableInterfaceReference, Mutation> toWrite) {
     try {
-      this.writer.write(toWrite);
+      write(toWrite);
       LOG.info("Done writing all index updates!");
     } catch (Exception e) {
       this.failurePolicy.handleFailure(toWrite, e);
@@ -144,23 +162,27 @@ public class IndexWriter implements Stoppable {
    * This method is blocking and could potentially cause the writer to block for a long time as we
    * write the index updates. We only return when either:
    * <ol>
-   *  <li>All index writes have returned, OR</li>
-   *  <li>Any single index write has failed</li>
+   * <li>All index writes have returned, OR</li>
+   * <li>Any single index write has failed</li>
    * </ol>
    * We attempt to quickly determine if any write has failed and not write to the remaining indexes
    * to ensure a timely recovery of the failed index writes.
    * @param toWrite Updates to write
-   * @throws CannotReachIndexException if we cannot successfully write a single index entry. We stop
-   *           immediately on the first failed index write, rather than attempting all writes.
+   * @throws IndexWriteException if we cannot successfully write to the index. Whether or not we
+   *           stop early depends on the {@link IndexCommitter}.
    */
-  public void write(Collection<Pair<Mutation, byte[]>> toWrite) throws CannotReachIndexException {
-    this.writer.write(resolveTableReferences(toWrite));
+  public void write(Collection<Pair<Mutation, byte[]>> toWrite) throws IndexWriteException {
+    write(resolveTableReferences(toWrite));
   }
 
-
+  /**
+   * see {@link #write(Collection)}
+   * @param toWrite
+   * @throws IndexWriteException
+   */
   public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
-      throws CannotReachIndexException {
-
+      throws IndexWriteException {
+    this.writer.write(toWrite);
   }
 
 

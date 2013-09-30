@@ -82,7 +82,14 @@ public class CoveredColumnIndexer extends CoveredColumnsIndexBuilder {
    * @throws IOException
    */
   public static void createIndexTable(HBaseAdmin admin, String indexTable) throws IOException {
-    HTableDescriptor index = new HTableDescriptor(indexTable);
+    createIndexTable(admin, new HTableDescriptor(indexTable));
+  }
+
+  /**
+   * @param admin to create the table
+   * @param index descriptor to update before creating table
+   */
+  public static void createIndexTable(HBaseAdmin admin, HTableDescriptor index) throws IOException {
     HColumnDescriptor col =
         new HColumnDescriptor(CoveredColumnIndexCodec.INDEX_ROW_COLUMN_FAMILY);
     // ensure that we can 'see past' delete markers when doing scans
