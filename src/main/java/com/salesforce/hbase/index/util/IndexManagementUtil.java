@@ -32,8 +32,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader;
+import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.data.LazyValueGetter;
@@ -47,6 +52,25 @@ public class IndexManagementUtil {
 
   private IndexManagementUtil() {
     // private ctor for util classes
+  }
+
+  public static String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
+
+  public static void ensureMutableIndexingCorrectlyConfigured(Configuration conf)
+      throws IllegalStateException {
+    // ensure the WALEditCodec is correct
+    Preconditions
+        .checkState(
+          conf.getClass(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class) == IndexedWALEditCodec.class,
+          IndexedWALEditCodec.class.getName()
+              + " was not installed. You need to install it in hbase-site.xml under "
+              + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY);
+    // ensure the Hlog Reader is correct
+    Preconditions.checkState(
+      conf.getClass(HLOG_READER_IMPL_KEY, IndexedHLogReader.class) == IndexedHLogReader.class,
+      IndexedHLogReader.class.getName()
+          + " was not installed. You need to install it in hbase-site.xml under "
+          + HLOG_READER_IMPL_KEY);
   }
 
   public static ValueGetter createGetterFromKeyValues(Collection<KeyValue> pendingUpdates) {

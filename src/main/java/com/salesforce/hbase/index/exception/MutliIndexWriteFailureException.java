@@ -25,23 +25,30 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index.write;
+package com.salesforce.hbase.index.exception;
 
-import org.apache.hadoop.hbase.Stoppable;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import java.util.List;
 
-import com.google.common.collect.Multimap;
-import com.salesforce.hbase.index.exception.IndexWriteException;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
 /**
- * Write the index updates to the index tables
+ * Indicate a failure to write to multiple index tables.
  */
-public interface IndexCommitter extends Stoppable {
+@SuppressWarnings("serial")
+public class MutliIndexWriteFailureException extends IndexWriteException {
 
-  void setup(IndexWriter parent, RegionCoprocessorEnvironment env);
+  private List<HTableInterfaceReference> failures;
 
-  public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
-      throws IndexWriteException;
+  /**
+   * @param failures the tables to which the index write did not succeed
+   */
+  public MutliIndexWriteFailureException(List<HTableInterfaceReference> failures) {
+    super("Failed to write to multiple index tables");
+    this.failures = failures;
+
+  }
+
+  public List<HTableInterfaceReference> getFailedTables() {
+    return this.failures;
+  }
 }
