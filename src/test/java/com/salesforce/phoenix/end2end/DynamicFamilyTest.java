@@ -17,12 +17,24 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Time;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Row;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.junit.Before;
@@ -49,6 +61,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
         justification="Designed to ignore.")
 public class DynamicFamilyTest extends BaseHBaseManagedTimeTest {
     private static final String WEB_STATS = "WEB_STATS";
+    private static final String WEB_STATS_SCHEMA_NAME = "";
     private static final byte[] A_CF = Bytes.toBytes(SchemaUtil.normalizeIdentifier("A"));
     private static final byte[] B_CF = Bytes.toBytes(SchemaUtil.normalizeIdentifier("B"));
     private static final String USER_ID1 = "u0001";
@@ -92,7 +105,7 @@ public class DynamicFamilyTest extends BaseHBaseManagedTimeTest {
 
     private static void initTableValues() throws Exception {
         ConnectionQueryServices services = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES);
-        HTableInterface hTable = services.getTable(SchemaUtil.getTableName(Bytes.toBytes(WEB_STATS)));
+        HTableInterface hTable = services.getTable(SchemaUtil.getTableNameAsBytes(WEB_STATS_SCHEMA_NAME,WEB_STATS));
         try {
             // Insert rows using standard HBase mechanism with standard HBase "types"
             Put put;

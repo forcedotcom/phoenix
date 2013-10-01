@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
@@ -43,7 +45,7 @@ import com.salesforce.phoenix.util.ScanUtil;
  * Utility methods related to transparent salting of row keys.
  */
 public class SaltingUtil {
-    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder().setMinNullable(1).addField(new PDatum() {
+    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
 
         @Override
         public boolean isNullable() {
@@ -75,14 +77,14 @@ public class SaltingUtil {
             return null;
         }
         
-    }).build();
+    }, false, null).build();
 
     public static final int NUM_SALTING_BYTES = 1;
     public static final Integer MAX_BUCKET_NUM = 256; // Unsigned byte.
     public static final String SALTING_COLUMN_NAME = "_SALT";
     public static final String SALTED_ROW_KEY_NAME = "_SALTED_KEY";
     public static final PColumnImpl SALTING_COLUMN = new PColumnImpl(
-            new PNameImpl(SALTING_COLUMN_NAME), null, PDataType.BINARY, 1, 0, false, 0, null);
+            PNameFactory.newName(SALTING_COLUMN_NAME), null, PDataType.BINARY, 1, 0, false, 0, null);
 
     public static List<KeyRange> generateAllSaltingRanges(int bucketNum) {
         List<KeyRange> allRanges = Lists.<KeyRange>newArrayListWithExpectedSize(bucketNum);

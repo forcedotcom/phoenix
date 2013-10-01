@@ -30,10 +30,15 @@ package com.salesforce.phoenix.query;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 
 import com.salesforce.phoenix.schema.TableRef;
@@ -91,9 +96,9 @@ public class StatsManagerImpl implements StatsManager {
     }
     
     @Override
-    public void updateStats(TableRef table) throws SQLException {
+    public void updateStats(TableRef tableRef) throws SQLException {
         SQLException sqlE = null;
-        HTableInterface hTable = services.getTable(table.getTableName());
+        HTableInterface hTable = services.getTable(tableRef.getTable().getPhysicalName().getBytes());
         try {
             byte[] minKey = null, maxKey = null;
             // Do a key-only scan to get the first row of a table. This is the min
@@ -108,17 +113,17 @@ public class StatsManagerImpl implements StatsManager {
             } finally {
                 scanner.close();
             }
-            int maxPossibleKeyLength = SchemaUtil.estimateKeyLength(table.getTable());
+            int maxPossibleKeyLength = SchemaUtil.estimateKeyLength(tableRef.getTable());
             byte[] maxPossibleKey = new byte[maxPossibleKeyLength];
             Arrays.fill(maxPossibleKey, (byte)255);
             // Use this deprecated method to get the key "before" the max possible key value,
             // which is the max key for a table.
             @SuppressWarnings("deprecation")
-            Result r = hTable.getRowOrBefore(maxPossibleKey, table.getTable().getColumnFamilies().iterator().next().getName().getBytes());
+            Result r = hTable.getRowOrBefore(maxPossibleKey, tableRef.getTable().getColumnFamilies().iterator().next().getName().getBytes());
             if (r != null) {
                 maxKey = r.getRow();
             }
-            tableStatsMap.put(table, new PTableStats(timeKeeper.currentTimeMillis(),minKey,maxKey));
+            tableStatsMap.put(tableRef, new PTableStats(timeKeeper.currentTimeMillis(),minKey,maxKey));
         } catch (IOException e) {
             sqlE = ServerUtil.parseServerException(e);
         } finally {

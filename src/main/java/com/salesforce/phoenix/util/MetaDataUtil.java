@@ -73,6 +73,13 @@ public class MetaDataUtil {
         return (int) (version >>> Byte.SIZE * 5);
     }
 
+    public static String decodeHBaseVersionAsString(int version) {
+        int major = version >>> 2 & 0XFF;
+        int minor = version >>> 1 & 0xFF;
+        int patch = version & 0xFF;
+        return major + "." + minor + "." + patch;
+    }
+
     public static long encodeHBaseAndPhoenixVersions(String hbaseVersion) {
         return (((long) encodeVersion(hbaseVersion)) << (Byte.SIZE * 5)) |
                 (((long) encodeVersion(MetaDataProtocol.PHOENIX_MAJOR_VERSION, MetaDataProtocol.PHOENIX_MINOR_VERSION,
@@ -114,7 +121,7 @@ public class MetaDataUtil {
         return version;
     }
 
-    public static void getSchemaAndTableName(List<Mutation> tableMetadata, byte[][] rowKeyMetaData) {
+    public static void getTenantIdAndSchemaAndTableName(List<Mutation> tableMetadata, byte[][] rowKeyMetaData) {
         Mutation m = getTableHeaderRow(tableMetadata);
         getVarChars(m.getRow(), 3, rowKeyMetaData);
     }
@@ -124,7 +131,7 @@ public class MetaDataUtil {
             return null;
         }
         byte[][] rowKeyMetaData = new byte[3][];
-        getSchemaAndTableName(tableMetadata, rowKeyMetaData);
+        getTenantIdAndSchemaAndTableName(tableMetadata, rowKeyMetaData);
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         Mutation m = getParentTableHeaderRow(tableMetadata);
         getVarChars(m.getRow(), 3, rowKeyMetaData);

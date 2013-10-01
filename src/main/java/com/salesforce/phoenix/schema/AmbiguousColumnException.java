@@ -45,16 +45,16 @@ public class AmbiguousColumnException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.AMBIGUOUS_COLUMN;
 
     public AmbiguousColumnException() {
-        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 
     public AmbiguousColumnException(String columnName) {
         super(new SQLExceptionInfo.Builder(code).setColumnName(columnName).build().toString(),
-                code.getSQLState());
+                code.getSQLState(), code.getErrorCode());
     }
 
     public AmbiguousColumnException(String columnName, Throwable cause) {
         super(new SQLExceptionInfo.Builder(code).setColumnName(columnName).build().toString(),
-                code.getSQLState(), cause);
+                code.getSQLState(), code.getErrorCode(), cause);
     }
 }

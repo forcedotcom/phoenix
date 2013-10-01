@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
+import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 
 
@@ -53,6 +54,8 @@ public interface PTable extends Writable {
      * @return table name
      */
     PName getName();
+    PName getSchemaName(); 
+    PName getTableName(); 
 
     /**
      * @return the table type
@@ -177,12 +180,10 @@ public interface PTable extends Writable {
      * For a table of index type or a tenant-specific table, return the name of the data table.
      * @return the name of the data table that this index is on.
      */
-    PName getDataTableName();
+    PName getParentTableName();
+    PName getParentName();
+    PName getPhysicalName();
     boolean isImmutableRows();
-    /**
-     * Is this a logical (tenant-specific) table, whose data is stored in a different physical table defined by {@link #getDataTableName()}?
-     * @see #getDataTableName()
-     */
-    boolean isTenantSpecificTable();
-
+    void getIndexMaintainers(ImmutableBytesWritable ptr);
+    IndexMaintainer getIndexMaintainer(PTable dataTable);
 }

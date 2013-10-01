@@ -28,7 +28,11 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.http.annotation.Immutable;
 
@@ -42,8 +46,12 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.parse.AliasedNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 /**

@@ -1,17 +1,29 @@
 package com.salesforce.phoenix.optimize;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.ColumnResolver;
+import com.salesforce.phoenix.compile.FromCompiler;
+import com.salesforce.phoenix.compile.IndexStatementRewriter;
+import com.salesforce.phoenix.compile.QueryCompiler;
+import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.ParseNodeFactory;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
 
 public class QueryOptimizer {
     private static final ParseNodeFactory FACTORY = new ParseNodeFactory();
@@ -35,11 +47,7 @@ public class QueryOptimizer {
         
         PTable dataTable = dataPlan.getTableRef().getTable();
         List<PTable>indexes = Lists.newArrayList(dataTable.getIndexes());
-        /*
-         * Only indexes on tables with immutable rows may be used until we hook up
-         * incremental index maintenance. 
-         */
-        if (!dataTable.isImmutableRows() || indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || select.getHint().hasHint(Hint.NO_INDEX)) {
+        if (indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || select.getHint().hasHint(Hint.NO_INDEX)) {
             return dataPlan;
         }
         
@@ -106,7 +114,7 @@ public class QueryOptimizer {
     
     private static int getIndexPosition(List<PTable> indexes, String indexName) {
         for (int i = 0; i < indexes.size(); i++) {
-            if (indexName.equals(indexes.get(i).getName().getString())) {
+            if (indexName.equals(indexes.get(i).getTableName().getString())) {
                 return i;
             }
         }
@@ -119,10 +127,10 @@ public class QueryOptimizer {
         QueryPlan dataPlan = plans.get(0);
         int nColumns = dataPlan.getProjector().getColumnCount();
         String alias = '"' + dataPlan.getTableRef().getTableAlias() + '"'; // double quote in case it's case sensitive
-        PSchema schema = dataPlan.getTableRef().getSchema();
-        String schemaName = schema.getName().length() == 0 ? null :  '"' + schema.getName() + '"';
+        String schemaName = dataPlan.getTableRef().getTable().getSchemaName().getString();
+        schemaName = schemaName.length() == 0 ? null :  '"' + schemaName + '"';
 
-        String tableName = '"' + index.getName().getString() + '"';
+        String tableName = '"' + index.getTableName().getString() + '"';
         List<? extends TableNode> tables = Collections.singletonList(FACTORY.namedTable(alias, FACTORY.table(schemaName, tableName)));
         try {
             SelectStatement indexSelect = FACTORY.select(translatedSelect, tables);

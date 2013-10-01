@@ -50,7 +50,6 @@ import org.apache.pig.impl.util.UDFContext;
 
 import com.salesforce.phoenix.pig.hadoop.PhoenixOutputFormat;
 import com.salesforce.phoenix.pig.hadoop.PhoenixRecord;
-import com.salesforce.phoenix.pig.hadoop.PhoenixRecordWriter;
 
 /**
  * StoreFunc that uses Phoenix to store data into HBase.
@@ -142,9 +141,10 @@ public class PhoenixHBaseStorage implements StoreFuncInterface {
 		}
 	}
 
-	@Override
+	@SuppressWarnings("unchecked")
+    @Override
 	public void prepareToWrite(RecordWriter writer) throws IOException {
-		this.writer = (PhoenixRecordWriter)writer;
+		this.writer =writer;
 	}
 
 	@Override

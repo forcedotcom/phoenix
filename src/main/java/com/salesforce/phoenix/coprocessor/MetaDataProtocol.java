@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Mutation;
@@ -59,7 +61,7 @@ import com.salesforce.phoenix.util.MetaDataUtil;
  */
 public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final int PHOENIX_MAJOR_VERSION = 2;
-    public static final int PHOENIX_MINOR_VERSION = 1;
+    public static final int PHOENIX_MINOR_VERSION = 2;
     public static final int PHOENIX_PATCH_NUMBER = 0;
     public static final int PHOENIX_VERSION = 
             MetaDataUtil.encodeVersion(PHOENIX_MAJOR_VERSION, PHOENIX_MINOR_VERSION, PHOENIX_PATCH_NUMBER);

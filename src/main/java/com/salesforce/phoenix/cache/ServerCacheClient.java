@@ -30,31 +30,47 @@ package com.salesforce.phoenix.cache;
 import java.io.Closeable;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableSet;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.TableRef;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.Closeables;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SQLCloseables;
 
 /**
  * 
  * Client for sending cache to each region server
- *306
+ * 
  * @author jtaylor
  * @since 0.1
  */
@@ -62,7 +78,6 @@ public class ServerCacheClient {
     private static final Log LOG = LogFactory.getLog(ServerCacheClient.class);
     private final PhoenixConnection connection;
     private final TableRef cacheUsingTableRef;
-    private final KeyRange minMaxKeyRange;
 
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
@@ -70,15 +85,21 @@ public class ServerCacheClient {
      * @param connection the client connection
      * @param cacheUsingTableRef table name
      * @param minMaxKeyRange KeyRange specifying the min and max keys for the operation involving cacheUsingTableRef
+     * 
+     * TODO: instead of minMaxKeyRange, have an interface for iterating through ranges as we may be sending to
+     * servers when we don't have to if the min is in first region and max is in last region, especially for point queries.
      */
-    public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef, KeyRange minMaxKeyRange) {
+    public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
         this.connection = connection;
         this.cacheUsingTableRef = cacheUsingTableRef;
-        this.minMaxKeyRange = minMaxKeyRange;
     }
 
     public PhoenixConnection getConnection() {
         return connection;
+    }
+    
+    public TableRef getTableRef() {
+        return cacheUsingTableRef;
     }
     
     /**
@@ -123,7 +144,7 @@ public class ServerCacheClient {
 
     }
     
-    public ServerCache addServerCache(final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory) throws SQLException {
+    public ServerCache addServerCache(ScanRanges keyRanges, final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         MemoryChunk chunk = services.getMemoryManager().allocate(cachePtr.getLength());
         List<Closeable> closeables = new ArrayList<Closeable>();
@@ -148,10 +169,10 @@ public class ServerCacheClient {
             for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
                 // Keep track of servers we've sent to and only send once
                 if ( ! servers.contains(entry.getValue()) && 
-                       minMaxKeyRange.intersect(KeyRange.getKeyRange(entry.getKey().getStartKey(), entry.getKey().getEndKey())) != KeyRange.EMPTY_RANGE) {  // Call RPC once per server
+                        keyRanges.intersect(entry.getKey().getStartKey(), entry.getKey().getEndKey())) {  // Call RPC once per server
                     servers.add(entry.getValue());
                     final byte[] key = entry.getKey().getStartKey();
-                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTableName());
+                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTable().getPhysicalName().getBytes());
                     closeables.add(htable);
                     futures.add(executor.submit(new JobCallable<Boolean>() {
                         
@@ -221,9 +242,15 @@ public class ServerCacheClient {
     private void removeServerCache(byte[] cacheId, Set<ServerName> servers) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         Throwable lastThrowable = null;
-        HTableInterface iterateOverTable = services.getTable(cacheUsingTableRef.getTableName());
+        HTableInterface iterateOverTable = services.getTable(cacheUsingTableRef.getTable().getPhysicalName().getBytes());
         NavigableMap<HRegionInfo, ServerName> locations = services.getAllTableRegions(cacheUsingTableRef);
-        Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers); 
+        Set<ServerName> remainingOnServers = new HashSet<ServerName>(servers);
+        /**
+         * Allow for the possibility that the region we based where to send our cache has split and been
+         * relocated to another region server *after* we sent it, but before we removed it. To accommodate
+         * this, we iterate through the current metadata boundaries and remove the cache once for each
+         * server that we originally sent to.
+         */
         for (Map.Entry<HRegionInfo, ServerName> entry : locations.entrySet()) {
             if (remainingOnServers.contains(entry.getValue())) {  // Call once per server
                 try {

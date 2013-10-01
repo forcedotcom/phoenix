@@ -27,31 +27,19 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import org.apache.hadoop.hbase.util.Bytes;
-
-import com.salesforce.phoenix.util.SchemaUtil;
 
 
 public final class TableRef {
     private final PTable table;
     private final String alias;
-    private final PSchema schema;
-    private final byte[] tableName;
     private final long timeStamp;
     private final boolean hasDynamicCols;
 
-    public TableRef(String alias, PTable table, PSchema schema, long timeStamp, boolean hasDynamicCols) {
+    public TableRef(String alias, PTable table, long timeStamp, boolean hasDynamicCols) {
         this.alias = alias;
         this.table = table;
-        this.schema = schema;
-        this.tableName = getPhysicalTableName(schema.getName(), table.isTenantSpecificTable() ?
-                table.getDataTableName() : table.getName());
         this.timeStamp = timeStamp;
         this.hasDynamicCols = hasDynamicCols;
-    }
-    
-    private byte[] getPhysicalTableName(String schemaName, PName tableName) {
-        return SchemaUtil.getTableName(Bytes.toBytes(schemaName), tableName.getBytes());
     }
     
     public PTable getTable() {
@@ -62,19 +50,10 @@ public final class TableRef {
         return alias;
     }
 
-    public PSchema getSchema() {
-        return schema;
-    }
-
-    public byte[] getTableName() {
-        return tableName;
-    }
-    
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + this.schema.getName().hashCode();
         result = prime * result + this.table.getName().getString().hashCode();
         return result;
     }
@@ -85,7 +64,6 @@ public final class TableRef {
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
         TableRef other = (TableRef)obj;
-        if (!schema.getName().equals(other.schema.getName())) return false;
         if (!table.getName().getString().equals(other.table.getName().getString())) return false;
         return true;
     }

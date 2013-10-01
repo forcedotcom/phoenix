@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.http.annotation.Immutable;
 
+import com.salesforce.phoenix.iterate.SpoolTooBigToDiskException;
 import com.salesforce.phoenix.memory.MemoryManager;
 import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -157,7 +158,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String MAX_MEMORY_PERC_ATTRIB = "phoenix.query.maxGlobalMemoryPercentage";
     public static final String MAX_MEMORY_WAIT_MS_ATTRIB = "phoenix.query.maxGlobalMemoryWaitMs";
     public static final String MAX_TENANT_MEMORY_PERC_ATTRIB = "phoenix.query.maxTenantMemoryPercentage";
-    public static final String MAX_HASH_CACHE_SIZE_ATTRIB = "phoenix.query.maxHashCacheBytes";
+    public static final String MAX_SERVER_CACHE_SIZE_ATTRIB = "phoenix.query.maxServerCacheBytes";
     public static final String TARGET_QUERY_CONCURRENCY_ATTRIB = "phoenix.query.targetConcurrency";
     public static final String MAX_QUERY_CONCURRENCY_ATTRIB = "phoenix.query.maxConcurrency";
     public static final String DATE_FORMAT_ATTRIB = "phoenix.query.dateFormat";

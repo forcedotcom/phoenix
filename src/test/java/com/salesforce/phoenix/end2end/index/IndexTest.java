@@ -1,30 +1,43 @@
 package com.salesforce.phoenix.end2end.index;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.util.QueryUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 public class IndexTest extends BaseHBaseManagedTimeTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
-    private static final byte[] DATA_TABLE_FULL_NAME = SchemaUtil.getTableName(null, "T");
-    private static final byte[] INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(null, "I");
+    private static final byte[] DATA_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "T"));
+    private static final byte[] INDEX_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "I"));
     
     @BeforeClass
     public static void doSetup() throws Exception {
@@ -223,10 +236,10 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
             // would be a full table scan.
             expectedPlan = indexSaltBuckets == null ? 
                 ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']\n" + 
-                 "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
+                 "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
                  "CLIENT MERGE SORT") :
                 ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
-                 "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
+                 "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
                  "CLIENT MERGE SORT");
             assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
             
@@ -249,7 +262,7 @@ public class IndexTest extends BaseHBaseManagedTimeTest{
                  "    SERVER 2 ROW LIMIT\n" + 
                  "CLIENT 2 ROW LIMIT" :
                  "CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
-                 "    SERVER TOP 2 ROWS SORTED BY [K]\n" + 
+                 "    SERVER TOP 2 ROWS SORTED BY [:K]\n" + 
                  "CLIENT MERGE SORT";
             assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         } finally {

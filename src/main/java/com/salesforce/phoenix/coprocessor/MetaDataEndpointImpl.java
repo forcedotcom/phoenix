@@ -28,7 +28,26 @@
 package com.salesforce.phoenix.coprocessor;
 
 import static com.google.common.collect.Lists.newArrayList;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.FAMILY_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.PK_NAME_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SALT_BUCKETS_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID_INDEX;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
@@ -36,11 +55,19 @@ import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
@@ -56,8 +83,26 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.PNameFactory;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableImpl;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableNotFoundException;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.MetaDataUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 
 /**
  * 
@@ -142,7 +187,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         // TODO: PNameImpl that doesn't need to copy the bytes
         byte[] pnameBuf = new byte[length];
         System.arraycopy(keyBuffer, keyOffset, pnameBuf, 0, length);
-        return new PNameImpl(pnameBuf);
+        return PNameFactory.newName(pnameBuf);
     }
     
     private static Scan newTableRowsScan(byte[] key, long startTimeStamp, long stopTimeStamp) throws IOException {
@@ -190,7 +235,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] key = SchemaUtil.getTableKey(tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId.getBytes(), schemaName.getBytes(), indexName.getBytes());
         PTable indexTable = doGetTable(key, clientTimeStamp);
         if (indexTable == null) {
-            ServerUtil.throwIOException("Invalid meta data state", new TableNotFoundException(schemaName.getString(), tableName.getString()));
+            ServerUtil.throwIOException("Index not found", new TableNotFoundException(schemaName.getString(), indexName.getString()));
             return;
         }
         indexes.add(indexTable);
@@ -250,12 +295,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         int keyLength = keyValue.getRowLength();
         int keyOffset = keyValue.getRowOffset();
         PName tenantId = newPName(keyBuffer, keyOffset, keyLength);
-        int offset = getVarCharLength(keyBuffer, keyOffset, keyLength) + 1;
-        PName schemaName = newPName(keyBuffer, keyOffset + offset, keyLength-offset);
-        offset += getVarCharLength(keyBuffer, keyOffset + offset, keyLength-offset) + 1;
-        PName tableName = newPName(keyBuffer, keyOffset + offset, keyLength-offset );
+        int tenantIdLength = tenantId.getBytes().length;
+        PName schemaName = newPName(keyBuffer, keyOffset+tenantIdLength+1, keyLength);
+        int schemaNameLength = schemaName.getBytes().length;
+        int tableNameLength = keyLength-schemaNameLength-1-tenantIdLength-1;
+        byte[] tableNameBytes = new byte[tableNameLength];
+        System.arraycopy(keyBuffer, keyOffset+schemaNameLength+1+tenantIdLength+1, tableNameBytes, 0, tableNameLength);
+        PName tableName = PNameFactory.newName(tableNameBytes);
         
-        offset += tableName.getBytes().length + 1;
+        int offset = tenantIdLength + schemaNameLength + tableNameLength + 3;
         // This will prevent the client from continually looking for the current
         // table when we know that there will never be one since we disallow updates
         // unless the table is the latest
@@ -322,14 +370,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             PName colName = newPName(colKv.getBuffer(), colKv.getRowOffset() + offset, colKeyLength-offset);
             int colKeyOffset = offset + colName.getBytes().length + 1;
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
-            if (colName.getString().isEmpty() && famName != null) {
-                addIndexToTable(tenantId, schemaName, famName, dataTableName, clientTimeStamp, indexes);                
+            if (colName.getString().isEmpty() && famName != null) {              
+                addIndexToTable(tenantId, schemaName, famName, tableName, clientTimeStamp, indexes);                              
             } else {
                 addColumnToTable(results, colName, famName, colKeyValues, columns, posOffset);
             }
         }
         
-        return PTableImpl.makePTable(tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows);
+        return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -383,7 +431,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     @Override
     public MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException {
         byte[][] rowKeyMetaData = new byte[3][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
         byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
@@ -454,7 +502,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 releaseLocks(region, lids);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -497,7 +545,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     @Override
     public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, String tableType) throws IOException {
         byte[][] rowKeyMetaData = new byte[3][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
         byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
@@ -547,7 +595,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 releaseLocks(region, lids);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -640,7 +688,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     private MetaDataMutationResult mutateColumn(List<Mutation> tableMetadata, Verifier verifier) throws IOException {
         byte[][] rowKeyMetaData = new byte[5][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
         byte[] tenantId = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
@@ -721,7 +769,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 region.releaseRowLock(lid);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -821,7 +869,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
             return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, currentTime, table.getTimeStamp() != tableTimeStamp ? table : null);
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }
@@ -896,7 +944,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     @Override
     public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws IOException {
         byte[][] rowKeyMetaData = new byte[3][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
         byte[] tenantId = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
@@ -950,7 +998,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 region.releaseRowLock(lid);
             }
         } catch (Throwable t) {
-            ServerUtil.throwIOException(SchemaUtil.getTableDisplayName(schemaName, tableName), t);
+            ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
         }
     }

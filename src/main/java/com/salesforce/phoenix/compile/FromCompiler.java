@@ -17,17 +17,46 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
-import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.*;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.BindTableNode;
+import com.salesforce.phoenix.parse.ColumnDef;
+import com.salesforce.phoenix.parse.CreateTableStatement;
+import com.salesforce.phoenix.parse.DerivedTableNode;
+import com.salesforce.phoenix.parse.JoinTableNode;
+import com.salesforce.phoenix.parse.NamedTableNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.SingleTableSQLStatement;
+import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.parse.TableNode;
+import com.salesforce.phoenix.parse.TableNodeVisitor;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.AmbiguousTableException;
+import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.MetaDataClient;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.PNameFactory;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableImpl;
+import com.salesforce.phoenix.schema.TableNotFoundException;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
@@ -109,21 +138,19 @@ public class FromCompiler {
                     if (connection.getAutoCommit()) {
                         timeStamp = Math.abs(client.updateCache(schemaName, tableName));
                     }
-                    PSchema theSchema = connection.getPMetaData().getSchema(schemaName);
-                    PTable theTable = theSchema.getTable(tableName);
+                    String fullTableName = SchemaUtil.getTableName(schemaName, tableName);
+                    PTable theTable = connection.getPMetaData().getTable(fullTableName);
                     // If dynamic columns have been specified add them to the table declaration
                     if (!table.getDynamicColumns().isEmpty()) {
                         theTable = this.addDynamicColumns(table.getDynamicColumns(), theTable);
                     }
-                    tableRef = new TableRef(null, theTable, theSchema, timeStamp, !table.getDynamicColumns().isEmpty());
+                    tableRef = new TableRef(null, theTable, timeStamp, !table.getDynamicColumns().isEmpty());
                     if (!retry && logger.isDebugEnabled()) {
-                        logger.debug("Re-resolved stale table " + SchemaUtil.getTableDisplayName(schemaName, tableName) + " with seqNum " + tableRef.getTable().getSequenceNumber() + " at timestamp " + tableRef.getTable().getTimeStamp() + " with " + tableRef.getTable().getColumns().size() + " columns: " + tableRef.getTable().getColumns());
+                        logger.debug("Re-resolved stale table " + fullTableName + " with seqNum " + tableRef.getTable().getSequenceNumber() + " at timestamp " + tableRef.getTable().getTimeStamp() + " with " + tableRef.getTable().getColumns().size() + " columns: " + tableRef.getTable().getColumns());
                     }
                     break;
-                } catch (SchemaNotFoundException e) {
-                    sqlE = new TableNotFoundException(schemaName, tableName);
                 } catch (TableNotFoundException e) {
-                    sqlE = new TableNotFoundException(schemaName, tableName);
+                    sqlE = e;
                 }
                 if (retry && client.updateCache(schemaName, tableName) < 0) {
                     retry = false;
@@ -166,14 +193,14 @@ public class FromCompiler {
                 List<PColumn> allcolumns = new ArrayList<PColumn>();
                 allcolumns.addAll(theTable.getColumns());
                 int position = allcolumns.size();
-                PName defaultFamilyName = new PNameImpl(SchemaUtil.getEmptyColumnFamily(theTable.getColumnFamilies()));
+                PName defaultFamilyName = PNameFactory.newName(SchemaUtil.getEmptyColumnFamily(theTable.getColumnFamilies()));
                 for (ColumnDef dynColumn : dynColumns) {
                     PName familyName = defaultFamilyName;
-                    PName name = new PNameImpl(dynColumn.getColumnDefName().getColumnName());
+                    PName name = PNameFactory.newName(dynColumn.getColumnDefName().getColumnName());
                     String family = dynColumn.getColumnDefName().getFamilyName();
                     if (family != null) {
                         theTable.getColumnFamily(family); // Verifies that column family exists
-                        familyName = new PNameImpl(family);
+                        familyName = PNameFactory.newName(family);
                     }
                     allcolumns.add(new PColumnImpl(name, familyName, dynColumn.getDataType(), dynColumn.getMaxLength(),
                             dynColumn.getScale(), dynColumn.isNull(), position, dynColumn.getColumnModifier()));
@@ -186,12 +213,12 @@ public class FromCompiler {
     }
     
     private static class MultiTableColumnResolver extends BaseColumnResolver implements TableNodeVisitor {
-        private final ListMultimap<Key, TableRef> tableMap;
+        private final ListMultimap<String, TableRef> tableMap;
         private final List<TableRef> tables;
 
         private MultiTableColumnResolver(PhoenixConnection connection) {
         	super(connection);
-            tableMap = ArrayListMultimap.<Key, TableRef> create();
+            tableMap = ArrayListMultimap.<String, TableRef> create();
             tables = Lists.newArrayList();
         }
 
@@ -210,29 +237,16 @@ public class FromCompiler {
             throw new SQLFeatureNotSupportedException();
         }
 
-        @SuppressWarnings("serial")
-        private static final class Key extends Pair<String, String> {
-            private Key(String schemaName, String tableName) {
-                super(schemaName, tableName);
-            }
-        }
-
         private TableRef createTableRef(String alias, String schemaName, String tableName,
                 List<ColumnDef> dynamicColumnDefs) throws SQLException {
             long timeStamp = Math.abs(client.updateCache(schemaName, tableName));
-            PSchema theSchema = null;
-            try {
-                theSchema = connection.getPMetaData().getSchema(schemaName);
-            } catch (SchemaNotFoundException e) { // Rethrow with more info
-                throw new TableNotFoundException(schemaName, tableName);
-            }
-            PTable theTable = theSchema.getTable(tableName);
+            PTable theTable =  connection.getPMetaData().getTable(SchemaUtil.getTableName(schemaName, tableName));
 
             // If dynamic columns have been specified add them to the table declaration
             if (!dynamicColumnDefs.isEmpty()) {
                 theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
             }
-            TableRef tableRef = new TableRef(alias, theTable, theSchema, timeStamp, !dynamicColumnDefs.isEmpty());
+            TableRef tableRef = new TableRef(alias, theTable, timeStamp, !dynamicColumnDefs.isEmpty());
             return tableRef;
         }
 
@@ -246,15 +260,13 @@ public class FromCompiler {
             List<ColumnDef> dynamicColumnDefs = namedTableNode.getDynamicColumns();
 
             TableRef tableRef = createTableRef(alias, schemaName, tableName, dynamicColumnDefs);
-            PSchema theSchema = tableRef.getSchema();
             PTable theTable = tableRef.getTable();
 
             if (alias != null) {
-                tableMap.put(new Key(null, alias), tableRef);
+                tableMap.put(alias, tableRef);
             }
 
-            tableMap.put(new Key(null, theTable.getName().getString()), tableRef);
-            tableMap.put(new Key(theSchema.getName(), theTable.getName().getString()), tableRef);
+            tableMap.put( theTable.getName().getString(), tableRef);
             tables.add(tableRef);
         }
 
@@ -282,10 +294,10 @@ public class FromCompiler {
         }
 
         private TableRef resolveTable(String schemaName, String tableName) throws SQLException {
-            Key key = new Key(schemaName, tableName);
-            List<TableRef> tableRefs = tableMap.get(key);
+            String fullTableName = SchemaUtil.getTableName(schemaName, tableName);
+            List<TableRef> tableRefs = tableMap.get(fullTableName);
             if (tableRefs.size() == 0) {
-                throw new TableNotFoundException(schemaName, tableName);
+                throw new TableNotFoundException(fullTableName);
             } else if (tableRefs.size() > 1) {
                 throw new AmbiguousTableException(tableName);
             } else {

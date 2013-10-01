@@ -28,12 +28,19 @@
 package com.salesforce.phoenix.query;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Properties;
 
 import javax.annotation.Nullable;
 
-import org.apache.hadoop.hbase.*;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -41,7 +48,11 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PMetaData;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 public class DelegateConnectionQueryServices extends DelegateQueryServices implements ConnectionQueryServices {
@@ -76,26 +87,26 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public PMetaData addTable(String schemaName, PTable table) throws SQLException {
-        return getDelegate().addTable(schemaName, table);
+    public PMetaData addTable(PTable table) throws SQLException {
+        return getDelegate().addTable(table);
     }
 
     @Override
-    public PMetaData addColumn(String schemaName, String tableName, List<PColumn> columns, long tableTimeStamp,
-            long tableSeqNum, boolean isImmutableRows) throws SQLException {
-        return getDelegate().addColumn(schemaName, tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
+    public PMetaData addColumn(String tableName, List<PColumn> columns, long tableTimeStamp, long tableSeqNum,
+            boolean isImmutableRows) throws SQLException {
+        return getDelegate().addColumn(tableName, columns, tableTimeStamp, tableSeqNum, isImmutableRows);
     }
 
     @Override
-    public PMetaData removeTable(String schemaName, String tableName)
+    public PMetaData removeTable(String tableName)
             throws SQLException {
-        return getDelegate().removeTable(schemaName, tableName);
+        return getDelegate().removeTable(tableName);
     }
 
     @Override
-    public PMetaData removeColumn(String schemaName, String tableName, String familyName, String columnName,
-            long tableTimeStamp, long tableSeqNum) throws SQLException {
-        return getDelegate().removeColumn(schemaName, tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
+    public PMetaData removeColumn(String tableName, String familyName, String columnName, long tableTimeStamp,
+            long tableSeqNum) throws SQLException {
+        return getDelegate().removeColumn(tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
     }
 
     @Override
@@ -121,13 +132,13 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, boolean isView, Pair<byte[],Map<String,Object>> family, @Nullable byte[] dataTable) throws SQLException {
-        return getDelegate().addColumn(tabeMetaData, isView, family, dataTable);
+    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family, @Nullable byte[] dataTable) throws SQLException {
+        return getDelegate().addColumn(tabeMetaData, tableType, family, dataTable);
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, byte[] emptyCF, @Nullable byte[] dataTable) throws SQLException {
-        return getDelegate().dropColumn(tabeMetaData, emptyCF, dataTable);
+    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType, byte[] emptyCF, @Nullable byte[] dataTable) throws SQLException {
+        return getDelegate().dropColumn(tabeMetaData, tableType, emptyCF, dataTable);
     }
 
     @Override

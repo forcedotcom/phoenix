@@ -755,7 +755,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             while (rs.next()) {
                 String schema = rs.getString(2);
                 String table = rs.getString(3);
-                SchemaUtil.getTableDisplayName(schema,table);
+                SchemaUtil.getTableName(schema,table);
             }
             return 0;
         }

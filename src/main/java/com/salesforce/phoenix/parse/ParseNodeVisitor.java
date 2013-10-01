@@ -103,4 +103,7 @@ public interface ParseNodeVisitor<E> {
 	
     public boolean visitEnter(BetweenParseNode node) throws SQLException;
     public E visitLeave(BetweenParseNode node, List<E> l) throws SQLException;
+    
+    public boolean visitEnter(CastParseNode node) throws SQLException;
+    public E visitLeave(CastParseNode node, List<E> l) throws SQLException;
 }

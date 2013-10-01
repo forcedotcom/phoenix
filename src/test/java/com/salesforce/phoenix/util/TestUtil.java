@@ -27,14 +27,20 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
@@ -46,13 +52,27 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
-import com.salesforce.phoenix.expression.*;
-import com.salesforce.phoenix.filter.*;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.InListExpression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.NotExpression;
+import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.filter.MultiCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.MultiKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
+import com.salesforce.phoenix.filter.SingleCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.SingleKeyValueComparisonFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -104,7 +124,9 @@ public class TestUtil {
     public static final String CUSTOM_ENTITY_DATA_NAME = "CUSTOM_ENTITY_DATA";
     public static final String CUSTOM_ENTITY_DATA_SCHEMA_NAME = "CORE";
     public static final String HBASE_NATIVE = "HBASE_NATIVE";
+    public static final String HBASE_NATIVE_SCHEMA_NAME = "";
     public static final String HBASE_DYNAMIC_COLUMNS = "HBASE_DYNAMIC_COLUMNS";
+    public static final String HBASE_DYNAMIC_COLUMNS_SCHEMA_NAME = "";
     public static final String PRODUCT_METRICS_NAME = "PRODUCT_METRICS";
     public static final String PTSDB_NAME = "PTSDB";
     public static final String PTSDB2_NAME = "PTSDB2";
@@ -113,6 +135,7 @@ public class TestUtil {
     public static final String FUNKY_NAME = "FUNKY_NAMES";
     public static final String MULTI_CF_NAME = "MULTI_CF";
     public static final String MDTEST_NAME = "MDTEST";
+    public static final String MDTEST_SCHEMA_NAME = "";
     public static final String KEYONLY_NAME = "KEYONLY";
     public static final String TABLE_WITH_SALTING = "TABLE_WITH_SALTING";
     public static final String INDEX_DATA_SCHEMA = "INDEX_TEST";
@@ -250,7 +273,7 @@ public class TestUtil {
 
     public static void clearMetaDataCache(Connection conn) throws Throwable {
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        HTableInterface htable = pconn.getQueryServices().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+        HTableInterface htable = pconn.getQueryServices().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
         htable.coprocessorExec(MetaDataProtocol.class, HConstants.EMPTY_START_ROW,
                 HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataProtocol, Void>() {
             @Override

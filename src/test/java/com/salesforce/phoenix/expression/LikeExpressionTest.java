@@ -49,5 +49,4 @@ public class LikeExpressionTest {
         assertTrue(evaluated);
         assertEquals(Boolean.FALSE,result);
     }
-
 }
