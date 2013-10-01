@@ -27,11 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
-import java.sql.*;
+import java.sql.ParameterMetaData;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.parse.BindParseNode;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.TypeMismatchException;
@@ -48,9 +51,45 @@ import com.salesforce.phoenix.schema.TypeMismatchException;
 public class PhoenixParameterMetaData implements ParameterMetaData {
     public static final PhoenixParameterMetaData EMPTY_PARAMETER_META_DATA = new PhoenixParameterMetaData(0);
     private final PDatum[] params;
+    private static final PDatum EMPTY_DATUM = new PDatum() {
+        
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+        
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+        
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+        
+        @Override
+        public PDataType getDataType() {
+            return null;
+        }
+        
+        @Override
+        public ColumnModifier getColumnModifier() {
+            return null;
+        }
+        
+        @Override
+        public Integer getByteSize() {
+            return null;
+        }
+    };
     
     public PhoenixParameterMetaData(int paramCount) {
         params = new PDatum[paramCount];
+        //initialize the params array with the empty_datum marker value.
+        for(int i = 0; i < paramCount; i++) {
+            params[i] = EMPTY_DATUM;
+        }
     }
  
     private PDatum getParam(int index) throws SQLException {
@@ -60,7 +99,9 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
                 .build().buildException();
         }
         PDatum param = params[index-1];
-        if (param == null) {
+        
+        if (param == EMPTY_DATUM) {
+            //value at params[index-1] was never set.
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
                 .setMessage("Parameter at index " + index + " is unbound").build().buildException();
         }
@@ -68,7 +109,8 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
     }
     @Override
     public String getParameterClassName(int index) throws SQLException {
-        PDataType type = getParam(index).getDataType();
+        PDatum datum = getParam(index);
+        PDataType type = datum == null ? null : datum.getDataType();
         return type == null ? null : type.getJavaClassName();
     }
 

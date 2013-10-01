@@ -28,8 +28,16 @@
 package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableSet;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.client.Scan;
@@ -42,14 +50,22 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.parse.HintNode;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ReadOnlyProps;
+import com.salesforce.phoenix.util.SQLCloseables;
+import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 
 
 /**

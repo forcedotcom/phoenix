@@ -29,7 +29,11 @@ package com.salesforce.phoenix.filter;
 
 import java.util.Iterator;
 
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.CaseExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.IsNullExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.visitor.TraverseAllExpressionVisitor;
 
 

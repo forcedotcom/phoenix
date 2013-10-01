@@ -720,7 +720,7 @@ expression_term returns [ParseNode ret]
 @init{ParseNode n;boolean isAscending=true;}
     :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
     |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
-    |   field=identifier LPAREN l=expression_terms RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
+    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
         {
             FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);
             contextStack.peek().setAggregate(f.isAggregate());
@@ -735,7 +735,7 @@ expression_term returns [ParseNode ret]
             contextStack.peek().setAggregate(f.isAggregate()); 
             $ret = f;
         } 
-    |   field=identifier LPAREN t=DISTINCT l=expression_terms RPAREN 
+    |   field=identifier LPAREN t=DISTINCT l=expression_list RPAREN 
         {
             FunctionParseNode f = factory.functionDistinct(field, l);
             contextStack.peek().setAggregate(f.isAggregate());
@@ -757,7 +757,12 @@ expression_term returns [ParseNode ret]
 
 expression_terms returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-    :  v = expression {$ret.add(v);}  (COMMA v = expression {$ret.add(v);} )*
+    :  e = expression {$ret.add(e);}  (COMMA e = expression {$ret.add(e);} )*
+;
+
+expression_list returns [List<ParseNode> ret]
+@init{ret = new ArrayList<ParseNode>(); }
+    :  (v = expression {$ret.add(v);})?  (COMMA v = expression {$ret.add(v);} )*
 ;
 
 index_name returns [NamedNode ret]

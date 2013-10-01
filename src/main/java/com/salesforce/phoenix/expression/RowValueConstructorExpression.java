@@ -35,6 +35,7 @@
 package com.salesforce.phoenix.expression;
 
 import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -45,23 +46,26 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.IndexUtil;
+import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
 public class RowValueConstructorExpression extends BaseCompoundExpression {
     
     private ImmutableBytesWritable ptrs[];
-    private boolean literalsOnly;
     private ImmutableBytesWritable literalExprPtr;
     private int counter;
     private int size;
-    public RowValueConstructorExpression() {
-    }
     
-    public RowValueConstructorExpression(List<Expression> l) {
+    
+    public RowValueConstructorExpression() {}
+    
+    public RowValueConstructorExpression(List<Expression> l, boolean isConstant) {
+        super(l);
         children = l;
         counter = 0;
         size = 0;
-        init();
+        init(isConstant);
     }
 
     @Override
@@ -77,24 +81,21 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     @Override
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
-        init();
+        init(input.readBoolean());
     }
     
-    private void init() {
+    @Override
+    public void write(DataOutput output) throws IOException {
+        super.write(output);
+        output.writeBoolean(literalExprPtr != null);
+    }
+    
+    private void init(boolean isConstant) {
         ptrs = new ImmutableBytesWritable[children.size()];
-        literalsOnly = true;
-   
-        for(Expression e : children) {
-            if(!(e instanceof LiteralExpression)) {
-                 literalsOnly = false;
-                 break;
-            }
-        }
-        if(literalsOnly) {
+        if(isConstant) {
             ImmutableBytesWritable ptr = new ImmutableBytesWritable();
             this.evaluate(null, ptr);
-            literalExprPtr = new ImmutableBytesWritable();
-            literalExprPtr.set(ptr.get(), ptr.getOffset(), ptr.getLength());
+            literalExprPtr = ptr;
         }
     }
     
@@ -112,7 +113,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if(literalsOnly && literalExprPtr != null) {
+        if(literalExprPtr != null) {
             // if determined during construction that the row value constructor is just comprised of literal expressions, 
             // let's just return the ptr we have already computed and be done with evaluation.
             ptr.set(literalExprPtr.get(), literalExprPtr.getOffset(), literalExprPtr.getLength());
@@ -123,13 +124,15 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
             final int numChildExpressions = children.size();
             for(j = counter; j < numChildExpressions; j++) {
                 final Expression expression = children.get(j);
-                if(expression.evaluate(tuple, ptr)) {
-                    PDataType dt = IndexUtil.getIndexColumnDataType(true , expression.getDataType());
-                    dt.coerceBytes(ptr, expression.getDataType(), expression.getColumnModifier(), expression.getColumnModifier());
-                    ptrs[j] = new ImmutableBytesWritable();
-                    ptrs[j].set(ptr.get(), ptr.getOffset(), ptr.getLength());
-                    size = size + (dt.isFixedWidth() ? ptr.getLength() : ptr.getLength() + 1);
-                    counter++;
+                if(expression != null && expression.evaluate(tuple, ptr)) {
+                    if(expression.getDataType() != null) {
+                        PDataType dt = IndexUtil.getIndexColumnDataType(true , expression.getDataType());
+                        dt.coerceBytes(ptr, expression.getDataType(), expression.getColumnModifier(), expression.getColumnModifier());
+                        ptrs[j] = new ImmutableBytesWritable();
+                        ptrs[j].set(ptr.get(), ptr.getOffset(), ptr.getLength());
+                        size = size + (dt.isFixedWidth() ? ptr.getLength() : ptr.getLength() + 1); // 1 extra for the separator byte.
+                        counter++;
+                    }
                 } else if(tuple == null || tuple.isImmutable()) {
                     ptrs[j] = new ImmutableBytesWritable();
                     ptrs[j].set(ByteUtil.EMPTY_BYTE_ARRAY);

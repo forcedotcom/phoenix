@@ -30,7 +30,10 @@ package com.salesforce.phoenix.compile;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -38,12 +41,67 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.CaseExpression;
+import com.salesforce.phoenix.expression.CoerceExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
+import com.salesforce.phoenix.expression.DateAddExpression;
+import com.salesforce.phoenix.expression.DateSubtractExpression;
+import com.salesforce.phoenix.expression.DecimalAddExpression;
+import com.salesforce.phoenix.expression.DecimalDivideExpression;
+import com.salesforce.phoenix.expression.DecimalMultiplyExpression;
+import com.salesforce.phoenix.expression.DecimalSubtractExpression;
+import com.salesforce.phoenix.expression.DoubleAddExpression;
+import com.salesforce.phoenix.expression.DoubleDivideExpression;
+import com.salesforce.phoenix.expression.DoubleMultiplyExpression;
+import com.salesforce.phoenix.expression.DoubleSubtractExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.InListExpression;
+import com.salesforce.phoenix.expression.IsNullExpression;
+import com.salesforce.phoenix.expression.LikeExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.LongAddExpression;
+import com.salesforce.phoenix.expression.LongDivideExpression;
+import com.salesforce.phoenix.expression.LongMultiplyExpression;
+import com.salesforce.phoenix.expression.LongSubtractExpression;
+import com.salesforce.phoenix.expression.NotExpression;
+import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.expression.RowValueConstructorExpression;
+import com.salesforce.phoenix.expression.StringConcatExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.AddParseNode;
+import com.salesforce.phoenix.parse.AndParseNode;
+import com.salesforce.phoenix.parse.ArithmeticParseNode;
+import com.salesforce.phoenix.parse.BindParseNode;
+import com.salesforce.phoenix.parse.CaseParseNode;
+import com.salesforce.phoenix.parse.CastParseNode;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.ComparisonParseNode;
+import com.salesforce.phoenix.parse.DivideParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.parse.InListParseNode;
+import com.salesforce.phoenix.parse.IsNullParseNode;
+import com.salesforce.phoenix.parse.LikeParseNode;
+import com.salesforce.phoenix.parse.LiteralParseNode;
+import com.salesforce.phoenix.parse.MultiplyParseNode;
+import com.salesforce.phoenix.parse.NotParseNode;
+import com.salesforce.phoenix.parse.OrParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.RowValueConstructorParseNode;
+import com.salesforce.phoenix.parse.StringConcatParseNode;
+import com.salesforce.phoenix.parse.SubtractParseNode;
+import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.DelegateDatum;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -80,85 +138,85 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     public boolean visitEnter(ComparisonParseNode node) {
         return true;
     }
-
+    
+    private void addBindParamMetaData(ParseNode node, Expression expr) throws SQLException {
+        if (node instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)node, expr);
+        }
+    }
+    
+    private void addNullDatumForBindParamMetaData(int initCount, int diff, List<ParseNode> childNodes) throws SQLException {
+        for(int i = initCount; i <= initCount + diff - 1; i++) {
+            ParseNode childNode = childNodes.get(i);
+            if(childNode instanceof BindParseNode) {
+                context.getBindManager().addParamMetaData((BindParseNode)childNode, null);
+            }    
+        }
+    }
+    
+    private void checkComparability(ParseNode node, PDataType lhsDataType, PDataType rhsDataType) throws TypeMismatchException {
+        if(lhsDataType != null && rhsDataType != null && !lhsDataType.isComparableTo(rhsDataType)) {
+            throw new TypeMismatchException(lhsDataType, rhsDataType, node.toString());
+        }
+    }
+    
     @Override
+    //TODO: handle nested case. 
     public Expression visitLeave(ComparisonParseNode node, List<Expression> children) throws SQLException {
         ParseNode lhsNode = node.getChildren().get(0);
         ParseNode rhsNode = node.getChildren().get(1);
-        final Expression lhsExpr = children.get(0);
-        final Expression rhsExpr = children.get(1);
+        Expression lhsExpr = children.get(0);
+        Expression rhsExpr = children.get(1);
 
-        if ( rhsExpr.getDataType() != null && lhsExpr.getDataType() != null && 
-                !lhsExpr.getDataType().isComparableTo(rhsExpr.getDataType())) {
-            throw new TypeMismatchException(lhsExpr.getDataType(), rhsExpr.getDataType(), node.toString());
-        }
-        if (lhsNode instanceof BindParseNode) {
-            context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhsExpr);
-        }
-        if (rhsNode instanceof BindParseNode) {
-            context.getBindManager().addParamMetaData((BindParseNode)rhsNode, lhsExpr);
-        }
-
-        List<Expression> lhsChildExprs = lhsExpr.getChildren();
-        List<Expression> rhsChildExprs = rhsExpr.getChildren();
-        int lhsSize = lhsChildExprs.size();
-        int rhsSize = rhsChildExprs.size();
-        if(lhsNode instanceof RowValueConstructorParseNode && rhsNode instanceof RowValueConstructorParseNode) {
+        checkComparability(node, lhsExpr.getDataType(), rhsExpr.getDataType());
+        addBindParamMetaData(lhsNode, rhsExpr);
+        addBindParamMetaData(rhsNode, lhsExpr);
+        
+        if(lhsNode instanceof RowValueConstructorParseNode || rhsNode instanceof RowValueConstructorParseNode) {
+            List<Expression> lhsChildExprs = lhsExpr.getChildren();
+            List<Expression> rhsChildExprs = rhsExpr.getChildren();
             List<ParseNode> lhsChildNodes = lhsNode.getChildren();
             List<ParseNode> rhsChildNodes = rhsNode.getChildren();
-            int minNum = Math.min(lhsSize, rhsSize);
-            for(int i =0; i < minNum; i++) {
-                Expression lhsChildExpression = lhsChildExprs.get(i);
-                Expression rhsChildExpression = rhsChildExprs.get(i);
-                if(!lhsChildExpression.getDataType().isCoercibleTo(rhsChildExpression.getDataType())) {
-                    throw new TypeMismatchException(lhsChildExpression.getDataType(), rhsChildExpression.getDataType(), node.toString());
-                }
-                if (lhsChildNodes.get(i) instanceof BindParseNode) {
-                    context.getBindManager().addParamMetaData((BindParseNode)lhsChildNodes.get(i), rhsChildExpression);
-                }
-                if (rhsChildNodes.get(i) instanceof BindParseNode) {
-                    context.getBindManager().addParamMetaData((BindParseNode)rhsChildNodes.get(i), lhsChildExpression);
-                }
+
+            int numLhsExprs = lhsChildExprs.size();
+            int numRhsExprs = rhsChildExprs.size();
+
+            int minNum = (numLhsExprs == 0 || numRhsExprs == 0) ? 1 : Math.min(numLhsExprs, numRhsExprs);
+            
+            for (int i = 0; i < minNum; i++) {
+                Expression lhsChildExpression = numLhsExprs == 0 ? lhsExpr : lhsChildExprs.get(i);
+                Expression rhsChildExpression = numRhsExprs == 0 ? rhsExpr : rhsChildExprs.get(i);
+                ParseNode lhsChildNode = numLhsExprs == 0 ? lhsNode : lhsChildNodes.get(i);
+                ParseNode rhsChildNode = numRhsExprs == 0 ? rhsNode : rhsChildNodes.get(i);
+                checkComparability(node, lhsChildExpression.getDataType(), rhsChildExpression.getDataType());
+                addBindParamMetaData(lhsChildNode, rhsChildExpression);
+                addBindParamMetaData(rhsChildNode, lhsChildExpression);    
             }
-            // We allow un-equal number of arguments on lhs and rhs row value constructors. If there are bind variables 
-            // beyond the minSize, they will have a null column assigned to them as metadata.
-            int diffSize = Math.abs(lhsSize - minNum);
-            if(lhsSize != rhsSize) { 
-                if(lhsSize > rhsSize) {
-                    for(int i = minNum; i < minNum + diffSize - 1; i++) {
-                        if(lhsChildNodes.get(i) instanceof BindParseNode) {
-                            context.getBindManager().addParamMetaData((BindParseNode)lhsNode, null);
-                        }    
-                    }
+            
+            if(minNum == 1) {
+                PDataType variableWidthDataType;
+                Expression  expr;
+                if(numLhsExprs == 0) {
+                    expr = rhsExpr.getChildren().get(0);
+                    variableWidthDataType = IndexUtil.getIndexColumnDataType(true, expr.getDataType());
+                    lhsExpr = CoerceExpression.create(lhsExpr, variableWidthDataType);
                 } else {
-                    for(int i = minNum; i < minNum + diffSize - 1; i++) {
-                        if(rhsChildNodes.get(i) instanceof BindParseNode) {
-                            context.getBindManager().addParamMetaData((BindParseNode)rhsNode, null);
-                        }    
-                    }
+                    expr = lhsExpr.getChildren().get(0);
+                    variableWidthDataType = IndexUtil.getIndexColumnDataType(true, expr.getDataType());
+                    rhsExpr = CoerceExpression.create(rhsExpr, variableWidthDataType);
                 }
             }
-        } else if(lhsNode instanceof RowValueConstructorParseNode && rhsExpr instanceof LiteralExpression) {
-            final PDataType lhsDataType = lhsChildExprs.get(0).getDataType();
-            final PDataType rhsDataType = rhsExpr.getDataType();
-            if(!lhsDataType.isCoercibleTo(rhsDataType)) {
-                throw new TypeMismatchException(lhsDataType, rhsDataType, node.toString());
+            
+            if(numLhsExprs != numRhsExprs) { 
+                int diffSize = numLhsExprs > numRhsExprs ? numLhsExprs - minNum : numRhsExprs - minNum;
+                if(numLhsExprs > numRhsExprs) {
+                    addNullDatumForBindParamMetaData(minNum, diffSize, lhsChildNodes);
+                } else {
+                    addNullDatumForBindParamMetaData(minNum, diffSize, rhsChildNodes);
+                }
             }
-            if (lhsNode.getChildren().get(0) instanceof BindParseNode) {
-                context.getBindManager().addParamMetaData((BindParseNode)lhsNode.getChildren().get(0), rhsExpr);
-            }
-        } else if(lhsExpr instanceof LiteralExpression && rhsNode instanceof RowValueConstructorParseNode) {
-            final PDataType lhsDataType = lhsExpr.getDataType();
-            final PDataType rhsDataType = rhsChildExprs.get(0).getDataType();
-            if(!rhsDataType.isCoercibleTo(lhsDataType)) {
-                throw new TypeMismatchException(rhsDataType, lhsDataType, node.toString());
-            }
-            if (rhsNode.getChildren().get(0) instanceof BindParseNode) {
-                context.getBindManager().addParamMetaData((BindParseNode)rhsNode.getChildren().get(0), lhsExpr);
-            }
-        }
-
-
+        }   
+        
         Object lhsValue = null;
         // Can't use lhsNode.isConstant(), because we have cases in which we don't know
         // in advance if a function evaluates to null (namely when bind variables are used)
@@ -1206,7 +1264,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
     @Override
     public Expression visitLeave(RowValueConstructorParseNode node, List<Expression> l) throws SQLException {
-        Expression e = new RowValueConstructorExpression(l);
+        Expression e = new RowValueConstructorExpression(l, node.isConstant());
         return e; 
     }
 }
