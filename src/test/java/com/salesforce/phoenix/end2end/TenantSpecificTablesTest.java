@@ -30,7 +30,7 @@ package com.salesforce.phoenix.end2end;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.COLUMN_EXIST_IN_DEF;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CREATE_TENANT_TABLE_NO_PK;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.SCHEMA_NOT_FOUND;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.TABLE_UNDEFINED;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 import static com.salesforce.phoenix.schema.PTableType.SYSTEM;
@@ -117,7 +117,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             
             // ensure we didn't create a physical HBase table for the tenannt-specifidc table
             HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
-            assertEquals(0, admin.listTables("TENANT_TABLE").length);
+            assertEquals(0, admin.listTables(TENANT_TABLE_NAME).length);
         }
         finally {
             conn.close();
@@ -227,10 +227,10 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         try {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE DIFFSCHEMA.TENANT_TABLE2 ( \n" + 
                     "                tenant_col VARCHAR) \n" + 
-                    "                BASE_TABLE='PARENT_TABLE'");
+                    "                BASE_TABLE='" + PARENT_TABLE_NAME + '\'');
         }
         catch (SQLException expected) {
-            assertEquals(SCHEMA_NOT_FOUND.getErrorCode(), expected.getErrorCode());
+            assertEquals(TABLE_UNDEFINED.getErrorCode(), expected.getErrorCode());
         }
         finally {
             dropTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DIFFSCHEMA.TENANT_TABLE2");
@@ -270,7 +270,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     private void assertTableMetaData(ResultSet rs, String schema, String table, PTableType tableType) throws SQLException {
         assertEquals(schema, rs.getString("TABLE_SCHEM"));
         assertEquals(table, rs.getString("TABLE_NAME"));
-        assertEquals(tableType.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(tableType.toString(), rs.getString("TABLE_TYPE"));
     }
     
     private void assertColumnMetaData(ResultSet rs, String schema, String table, String column) throws SQLException {

@@ -202,7 +202,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 @Override
                 public NavigableMap<HRegionInfo, ServerName> load(TableRef key) throws Exception {
                     logger.info("LOAD: {}", key);
-                    return MetaScanner.allTableRegions(config, key.getTable().getName().getBytes(), false);
+                    return MetaScanner.allTableRegions(config, key.getTable().getPhysicalName().getBytes(), false);
                 }
             });
     }
