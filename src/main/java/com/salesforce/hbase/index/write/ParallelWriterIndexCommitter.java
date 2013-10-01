@@ -58,7 +58,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.salesforce.hbase.index.CapturingAbortable;
-import com.salesforce.hbase.index.exception.CannotReachSingleIndexException;
+import com.salesforce.hbase.index.exception.SingleIndexWriteFailureException;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
@@ -148,7 +148,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
 
   @Override
   public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
-      throws CannotReachSingleIndexException {
+      throws SingleIndexWriteFailureException {
     /*
      * This bit here is a little odd, so let's explain what's going on. Basically, we want to do the
      * writes in parallel to each index table, so each table gets its own task and is submitted to
@@ -201,22 +201,22 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
             HTableInterface table = factory.getTable(tableReference.get());
             throwFailureIfDone();
             table.batch(mutations);
-          } catch (CannotReachSingleIndexException e) {
+          } catch (SingleIndexWriteFailureException e) {
             throw e;
           } catch (IOException e) {
-            throw new CannotReachSingleIndexException(tableReference.toString(), mutations, e);
+            throw new SingleIndexWriteFailureException(tableReference.toString(), mutations, e);
           } catch (InterruptedException e) {
             // reset the interrupt status on the thread
             Thread.currentThread().interrupt();
-            throw new CannotReachSingleIndexException(tableReference.toString(), mutations, e);
+            throw new SingleIndexWriteFailureException(tableReference.toString(), mutations, e);
           }
           return null;
         }
 
-        private void throwFailureIfDone() throws CannotReachSingleIndexException {
+        private void throwFailureIfDone() throws SingleIndexWriteFailureException {
           if (stopped.isStopped() || abortable.isAborted()
               || Thread.currentThread().isInterrupted()) {
-            throw new CannotReachSingleIndexException(
+            throw new SingleIndexWriteFailureException(
                 "Pool closed, not attempting to write to the index!", null);
           }
 
@@ -265,10 +265,11 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
     // propagate the failure up to the caller
     try {
       this.abortable.throwCauseIfAborted();
-    } catch (CannotReachSingleIndexException e) {
+    } catch (SingleIndexWriteFailureException e) {
       throw e;
     } catch (Throwable e) {
-      throw new CannotReachSingleIndexException("Got an abort notification while writing to the index!",
+      throw new SingleIndexWriteFailureException(
+          "Got an abort notification while writing to the index!",
           e);
     }
 

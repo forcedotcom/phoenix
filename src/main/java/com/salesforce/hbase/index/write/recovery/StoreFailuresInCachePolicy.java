@@ -25,14 +25,14 @@ import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 
 import com.google.common.collect.Multimap;
-import com.salesforce.hbase.index.exception.MutliIndexWriteFailureException;
+import com.salesforce.hbase.index.exception.MultiIndexWriteFailureException;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.write.IndexFailurePolicy;
 import com.salesforce.hbase.index.write.KillServerOnFailurePolicy;
 
 /**
  * Tracks any failed writes in The {@link PerRegionIndexWriteCache}, given a
- * {@link MutliIndexWriteFailureException} (which is thrown from the
+ * {@link MultiIndexWriteFailureException} (which is thrown from the
  * {@link TrackingParallelWriterIndexCommitter}. Any other exception failure causes the a server
  * abort via the usual {@link KillServerOnFailurePolicy}.
  */
@@ -60,11 +60,11 @@ public class StoreFailuresInCachePolicy implements IndexFailurePolicy {
   @Override
   public void handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) {
     // if its not an exception we can handle, let the delegate take care of it
-    if (!(cause instanceof MutliIndexWriteFailureException)) {
+    if (!(cause instanceof MultiIndexWriteFailureException)) {
       delegate.handleFailure(attempted, cause);
     }
     List<HTableInterfaceReference> failedTables =
-        ((MutliIndexWriteFailureException) cause).getFailedTables();
+        ((MultiIndexWriteFailureException) cause).getFailedTables();
     for (HTableInterfaceReference table : failedTables) {
       cache.addEdits(this.region, table, attempted.get(table));
     }

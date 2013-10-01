@@ -62,8 +62,8 @@ import org.mockito.stubbing.Answer;
 
 import com.salesforce.hbase.index.StubAbortable;
 import com.salesforce.hbase.index.TableName;
-import com.salesforce.hbase.index.exception.CannotReachSingleIndexException;
 import com.salesforce.hbase.index.exception.IndexWriteException;
+import com.salesforce.hbase.index.exception.SingleIndexWriteFailureException;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 public class TestIndexWriter {
@@ -207,7 +207,7 @@ public class TestIndexWriter {
     try {
       writer.write(indexUpdates);
       fail("Should not have successfully completed all index writes");
-    } catch (CannotReachSingleIndexException e) {
+    } catch (SingleIndexWriteFailureException e) {
       LOG.info("Correctly got a failure to reach the index", e);
       // should have correctly gotten the correct abort, so let the next task execute
       waitOnAbortedLatch.countDown();
