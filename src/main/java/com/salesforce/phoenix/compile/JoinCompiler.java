@@ -97,9 +97,12 @@ public class JoinCompiler {
             this.mainTable = tableRefIter.next();
             this.select = extractFromSelect(selectList, mainTable, resolver);
             this.joinTables = new ArrayList<JoinTable>(tableNodes.size() - 1);
+            this.preFilters = new ArrayList<ParseNode>();
+            this.postFilters = new ArrayList<ParseNode>();
             ColumnParseNodeVisitor visitor = new ColumnParseNodeVisitor(resolver);
             TableNode tableNode = null;
-            for (; iter.hasNext(); tableNode = iter.next()) {
+            while (iter.hasNext()) {
+                tableNode = iter.next();
                 if (!(tableNode instanceof JoinTableNode))
                     throw new SQLFeatureNotSupportedException("Full joins not supported.");
                 JoinTableNode joinTableNode = (JoinTableNode) tableNode;
@@ -107,17 +110,27 @@ public class JoinCompiler {
                 joinTables.add(joinTable);
                 joinTableNode.getOnNode().accept(visitor);
             }
-            statement.getWhere().accept(new WhereNodeVisitor(resolver));
+            if (statement.getWhere() != null) {
+                statement.getWhere().accept(new WhereNodeVisitor(resolver));
+            }
             for (AliasedNode node : selectList) {
                 node.getNode().accept(visitor);
             }
-            statement.getWhere().accept(visitor);
-            for (ParseNode node : statement.getGroupBy()) {
-                node.accept(visitor);
+            if (statement.getWhere() != null) {            
+                statement.getWhere().accept(visitor);
             }
-            statement.getHaving().accept(visitor);
-            for (OrderByNode node : statement.getOrderBy()) {
-                node.getNode().accept(visitor);
+            if (statement.getGroupBy() != null) {
+                for (ParseNode node : statement.getGroupBy()) {
+                    node.accept(visitor);
+                }
+            }
+            if (statement.getHaving() != null) {
+                statement.getHaving().accept(visitor);
+            }
+            if (statement.getOrderBy() != null) {
+                for (OrderByNode node : statement.getOrderBy()) {
+                    node.getNode().accept(visitor);
+                }
             }
             this.columnRefs = visitor.getColumnRefMap().keySet();
         }

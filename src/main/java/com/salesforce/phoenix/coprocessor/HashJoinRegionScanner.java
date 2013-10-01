@@ -36,6 +36,7 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.cache.*;
 import com.salesforce.phoenix.expression.Expression;
@@ -101,7 +102,10 @@ public class HashJoinRegionScanner implements RegionScanner {
             boolean cont = true;
             for (int i = 0; i < count; i++) {
                 ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
-                HashCache hashCache = (HashCache)cache.getServerCache(joinInfo.getJoinIds()[i]);
+                ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
+                HashCache hashCache = (HashCache)cache.getServerCache(joinId);
+                if (hashCache == null)
+                    throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get()));
                 tuples[i] = hashCache.get(key);
                 JoinType type = joinInfo.getJoinTypes()[i];
                 if (type == JoinType.Inner && (tuples[i] == null || tuples[i].isEmpty())) {

@@ -15,6 +15,7 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashCacheClient;
+import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
@@ -23,14 +24,14 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
 public class HashJoinPlan implements QueryPlan {
     
     private BasicQueryPlan plan;
-    private ImmutableBytesPtr[] joinIds;
+    private HashJoinInfo joinInfo;
     private List<Expression>[] hashExpressions;
     private QueryPlan[] hashPlans;
     
-    public HashJoinPlan(BasicQueryPlan plan, ImmutableBytesPtr[] joinIds,
+    public HashJoinPlan(BasicQueryPlan plan, HashJoinInfo joinInfo,
             List<Expression>[] hashExpressions, QueryPlan[] hashPlans) {
         this.plan = plan;
-        this.joinIds = joinIds;
+        this.joinInfo = joinInfo;
         this.hashExpressions = hashExpressions;
         this.hashPlans = hashPlans;
     }
@@ -52,6 +53,7 @@ public class HashJoinPlan implements QueryPlan {
 
     @Override
     public Scanner getScanner() throws SQLException {
+        ImmutableBytesPtr[] joinIds = joinInfo.getJoinIds();
         assert (joinIds.length == hashExpressions.length && joinIds.length == hashPlans.length);
         
         HashCacheClient hashClient = plan.getContext().getHashClient();
@@ -62,6 +64,8 @@ public class HashJoinPlan implements QueryPlan {
             ServerCache cache = hashClient.addHashCache(hashPlans[i].getScanner(), hashExpressions[i], plan.getTableRef(), keyRange);
             joinIds[i].set(cache.getId());
         }
+        HashJoinInfo.serializeHashJoinIntoScan(scan, joinInfo);
+        
         return plan.getScanner();
     }
 

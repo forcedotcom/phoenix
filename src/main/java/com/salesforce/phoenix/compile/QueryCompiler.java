@@ -140,6 +140,7 @@ public class QueryCompiler {
     
     @SuppressWarnings("unchecked")
     protected QueryPlan compileJoinQuery(StatementContext context, SelectStatement statement, List<Object> binds, JoinSpec join) throws SQLException {
+        byte[] emptyByteArray = new byte[0];
         List<JoinTable> joinTables = join.getJoinTables();
         if (joinTables.isEmpty()) {
             context.setCurrentTable(join.getMainTable());
@@ -159,7 +160,7 @@ public class QueryCompiler {
             QueryPlan[] joinPlans = new QueryPlan[count];
             for (int i = 0; i < count; i++) {
                 JoinTable joinTable = joinTables.get(i);
-                joinIds[i] = new ImmutableBytesPtr(); // place-holder
+                joinIds[i] = new ImmutableBytesPtr(emptyByteArray); // place-holder
                 joinExpressions[i] = joinTable.compileLeftTableConditions(context);
                 hashExpressions[i] = joinTable.compileRightTableConditions(context);
                 joinTypes[i] = joinTable.getType();
@@ -174,10 +175,9 @@ public class QueryCompiler {
             }
             Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, null);
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
-            HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
             ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
             BasicQueryPlan plan = compileSingleQuery(context, JoinCompiler.getSubqueryWithoutJoin(statement, join), binds);
-            return new HashJoinPlan(plan, joinIds, hashExpressions, joinPlans);
+            return new HashJoinPlan(plan, joinInfo, hashExpressions, joinPlans);
         }
         
         JoinTable lastJoinTable = joinTables.get(joinTables.size() - 1);
@@ -199,15 +199,14 @@ public class QueryCompiler {
             }
             StatementContext lhsCtx = new StatementContext(statement, connection, context.getResolver(), binds, subScan, true, context.getHashClient());
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
-            ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr()};
+            ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr(emptyByteArray)};
             Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, lastJoinTable);
             List<Expression> joinExpressions = lastJoinTable.compileRightTableConditions(context);
             List<Expression> hashExpressions = lastJoinTable.compileLeftTableConditions(context);
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
-            HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
             ScanProjector.serializeProjectorIntoScan(context.getScan(), lastJoinTable.getScanProjector());
             BasicQueryPlan rhsPlan = compileSingleQuery(context, rhs, binds);
-            return new HashJoinPlan(rhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
+            return new HashJoinPlan(rhsPlan, joinInfo, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
         }
         
         SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoinAsFinalPlan(statement, join);
@@ -222,15 +221,14 @@ public class QueryCompiler {
         join.projectColumns(subScan, lastJoinTable.getTable());
         ScanProjector.serializeProjectorIntoScan(subScan, lastJoinTable.getScanProjector());
         QueryPlan rhsPlan = compile(rhs, binds, subScan);
-        ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr()};
+        ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr(emptyByteArray)};
         Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, null);
         List<Expression> joinExpressions = lastJoinTable.compileLeftTableConditions(context);
         List<Expression> hashExpressions = lastJoinTable.compileRightTableConditions(context);
         HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
-        HashJoinInfo.serializeHashJoinIntoScan(context.getScan(), joinInfo);
         ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
         BasicQueryPlan lhsPlan = compileSingleQuery(context, lhs, binds);
-        return new HashJoinPlan(lhsPlan, joinIds, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});
+        return new HashJoinPlan(lhsPlan, joinInfo, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});
     }
     
     protected BasicQueryPlan compileSingleQuery(StatementContext context, SelectStatement statement, List<Object> binds) throws SQLException{
