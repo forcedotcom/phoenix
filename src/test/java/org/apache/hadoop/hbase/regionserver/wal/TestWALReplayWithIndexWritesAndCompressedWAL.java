@@ -42,6 +42,7 @@ import com.salesforce.hbase.index.covered.example.ColumnGroup;
 import com.salesforce.hbase.index.covered.example.CoveredColumn;
 import com.salesforce.hbase.index.covered.example.CoveredColumnIndexSpecifierBuilder;
 import com.salesforce.hbase.index.covered.example.CoveredColumnIndexer;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 
 /**
  * For pre-0.94.9 instances, this class tests correctly deserializing WALEdits w/o compression. Post
@@ -76,6 +77,8 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
     conf.setInt(HConstants.ZK_SESSION_TIMEOUT, 30000);
     conf.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, 5000);
     IndexTestingUtils.setupConfig(conf);
+    // make sure we reset the WAL reader, as subclasses can mess with it potentially
+    conf.set(IndexManagementUtil.HLOG_READER_IMPL_KEY, SequenceFileLogReader.class.getName());
 
     // enable appends
     conf.setBoolean("dfs.support.append", true);
