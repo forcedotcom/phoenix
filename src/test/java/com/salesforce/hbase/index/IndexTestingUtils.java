@@ -66,8 +66,7 @@ public class IndexTestingUtils {
   public static void setupConfig(Configuration conf) {
       conf.setInt(MASTER_INFO_PORT_KEY, -1);
       conf.setInt(RS_INFO_PORT_KEY, -1);
-      // setup our codec and reader, so we get proper replay/write
-      conf.set(IndexManagementUtil.HLOG_READER_IMPL_KEY, IndexedHLogReader.class.getName());
+    // setup our codec, so we get proper replay/write
       conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class.getName());
   }
   /**

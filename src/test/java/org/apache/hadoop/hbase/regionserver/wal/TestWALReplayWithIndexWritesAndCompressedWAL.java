@@ -44,11 +44,15 @@ import com.salesforce.hbase.index.covered.example.CoveredColumnIndexSpecifierBui
 import com.salesforce.hbase.index.covered.example.CoveredColumnIndexer;
 
 /**
- * most of the underlying work (creating/splitting the WAL, etc) is from
+ * For pre-0.94.9 instances, this class tests correctly deserializing WALEdits w/o compression. Post
+ * 0.94.9 we can support a custom {@link WALEditCodec}, which handles reading/writing the compressed
+ * edits.
+ * <p>
+ * Most of the underlying work (creating/splitting the WAL, etc) is from
  * org.apache.hadoop.hhbase.regionserver.wal.TestWALReplay, copied here for completeness and ease of
  * use
  */
-public class TestWALReplayWithIndexWrites {
+public class TestWALReplayWithIndexWritesAndCompressedWAL {
 
   public static final Log LOG = LogFactory.getLog(TestWALReplay.class);
   static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
@@ -90,8 +94,13 @@ public class TestWALReplayWithIndexWrites {
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
     configureCluster();
-    // use our custom WAL Reader
-    UTIL.getConfiguration().set("hbase.regionserver.hlog.reader.impl", IndexedHLogReader.class.getName());
+    // use our custom Codec to handle the custom WALEdits
+    Configuration conf = UTIL.getConfiguration();
+    conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class.getName());
+
+    // enable WAL compression
+    conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
+
     startCluster();
   }
 
