@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
@@ -66,11 +67,21 @@ public class IndexManagementUtil {
               + " was not installed. You need to install it in hbase-site.xml under "
               + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY);
     // ensure the Hlog Reader is correct
-    Preconditions.checkState(
-      conf.getClass(HLOG_READER_IMPL_KEY, IndexedHLogReader.class) == IndexedHLogReader.class,
-      IndexedHLogReader.class.getName()
-          + " was not installed. You need to install it in hbase-site.xml under "
-          + HLOG_READER_IMPL_KEY);
+    String indexLogReaderName = IndexedHLogReader.class.getName();
+    if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
+      Preconditions.checkState(
+        conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName).equals(indexLogReaderName),
+        indexLogReaderName + " was not installed. You need to install it in hbase-site.xml under "
+            + HLOG_READER_IMPL_KEY);
+    } else {
+      // can't support IndexHLogReader if WAL_COMPRESSION is enabled
+      Preconditions
+          .checkState(
+            !conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName).equals(indexLogReaderName),
+            indexLogReaderName
+                + " was installed, but WAL_COMPRESSION wasn't enabled! You need to remove it in hbase-site.xml under "
+                + HLOG_READER_IMPL_KEY);
+    }
   }
 
   public static ValueGetter createGetterFromKeyValues(Collection<KeyValue> pendingUpdates) {

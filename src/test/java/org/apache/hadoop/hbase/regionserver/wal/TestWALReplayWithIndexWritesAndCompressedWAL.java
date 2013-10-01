@@ -51,24 +51,51 @@ import com.salesforce.hbase.index.util.IndexManagementUtil;
  * <p>
  * Most of the underlying work (creating/splitting the WAL, etc) is from
  * org.apache.hadoop.hhbase.regionserver.wal.TestWALReplay, copied here for completeness and ease of
- * use
+ * use.
+ * <p>
+ * This test should only have a sinlge test - otherwise we will start/stop the minicluster multiple
+ * times, which is probably not what you want to do (mostly because its so much effort).
  */
 public class TestWALReplayWithIndexWritesAndCompressedWAL {
 
   public static final Log LOG = LogFactory.getLog(TestWALReplay.class);
-  static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
   @Rule
   public TableName table = new TableName();
   private String INDEX_TABLE_NAME = table.getTableNameString() + "_INDEX";
 
+  final HBaseTestingUtility UTIL = new HBaseTestingUtility();
   private Path hbaseRootDir = null;
   private Path oldLogDir;
   private Path logDir;
   private FileSystem fs;
   private Configuration conf;
 
-  protected static void configureCluster() throws Exception {
+  @Before
+  public void setUp() throws Exception {
+    setupCluster();
+    this.conf = HBaseConfiguration.create(UTIL.getConfiguration());
+    this.fs = UTIL.getDFSCluster().getFileSystem();
+    this.hbaseRootDir = new Path(this.conf.get(HConstants.HBASE_DIR));
+    this.oldLogDir = new Path(this.hbaseRootDir, HConstants.HREGION_OLDLOGDIR_NAME);
+    this.logDir = new Path(this.hbaseRootDir, HConstants.HREGION_LOGDIR_NAME);
+    // reset the log reader to ensure we pull the one from this config
+    HLog.resetLogReaderClass();
+  }
+
+  private void setupCluster() throws Exception {
+    configureCluster();
+    startCluster();
+  }
+
+  protected void configureCluster() throws Exception {
     Configuration conf = UTIL.getConfiguration();
+    setDefaults(conf);
+
+    // enable WAL compression
+    conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
+  }
+
+  protected final void setDefaults(Configuration conf) {
     // make sure writers fail quickly
     conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 3);
     conf.setInt(HConstants.HBASE_CLIENT_PAUSE, 1000);
@@ -76,15 +103,12 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
     conf.setInt("zookeeper.recovery.retry.intervalmill", 100);
     conf.setInt(HConstants.ZK_SESSION_TIMEOUT, 30000);
     conf.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, 5000);
-    IndexTestingUtils.setupConfig(conf);
-    // make sure we reset the WAL reader, as subclasses can mess with it potentially
-    conf.set(IndexManagementUtil.HLOG_READER_IMPL_KEY, SequenceFileLogReader.class.getName());
-
     // enable appends
     conf.setBoolean("dfs.support.append", true);
+    IndexTestingUtils.setupConfig(conf);
   }
 
-  protected static void startCluster() throws Exception {
+  protected void startCluster() throws Exception {
     UTIL.startMiniDFSCluster(3);
     UTIL.startMiniZKCluster();
     UTIL.startMiniHBaseCluster(1, 1);
@@ -94,38 +118,13 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
     UTIL.getConfiguration().set(HConstants.HBASE_DIR, hbaseRootDir.toString());
   }
 
-  @BeforeClass
-  public static void setUpBeforeClass() throws Exception {
-    configureCluster();
-    // use our custom Codec to handle the custom WALEdits
-    Configuration conf = UTIL.getConfiguration();
-    conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class.getName());
-
-    // enable WAL compression
-    conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
-
-    startCluster();
-  }
-
-  @AfterClass
-  public static void tearDownAfterClass() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     UTIL.shutdownMiniHBaseCluster();
     UTIL.shutdownMiniDFSCluster();
     UTIL.shutdownMiniZKCluster();
   }
 
-  @Before
-  public void setUp() throws Exception {
-    this.conf = HBaseConfiguration.create(UTIL.getConfiguration());
-    this.fs = UTIL.getDFSCluster().getFileSystem();
-    this.hbaseRootDir = new Path(this.conf.get(HConstants.HBASE_DIR));
-    this.oldLogDir = new Path(this.hbaseRootDir, HConstants.HREGION_OLDLOGDIR_NAME);
-    this.logDir = new Path(this.hbaseRootDir, HConstants.HREGION_LOGDIR_NAME);
-  }
-
-  @After
-  public void tearDown() throws Exception {
-  }
 
   private void deleteDir(final Path p) throws IOException {
     if (this.fs.exists(p)) {
@@ -142,6 +141,9 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
    */
   @Test
   public void testReplayEditsWrittenViaHRegion() throws Exception {
+    LOG.info("Jesse: Specified log reader:" + conf.get(IndexManagementUtil.HLOG_READER_IMPL_KEY));
+    LOG.info("Jesse: Compression: " + conf.get(HConstants.ENABLE_WAL_COMPRESSION));
+    LOG.info("Jesse: Codec: " + conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY));
     final String tableNameStr = "testReplayEditsWrittenViaHRegion";
     final HRegionInfo hri = new HRegionInfo(Bytes.toBytes(tableNameStr), null, null, false);
     final Path basedir = new Path(this.hbaseRootDir, tableNameStr);
@@ -247,6 +249,10 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
    */
   private Path runWALSplit(final Configuration c) throws IOException {
     FileSystem fs = FileSystem.get(c);
+    LOG.info("Jesse: runWALSplit: hlogImpl: " + c.get("hbase.regionserver.hlog.reader.impl"));
+    LOG.info("Jesse: runWALSplit: hlogImpl: " + c.get(IndexManagementUtil.HLOG_READER_IMPL_KEY));
+    LOG.info("Jesse: runWALSplit: Compression: " + conf.get(HConstants.ENABLE_WAL_COMPRESSION));
+    LOG.info("Jesse: runWALSplit: Codec: " + conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY));
     HLogSplitter logSplitter = HLogSplitter.createLogSplitter(c, this.hbaseRootDir, this.logDir,
       this.oldLogDir, fs);
     List<Path> splits = logSplitter.splitLog();
