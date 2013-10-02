@@ -59,29 +59,26 @@ public class IndexManagementUtil {
 
   public static void ensureMutableIndexingCorrectlyConfigured(Configuration conf)
       throws IllegalStateException {
-    // ensure the WALEditCodec is correct
-    Preconditions
-        .checkState(
-          conf.getClass(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class) == IndexedWALEditCodec.class,
-          IndexedWALEditCodec.class.getName()
-              + " was not installed. You need to install it in hbase-site.xml under "
-              + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY);
-    // ensure the Hlog Reader is correct
-    String indexLogReaderName = IndexedHLogReader.class.getName();
-    if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
-      Preconditions.checkState(
-        conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName).equals(indexLogReaderName),
-        indexLogReaderName + " was not installed. You need to install it in hbase-site.xml under "
-            + HLOG_READER_IMPL_KEY);
-    } else {
-      // can't support IndexHLogReader if WAL_COMPRESSION is enabled
-      Preconditions
-          .checkState(
-            !conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName).equals(indexLogReaderName),
-            indexLogReaderName
-                + " was installed, but WAL_COMPRESSION wasn't enabled! You need to remove it in hbase-site.xml under "
-                + HLOG_READER_IMPL_KEY);
+    // check to see if the WALEditCodec is installed
+    String codecClass = IndexedWALEditCodec.class.getName();
+    if (codecClass.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
+      // its installed, and it can handle compression and non-compression cases
+      return;
     }
+
+    // otherwise, we have to install the indexedhlogreader, but it cannot have compression
+    String indexLogReaderName = IndexedHLogReader.class.getName();
+    if (indexLogReaderName.equals(conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName))) {
+      if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
+        throw new IllegalStateException("WAL Compression is only supported with " + codecClass
+            + ". You can install in hbase-site.xml, under " + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY);
+      }
+    } else {
+      throw new IllegalStateException(IndexedWALEditCodec.class.getName()
+          + " is not installed, but " + indexLogReaderName
+          + " hasn't been installed in hbase-site.xml under " + HLOG_READER_IMPL_KEY);
+    }
+
   }
 
   public static ValueGetter createGetterFromKeyValues(Collection<KeyValue> pendingUpdates) {
