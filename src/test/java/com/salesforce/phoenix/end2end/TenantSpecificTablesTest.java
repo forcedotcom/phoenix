@@ -132,7 +132,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Viva Las Vegas')");
             
             conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " add tenant_col2 char(1) null");
-            int count = conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col2) values ('" + TENANT_ID + "', 2, 'a')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col2) values ('" + TENANT_ID + "', 2, 'a')");
             
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
             rs.next();
