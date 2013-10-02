@@ -50,6 +50,7 @@ import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Durability;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
@@ -87,7 +88,11 @@ import com.salesforce.hbase.index.write.recovery.TrackingParallelWriterIndexComm
  * {@link #preWALRestore(ObserverContext, HRegionInfo, HLogKey, WALEdit)}).
  * <p>
  * If the WAL is disabled, the updates are attempted immediately. No consistency guarantees are made
- * if the WAL is disabled - some or none of the index updates may be successful.
+ * if the WAL is disabled - some or none of the index updates may be successful. All updates in a
+ * single batch must have the same durability level - either everything gets written to the WAL or
+ * nothing does. Currently, we do not support mixed-durability updates within a single batch. If you
+ * want to have different durability levels, you only need to split the updates into two different
+ * batches.
  */
 public class Indexer extends BaseRegionObserver {
 
@@ -114,6 +119,8 @@ public class Indexer extends BaseRegionObserver {
   public static final String CHECK_VERSION_CONF_KEY = "com.saleforce.hbase.index.checkversion";
 
   private static final String INDEX_RECOVERY_FAILURE_POLICY_KEY = "com.salesforce.hbase.index.recovery.failurepolicy";
+
+  private static final Mutation[] EMPTY_MUTATION_ARRAY = null;
 
   /**
    * Marker {@link KeyValue} to indicate that we are doing a batch operation. Needed because the
@@ -244,6 +251,7 @@ public class Indexer extends BaseRegionObserver {
     // first group all the updates for a single row into a single update to be processed
     Map<ImmutableBytesPtr, MultiMutation> mutations =
         new HashMap<ImmutableBytesPtr, MultiMutation>();
+    boolean durable = false;
     for (int i = 0; i < miniBatchOp.size(); i++) {
       // remove the batch keyvalue marker - its added for all puts
       WALEdit edit = miniBatchOp.getWalEdit(i);
@@ -259,6 +267,11 @@ public class Indexer extends BaseRegionObserver {
       // skip this mutation if we aren't enabling indexing
       if (!this.builder.isEnabled(m)) {
         continue;
+      }
+      
+      //figure out if this is batch durable or not
+      if(!durable){
+        durable = m.getDurability() != Durability.SKIP_WAL;
       }
 
       // add the mutation to the batch set
@@ -284,20 +297,13 @@ public class Indexer extends BaseRegionObserver {
     WALEdit edit = miniBatchOp.getWalEdit(0);
 
     // do the usual updates
-    boolean lock = false;
-    for (Entry<?, MultiMutation> entry : mutations.entrySet()) {
-      Mutation m = entry.getValue();
-      Collection<Pair<Mutation, byte[]>> indexUpdates = this.builder.getIndexUpdate(m);
+    Collection<Pair<Mutation, byte[]>> indexUpdates  =this.builder.getIndexUpdate(mutations.values().toArray(EMPTY_MUTATION_ARRAY));
+    if(doPre(indexUpdates, edit, durable)){
+      // if any of the updates in the batch updated the WAL, then we need to the lock the WAL
+        LOG.debug("Taking INDEX_UPDATE readlock for batch mutation");
+        INDEX_UPDATE_LOCK.lock();
+    }
 
-      if (doPre(indexUpdates, edit, m.getWriteToWAL())) {
-        lock = true;
-      }
-    }
-    // if any of the updates in the batch updated the WAL, then we need to the lock the WAL
-    if (lock) {
-      LOG.debug("Taking INDEX_UPDATE readlock for batch mutation");
-      INDEX_UPDATE_LOCK.lock();
-    }
   }
 
   private class MultiMutation extends Mutation {

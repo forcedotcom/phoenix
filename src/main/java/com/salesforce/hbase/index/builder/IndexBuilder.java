@@ -33,6 +33,7 @@ import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
@@ -67,19 +68,24 @@ public interface IndexBuilder {
    * tables.
    * <p>
    * The mutation is a generic mutation (not a {@link Put} or a {@link Delete}), as it actually
-   * cooresponds to a batch update. Its important to note that {@link Put}s always go through the
-   * batch update code path, so a single {@link Put}, flushed to the server will come through here
-   * and update the primary table.
+   * corresponds to a batch update. Its important to note that {@link Put}s always go through the
+   * batch update code path, so a single {@link Put} will come through here and update the primary
+   * table as the only update in the mutation.
    * @param mutation update to the primary table to be indexed.
    * @return a Map of the mutations to make -> target index table name
    * @throws IOException on failure
    */
-  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Mutation mutation) throws IOException;
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Mutation... mutation) throws IOException;
 
   /**
    * The counter-part to {@link #getIndexUpdate(Mutation)} - your opportunity to update any/all
-   * index tables based on the delete of the primary table row. Its up to your implementation to
-   * ensure that timestamps match between the primary and index tables.
+   * index tables based on the delete of the primary table row. This is only called for cases where
+   * the client sends a single delete ({@link HTable#delete}). We separate this method from
+   * {@link #getIndexUpdate(Mutation...)} only for the ease of implementation as the delete path has
+   * subtly different semantics for updating the families/timestamps from the generic batch path.
+   * <p>
+   * Its up to your implementation to ensure that timestamps match between the primary and index
+   * tables. *
    * @param delete {@link Delete} to the primary table that may be indexed
    * @return a {@link Map} of the mutations to make -> target index table name
    * @throws IOException on failure
