@@ -54,8 +54,8 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.salesforce.hbase.index.CapturingAbortable;
-import com.salesforce.hbase.index.exception.CannotReachSingleIndexException;
-import com.salesforce.hbase.index.exception.MutliIndexWriteFailureException;
+import com.salesforce.hbase.index.exception.MultiIndexWriteFailureException;
+import com.salesforce.hbase.index.exception.SingleIndexWriteFailureException;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
@@ -69,10 +69,10 @@ import com.salesforce.hbase.index.write.ParallelWriterIndexCommitter;
  * be a lot slower, in the face of failures, when compared to the
  * {@link ParallelWriterIndexCommitter} (though as fast for writes), so it should be used only when
  * you need to at least attempt all writes and know their result; for instance, this is fine for
- * doing WAL recovery - its not a performance intensive situation and we want to limit the the edits
- * we need to retry.
+ * doing WAL recovery - it's not a performance intensive situation and we want to limit the the
+ * edits we need to retry.
  * <p>
- * On failure to {@link #write(Multimap)}, we return a {@link MutliIndexWriteFailureException} that
+ * On failure to {@link #write(Multimap)}, we return a {@link MultiIndexWriteFailureException} that
  * contains the list of {@link HTableInterfaceReference} that didn't complete successfully.
  * <p>
  * Failures to write to the index can happen several different ways:
@@ -118,7 +118,7 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
 
   @Override
   public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
-      throws MutliIndexWriteFailureException {
+      throws MultiIndexWriteFailureException {
     // track the failures. We synchronize access to the failures via the basics synchronization
     // mechanisms. Its faster than using a fully concurrent list since we only need to synchronize
     // on add. This list is never exposed until all tasks have completed, at which point it is
@@ -189,10 +189,10 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
           return null;
         }
 
-        private void throwFailureIfDone() throws CannotReachSingleIndexException {
+        private void throwFailureIfDone() throws SingleIndexWriteFailureException {
           if (stopped.isStopped() || abortable.isAborted()
               || Thread.currentThread().isInterrupted()) {
-            throw new CannotReachSingleIndexException(
+            throw new SingleIndexWriteFailureException(
                 "Pool closed, not attempting to write to the index!", null);
           }
 
@@ -247,7 +247,7 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
     // if any of the tasks failed, then we need to propagate the failure
     if (failures.size() > 0) {
       // make the list unmodifiable to avoid any more synchronization concerns
-      throw new MutliIndexWriteFailureException(Collections.unmodifiableList(failures));
+      throw new MultiIndexWriteFailureException(Collections.unmodifiableList(failures));
     }
     return;
   }

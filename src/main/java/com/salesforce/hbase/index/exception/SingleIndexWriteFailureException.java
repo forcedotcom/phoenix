@@ -29,26 +29,43 @@ package com.salesforce.hbase.index.exception;
 
 import java.util.List;
 
-import com.salesforce.hbase.index.table.HTableInterfaceReference;
+import org.apache.hadoop.hbase.client.Mutation;
 
 /**
- * Indicate a failure to write to multiple index tables.
+ * Exception thrown if we cannot successfully write to an index table.
  */
 @SuppressWarnings("serial")
-public class MutliIndexWriteFailureException extends IndexWriteException {
+public class SingleIndexWriteFailureException extends IndexWriteException {
 
-  private List<HTableInterfaceReference> failures;
+  private String table;
 
   /**
-   * @param failures the tables to which the index write did not succeed
+   * Cannot reach the index, but not sure of the table or the mutations that caused the failure
+   * @param msg more description of what happened
+   * @param cause original cause
    */
-  public MutliIndexWriteFailureException(List<HTableInterfaceReference> failures) {
-    super("Failed to write to multiple index tables");
-    this.failures = failures;
-
+  public SingleIndexWriteFailureException(String msg, Throwable cause) {
+    super(msg, cause);
   }
 
-  public List<HTableInterfaceReference> getFailedTables() {
-    return this.failures;
+  /**
+   * Failed to write the passed mutations to an index table for some reason.
+   * @param targetTableName index table to which we attempted to write
+   * @param mutations mutations that were attempted
+   * @param cause underlying reason for the failure
+   */
+  public SingleIndexWriteFailureException(String targetTableName, List<Mutation> mutations,
+      Exception cause) {
+    super("Failed to make index update:\n\t table: " + targetTableName + "\n\t edits: " + mutations
+        + "\n\tcause: " + cause == null ? "UNKNOWN" : cause.getMessage(), cause);
+    this.table = targetTableName;
+  }
+
+  /**
+   * @return The table to which we failed to write the index updates. If unknown, returns
+   *         <tt>null</tt>
+   */
+  public String getTableName() {
+    return this.table;
   }
 }

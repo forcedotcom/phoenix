@@ -1,7 +1,10 @@
 package org.apache.hadoop.hbase.regionserver.wal;
 
 import java.io.IOException;
+import java.util.Arrays;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -29,6 +32,7 @@ import org.apache.hadoop.io.Writable;
  * edits out into their respective regions.
  */
 public class IndexedHLogReader implements Reader {
+  private static final Log LOG = LogFactory.getLog(IndexedHLogReader.class);
 
   private SequenceFileLogReader delegate;
 
@@ -73,6 +77,9 @@ public class IndexedHLogReader implements Reader {
     // close the old reader and replace with our own, custom one
     this.delegate.reader.close();
     this.delegate.reader = new IndexedWALReader(fs, path, conf);
+    Exception e = new Exception();
+    LOG.info("Instantiated indexed log reader." + Arrays.toString(e.getStackTrace()));
+    LOG.info("Got conf: " + conf);
   }
 
   @Override
