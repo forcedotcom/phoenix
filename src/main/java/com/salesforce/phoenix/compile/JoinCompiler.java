@@ -46,10 +46,12 @@ import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.CaseParseNode;
+import com.salesforce.phoenix.parse.CastParseNode;
 import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.ComparisonParseNode;
 import com.salesforce.phoenix.parse.ConcreteTableNode;
 import com.salesforce.phoenix.parse.EqualParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.JoinTableNode;
@@ -280,6 +282,24 @@ public class JoinCompiler {
             public Void visitLeave(IsNullParseNode node, List<Void> l) 
                     throws SQLException {
                 return leaveBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(FunctionParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(CaseParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(CastParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveBooleanNode(node, l);
             }
         }
     }
@@ -514,6 +534,24 @@ public class JoinCompiler {
             public Void visitLeave(IsNullParseNode node, List<Void> l) 
                     throws SQLException {
                 return leaveNonEqBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(FunctionParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveNonEqBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(CaseParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveNonEqBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(CastParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveNonEqBooleanNode(node, l);
             }
         }
     }
