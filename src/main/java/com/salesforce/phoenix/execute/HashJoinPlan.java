@@ -6,20 +6,22 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.ExplainPlan;
 import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 public class HashJoinPlan implements QueryPlan {
     
@@ -58,10 +60,10 @@ public class HashJoinPlan implements QueryPlan {
         
         HashCacheClient hashClient = plan.getContext().getHashClient();
         Scan scan = plan.getContext().getScan();
-        KeyRange keyRange = KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow());
+        ScanRanges ranges = plan.getContext().getScanRanges();
         // TODO replace with Future execution
         for (int i = 0; i < joinIds.length; i++) {
-            ServerCache cache = hashClient.addHashCache(hashPlans[i].getScanner(), hashExpressions[i], plan.getTableRef(), keyRange);
+            ServerCache cache = hashClient.addHashCache(ranges, hashPlans[i].getScanner(), hashExpressions[i], plan.getTableRef());
             joinIds[i].set(cache.getId());
         }
         HashJoinInfo.serializeHashJoinIntoScan(scan, joinInfo);
@@ -97,6 +99,11 @@ public class HashJoinPlan implements QueryPlan {
     @Override
     public TableRef getTableRef() {
         return plan.getTableRef();
+    }
+
+    @Override
+    public FilterableStatement getStatement() {
+        return plan.getStatement();
     }
 
 }

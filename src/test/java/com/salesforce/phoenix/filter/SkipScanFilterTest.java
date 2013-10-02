@@ -1,6 +1,8 @@
 package com.salesforce.phoenix.filter;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 
 import junit.framework.TestCase;
 
@@ -16,7 +18,9 @@ import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -35,7 +39,7 @@ public class SkipScanFilterTest extends TestCase {
     public SkipScanFilterTest(List<List<KeyRange>> cnf, int[] widths, List<Expectation> expectations) {
         this.expectations = expectations;
         this.cnf = cnf;
-        RowKeySchemaBuilder builder = new RowKeySchemaBuilder().setMinNullable(widths.length);
+        RowKeySchemaBuilder builder = new RowKeySchemaBuilder(widths.length);
         for (final int width : widths) {
             builder.addField(
                 new PDatum() {
@@ -70,7 +74,7 @@ public class SkipScanFilterTest extends TestCase {
 					return null;
 				}
                 
-            });
+            }, width <= 0, null);
         }
         skipper = new SkipScanFilter(cnf, builder.build());
     }

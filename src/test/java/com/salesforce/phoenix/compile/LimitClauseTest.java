@@ -28,11 +28,17 @@
 package com.salesforce.phoenix.compile;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.junit.Test;
@@ -40,7 +46,8 @@ import org.junit.Test;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -51,14 +58,13 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
     private static Integer compileStatement(String query, List<Object> binds, Scan scan) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
-        statement = StatementNormalizer.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        statement = StatementNormalizer.normalize(statement, resolver);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasMap(context, statement);
 
         Integer limit = LimitCompiler.compile(context, statement);
-        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasParseNodeMap);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement);
         statement = HavingCompiler.rewrite(context, statement, groupBy);
         HavingCompiler.compile(context, statement, groupBy);
         Expression where = WhereCompiler.compile(context, statement);

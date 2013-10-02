@@ -85,7 +85,17 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     }
     
     @Override
+    public boolean visitEnter(CastParseNode node) throws SQLException {
+        return false;
+    }
+    
+    @Override
     public T visitLeave(NotParseNode node, List<T> l) throws SQLException {
+        return null;
+    }
+    
+    @Override
+    public T visitLeave(CastParseNode node, List<T> l) throws SQLException {
         return null;
     }
     
@@ -130,7 +140,7 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     }
     
     @Override
-    public T visit(FamilyParseNode node) throws SQLException {
+    public T visit(FamilyWildcardParseNode node) throws SQLException {
         return null;
     }
 

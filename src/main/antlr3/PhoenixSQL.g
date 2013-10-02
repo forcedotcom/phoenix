@@ -94,6 +94,7 @@ tokens
     ENABLE='enable';
     DISABLE='disable';
     SET='set';
+    CAST='cast';
 }
 
 
@@ -372,7 +373,7 @@ create_table_node returns [CreateTableStatement ret]
 
 // Parse a create index statement.
 create_index_node returns [CreateIndexStatement ret]
-    :   CREATE INDEX i=index_name (IF NOT ex=EXISTS)? ON t=from_table_name
+    :   CREATE INDEX (IF NOT ex=EXISTS)? i=index_name ON t=from_table_name
         (LPAREN pk=index_pk_constraint RPAREN)
         (INCLUDE (LPAREN icrefs=column_names RPAREN))?
         (p=fam_properties)?
@@ -644,13 +645,12 @@ condition_and returns [ParseNode ret]
 
 // NOT or parenthesis 
 condition_not returns [ParseNode ret]
-    :   ( boolean_expr ) => e=boolean_expr { $ret = e; }
-    |   NOT e=boolean_expr { $ret = factory.not(e); }
-    |   LPAREN e=condition RPAREN { $ret = e; }
+    :   (NOT? boolean_expr ) => n=NOT? e=boolean_expr { $ret = n == null ? e : factory.not(e); }
+    |   n=NOT? LPAREN e=condition RPAREN { $ret = n == null ? e : factory.not(e); }
     ;
 
 boolean_expr returns [ParseNode ret]
-    :   (l=expression ((EQ r=expression {$ret = factory.equal(l,r); } )
+    :   l=expression ((EQ r=expression {$ret = factory.equal(l,r); } )
                   |  ((NOEQ1 | NOEQ2) r=expression {$ret = factory.notEqual(l,r); } )
                   |  (LT r=expression {$ret = factory.lt(l,r); } )
                   |  (GT r=expression {$ret = factory.gt(l,r); } )
@@ -664,7 +664,8 @@ boolean_expr returns [ParseNode ret]
                                 | (LPAREN r=select_expression RPAREN {$ret = factory.in(l,r,n!=null);} )
                                 | (v=values {List<ParseNode> il = new ArrayList<ParseNode>(v.size() + 1); il.add(l); il.addAll(v); $ret = factory.inList(il,n!=null);})
                                 )))
-                      ))))
+                      ))
+                   |  { $ret = l; } )
     ;
 
 bind_expression  returns [BindParseNode ret]
@@ -733,6 +734,7 @@ expression_term returns [ParseNode ret]
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN e=expression RPAREN { $ret = e; }
+    |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
     ;
     
 expression_terms returns [List<ParseNode> ret]

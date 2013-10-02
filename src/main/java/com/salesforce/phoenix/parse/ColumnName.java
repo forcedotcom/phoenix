@@ -75,7 +75,7 @@ public class ColumnName {
 
     @Override
     public String toString() {
-        return SchemaUtil.getColumnDisplayName(getFamilyName(),getColumnName());
+        return SchemaUtil.getColumnName(getFamilyName(),getColumnName());
     }
     
     @Override

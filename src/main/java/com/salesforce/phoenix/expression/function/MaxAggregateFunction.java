@@ -29,12 +29,14 @@ package com.salesforce.phoenix.expression.function;
 
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
+
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.MaxAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.MaxAggregateParseNode;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 
@@ -58,7 +60,7 @@ public class MaxAggregateFunction extends MinAggregateFunction {
     }
 
     @Override 
-    public Aggregator newServerAggregator() {
+    public Aggregator newServerAggregator(Configuration conf) {
         final PDataType type = getAggregatorExpression().getDataType();
         ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
         return new MaxAggregator(columnModifier) {

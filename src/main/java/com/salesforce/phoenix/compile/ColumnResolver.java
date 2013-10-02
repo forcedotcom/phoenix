@@ -30,7 +30,10 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.util.List;
 
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 

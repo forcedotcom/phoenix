@@ -34,10 +34,10 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 public class HashJoinInfo {
     private static final String HASH_JOIN = "HashJoin";

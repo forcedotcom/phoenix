@@ -36,11 +36,11 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Sets;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /*
  * Implementation of a SQL foo IN (a,b,c) expression. Other than the first

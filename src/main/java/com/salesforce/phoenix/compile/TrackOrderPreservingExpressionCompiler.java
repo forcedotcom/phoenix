@@ -1,7 +1,9 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
@@ -10,7 +12,11 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression.OrderPreserving;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.CaseParseNode;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.DivideParseNode;
+import com.salesforce.phoenix.parse.MultiplyParseNode;
+import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -25,7 +31,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * the order is preserved.
  * 
  */
-public class TrackOrderPreservingExpressionCompiler  extends AliasingExpressionCompiler {
+public class TrackOrderPreservingExpressionCompiler  extends ExpressionCompiler {
     public enum Ordering {ORDERED, UNORDERED};
     
     private final List<Entry> entries;
@@ -34,8 +40,8 @@ public class TrackOrderPreservingExpressionCompiler  extends AliasingExpressionC
     private ColumnRef columnRef;
     private boolean isOrderPreserving = true;
     
-    TrackOrderPreservingExpressionCompiler(StatementContext context, GroupBy groupBy, Map<String, ParseNode> aliasParseNodeMap, int expectedEntrySize, Ordering ordering) {
-        super(context, groupBy, aliasParseNodeMap);
+    TrackOrderPreservingExpressionCompiler(StatementContext context, GroupBy groupBy, int expectedEntrySize, Ordering ordering) {
+        super(context, groupBy);
         if (context.getResolver().getTables().get(0).getTable().getBucketNum() != null) {
             orderPreserving = OrderPreserving.NO;
         }

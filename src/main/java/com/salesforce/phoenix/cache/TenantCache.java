@@ -32,9 +32,9 @@ import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
 import com.salesforce.phoenix.memory.MemoryManager;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 
 /**

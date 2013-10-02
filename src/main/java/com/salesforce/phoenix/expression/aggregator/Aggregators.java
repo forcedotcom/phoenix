@@ -30,8 +30,9 @@ package com.salesforce.phoenix.expression.aggregator;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.KeyValueSchema;
 import com.salesforce.phoenix.schema.KeyValueSchema.KeyValueSchemaBuilder;
+import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
 
@@ -95,12 +96,11 @@ abstract public class Aggregators {
      * Get the ValueSchema for the Aggregators
      */
     private static KeyValueSchema newValueSchema(Aggregator[] aggregators, int minNullableIndex) {
-        KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder();
+        KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder(minNullableIndex);
         for (int i = 0; i < aggregators.length; i++) {
             Aggregator aggregator = aggregators[i];
             builder.addField(aggregator);
         }
-        builder.setMinNullable(minNullableIndex);
         return builder.build();
     }
 

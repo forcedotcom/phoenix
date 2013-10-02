@@ -179,7 +179,7 @@ public class JoinCompiler {
             if (mainTable.getTableAlias() != null) {
                 tableName = Bytes.toBytes(mainTable.getTableAlias());
             } else {
-                tableName = mainTable.getTableName();
+                tableName = mainTable.getTable().getName().getBytes();
             }
             return new ScanProjector(tableName);
         }

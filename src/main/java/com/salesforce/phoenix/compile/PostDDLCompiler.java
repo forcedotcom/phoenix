@@ -42,13 +42,16 @@ import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.iterate.ResultIterator;
-import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ScanUtil;
 
@@ -158,7 +161,7 @@ public class PostDDLCompiler {
                             }
                             projector = new RowProjector(projector,false);
                         }
-                        QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(connection.getQueryServices()), GroupBy.EMPTY_GROUP_BY, null);
+                        QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                         Scanner scanner = plan.getScanner();
                         ResultIterator iterator = scanner.iterator();
                         try {

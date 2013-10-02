@@ -31,29 +31,37 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
+
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinTable;
 import com.salesforce.phoenix.compile.JoinCompiler.StarJoinType;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
-import com.salesforce.phoenix.execute.*;
+import com.salesforce.phoenix.execute.AggregatePlan;
+import com.salesforce.phoenix.execute.BasicQueryPlan;
+import com.salesforce.phoenix.execute.DegenerateQueryPlan;
+import com.salesforce.phoenix.execute.HashJoinPlan;
+import com.salesforce.phoenix.execute.ScanPlan;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableNotFoundException;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 
@@ -84,7 +92,7 @@ public class QueryCompiler {
     }
     
     public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan) throws SQLException {
-        this(connection, maxRows, scan, null, new SpoolingResultIteratorFactory(connection.getQueryServices()));
+        this(connection, maxRows, scan, null, null);
     }
     
     public QueryCompiler(PhoenixConnection connection, int maxRows, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
@@ -126,8 +134,8 @@ public class QueryCompiler {
     protected QueryPlan compile(SelectStatement statement, List<Object> binds, Scan scan) throws SQLException{        
         assert(binds.size() == statement.getBindCount());
         
-        statement = StatementNormalizer.normalize(statement);
         ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+        statement = StatementNormalizer.normalize(statement, resolver);
         if (statement.getFrom().size() == 1) {
             StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
             return compileSingleQuery(context, statement, binds);
@@ -240,11 +248,11 @@ public class QueryCompiler {
         if (tableRef.getTable().getType() == PTableType.INDEX && tableRef.getTable().getIndexState() != PIndexState.ACTIVE) {
             return new DegenerateQueryPlan(context, statement, tableRef);
         }
+        
         resolver.setDisambiguateWithTable(context.disambiguateWithTable());
-        Map<String, ParseNode> aliasMap = ProjectionCompiler.buildAliasMap(context, statement);
         Integer limit = LimitCompiler.compile(context, statement);
 
-        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasMap);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement);
         // Optimize the HAVING clause by finding any group by expressions that can be moved
         // to the WHERE clause
         statement = HavingCompiler.rewrite(context, statement, groupBy);
@@ -254,7 +262,7 @@ public class QueryCompiler {
         resolver.setDisambiguateWithTable(false);
         WhereCompiler.compile(context, statement);
         resolver.setDisambiguateWithTable(context.disambiguateWithTable());
-        OrderBy orderBy = OrderByCompiler.compile(context, statement, aliasMap, groupBy, limit); 
+        OrderBy orderBy = OrderByCompiler.compile(context, statement, groupBy, limit); 
         RowProjector projector = ProjectionCompiler.compile(context, statement, groupBy, targetColumns);
         
         // Final step is to build the query plan

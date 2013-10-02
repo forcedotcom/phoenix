@@ -27,8 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.ParameterMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
@@ -36,6 +42,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
@@ -46,15 +53,33 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.iterate.*;
-import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
-import com.salesforce.phoenix.jdbc.*;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixResultSet;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.parse.BindParseNode;
+import com.salesforce.phoenix.parse.ColumnName;
+import com.salesforce.phoenix.parse.LiteralParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.UpsertStatement;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.ConstraintViolationException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableImpl;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class UpsertCompiler {
@@ -247,15 +272,17 @@ public class UpsertCompiler {
              * 1) the into table matches from table
              * 2) the select query isn't doing aggregation
              * 3) autoCommit is on
-             * 4) no limit clause
+             * 4) the table is not immutable, as the client is the one that figures out the additional
+             *    puts for index tables.
+             * 5) no limit clause
              * Otherwise, run the query to pull the data from the server
              * and populate the MutationState (upto a limit).
             */            
-            runOnServer = sameTable && isAutoCommit && !select.isAggregate() && !select.isDistinct() && select.getLimit() == null && table.getBucketNum() == null;
+            runOnServer = sameTable && isAutoCommit && !table.isImmutableRows() && !select.isAggregate() && !select.isDistinct() && select.getLimit() == null && table.getBucketNum() == null;
             ParallelIteratorFactory parallelIteratorFactory;
             // TODO: once MutationState is thread safe, then when auto commit is off, we can still run in parallel
             if (select.isAggregate() || select.isDistinct() || select.getLimit() != null) {
-                parallelIteratorFactory = new SpoolingResultIterator.SpoolingResultIteratorFactory(services);
+                parallelIteratorFactory = null;
             } else {
                 // We can pipeline the upsert select instead of spooling everything to disk first,
                 // if we don't have any post processing that's required.
@@ -375,7 +402,7 @@ public class UpsertCompiler {
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
                     // Ignore order by - it has no impact
-                    final QueryPlan aggPlan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(services), GroupBy.EMPTY_GROUP_BY, null);
+                    final QueryPlan aggPlan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                     return new MutationPlan() {
     
                         @Override

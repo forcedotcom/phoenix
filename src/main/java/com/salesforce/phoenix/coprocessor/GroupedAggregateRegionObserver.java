@@ -27,17 +27,31 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
-import static com.salesforce.phoenix.query.QueryConstants.*;
+import static com.salesforce.phoenix.query.QueryConstants.AGG_TIMESTAMP;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
 
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.regionserver.*;
+import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
+import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
@@ -54,7 +68,10 @@ import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.SizedUtil;
+import com.salesforce.phoenix.util.TupleUtil;
 
 
 
@@ -90,8 +107,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
      * a      3
      * b      1
      *
-     * The client is required to do a final aggregation, since multiple rows with the same key may be returned from different regions. The returned rows
-     * are in sorted order.
+     * The client is required to do a sort and a final aggregation, since multiple rows with the same key may be returned from different regions.
      */
     @Override
     protected RegionScanner doPostScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, RegionScanner s) throws IOException {
@@ -107,7 +123,8 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         }
         List<Expression> expressions = deserializeGroupByExpressions(expressionBytes);
         
-        ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS));
+        ServerAggregators aggregators = ServerAggregators.deserialize(
+                scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), c.getEnvironment().getConfiguration());
 
         final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);        
@@ -118,7 +135,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         
         if (keyOrdered) { // Optimize by taking advantage that the rows are already in the required group by key order
             return scanOrdered(c, scan, innerScanner, expressions, aggregators);
-        } else { // Otherwse, collect them all up and sort them at the end
+        } else { // Otherwse, collect them all up in an in memory map
             return scanUnordered(c, scan, innerScanner, expressions, aggregators);
         }
     }
@@ -175,8 +192,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
     
     /**
      * Used for an aggregate query in which the key order does not necessarily match the group by key order. In this case,
-     * we must collect all distinct groups within a region into a map, aggregating as we go, and then at the end of the
-     * underlying scan, sort them and return them one by one during iteration.
+     * we must collect all distinct groups within a region into a map, aggregating as we go.
      */
     private RegionScanner scanUnordered(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, List<Expression> expressions, ServerAggregators aggregators) throws IOException {
         
@@ -218,7 +234,8 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                             if (logger.isDebugEnabled()) {
                                 logger.debug("Adding new aggregate bucket for row key " + Bytes.toStringBinary(key.get(),key.getOffset(),key.getLength()));
                             }
-                            aggregateMap.put(key, rowAggregators = aggregators.newAggregators());
+                            rowAggregators = aggregators.newAggregators(c.getEnvironment().getConfiguration());
+                            aggregateMap.put(key, rowAggregators);
                         }
                         // Aggregate values here
                         aggregators.aggregate(rowAggregators, result);
@@ -257,7 +274,10 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 KeyValue keyValue = KeyValueUtil.newKeyValue(key.get(),key.getOffset(), key.getLength(),SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value, 0, value.length);
                 aggResults.add(keyValue);
             }
-            Collections.sort(aggResults, KeyValue.COMPARATOR);
+            // Do not sort here, but sort back on the client instead
+            // The reason is that if the scan ever extends beyond a region (which can happen
+            // if we're basing our parallelization split points on old metadata), we'll get
+            // incorrect query results.
             RegionScanner scanner = new BaseRegionScanner() {
                 private int index = 0;
     

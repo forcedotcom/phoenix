@@ -31,13 +31,18 @@ import java.text.Format;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.*;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList;
+import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
+import org.apache.hadoop.hbase.filter.PageFilter;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.ScanRanges;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 public abstract class ExplainTable {
@@ -87,7 +92,7 @@ public abstract class ExplainTable {
         } else {
             hasSkipScanFilter = explainSkipScan(buf);
         }
-        buf.append("OVER " + SchemaUtil.getTableDisplayName(this.table.getSchema().getName(), table.getTable().getName().getString()));
+        buf.append("OVER " + table.getTable().getName().getString());
         appendKeyRanges(buf);
         planSteps.add(buf.toString());
         
@@ -149,7 +154,7 @@ public abstract class ExplainTable {
             return;
         }
         ScanRanges scanRanges = context.getScanRanges();
-        PDataType type = scanRanges.getSchema().getField(slotIndex).getType();
+        PDataType type = scanRanges.getSchema().getField(slotIndex).getDataType();
         ColumnModifier modifier = table.getTable().getPKColumns().get(slotIndex).getColumnModifier();
         if (modifier != null) {
             range = modifier.apply(range, 0, new byte[range.length], 0, range.length);

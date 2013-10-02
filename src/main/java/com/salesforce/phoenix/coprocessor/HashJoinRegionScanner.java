@@ -38,6 +38,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.*;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
@@ -46,7 +47,6 @@ import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.TupleUtil;
 
 public class HashJoinRegionScanner implements RegionScanner {

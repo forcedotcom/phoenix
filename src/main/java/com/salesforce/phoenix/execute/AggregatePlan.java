@@ -29,20 +29,42 @@ package com.salesforce.phoenix.execute;
 
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.OrderByExpression;
+import com.salesforce.phoenix.expression.RowKeyExpression;
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.AggregatingResultIterator;
+import com.salesforce.phoenix.iterate.ConcatResultIterator;
+import com.salesforce.phoenix.iterate.DistinctAggregatingResultIterator;
+import com.salesforce.phoenix.iterate.FilterAggregatingResultIterator;
+import com.salesforce.phoenix.iterate.GroupedAggregatingResultIterator;
+import com.salesforce.phoenix.iterate.LimitingResultIterator;
+import com.salesforce.phoenix.iterate.MergeSortRowKeyResultIterator;
+import com.salesforce.phoenix.iterate.OrderedAggregatingResultIterator;
+import com.salesforce.phoenix.iterate.OrderedResultIterator;
+import com.salesforce.phoenix.iterate.ParallelIterators;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
+import com.salesforce.phoenix.iterate.PeekingResultIterator;
+import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator;
+import com.salesforce.phoenix.iterate.UngroupedAggregatingResultIterator;
 import com.salesforce.phoenix.parse.FilterableStatement;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
+import com.salesforce.phoenix.query.Scanner;
+import com.salesforce.phoenix.query.WrappedScanner;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -74,6 +96,51 @@ public class AggregatePlan extends BasicQueryPlan {
         return splits;
     }
 
+    private static class OrderingResultIteratorFactory implements ParallelIteratorFactory {
+        private final QueryServices services;
+        
+        public OrderingResultIteratorFactory(QueryServices services) {
+            this.services = services;
+        }
+        @Override
+        public PeekingResultIterator newIterator(ResultIterator scanner) throws SQLException {
+            Expression expression = RowKeyExpression.INSTANCE;
+            OrderByExpression orderByExpression = new OrderByExpression(expression, false, true);
+            int threshold = services.getProps().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
+            return new OrderedResultIterator(scanner, Collections.<OrderByExpression>singletonList(orderByExpression), threshold);
+        }
+    }
+
+    private static class WrappingResultIteratorFactory implements ParallelIteratorFactory {
+        private final ParallelIteratorFactory innerFactory;
+        private final ParallelIteratorFactory outerFactory;
+        
+        public WrappingResultIteratorFactory(ParallelIteratorFactory innerFactory, ParallelIteratorFactory outerFactory) {
+            this.innerFactory = innerFactory;
+            this.outerFactory = outerFactory;
+        }
+        @Override
+        public PeekingResultIterator newIterator(ResultIterator scanner) throws SQLException {
+            PeekingResultIterator iterator = innerFactory.newIterator(scanner);
+            return outerFactory.newIterator(iterator);
+        }
+    }
+
+    private ParallelIteratorFactory wrapParallelIteratorFactory () {
+        ParallelIteratorFactory innerFactory;
+        QueryServices services = context.getConnection().getQueryServices();
+        if (groupBy.isEmpty() || groupBy.isOrderPreserving()) {
+            innerFactory = new SpoolingResultIterator.SpoolingResultIteratorFactory(services);
+        } else {
+            innerFactory = new OrderingResultIteratorFactory(services);
+        }
+        if (parallelIteratorFactory == null) {
+            return innerFactory;
+        }
+        // wrap any existing parallelIteratorFactory
+        return new WrappingResultIteratorFactory(innerFactory, parallelIteratorFactory);
+    }
+    
     @Override
     protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
         // Hack to set state on scan to make upgrade happen
@@ -84,7 +151,7 @@ public class AggregatePlan extends BasicQueryPlan {
         if (groupBy.isEmpty()) {
             UngroupedAggregateRegionObserver.serializeIntoScan(context.getScan());
         }
-        ParallelIterators parallelIterators = new ParallelIterators(context, tableRef, statement, projection, groupBy, null, parallelIteratorFactory);
+        ParallelIterators parallelIterators = new ParallelIterators(context, tableRef, statement, projection, groupBy, null, wrapParallelIteratorFactory());
         splits = parallelIterators.getSplits();
 
         AggregatingResultIterator aggResultIterator;

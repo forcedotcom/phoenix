@@ -29,8 +29,8 @@ package com.salesforce.phoenix.filter;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
  *

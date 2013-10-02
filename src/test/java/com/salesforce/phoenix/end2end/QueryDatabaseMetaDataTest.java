@@ -29,28 +29,60 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_SCHEMA_NAME;
+import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_FULL_NAME;
+import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_NAME;
+import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_SCHEMA_NAME;
+import static com.salesforce.phoenix.util.TestUtil.GROUPBYTEST_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MDTEST_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MDTEST_SCHEMA_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
+import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
+import com.salesforce.phoenix.coprocessor.ServerCachingEndpointImpl;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
-import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.join.HashJoiningRegionObserver;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.TableNotFoundException;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.StringUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
@@ -71,34 +103,34 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         ResultSet rs = dbmd.getTables(null, aSchemaName, aTableName, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_NAME"),aTableName);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertEquals(rs.getString(3),aTableName);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString(4));
+        assertEquals(PTableType.USER.toString(), rs.getString(4));
         assertFalse(rs.next());
         
         rs = dbmd.getTables(null, null, null, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
         assertEquals(rs.getString("TABLE_NAME"),TYPE_TABLE);
-        assertEquals(PTableType.SYSTEM.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.SYSTEM.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
         assertEquals(CUSTOM_ENTITY_DATA_NAME, rs.getString("TABLE_NAME"));
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
 
         rs = dbmd.getTables(null, CUSTOM_ENTITY_DATA_SCHEMA_NAME, CUSTOM_ENTITY_DATA_NAME, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),CUSTOM_ENTITY_DATA_SCHEMA_NAME);
         assertEquals(rs.getString("TABLE_NAME"),CUSTOM_ENTITY_DATA_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
         
         try {
@@ -109,15 +141,15 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         }
         assertFalse(rs.next());
         
-        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.USER.getSerializedValue()});
+        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.USER.toString()});
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
     }
 
@@ -454,7 +486,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         
         // Confirm that data is no longer there because we dropped the table
         // This needs to be done natively b/c the metadata is gone
-        HTableInterface htable = conn5.unwrap(PhoenixConnection.class).getQueryServices().getTable(SchemaUtil.getTableName(ATABLE_NAME));
+        HTableInterface htable = conn5.unwrap(PhoenixConnection.class).getQueryServices().getTable(SchemaUtil.getTableNameAsBytes(ATABLE_SCHEMA_NAME, ATABLE_NAME));
         Scan scan = new Scan();
         scan.setFilter(new FirstKeyOnlyFilter());
         scan.setTimeRange(0, ts+9);
@@ -480,11 +512,12 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
     public void testCreateOnExistingTable() throws Exception {
         PhoenixConnection pconn = DriverManager.getConnection(PHOENIX_JDBC_URL, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         String tableName = MDTEST_NAME;
+        String schemaName = MDTEST_SCHEMA_NAME;
         byte[] cfA = Bytes.toBytes(SchemaUtil.normalizeIdentifier("a"));
         byte[] cfB = Bytes.toBytes(SchemaUtil.normalizeIdentifier("b"));
         byte[] cfC = Bytes.toBytes("c");
         byte[][] familyNames = new byte[][] {cfB, cfC};
-        byte[] htableName = SchemaUtil.getTableName(tableName);
+        byte[] htableName = SchemaUtil.getTableNameAsBytes(schemaName, tableName);
         HBaseAdmin admin = pconn.getQueryServices().getAdmin();
         try {
             admin.disableTable(htableName);
@@ -522,7 +555,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertFalse(SchemaUtil.DEFAULT_DATA_BLOCK_ENCODING == cdC.getDataBlockEncoding());
         assertTrue(descriptor.hasCoprocessor(UngroupedAggregateRegionObserver.class.getName()));
         assertTrue(descriptor.hasCoprocessor(GroupedAggregateRegionObserver.class.getName()));
-        assertTrue(descriptor.hasCoprocessor(HashJoiningRegionObserver.class.getName()));
+        assertTrue(descriptor.hasCoprocessor(ServerCachingEndpointImpl.class.getName()));
         admin.close();
          
         int rowCount = 5;
@@ -560,10 +593,11 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
     public void testCreateViewOnExistingTable() throws Exception {
         PhoenixConnection pconn = DriverManager.getConnection(PHOENIX_JDBC_URL, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         String tableName = MDTEST_NAME;
+        String schemaName = MDTEST_SCHEMA_NAME;
         byte[] cfB = Bytes.toBytes(SchemaUtil.normalizeIdentifier("b"));
         byte[] cfC = Bytes.toBytes("c");
         byte[][] familyNames = new byte[][] {cfB, cfC};
-        byte[] htableName = SchemaUtil.getTableName(tableName);
+        byte[] htableName = SchemaUtil.getTableNameAsBytes(schemaName, tableName);
         HBaseAdmin admin = pconn.getQueryServices().getAdmin();
         try {
             admin.disableTable(htableName);
@@ -646,15 +680,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             } catch (ReadOnlyTableException e) {
                 // expected to fail b/c table is read-only
             }
-            try {
-                conn2.createStatement().execute("CREATE INDEX idx ON " + MDTEST_NAME + "(B.COL1)");
-                fail();
-            } catch (SQLException e) {
-                assertEquals(SQLExceptionCode.INDEX_ONLY_ON_IMMUTABLE_TABLE.getErrorCode(),e.getErrorCode());
-            }
             conn2.createStatement().execute("ALTER TABLE " + MDTEST_NAME + " SET IMMUTABLE_ROWS=TRUE");
             
-            HTableInterface htable = conn2.getQueryServices().getTable(SchemaUtil.getTableName(MDTEST_NAME));
+            HTableInterface htable = conn2.getQueryServices().getTable(SchemaUtil.getTableNameAsBytes(MDTEST_SCHEMA_NAME,MDTEST_NAME));
             Put put = new Put(Bytes.toBytes("0"));
             put.add(cfB, Bytes.toBytes("COL1"), ts+6, PDataType.INTEGER.toBytes(1));
             put.add(cfC, Bytes.toBytes("COL2"), ts+6, PDataType.LONG.toBytes(2));
@@ -704,7 +732,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
             conn9.createStatement().execute("CREATE INDEX idx ON " + MDTEST_NAME + "(B.COL1)");
             
         } finally {
-            HTableInterface htable = pconn.getQueryServices().getTable(SchemaUtil.getTableName(MDTEST_NAME));
+            HTableInterface htable = pconn.getQueryServices().getTable(SchemaUtil.getTableNameAsBytes(MDTEST_SCHEMA_NAME,MDTEST_NAME));
             Delete delete = new Delete(Bytes.toBytes("0"));
             htable.delete(delete);
         }

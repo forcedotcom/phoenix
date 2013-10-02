@@ -64,7 +64,7 @@ public class ScanProjector {
     
     public static byte[] getPrefixForTable(TableRef table) {
         if (table.getTableAlias() == null)
-            return table.getTableName();
+            return table.getTable().getName().getBytes();
         
         return Bytes.toBytes(table.getTableAlias());
     }

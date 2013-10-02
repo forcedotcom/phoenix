@@ -72,7 +72,9 @@ public class SpoolingResultIterator implements PeekingResultIterator {
     }
 
     public SpoolingResultIterator(ResultIterator scanner, QueryServices services) throws SQLException {
-        this (scanner, services.getMemoryManager(), services.getProps().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES));
+        this (scanner, services.getMemoryManager(), 
+        		services.getProps().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES),
+        		services.getProps().getLong(QueryServices.MAX_SPOOL_TO_DISK_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_TO_DISK_BYTES));
     }
     
     /**
@@ -84,7 +86,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
     *  the memory manager) is exceeded.
     * @throws SQLException
     */
-    SpoolingResultIterator(ResultIterator scanner, MemoryManager mm, int thresholdBytes) throws SQLException {
+    SpoolingResultIterator(ResultIterator scanner, MemoryManager mm, final int thresholdBytes, final long maxSpoolToDisk) throws SQLException {
         boolean success = false;
         boolean usedOnDiskIterator = false;
         final MemoryChunk chunk = mm.allocate(0, thresholdBytes);
@@ -101,9 +103,16 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 }
             };
             DataOutputStream out = new DataOutputStream(spoolTo);
+            final long maxBytesAllowed = maxSpoolToDisk == -1 ? 
+            		Long.MAX_VALUE : thresholdBytes + maxSpoolToDisk;
+            long bytesWritten = 0L;
             int maxSize = 0;
             for (Tuple result = scanner.next(); result != null; result = scanner.next()) {
                 int length = TupleUtil.write(result, out);
+                bytesWritten += length;
+                if(bytesWritten > maxBytesAllowed){
+                		throw new SpoolTooBigToDiskException("result too big, max allowed(bytes): " + maxBytesAllowed);
+                }
                 maxSize = Math.max(length, maxSize);
             }
             spoolTo.close();

@@ -27,12 +27,25 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
+import static com.salesforce.phoenix.util.TestUtil.assertEmptyScanKey;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
 import java.sql.Date;
-import java.util.*;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Scan;
@@ -45,8 +58,11 @@ import com.salesforce.phoenix.expression.OrExpression;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -71,15 +87,14 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds, Integer limit, Set<Expression> extractedNodes) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
-        statement = StatementNormalizer.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        statement = StatementNormalizer.normalize(statement, resolver);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasMap(context, statement);
 
         Integer actualLimit = LimitCompiler.compile(context, statement);
         assertEquals(limit, actualLimit);
-        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasParseNodeMap);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement);
         statement = HavingCompiler.rewrite(context, statement, groupBy);
         WhereCompiler.compileWhereClause(context, statement, extractedNodes);
         return context;
