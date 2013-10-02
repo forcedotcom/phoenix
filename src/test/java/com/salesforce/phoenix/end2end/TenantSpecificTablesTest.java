@@ -115,7 +115,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             assertEquals("Cheap Sunglasses", rs.getString(1));
             assertFalse("Expected 1 row in result set", rs.next());
             
-            // ensure we didn't create a physical HBase table for the tenannt-specifidc table
+            // ensure we didn't create a physical HBase table for the tenant-specific table
             HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
             assertEquals(0, admin.listTables(TENANT_TABLE_NAME).length);
         }
