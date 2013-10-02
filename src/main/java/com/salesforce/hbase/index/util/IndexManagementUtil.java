@@ -34,6 +34,7 @@ import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
 import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
@@ -182,5 +183,18 @@ public class IndexManagementUtil {
       }
     }
     return matches;
+  }
+  
+  public static Scan newLocalStateScan(List<? extends Iterable<? extends ColumnReference>> refsArray) {
+      Scan s = new Scan();
+      s.setRaw(true);
+      //add the necessary columns to the scan
+      for (Iterable<? extends ColumnReference> refs : refsArray) {
+          for(ColumnReference ref : refs){
+            s.addFamily(ref.getFamily());
+          }
+      }
+      s.setMaxVersions();
+      return s;
   }
 }

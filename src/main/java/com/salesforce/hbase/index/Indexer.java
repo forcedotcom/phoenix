@@ -312,6 +312,7 @@ public class Indexer extends BaseRegionObserver {
     /**
      * @param stored
      */
+    @SuppressWarnings("deprecation")
     public void addAll(Mutation stored) {
       // add all the kvs
       for (Entry<byte[], List<KeyValue>> kvs : stored.getFamilyMap().entrySet()) {

@@ -58,7 +58,7 @@ import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
  * @author jtaylor
  * @since 2.1.0
  */
-public class IndexMaintainer implements Writable {
+public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     
     public static IndexMaintainer create(PTable dataTable, PTable index) {
         if (dataTable.getType() == PTableType.INDEX || index.getType() != PTableType.INDEX || !dataTable.getIndexes().contains(index)) {
@@ -691,5 +691,10 @@ public class IndexMaintainer implements Writable {
                 indexPkPosition[i] = input.readInt();
             }
         }
+    }
+
+    @Override
+    public Iterator<ColumnReference> iterator() {
+        return allColumns.iterator();
     }
 }

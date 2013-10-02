@@ -31,7 +31,7 @@ import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
-import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.PDataType;
@@ -55,18 +55,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
             maintainers.addAll(getCodec().getIndexMaintainers(m.getAttributesMap()));
         }
         ScanRanges scanRanges = ScanRanges.create(Collections.singletonList(keys), SchemaUtil.VAR_BINARY_SCHEMA);
-        Scan scan = new Scan();
-        scan.setRaw(true);
-        // Project into scan only the columns we need to build the new index row and
-        // delete the old index row. We use the columns that we pass through for
-        // the Delete use case, as it includes indexed and covered columns as well
-        // as the empty key value column (which we use to detect a delete of the entire row).
-        for (int i = 0; i < maintainers.size(); i++) {
-            IndexMaintainer maintainer = maintainers.get(i);
-            for (ColumnReference ref : maintainer.getAllColumns()) {
-                scan.addFamily(ref.getFamily());
-            }
-        }
+        Scan scan = IndexManagementUtil.newLocalStateScan(maintainers);
         scan.setFilter(scanRanges.getSkipScanFilter());
         HRegion region = this.env.getRegion();
         RegionScanner scanner = region.getScanner(scan);
