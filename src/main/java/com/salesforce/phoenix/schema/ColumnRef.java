@@ -100,7 +100,7 @@ public final class ColumnRef {
     public ColumnExpression newColumnExpression() throws SQLException {
         if (SchemaUtil.isPKColumn(this.getColumn())) {
             if (disambiguateWithTable) {
-                return new RowKeyColumnExpression(getColumn(), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition), ScanProjector.getPrefixForTable(tableRef));
+                return new KeyValueColumnExpression(getColumn(), ScanProjector.getPrefixForTable(tableRef), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));
             }
             
             return new RowKeyColumnExpression(getColumn(), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));

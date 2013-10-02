@@ -65,8 +65,6 @@ public class HashJoinRegionScanner implements RegionScanner {
         this.resultQueue = new LinkedList<List<KeyValue>>();
         this.hasMore = true;
         if (joinInfo != null) {
-            if (tenantId == null)
-                throw new IOException("Could not find tenant id for hash cache.");
             for (JoinType type : joinInfo.getJoinTypes()) {
                 if (type != JoinType.Inner && type != JoinType.Left)
                     throw new IOException("Got join type '" + type + "'. Expect only INNER or LEFT with hash-joins.");
@@ -81,9 +79,10 @@ public class HashJoinRegionScanner implements RegionScanner {
             return;
         
         if (projector != null) {
-            List<KeyValue> kvs = new ArrayList<KeyValue>(result.size());
+            List<KeyValue> kvs = new ArrayList<KeyValue>(result.size() + 1);
+            kvs.add(projector.projectRow(result.get(0)));
             for (KeyValue kv : result) {
-                kvs.add(projector.getProjectedKeyValue(kv));
+                kvs.add(projector.projectedKeyValue(kv));
             }
             if (joinInfo != null) {
                 result = kvs;
@@ -105,7 +104,7 @@ public class HashJoinRegionScanner implements RegionScanner {
                 ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
                 HashCache hashCache = (HashCache)cache.getServerCache(joinId);
                 if (hashCache == null)
-                    throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get()));
+                    throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
                 tuples[i] = hashCache.get(key);
                 JoinType type = joinInfo.getJoinTypes()[i];
                 if (type == JoinType.Inner && (tuples[i] == null || tuples[i].isEmpty())) {
@@ -130,12 +129,13 @@ public class HashJoinRegionScanner implements RegionScanner {
                         }
                     }
                 }
-                // apply post-join filter
+                // sort kvs and apply post-join filter
                 Expression postFilter = joinInfo.getPostJoinFilterExpression();
-                if (postFilter != null) {
-                    ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
-                    for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
-                        Tuple t = new ResultTuple(new Result(iter.next()));
+                for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
+                    List<KeyValue> kvs = iter.next();
+                    if (postFilter != null) {
+                        Tuple t = new ResultTuple(new Result(kvs));
+                        ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
                         try {
                             if (!postFilter.evaluate(t, tempPtr)) {
                                 iter.remove();
@@ -148,8 +148,10 @@ public class HashJoinRegionScanner implements RegionScanner {
                         Boolean b = (Boolean)postFilter.getDataType().toObject(tempPtr);
                         if (!b.booleanValue()) {
                             iter.remove();
+                            continue;
                         }
                     }
+                    Collections.sort(kvs, KeyValue.COMPARATOR);
                 }
             }
         }

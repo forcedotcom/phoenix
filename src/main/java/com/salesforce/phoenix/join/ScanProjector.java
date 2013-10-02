@@ -32,47 +32,34 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.KeyValueUtil;
 
-public class ScanProjector {
-    
-    public enum ProjectionType {TABLE, CF, CQ};
-    
+public class ScanProjector {    
     private static final String SCAN_PROJECTOR = "scanProjector";    
     private static final byte[] PREFIX_SEPERATOR = Bytes.toBytes(":");
+    private static final byte[] PROJECTED_ROW = Bytes.toBytes("_");
+    private static final byte[] EMPTY_QUALIFIER = new byte[0];
     
-    private final ProjectionType type;
     private final byte[] tablePrefix;
-    private final Map<ImmutableBytesPtr, byte[]> cfProjectionMap;
-    private final Map<ImmutableBytesPtr, Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> cqProjectionMap;
 
+    public static byte[] getRowFamily(byte[] cfPrefix) {
+        return ByteUtil.concat(cfPrefix, PREFIX_SEPERATOR);
+    }
+    
+    public static byte[] getRowQualifier() {
+        return EMPTY_QUALIFIER;
+    }
+    
     public static byte[] getPrefixedColumnFamily(byte[] columnFamily, byte[] cfPrefix) {
         return ByteUtil.concat(cfPrefix, PREFIX_SEPERATOR, columnFamily);
-    }
-    
-    public static int getPrefixLength(byte[] columnFamily) {
-        return getPrefixLength(columnFamily, 0, columnFamily.length);
-    }
-
-    public static int getPrefixLength(byte[] cfBuffer, int offset, int length) {
-        for (int i = offset + length - 1; i >= offset; i--) {
-            if (cfBuffer[i] == PREFIX_SEPERATOR[0]) {
-                return (i - offset);
-            }
-        }
-        return 0;
     }
     
     public static byte[] getPrefixForTable(TableRef table) {
@@ -82,48 +69,15 @@ public class ScanProjector {
         return Bytes.toBytes(table.getTableAlias());
     }
     
-    public ScanProjector(ProjectionType type, byte[] tablePrefix, 
-            Map<ImmutableBytesPtr, byte[]> cfProjectionMap, Map<ImmutableBytesPtr, 
-            Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> cqProjectionMap) {
-        this.type = ProjectionType.TABLE;
+    public ScanProjector(byte[] tablePrefix) {
         this.tablePrefix = tablePrefix;
-        this.cfProjectionMap = cfProjectionMap;
-        this.cqProjectionMap = cqProjectionMap;
     }
     
     public static void serializeProjectorIntoScan(Scan scan, ScanProjector projector) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             DataOutputStream output = new DataOutputStream(stream);
-            WritableUtils.writeVInt(output, projector.type.ordinal());
-            switch (projector.type) {
-            case TABLE:
-                WritableUtils.writeCompressedByteArray(output, projector.tablePrefix);
-                break;
-            case CF:
-                WritableUtils.writeVInt(output, projector.cfProjectionMap.size());
-                for (Map.Entry<ImmutableBytesPtr, byte[]> entry : projector.cfProjectionMap.entrySet()) {
-                    WritableUtils.writeCompressedByteArray(output, entry.getKey().get());
-                    WritableUtils.writeCompressedByteArray(output, entry.getValue());
-                }
-                break;
-            case CQ:
-                WritableUtils.writeVInt(output, projector.cqProjectionMap.size());
-                for (Map.Entry<ImmutableBytesPtr, Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> entry : 
-                    projector.cqProjectionMap.entrySet()) {
-                    WritableUtils.writeCompressedByteArray(output, entry.getKey().get());
-                    Map<ImmutableBytesPtr, Pair<byte[], byte[]>> map = entry.getValue();
-                    WritableUtils.writeVInt(output, map.size());
-                    for (Map.Entry<ImmutableBytesPtr, Pair<byte[], byte[]>> e : map.entrySet()) {
-                        WritableUtils.writeCompressedByteArray(output, e.getKey().get());
-                        WritableUtils.writeCompressedByteArray(output, e.getValue().getFirst());
-                        WritableUtils.writeCompressedByteArray(output, e.getValue().getSecond());
-                    }
-                }
-                break;
-            default:
-                throw new IOException("Unrecognized projection type '" + projector.type + "'");    
-            }
+            WritableUtils.writeCompressedByteArray(output, projector.tablePrefix);
             scan.setAttribute(SCAN_PROJECTOR, stream.toByteArray());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -145,40 +99,8 @@ public class ScanProjector {
         ByteArrayInputStream stream = new ByteArrayInputStream(proj);
         try {
             DataInputStream input = new DataInputStream(stream);
-            int t = WritableUtils.readVInt(input);
-            ProjectionType type = ProjectionType.values()[t];
-            if (type == ProjectionType.TABLE) {
-                byte[] tablePrefix = WritableUtils.readCompressedByteArray(input);
-                return new ScanProjector(type, tablePrefix, null, null);
-            }
-            if (type == ProjectionType.CF) {
-                int count = WritableUtils.readVInt(input);
-                Map<ImmutableBytesPtr, byte[]> cfMap = new HashMap<ImmutableBytesPtr, byte[]>();
-                for (int i = 0; i < count; i++) {
-                    byte[] cf = WritableUtils.readCompressedByteArray(input);
-                    byte[] renamed = WritableUtils.readCompressedByteArray(input);
-                    cfMap.put(new ImmutableBytesPtr(cf), renamed);
-                }
-                return new ScanProjector(type, null, cfMap, null);
-            }
-            
-            int count = WritableUtils.readVInt(input);
-            Map<ImmutableBytesPtr, Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> cqMap = 
-                new HashMap<ImmutableBytesPtr, Map<ImmutableBytesPtr, Pair<byte[], byte[]>>>();
-            for (int i = 0; i < count; i++) {
-                byte[] cf = WritableUtils.readCompressedByteArray(input);
-                int nQuals = WritableUtils.readVInt(input);
-                Map<ImmutableBytesPtr, Pair<byte[], byte[]>> map = 
-                    new HashMap<ImmutableBytesPtr, Pair<byte[], byte[]>>();
-                for (int j = 0; j < nQuals; j++) {
-                    byte[] cq = WritableUtils.readCompressedByteArray(input);
-                    byte[] renamedCf = WritableUtils.readCompressedByteArray(input);
-                    byte[] renamedCq = WritableUtils.readCompressedByteArray(input);
-                    map.put(new ImmutableBytesPtr(cq), new Pair<byte[], byte[]>(renamedCf, renamedCq));
-                }
-                cqMap.put(new ImmutableBytesPtr(cf), map);
-            }
-            return new ScanProjector(type, null, null, cqMap);
+            byte[] tablePrefix = WritableUtils.readCompressedByteArray(input);
+            return new ScanProjector(tablePrefix);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
@@ -190,46 +112,18 @@ public class ScanProjector {
         }
     }
     
-    public ProjectionType getType() {
-        return this.type;
-    }
-    
     public byte[] getTablePrefix() {
         return this.tablePrefix;
     }
     
-    public Map<ImmutableBytesPtr, byte[]> getCfProjectionMap() {
-        return this.cfProjectionMap;
+    public KeyValue projectRow(KeyValue kv) {
+        return KeyValueUtil.newKeyValue(PROJECTED_ROW, getRowFamily(tablePrefix), getRowQualifier(), 
+                kv.getTimestamp(), kv.getBuffer(), kv.getRowOffset(), kv.getRowLength());
     }
     
-    public Map<ImmutableBytesPtr, Map<ImmutableBytesPtr, Pair<byte[], byte[]>>> getCqProjectionMap() {
-        return this.cqProjectionMap;
-    }
-    
-    public KeyValue getProjectedKeyValue(KeyValue kv) {
-        if (type == ProjectionType.TABLE) {
-            byte[] cf = getPrefixedColumnFamily(kv.getFamily(), tablePrefix);
-            return KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength(), 
-                    cf, kv.getQualifier(), kv.getTimestamp(), kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
-        }
-        
-        if (type == ProjectionType.CF) {
-            byte[] cf = cfProjectionMap.get(new ImmutableBytesPtr(kv.getFamily()));
-            if (cf == null)
-                return kv;
-            return KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength(), 
-                    cf, kv.getQualifier(), kv.getTimestamp(), kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
-        }
-        
-        Map<ImmutableBytesPtr, Pair<byte[], byte[]>> map = cqProjectionMap.get(new ImmutableBytesPtr(kv.getFamily()));
-        if (map == null)
-            return kv;
-        
-        Pair<byte[], byte[]> col = map.get(new ImmutableBytesPtr(kv.getQualifier()));
-        if (col == null)
-            return kv;
-        
-        return KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength(), 
-                col.getFirst(), col.getSecond(), kv.getTimestamp(), kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+    public KeyValue projectedKeyValue(KeyValue kv) {
+        byte[] cf = getPrefixedColumnFamily(kv.getFamily(), tablePrefix);
+        return KeyValueUtil.newKeyValue(PROJECTED_ROW, cf, kv.getQualifier(), 
+                kv.getTimestamp(), kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
     }
 }

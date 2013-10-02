@@ -43,7 +43,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.ScanProjector;
-import com.salesforce.phoenix.join.ScanProjector.ProjectionType;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.CaseParseNode;
@@ -182,7 +181,7 @@ public class JoinCompiler {
             } else {
                 tableName = mainTable.getTableName();
             }
-            return new ScanProjector(ProjectionType.TABLE, tableName, null, null);
+            return new ScanProjector(tableName);
         }
         
         public List<Expression> compilePostFilterExpressions(StatementContext context) throws SQLException {
@@ -373,7 +372,7 @@ public class JoinCompiler {
         }
         
         public ScanProjector getScanProjector() {
-            return new ScanProjector(ProjectionType.TABLE, ScanProjector.getPrefixForTable(table), null, null);
+            return new ScanProjector(ScanProjector.getPrefixForTable(table));
         }
         
         public List<Expression> compilePostFilterExpressions(StatementContext context) throws SQLException {

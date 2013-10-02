@@ -106,7 +106,7 @@ public class HashCacheFactory implements ServerCacheFactory {
                     offset += WritableUtils.decodeVIntSize(hashCacheByteArray[offset]);
                     ImmutableBytesWritable value = new ImmutableBytesWritable(hashCacheByteArray,offset,resultSize);
                     Tuple result = new ResultTuple(new Result(value));
-                    ImmutableBytesPtr key = new ImmutableBytesPtr(TupleUtil.getConcatenatedValue(result, onExpressions));
+                    ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(result, onExpressions);
                     List<Tuple> tuples = hashCacheMap.get(key);
                     if (tuples == null) {
                         tuples = new ArrayList<Tuple>(1);

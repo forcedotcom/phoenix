@@ -27,13 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -47,41 +50,26 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class RowKeyColumnExpression  extends ColumnExpression {
     private PDataType fromType;
     private RowKeyValueAccessor accessor;
-    private byte[] cfPrefix;
     
-    private final String name;
+    protected final String name;
     
     public RowKeyColumnExpression() {
         name = null; // Only on client
-        cfPrefix = null;
     }
     
     public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor) {
         this(datum, accessor, datum.getDataType());
     }
     
-    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, byte[] cfPrefix) {
-        this(datum, accessor, datum.getDataType(), cfPrefix);
-    }
-    
     public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType) {
-        this(datum, accessor, fromType, null);
-    }
-    
-    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType, byte[] cfPrefix) {
         super(datum);
         this.accessor = accessor;
         this.fromType = fromType;
         this.name = datum.toString();
-        this.cfPrefix = cfPrefix;
     }
     
     public int getPosition() {
         return accessor.getIndex();
-    }
-    
-    public byte[] getCFPrefix() {
-        return cfPrefix;
     }
 
     @Override
@@ -89,7 +77,6 @@ public class RowKeyColumnExpression  extends ColumnExpression {
         final int prime = 31;
         int result = super.hashCode();
         result = prime * result + ((accessor == null) ? 0 : accessor.hashCode());
-        result = prime * result + ((cfPrefix == null) ? 0 : Bytes.hashCode(cfPrefix));
         return result;
     }
 
@@ -104,30 +91,25 @@ public class RowKeyColumnExpression  extends ColumnExpression {
         if (!super.equals(obj)) return false;
         if (getClass() != obj.getClass()) return false;
         RowKeyColumnExpression other = (RowKeyColumnExpression)obj;
-        return accessor.equals(other.accessor) 
-            && ((cfPrefix == null && other.cfPrefix == null) 
-                    || (cfPrefix != null && other.cfPrefix != null && Bytes.equals(cfPrefix, other.cfPrefix)));
+        return accessor.equals(other.accessor);
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        boolean success = getKey(tuple, ptr);
-        if (success == false)
-            return false;
-        
+        tuple.getKey(ptr);
         int offset = accessor.getOffset(ptr.get(), ptr.getOffset());
         // Null is represented in the last expression of a multi-part key 
         // by the bytes not being present.
-        if (offset < ptr.getOffset() + ptr.getLength()) {
+        int maxOffset = ptr.getOffset() + ptr.getLength();
+        if (offset < maxOffset) {
             byte[] buffer = ptr.get();
-            int maxByteSize = ptr.getLength() - (offset - ptr.getOffset());
             int fixedByteSize = -1;
             // FIXME: fixedByteSize <= maxByteSize ? fixedByteSize : 0 required because HBase passes bogus keys to filter to position scan (HBASE-6562)
             if (fromType.isFixedWidth()) {
                 fixedByteSize = getByteSize();
-                fixedByteSize = fixedByteSize <= maxByteSize ? fixedByteSize : 0;
+                fixedByteSize = fixedByteSize <= maxOffset ? fixedByteSize : 0;
             }
-            int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxByteSize);
+            int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxOffset);
             // In the middle of the key, an empty variable length byte array represents null
             if (length > 0) {
                 if (type == fromType) {
@@ -140,15 +122,6 @@ public class RowKeyColumnExpression  extends ColumnExpression {
         }
         return false;
     }
-    
-    protected boolean getKey(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (cfPrefix == null) {
-            tuple.getKey(ptr);
-            return true;
-        }
-        
-        return tuple.getKey(ptr, cfPrefix);
-    }
 
     @Override
     public void readFields(DataInput input) throws IOException {
@@ -156,19 +129,12 @@ public class RowKeyColumnExpression  extends ColumnExpression {
         accessor = new RowKeyValueAccessor();
         accessor.readFields(input);
         fromType = type; // fromType only needed on client side
-        byte[] prefix = Bytes.readByteArray(input);
-        cfPrefix = prefix.length == 0 ? null : prefix;
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
         super.write(output);
         accessor.write(output);
-        if (cfPrefix == null) {
-            Bytes.writeByteArray(output, new byte[0]);
-        } else {
-            Bytes.writeByteArray(output, cfPrefix);
-        }
     }
     
     @Override

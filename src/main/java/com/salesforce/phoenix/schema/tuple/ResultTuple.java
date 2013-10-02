@@ -70,7 +70,24 @@ public class ResultTuple implements Tuple {
 
     @Override
     public String toString() {
-        return result.toString();
+      StringBuilder sb = new StringBuilder();
+      sb.append("keyvalues=");
+      if(this.result.isEmpty()) {
+        sb.append("NONE");
+        return sb.toString();
+      }
+      sb.append("{");
+      boolean moreThanOne = false;
+      for(KeyValue kv : this.result.list()) {
+        if(moreThanOne) {
+          sb.append(", \n");
+        } else {
+          moreThanOne = true;
+        }
+        sb.append(kv.toString()+"/value="+Bytes.toString(kv.getValue()));
+      }
+      sb.append("}\n");
+      return sb.toString();
     }
 
     @Override
@@ -81,18 +98,5 @@ public class ResultTuple implements Tuple {
     @Override
     public KeyValue getValue(int index) {
         return result.raw()[index];
-    }
-
-    @Override
-    public boolean getKey(ImmutableBytesWritable ptr, byte[] cfPrefix) {
-        for (KeyValue kv : result.raw()) {
-            int len = kv.getFamilyLength();
-            if (len >= cfPrefix.length 
-                    && Bytes.equals(cfPrefix, 0, cfPrefix.length, kv.getBuffer(), kv.getFamilyOffset(), len)) {
-                ptr.set(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-                return true;
-            }
-        }
-        return false;
     }
 }

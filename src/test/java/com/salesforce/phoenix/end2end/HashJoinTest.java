@@ -27,8 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_CUSTOMER_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_ITEM_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_SUPPLIER_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -38,17 +45,14 @@ import java.util.Properties;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.util.PhoenixRuntime;
-
-public abstract class HashJoinTest extends BaseClientMangedTimeTest {
+public class HashJoinTest extends BaseClientMangedTimeTest {
     
-    private void initMetaInfoTableValues(Long ts) throws Exception {
+    private void initMetaInfoTableValues() throws Exception {
         ensureTableCreated(getUrl(), JOIN_CUSTOMER_TABLE);
         ensureTableCreated(getUrl(), JOIN_ITEM_TABLE);
         ensureTableCreated(getUrl(), JOIN_SUPPLIER_TABLE);
         
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+        Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
             // Insert into customer table
@@ -103,7 +107,7 @@ public abstract class HashJoinTest extends BaseClientMangedTimeTest {
                     "    PRICE, " +
                     "    SUPPLIER_ID, " +
                     "    DESCRIPTION) " +
-                    "values (?, ?, ?, ?)");
+                    "values (?, ?, ?, ?, ?)");
             stmt.setString(1, "0000000001");
             stmt.setString(2, "T1");
             stmt.setInt(3, 100);
@@ -205,11 +209,9 @@ public abstract class HashJoinTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testInnerJoin() throws Exception {
-        long ts = nextTimestamp();
-        initMetaInfoTableValues(ts);
+        initMetaInfoTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
             PreparedStatement statement = conn.prepareStatement(query);
@@ -253,11 +255,9 @@ public abstract class HashJoinTest extends BaseClientMangedTimeTest {
             
     @Test
     public void testLeftJoin() throws Exception {
-        long ts = nextTimestamp();
-        initMetaInfoTableValues(ts);
+        initMetaInfoTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
             PreparedStatement statement = conn.prepareStatement(query);

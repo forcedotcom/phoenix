@@ -38,8 +38,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
-import com.salesforce.phoenix.expression.RowKeyColumnExpression;
-import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
@@ -54,7 +52,6 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  */
 public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFilter {
     private static final byte[] UNITIALIZED_KEY_BUFFER = new byte[0];
-    private static final byte[] EMPTY_CQ = new byte[0]; 
 
     private Boolean matchedColumn;
     protected final IncrementalResultTuple inputTuple = new IncrementalResultTuple();
@@ -106,24 +103,12 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
             // and our expression uses row key columns.
             setKey(value);
             byte[] buf = value.getBuffer();
-            // check if this kv matches RowKeyColumnExpression with a cf-prefix.
-            ReturnCode ret = ReturnCode.INCLUDE;
-            int pLen = ScanProjector.getPrefixLength(buf, value.getFamilyOffset(), value.getFamilyLength());
-            if (pLen != 0) {
-                Object prefixPtr = setColumnKey(buf, value.getFamilyOffset(), pLen, EMPTY_CQ, 0, 0);
-                KeyValueRef rowRef = foundColumns.get(prefixPtr);
-                if (rowRef != null && rowRef.keyValue == null) {
-                    rowRef.keyValue = value;
-                    refCount++;
-                    ret = null;
-                }
-            }
             Object ptr = setColumnKey(buf, value.getFamilyOffset(), value.getFamilyLength(), buf, value.getQualifierOffset(), value.getQualifierLength());
             KeyValueRef ref = foundColumns.get(ptr);
             if (ref == null) {
                 // Return INCLUDE here. Although this filter doesn't need this KV
                 // it should still be projected into the Result
-                return ret;
+                return ReturnCode.INCLUDE;
             }
             // Since we only look at the latest key value for a given column,
             // we are not interested in older versions
@@ -186,17 +171,6 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
             }
             throw new IndexOutOfBoundsException(Integer.toString(index));
         }
-
-        @Override
-        public boolean getKey(ImmutableBytesWritable ptr, byte[] cfPrefix) {
-            Object key = setColumnKey(cfPrefix, 0, cfPrefix.length, EMPTY_CQ, 0, 0);
-            KeyValueRef ref = foundColumns.get(key);
-            if (ref == null || ref.keyValue == null)
-                return false;
-            
-            ptr.set(ref.keyValue.getBuffer(), ref.keyValue.getKeyOffset(), ref.keyValue.getKeyLength());
-            return true;
-        }
     }
     
     protected void init() {
@@ -205,14 +179,6 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
             public Void visit(KeyValueColumnExpression expression) {
                 inputTuple.addColumn(expression.getColumnFamily(), expression.getColumnName());
                 return null;
-            }
-            @Override
-            public Void visit(RowKeyColumnExpression expression) {
-                byte[] cfPrefix = expression.getCFPrefix();
-                if (cfPrefix != null) {
-                    inputTuple.addColumn(cfPrefix, EMPTY_CQ);
-                }
-                return null;                
             }
         };
         expression.accept(visitor);
