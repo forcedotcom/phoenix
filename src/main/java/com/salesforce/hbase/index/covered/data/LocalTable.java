@@ -68,10 +68,10 @@ public class LocalTable implements LocalHBaseState {
     // need to use a scan here so we can get raw state, which Get doesn't provide.
     Scan s = IndexManagementUtil.newLocalStateScan(Collections.singletonList(columns));
     s.setStartRow(row);
-    s.setStopRow(row); // FIXME: isn't this non inclusive?
+    s.setStopRow(row);
     HRegion region = this.env.getRegion();
     RegionScanner scanner = region.getScanner(s);
-    List<KeyValue> kvs = new ArrayList<KeyValue>();
+    List<KeyValue> kvs = new ArrayList<KeyValue>(1);
     boolean more = scanner.next(kvs);
     assert !more : "Got more than one result when scanning" + " a single row in the primary table!";
 
