@@ -297,7 +297,11 @@ public class FromCompiler {
                 tableMap.put(alias, tableRef);
             }
 
-            tableMap.put( theTable.getName().getString(), tableRef);
+            String name = theTable.getName().getString();
+            //avoid having one name mapped to two identical TableRef.
+            if (alias == null || !alias.equals(name)) {
+            	tableMap.put(name, tableRef);
+            }
             tables.add(tableRef);
         }
 
