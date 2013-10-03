@@ -78,4 +78,9 @@ public class StatelessTraverseAllParseNodeVisitor extends TraverseAllParseNodeVi
     public Void visitLeave(BetweenParseNode node, List<Void> l) throws SQLException {
         return null;
     }
+
+    @Override
+    public Void visitLeave(RowValueConstructorParseNode node, List<Void> l) throws SQLException {
+        return null;
+    }
 }

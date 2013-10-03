@@ -413,6 +413,10 @@ public class ParseNodeFactory {
     	return new CastParseNode(expression, dataType);
     }
     
+    public ParseNode rowValueConstructor(List<ParseNode> l) {
+        return new RowValueConstructorParseNode(l);
+    }
+    
     private void checkTypeMatch (PDataType expectedType, PDataType actualType) throws SQLException {
         if (!expectedType.isCoercibleTo(actualType)) {
             throw new TypeMismatchException(expectedType, actualType);

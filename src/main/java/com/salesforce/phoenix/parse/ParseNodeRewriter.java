@@ -394,4 +394,14 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             l.add(element);
         }
     }
+
+    @Override
+    public ParseNode visitLeave(RowValueConstructorParseNode node, List<ParseNode> children) throws SQLException {
+        return leaveCompoundNode(node, children, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                return NODE_FACTORY.rowValueConstructor(children);
+            }
+        });
+    }
 }
