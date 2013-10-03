@@ -45,6 +45,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.AndParseNode;
+import com.salesforce.phoenix.parse.BetweenParseNode;
 import com.salesforce.phoenix.parse.CaseParseNode;
 import com.salesforce.phoenix.parse.CastParseNode;
 import com.salesforce.phoenix.parse.ColumnParseNode;
@@ -244,17 +245,6 @@ public class JoinCompiler {
             }
             
             @Override
-            public Void visitLeave(AndParseNode node, List<Void> l)
-                    throws SQLException {
-                for (ParseNode child : node.getChildren()) {
-                    if (child instanceof CaseParseNode) {
-                        leaveBooleanNode(child, null);
-                    }
-                }
-                return null;
-            }
-            
-            @Override
             public Void visitLeave(OrParseNode node, List<Void> l)
                     throws SQLException {
                 return leaveBooleanNode(node, l);
@@ -286,6 +276,12 @@ public class JoinCompiler {
             
             @Override
             public Void visitLeave(FunctionParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(BetweenParseNode node, List<Void> l) 
             		throws SQLException {
             	return leaveBooleanNode(node, l);
             }
@@ -468,17 +464,6 @@ public class JoinCompiler {
             }
             
             @Override
-            public Void visitLeave(AndParseNode node, List<Void> l)
-                    throws SQLException {
-                for (ParseNode child : node.getChildren()) {
-                    if (child instanceof CaseParseNode) {
-                        leaveNonEqBooleanNode(child, null);
-                    }
-                }
-                return null;
-            }
-            
-            @Override
             public Void visitLeave(OrParseNode node, List<Void> l)
                     throws SQLException {
                 return leaveNonEqBooleanNode(node, l);
@@ -538,6 +523,12 @@ public class JoinCompiler {
             
             @Override
             public Void visitLeave(FunctionParseNode node, List<Void> l) 
+            		throws SQLException {
+            	return leaveNonEqBooleanNode(node, l);
+            }
+            
+            @Override
+            public Void visitLeave(BetweenParseNode node, List<Void> l) 
             		throws SQLException {
             	return leaveNonEqBooleanNode(node, l);
             }
