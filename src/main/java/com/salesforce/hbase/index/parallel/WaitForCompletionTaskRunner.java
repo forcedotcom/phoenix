@@ -28,32 +28,34 @@
 package com.salesforce.hbase.index.parallel;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 /**
- * {@link TaskRunner} that attempts to run all tasks passed, but quits early if any {@link Task}
- * fails, not waiting for the remaining {@link Task}s to complete.
+ * A {@link TaskRunner} that ensures that all the tasks have been attempted before we return, even
+ * if some of the tasks cause failures.
+ * <p>
+ * Because we wait until the entire batch is complete to see the failure, checking for failure of
+ * the {@link TaskBatch} on the submitted tasks will not help - they will never see the failure of
+ * the other tasks. You will need to provide an external mechanism to propagate the error.
+ * <p>
+ * Does not throw an {@link ExecutionException} if any of the tasks fail.
  */
-public class QuickFailingTaskRunner extends BaseTaskRunner {
-
-  static final Log LOG = LogFactory.getLog(QuickFailingTaskRunner.class);
-
+public class WaitForCompletionTaskRunner extends BaseTaskRunner {
+  
   /**
    * @param service thread pool to which {@link Task}s are submitted. This service is then 'owned'
    *          by <tt>this</tt> and will be shutdown on calls to {@link #stop(String)}.
    */
-  public QuickFailingTaskRunner(ExecutorService service) {
+  public WaitForCompletionTaskRunner(ExecutorService service) {
     super(service);
   }
 
   @Override
-  protected <R> ListenableFuture<List<R>> submitTasks(List<ListenableFuture<R>> futures) {
-    return Futures.allAsList(futures);
+  public <R> ListenableFuture<List<R>> submitTasks(List<ListenableFuture<R>> futures) {
+    return Futures.successfulAsList(futures);
   }
 }

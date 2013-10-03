@@ -77,7 +77,7 @@ public class IndexBuildManager implements Stoppable {
    */
   public static String NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY = "index.builder.threads.max";
   /** Default to a single thread. This is the safest course of action, but the slowest as well */
-  private static final int DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS = 1;
+  private static final int DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS = 10;
   /**
    * Amount of time to keep idle threads in the pool. After this time (seconds) we expire the
    * threads and will re-create them as needed, up to the configured max
@@ -86,7 +86,8 @@ public class IndexBuildManager implements Stoppable {
       "index.builder.threads.keepalivetime";
 
   /**
-   * @param newInstance
+   * @param env environment in which <tt>this</tt> is running. Used to setup the
+   *          {@link IndexBuilder} and executor
    * @throws IOException if an {@link IndexBuilder} cannot be correctly steup
    */
   public IndexBuildManager(RegionCoprocessorEnvironment env) throws IOException {
@@ -172,7 +173,7 @@ public class IndexBuildManager implements Stoppable {
     }
     List<Collection<Pair<Mutation, byte[]>>> allResults = null;
     try {
-      allResults = pool.submit(tasks);
+      allResults = pool.submitUninterruptible(tasks);
     } catch (EarlyExitFailure e) {
       propagateFailure(e);
     } catch (ExecutionException e) {
@@ -180,8 +181,11 @@ public class IndexBuildManager implements Stoppable {
       propagateFailure(e.getCause());
     }
 
+    // we can only get here if we get successes from each of the tasks, so each of these must have a
+    // correct result
     Collection<Pair<Mutation, byte[]>> results = new ArrayList<Pair<Mutation, byte[]>>();
     for (Collection<Pair<Mutation, byte[]>> result : allResults) {
+      assert result != null : "Found an unsuccessful result, but didn't propagate a failure earlier";
       results.addAll(result);
     }
 
