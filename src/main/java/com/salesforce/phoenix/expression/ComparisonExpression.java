@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -120,6 +122,7 @@ public class ComparisonExpression extends BaseCompoundExpression {
         if (lhsDataType == PDataType.CHAR) {
             lhsLength = StringUtil.getUnpaddedCharLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
         }
+        
         
         int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
                 rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);

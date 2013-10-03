@@ -2994,4 +2994,269 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         }
     }
 
+    @Test
+    public void testRowValueConstructorInWhereWithEqualsExpression() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) = (7, 5)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) == 7);
+                assertTrue(rs.getInt(2) == 5);
+                count++;
+            }
+            assertTrue(count == 1);
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorInWhereWithGreaterThanExpression() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) >= (4, 4)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) >= 4);
+                assertTrue(rs.getInt(1) == 4 ? rs.getInt(2) >= 4 : rs.getInt(2) >= 0);
+                count++;
+            }
+            // we have 6 values for a_integer present in the atable where a >= 4. x_integer is null for a_integer = 4. So the query should have returned 5 rows.
+            assertTrue(count == 5);   
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorInWhereWithUnEqualNumberArgs() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer, y_integer) >= (7, 5)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) >= 7);
+                assertTrue(rs.getInt(1) == 7 ? rs.getInt(2) >= 5 : rs.getInt(2) >= 0);
+                count++;
+            }
+            // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
+            assertTrue(count == 3); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testBindVarsInRowValueConstructor() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) = (?, ?)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setInt(2, 7);
+            statement.setInt(3, 5);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) == 7);
+                assertTrue(rs.getInt(2) == 5);
+                count++;
+            }
+            assertTrue(count == 1); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorWithLiteralExpressionOnRHS() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) >= 7";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+            }
+            // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
+            assertTrue(count == 3); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorWithLiteralExpressionOnLHS() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND 7 <= (a_integer, x_integer)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+            }
+            // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
+            assertTrue(count == 3); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorWithBuiltInFunctionOnRHS() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) >= to_number('7')";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+            }
+            // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
+            assertTrue(count == 3); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorWithBuiltInFunctionOnLHS() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND to_number('7') <= (a_integer, x_integer)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+            }
+            // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
+            assertTrue(count == 3); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRowValueConstructorWithBuiltInFunctionOperatingOnColumnRefOnLHS() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts - 1);
+        String upsertQuery = "UPSERT INTO aTable(organization_id, entity_id, a_string) values (?, ?, ?)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn.setAutoCommit(true);
+        try {
+            PreparedStatement statement = conn.prepareStatement(upsertQuery);
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW1);
+            statement.setString(3, "1");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW2);
+            statement.setString(3, "1");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW3);
+            statement.setString(3, "1");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW4);
+            statement.setString(3, "1");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW5);
+            statement.setString(3, "1");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW6);
+            statement.setString(3, "1");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW7);
+            statement.setString(3, "7");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW8);
+            statement.setString(3, "7");
+            statement.executeUpdate();
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW9);
+            statement.setString(3, "7");
+            statement.executeUpdate();
+            conn.commit();
+            
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1));
+            conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+            statement = conn.prepareStatement("select a_string from atable where organization_id = ? and (6, x_integer) <= to_number(a_string)");
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+            }
+            // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
+            assertTrue(count == 3); 
+        } finally {
+            conn.close();
+        }
+    }
 }
