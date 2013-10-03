@@ -306,7 +306,7 @@ public class JoinCompiler {
     
     public static JoinSpec getSubJoinSpec(JoinSpec join) {
         return new JoinSpec(join.mainTable, join.select, join.preFilters, join.postFilters, 
-                join.joinTables.subList(0, join.joinTables.size() - 2), join.columnRefs);
+                join.joinTables.subList(0, join.joinTables.size() - 1), join.columnRefs);
     }
     
     public static class JoinTable {
