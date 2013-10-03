@@ -419,4 +419,26 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
         assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
         assertEquals(Integer.class.getName(), pmd.getParameterClassName(2));
     }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaDataWithBindArgsOnLHSAndLiteralExprOnRHS() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (?, ?) = 7";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(null, pmd.getParameterClassName(2));
+    }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaDataWithBindArgsOnRHSAndLiteralExprOnLHS() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE 7 = (?, ?)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(null, pmd.getParameterClassName(2));
+    }
 }

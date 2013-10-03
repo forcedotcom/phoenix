@@ -139,9 +139,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         return true;
     }
     
-    private void addBindParamMetaData(ParseNode node, Expression expr) throws SQLException {
-        if (node instanceof BindParseNode) {
-            context.getBindManager().addParamMetaData((BindParseNode)node, expr);
+    private void addBindParamMetaData(ParseNode lhsNode, Expression lhsExpr, ParseNode rhsNode, Expression rhsExpr) throws SQLException {
+        if (lhsNode instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhsExpr);
+        }
+        if (rhsNode instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)rhsNode, lhsExpr);
         }
     }
     
@@ -154,7 +157,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         }
     }
     
-    private void checkComparability(ParseNode node, PDataType lhsDataType, PDataType rhsDataType) throws TypeMismatchException {
+    private static void checkComparability(ParseNode node, PDataType lhsDataType, PDataType rhsDataType) throws TypeMismatchException {
         if(lhsDataType != null && rhsDataType != null && !lhsDataType.isComparableTo(rhsDataType)) {
             throw new TypeMismatchException(lhsDataType, rhsDataType, node.toString());
         }
@@ -168,54 +171,66 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         Expression lhsExpr = children.get(0);
         Expression rhsExpr = children.get(1);
 
-        checkComparability(node, lhsExpr.getDataType(), rhsExpr.getDataType());
-        addBindParamMetaData(lhsNode, rhsExpr);
-        addBindParamMetaData(rhsNode, lhsExpr);
+        PDataType lhsExprDataType = lhsExpr.getDataType();
+        PDataType rhsExprDataType = rhsExpr.getDataType();
+        checkComparability(node, lhsExprDataType, rhsExprDataType);
+        addBindParamMetaData(lhsNode, lhsExpr, rhsNode, rhsExpr);
         
-        if(lhsNode instanceof RowValueConstructorParseNode || rhsNode instanceof RowValueConstructorParseNode) {
-            List<Expression> lhsChildExprs = lhsExpr.getChildren();
-            List<Expression> rhsChildExprs = rhsExpr.getChildren();
-            List<ParseNode> lhsChildNodes = lhsNode.getChildren();
-            List<ParseNode> rhsChildNodes = rhsNode.getChildren();
+        List<Expression> lhsChildExprs = lhsExpr.getChildren();
+        List<Expression> rhsChildExprs = rhsExpr.getChildren();
+        List<ParseNode> lhsChildNodes = lhsNode.getChildren();
+        List<ParseNode> rhsChildNodes = rhsNode.getChildren();
 
-            int numLhsExprs = lhsChildExprs.size();
-            int numRhsExprs = rhsChildExprs.size();
-
-            int minNum = (numLhsExprs == 0 || numRhsExprs == 0) ? 1 : Math.min(numLhsExprs, numRhsExprs);
-            
+        int numLhsExprs = lhsChildExprs.size();
+        int numRhsExprs = rhsChildExprs.size();
+        
+        int minNum = (numLhsExprs == 0 || numRhsExprs == 0) ? 1 : Math.min(numLhsExprs, numRhsExprs);
+        int diffSize = numLhsExprs > numRhsExprs ? numLhsExprs - minNum : numRhsExprs - minNum;
+        
+        if(lhsNode instanceof RowValueConstructorParseNode && rhsNode instanceof RowValueConstructorParseNode) {
             for (int i = 0; i < minNum; i++) {
-                Expression lhsChildExpression = numLhsExprs == 0 ? lhsExpr : lhsChildExprs.get(i);
-                Expression rhsChildExpression = numRhsExprs == 0 ? rhsExpr : rhsChildExprs.get(i);
-                ParseNode lhsChildNode = numLhsExprs == 0 ? lhsNode : lhsChildNodes.get(i);
-                ParseNode rhsChildNode = numRhsExprs == 0 ? rhsNode : rhsChildNodes.get(i);
+                Expression lhsChildExpression = lhsChildExprs.get(i);
+                Expression rhsChildExpression = rhsChildExprs.get(i);
+                ParseNode lhsChildNode = lhsChildNodes.get(i);
+                ParseNode rhsChildNode = rhsChildNodes.get(i);
                 checkComparability(node, lhsChildExpression.getDataType(), rhsChildExpression.getDataType());
-                addBindParamMetaData(lhsChildNode, rhsChildExpression);
-                addBindParamMetaData(rhsChildNode, lhsChildExpression);    
+                addBindParamMetaData(lhsChildNode, lhsChildExpression, rhsChildNode, rhsChildExpression);
             }
-            
-            if(minNum == 1) {
-                PDataType variableWidthDataType;
-                Expression  expr;
-                if(numLhsExprs == 0) {
-                    expr = rhsExpr.getChildren().get(0);
-                    variableWidthDataType = IndexUtil.getIndexColumnDataType(true, expr.getDataType());
-                    lhsExpr = CoerceExpression.create(lhsExpr, variableWidthDataType);
-                } else {
-                    expr = lhsExpr.getChildren().get(0);
-                    variableWidthDataType = IndexUtil.getIndexColumnDataType(true, expr.getDataType());
-                    rhsExpr = CoerceExpression.create(rhsExpr, variableWidthDataType);
-                }
+        } else if(lhsNode instanceof RowValueConstructorParseNode) {
+            Expression lhsChildExpr = lhsExpr.getChildren().get(0);
+            PDataType lhsChildExprDataType = lhsChildExpr.getDataType();
+            ParseNode lhsChildNode = lhsNode.getChildren().get(0);
+
+            checkComparability(node, lhsChildExprDataType, rhsExprDataType);
+            addBindParamMetaData(lhsChildNode, lhsChildExpr, rhsNode, rhsExpr);
+            if(lhsChildExprDataType != null) {
+                //Because we end up coercing a row value constructor's bytes to the variable width type, in order to keep the comparison operation sane, 
+                //we need to coerce the other side to the same type too. Such kind of coercion is not needed when both sides are row value constructors.
+                PDataType variableWidthDataType = IndexUtil.getIndexColumnDataType(true, lhsChildExprDataType);
+                rhsExpr = CoerceExpression.create(rhsExpr, variableWidthDataType);
             }
-            
-            if(numLhsExprs != numRhsExprs) { 
-                int diffSize = numLhsExprs > numRhsExprs ? numLhsExprs - minNum : numRhsExprs - minNum;
-                if(numLhsExprs > numRhsExprs) {
-                    addNullDatumForBindParamMetaData(minNum, diffSize, lhsChildNodes);
-                } else {
-                    addNullDatumForBindParamMetaData(minNum, diffSize, rhsChildNodes);
-                }
+        } else if(rhsNode instanceof RowValueConstructorParseNode) {
+            Expression rhsChildExpr = rhsExpr.getChildren().get(0);
+            PDataType rhsChildExprDataType = rhsChildExpr.getDataType();
+            ParseNode rhsChildNode = rhsNode.getChildren().get(0);
+
+            checkComparability(node, lhsExprDataType, rhsChildExprDataType);
+            addBindParamMetaData(lhsNode, lhsExpr, rhsChildNode, rhsChildExpr);
+            if(rhsChildExprDataType != null) {
+                //Because we end up coercing a row value constructor's bytes to the variable width type, in order to keep the comparison operation sane, 
+                //we need to coerce the other side to the same type too. Such kind of coercion is not needed when both sides are row value constructors.
+                PDataType variableWidthDataType = IndexUtil.getIndexColumnDataType(true, rhsChildExprDataType);
+                lhsExpr = CoerceExpression.create(lhsExpr, variableWidthDataType);
             }
-        }   
+        }
+        
+        if((lhsNode instanceof RowValueConstructorParseNode || rhsNode instanceof RowValueConstructorParseNode) && numLhsExprs != numRhsExprs) { 
+            if(numLhsExprs > numRhsExprs) {
+                addNullDatumForBindParamMetaData(minNum, diffSize, lhsChildNodes);
+            } else {
+                addNullDatumForBindParamMetaData(minNum, diffSize, rhsChildNodes);
+            }
+        }
         
         Object lhsValue = null;
         // Can't use lhsNode.isConstant(), because we have cases in which we don't know
@@ -234,7 +249,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             }
         }
         if (lhsValue != null && rhsValue != null) {
-            return LiteralExpression.newConstant(ByteUtil.compare(node.getFilterOp(),lhsExpr.getDataType().compareTo(lhsValue, rhsValue, rhsExpr.getDataType())));
+            return LiteralExpression.newConstant(ByteUtil.compare(node.getFilterOp(),lhsExprDataType.compareTo(lhsValue, rhsValue, rhsExprDataType)));
         }
         // Coerce constant to match type of lhs so that we don't need to
         // convert at filter time. Since we normalize the select statement
@@ -242,19 +257,19 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if (rhsValue != null) {
             // Comparing an unsigned int/long against a negative int/long would be an example. We just need to take
             // into account the comparison operator.
-            if (rhsExpr.getDataType() != lhsExpr.getDataType() 
+            if (rhsExprDataType != lhsExprDataType 
                     || rhsExpr.getColumnModifier() != lhsExpr.getColumnModifier()
                     || (rhsExpr.getMaxLength() != null && lhsExpr.getMaxLength() != null && rhsExpr.getMaxLength() < lhsExpr.getMaxLength())) {
                 // TODO: if lengths are unequal and fixed width?
-                if (rhsExpr.getDataType().isCoercibleTo(lhsExpr.getDataType(), rhsValue)) { // will convert 2.0 -> 2
-                    children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhsExpr.getDataType(), 
+                if (rhsExprDataType.isCoercibleTo(lhsExprDataType, rhsValue)) { // will convert 2.0 -> 2
+                    children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhsExprDataType, 
                             lhsExpr.getMaxLength(), null, lhsExpr.getColumnModifier()));
                 } else if (node.getFilterOp() == CompareOp.EQUAL) {
                     return LiteralExpression.FALSE_EXPRESSION;
                 } else if (node.getFilterOp() == CompareOp.NOT_EQUAL) {
                     return LiteralExpression.TRUE_EXPRESSION;
                 } else { // TODO: generalize this with PDataType.getMinValue(), PDataTypeType.getMaxValue() methods
-                    switch(rhsExpr.getDataType()) {
+                    switch(rhsExprDataType) {
                     case DECIMAL:
                         /*
                          * We're comparing an int/long to a constant decimal with a fraction part.
@@ -270,7 +285,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         default: // Else, we truncate the value
                             BigDecimal bd = (BigDecimal)rhsValue;
                             rhsValue = bd.longValue() + increment;
-                            children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhsExpr.getDataType(), lhsExpr.getColumnModifier()));
+                            children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, lhsExprDataType, lhsExpr.getColumnModifier()));
                             break;
                         }
                         break;
@@ -286,8 +301,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                          * If lhs is an unsigned_long, then we know the rhs is definitely a negative long. rhs in this case
                          * will always be bigger than rhs.
                          */
-                        if (lhsExpr.getDataType() == PDataType.INTEGER || 
-                        lhsExpr.getDataType() == PDataType.UNSIGNED_INT) {
+                        if (lhsExprDataType == PDataType.INTEGER || 
+                        lhsExprDataType == PDataType.UNSIGNED_INT) {
                             switch (node.getFilterOp()) {
                             case LESS:
                             case LESS_OR_EQUAL:
@@ -306,7 +321,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             default:
                                 break;
                             }
-                        } else if (lhsExpr.getDataType() == PDataType.UNSIGNED_LONG) {
+                        } else if (lhsExprDataType == PDataType.UNSIGNED_LONG) {
                             switch (node.getFilterOp()) {
                             case LESS:
                             case LESS_OR_EQUAL:
@@ -318,7 +333,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                                 break;
                             }
                         }
-                        children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, rhsExpr.getDataType(), lhsExpr.getColumnModifier()));
+                        children = Arrays.asList(children.get(0), LiteralExpression.newConstant(rhsValue, rhsExprDataType, lhsExpr.getColumnModifier()));
                         break;
                     }
                 }
