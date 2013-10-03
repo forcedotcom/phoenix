@@ -49,7 +49,6 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
     public static final String INDEX_MD = "IdxMD";
     public static final String INDEX_UUID = "IdxUUID";
 
-    private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
     private Configuration conf;
 
     @Override
@@ -85,6 +84,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         List<IndexUpdate> indexUpdates = Lists.newArrayList();
         // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
         byte[] dataRowKey = state.getCurrentRowKey();
@@ -112,6 +112,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             return Collections.emptyList();
         }
         List<IndexUpdate> indexUpdates = Lists.newArrayList();
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
         byte[] dataRowKey = state.getCurrentRowKey();
         for (IndexMaintainer maintainer : indexMaintainers) {
