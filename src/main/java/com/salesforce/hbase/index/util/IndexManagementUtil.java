@@ -40,7 +40,6 @@ import org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
 import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.data.LazyValueGetter;
