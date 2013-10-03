@@ -32,13 +32,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -55,10 +50,11 @@ import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.util.Threads;
 
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.salesforce.hbase.index.CapturingAbortable;
 import com.salesforce.hbase.index.exception.SingleIndexWriteFailureException;
+import com.salesforce.hbase.index.parallel.EarlyExitFailure;
+import com.salesforce.hbase.index.parallel.QuickFailingTaskRunner;
+import com.salesforce.hbase.index.parallel.Task;
+import com.salesforce.hbase.index.parallel.TaskBatch;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
@@ -82,11 +78,24 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
   private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
   private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
       "index.writer.threads.keepalivetime";
+  /**
+   * Maximum number of threads to allow per-table when writing. Each writer thread (from
+   * {@link #NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY}) has a single HTable. However, each table
+   * is backed by a threadpool to manage the updates to that table. this specifies the number of
+   * threads to allow in each of those tables. Generally, you shouldn't need to change this, unless
+   * you have a small number of indexes to which most of the writes go. Defaults to:
+   * {@value #DEFAULT_NUM_PER_TABLE_THREADS}. For tables to which there are not a lot of writes, the
+   * thread pool automatically will decrease the number of threads to one (though it can burst up to
+   * the specified max for any given table), so increasing this to meet the max case is reasonable.
+   */
+  // TODO per-index-table thread configuration
+  private static final String INDEX_WRITER_PER_TABLE_THREADS_CONF_KEY =
+      "index.writer.threads.pertable.max";
+  private static final int DEFAULT_NUM_PER_TABLE_THREADS = 1;
 
-  private ListeningExecutorService writerPool;
   private HTableFactory factory;
-  private CapturingAbortable abortable;
   private Stoppable stopped;
+  private QuickFailingTaskRunner pool;
 
   @Override
   public void setup(IndexWriter parent, RegionCoprocessorEnvironment env) {
@@ -102,18 +111,19 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
    */
   void setup(HTableFactory factory, ExecutorService pool, Abortable abortable, Stoppable stop,
       int cacheSize) {
-    this.writerPool = MoreExecutors.listeningDecorator(pool);
     this.factory = new CachingHTableFactory(factory, cacheSize);
-    this.abortable = new CapturingAbortable(abortable);
+    this.pool = new QuickFailingTaskRunner(pool);
     this.stopped = stop;
   }
 
   public static HTableFactory getDefaultDelegateHTableFactory(CoprocessorEnvironment env) {
     // create a simple delegate factory, setup the way we need
     Configuration conf = env.getConfiguration();
-    // only have one thread per table - all the writes are already batched per table.
-
-    conf.setInt("hbase.htable.threads.max", 1);
+    // set the number of threads allowed per table.
+    int htableThreads =
+        conf.getInt(INDEX_WRITER_PER_TABLE_THREADS_CONF_KEY, DEFAULT_NUM_PER_TABLE_THREADS);
+    LOG.info("Starting index writer with " + htableThreads + " threads for each HTable.");
+    conf.setInt("hbase.htable.threads.max", htableThreads);
     return new CoprocessorHTableFactory(env);
   }
 
@@ -128,6 +138,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
     if (maxThreads == 0) {
       maxThreads = 1; // is there a better default?
     }
+    LOG.info("Starting writer with " + maxThreads + " threads for all tables");
     long keepAliveTime = conf.getLong(INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY, 60);
 
     // we prefer starting a new thread to queuing (the opposite of the usual ThreadPoolExecutor)
@@ -161,17 +172,12 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
      */
 
     Set<Entry<HTableInterfaceReference, Collection<Mutation>>> entries = toWrite.asMap().entrySet();
-    CompletionService<Void> ops = new ExecutorCompletionService<Void>(this.writerPool);
+    TaskBatch<Void> tasks = new TaskBatch<Void>(entries.size());
     for (Entry<HTableInterfaceReference, Collection<Mutation>> entry : entries) {
       // get the mutations for each table. We leak the implementation here a little bit to save
       // doing a complete copy over of all the index update for each table.
       final List<Mutation> mutations = (List<Mutation>) entry.getValue();
       final HTableInterfaceReference tableReference = entry.getKey();
-      // early exit - no need to submit new tasks if we are shutting down
-      if (this.stopped.isStopped() || this.abortable.isAborted()) {
-        break;
-      }
-
       /*
        * Write a batch of index updates to an index table. This operation stops (is cancelable) via
        * two mechanisms: (1) setting aborted or stopped on the IndexWriter or, (2) interrupting the
@@ -182,7 +188,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
        * writer implementation (HTableInterface#batch is blocking, but doesn't elaborate when is
        * supports an interrupt).
        */
-      ops.submit(new Callable<Void>() {
+      tasks.add(new Task<Void>() {
 
         /**
          * Do the actual write to the primary table. We don't need to worry about closing the table
@@ -214,8 +220,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
         }
 
         private void throwFailureIfDone() throws SingleIndexWriteFailureException {
-          if (stopped.isStopped() || abortable.isAborted()
-              || Thread.currentThread().isInterrupted()) {
+          if (this.isBatchFailed() || Thread.currentThread().isInterrupted()) {
             throw new SingleIndexWriteFailureException(
                 "Pool closed, not attempting to write to the index!", null);
           }
@@ -224,61 +229,42 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
       });
     }
 
-    boolean interrupted = false;
-    // we can use a simple counter here because its ever only modified by the waiting thread
-    int completedWrites = 0;
-    /*
-     * wait for all index writes to complete, or there to be a failure. We could be faster here in
-     * terms of watching for a failed index write. Right now, we need to wade through any successful
-     * attempts that happen to finish before we get to the failed update. For right now, that's fine
-     * as we don't really spend a lot time getting through the successes and a slight delay on the
-     * abort really isn't the end of the world. We could be smarter and use a Guava ListenableFuture
-     * to handle a callback off the future that updates the abort status, but for now we don't need
-     * the extra complexity.
-     */
-    while (!this.abortable.isAborted() && !this.isStopped() && completedWrites < entries.size()) {
-      try {
-        Future<Void> status = ops.take();
-        try {
-          // we don't care what the status is - success is binary, so no error == success
-          status.get();
-          completedWrites++;
-        } catch (CancellationException e) {
-          // if we get a cancellation, we already failed for some other reason, so we can ignore it
-          LOG.debug("Found canceled index write - ignoring!");
-        } catch (ExecutionException e) {
-          LOG.error("Found a failed index update!");
-          abortable.abort("Failed ot writer to an index table!", e.getCause());
-          break;
-        }
-      } catch (InterruptedException e) {
-        LOG.info("Index writer interrupted, continuing if not aborted or stopped.");
-        // reset the interrupt status so we can wait out that latch
-        interrupted = true;
-      }
-    }
-    // reset the interrupt status after we are done
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
-
-    // propagate the failure up to the caller
+    // actually submit the tasks to the pool and wait for them to finish/fail
     try {
-      this.abortable.throwCauseIfAborted();
-    } catch (SingleIndexWriteFailureException e) {
-      throw e;
-    } catch (Throwable e) {
-      throw new SingleIndexWriteFailureException(
-          "Got an abort notification while writing to the index!",
-          e);
+      pool.submit(tasks);
+    } catch (EarlyExitFailure e) {
+      propagateFailure(e);
+    } catch (ExecutionException e) {
+      LOG.error("Found a failed index update!");
+      propagateFailure(e.getCause());
     }
 
   }
 
+  private void propagateFailure(Throwable throwable) throws SingleIndexWriteFailureException {
+    try {
+      throw throwable;
+    } catch (SingleIndexWriteFailureException e1) {
+      throw e1;
+    } catch (Throwable e1) {
+      throw new SingleIndexWriteFailureException(
+          "Got an abort notification while writing to the index!", e1);
+    }
+
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * This method should only be called <b>once</b>. Stopped state ({@link #isStopped()}) is managed
+   * by the external {@link Stoppable}. This call does not delegate the stop down to the
+   * {@link Stoppable} passed in the constructor.
+   * @param why the reason for stopping
+   */
   @Override
   public void stop(String why) {
-    LOG.info("Shutting down " + this.getClass().getSimpleName());
-    this.writerPool.shutdownNow();
+    LOG.info("Shutting down " + this.getClass().getSimpleName() + " because " + why);
+    this.pool.stop(why);
     this.factory.shutdown();
   }
 

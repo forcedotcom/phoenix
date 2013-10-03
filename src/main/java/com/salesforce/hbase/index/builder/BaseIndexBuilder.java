@@ -29,6 +29,8 @@ package com.salesforce.hbase.index.builder;
 
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
@@ -47,6 +49,9 @@ import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
  * up-to-date.
  */
 public abstract class BaseIndexBuilder implements IndexBuilder {
+
+  private static final Log LOG = LogFactory.getLog(BaseIndexBuilder.class);
+  protected boolean stopped;
 
   @Override
   public void extendBaseIndexBuilderInstead() { }
@@ -86,5 +91,16 @@ public abstract class BaseIndexBuilder implements IndexBuilder {
   @Override
   public byte[] getBatchId(Mutation m) {
     return null;
+  }
+
+  @Override
+  public void stop(String why) {
+    LOG.debug("Stopping because: " + why);
+    this.stopped = true;
+  }
+
+  @Override
+  public boolean isStopped() {
+    return this.stopped;
   }
 }
