@@ -25,17 +25,44 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.phoenix.index;
+
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+
+import com.salesforce.hbase.index.covered.IndexCodec;
 
 /**
- * Exception thrown if we cannot successfully write to an index table.
+ *
  */
-@SuppressWarnings("serial")
-public class CannotReachIndexException extends Exception {
+public abstract class BaseIndexCodec implements IndexCodec {
 
-  public CannotReachIndexException(String targetTableName, Mutation m, Exception cause) {
-    super("Cannot reach index table " + targetTableName + " to update index for edit: " + m, cause);
+  @Override
+  public void initialize(RegionCoprocessorEnvironment env) throws IOException {
+    // noop
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * By default, the codec is always enabled. Subclasses should override this method if they want do
+   * decide to index on a per-mutation basis.
+   */
+  @Override
+  public boolean isEnabled(Mutation m) {
+    return true;
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * Assumes each mutation is not in a batch. Subclasses that have different batching behavior
+   * should override this.
+   */
+  @Override
+  public byte[] getBatchId(Mutation m) {
+    return null;
   }
 }

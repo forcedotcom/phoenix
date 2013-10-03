@@ -25,27 +25,23 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.write;
 
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
-import org.junit.BeforeClass;
+import org.apache.hadoop.hbase.Stoppable;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
+import com.google.common.collect.Multimap;
+import com.salesforce.hbase.index.exception.IndexWriteException;
+import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
 /**
- * Test secondary indexing from an end-to-end perspective (client to server to index table).
+ * Write the index updates to the index tables
  */
-public class TestEndtoEndIndexingWithCompression extends TestEndtoEndIndexing{
+public interface IndexCommitter extends Stoppable {
 
-  @BeforeClass
-  public static void setupCluster() throws Exception {
-    //add our codec and enable WAL compression
-    UTIL.getConfiguration().set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY,
-      IndexedWALEditCodec.class.getName());
-    UTIL.getConfiguration().setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
-    
-    //start the mini-cluster
-    UTIL.startMiniCluster();
-  }
+  void setup(IndexWriter parent, RegionCoprocessorEnvironment env);
+
+  public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
+      throws IndexWriteException;
 }

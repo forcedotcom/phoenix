@@ -57,12 +57,34 @@ public abstract class BaseIndexBuilder implements IndexBuilder {
   }
 
   @Override
-  public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) {
+  public void batchStarted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
     // noop
   }
 
   @Override
   public void batchCompleted(MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) {
     // noop
+  }
+  
+  /**
+   * By default, we always attempt to index the mutation. Commonly this can be slow (because the
+   * framework spends the time to do the indexing, only to realize that you don't need it) or not
+   * ideal (if you want to turn on/off indexing on a table without completely reloading it).
+   */
+  @Override
+  public boolean isEnabled(Mutation m) {
+    return true; 
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * By default, assumes that all mutations should <b>not be batched</b>. That is to say, each
+   * mutation always applies to different rows, even if they are in the same batch, or are
+   * independent updates.
+   */
+  @Override
+  public byte[] getBatchId(Mutation m) {
+    return null;
   }
 }

@@ -34,10 +34,10 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 public class HashJoinInfo {
     private static final String HASH_JOIN = "HashJoin";
@@ -45,11 +45,13 @@ public class HashJoinInfo {
     private ImmutableBytesPtr[] joinIds;
     private List<Expression>[] joinExpressions;
     private JoinType[] joinTypes;
+    private Expression postJoinFilterExpression;
     
-    private HashJoinInfo(ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes) {
+    public HashJoinInfo(ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes, Expression postJoinFilterExpression) {
         this.joinIds = joinIds;
         this.joinExpressions = joinExpressions;
         this.joinTypes = joinTypes;
+        this.postJoinFilterExpression = postJoinFilterExpression;
     }
     
     public ImmutableBytesPtr[] getJoinIds() {
@@ -62,6 +64,10 @@ public class HashJoinInfo {
     
     public JoinType[] getJoinTypes() {
         return joinTypes;
+    }
+    
+    public Expression getPostJoinFilterExpression() {
+        return postJoinFilterExpression;
     }
     
     public static void serializeHashJoinIntoScan(Scan scan, HashJoinInfo joinInfo) {
@@ -78,6 +84,12 @@ public class HashJoinInfo {
                     expr.write(output);
                 }
                 WritableUtils.writeVInt(output, joinInfo.joinTypes[i].ordinal());
+            }
+            if (joinInfo.postJoinFilterExpression != null) {
+                WritableUtils.writeVInt(output, ExpressionType.valueOf(joinInfo.postJoinFilterExpression).ordinal());
+                joinInfo.postJoinFilterExpression.write(output);
+            } else {
+                WritableUtils.writeVInt(output, -1);
             }
             scan.setAttribute(HASH_JOIN, stream.toByteArray());
         } catch (IOException e) {
@@ -119,7 +131,13 @@ public class HashJoinInfo {
                 int type = WritableUtils.readVInt(input);
                 joinTypes[i] = JoinType.values()[type];
             }
-            return new HashJoinInfo(joinIds, joinExpressions, joinTypes);
+            Expression postJoinFilterExpression = null;
+            int expressionOrdinal = WritableUtils.readVInt(input);
+            if (expressionOrdinal != -1) {
+                postJoinFilterExpression = ExpressionType.values()[expressionOrdinal].newInstance();
+                postJoinFilterExpression.readFields(input);
+            }
+            return new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {

@@ -38,6 +38,10 @@ package com.salesforce.phoenix.parse;
 public abstract class NamedParseNode extends TerminalParseNode{
     private final NamedNode namedNode;
     
+    NamedParseNode(NamedParseNode node) {
+        this.namedNode = node.namedNode;
+    }
+
     NamedParseNode(String name) {
         this.namedNode = new NamedNode(name);
     }
@@ -48,5 +52,10 @@ public abstract class NamedParseNode extends TerminalParseNode{
 
     public boolean isCaseSensitive() {
         return namedNode.isCaseSensitive();
+    }
+    
+    @Override
+    public String toString() {
+        return getName();
     }
 }

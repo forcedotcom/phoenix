@@ -35,6 +35,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -55,6 +56,7 @@ import com.salesforce.hbase.index.covered.IndexUpdate;
 import com.salesforce.hbase.index.covered.LocalTableState;
 import com.salesforce.hbase.index.covered.data.LocalHBaseState;
 import com.salesforce.hbase.index.covered.example.CoveredColumnIndexCodec.ColumnEntry;
+import com.salesforce.hbase.index.covered.update.ColumnReference;
 
 public class TestCoveredColumnIndexCodec {
   private static final byte[] PK = new byte[] { 'a' };
@@ -144,7 +146,8 @@ public class TestCoveredColumnIndexCodec {
     }
 
     @Override
-    public Result getCurrentRowState(Mutation m) throws IOException {
+    public Result getCurrentRowState(Mutation m, Collection<? extends ColumnReference> toCover)
+        throws IOException {
       return r;
     }
 

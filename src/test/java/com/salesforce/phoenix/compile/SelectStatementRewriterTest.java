@@ -28,7 +28,9 @@
 package com.salesforce.phoenix.compile;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -39,7 +41,11 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.junit.Test;
 
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
@@ -55,8 +61,8 @@ public class SelectStatementRewriterTest extends BaseConnectionlessQueryTest {
         SelectStatement statement = parser.parseQuery();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        statement = StatementNormalizer.normalize(statement, resolver);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = StatementNormalizer.normalize(statement);
         Expression whereClause = WhereCompiler.compile(context, statement);
         return WhereOptimizer.pushKeyExpressionsToScan(context, statement, whereClause);
     }

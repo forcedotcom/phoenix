@@ -41,6 +41,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -49,7 +50,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -93,10 +93,13 @@ import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.SaltingUtil;
 
 
@@ -111,9 +114,42 @@ import com.salesforce.phoenix.schema.SaltingUtil;
 public class SchemaUtil {
     private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
-    private static final byte PAD_BYTE = (byte)0;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
+    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
+    
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+    
+        @Override
+        public PDataType getDataType() {
+            return PDataType.VARBINARY;
+        }
+    
+        @Override
+        public Integer getByteSize() {
+            return null;
+        }
+    
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+    
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+    
+        @Override
+        public ColumnModifier getColumnModifier() {
+            return null;
+        }
+        
+    }, false, null).build();
+    
     /**
      * May not be instantiated
      */
@@ -267,12 +303,23 @@ public class SchemaUtil {
     }
 
     public static String getTableName(byte[] schemaName, byte[] tableName) {
-        return Bytes.toString(getTableNameAsBytes(schemaName,tableName));
+        return getName(schemaName, tableName);
     }
 
-    public static String getColumnName(String schemaName, String tableName, String familyName, String columnName) {
-        if ((schemaName == null || schemaName.isEmpty()) && tableName == null || tableName.isEmpty()) {
+    public static String getColumnDisplayName(byte[] cf, byte[] cq) {
+        return getName(Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? ByteUtil.EMPTY_BYTE_ARRAY : cf, cq);
+    }
+
+    public static String getColumnDisplayName(String cf, String cq) {
+        return getName(QueryConstants.DEFAULT_COLUMN_FAMILY.equals(cf) ? null : cf, cq);
+    }
+
+    public static String getMetaDataEntityName(String schemaName, String tableName, String familyName, String columnName) {
+        if ((schemaName == null || schemaName.isEmpty()) && (tableName == null || tableName.isEmpty())) {
             return getName(familyName, columnName);
+        }
+        if ((familyName == null || familyName.isEmpty()) && (columnName == null || columnName.isEmpty())) {
+            return getName(schemaName, tableName);
         }
         return getName(getName(schemaName, tableName), getName(familyName, columnName));
     }
@@ -302,16 +349,10 @@ public class SchemaUtil {
         }
     }
 
-    public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
-        int i = offset + length -1;
-        // If bytes are inverted, we need to invert the byte we're looking for too
-        byte padByte = columnModifier == null ? PAD_BYTE : columnModifier.apply(PAD_BYTE);
-        while(i > offset && b[i] == padByte) {
-            i--;
-        }
-        return i - offset + 1;
+    public static String getName(byte[] nameOne, byte[] nameTwo) {
+        return Bytes.toString(getNameAsBytes(nameOne,nameTwo));
     }
-    
+
     public static int getVarCharLength(byte[] buf, int keyOffset, int maxLength) {
         return getVarCharLength(buf, keyOffset, maxLength, 1);
     }
@@ -399,19 +440,16 @@ public class SchemaUtil {
     }
 
     public static boolean isMetaTable(byte[] tableName) {
-        return Bytes.compareTo(tableName, TYPE_TABLE_NAME) == 0;
+        return Bytes.compareTo(tableName, TYPE_TABLE_NAME_BYTES) == 0;
     }
     
-    public static byte[] padChar(byte[] byteValue, Integer byteSize) {
-        return Arrays.copyOf(byteValue, byteSize);
-    }
-
     public static boolean isMetaTable(String schemaName, String tableName) {
         return PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(schemaName) && PhoenixDatabaseMetaData.TYPE_TABLE.equals(tableName);
     }
 
     // Given the splits and the rowKeySchema, find out the keys that 
     public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum, boolean defaultRowKeyOrder) throws SQLException {
+        // FIXME: shouldn't this return if splits.length == 0?
         if (splits == null) return null;
         // We do not accept user specified splits if the table is salted and we specify defaultRowKeyOrder. In this case,
         // throw an exception.
@@ -488,7 +526,7 @@ public class SchemaUtil {
     public static final String UPGRADE_TO_2_1 = "UpgradeTo21";
 
     public static boolean isUpgradeTo2Necessary(ConnectionQueryServices connServices) throws SQLException {
-        HTableInterface htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+        HTableInterface htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
         try {
             return (htable.getTableDescriptor().getValue(SchemaUtil.UPGRADE_TO_2_0) == null);
         } catch (IOException e) {
@@ -598,7 +636,7 @@ public class SchemaUtil {
             info.remove(SchemaUtil.UPGRADE_TO_2_0); // Remove this property and ignore, since upgrade has already been done
             return false;
         }
-        return true;
+        return isUpgradeNecessary;
     }
 
     public static String getEscapedTableName(String schemaName, String tableName) {
@@ -634,9 +672,9 @@ public class SchemaUtil {
     }
     
     public static void updateSystemTableTo2(PhoenixConnection metaConnection, PTable table) throws SQLException {
-        PTable metaTable = metaConnection.getPMetaData().getTable(SchemaUtil.getTableName(PhoenixDatabaseMetaData.TYPE_SCHEMA, PhoenixDatabaseMetaData.TYPE_TABLE));
+        PTable metaTable = metaConnection.getPMetaData().getTable(TYPE_TABLE_NAME);
         // Execute alter table statement for each column that was added if not already added
-        if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
+        if (table.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
             // Causes row key of system table to be upgraded
             if (checkIfUpgradeTo2Necessary(metaConnection.getQueryServices(), metaConnection.getURL(), metaConnection.getClientInfo())) {
                 metaConnection.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE).next();
@@ -734,12 +772,12 @@ public class SchemaUtil {
         HTableInterface htable = null;
         HBaseAdmin admin = connServices.getAdmin();
         try {
-            htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
             HTableDescriptor htd = new HTableDescriptor(htable.getTableDescriptor());
             htd.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
-            admin.disableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
-            admin.modifyTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME, htd);
-            admin.enableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            admin.disableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
+            admin.modifyTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES, htd);
+            admin.enableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
         } catch (IOException e) {
             throw new SQLException(e);
         } finally {

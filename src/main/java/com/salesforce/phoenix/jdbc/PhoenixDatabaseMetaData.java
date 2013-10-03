@@ -52,6 +52,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.expression.function.SqlTableType;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.iterate.DelegateResultIterator;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
@@ -79,6 +80,21 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * JDBC DatabaseMetaData implementation of Phoenix reflecting read-only nature of driver.
  * Supported metadata methods include:
  * {@link #getTables(String, String, String, String[])}
+ * {@link #getColumns(String, String, String, String)}
+ * {@link #getTableTypes()}
+ * {@link #getPrimaryKeys(String, String, String)}
+ * {@link #getIndexInfo(String, String, String, boolean, boolean)}
+ * {@link #getSchemas()}
+ * {@link #getSchemas(String, String)}
+ * {@link #getDatabaseMajorVersion()}
+ * {@link #getDatabaseMinorVersion()}
+ * {@link #getClientInfoProperties()}
+ * {@link #getConnection()}
+ * {@link #getDatabaseProductName()}
+ * {@link #getDatabaseProductVersion()}
+ * {@link #getDefaultTransactionIsolation()}
+ * {@link #getDriverName()}
+ * {@link #getDriverVersion()}
  * Other ResultSet methods return an empty result set.
  * 
  * @author jtaylor
@@ -96,7 +112,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TYPE_SCHEMA_AND_TABLE = TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"";
     public static final byte[] TYPE_TABLE_BYTES = TYPE_TABLE.getBytes();
     public static final byte[] TYPE_SCHEMA_BYTES = TYPE_SCHEMA.getBytes();
-    public static final byte[] TYPE_TABLE_NAME = SchemaUtil.getTableNameAsBytes(TYPE_SCHEMA_BYTES, TYPE_TABLE_BYTES);
+    public static final String TYPE_TABLE_NAME = SchemaUtil.getTableName(TYPE_SCHEMA, TYPE_TABLE);
+    public static final byte[] TYPE_TABLE_NAME_BYTES = SchemaUtil.getTableNameAsBytes(TYPE_SCHEMA_BYTES, TYPE_TABLE_BYTES);
     
     public static final String TABLE_NAME_NAME = "TABLE_NAME";
     public static final String TABLE_TYPE_NAME = "TABLE_TYPE";
@@ -748,7 +765,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         return emptyResultSet;
     }
 
-    private static final Integer TABLE_TYPE_MAX_LENGTH = 1;
     private static final PDatum TABLE_TYPE_DATUM = new PDatum() {
         @Override
         public boolean isNullable() {
@@ -756,11 +772,11 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         }
         @Override
         public PDataType getDataType() {
-            return PDataType.CHAR;
+            return PDataType.VARCHAR;
         }
         @Override
         public Integer getByteSize() {
-            return TABLE_TYPE_MAX_LENGTH;
+            return null;
         }
         @Override
         public Integer getMaxLength() {
@@ -783,7 +799,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     private static final Collection<Tuple> TABLE_TYPE_TUPLES = Lists.newArrayListWithExpectedSize(PTableType.values().length);
     static {
         for (PTableType tableType : PTableType.values()) {
-            TABLE_TYPE_TUPLES.add(new SingleKeyValueTuple(KeyValueUtil.newKeyValue(PDataType.CHAR.toBytes(tableType.getSerializedValue()), TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES, MetaDataProtocol.MIN_TABLE_TIMESTAMP, ByteUtil.EMPTY_BYTE_ARRAY)));
+            TABLE_TYPE_TUPLES.add(new SingleKeyValueTuple(KeyValueUtil.newKeyValue(tableType.getValue().getBytes(), TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES, MetaDataProtocol.MIN_TABLE_TIMESTAMP, ByteUtil.EMPTY_BYTE_ARRAY)));
         }
     }
     private static final Scanner TABLE_TYPE_SCANNER = new WrappedScanner(new MaterializedResultIterator(TABLE_TYPE_TUPLES),TABLE_TYPE_ROW_PROJECTOR);
@@ -813,7 +829,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 TABLE_CAT_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
-                TABLE_TYPE_NAME + "," +
+                SqlTableType.NAME + "(" + TABLE_TYPE_NAME + ") AS " + TABLE_TYPE_NAME + "," +
                 REMARKS_NAME + " ," +
                 TYPE_NAME + "," +
                 SELF_REFERENCING_COL_NAME_NAME + "," +
@@ -831,15 +847,25 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         }
         if (types != null && types.length > 0) {
             buf.append(" and " + TABLE_TYPE_NAME + " IN (");
-            for (String type : types) {
-                buf.append('\'');
-                buf.append(type);
-                buf.append('\'');
-                buf.append(',');
+            // For b/w compat as table types changed in 2.2.0 TODO remove in 3.0
+            if (types[0].length() == 1) {
+                for (String type : types) {
+                    buf.append('\'');
+                    buf.append(type);
+                    buf.append('\'');
+                    buf.append(',');
+                }
+            } else {
+                for (String type : types) {
+                    buf.append('\'');
+                    buf.append(PTableType.fromValue(type).getSerializedValue());
+                    buf.append('\'');
+                    buf.append(',');
+                }
             }
             buf.setCharAt(buf.length()-1, ')');
         }
-        buf.append(" order by " + TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
+        buf.append(" order by " + TYPE_SCHEMA_AND_TABLE + "." +TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
     }

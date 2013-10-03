@@ -154,7 +154,7 @@ public abstract class ExplainTable {
             return;
         }
         ScanRanges scanRanges = context.getScanRanges();
-        PDataType type = scanRanges.getSchema().getField(slotIndex).getType();
+        PDataType type = scanRanges.getSchema().getField(slotIndex).getDataType();
         ColumnModifier modifier = table.getTable().getPKColumns().get(slotIndex).getColumnModifier();
         if (modifier != null) {
             range = modifier.apply(range, 0, new byte[range.length], 0, range.length);

@@ -199,7 +199,7 @@ public enum PDataType {
             if (length == 0) {
                 return null;
             }
-            length = SchemaUtil.getUnpaddedCharLength(bytes, offset, length, null);
+            length = StringUtil.getUnpaddedCharLength(bytes, offset, length, null);
             String s = Bytes.toString(bytes, offset, length);
             if (length != s.length()) {
                throw new IllegalDataException("CHAR types may only contain single byte characters (" + s + ")");

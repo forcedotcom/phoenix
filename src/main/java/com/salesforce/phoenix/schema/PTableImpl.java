@@ -65,6 +65,7 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
 import com.salesforce.phoenix.schema.stat.PTableStatsImpl;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.StringUtil;
 import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
 
@@ -353,7 +354,7 @@ public class PTableImpl implements PTable {
                 }
                 Integer byteSize = column.getByteSize();
                 if (type.isFixedWidth() && byteValue.length <= byteSize) {
-                    byteValue = SchemaUtil.padChar(byteValue, byteSize);
+                    byteValue = StringUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
                 }
@@ -517,7 +518,7 @@ public class PTableImpl implements PTable {
             } else {
                 Integer byteSize = column.getByteSize();
                 if (type.isFixedWidth() && byteValue.length <= byteSize) { 
-                    byteValue = SchemaUtil.padChar(byteValue, byteSize);
+                    byteValue = StringUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }

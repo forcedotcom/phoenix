@@ -28,7 +28,6 @@
 package com.salesforce.hbase.index.covered;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -65,7 +64,7 @@ public class Batch {
     return this.timestamp;
   }
 
-  public Collection<KeyValue> getKvs() {
+  public List<KeyValue> getKvs() {
     return this.batch;
   }
 }

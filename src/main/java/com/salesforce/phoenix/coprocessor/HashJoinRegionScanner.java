@@ -36,13 +36,17 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.*;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.TupleUtil;
 
 public class HashJoinRegionScanner implements RegionScanner {
@@ -61,11 +65,9 @@ public class HashJoinRegionScanner implements RegionScanner {
         this.resultQueue = new LinkedList<List<KeyValue>>();
         this.hasMore = true;
         if (joinInfo != null) {
-            if (tenantId == null)
-                throw new IOException("Could not find tenant id for hash cache.");
             for (JoinType type : joinInfo.getJoinTypes()) {
-                if (type == JoinType.Right)
-                    throw new IOException("The hashed table should not be LHS.");
+                if (type != JoinType.Inner && type != JoinType.Left)
+                    throw new IOException("Got join type '" + type + "'. Expect only INNER or LEFT with hash-joins.");
             }
             this.cache = GlobalCache.getTenantCache(conf, tenantId);
         }
@@ -77,9 +79,10 @@ public class HashJoinRegionScanner implements RegionScanner {
             return;
         
         if (projector != null) {
-            List<KeyValue> kvs = new ArrayList<KeyValue>(result.size());
+            List<KeyValue> kvs = new ArrayList<KeyValue>(result.size() + 1);
+            kvs.add(projector.projectRow(result.get(0)));
             for (KeyValue kv : result) {
-                kvs.add(projector.getProjectedKeyValue(kv));
+                kvs.add(projector.projectedKeyValue(kv));
             }
             if (joinInfo != null) {
                 result = kvs;
@@ -98,7 +101,10 @@ public class HashJoinRegionScanner implements RegionScanner {
             boolean cont = true;
             for (int i = 0; i < count; i++) {
                 ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
-                HashCache hashCache = (HashCache)cache.getServerCache(joinInfo.getJoinIds()[i]);
+                ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
+                HashCache hashCache = (HashCache)cache.getServerCache(joinId);
+                if (hashCache == null)
+                    throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
                 tuples[i] = hashCache.get(key);
                 JoinType type = joinInfo.getJoinTypes()[i];
                 if (type == JoinType.Inner && (tuples[i] == null || tuples[i].isEmpty())) {
@@ -122,6 +128,30 @@ public class HashJoinRegionScanner implements RegionScanner {
                             resultQueue.offer(joined);
                         }
                     }
+                }
+                // sort kvs and apply post-join filter
+                Expression postFilter = joinInfo.getPostJoinFilterExpression();
+                for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
+                    List<KeyValue> kvs = iter.next();
+                    if (postFilter != null) {
+                        Tuple t = new ResultTuple(new Result(kvs));
+                        ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+                        try {
+                            if (!postFilter.evaluate(t, tempPtr)) {
+                                iter.remove();
+                                continue;
+                            }
+                        } catch (IllegalDataException e) {
+                            iter.remove();
+                            continue;
+                        }
+                        Boolean b = (Boolean)postFilter.getDataType().toObject(tempPtr);
+                        if (!b.booleanValue()) {
+                            iter.remove();
+                            continue;
+                        }
+                    }
+                    Collections.sort(kvs, KeyValue.COMPARATOR);
                 }
             }
         }

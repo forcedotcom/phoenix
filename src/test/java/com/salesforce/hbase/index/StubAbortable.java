@@ -25,41 +25,27 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.join;
+package com.salesforce.hbase.index;
 
-import java.io.IOException;
-
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.coprocessor.ObserverContext;
-import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.regionserver.RegionScanner;
-
-import com.salesforce.phoenix.coprocessor.BaseScannerRegionObserver;
-
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.Abortable;
 
 /**
- * 
- * Prototype for region observer that performs a hash join between two tables.
- * The client sends over the rows in a serialized format and the coprocessor
- * deserialized into a Map and caches it on the region server.  The map is then
- * used to resolve the foreign key reference and the rows are then joined together.
- *
- * TODO: Scan rows locally on region server instead of returning to client
- * if we can know that all both tables rows are on the same region server.
- * 
- * FIXME: For now this does nothing. In it's previous state for 0.94.4 it was not
- * able to instantiate it (it was fine in 0.94.2). Since we're not yet using it,
- * changing it to do nothing. Once we add joins, we'll need to figure this out.
- * I suspect it is not being able to be instantiated because of Snappy.
- * 
- * @author jtaylor
- * @since 0.1
+ * TEst helper to stub out an {@link Abortable} when needed.
  */
-public class HashJoiningRegionObserver extends BaseScannerRegionObserver  {
+public class StubAbortable implements Abortable {
+  private static final Log LOG = LogFactory.getLog(StubAbortable.class);
+  private boolean abort;
 
-    @Override
-    protected RegionScanner doPostScannerOpen(ObserverContext<RegionCoprocessorEnvironment> c, Scan scan,
-            RegionScanner s) throws IOException {
-        return s;
-    }
+  @Override
+  public void abort(String reason, Throwable e) {
+    LOG.info("Aborting: " + reason, e);
+    abort = true;
+  }
+
+  @Override
+  public boolean isAborted() {
+    return abort;
+  }
 }

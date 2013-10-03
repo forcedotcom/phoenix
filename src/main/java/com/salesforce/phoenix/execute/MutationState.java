@@ -46,6 +46,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
@@ -57,7 +59,6 @@ import com.salesforce.phoenix.schema.PRow;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.ServerUtil;
@@ -337,21 +338,23 @@ public class MutationState implements SQLCloseable {
                 
                 ServerCache cache = null;
                 if (hasIndexMaintainers && isDataTable) {
-                    String attribName;
-                    byte[] attribValue;
+                    byte[] attribValue = null;
+                    byte[] uuidValue;
                     if (IndexMetaDataCacheClient.useIndexMetadataCache(mutations, tempPtr.getLength())) {
                         IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
                         cache = client.addIndexMetadataCache(mutations, tempPtr);
-                        attribName = PhoenixIndexCodec.INDEX_UUID;
-                        attribValue = cache.getId();
+                        uuidValue = cache.getId();
                     } else {
-                        attribName = PhoenixIndexCodec.INDEX_MD;
                         attribValue = ByteUtil.copyKeyBytesIfNecessary(tempPtr);
+                        uuidValue = ServerCacheClient.generateId();
                     }
                     // Either set the UUID to be able to access the index metadata from the cache
                     // or set the index metadata directly on the Mutation
                     for (Mutation mutation : mutations) {
-                        mutation.setAttribute(attribName, attribValue);
+                        mutation.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
+                        if (attribValue != null) {
+                            mutation.setAttribute(PhoenixIndexCodec.INDEX_MD, attribValue);
+                        }
                     }
                 }
                 
@@ -359,7 +362,9 @@ public class MutationState implements SQLCloseable {
                 HTableInterface hTable = connection.getQueryServices().getTable(htableName);
                 try {
                     if (logger.isDebugEnabled()) logMutationSize(hTable, mutations);
+                    long startTime = System.currentTimeMillis();
                     hTable.batch(mutations);
+                    if (logger.isDebugEnabled()) logger.debug("Total time for batch call of  " + mutations.size() + " mutations into " + table.getName().getString() + ": " + (System.currentTimeMillis() - startTime) + " ms");
                     committedList.add(entry);
                 } catch (Exception e) {
                     // Throw to client with both what was committed so far and what is left to be committed.

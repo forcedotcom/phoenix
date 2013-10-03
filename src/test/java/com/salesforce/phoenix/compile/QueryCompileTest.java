@@ -320,7 +320,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testNonBooleanWhereExpression() throws Exception {
         try {
             // Select non agg column in aggregate query
-            String query = "SELECT a_integer FROM atable WHERE organization_id=? and CASE WHEN a_integer <= 2 THEN 'foo' WHEN a_integer = 3 THEN 2 WHEN a_integer <= 5 THEN 5 ELSE 5 END";
+            String query = "SELECT a_integer FROM atable WHERE organization_id=? and CASE WHEN a_integer <= 2 THEN 'foo' WHEN a_integer = 3 THEN 'bar' WHEN a_integer <= 5 THEN 'bas' ELSE 'blah' END";
             Properties props = new Properties(TestUtil.TEST_PROPERTIES);
             Connection conn = DriverManager.getConnection(getUrl(), props);
             try {
@@ -332,7 +332,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 conn.close();
             }
         } catch (SQLException e) {
-            assertTrue(e.getMessage().contains("ERROR 601 (42P00): Syntax error. Encountered \"CASE\" at line 1, column 58."));
+            assertTrue(e.getMessage().contains("ERROR 203 (22005): Type mismatch. BOOLEAN and VARCHAR for CASE WHEN A_INTEGER <= 2 THEN 'foo'WHEN A_INTEGER = 3 THEN 'bar'WHEN A_INTEGER <= 5 THEN 'bas' ELSE 'blah' END"));
         }
     }
 

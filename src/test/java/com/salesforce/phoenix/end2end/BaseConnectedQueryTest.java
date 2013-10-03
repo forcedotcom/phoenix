@@ -27,10 +27,31 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.C_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.E_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.MILLIS_IN_DAY;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.ROW1;
+import static com.salesforce.phoenix.util.TestUtil.ROW2;
+import static com.salesforce.phoenix.util.TestUtil.ROW3;
+import static com.salesforce.phoenix.util.TestUtil.ROW4;
+import static com.salesforce.phoenix.util.TestUtil.ROW5;
+import static com.salesforce.phoenix.util.TestUtil.ROW6;
+import static com.salesforce.phoenix.util.TestUtil.ROW7;
+import static com.salesforce.phoenix.util.TestUtil.ROW8;
+import static com.salesforce.phoenix.util.TestUtil.ROW9;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Types;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -40,7 +61,9 @@ import org.junit.BeforeClass;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.BaseTest;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 /**
@@ -76,12 +99,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
             DatabaseMetaData dbmd = conn.getMetaData();
-            ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.getSerializedValue(), PTableType.VIEW.getSerializedValue()});
+            ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
             while (rs.next()) {
                 String fullTableName = SchemaUtil.getTableName(
                         rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-                conn.createStatement().executeUpdate("DROP " + (PTableType.fromSerializedValue(rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME)) == PTableType.VIEW ? "VIEW " : "TABLE ") + fullTableName);
+                conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
             }
         } finally {
             conn.close();

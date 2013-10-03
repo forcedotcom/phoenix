@@ -25,24 +25,39 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+package com.salesforce.phoenix.parse;
 
-public class SchemaNotFoundException extends MetaDataEntityNotFoundException {
-    private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.SCHEMA_NOT_FOUND;
-    private final String schemaName;
+import java.sql.SQLException;
 
-    public SchemaNotFoundException(String schemaName) {
-        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).build().toString(),
-                code.getSQLState(), code.getErrorCode());
-        this.schemaName = schemaName;
+/**
+ * 
+ * Node representing the selection of all columns of a family (cf.*) in the SELECT clause of SQL
+ *
+ * @author nmaillard
+ * @since 1.2
+ */
+
+public class FamilyWildcardParseNode extends NamedParseNode {
+    private final boolean isRewrite;
+    
+    public FamilyWildcardParseNode(String familyName, boolean isRewrite){
+        super(familyName);
+        this.isRewrite = isRewrite;
     }
-
-    public String getSchemaName() {
-        return schemaName;
+    
+    public FamilyWildcardParseNode(FamilyWildcardParseNode familyName, boolean isRewrite){
+        super(familyName);
+        this.isRewrite = isRewrite;
     }
+    
+	@Override
+	public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
+		return visitor.visit(this);
+	}
 
+    public boolean isRewrite() {
+        return isRewrite;
+    }
 }
+

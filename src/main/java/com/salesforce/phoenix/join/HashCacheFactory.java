@@ -39,6 +39,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 import org.xerial.snappy.Snappy;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.HashCache;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
 import com.salesforce.phoenix.expression.Expression;
@@ -106,7 +107,7 @@ public class HashCacheFactory implements ServerCacheFactory {
                     offset += WritableUtils.decodeVIntSize(hashCacheByteArray[offset]);
                     ImmutableBytesWritable value = new ImmutableBytesWritable(hashCacheByteArray,offset,resultSize);
                     Tuple result = new ResultTuple(new Result(value));
-                    ImmutableBytesPtr key = new ImmutableBytesPtr(TupleUtil.getConcatenatedValue(result, onExpressions));
+                    ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(result, onExpressions);
                     List<Tuple> tuples = hashCacheMap.get(key);
                     if (tuples == null) {
                         tuples = new ArrayList<Tuple>(1);

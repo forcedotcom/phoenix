@@ -40,10 +40,10 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.regionserver.ExposedMemStore;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.salesforce.hbase.index.covered.data.IndexMemStore;
 import com.salesforce.hbase.index.covered.data.LocalHBaseState;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.covered.update.ColumnTracker;
@@ -65,21 +65,22 @@ public class LocalTableState implements TableState {
 
   private long ts;
   private RegionCoprocessorEnvironment env;
-  private ExposedMemStore memstore;
+  private KeyValueStore memstore;
   private LocalHBaseState table;
   private Mutation update;
   private Set<ColumnTracker> trackedColumns = new HashSet<ColumnTracker>();
-  private boolean initialized;
   private ScannerBuilder scannerBuilder;
-  private Collection<KeyValue> kvs = new ArrayList<KeyValue>();
+  private List<KeyValue> kvs = new ArrayList<KeyValue>();
   private List<? extends IndexedColumnGroup> hints;
+  private CoveredColumns columnSet;
 
   public LocalTableState(RegionCoprocessorEnvironment environment, LocalHBaseState table, Mutation update) {
     this.env = environment;
     this.table = table;
     this.update = update;
-    this.memstore = new ExposedMemStore(this.env.getConfiguration(), KeyValue.COMPARATOR);
+    this.memstore = new IndexMemStore(IndexMemStore.COMPARATOR);
     this.scannerBuilder = new ScannerBuilder(memstore, update);
+    this.columnSet = new CoveredColumns();
   }
 
   public void addPendingUpdates(KeyValue... kvs) {
@@ -87,16 +88,20 @@ public class LocalTableState implements TableState {
     addPendingUpdates(Arrays.asList(kvs));
   }
 
-  public void addPendingUpdates(Collection<KeyValue> kvs) {
+  public void addPendingUpdates(List<KeyValue> kvs) {
     if(kvs == null) return;
     setPendingUpdates(kvs);
     addUpdate(kvs);
   }
 
-  private void addUpdate(Collection<KeyValue> list) {
+  private void addUpdate(List<KeyValue> list) {
+    addUpdate(list, true);
+  }
+
+  private void addUpdate(List<KeyValue> list, boolean overwrite) {
     if (list == null) return;
     for (KeyValue kv : list) {
-      this.memstore.add(kv);
+      this.memstore.add(kv, overwrite);
     }
   }
 
@@ -126,7 +131,7 @@ public class LocalTableState implements TableState {
   @Override
   public Pair<Scanner, IndexUpdate> getIndexedColumnsTableState(
       Collection<? extends ColumnReference> indexedColumns) throws IOException {
-    ensureLocalStateInitialized();
+    ensureLocalStateInitialized(indexedColumns);
     // filter out things with a newer timestamp and track the column references to which it applies
     ColumnTracker tracker = new ColumnTracker(indexedColumns);
     synchronized (this.trackedColumns) {
@@ -151,7 +156,7 @@ public class LocalTableState implements TableState {
    */
   public Scanner getNonIndexedColumnsTableState(List<? extends ColumnReference> columns)
       throws IOException {
-    ensureLocalStateInitialized();
+    ensureLocalStateInitialized(columns);
     return this.scannerBuilder.buildNonIndexedColumnsScanner(columns, ts);
   }
 
@@ -161,12 +166,21 @@ public class LocalTableState implements TableState {
    * Even then, there is still fairly low contention as each new Put/Delete will have its own table
    * state.
    */
-  private synchronized void ensureLocalStateInitialized() throws IOException {
-    // check the local memstore - is it initialized?
-    if (!initialized){
-      // add the current state of the row
-      this.addUpdate(this.table.getCurrentRowState(update).list());
-      this.initialized = true;
+  private synchronized void ensureLocalStateInitialized(
+      Collection<? extends ColumnReference> columns) throws IOException {
+    // check to see if we haven't initialized any columns yet
+    Collection<? extends ColumnReference> toCover = this.columnSet.findNonCoveredColumns(columns);
+    // we have all the columns loaded, so we are good to go.
+    if (toCover.isEmpty()) {
+      return;
+    }
+
+    // add the current state of the row
+    this.addUpdate(this.table.getCurrentRowState(update, toCover).list(), false);
+
+    // add the covered columns to the set
+    for (ColumnReference ref : toCover) {
+      this.columnSet.addColumn(ref);
     }
   }
 
@@ -181,7 +195,7 @@ public class LocalTableState implements TableState {
   }
 
   public Result getCurrentRowState() {
-    KeyValueScanner scanner = this.memstore.getScanners().get(0);
+    KeyValueScanner scanner = this.memstore.getScanner();
     List<KeyValue> kvs = new ArrayList<KeyValue>();
     while (scanner.peek() != null) {
       try {

@@ -34,14 +34,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Longs;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * Keeps track of the index updates
@@ -60,7 +62,7 @@ public class IndexUpdateManager {
       }
 
       // if same row, sort by reverse timestamp (larger first)
-      compare = -(new Long(o1.getTimeStamp()).compareTo(o2.getTimeStamp()));
+      compare = Longs.compare(o2.getTimeStamp(), o1.getTimeStamp());
       if (compare != 0) {
         return compare;
       }
@@ -94,7 +96,7 @@ public class IndexUpdateManager {
         // TODO: make this a real comparison
         // this is a little cheating, but we don't really need to worry too much about this being
         // the same - chances are that exact matches here are really the same update.
-        return new Long(p1.heapSize()).compareTo(p2.heapSize());
+        return Longs.compare(p1.heapSize(), p2.heapSize());
       }
       return compare;
     }
@@ -104,8 +106,8 @@ public class IndexUpdateManager {
   private static final String PHOENIX_HBASE_TEMP_DELETE_MARKER = "phoenix.hbase.temp.delete.marker";
   private static final byte[] TRUE_MARKER = new byte[] { 1 };
 
-  protected final Map<ImmutableBytesWritable, Collection<Mutation>> map =
-      new HashMap<ImmutableBytesWritable, Collection<Mutation>>();
+  protected final Map<ImmutableBytesPtr, Collection<Mutation>> map =
+      new HashMap<ImmutableBytesPtr, Collection<Mutation>>();
 
   /**
    * Add an index update. Keeps the latest {@link Put} for a given timestamp
@@ -114,7 +116,7 @@ public class IndexUpdateManager {
    */
   public void addIndexUpdate(byte[] tableName, Mutation m) {
     // we only keep the most recent update
-    ImmutableBytesWritable key = new ImmutableBytesWritable(tableName);
+    ImmutableBytesPtr key = new ImmutableBytesPtr(tableName);
     Collection<Mutation> updates = map.get(key);
     if (updates == null) {
       updates = new SortedCollection<Mutation>(COMPARATOR);
@@ -184,20 +186,19 @@ public class IndexUpdateManager {
     m.setAttribute(PHOENIX_HBASE_TEMP_DELETE_MARKER, TRUE_MARKER);
   }
 
-  public List<Pair<Mutation, String>> toMap() {
-    List<Pair<Mutation, String>> updateMap = Lists.newArrayList();
-    for (Entry<ImmutableBytesWritable, Collection<Mutation>> updates : map.entrySet()) {
+  public List<Pair<Mutation, byte[]>> toMap() {
+    List<Pair<Mutation, byte[]>> updateMap = Lists.newArrayList();
+    for (Entry<ImmutableBytesPtr, Collection<Mutation>> updates : map.entrySet()) {
       // get is ok because we always set with just the bytes
       byte[] tableName = updates.getKey().get();
       // TODO replace this as just storing a byte[], to avoid all the String <-> byte[] swapping
       // HBase does
-      String table = Bytes.toString(tableName);
       for (Mutation m : updates.getValue()) {
         // skip elements that have been marked for delete
         if (shouldBeRemoved(m)) {
           continue;
         }
-        updateMap.add(new Pair<Mutation, String>(m, table));
+        updateMap.add(new Pair<Mutation, byte[]>(m, tableName));
       }
     }
     return updateMap;
@@ -218,18 +219,28 @@ public class IndexUpdateManager {
 
   @Override
   public String toString() {
-    StringBuffer sb = new StringBuffer("IndexUpdates:\n");
-    for (Entry<ImmutableBytesWritable, Collection<Mutation>> entry : map.entrySet()) {
+    StringBuffer sb = new StringBuffer("Pending Index Updates:\n");
+    for (Entry<ImmutableBytesPtr, Collection<Mutation>> entry : map.entrySet()) {
       String tableName = Bytes.toString(entry.getKey().get());
-      sb.append(" " + tableName + ":\n");
+      sb.append("   Table: '" + tableName + "'\n");
       for (Mutation m : entry.getValue()) {
         sb.append("\t");
         if (shouldBeRemoved(m)) {
           sb.append("[REMOVED]");
         }
-        sb.append("\t" + m.getClass().getSimpleName() + ": "
-            + ((m instanceof Put) ? m.getTimeStamp() + " " : "") + m);
+        sb.append(m.getClass().getSimpleName() + ":"
+            + ((m instanceof Put) ? m.getTimeStamp() + " " : ""));
+        sb.append(" row=" + Bytes.toString(m.getRow()));
         sb.append("\n");
+        if (m.getFamilyMap().isEmpty()) {
+          sb.append("\t\t=== EMPTY ===\n");
+        }
+        for (List<KeyValue> kvs : m.getFamilyMap().values()) {
+          for (KeyValue kv : kvs) {
+            sb.append("\t\t" + kv.toString() + "/value=" + Bytes.toStringBinary(kv.getValue()));
+            sb.append("\n");
+          }
+        }
       }
     }
     return sb.toString();

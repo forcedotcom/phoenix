@@ -35,11 +35,13 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.parse.BindableStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
 
@@ -68,7 +70,15 @@ public class StatementContext {
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
 
+    private final boolean disambiguateWithTable;
+    private final HashCacheClient hashClient;
+    private TableRef currentTable;
+    
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
+        this(statement, connection, resolver, binds, scan, false, null);
+    }
+    
+    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, boolean disambiguateWithTable, HashCacheClient hashClient) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -80,6 +90,11 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
+        this.disambiguateWithTable = disambiguateWithTable;
+        this.hashClient = hashClient;
+        if (resolver != null && !resolver.getTables().isEmpty()) {
+            this.currentTable = resolver.getTables().get(0);
+        }
     }
 
     public String getDateFormat() {
@@ -104,6 +119,22 @@ public class StatementContext {
 
     public BindManager getBindManager() {
         return binds;
+    }
+    
+    public boolean disambiguateWithTable() {
+        return disambiguateWithTable;
+    }
+    
+    public HashCacheClient getHashClient() {
+        return hashClient;
+    }
+    
+    public TableRef getCurrentTable() {
+        return currentTable;
+    }
+    
+    public void setCurrentTable(TableRef table) {
+        this.currentTable = table;
     }
 
     public AggregationManager getAggregationManager() {

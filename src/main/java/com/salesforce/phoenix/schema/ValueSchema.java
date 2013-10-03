@@ -72,7 +72,7 @@ public abstract class ValueSchema implements Writable {
         int positions = 0;
         for (Field field : fields) {
             int fieldEstLength = 0;
-            PDataType type = field.getType();
+            PDataType type = field.getDataType();
             Integer byteSize = type.getByteSize();
             if (type.isFixedWidth()) {
                 fieldEstLength += field.getByteSize();
@@ -185,7 +185,7 @@ public abstract class ValueSchema implements Writable {
         }
         
         private Field(Field field, int count) {
-            this.type = field.getType();
+            this.type = field.getDataType();
             this.byteSize = field.byteSize;
             this.count = count;
         }
@@ -194,7 +194,7 @@ public abstract class ValueSchema implements Writable {
             return columnModifier;
         }
         
-        public final PDataType getType() {
+        public final PDataType getDataType() {
             return type;
         }
         

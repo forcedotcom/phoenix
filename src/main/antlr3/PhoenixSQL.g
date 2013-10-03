@@ -596,19 +596,13 @@ parseOrderByField returns [OrderByNode ret]
     ;
 
 parseFrom returns [List<TableNode> ret]
-    :   l=table_refs { $ret = l; }
-    |   l=join_specs { $ret = l; }   
-    ;
-
-table_refs returns [List<TableNode> ret]
 @init{ret = new ArrayList<TableNode>(4); }
-    :   t=table_ref {$ret.add(t);}
-        (COMMA t=table_ref {$ret.add(t);} )*
+    :   t=table_ref {$ret.add(t);} (s=sub_table_ref { $ret.add(s); })*
     ;
-
-// parse a field, if it might be a bind name.
-named_table returns [NamedTableNode ret]
-    :   t=from_table_name (LPAREN cdefs=dyn_column_defs RPAREN)?  { $ret = factory.namedTable(null,t,cdefs); }
+    
+sub_table_ref returns [TableNode ret]
+    :   COMMA t=table_ref { $ret = t; }
+    |   t=join_spec { $ret = t; }
     ;
 
 table_ref returns [TableNode ret]
@@ -617,12 +611,8 @@ table_ref returns [TableNode ret]
     |   LPAREN s=select_node RPAREN ((AS)? alias=identifier)? { $ret = factory.subselect(alias, s); }
     ;
 
-join_specs returns [List<TableNode> ret]
-    :   t=named_table {$ret.add(t);} (s=join_spec { $ret.add(s); })+
-    ;
-
-join_spec returns [JoinTableNode ret]
-    :   j=join_type JOIN t=named_table ON e=condition { $ret = factory.join(null, t, e, j); }
+join_spec returns [TableNode ret]
+    :   j=join_type JOIN t=table_ref ON e=condition { $ret = factory.join(j, e, t); }
     ;
 
 join_type returns [JoinTableNode.JoinType ret]
@@ -655,13 +645,12 @@ condition_and returns [ParseNode ret]
 
 // NOT or parenthesis 
 condition_not returns [ParseNode ret]
-    :   ( boolean_expr ) => e=boolean_expr { $ret = e; }
-    |   NOT e=boolean_expr { $ret = factory.not(e); }
-    |   LPAREN e=condition RPAREN { $ret = e; }
+    :   (NOT? boolean_expr ) => n=NOT? e=boolean_expr { $ret = n == null ? e : factory.not(e); }
+    |   n=NOT? LPAREN e=condition RPAREN { $ret = n == null ? e : factory.not(e); }
     ;
 
 boolean_expr returns [ParseNode ret]
-    :   (l=expression ((EQ r=expression {$ret = factory.equal(l,r); } )
+    :   l=expression ((EQ r=expression {$ret = factory.equal(l,r); } )
                   |  ((NOEQ1 | NOEQ2) r=expression {$ret = factory.notEqual(l,r); } )
                   |  (LT r=expression {$ret = factory.lt(l,r); } )
                   |  (GT r=expression {$ret = factory.gt(l,r); } )
@@ -675,7 +664,8 @@ boolean_expr returns [ParseNode ret]
                                 | (LPAREN r=select_expression RPAREN {$ret = factory.in(l,r,n!=null);} )
                                 | (v=values {List<ParseNode> il = new ArrayList<ParseNode>(v.size() + 1); il.add(l); il.addAll(v); $ret = factory.inList(il,n!=null);})
                                 )))
-                      ))))
+                      ))
+                   |  { $ret = l; } )
     ;
 
 bind_expression  returns [BindParseNode ret]

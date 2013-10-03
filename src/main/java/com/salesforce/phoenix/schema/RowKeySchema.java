@@ -141,11 +141,11 @@ public class RowKeySchema extends ValueSchema {
         // backing byte array.
         ptr.set(ptr.get(), ptr.getOffset() + ptr.getLength(), 0);
         // If positioned at SEPARATOR_BYTE, skip it.
-        if (position > 0 && !getField(position-1).getType().isFixedWidth()) {
+        if (position > 0 && !getField(position-1).getDataType().isFixedWidth()) {
             ptr.set(ptr.get(), ptr.getOffset()+ptr.getLength()+1, 0);
         }
         Field field = this.getField(position);
-        if (field.getType().isFixedWidth()) {
+        if (field.getDataType().isFixedWidth()) {
             ptr.set(ptr.get(),ptr.getOffset(), field.getByteSize());
         } else {
             if (position+1 == getFieldCount() ) { // Last field has no terminator
@@ -170,7 +170,7 @@ public class RowKeySchema extends ValueSchema {
             return null;
         }
         Field field = this.getField(position);
-        if (field.getType().isFixedWidth()) {
+        if (field.getDataType().isFixedWidth()) {
             ptr.set(ptr.get(), ptr.getOffset()-field.getByteSize(), field.getByteSize());
             return true;
         }
@@ -184,7 +184,7 @@ public class RowKeySchema extends ValueSchema {
         // Field before the one we want to position at is variable length
         // In this case, we can search backwards for our separator byte
         // to determine the length
-        if (!field.getType().isFixedWidth()) {
+        if (!field.getDataType().isFixedWidth()) {
             byte[] buf = ptr.get();
             int offset = ptr.getOffset()-1;
             while (offset > minOffset /* sanity check*/ && buf[offset] != QueryConstants.SEPARATOR_BYTE) {
@@ -198,7 +198,7 @@ public class RowKeySchema extends ValueSchema {
             return true;
         }
         int i,fixedOffset = field.getByteSize();
-        for (i = position-2; i >= 0 && this.getField(i).getType().isFixedWidth(); i--) {
+        for (i = position-2; i >= 0 && this.getField(i).getDataType().isFixedWidth(); i--) {
             fixedOffset += this.getField(i).getByteSize();
         }
         // All of the previous fields are fixed width, so we can calculate the offset
@@ -228,13 +228,13 @@ public class RowKeySchema extends ValueSchema {
         } else {
             int nVarLengthFromBeginning = 0;
             for (int i = 0; i <= newPosition; i++) {
-                if (!this.getField(i).getType().isFixedWidth()) {
+                if (!this.getField(i).getDataType().isFixedWidth()) {
                     nVarLengthFromBeginning++;
                 }
             }
             int nVarLengthBetween = 0;
             for (int i = oldPosition - 1; i >= newPosition; i--) {
-                if (!this.getField(i).getType().isFixedWidth()) {
+                if (!this.getField(i).getDataType().isFixedWidth()) {
                     nVarLengthBetween++;
                 }
             }

@@ -137,8 +137,8 @@ public class TestIndexUpdateManager {
   }
 
   private void validate(IndexUpdateManager manager, List<Mutation> pending) {
-    for (Pair<Mutation, String> entry : manager.toMap()) {
-      assertEquals("Table name didn't match for stored entry!", TABLE_NAME, entry.getSecond());
+    for (Pair<Mutation, byte[]> entry : manager.toMap()) {
+      assertEquals("Table name didn't match for stored entry!", table, entry.getSecond());
       Mutation m = pending.remove(0);
       // test with == to match the exact entries, Mutation.equals just checks the row
       assertTrue(

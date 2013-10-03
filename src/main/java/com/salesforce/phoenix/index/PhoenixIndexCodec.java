@@ -18,8 +18,11 @@ package com.salesforce.phoenix.index;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -30,59 +33,55 @@ import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.IndexCodec;
 import com.salesforce.hbase.index.covered.IndexUpdate;
 import com.salesforce.hbase.index.covered.TableState;
-import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.scanner.Scanner;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
 import com.salesforce.phoenix.cache.TenantCache;
-import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 /**
  * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
  * {@link #getIndexDeletes(TableState)}) as well as what the new index state should be (
  * {@link #getIndexUpserts(TableState)}).
  */
-public class PhoenixIndexCodec implements IndexCodec {
+public class PhoenixIndexCodec extends BaseIndexCodec {
     public static final String INDEX_MD = "IdxMD";
     public static final String INDEX_UUID = "IdxUUID";
 
-    private List<IndexMaintainer> indexMaintainers;
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+    private Configuration conf;
 
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
+      this.conf = env.getConfiguration();
     }
 
-    private List<IndexMaintainer> getIndexMaintainers(TableState state) {
-        if (indexMaintainers != null) {
-            return indexMaintainers;
-        }
-        byte[] md;
-        byte[] uuid = state.getUpdateAttributes().get(INDEX_UUID);
+    List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes){
+        byte[] uuid = attributes.get(INDEX_UUID);
         if (uuid == null) {
-            md = state.getUpdateAttributes().get(INDEX_MD);
-            if (md == null) {
-                indexMaintainers = Collections.emptyList();
-            } else {
-                indexMaintainers = IndexMaintainer.deserialize(md);
-            }
-        } else {
-            byte[] tenantIdBytes = state.getUpdateAttributes().get(PhoenixRuntime.TENANT_ID_ATTRIB);
-            ImmutableBytesWritable tenantId = tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
-            TenantCache cache = GlobalCache.getTenantCache(state.getEnvironment().getConfiguration(), tenantId);
-            IndexMetaDataCache indexCache = (IndexMetaDataCache)cache.getServerCache(new ImmutableBytesPtr(uuid));
-            this.indexMaintainers = indexCache.getIndexMaintainers();
+            return Collections.emptyList();
         }
+        byte[] md = attributes.get(INDEX_MD);
+        List<IndexMaintainer> indexMaintainers;
+        if (md != null) {
+            indexMaintainers = IndexMaintainer.deserialize(md);
+        } else {
+            byte[] tenantIdBytes = attributes.get(PhoenixRuntime.TENANT_ID_ATTRIB);
+            ImmutableBytesWritable tenantId =
+                tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
+            TenantCache cache = GlobalCache.getTenantCache(conf, tenantId);
+            IndexMetaDataCache indexCache =
+                (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
+            indexMaintainers = indexCache.getIndexMaintainers();
+        }
+    
         return indexMaintainers;
     }
     
-    @SuppressWarnings("deprecation")
     @Override
     public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException {
-        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state.getUpdateAttributes());
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
@@ -96,28 +95,19 @@ public class PhoenixIndexCodec implements IndexCodec {
             Scanner scanner = statePair.getFirst();
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
-            Put put = new Put(rowKey);
-            put.setWriteToWAL(false);
+            Put put = maintainer.buildUpdateMutation(valueGetter, ptr, state.getCurrentTimestamp());
             indexUpdate.setTable(maintainer.getIndexTableName());
             indexUpdate.setUpdate(put);
-            for (ColumnReference ref : maintainer.getCoverededColumns()) {
-                byte[] value = valueGetter.getLatestValue(ref);
-                if (value != null) { // FIXME: is this right?
-                    put.add(ref.getFamily(), ref.getQualifier(), value);
-                }
-            }
-            // Add the empty key value
-            put.add(maintainer.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ByteUtil.EMPTY_BYTE_ARRAY);
+            //make sure we close the scanner when we are done
+            scanner.close();
             indexUpdates.add(indexUpdate);
         }
         return indexUpdates;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public Iterable<IndexUpdate> getIndexDeletes(TableState state) throws IOException {
-        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state);
+        List<IndexMaintainer> indexMaintainers = getIndexMaintainers(state.getUpdateAttributes());
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
@@ -126,19 +116,30 @@ public class PhoenixIndexCodec implements IndexCodec {
         byte[] dataRowKey = state.getCurrentRowKey();
         for (IndexMaintainer maintainer : indexMaintainers) {
             // TODO: if more efficient, I could do this just once with all columns in all indexes
-            Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getIndexedColumns());
+            Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             Scanner scanner = statePair.getFirst();
             IndexUpdate indexUpdate = statePair.getSecond();
             indexUpdate.setTable(maintainer.getIndexTableName());
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
-            byte[] rowKey = maintainer.buildRowKey(valueGetter, ptr);
-            Delete delete = new Delete(rowKey);
-            delete.setWriteToWAL(false);
+            Delete delete =
+                maintainer.buildDeleteMutation(valueGetter, ptr, state.getPendingUpdate(),
+                  state.getCurrentTimestamp());
+            scanner.close();
             indexUpdate.setUpdate(delete);
             indexUpdates.add(indexUpdate);
         }
         return indexUpdates;
     }
     
+  @Override
+  public boolean isEnabled(Mutation m) {
+      return !getIndexMaintainers(m.getAttributesMap()).isEmpty();
+  }
+  
+  @Override
+  public byte[] getBatchId(Mutation m) {
+    Map<String, byte[]> attributes = m.getAttributesMap();
+    return attributes.get(INDEX_UUID);
+  }
 }

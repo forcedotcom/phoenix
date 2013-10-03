@@ -104,7 +104,7 @@ public class KeyValueSchema extends ValueSchema {
         // since repeating fields will not span the non-null/null boundary.
         for (int i = 0; i < fields.size(); i++) {
             Field field = fields.get(i);
-            PDataType type = field.getType();
+            PDataType type = field.getDataType();
             for (int j = 0; j < field.getCount(); j++) {
                 if (aggregators[index].evaluate(null, ptr)) { // Skip null values
                     if (index >= minNullableIndex) {
@@ -202,7 +202,7 @@ public class KeyValueSchema extends ValueSchema {
         ptr.set(ptr.get(), ptr.getOffset() + ptr.getLength(), 0);
         if (!isNull(position, valueSet)) {
             Field field = this.getField(position);
-            if (field.getType().isFixedWidth()) {
+            if (field.getDataType().isFixedWidth()) {
                 ptr.set(ptr.get(),ptr.getOffset(), field.getByteSize());
             } else {
                 int length = ByteUtil.vintFromBytes(ptr);

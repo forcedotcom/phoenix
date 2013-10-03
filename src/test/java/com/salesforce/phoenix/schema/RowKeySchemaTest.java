@@ -77,7 +77,7 @@ public class RowKeySchemaTest  extends BaseConnectionlessQueryTest  {
             assertTrue(hasValue);
             PDataType type = PDataType.fromLiteral(values[i]);
             ColumnModifier mod = mods.get(i);
-            Object value = type.toObject(ptr, schema.getField(i).getType(), mod);
+            Object value = type.toObject(ptr, schema.getField(i).getDataType(), mod);
             assertEquals(values[i], value);
         }
         assertEquals(nExpectedValues, i);
@@ -91,7 +91,7 @@ public class RowKeySchemaTest  extends BaseConnectionlessQueryTest  {
             assertTrue(hasValue);
             PDataType type = PDataType.fromLiteral(values[i]);
             ColumnModifier mod = mods.get(i);
-            Object value = type.toObject(ptr, schema.getField(i).getType(), mod);
+            Object value = type.toObject(ptr, schema.getField(i).getDataType(), mod);
             assertEquals(values[i], value);
         }
         assertEquals(-1, i);

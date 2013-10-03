@@ -29,7 +29,11 @@ package com.salesforce.phoenix.parse;
 
 import java.lang.reflect.Constructor;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.util.Pair;
@@ -39,11 +43,20 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.UnknownFunctionException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
-import com.salesforce.phoenix.expression.function.*;
+import com.salesforce.phoenix.expression.function.AvgAggregateFunction;
+import com.salesforce.phoenix.expression.function.CountAggregateFunction;
+import com.salesforce.phoenix.expression.function.CurrentDateFunction;
+import com.salesforce.phoenix.expression.function.CurrentTimeFunction;
+import com.salesforce.phoenix.expression.function.DistinctCountAggregateFunction;
+import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -198,8 +211,8 @@ public class ParseNodeFactory {
         return new AndParseNode(children);
     }
 
-    public FamilyParseNode family(String familyName){
-    	return new FamilyParseNode(familyName);
+    public FamilyWildcardParseNode family(String familyName){
+    	    return new FamilyWildcardParseNode(familyName, false);
     }
 
     public WildcardParseNode wildcard() {
@@ -375,8 +388,8 @@ public class ParseNodeFactory {
         return new IsNullParseNode(child, negate);
     }
 
-    public JoinTableNode join (String alias, NamedTableNode table, ParseNode on, JoinType type) {
-        return new JoinTableNode(alias, table, on, type);
+    public JoinTableNode join (JoinType type, ParseNode on, TableNode table) {
+        return new JoinTableNode(type, on, table);
     }
 
     public DerivedTableNode subselect (String alias, SelectStatement select) {

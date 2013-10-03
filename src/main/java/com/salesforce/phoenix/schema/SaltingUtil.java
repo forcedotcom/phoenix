@@ -37,7 +37,6 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
-import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.util.ScanUtil;
 
 
@@ -45,40 +44,6 @@ import com.salesforce.phoenix.util.ScanUtil;
  * Utility methods related to transparent salting of row keys.
  */
 public class SaltingUtil {
-    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
-
-        @Override
-        public boolean isNullable() {
-            return false;
-        }
-
-        @Override
-        public PDataType getDataType() {
-            return PDataType.VARBINARY;
-        }
-
-        @Override
-        public Integer getByteSize() {
-            return null;
-        }
-
-        @Override
-        public Integer getMaxLength() {
-            return null;
-        }
-
-        @Override
-        public Integer getScale() {
-            return null;
-        }
-
-        @Override
-        public ColumnModifier getColumnModifier() {
-            return null;
-        }
-        
-    }, false, null).build();
-
     public static final int NUM_SALTING_BYTES = 1;
     public static final Integer MAX_BUCKET_NUM = 256; // Unsigned byte.
     public static final String SALTING_COLUMN_NAME = "_SALT";

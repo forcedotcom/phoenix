@@ -29,12 +29,19 @@ package com.salesforce.hbase.index.covered;
 
 import java.io.IOException;
 
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
+import com.salesforce.phoenix.index.BaseIndexCodec;
+
 
 /**
- * Codec for creating index updates from the current state of a table
+ * Codec for creating index updates from the current state of a table.
+ * <p>
+ * Generally, you should extend {@link BaseIndexCodec} instead, so help maintain compatibility as
+ * features need to be added to the codec, as well as potentially not haivng to implement some
+ * methods.
  */
 public interface IndexCodec {
 
@@ -45,7 +52,6 @@ public interface IndexCodec {
    */
   public void initialize(RegionCoprocessorEnvironment env) throws IOException;
 
-  // JY: used for both batch case and covering delete case
   /**
    * Get the index cleanup entries. Currently, this must return just single row deletes (where just
    * the row-key is specified and no columns are returned) mapped to the table name. For instance,
@@ -84,4 +90,30 @@ public interface IndexCodec {
  * @throws IOException 
    */
   public Iterable<IndexUpdate> getIndexUpserts(TableState state) throws IOException;
+
+  /**
+   * This allows the codec to dynamically change whether or not indexing should take place for a
+   * table. If it doesn't take place, we can save a lot of time on the regular Put patch. By making
+   * it dynamic, we can save offlining and then onlining a table just to turn indexing on.
+   * <p>
+   * We can also be smart about even indexing a given update here too - if the update doesn't
+   * contain any columns that we care about indexing, we can save the effort of analyzing the put
+   * and further.
+   * @param m mutation that should be indexed.
+   * @return <tt>true</tt> if indexing is enabled for the given table. This should be on a per-table
+   *         basis, as each codec is instantiated per-region.
+   */
+  public boolean isEnabled(Mutation m);
+
+  /**
+   * Get the batch identifier of the given mutation. Generally, updates to the table will take place
+   * in a batch of updates; if we know that the mutation is part of a batch, we can build the state
+   * much more intelligently.
+   * <p>
+   * <b>If you have batches that have multiple updates to the same row state, you must specify a
+   * batch id for each batch. Otherwise, we cannot guarantee index correctness</b>
+   * @param m mutation that may or may not be part of the batch
+   * @return <tt>null</tt> if the mutation is not part of a batch or an id for the batch.
+   */
+  public byte[] getBatchId(Mutation m);
 }

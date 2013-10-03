@@ -13,19 +13,25 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 public class IndexedKeyValue extends KeyValue {
 
-  String indexTableName;
+  byte[] indexTableName;
   Mutation mutation;
+  // optimization check to ensure that batches don't get replayed to the index more than once
+  private boolean batchFinished = false;
   
   public IndexedKeyValue() {
   }
 
-  public IndexedKeyValue(String target, Mutation mutation) {
-    this.indexTableName = target;
+  public IndexedKeyValue(byte[] bs, Mutation mutation) {
+    this.indexTableName = bs;
     this.mutation = mutation;
   }
 
-  public String getIndexTable() {
-    return indexTableName;
+  public byte[] getIndexTable() {
+    return this.indexTableName;
+  }
+
+  public String getIndexTableString() {
+    return Bytes.toString(indexTableName);
   }
 
   public Mutation getMutation() {
@@ -43,7 +49,7 @@ public class IndexedKeyValue extends KeyValue {
 
   @Override
   public String toString() {
-    return "IndexWrite - table: " + indexTableName + ", mutation:" + mutation;
+    return "IndexWrite:\n\ttable: " + indexTableName + "\n\tmutation:" + mutation;
   }
 
   /**
@@ -54,7 +60,7 @@ public class IndexedKeyValue extends KeyValue {
   public boolean equals(Object o) {
     if (o instanceof IndexedKeyValue) {
       IndexedKeyValue other = (IndexedKeyValue) o;
-      if (other.indexTableName.equals(this.indexTableName)) {
+      if (Bytes.equals(other.indexTableName, this.indexTableName)) {
         try {
           byte[] current = getBytes(this.mutation);
           byte[] otherMutation = getBytes(other.mutation);
@@ -83,7 +89,11 @@ public class IndexedKeyValue extends KeyValue {
 
   @Override
   public int hashCode() {
-    return this.indexTableName.hashCode() + this.mutation.hashCode();
+      final int prime = 31;
+      int result = 1;
+      result = prime * result + this.indexTableName.hashCode();
+      result = prime * result + this.mutation.hashCode();
+      return result;
   }
 
   @Override
@@ -99,7 +109,7 @@ public class IndexedKeyValue extends KeyValue {
    * @throws IOException if there is a problem writing the underlying data
    */
   void writeData(DataOutput out) throws IOException {
-    out.writeUTF(this.indexTableName);
+    Bytes.writeByteArray(out, this.indexTableName);
     out.writeUTF(this.mutation.getClass().getName());
     this.mutation.write(out);
   }
@@ -111,7 +121,7 @@ public class IndexedKeyValue extends KeyValue {
   @SuppressWarnings("javadoc")
   @Override
   public void readFields(DataInput in) throws IOException {
-    this.indexTableName = in.readUTF();
+    this.indexTableName = Bytes.readByteArray(in);
     Class<? extends Mutation> clazz;
     try {
       clazz = Class.forName(in.readUTF()).asSubclass(Mutation.class);
@@ -124,5 +134,13 @@ public class IndexedKeyValue extends KeyValue {
     } catch (IllegalAccessException e) {
       throw new IOException(e);
     }
+  }
+
+  public boolean getBatchFinished() {
+    return this.batchFinished;
+  }
+
+  public void markBatchFinished() {
+    this.batchFinished = true;
   }
 }
