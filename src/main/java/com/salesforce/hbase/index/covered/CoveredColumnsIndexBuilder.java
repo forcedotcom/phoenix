@@ -100,28 +100,17 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Mutation... mutations)
-      throws IOException {
-    // done if there are no mutations
-    if (mutations == null || mutations.length == 0) {
-      return null;
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Mutation mutation) throws IOException {
+    // build the index updates for each group
+    IndexUpdateManager updateMap = new IndexUpdateManager();
+
+    batchMutationAndAddUpdates(updateMap, mutation);
+
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Found index updates for Mutation: " + mutation + "\n" + updateMap);
     }
 
-    // go through each mutation and build the correct update
-    List<Pair<Mutation, byte[]>> updates = new ArrayList<Pair<Mutation, byte[]>>();
-    for (Mutation mutation : mutations) {
-      // build the index updates for each group
-      IndexUpdateManager updateMap = new IndexUpdateManager();
-
-      batchMutationAndAddUpdates(updateMap, mutation);
-
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Found index updates for Mutation: " + mutation + "\n" + updateMap);
-      }
-
-      updates.addAll(updateMap.toMap());
-    }
-    return updates;
+    return updateMap.toMap();
   }
 
   /**
