@@ -30,6 +30,7 @@ package com.salesforce.hbase.index.covered.data;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -41,6 +42,7 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 
 import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 
 /**
  * Wrapper around a lazily instantiated, local HTable.
@@ -64,16 +66,12 @@ public class LocalTable implements LocalHBaseState {
       throws IOException {
     byte[] row = m.getRow();
     // need to use a scan here so we can get raw state, which Get doesn't provide.
-    Scan s = new Scan(row, row);
-    s.setRaw(true);
-    //add the necessary columns to the scan
-    for(ColumnReference column: columns){
-      s.addFamily(column.getFamily());
-    }
-    s.setMaxVersions();
+    Scan s = IndexManagementUtil.newLocalStateScan(Collections.singletonList(columns));
+    s.setStartRow(row);
+    s.setStopRow(row);
     HRegion region = this.env.getRegion();
     RegionScanner scanner = region.getScanner(s);
-    List<KeyValue> kvs = new ArrayList<KeyValue>();
+    List<KeyValue> kvs = new ArrayList<KeyValue>(1);
     boolean more = scanner.next(kvs);
     assert !more : "Got more than one result when scanning" + " a single row in the primary table!";
 
