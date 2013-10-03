@@ -186,14 +186,14 @@ public class RowKeySchema extends ValueSchema {
         // to determine the length
         if (!field.getDataType().isFixedWidth()) {
             byte[] buf = ptr.get();
-            int offset = ptr.getOffset()-1;
+            int offset = ptr.getOffset()-1-offsetAdjustment;
             while (offset > minOffset /* sanity check*/ && buf[offset] != QueryConstants.SEPARATOR_BYTE) {
                 offset--;
             }
             if (offset == minOffset) { // shouldn't happen
                 ptr.set(buf, minOffset, ptr.getOffset()-minOffset-1);
             } else {
-                ptr.set(buf,offset+1,ptr.getOffset()-offset-1);
+                ptr.set(buf,offset+1,ptr.getOffset()-1-offsetAdjustment-offset); // Don't include null terminator in length
             }
             return true;
         }
