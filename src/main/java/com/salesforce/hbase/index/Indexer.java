@@ -433,8 +433,9 @@ public class Indexer extends BaseRegionObserver {
   /**
    * @param edit
    * @param writeToWAL
+ * @throws IOException 
    */
-  private void doPost(WALEdit edit, Mutation m, boolean writeToWAL) {
+  private void doPost(WALEdit edit, Mutation m, boolean writeToWAL) throws IOException {
     //short circuit, if we don't need to do any work
     if (!writeToWAL || !this.builder.isEnabled(m)) {
       // already did the index update in prePut, so we are done

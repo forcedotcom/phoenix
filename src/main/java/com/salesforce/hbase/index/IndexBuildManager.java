@@ -229,7 +229,7 @@ public class IndexBuildManager implements Stoppable {
     delegate.batchStarted(miniBatchOp);
   }
 
-  public boolean isEnabled(Mutation m) {
+  public boolean isEnabled(Mutation m) throws IOException {
     return delegate.isEnabled(m);
   }
 

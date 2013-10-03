@@ -75,9 +75,10 @@ public abstract class BaseIndexBuilder implements IndexBuilder {
    * By default, we always attempt to index the mutation. Commonly this can be slow (because the
    * framework spends the time to do the indexing, only to realize that you don't need it) or not
    * ideal (if you want to turn on/off indexing on a table without completely reloading it).
+ * @throws IOException 
    */
   @Override
-  public boolean isEnabled(Mutation m) {
+  public boolean isEnabled(Mutation m) throws IOException {
     return true; 
   }
 

@@ -20,12 +20,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
@@ -49,14 +50,17 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
     public static final String INDEX_MD = "IdxMD";
     public static final String INDEX_UUID = "IdxUUID";
 
-    private Configuration conf;
+    private RegionCoprocessorEnvironment env;
 
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
-      this.conf = env.getConfiguration();
+      this.env = env;
     }
 
-    List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes){
+    List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes) throws IOException{
+        if (attributes == null) {
+            return Collections.emptyList();
+        }
         byte[] uuid = attributes.get(INDEX_UUID);
         if (uuid == null) {
             return Collections.emptyList();
@@ -69,9 +73,12 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             byte[] tenantIdBytes = attributes.get(PhoenixRuntime.TENANT_ID_ATTRIB);
             ImmutableBytesWritable tenantId =
                 tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
-            TenantCache cache = GlobalCache.getTenantCache(conf, tenantId);
+            TenantCache cache = GlobalCache.getTenantCache(env.getConfiguration(), tenantId);
             IndexMetaDataCache indexCache =
                 (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
+            if (indexCache == null) {
+                throw new DoNotRetryIOException("Unable to find " + INDEX_UUID + " in cache for '" + Bytes.toStringBinary(uuid) + "' in " + env.getRegion());
+            }
             indexMaintainers = indexCache.getIndexMaintainers();
         }
     
@@ -134,7 +141,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
     }
     
   @Override
-  public boolean isEnabled(Mutation m) {
+  public boolean isEnabled(Mutation m) throws IOException {
       return !getIndexMaintainers(m.getAttributesMap()).isEmpty();
   }
   

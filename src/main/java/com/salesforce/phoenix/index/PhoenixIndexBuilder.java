@@ -86,7 +86,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
     }
 
     @Override
-    public boolean isEnabled(Mutation m) {
+    public boolean isEnabled(Mutation m) throws IOException {
         // ask the codec to see if we should even attempt indexing
         return this.codec.isEnabled(m);
     }

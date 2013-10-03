@@ -139,8 +139,9 @@ public interface IndexBuilder extends Stoppable {
    * @param m mutation that should be indexed.
    * @return <tt>true</tt> if indexing is enabled for the given table. This should be on a per-table
    *         basis, as each codec is instantiated per-region.
+ * @throws IOException 
    */
-  public boolean isEnabled(Mutation m);
+  public boolean isEnabled(Mutation m) throws IOException;
 
   /**
    * @param m mutation that has been received by the indexer and is waiting to be indexed
