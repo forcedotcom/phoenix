@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -53,6 +52,8 @@ import com.salesforce.hbase.index.builder.IndexBuilder;
 import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
 import com.salesforce.hbase.index.parallel.EarlyExitFailure;
 import com.salesforce.hbase.index.parallel.QuickFailingTaskRunner;
+import com.salesforce.hbase.index.parallel.Task;
+import com.salesforce.hbase.index.parallel.TaskBatch;
 
 /**
  * Manage the building of index updates from primary table updates.
@@ -83,8 +84,6 @@ public class IndexBuildManager implements Stoppable {
    */
   private static final String INDEX_BUILDER_KEEP_ALIVE_TIME_CONF_KEY =
       "index.builder.threads.keepalivetime";
-  @SuppressWarnings("rawtypes")
-  private static final Callable[] EMPTY_CALLABLE_ARRAY = new Callable[0];
 
   /**
    * @param newInstance
@@ -147,7 +146,6 @@ public class IndexBuildManager implements Stoppable {
     return pool;
   }
 
-  @SuppressWarnings("unchecked")
   public Collection<Pair<Mutation, byte[]>> getIndexUpdate(
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp,
       Collection<? extends Mutation> mutations)
@@ -160,10 +158,10 @@ public class IndexBuildManager implements Stoppable {
     // fail lookups/scanning) and (2) by stopping this via the #stop method. Interrupts will only be
     // acknowledged on each thread before doing the actual lookup, but after that depends on the
     // underlying builder to look for the closed flag.
-    List<Callable<Collection<Pair<Mutation, byte[]>>>> tasks =
-        new ArrayList<Callable<Collection<Pair<Mutation, byte[]>>>>();
+    TaskBatch<Collection<Pair<Mutation, byte[]>>> tasks =
+        new TaskBatch<Collection<Pair<Mutation, byte[]>>>(mutations.size());
     for (final Mutation m : mutations) {
-      tasks.add(new Callable<Collection<Pair<Mutation, byte[]>>>() {
+      tasks.add(new Task<Collection<Pair<Mutation, byte[]>>>() {
 
         @Override
         public Collection<Pair<Mutation, byte[]>> call() throws Exception {
@@ -174,7 +172,7 @@ public class IndexBuildManager implements Stoppable {
     }
     List<Collection<Pair<Mutation, byte[]>>> allResults = null;
     try {
-      allResults = pool.submit(tasks.toArray(EMPTY_CALLABLE_ARRAY));
+      allResults = pool.submit(tasks);
     } catch (EarlyExitFailure e) {
       propagateFailure(e);
     } catch (ExecutionException e) {

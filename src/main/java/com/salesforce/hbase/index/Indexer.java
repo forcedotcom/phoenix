@@ -120,8 +120,6 @@ public class Indexer extends BaseRegionObserver {
 
   private static final String INDEX_RECOVERY_FAILURE_POLICY_KEY = "com.salesforce.hbase.index.recovery.failurepolicy";
 
-  private static final Mutation[] EMPTY_MUTATION_ARRAY = new Mutation[0];
-
   /**
    * Marker {@link KeyValue} to indicate that we are doing a batch operation. Needed because the
    * coprocessor framework throws away the WALEdit from the prePut/preDelete hooks when checking a
@@ -326,6 +324,7 @@ public class Indexer extends BaseRegionObserver {
     /**
      * @param stored
      */
+    @SuppressWarnings("deprecation")
     public void addAll(Mutation stored) {
       // add all the kvs
       for (Entry<byte[], List<KeyValue>> kvs : stored.getFamilyMap().entrySet()) {

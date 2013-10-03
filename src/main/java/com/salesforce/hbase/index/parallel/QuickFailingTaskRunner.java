@@ -30,7 +30,6 @@ package com.salesforce.hbase.index.parallel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -40,47 +39,35 @@ import java.util.concurrent.Future;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hbase.Stoppable;
-
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  *
  */
-public class QuickFailingTaskRunner implements Stoppable {
+public class QuickFailingTaskRunner extends BaseTaskRunner implements TaskRunner {
 
-  private static final Log LOG = LogFactory.getLog(QuickFailingTaskRunner.class);
-  private ListeningExecutorService writerPool;
-  private boolean stopped;
-  
+  static final Log LOG = LogFactory.getLog(QuickFailingTaskRunner.class);
   public QuickFailingTaskRunner(ExecutorService service) {
-    this.writerPool = MoreExecutors.listeningDecorator(service);
+    super(service);
   }
 
   /**
-   * Submit the given tasks to the pool and wait for them to complete, or for one of the tasks to
-   * fail.
+   * {@inheritDoc}
    * <p>
-   * Non-interruptible method. To stop any running tasks call {@link #stop(String)} - this will
-   * shutdown the thread pool, causing any pending tasks to be failed early (whose failure will be
-   * ignored) and interrupt any running tasks. It is up to the passed tasks to respect the interrupt
-   * notification
-   * @param tasks to run
-   * @throws EarlyExitFailure if there are still tasks to submit to the pool, but there is a stop
-   *           notification
-   * @throws ExecutionException if any of the tasks fails. Wraps the underyling failure, which can
-   *           be retrieved via {@link ExecutionException#getCause()}.
+   * We return immediately if any of the submitted tasks fails, not waiting for the remaining tasks
+   * to complete.
    */
-  public <R> List<R> submit(Callable<R>... tasks) throws EarlyExitFailure, ExecutionException {
-    if (tasks == null || tasks.length == 0) {
+  @Override
+  public <R> List<R> submit(TaskBatch<R> tasks) throws EarlyExitFailure, ExecutionException {
+    if (tasks == null || tasks.size() == 0) {
       return Collections.emptyList();
     }
     boolean earlyExit = false;
     CompletionService<R> ops = new ExecutorCompletionService<R>(this.writerPool);
-    for (Callable<R> task : tasks) {
+    for (Task<R> task : tasks.getTasks()) {
       // early exit - no need to submit new tasks if we are shutting down
       if (this.isStopped()) {
+        String msg = "Found a stop, need to fail early";
+        tasks.abort(msg, new EarlyExitFailure(msg));
         earlyExit = true;
         break;
       }
@@ -102,7 +89,7 @@ public class QuickFailingTaskRunner implements Stoppable {
      */
     List<R> results = new ArrayList<R>();
     try {
-      while (!this.isStopped() && completedWrites < tasks.length) {
+      while (!this.isStopped() && completedWrites < tasks.size()) {
         try {
           Future<R> status = ops.take();
           try {
@@ -114,7 +101,9 @@ public class QuickFailingTaskRunner implements Stoppable {
             LOG.debug("Found canceled task - ignoring!");
           } catch (ExecutionException e) {
             // propagate the failure back out
-            LOG.error("Found a failed task!", e);
+            String msg = "Found a failed task!";
+            LOG.error(msg, e);
+            tasks.abort(msg, e.getCause());
             throw e;
           }
         } catch (InterruptedException e) {
@@ -135,19 +124,5 @@ public class QuickFailingTaskRunner implements Stoppable {
     }
 
     return results;
-  }
-
-  @Override
-  public void stop(String why) {
-    if(this.stopped){
-      return;
-    }
-    LOG.info("Shutting down task runner because "+why);
-    this.writerPool.shutdownNow();
-  }
-
-  @Override
-  public boolean isStopped() {
-    return this.stopped;
   }
 }

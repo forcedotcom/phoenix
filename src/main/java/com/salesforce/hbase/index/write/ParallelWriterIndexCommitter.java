@@ -28,12 +28,10 @@
 package com.salesforce.hbase.index.write;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -55,6 +53,8 @@ import com.google.common.collect.Multimap;
 import com.salesforce.hbase.index.exception.SingleIndexWriteFailureException;
 import com.salesforce.hbase.index.parallel.EarlyExitFailure;
 import com.salesforce.hbase.index.parallel.QuickFailingTaskRunner;
+import com.salesforce.hbase.index.parallel.Task;
+import com.salesforce.hbase.index.parallel.TaskBatch;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
@@ -157,7 +157,6 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
     return pool;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
       throws SingleIndexWriteFailureException {
@@ -173,7 +172,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
      */
 
     Set<Entry<HTableInterfaceReference, Collection<Mutation>>> entries = toWrite.asMap().entrySet();
-    List<Callable<Void>> tasks = new ArrayList<Callable<Void>>(entries.size());
+    TaskBatch<Void> tasks = new TaskBatch<Void>(entries.size());
     for (Entry<HTableInterfaceReference, Collection<Mutation>> entry : entries) {
       // get the mutations for each table. We leak the implementation here a little bit to save
       // doing a complete copy over of all the index update for each table.
@@ -189,7 +188,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
        * writer implementation (HTableInterface#batch is blocking, but doesn't elaborate when is
        * supports an interrupt).
        */
-      tasks.add(new Callable<Void>() {
+      tasks.add(new Task<Void>() {
 
         /**
          * Do the actual write to the primary table. We don't need to worry about closing the table
@@ -221,7 +220,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
         }
 
         private void throwFailureIfDone() throws SingleIndexWriteFailureException {
-          if (stopped.isStopped() || Thread.currentThread().isInterrupted()) {
+          if (this.isBatchFailed() || Thread.currentThread().isInterrupted()) {
             throw new SingleIndexWriteFailureException(
                 "Pool closed, not attempting to write to the index!", null);
           }
@@ -232,7 +231,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
 
     // actually submit the tasks to the pool and wait for them to finish/fail
     try {
-      pool.submit(tasks.toArray(new Callable[0]));
+      pool.submit(tasks);
     } catch (EarlyExitFailure e) {
       propagateFailure(e);
     } catch (ExecutionException e) {
