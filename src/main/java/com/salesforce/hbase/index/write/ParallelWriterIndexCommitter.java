@@ -34,20 +34,15 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Abortable;
-import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.util.Threads;
 
 import com.google.common.collect.Multimap;
 import com.salesforce.hbase.index.exception.SingleIndexWriteFailureException;
@@ -56,7 +51,6 @@ import com.salesforce.hbase.index.parallel.QuickFailingTaskRunner;
 import com.salesforce.hbase.index.parallel.Task;
 import com.salesforce.hbase.index.parallel.TaskBatch;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
-import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
@@ -74,25 +68,6 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
 
   private static final Log LOG = LogFactory.getLog(ParallelWriterIndexCommitter.class);
 
-  public static String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.writer.threads.max";
-  private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
-  private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
-      "index.writer.threads.keepalivetime";
-  /**
-   * Maximum number of threads to allow per-table when writing. Each writer thread (from
-   * {@link #NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY}) has a single HTable. However, each table
-   * is backed by a threadpool to manage the updates to that table. this specifies the number of
-   * threads to allow in each of those tables. Generally, you shouldn't need to change this, unless
-   * you have a small number of indexes to which most of the writes go. Defaults to:
-   * {@value #DEFAULT_NUM_PER_TABLE_THREADS}. For tables to which there are not a lot of writes, the
-   * thread pool automatically will decrease the number of threads to one (though it can burst up to
-   * the specified max for any given table), so increasing this to meet the max case is reasonable.
-   */
-  // TODO per-index-table thread configuration
-  private static final String INDEX_WRITER_PER_TABLE_THREADS_CONF_KEY =
-      "index.writer.threads.pertable.max";
-  private static final int DEFAULT_NUM_PER_TABLE_THREADS = 1;
-
   private HTableFactory factory;
   private Stoppable stopped;
   private QuickFailingTaskRunner pool;
@@ -100,7 +75,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
   @Override
   public void setup(IndexWriter parent, RegionCoprocessorEnvironment env) {
     Configuration conf = env.getConfiguration();
-    setup(getDefaultDelegateHTableFactory(env), getDefaultExecutor(conf),
+    setup(IndexWriterUtils.getDefaultDelegateHTableFactory(env), IndexWriterUtils.getDefaultExecutor(conf),
       env.getRegionServerServices(), parent, CachingHTableFactory.getCacheSize(conf));
   }
 
@@ -114,47 +89,6 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
     this.factory = new CachingHTableFactory(factory, cacheSize);
     this.pool = new QuickFailingTaskRunner(pool);
     this.stopped = stop;
-  }
-
-  public static HTableFactory getDefaultDelegateHTableFactory(CoprocessorEnvironment env) {
-    // create a simple delegate factory, setup the way we need
-    Configuration conf = env.getConfiguration();
-    // set the number of threads allowed per table.
-    int htableThreads =
-        conf.getInt(INDEX_WRITER_PER_TABLE_THREADS_CONF_KEY, DEFAULT_NUM_PER_TABLE_THREADS);
-    LOG.info("Starting index writer with " + htableThreads + " threads for each HTable.");
-    conf.setInt("hbase.htable.threads.max", htableThreads);
-    return new CoprocessorHTableFactory(env);
-  }
-
-  /**
-   * @param conf
-   * @return a thread pool based on the passed configuration whose threads are all daemon threads.
-   */
-  public static ThreadPoolExecutor getDefaultExecutor(Configuration conf) {
-    int maxThreads =
-        conf.getInt(NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY,
-          DEFAULT_CONCURRENT_INDEX_WRITER_THREADS);
-    if (maxThreads == 0) {
-      maxThreads = 1; // is there a better default?
-    }
-    LOG.info("Starting writer with " + maxThreads + " threads for all tables");
-    long keepAliveTime = conf.getLong(INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY, 60);
-
-    // we prefer starting a new thread to queuing (the opposite of the usual ThreadPoolExecutor)
-    // since we are probably writing to a bunch of index tables in this case. Any pending requests
-    // are then queued up in an infinite (Integer.MAX_VALUE) queue. However, we allow core threads
-    // to timeout, to we tune up/down for bursty situations. We could be a bit smarter and more
-    // closely manage the core-thread pool size to handle the bursty traffic (so we can always keep
-    // some core threads on hand, rather than starting from scratch each time), but that would take
-    // even more time. If we shutdown the pool, but are still putting new tasks, we can just do the
-    // usual policy and throw a RejectedExecutionException because we are shutting down anyways and
-    // the worst thing is that this gets unloaded.
-    ThreadPoolExecutor pool =
-        new ThreadPoolExecutor(maxThreads, maxThreads, keepAliveTime, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(), Threads.newDaemonThreadFactory("index-writer-"));
-    pool.allowCoreThreadTimeOut(true);
-    return pool;
   }
 
   @Override
@@ -231,7 +165,7 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
 
     // actually submit the tasks to the pool and wait for them to finish/fail
     try {
-      pool.submit(tasks);
+      pool.submitUninterruptible(tasks);
     } catch (EarlyExitFailure e) {
       propagateFailure(e);
     } catch (ExecutionException e) {
