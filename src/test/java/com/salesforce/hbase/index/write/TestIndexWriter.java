@@ -239,13 +239,20 @@ public class TestIndexWriter {
     HTableInterface table = Mockito.mock(HTableInterface.class);
     Mockito.when(table.getTableName()).thenReturn(tableName);
     final CountDownLatch writeStartedLatch = new CountDownLatch(1);
+    // latch never gets counted down, so we wait forever
     final CountDownLatch waitOnAbortedLatch = new CountDownLatch(1);
     Mockito.when(table.batch(Mockito.anyList())).thenAnswer(new Answer<Void>() {
       @Override
       public Void answer(InvocationOnMock invocation) throws Throwable {
+        LOG.info("Write started");
         writeStartedLatch.countDown();
         // when we interrupt the thread for shutdown, we should see this throw an interrupt too
+        try {
         waitOnAbortedLatch.await();
+        } catch (InterruptedException e) {
+          LOG.info("Correctly interrupted while writing!");
+          throw e;
+        }
         return null;
       }
     });
