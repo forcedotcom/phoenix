@@ -26,21 +26,22 @@ import java.util.Map.Entry;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
-import com.salesforce.hbase.index.covered.IndexCodec;
 import com.salesforce.hbase.index.covered.IndexUpdate;
 import com.salesforce.hbase.index.covered.TableState;
 import com.salesforce.hbase.index.scanner.Scanner;
+import com.salesforce.phoenix.index.BaseIndexCodec;
 
 /**
  *
  */
-public class CoveredColumnIndexCodec implements IndexCodec {
+public class CoveredColumnIndexCodec extends BaseIndexCodec {
 
   private static final byte[] EMPTY_BYTES = new byte[0];
   public static final byte[] INDEX_ROW_COLUMN_FAMILY = Bytes.toBytes("INDEXED_COLUMNS");
@@ -85,6 +86,8 @@ public class CoveredColumnIndexCodec implements IndexCodec {
       Scanner kvs = stateInfo.getFirst();
       Pair<Integer, List<ColumnEntry>> columns =
           getNextEntries(refs, kvs, state.getCurrentRowKey());
+      // make sure we close the scanner
+      kvs.close();
       if (columns.getFirst().intValue() == 0) {
         return stateInfo.getSecond();
       }
@@ -142,6 +145,8 @@ public class CoveredColumnIndexCodec implements IndexCodec {
       Pair<Scanner, IndexUpdate> kvs = state.getIndexedColumnsTableState(refs);
       Pair<Integer, List<ColumnEntry>> columns =
           getNextEntries(refs, kvs.getFirst(), state.getCurrentRowKey());
+      // make sure we close the scanner reference
+      kvs.getFirst().close();
       // no change, just return the passed update
       if (columns.getFirst() == 0) {
         return kvs.getSecond();
@@ -351,5 +356,12 @@ public class CoveredColumnIndexCodec implements IndexCodec {
     }
 
     return true;
+  }
+
+  @Override
+  public boolean isEnabled(Mutation m) {
+    // this could be a bit smarter, looking at the groups for the mutation, but we leave it at this
+    // simple check for the moment.
+    return groups.size() > 0;
   }
 }

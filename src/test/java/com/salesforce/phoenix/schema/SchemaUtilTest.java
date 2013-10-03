@@ -46,15 +46,15 @@ public class SchemaUtilTest {
     @Test
     public void testGetColumnName() {
         String columnDisplayName;
-        columnDisplayName = SchemaUtil.getColumnName("schemaName", "tableName", "familyName", "columnName");
+        columnDisplayName = SchemaUtil.getMetaDataEntityName("schemaName", "tableName", "familyName", "columnName");
         assertEquals(columnDisplayName, "schemaName.tableName.familyName.columnName");
-        columnDisplayName = SchemaUtil.getColumnName(null, "tableName", "familyName", "columnName");
+        columnDisplayName = SchemaUtil.getMetaDataEntityName(null, "tableName", "familyName", "columnName");
         assertEquals(columnDisplayName, "tableName.familyName.columnName");
-        columnDisplayName = SchemaUtil.getColumnName("schemaName", "tableName", null, "columnName");
+        columnDisplayName = SchemaUtil.getMetaDataEntityName("schemaName", "tableName", null, "columnName");
         assertEquals(columnDisplayName, "schemaName.tableName.columnName");
-        columnDisplayName = SchemaUtil.getColumnName(null, null, "familyName", "columnName");
+        columnDisplayName = SchemaUtil.getMetaDataEntityName(null, null, "familyName", "columnName");
         assertEquals(columnDisplayName, "familyName.columnName");
-        columnDisplayName = SchemaUtil.getColumnName(null, null, null, "columnName");
+        columnDisplayName = SchemaUtil.getMetaDataEntityName(null, null, null, "columnName");
         assertEquals(columnDisplayName, "columnName");
     }
 }

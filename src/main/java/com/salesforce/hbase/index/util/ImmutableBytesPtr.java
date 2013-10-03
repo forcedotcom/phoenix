@@ -25,7 +25,10 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.util;
+package com.salesforce.hbase.index.util;
+
+import java.io.DataInput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -91,5 +94,20 @@ public class ImmutableBytesPtr extends ImmutableBytesWritable {
         hashCode = super.hashCode();
     }
 
+    @Override
+    public void readFields(final DataInput in) throws IOException {
+        super.readFields(in);
+        hashCode = super.hashCode();
+    }
+    
+    /**
+     * @return the backing byte array, copying only if necessary
+     */
+    public byte[] copyBytesIfNecessary() {
+        if (this.getOffset() == 0 && this.getLength() == this.get().length) {
+            return this.get();
+        }
+        return this.copyBytes();
+    }
 
 }

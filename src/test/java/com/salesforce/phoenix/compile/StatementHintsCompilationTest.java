@@ -28,11 +28,17 @@
 package com.salesforce.phoenix.compile;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
@@ -43,8 +49,10 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.util.QueryUtil;
 
 
 /**
@@ -55,19 +63,32 @@ public class StatementHintsCompilationTest extends BaseConnectionlessQueryTest {
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds) throws SQLException {
         return compileStatement(query, scan, binds, null, null);
     }
+    
+    private static boolean usingSkipScan(Scan scan) {
+        Filter filter = scan.getFilter();
+        if (filter instanceof FilterList) {
+            FilterList filterList = (FilterList) filter;
+            for (Filter childFilter : filterList.getFilters()) {
+                if (childFilter instanceof SkipScanFilter) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return filter instanceof SkipScanFilter;
+    }
 
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds, Integer limit, Set<Expression> extractedNodes) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
-        statement = StatementNormalizer.normalize(statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        statement = StatementNormalizer.normalize(statement, resolver);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasMap(context, statement);
 
         Integer actualLimit = LimitCompiler.compile(context, statement);
         assertEquals(limit, actualLimit);
-        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasParseNodeMap);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement);
         statement = HavingCompiler.rewrite(context, statement, groupBy);
         WhereCompiler.compileWhereClause(context, statement, extractedNodes);
         return context;
@@ -82,12 +103,7 @@ public class StatementHintsCompilationTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         
         compileStatement(query, scan, binds);
-        // Forced to using skip scan filter.
-        Filter filter = scan.getFilter();
-        if (filter instanceof FilterList) {
-            filter = ((FilterList) filter).getFilters().get(0);
-        }
-        assertTrue("The first filter should be SkipScanFilter.", filter instanceof SkipScanFilter);
+        assertTrue("The first filter should be SkipScanFilter.", usingSkipScan(scan));
     }
 
     @Test
@@ -99,10 +115,16 @@ public class StatementHintsCompilationTest extends BaseConnectionlessQueryTest {
         
         compileStatement(query, scan, binds);
         // Verify that it is not using SkipScanFilter.
-        Filter filter = scan.getFilter();
-        if (filter instanceof FilterList) {
-            filter = ((FilterList) filter).getFilters().get(0);
-        }
-        assertFalse("The first filter should not be SkipScanFilter.", filter instanceof SkipScanFilter);
+        assertFalse("The first filter should not be SkipScanFilter.", usingSkipScan(scan));
+    }
+    
+    @Test
+    public void testSelectForceRangeScanForEH() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("create table eh (organization_id char(15) not null,parent_id char(15) not null, created_date date not null, entity_history_id char(15) not null constraint pk primary key (organization_id, parent_id, created_date, entity_history_id))");
+        ResultSet rs = conn.createStatement().executeQuery("explain select /*+ RANGE_SCAN */ ORGANIZATION_ID, PARENT_ID, CREATED_DATE, ENTITY_HISTORY_ID from eh where ORGANIZATION_ID='111111111111111' and SUBSTR(PARENT_ID, 1, 3) = 'foo' and TO_DATE ('2012-0-1 00:00:00') <= CREATED_DATE and CREATED_DATE <= TO_DATE ('2012-11-31 00:00:00') order by ORGANIZATION_ID, PARENT_ID, CREATED_DATE DESC, ENTITY_HISTORY_ID limit 100");
+        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER EH '111111111111111',['foo'-'fop'),['2011-12-01 00:00:00.000'-'2012-12-01 00:00:00.000']\n" + 
+        		"    SERVER TOP 100 ROWS SORTED BY [ORGANIZATION_ID, PARENT_ID, CREATED_DATE DESC, ENTITY_HISTORY_ID]\n" + 
+        		"CLIENT MERGE SORT",QueryUtil.getExplainPlan(rs));
     }
 }

@@ -4,9 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -34,29 +32,70 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import com.salesforce.hbase.index.builder.example.ColumnFamilyIndexer;
+import com.salesforce.hbase.index.IndexTestingUtils;
+import com.salesforce.hbase.index.TableName;
+import com.salesforce.hbase.index.covered.example.ColumnGroup;
+import com.salesforce.hbase.index.covered.example.CoveredColumn;
+import com.salesforce.hbase.index.covered.example.CoveredColumnIndexSpecifierBuilder;
+import com.salesforce.hbase.index.covered.example.CoveredColumnIndexer;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 
 /**
- * most of the underlying work (creating/splitting the WAL, etc) is from
+ * For pre-0.94.9 instances, this class tests correctly deserializing WALEdits w/o compression. Post
+ * 0.94.9 we can support a custom {@link WALEditCodec}, which handles reading/writing the compressed
+ * edits.
+ * <p>
+ * Most of the underlying work (creating/splitting the WAL, etc) is from
  * org.apache.hadoop.hhbase.regionserver.wal.TestWALReplay, copied here for completeness and ease of
- * use
+ * use.
+ * <p>
+ * This test should only have a sinlge test - otherwise we will start/stop the minicluster multiple
+ * times, which is probably not what you want to do (mostly because its so much effort).
  */
-public class TestWALReplayWithIndexWrites {
+public class TestWALReplayWithIndexWritesAndCompressedWAL {
 
   public static final Log LOG = LogFactory.getLog(TestWALReplay.class);
-  static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
-  private static final String INDEX_TABLE_NAME = "IndexTable";
+  @Rule
+  public TableName table = new TableName();
+  private String INDEX_TABLE_NAME = table.getTableNameString() + "_INDEX";
+
+  final HBaseTestingUtility UTIL = new HBaseTestingUtility();
   private Path hbaseRootDir = null;
   private Path oldLogDir;
   private Path logDir;
   private FileSystem fs;
   private Configuration conf;
 
-  protected static void configureCluster() throws Exception {
+  @Before
+  public void setUp() throws Exception {
+    setupCluster();
+    this.conf = HBaseConfiguration.create(UTIL.getConfiguration());
+    this.fs = UTIL.getDFSCluster().getFileSystem();
+    this.hbaseRootDir = new Path(this.conf.get(HConstants.HBASE_DIR));
+    this.oldLogDir = new Path(this.hbaseRootDir, HConstants.HREGION_OLDLOGDIR_NAME);
+    this.logDir = new Path(this.hbaseRootDir, HConstants.HREGION_LOGDIR_NAME);
+    // reset the log reader to ensure we pull the one from this config
+    HLog.resetLogReaderClass();
+  }
+
+  private void setupCluster() throws Exception {
+    configureCluster();
+    startCluster();
+  }
+
+  protected void configureCluster() throws Exception {
     Configuration conf = UTIL.getConfiguration();
+    setDefaults(conf);
+
+    // enable WAL compression
+    conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
+  }
+
+  protected final void setDefaults(Configuration conf) {
     // make sure writers fail quickly
     conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 3);
     conf.setInt(HConstants.HBASE_CLIENT_PAUSE, 1000);
@@ -64,12 +103,12 @@ public class TestWALReplayWithIndexWrites {
     conf.setInt("zookeeper.recovery.retry.intervalmill", 100);
     conf.setInt(HConstants.ZK_SESSION_TIMEOUT, 30000);
     conf.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, 5000);
-
     // enable appends
     conf.setBoolean("dfs.support.append", true);
+    IndexTestingUtils.setupConfig(conf);
   }
 
-  protected static void startCluster() throws Exception {
+  protected void startCluster() throws Exception {
     UTIL.startMiniDFSCluster(3);
     UTIL.startMiniZKCluster();
     UTIL.startMiniHBaseCluster(1, 1);
@@ -79,33 +118,13 @@ public class TestWALReplayWithIndexWrites {
     UTIL.getConfiguration().set(HConstants.HBASE_DIR, hbaseRootDir.toString());
   }
 
-  @BeforeClass
-  public static void setUpBeforeClass() throws Exception {
-    configureCluster();
-    // use our custom WAL Reader
-    UTIL.getConfiguration().set("hbase.regionserver.hlog.reader.impl", IndexedHLogReader.class.getName());
-    startCluster();
-  }
-
-  @AfterClass
-  public static void tearDownAfterClass() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     UTIL.shutdownMiniHBaseCluster();
     UTIL.shutdownMiniDFSCluster();
     UTIL.shutdownMiniZKCluster();
   }
 
-  @Before
-  public void setUp() throws Exception {
-    this.conf = HBaseConfiguration.create(UTIL.getConfiguration());
-    this.fs = UTIL.getDFSCluster().getFileSystem();
-    this.hbaseRootDir = new Path(this.conf.get(HConstants.HBASE_DIR));
-    this.oldLogDir = new Path(this.hbaseRootDir, HConstants.HREGION_OLDLOGDIR_NAME);
-    this.logDir = new Path(this.hbaseRootDir, HConstants.HREGION_LOGDIR_NAME);
-  }
-
-  @After
-  public void tearDown() throws Exception {
-  }
 
   private void deleteDir(final Path p) throws IOException {
     if (this.fs.exists(p)) {
@@ -122,6 +141,9 @@ public class TestWALReplayWithIndexWrites {
    */
   @Test
   public void testReplayEditsWrittenViaHRegion() throws Exception {
+    LOG.info("Jesse: Specified log reader:" + conf.get(IndexManagementUtil.HLOG_READER_IMPL_KEY));
+    LOG.info("Jesse: Compression: " + conf.get(HConstants.ENABLE_WAL_COMPRESSION));
+    LOG.info("Jesse: Codec: " + conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY));
     final String tableNameStr = "testReplayEditsWrittenViaHRegion";
     final HRegionInfo hri = new HRegionInfo(Bytes.toBytes(tableNameStr), null, null, false);
     final Path basedir = new Path(this.hbaseRootDir, tableNameStr);
@@ -129,10 +151,13 @@ public class TestWALReplayWithIndexWrites {
     final HTableDescriptor htd = createBasic3FamilyHTD(tableNameStr);
     
     //setup basic indexing for the table
-    Map<byte[], String> familyMap = new HashMap<byte[], String>();
-    byte[] indexedFamily = new byte[] {'a'};
-    familyMap.put(indexedFamily, INDEX_TABLE_NAME);
-    ColumnFamilyIndexer.enableIndexing(htd, familyMap);
+    // enable indexing to a non-existant index table
+    byte[] family = new byte[] { 'a' };
+    ColumnGroup fam1 = new ColumnGroup(INDEX_TABLE_NAME);
+    fam1.add(new CoveredColumn(family, CoveredColumn.ALL_QUALIFIERS));
+    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
+    builder.addIndexGroup(fam1);
+    builder.build(htd);
 
     // create the region + its WAL
     HRegion region0 = HRegion.createHRegion(hri, hbaseRootDir, this.conf, htd);
@@ -152,8 +177,8 @@ public class TestWALReplayWithIndexWrites {
     //make an attempted write to the primary that should also be indexed
     byte[] rowkey = Bytes.toBytes("indexed_row_key");
     Put p = new Put(rowkey);
-    p.add(indexedFamily, Bytes.toBytes("qual"), Bytes.toBytes("value"));
-    region.put(p);
+    p.add(family, Bytes.toBytes("qual"), Bytes.toBytes("value"));
+    region.put(new Put[] { p });
 
     // we should then see the server go down
     Mockito.verify(mockRS, Mockito.times(1)).abort(Mockito.anyString(),
@@ -162,7 +187,7 @@ public class TestWALReplayWithIndexWrites {
     wal.close();
 
     // then create the index table so we are successful on WAL replay
-    ColumnFamilyIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
+    CoveredColumnIndexer.createIndexTable(UTIL.getHBaseAdmin(), INDEX_TABLE_NAME);
 
     // run the WAL split and setup the region
     runWALSplit(this.conf);
@@ -224,6 +249,10 @@ public class TestWALReplayWithIndexWrites {
    */
   private Path runWALSplit(final Configuration c) throws IOException {
     FileSystem fs = FileSystem.get(c);
+    LOG.info("Jesse: runWALSplit: hlogImpl: " + c.get("hbase.regionserver.hlog.reader.impl"));
+    LOG.info("Jesse: runWALSplit: hlogImpl: " + c.get(IndexManagementUtil.HLOG_READER_IMPL_KEY));
+    LOG.info("Jesse: runWALSplit: Compression: " + conf.get(HConstants.ENABLE_WAL_COMPRESSION));
+    LOG.info("Jesse: runWALSplit: Codec: " + conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY));
     HLogSplitter logSplitter = HLogSplitter.createLogSplitter(c, this.hbaseRootDir, this.logDir,
       this.oldLogDir, fs);
     List<Path> splits = logSplitter.splitLog();

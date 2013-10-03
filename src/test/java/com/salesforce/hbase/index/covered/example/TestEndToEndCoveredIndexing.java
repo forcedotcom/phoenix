@@ -68,7 +68,7 @@ import com.salesforce.hbase.index.TableName;
  */
 public class TestEndToEndCoveredIndexing {
   private static final Log LOG = LogFactory.getLog(TestEndToEndCoveredIndexing.class);
-  private static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
+  protected static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
   private static final String FAM_STRING = "FAMILY";
   private static final byte[] FAM = Bytes.toBytes(FAM_STRING);
   private static final String FAM2_STRING = "FAMILY2";
@@ -110,6 +110,7 @@ public class TestEndToEndCoveredIndexing {
   @BeforeClass
   public static void setupCluster() throws Exception {
     Configuration conf = UTIL.getConfiguration();
+    IndexTestingUtils.setupConfig(conf);
     // disable version checking, so we can test against whatever version of HBase happens to be
     // installed (right now, its generally going to be SNAPSHOT versions).
     conf.setBoolean(Indexer.CHECK_VERSION_CONF_KEY, false);

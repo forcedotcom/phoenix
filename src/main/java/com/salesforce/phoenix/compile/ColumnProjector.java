@@ -57,6 +57,7 @@ public interface ColumnProjector {
      */
     public Expression getExpression();
     
+    // TODO: An expression may contain references to multiple tables.
     /**
      * Get the name of the hbase table containing the column
      * @return the hbase table name

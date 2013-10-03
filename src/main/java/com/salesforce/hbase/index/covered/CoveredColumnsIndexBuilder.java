@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,13 +45,13 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Longs;
 import com.salesforce.hbase.index.builder.BaseIndexBuilder;
 import com.salesforce.hbase.index.covered.data.LocalHBaseState;
 import com.salesforce.hbase.index.covered.data.LocalTable;
@@ -63,16 +65,6 @@ import com.salesforce.hbase.index.covered.update.IndexedColumnGroup;
  * Before any call to prePut/preDelete, the row has already been locked. This ensures that we don't
  * need to do any extra synchronization in the IndexBuilder.
  * <p>
- * <b>WARNING:</b> This builder does not correctly support adding the same row twice to a batch
- * update. For instance, adding a {@link Put} of the same row twice with different values at
- * different timestamps. In this case, the {@link TableState} will return the state of the table
- * before the batch; the second Put would <i>not</i> see the earlier Put applied. The reason for
- * this is that it is very hard to manage invalidating the local table state in case of failure and
- * maintaining a row cache across a batch (see {@link LocalTable} for more information on why). The
- * current implementation would manage the above case by possibly not realizing it needed to issue a
- * cleanup delete for the index row, leading to an invalid index as one of the updates wouldn't be
- * properly covered by a delete.
- * <p>
  * NOTE: This implementation doesn't cleanup the index when we remove a key-value on compaction or
  * flush, leading to a bloated index that needs to be cleaned up by a background process.
  */
@@ -82,7 +74,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   public static final String CODEC_CLASS_NAME_KEY = "com.salesforce.hbase.index.codec.class";
 
   protected RegionCoprocessorEnvironment env;
-  private IndexCodec codec;
+  protected IndexCodec codec;
   protected LocalHBaseState localTable;
 
   @Override
@@ -108,14 +100,14 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Put p) throws IOException {
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Mutation mutation) throws IOException {
     // build the index updates for each group
     IndexUpdateManager updateMap = new IndexUpdateManager();
 
-    batchMutationAndAddUpdates(updateMap, p);
+    batchMutationAndAddUpdates(updateMap, mutation);
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Found index updates for Put: " + updateMap);
+      LOG.debug("Found index updates for Mutation: " + mutation + "\n" + updateMap);
     }
 
     return updateMap.toMap();
@@ -160,16 +152,22 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
    * {@link KeyValue} with a timestamp == {@link HConstants#LATEST_TIMESTAMP} to the timestamp at
    * the time the method is called.
    * @param m {@link Mutation} from which to extract the {@link KeyValue}s
-   * @return map of timestamp to all the keyvalues with the same timestamp. the implict tree sorting
-   *         in the returned ensures that batches (when iterating through the keys) will iterate the
-   *         kvs in timestamp order
+   * @return the mutation, broken into batches and sorted in ascending order (smallest first)
    */
   protected Collection<Batch> createTimestampBatchesFromMutation(Mutation m) {
     Map<Long, Batch> batches = new HashMap<Long, Batch>();
     for (List<KeyValue> family : m.getFamilyMap().values()) {
       createTimestampBatchesFromKeyValues(family, batches);
     }
-    return batches.values();
+    // sort the batches
+    List<Batch> sorted = new ArrayList<Batch>(batches.values());
+    Collections.sort(sorted, new Comparator<Batch>() {
+      @Override
+      public int compare(Batch o1, Batch o2) {
+        return Longs.compare(o1.getTimestamp(), o2.getTimestamp());
+      }
+    });
+    return sorted;
   }
 
   /**
@@ -177,12 +175,9 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
    * {@link KeyValue} with a timestamp == {@link HConstants#LATEST_TIMESTAMP} to the timestamp at
    * the time the method is called.
    * @param kvs {@link KeyValue}s to break into batches
-   * @param batches
-   * @return map of timestamp to all the keyvalues with the same timestamp. the implict tree sorting
-   *         in the returned ensures that batches (when iterating through the keys) will iterate the
-   *         kvs in timestamp order
+   * @param batches to update with the given kvs
    */
-  protected Collection<Batch> createTimestampBatchesFromKeyValues(Collection<KeyValue> kvs,
+  protected void createTimestampBatchesFromKeyValues(Collection<KeyValue> kvs,
       Map<Long, Batch> batches) {
     long now = EnvironmentEdgeManager.currentTimeMillis();
     byte[] nowBytes = Bytes.toBytes(now);
@@ -202,7 +197,6 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
       }
       batch.add(kv);
     }
-    return batches.values();
   }
 
   /**
@@ -248,10 +242,11 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
     // that are indexed, we need to change the current state of the index. Its up to the codec to
     // determine if we need to make any cleanup given the pending update.
     long batchTs = batch.getTimestamp();
+    state.setPendingUpdates(batch.getKvs());
     addCleanupForCurrentBatch(updateMap, batchTs, state);
 
     // A.2 do a single pass first for the updates to the current state
-    state.addPendingUpdates(batch.getKvs());
+    state.applyPendingUpdates();
     long minTs = addUpdateForGivenTimestamp(batchTs, state, updateMap);
     // if all the updates are the latest thing in the index, we are done - don't go and fix history
     if (ColumnTracker.isNewestTime(minTs)) {
@@ -427,7 +422,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdate(Delete d) throws IOException {
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Delete d) throws IOException {
     // stores all the return values
     IndexUpdateManager updateMap = new IndexUpdateManager();
 
@@ -473,11 +468,15 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
       batchMutationAndAddUpdates(updateMap, d);
     }
 
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Found index updates for Delete: " + d + "\n" + updateMap);
+    }
+
     return updateMap.toMap();
   }
 
   @Override
-  public Collection<Pair<Mutation, String>> getIndexUpdateForFilteredRows(
+  public Collection<Pair<Mutation, byte[]>> getIndexUpdateForFilteredRows(
       Collection<KeyValue> filtered) throws IOException {
     // TODO Implement IndexBuilder.getIndexUpdateForFilteredRows
     return null;
@@ -489,5 +488,11 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
    */
   public void setIndexCodecForTesting(IndexCodec codec) {
     this.codec = codec;
+  }
+
+  @Override
+  public boolean isEnabled(Mutation m) {
+    // ask the codec to see if we should even attempt indexing
+    return this.codec.isEnabled(m);
   }
 }

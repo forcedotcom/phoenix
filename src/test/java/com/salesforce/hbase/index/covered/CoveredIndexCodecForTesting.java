@@ -32,15 +32,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
-import com.salesforce.hbase.index.covered.IndexCodec;
+import com.salesforce.phoenix.index.BaseIndexCodec;
 
 /**
  * An {@link IndexCodec} for testing that allow you to specify the index updates/deletes, regardless
  * of the current tables' state.
  */
-public class CoveredIndexCodecForTesting implements IndexCodec {
+public class CoveredIndexCodecForTesting extends BaseIndexCodec {
 
   private List<IndexUpdate> deletes = new ArrayList<IndexUpdate>();
   private List<IndexUpdate> updates = new ArrayList<IndexUpdate>();
@@ -71,5 +72,10 @@ public class CoveredIndexCodecForTesting implements IndexCodec {
   @Override
   public void initialize(RegionCoprocessorEnvironment env) throws IOException {
     // noop
+  }
+
+  @Override
+  public boolean isEnabled(Mutation m) {
+    return true;
   }
 }

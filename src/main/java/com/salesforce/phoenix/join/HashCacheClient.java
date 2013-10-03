@@ -68,8 +68,8 @@ public class HashCacheClient  {
      * @param connection the client connection
      * @param cacheUsingTableRef table ref to table that will use the cache during its scan
      */
-    public HashCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
-        serverCache = new ServerCacheClient(connection,cacheUsingTableRef);
+    public HashCacheClient(PhoenixConnection connection) {
+        serverCache = new ServerCacheClient(connection);
     }
 
     /**
@@ -82,17 +82,17 @@ public class HashCacheClient  {
      * @throws MaxServerCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
-    public ServerCache addHashCache(ScanRanges keyRanges, Scanner scanner, List<Expression> onExpressions) throws SQLException {
+    public ServerCache addHashCache(ScanRanges keyRanges, Scanner scanner, List<Expression> onExpressions, TableRef cacheUsingTableRef) throws SQLException {
         /**
          * Serialize and compress hashCacheTable
          */
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         serialize(ptr, scanner, onExpressions);
-        return serverCache.addServerCache(keyRanges, ptr, new HashCacheFactory());
+        return serverCache.addServerCache(keyRanges, ptr, new HashCacheFactory(), cacheUsingTableRef);
     }
     
     private void serialize(ImmutableBytesWritable ptr, Scanner scanner, List<Expression> onExpressions) throws SQLException {
-        long maxSize = serverCache.getConnection().getQueryServices().getProps().getLong(QueryServices.MAX_HASH_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MAX_HASH_CACHE_SIZE);
+        long maxSize = serverCache.getConnection().getQueryServices().getProps().getLong(QueryServices.MAX_SERVER_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MAX_SERVER_CACHE_SIZE);
         long estimatedSize = Math.min(scanner.getEstimatedSize(), maxSize);
         if (estimatedSize > Integer.MAX_VALUE) {
             throw new IllegalStateException("Estimated size(" + estimatedSize + ") must not be greater than Integer.MAX_VALUE(" + Integer.MAX_VALUE + ")");

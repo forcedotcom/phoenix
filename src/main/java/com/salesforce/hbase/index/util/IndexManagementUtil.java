@@ -27,10 +27,21 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.util;
 
+import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader;
+import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.data.LazyValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
@@ -45,6 +56,93 @@ public class IndexManagementUtil {
     // private ctor for util classes
   }
 
+  public static String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
+
+  public static void ensureMutableIndexingCorrectlyConfigured(Configuration conf)
+      throws IllegalStateException {
+    // check to see if the WALEditCodec is installed
+    String codecClass = IndexedWALEditCodec.class.getName();
+    if (codecClass.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
+      // its installed, and it can handle compression and non-compression cases
+      return;
+    }
+
+    // otherwise, we have to install the indexedhlogreader, but it cannot have compression
+    String indexLogReaderName = IndexedHLogReader.class.getName();
+    if (indexLogReaderName.equals(conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName))) {
+      if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
+        throw new IllegalStateException("WAL Compression is only supported with " + codecClass
+            + ". You can install in hbase-site.xml, under " + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY);
+      }
+    } else {
+      throw new IllegalStateException(IndexedWALEditCodec.class.getName()
+          + " is not installed, but " + indexLogReaderName
+          + " hasn't been installed in hbase-site.xml under " + HLOG_READER_IMPL_KEY);
+    }
+
+  }
+
+  public static ValueGetter createGetterFromKeyValues(Collection<KeyValue> pendingUpdates) {
+    final Map<ReferencingColumn, ImmutableBytesPtr> valueMap =
+        Maps.newHashMapWithExpectedSize(pendingUpdates.size());
+    for (KeyValue kv : pendingUpdates) {
+      // create new pointers to each part of the kv
+      ImmutableBytesPtr family =
+          new ImmutableBytesPtr(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength());
+      ImmutableBytesPtr qual =
+          new ImmutableBytesPtr(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+      ImmutableBytesPtr value =
+          new ImmutableBytesPtr(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+      valueMap.put(new ReferencingColumn(family, qual), value);
+    }
+    return new ValueGetter() {
+      @Override
+      public ImmutableBytesPtr getLatestValue(ColumnReference ref) throws IOException {
+        return valueMap.get(ReferencingColumn.wrap(ref));
+      }
+    };
+  }
+
+  private static class ReferencingColumn {
+    ImmutableBytesPtr family;
+    ImmutableBytesPtr qual;
+
+    static ReferencingColumn wrap(ColumnReference ref) {
+      ImmutableBytesPtr family = new ImmutableBytesPtr(ref.getFamily());
+      ImmutableBytesPtr qual = new ImmutableBytesPtr(ref.getQualifier());
+      return new ReferencingColumn(family, qual);
+    }
+
+    public ReferencingColumn(ImmutableBytesPtr family, ImmutableBytesPtr qual) {
+      this.family = family;
+      this.qual = qual;
+    }
+
+    @Override
+    public int hashCode() {
+      final int prime = 31;
+      int result = 1;
+      result = prime * result + ((family == null) ? 0 : family.hashCode());
+      result = prime * result + ((qual == null) ? 0 : qual.hashCode());
+      return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) return true;
+      if (obj == null) return false;
+      if (getClass() != obj.getClass()) return false;
+      ReferencingColumn other = (ReferencingColumn) obj;
+      if (family == null) {
+        if (other.family != null) return false;
+      } else if (!family.equals(other.family)) return false;
+      if (qual == null) {
+        if (other.qual != null) return false;
+      } else if (!qual.equals(other.qual)) return false;
+      return true;
+    }
+  }
+
   public static ValueGetter createGetterFromScanner(Scanner scanner, byte[] currentRow) {
     return new LazyValueGetter(scanner, currentRow);
   }
@@ -53,7 +151,7 @@ public class IndexManagementUtil {
   * This assumes that for any index, there are going to small number of columns, versus the number of
   * kvs in any one batch.
   */
-  public static boolean updateMatchesColumns(List<KeyValue> update,
+  public static boolean updateMatchesColumns(Collection<KeyValue> update,
       List<ColumnReference> columns) {
     // check to see if the kvs in the new update even match any of the columns requested
     // assuming that for any index, there are going to small number of columns, versus the number of
@@ -81,7 +179,7 @@ public class IndexManagementUtil {
    * iteration logic to search columns before kvs.
    */
   public static boolean columnMatchesUpdate(
-      List<ColumnReference> columns, List<KeyValue> update) {
+      List<ColumnReference> columns, Collection<KeyValue> update) {
     boolean matches = false;
     outer: for (ColumnReference ref : columns) {
       for (KeyValue kv : update) {
@@ -93,5 +191,18 @@ public class IndexManagementUtil {
       }
     }
     return matches;
+  }
+  
+  public static Scan newLocalStateScan(List<? extends Iterable<? extends ColumnReference>> refsArray) {
+      Scan s = new Scan();
+      s.setRaw(true);
+      //add the necessary columns to the scan
+      for (Iterable<? extends ColumnReference> refs : refsArray) {
+          for(ColumnReference ref : refs){
+            s.addFamily(ref.getFamily());
+          }
+      }
+      s.setMaxVersions();
+      return s;
   }
 }

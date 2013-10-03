@@ -39,13 +39,30 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.visitor.KeyValueExpressionVisitor;
-import com.salesforce.phoenix.filter.*;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.filter.MultiCFCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.MultiCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
+import com.salesforce.phoenix.filter.SingleCFCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.filter.SingleCQKeyValueComparisonFilter;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.parse.HintNode.Hint;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeFactory;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -90,6 +107,9 @@ public class WhereCompiler {
         if (whereCompiler.isAggregate()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
         }
+        if (expression.getDataType() != PDataType.BOOLEAN) {
+            throw new TypeMismatchException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
+        }
         expression = WhereOptimizer.pushKeyExpressionsToScan(context, statement, expression, extractedNodes);
         setScanFilter(context, statement, expression, whereCompiler.disambiguateWithFamily);
 
@@ -110,12 +130,16 @@ public class WhereCompiler {
             // Track if we need to compare KeyValue during filter evaluation
             // using column family. If the column qualifier is enough, we
             // just use that.
-            try {
-                if (!SchemaUtil.isPKColumn(ref.getColumn())) {
-                    table.getColumn(ref.getColumn().getName().getString());
-                }
-            } catch (AmbiguousColumnException e) {
+            if (ref.disambiguateWithTable()) {
                 disambiguateWithFamily = true;
+            } else {
+                try {
+                    if (!SchemaUtil.isPKColumn(ref.getColumn())) {
+                        table.getColumn(ref.getColumn().getName().getString());
+                    }
+                } catch (AmbiguousColumnException e) {
+                    disambiguateWithFamily = true;
+                }
             }
             return ref;
         }
@@ -140,6 +164,7 @@ public class WhereCompiler {
 
             }
         }
+        
         public Count getCount() {
             return count;
         }

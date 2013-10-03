@@ -25,39 +25,49 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
+package com.salesforce.hbase.index.write.recovery;
 
-package com.salesforce.phoenix.parse;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
-import java.sql.SQLException;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.regionserver.HRegion;
 
-/**
- * 
- * Node representing the selection of all columns of a family (cf.*) in the SELECT clause of SQL
- *
- * @author nmaillard
- * @since 1.2
- */
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
-public class FamilyParseNode extends TerminalParseNode {
-	private String familyName = null;
-	
-	public FamilyParseNode(String familyName){	
-		this.familyName  = familyName;
-	}
-	
-	public String getFamilyName(){
-		return familyName;
-	}
-	
-	@Override
-	public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
-		return visitor.visit(this);
-	}
-	
-	@Override
-	   public String toString() {
-	       return familyName+".*";
-	}    
-	
+
+public class PerRegionIndexWriteCache {
+
+  private Map<HRegion, Multimap<HTableInterfaceReference, Mutation>> cache =
+      new HashMap<HRegion, Multimap<HTableInterfaceReference, Mutation>>();
+
+
+  /**
+   * Get the edits for the current region. Removes the edits from the cache. To add them back, call
+   * {@link #addEdits(HRegion, HTableInterfaceReference, Collection)}.
+   * @param region
+   * @return Get the edits for the given region. Returns <tt>null</tt> if there are no pending edits
+   *         for the region
+   */
+  public Multimap<HTableInterfaceReference, Mutation> getEdits(HRegion region) {
+    return cache.remove(region);
+  }
+
+  /**
+   * @param region
+   * @param table
+   * @param collection
+   */
+  public void addEdits(HRegion region, HTableInterfaceReference table,
+      Collection<Mutation> collection) {
+    Multimap<HTableInterfaceReference, Mutation> edits = cache.get(region);
+    if (edits == null) {
+      edits = ArrayListMultimap.<HTableInterfaceReference, Mutation> create();
+      cache.put(region, edits);
+    }
+    edits.putAll(table, collection);
+  }
 }
-

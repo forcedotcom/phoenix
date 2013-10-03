@@ -1,29 +1,23 @@
 package com.salesforce.phoenix.index;
 
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
-import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.join.MaxServerCacheSizeExceededException;
-import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ScanUtil;
 
 public class IndexMetaDataCacheClient {
-    private static final int USE_CACHE_THRESHOLD = 10;
-    // Would expect 128 bits as bytes would be 16 bytes, but these UUIDs end up being 36 bytes
-    private static final int UUID_BYTE_LENGTH = 36; 
+    private static final int USE_CACHE_THRESHOLD = 5;
 
     private final ServerCacheClient serverCache;
+    private TableRef cacheUsingTableRef;
     
     /**
      * Construct client used to send index metadata to each region server
@@ -33,7 +27,8 @@ public class IndexMetaDataCacheClient {
      * @param List<Mutation> the list of mutations that will be sent in the batched put
      */
     public IndexMetaDataCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
-        serverCache = new ServerCacheClient(connection, cacheUsingTableRef);
+        serverCache = new ServerCacheClient(connection);
+        this.cacheUsingTableRef = cacheUsingTableRef;
     }
 
     /**
@@ -45,7 +40,7 @@ public class IndexMetaDataCacheClient {
      * @return
      */
     public static boolean useIndexMetadataCache(List<Mutation> mutations, int indexMetaDataByteLength) {
-        return (indexMetaDataByteLength > UUID_BYTE_LENGTH && mutations.size() > USE_CACHE_THRESHOLD);
+        return (indexMetaDataByteLength > ServerCacheClient.UUID_LENGTH && mutations.size() > USE_CACHE_THRESHOLD);
     }
     
     /**
@@ -56,15 +51,10 @@ public class IndexMetaDataCacheClient {
      * size
      */
     public ServerCache addIndexMetadataCache(List<Mutation> mutations, ImmutableBytesWritable ptr) throws SQLException {
-        List<KeyRange> keys = Lists.newArrayListWithExpectedSize(mutations.size());
-        for (Mutation m : mutations) {
-            keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
-        }
-        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
         /**
          * Serialize and compress hashCacheTable
          */
-        return serverCache.addServerCache(keyRanges, ptr, new IndexMetaDataCacheFactory());
+        return serverCache.addServerCache(ScanUtil.newScanRanges(mutations), ptr, new IndexMetaDataCacheFactory(), cacheUsingTableRef);
     }
     
 }

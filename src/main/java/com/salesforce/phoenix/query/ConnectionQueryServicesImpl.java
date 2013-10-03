@@ -31,7 +31,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT_B
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
@@ -41,29 +41,23 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.NavigableMap;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.MetaScanner;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
@@ -79,11 +73,6 @@ import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.cache.RemovalListener;
-import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -104,11 +93,11 @@ import com.salesforce.phoenix.exception.PhoenixIOException;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.index.PhoenixIndexBuilder;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
-import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -117,11 +106,8 @@ import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
-import com.salesforce.phoenix.schema.SaltingUtil;
-import com.salesforce.phoenix.schema.SchemaNotFoundException;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
-import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
@@ -148,13 +134,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
 
-    /**
-     * keep a cache of HRegionInfo objects
-     * TODO: if/when we delete HBase meta data for tables when we drop them, we'll need to invalidate
-     * this cache properly.
-     */
-    private final LoadingCache<TableRef, NavigableMap<HRegionInfo, ServerName>> tableRegionCache;
-    
     /**
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
      * cluster.
@@ -187,24 +166,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         int statsUpdateFrequencyMs = this.getProps().getInt(QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB, QueryServicesOptions.DEFAULT_STATS_UPDATE_FREQ_MS);
         int maxStatsAgeMs = this.getProps().getInt(QueryServices.MAX_STATS_AGE_MS_ATTRIB, QueryServicesOptions.DEFAULT_MAX_STATS_AGE_MS);
         this.statsManager = new StatsManagerImpl(this, statsUpdateFrequencyMs, maxStatsAgeMs);
-        /**
-         * keep a cache of HRegionInfo objects
-         */
-        tableRegionCache = CacheBuilder.newBuilder().
-            expireAfterAccess(this.getProps().getLong(QueryServices.REGION_BOUNDARY_CACHE_TTL_MS_ATTRIB,QueryServicesOptions.DEFAULT_REGION_BOUNDARY_CACHE_TTL_MS), TimeUnit.MILLISECONDS)
-            .removalListener(new RemovalListener<TableRef, NavigableMap<HRegionInfo, ServerName>>(){
-                @Override
-                public void onRemoval(RemovalNotification<TableRef, NavigableMap<HRegionInfo, ServerName>> notification) {
-                    logger.info("REMOVE: {}", notification.getKey());
-                }
-            })
-            .build(new CacheLoader<TableRef,NavigableMap<HRegionInfo, ServerName>>(){
-                @Override
-                public NavigableMap<HRegionInfo, ServerName> load(TableRef key) throws Exception {
-                    logger.info("LOAD: {}", key);
-                    return MetaScanner.allTableRegions(config, key.getTable().getName().getBytes(), false);
-                }
-            });
     }
 
     @Override
@@ -288,10 +249,24 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException {
+    public List<HRegionLocation> getAllTableRegions(byte[] tableName) throws SQLException {
+        /*
+         * Use HConnection.getRegionLocation as it uses the cache in HConnection, while getting
+         * all region locations from the HTable doesn't. 
+         */
         try {
-            return tableRegionCache.get(table);
-        } catch (ExecutionException e) {
+            // We could surface the package projected HConnectionImplementation.getNumberOfCachedRegionLocations
+            // to get the sizing info we need, but this would require a new class in the same package and a cast
+            // to this implementation class, so it's probably not worth it.
+            List<HRegionLocation> locations = Lists.newArrayList();
+            byte[] currentKey = HConstants.EMPTY_START_ROW;
+            do {
+              HRegionLocation regionLocation = connection.getRegionLocation(tableName, currentKey, false);
+              locations.add(regionLocation);
+              currentKey = regionLocation.getRegionInfo().getEndKey();
+            } while (!Bytes.equals(currentKey, HConstants.EMPTY_END_ROW));
+            return locations;
+        } catch (IOException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.GET_TABLE_REGIONS_FAIL)
                 .setRootCause(e).build().buildException();
         }
@@ -344,7 +319,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                             logger.warn("Attempt to cache older version of " + tableName + ": current= " + table.getSequenceNumber() + ", new=" + tableSeqNum);
                             break;
                         }
-                    } catch (SchemaNotFoundException e) {
                     } catch (TableNotFoundException e) {
                     }
                     long waitTime = endTime - System.currentTimeMillis();
@@ -506,18 +480,17 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (!descriptor.hasCoprocessor(GroupedAggregateRegionObserver.class.getName())) {
                 descriptor.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
             }
-            if (!descriptor.hasCoprocessor(HashJoiningRegionObserver.class.getName())) {
-                descriptor.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
-            }
             if (!descriptor.hasCoprocessor(ServerCachingEndpointImpl.class.getName())) {
                 descriptor.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
             }
             // TODO: better encapsulation for this
-            // Since indexes can't have indexes, don't install our indexing coprocessor for indexes
-            if (tableType != PTableType.INDEX && !descriptor.hasCoprocessor(Indexer.class.getName())) {
+            // Since indexes can't have indexes, don't install our indexing coprocessor for indexes. Also,
+            // don't install on the metadata table until we fix the TODO there.
+            if (tableType != PTableType.INDEX && !descriptor.hasCoprocessor(Indexer.class.getName())
+                  && !SchemaUtil.isMetaTable(tableName)) {
                 Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
                 opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
-                Indexer.enableIndexing(descriptor, CoveredColumnsIndexBuilder.class, opts);
+                Indexer.enableIndexing(descriptor, PhoenixIndexBuilder.class, opts);
             }
             
             // Setup split policy on Phoenix metadata table to ensure that the key values of a Phoenix table
@@ -744,7 +717,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         scan.addColumn(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES);
         // Add filter so that we only get the table row and not the column rows
         scan.setFilter(new SingleColumnValueFilter(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.INTEGER.toBytes(0)));
-        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
+        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME_BYTES, connection, getExecutor());
         ResultScanner scanner = table.getScanner(scan);
         Result result = null;
         while ((result = scanner.next()) != null) {
@@ -760,11 +733,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     existingDesc.removeCoprocessor(ScanRegionObserver.class.getName());
                     existingDesc.removeCoprocessor(UngroupedAggregateRegionObserver.class.getName());
                     existingDesc.removeCoprocessor(GroupedAggregateRegionObserver.class.getName());
-                    existingDesc.removeCoprocessor(HashJoiningRegionObserver.class.getName());
+                    existingDesc.removeCoprocessor(ServerCachingEndpointImpl.class.getName());                    
                     existingDesc.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
                     existingDesc.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
                     existingDesc.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
-                    existingDesc.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
+                    existingDesc.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
                     boolean wasEnabled = admin.isTableEnabled(tableName);
                     if (wasEnabled) {
                         admin.disableTable(tableName);
@@ -804,7 +777,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         filter.setFilterIfMissing(true);
         // Add filter so that we only get the table row and not the column rows
         scan.setFilter(filter);
-        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME, connection, getExecutor());
+        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME_BYTES, connection, getExecutor());
         ResultScanner scanner = table.getScanner(scan);
         Result result = null;
         List<byte[][]> indexesToUpdate = Lists.newArrayList();
@@ -834,7 +807,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     } else if (!existingDesc.hasCoprocessor(Indexer.class.getName())) {
                         Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
                         opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
-                        Indexer.enableIndexing(existingDesc, CoveredColumnsIndexBuilder.class, opts);
+                        Indexer.enableIndexing(existingDesc, PhoenixIndexBuilder.class, opts);
                         wasModified = true;
                     }
                     if (wasModified) {
@@ -878,7 +851,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     indexRowsToUpdate.add(keyRange);
                 }
             }
-            ScanRanges ranges = ScanRanges.create(Collections.singletonList(indexRowsToUpdate), SaltingUtil.VAR_BINARY_SCHEMA);
+            ScanRanges ranges = ScanRanges.create(Collections.singletonList(indexRowsToUpdate), SchemaUtil.VAR_BINARY_SCHEMA);
             Scan indexScan = new Scan();
             scan.addFamily(TABLE_FAMILY_BYTES);
             indexScan.setFilter(ranges.getSkipScanFilter());
@@ -919,9 +892,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         // Finally, at the end, modify the system table
         // which will include the flag that'll prevent this
         // update from occurring again
-        admin.disableTable(TYPE_TABLE_NAME);
-        admin.modifyTable(TYPE_TABLE_NAME, newDesc);
-        admin.enableTable(TYPE_TABLE_NAME);
+        admin.disableTable(TYPE_TABLE_NAME_BYTES);
+        admin.modifyTable(TYPE_TABLE_NAME_BYTES, newDesc);
+        admin.enableTable(TYPE_TABLE_NAME_BYTES);
         if (logger.isInfoEnabled()) {
             logger.info("Upgrade to 2.1.0 completed successfully" );
         }
@@ -939,20 +912,20 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         boolean isIncompatible = false;
         int minHBaseVersion = Integer.MAX_VALUE;
         try {
-            NavigableMap<HRegionInfo, ServerName> regionInfoMap = MetaScanner.allTableRegions(config, TYPE_TABLE_NAME, false);
-            Set<ServerName> serverMap = Sets.newHashSetWithExpectedSize(regionInfoMap.size());
-            TreeMap<byte[], ServerName> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
-            List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(regionInfoMap.size());
-            for (Map.Entry<HRegionInfo, ServerName> entry : regionInfoMap.entrySet()) {
-                if (!serverMap.contains(entry.getValue())) {
-                    regionKeys.add(entry.getKey().getStartKey());
-                    regionMap.put(entry.getKey().getRegionName(), entry.getValue());
-                    serverMap.add(entry.getValue());
+            List<HRegionLocation> locations = this.getAllTableRegions(TYPE_TABLE_NAME_BYTES);
+            Set<HRegionLocation> serverMap = Sets.newHashSetWithExpectedSize(locations.size());
+            TreeMap<byte[], HRegionLocation> regionMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
+            List<byte[]> regionKeys = Lists.newArrayListWithExpectedSize(locations.size());
+            for (HRegionLocation entry : locations) {
+                if (!serverMap.contains(entry)) {
+                    regionKeys.add(entry.getRegionInfo().getStartKey());
+                    regionMap.put(entry.getRegionInfo().getRegionName(), entry);
+                    serverMap.add(entry);
                 }
             }
             final TreeMap<byte[],Long> results = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
             connection.processExecs(MetaDataProtocol.class, regionKeys,
-                    PhoenixDatabaseMetaData.TYPE_TABLE_NAME, this.getDelegate().getExecutor(), new Batch.Call<MetaDataProtocol,Long>() {
+                    PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES, this.getDelegate().getExecutor(), new Batch.Call<MetaDataProtocol,Long>() {
                         @Override
                         public Long call(MetaDataProtocol instance) throws IOException {
                             return instance.getVersion();
@@ -968,7 +941,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 // This is the "phoenix.jar" is in-place, but server is out-of-sync with client case.
                 if (!isCompatible(result.getValue())) {
                     isIncompatible = true;
-                    ServerName name = regionMap.get(result.getKey());
+                    HRegionLocation name = regionMap.get(result.getKey());
                     buf.append(name);
                     buf.append(';');
                 }
@@ -997,11 +970,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         try {
             boolean retried = false;
             while (true) {
-                HRegionLocation regionLocation = retried ? connection.relocateRegion(PhoenixDatabaseMetaData.TYPE_TABLE_NAME, tableKey) : connection.locateRegion(PhoenixDatabaseMetaData.TYPE_TABLE_NAME, tableKey);
+                HRegionLocation regionLocation = retried ? connection.relocateRegion(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES, tableKey) : connection.locateRegion(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES, tableKey);
                 List<byte[]> regionKeys = Collections.singletonList(regionLocation.getRegionInfo().getStartKey());
                 final Map<byte[],MetaDataMutationResult> results = Maps.newHashMapWithExpectedSize(1);
                 connection.processExecs(MetaDataProtocol.class, regionKeys,
-                        PhoenixDatabaseMetaData.TYPE_TABLE_NAME, this.getDelegate().getExecutor(), callable, 
+                        PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES, this.getDelegate().getExecutor(), callable, 
                         new Batch.Callback<MetaDataMutationResult>(){
                             @Override
                             public void update(byte[] region, byte[] row, MetaDataMutationResult value) {
@@ -1162,7 +1135,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     protected void clearCache() throws SQLException {
         try {
             SQLException sqlE = null;
-            HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+            HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
             try {
                 htable.coprocessorExec(MetaDataProtocol.class, HConstants.EMPTY_START_ROW,
                         HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataProtocol, Void>() {

@@ -39,7 +39,7 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -115,10 +115,10 @@ public class ComparisonExpression extends BaseCompoundExpression {
         PDataType rhsDataType = children.get(1).getDataType();
         ColumnModifier rhsColumnModifier = children.get(1).getColumnModifier();   
         if (rhsDataType == PDataType.CHAR) {
-            rhsLength = SchemaUtil.getUnpaddedCharLength(rhsBytes, rhsOffset, rhsLength, rhsColumnModifier);
+            rhsLength = StringUtil.getUnpaddedCharLength(rhsBytes, rhsOffset, rhsLength, rhsColumnModifier);
         }
         if (lhsDataType == PDataType.CHAR) {
-            lhsLength = SchemaUtil.getUnpaddedCharLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
+            lhsLength = StringUtil.getUnpaddedCharLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
         }
         
         int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 

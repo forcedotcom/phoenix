@@ -27,12 +27,23 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.and;
+import static com.salesforce.phoenix.util.TestUtil.constantComparison;
+import static com.salesforce.phoenix.util.TestUtil.kvColumn;
+import static com.salesforce.phoenix.util.TestUtil.or;
+import static com.salesforce.phoenix.util.TestUtil.pkColumn;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
 import java.sql.Date;
-import java.util.*;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -44,7 +55,8 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.expression.function.RoundFunction;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 
 
@@ -65,13 +77,12 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();
         Scan scan = new Scan();
-        statement = StatementNormalizer.normalize(statement);
-        Map<String, ParseNode> aliasParseNodeMap = ProjectionCompiler.buildAliasMap(context, statement);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        statement = StatementNormalizer.normalize(statement, resolver);
         context = new StatementContext(statement, pconn, resolver, binds, scan);
 
-        GroupBy groupBy = GroupByCompiler.compile(context, statement, aliasParseNodeMap);
+        GroupBy groupBy = GroupByCompiler.compile(context, statement);
         // Optimize the HAVING clause by finding any group by expressions that can be moved
         // to the WHERE clause
         statement = HavingCompiler.rewrite(context, statement, groupBy);

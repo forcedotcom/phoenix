@@ -33,14 +33,23 @@ import java.sql.SQLException;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.ExplainPlan;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.compile.QueryPlan;
+import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.compile.ScanRanges;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.FilterableStatement;
-import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.DegenerateScanner;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.Scanner;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -165,6 +174,11 @@ public abstract class BasicQueryPlan implements QueryPlan {
     @Override
     public ParameterMetaData getParameterMetaData() {
         return paramMetaData;
+    }
+
+    @Override
+    public FilterableStatement getStatement() {
+        return statement;
     }
 
     @Override

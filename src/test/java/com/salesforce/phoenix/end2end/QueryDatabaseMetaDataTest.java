@@ -70,10 +70,10 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
+import com.salesforce.phoenix.coprocessor.ServerCachingEndpointImpl;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTableType;
@@ -103,34 +103,34 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         ResultSet rs = dbmd.getTables(null, aSchemaName, aTableName, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_NAME"),aTableName);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertEquals(rs.getString(3),aTableName);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString(4));
+        assertEquals(PTableType.USER.toString(), rs.getString(4));
         assertFalse(rs.next());
         
         rs = dbmd.getTables(null, null, null, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
         assertEquals(rs.getString("TABLE_NAME"),TYPE_TABLE);
-        assertEquals(PTableType.SYSTEM.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.SYSTEM.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
         assertEquals(CUSTOM_ENTITY_DATA_NAME, rs.getString("TABLE_NAME"));
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
 
         rs = dbmd.getTables(null, CUSTOM_ENTITY_DATA_SCHEMA_NAME, CUSTOM_ENTITY_DATA_NAME, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),CUSTOM_ENTITY_DATA_SCHEMA_NAME);
         assertEquals(rs.getString("TABLE_NAME"),CUSTOM_ENTITY_DATA_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
         
         try {
@@ -141,15 +141,15 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         }
         assertFalse(rs.next());
         
-        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.USER.getSerializedValue()});
+        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.USER.toString()});
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.getSerializedValue(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
     }
 
@@ -555,7 +555,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertFalse(SchemaUtil.DEFAULT_DATA_BLOCK_ENCODING == cdC.getDataBlockEncoding());
         assertTrue(descriptor.hasCoprocessor(UngroupedAggregateRegionObserver.class.getName()));
         assertTrue(descriptor.hasCoprocessor(GroupedAggregateRegionObserver.class.getName()));
-        assertTrue(descriptor.hasCoprocessor(HashJoiningRegionObserver.class.getName()));
+        assertTrue(descriptor.hasCoprocessor(ServerCachingEndpointImpl.class.getName()));
         admin.close();
          
         int rowCount = 5;

@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.util;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -185,15 +186,10 @@ public class StringUtil {
             if (string[i] != space) {
                 break;
             }
-//            if ((getBytesInChar(string[i]) != 1 ||
-//                (getBytesInChar(string[i]) == 1 && SPACE_UTF8 < string[i] && string[i] != 0x7f))) {
-//                break;
-//            }
         }
         return i;
     }
 
-    //Why is this so complicated? Can't we just test the byte against SPACE_UTF8?
     public static int getFirstNonBlankCharIdxFromEnd(byte[] string, int offset, int length, ColumnModifier columnModifier) {
         int i = offset + length - 1;
         byte space = columnModifier == null ? SPACE_UTF8 : MOD_SPACE_UTF8[columnModifier.ordinal()];
@@ -201,12 +197,7 @@ public class StringUtil {
             if (string[i] != space) {
                 break;
             }
-//            int b = string[i] & 0xff;
-//            if (((b & BYTES_1_MASK) != 0) ||
-//                ((b & BYTES_1_MASK) == 0 && SPACE_UTF8 < b && b != 0x7f)) {
-//                break;
-//            }
-        }
+         }
         return i;
     }
 
@@ -221,5 +212,17 @@ public class StringUtil {
 
     public static String escapeLike(String s) {
         return replace(s, LIKE_UNESCAPED_SEQS, LIKE_ESCAPE_SEQS);
+    }
+
+    public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
+        return getFirstNonBlankCharIdxFromEnd(b, offset, length, columnModifier) - offset + 1;
+    }
+
+    public static byte[] padChar(byte[] value, Integer byteSize) {
+        byte[] newValue = Arrays.copyOf(value, byteSize);
+        if (newValue.length > value.length) {
+            Arrays.fill(newValue, value.length, newValue.length, SPACE_UTF8);
+        }
+        return newValue;
     }
 }

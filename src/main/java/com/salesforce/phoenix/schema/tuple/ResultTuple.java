@@ -30,6 +30,7 @@ package com.salesforce.phoenix.schema.tuple;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.util.ResultUtil;
 
@@ -69,7 +70,24 @@ public class ResultTuple implements Tuple {
 
     @Override
     public String toString() {
-        return result.toString();
+      StringBuilder sb = new StringBuilder();
+      sb.append("keyvalues=");
+      if(this.result.isEmpty()) {
+        sb.append("NONE");
+        return sb.toString();
+      }
+      sb.append("{");
+      boolean moreThanOne = false;
+      for(KeyValue kv : this.result.list()) {
+        if(moreThanOne) {
+          sb.append(", \n");
+        } else {
+          moreThanOne = true;
+        }
+        sb.append(kv.toString()+"/value="+Bytes.toString(kv.getValue()));
+      }
+      sb.append("}\n");
+      return sb.toString();
     }
 
     @Override

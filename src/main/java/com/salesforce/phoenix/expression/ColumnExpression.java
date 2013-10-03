@@ -27,12 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.base.Objects;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 
 /**
  * 
@@ -141,7 +145,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
     @Override
     public void write(DataOutput output) throws IOException {
         // read/write type ordinal, maxLength presence, scale presence and isNullable bit together to save space
-        int typeAndFlag = (isNullable ? 1 : 0) | (scale != null ? 1 : 0) << 1 | (maxLength != null ? 1 : 0) << 2
+        int typeAndFlag = (isNullable ? 1 : 0) | ((scale != null ? 1 : 0) << 1) | ((maxLength != null ? 1 : 0) << 2)
                 | (type.ordinal() << 3);
         WritableUtils.writeVInt(output,typeAndFlag);
         if (scale != null) {
@@ -150,7 +154,7 @@ abstract public class ColumnExpression extends BaseTerminalExpression {
         if (maxLength != null) {
             WritableUtils.writeVInt(output, maxLength);
         }
-        if (byteSize != null) {
+        if (type.isFixedWidth() && type.getByteSize() == null) {
             WritableUtils.writeVInt(output, byteSize);
         }
         WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));

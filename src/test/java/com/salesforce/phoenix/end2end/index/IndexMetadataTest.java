@@ -1,9 +1,20 @@
 package com.salesforce.phoenix.end2end.index;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -11,7 +22,9 @@ import org.junit.Test;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.util.StringUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
@@ -94,7 +107,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             ddl = "ALTER INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " DISABLE";
             conn.createStatement().execute(ddl);
             // Verify the metadata for index is correct.
-            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.getSerializedValue()});
+            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
             assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
@@ -197,7 +210,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             ddl = "ALTER INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " DISABLE";
             conn.createStatement().execute(ddl);
             // Verify the metadata for index is correct.
-            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.getSerializedValue()});
+            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
             assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));

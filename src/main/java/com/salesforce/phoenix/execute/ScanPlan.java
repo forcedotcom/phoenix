@@ -33,13 +33,28 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.ConcatResultIterator;
+import com.salesforce.phoenix.iterate.LimitingResultIterator;
+import com.salesforce.phoenix.iterate.MergeSortRowKeyResultIterator;
+import com.salesforce.phoenix.iterate.MergeSortTopNResultIterator;
+import com.salesforce.phoenix.iterate.ParallelIterators;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
+import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator;
 import com.salesforce.phoenix.parse.FilterableStatement;
-import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
+import com.salesforce.phoenix.query.Scanner;
+import com.salesforce.phoenix.query.WrappedScanner;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.SaltingUtil;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 
@@ -54,7 +69,7 @@ public class ScanPlan extends BasicQueryPlan {
     private List<KeyRange> splits;
     
     public ScanPlan(StatementContext context, FilterableStatement statement, TableRef table, RowProjector projector, Integer limit, OrderBy orderBy, ParallelIteratorFactory parallelIteratorFactory) {
-        super(context, statement, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null, parallelIteratorFactory);
+        super(context, statement, table, projector, context.getBindManager().getParameterMetaData(), limit, orderBy, null, parallelIteratorFactory == null ? new SpoolingResultIterator.SpoolingResultIteratorFactory(context.getConnection().getQueryServices()) : parallelIteratorFactory);
         if (!orderBy.getOrderByExpressions().isEmpty()) { // TopN
             int thresholdBytes = context.getConnection().getQueryServices().getProps().getInt(
                     QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);

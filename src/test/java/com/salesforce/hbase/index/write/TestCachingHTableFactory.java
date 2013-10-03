@@ -25,48 +25,44 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.compile;
+package com.salesforce.hbase.index.write;
 
-import java.sql.SQLException;
-import java.util.Map;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.Test;
+import org.mockito.Mockito;
 
-import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.ColumnParseNode;
-import com.salesforce.phoenix.parse.ParseNode;
-import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.hbase.index.table.CachingHTableFactory;
+import com.salesforce.hbase.index.table.HTableFactory;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
-/**
- * 
- * Expression compiler that may reference an expression through an alias
- *
- * @author jtaylor
- * @since 1.2
- */
-public class AliasingExpressionCompiler extends ExpressionCompiler {
-    private final Map<String, ParseNode> aliasParseNodeMap;
+public class TestCachingHTableFactory {
 
-    AliasingExpressionCompiler(StatementContext context, Map<String, ParseNode> aliasParseNodeMap) {
-        this(context, GroupBy.EMPTY_GROUP_BY, aliasParseNodeMap);
-    }
+  @Test
+  public void testCacheCorrectlyExpiresTable() throws Exception {
+    // setup the mocks for the tables we will request
+    HTableFactory delegate = Mockito.mock(HTableFactory.class);
+    ImmutableBytesPtr t1 = new ImmutableBytesPtr(Bytes.toBytes("t1"));
+    ImmutableBytesPtr t2 = new ImmutableBytesPtr(Bytes.toBytes("t2"));
+    ImmutableBytesPtr t3 = new ImmutableBytesPtr(Bytes.toBytes("t3"));
+    HTableInterface table1 = Mockito.mock(HTableInterface.class);
+    HTableInterface table2 = Mockito.mock(HTableInterface.class);
+    HTableInterface table3 = Mockito.mock(HTableInterface.class);
+    Mockito.when(delegate.getTable(t1)).thenReturn(table1);
+    Mockito.when(delegate.getTable(t2)).thenReturn(table2);
+    Mockito.when(delegate.getTable(t3)).thenReturn(table3);
     
-    protected AliasingExpressionCompiler(StatementContext context, GroupBy groupBy, Map<String, ParseNode> aliasParseNodeMap) {
-        super(context, groupBy);
-        this.aliasParseNodeMap = aliasParseNodeMap;
-    }
+    // setup our factory with a cache size of 2
+    CachingHTableFactory factory = new CachingHTableFactory(delegate, 2);
+    factory.getTable(t1);
+    factory.getTable(t2);
+    factory.getTable(t3);
+    // get the same table a second time, after it has gone out of cache
+    factory.getTable(t1);
     
-    @Override
-    public Expression visit(ColumnParseNode node) throws SQLException {
-        try {
-            return super.visit(node);
-        } catch (ColumnNotFoundException e) {
-            // If we cannot find the column reference, check out alias map instead
-            ParseNode aliasedNode = aliasParseNodeMap.get(node.getName());
-            if (aliasedNode != null) { // If we found an alias, in-line the parse nodes
-                return aliasedNode.accept(this);
-            }
-            throw e;
-        }
-    }
-    
+    Mockito.verify(delegate, Mockito.times(2)).getTable(t1);
+    Mockito.verify(delegate, Mockito.times(1)).getTable(t2);
+    Mockito.verify(delegate, Mockito.times(1)).getTable(t3);
+    Mockito.verify(table1).close();
+  }
 }

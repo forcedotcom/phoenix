@@ -30,15 +30,16 @@ package com.salesforce.phoenix.query;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Properties;
 
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -93,12 +94,27 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public StatsManager getStatsManager() {
-        throw new UnsupportedOperationException();
+        return new StatsManager() {
+
+            @Override
+            public byte[] getMinKey(TableRef table) {
+                return HConstants.EMPTY_START_ROW;
+            }
+
+            @Override
+            public byte[] getMaxKey(TableRef table) {
+                return HConstants.EMPTY_END_ROW;
+            }
+
+            @Override
+            public void updateStats(TableRef table) throws SQLException {
+            }
+        };
     }
 
     @Override
-    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException {
-        throw new UnsupportedOperationException();
+    public List<HRegionLocation> getAllTableRegions(byte[] tableName) throws SQLException {
+        return Collections.singletonList(new HRegionLocation(new HRegionInfo(tableName, HConstants.EMPTY_START_ROW, HConstants.EMPTY_END_ROW),"localhost",-1));
     }
 
     @Override

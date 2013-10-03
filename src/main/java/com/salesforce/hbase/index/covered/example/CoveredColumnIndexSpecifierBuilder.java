@@ -34,6 +34,7 @@ public class CoveredColumnIndexSpecifierBuilder {
   // private static final String INDEX_GROUP_FULLY_COVERED = ".covered";
 
   List<ColumnGroup> groups = new ArrayList<ColumnGroup>();
+  private Map<String, String> specs = new HashMap<String, String>();
 
   /**
    * Add a group of columns to index
@@ -66,7 +67,6 @@ public class CoveredColumnIndexSpecifierBuilder {
   }
 
   Map<String, String> convertToMap() {
-    Map<String, String> specs = new HashMap<String, String>();
     int total = this.groups.size();
     // hbase.index.covered.groups = i
     specs.put(INDEX_GROUPS_COUNT_KEY, Integer.toString(total));
@@ -149,5 +149,13 @@ public class CoveredColumnIndexSpecifierBuilder {
       columns.add(group);
     }
     return columns;
+  }
+
+  /**
+   * @param recoveryFailurePolicyKeyForTesting
+   * @param class1
+   */
+  public void addArbitraryConfigForTesting(String key, String value) {
+    this.specs.put(key, value);
   }
 }
