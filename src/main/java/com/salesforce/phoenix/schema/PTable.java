@@ -186,4 +186,5 @@ public interface PTable extends Writable {
     boolean isImmutableRows();
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
+    boolean isTenantSpecificTable();
 }

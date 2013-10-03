@@ -752,7 +752,8 @@ public class PTableImpl implements PTable {
         return isTenantSpecificTable() ? getParentName() : getName();
     }
     
-    private boolean isTenantSpecificTable() {
+    @Override
+    public boolean isTenantSpecificTable() {
         return (getType() == USER || getType() == SYSTEM) && getParentTableName() != null;
     }
 }

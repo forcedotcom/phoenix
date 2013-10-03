@@ -267,6 +267,97 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         }
     }
     
+    @Test
+    public void testSelectOnlySeesTenantData() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.close();
+            
+            conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+            ResultSet rs = conn.createStatement().executeQuery("select user from " + TENANT_TABLE_NAME);
+            assertTrue("Expected 1 row in result set", rs.next());
+            assertEquals("Billy Gibbons", rs.getString(1));
+            assertFalse("Expected 1 row in result set", rs.next());
+            
+            rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
+            assertTrue("Expected 1 row in result set", rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertFalse("Expected 1 row in result set", rs.next());
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDeletetOnlyDeletesTenantData() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.close();
+            
+            conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+            conn.setAutoCommit(true);
+            int count = conn.createStatement().executeUpdate("delete from " + TENANT_TABLE_NAME);
+            assertEquals("Expected 1 row have been deleted", 1, count);
+            
+            ResultSet rs = conn.createStatement().executeQuery("select * from " + TENANT_TABLE_NAME);
+            assertFalse("Expected no rows in result set", rs.next());
+            conn.close();
+            
+            conn = DriverManager.getConnection(getUrl());
+            rs = conn.createStatement().executeQuery("select count(*) from " + PARENT_TABLE_NAME);
+            rs.next();
+            assertEquals(1, rs.getInt(1));
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testUpsertSelectOnlyUpsertsTenantData() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.close();
+            
+            conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+            conn.setAutoCommit(true);
+            int count = conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + "(id, user) select id+100, user from " + TENANT_TABLE_NAME);
+            assertEquals("Expected 1 row to have been inserted", 1, count);
+            
+            ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
+            assertEquals(2, rs.getInt(1));
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testUpsertValuesOnlyUpsertsTenantData() throws Exception {
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+        try {
+            conn.setAutoCommit(true);
+            int count = conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, user) values (1, 'Bon Scott')");
+            assertEquals("Expected 1 row to have been inserted", 1, count);
+            
+            ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
+            assertEquals(1, rs.getInt(1));
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
     private void assertTableMetaData(ResultSet rs, String schema, String table, PTableType tableType) throws SQLException {
         assertEquals(schema, rs.getString("TABLE_SCHEM"));
         assertEquals(table, rs.getString("TABLE_NAME"));

@@ -27,18 +27,28 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import static com.google.common.collect.Lists.newArrayList;
+import static com.salesforce.phoenix.expression.LiteralExpression.TRUE_EXPRESSION;
+import static com.salesforce.phoenix.expression.LiteralExpression.newConstant;
+import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
+
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Iterator;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
 import com.salesforce.phoenix.expression.LiteralExpression;
@@ -56,9 +66,11 @@ import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
@@ -98,22 +110,37 @@ public class WhereCompiler {
      */
     public static Expression compileWhereClause(StatementContext context, FilterableStatement statement,
             Set<Expression> extractedNodes) throws SQLException {
-        ParseNode where = statement.getWhere();
-        if (where == null) {
-            return null;
-        }
         WhereExpressionCompiler whereCompiler = new WhereExpressionCompiler(context);
-        Expression expression = where.accept(whereCompiler);
+        ParseNode where = statement.getWhere();
+        Expression expression = where == null ? TRUE_EXPRESSION : where.accept(whereCompiler);
         if (whereCompiler.isAggregate()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
         }
         if (expression.getDataType() != PDataType.BOOLEAN) {
             throw new TypeMismatchException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
         }
+        
+        TableRef tableRef = context.getResolver().getTables().get(0);
+        String tenantId = getTenantId(context);
+        if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
+           expression = new AndExpression(newArrayList(getTenantIdConstraint(tableRef, tenantId), expression));
+        }
+        
         expression = WhereOptimizer.pushKeyExpressionsToScan(context, statement, expression, extractedNodes);
         setScanFilter(context, statement, expression, whereCompiler.disambiguateWithFamily);
 
         return expression;
+    }
+    
+    private static Expression getTenantIdConstraint(TableRef tableRef, String tenantId) throws SQLException {
+        PColumn tenantIdColumn = tableRef.getTable().getPKColumns().get(0);
+        ColumnRef tenantIdColumnRef = new ColumnRef(tableRef, tenantIdColumn.getPosition());
+        return new ComparisonExpression(EQUAL, newArrayList(tenantIdColumnRef.newColumnExpression(), newConstant(tenantId, PDataType.VARCHAR)));
+    }
+    
+    private static @Nullable String getTenantId(StatementContext context) {
+        byte[] tenantId = context.getConnection().getTenantId();
+        return tenantId == null ? null : Bytes.toString(tenantId);
     }
 
     private static class WhereExpressionCompiler extends ExpressionCompiler {

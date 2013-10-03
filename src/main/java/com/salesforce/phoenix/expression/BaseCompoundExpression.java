@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,7 +45,7 @@ public abstract class BaseCompoundExpression extends BaseExpression {
     public BaseCompoundExpression() {
     }
     
-    public BaseCompoundExpression(List<Expression> children) {
+    public BaseCompoundExpression(List<? extends Expression> children) {
         this.children = ImmutableList.copyOf(children);
         for (int i = 0; i < children.size(); i++) {
             Expression child = children.get(i);

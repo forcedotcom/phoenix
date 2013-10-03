@@ -29,7 +29,6 @@ package com.salesforce.phoenix.end2end;
 
 import org.junit.Before;
 
-
 /**
  * 
  * Base class for tests that manage their own time stamps
