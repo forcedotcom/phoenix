@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.Abortable;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -66,17 +67,19 @@ public abstract class BaseTaskRunner implements TaskRunner {
       return submitTasks(futures).get();
     } catch (CancellationException e) {
       // propagate the failure back out
-      String msg = "Found a failed task!";
-      LOG.error(msg, e);
-      tasks.abort(msg, e.getCause());
+      logAndNotifyAbort(e, tasks);
       throw e;
     } catch (ExecutionException e) {
       // propagate the failure back out
-      String msg = "Found a failed task!";
-      LOG.error(msg, e);
-      tasks.abort(msg, e.getCause());
+      logAndNotifyAbort(e, tasks);
       throw e;
     }
+  }
+
+  private void logAndNotifyAbort(Exception e, Abortable abort) {
+    String msg = "Found a failed task because: " + e.getMessage();
+    LOG.error(msg, e);
+    abort.abort(msg, e.getCause());
   }
 
   /**
