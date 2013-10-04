@@ -161,6 +161,7 @@ public enum SQLExceptionCode {
     INTERRUPTED_EXCEPTION(2005, "INT07", "Interrupted exception."),
     INCOMPATIBLE_CLIENT_SERVER_JAR(2006, "INT08", "Incompatible jars detected between client and server."),
     OUTDATED_JARS(2007, "INT09", "Outdated jars."),
+    INDEX_METADATA_NOT_FOUND(2008, "INT10", "Unable to find cached index metadata. "),
     ;
 
     private final int errorCode;

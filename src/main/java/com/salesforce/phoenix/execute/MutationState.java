@@ -49,6 +49,7 @@ import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -336,61 +337,81 @@ public class MutationState implements SQLCloseable {
                 byte[] htableName = pair.getFirst();
                 List<Mutation> mutations = pair.getSecond();
                 
-                ServerCache cache = null;
-                if (hasIndexMaintainers && isDataTable) {
-                    byte[] attribValue = null;
-                    byte[] uuidValue;
-                    if (IndexMetaDataCacheClient.useIndexMetadataCache(mutations, tempPtr.getLength())) {
-                        IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
-                        cache = client.addIndexMetadataCache(mutations, tempPtr);
-                        uuidValue = cache.getId();
-                    } else {
-                        attribValue = ByteUtil.copyKeyBytesIfNecessary(tempPtr);
-                        uuidValue = ServerCacheClient.generateId();
-                    }
-                    // Either set the UUID to be able to access the index metadata from the cache
-                    // or set the index metadata directly on the Mutation
-                    for (Mutation mutation : mutations) {
-                        mutation.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
-                        if (attribValue != null) {
-                            mutation.setAttribute(PhoenixIndexCodec.INDEX_MD, attribValue);
-                        }
-                    }
-                }
-                
-                SQLException sqlE = null;
-                HTableInterface hTable = connection.getQueryServices().getTable(htableName);
-                try {
-                    if (logger.isDebugEnabled()) logMutationSize(hTable, mutations);
-                    long startTime = System.currentTimeMillis();
-                    hTable.batch(mutations);
-                    if (logger.isDebugEnabled()) logger.debug("Total time for batch call of  " + mutations.size() + " mutations into " + table.getName().getString() + ": " + (System.currentTimeMillis() - startTime) + " ms");
-                    committedList.add(entry);
-                } catch (Exception e) {
-                    // Throw to client with both what was committed so far and what is left to be committed.
-                    // That way, client can either undo what was done or try again with what was not done.
-                    sqlE = new CommitException(e, this, new MutationState(committedList, this.sizeOffset, this.maxSize, this.connection));
-                } finally {
-                    try {
-                        hTable.close();
-                    } catch (IOException e) {
-                        if (sqlE != null) {
-                            sqlE.setNextException(ServerUtil.parseServerException(e));
+                int retryCount = 0;
+                boolean shouldRetry = false;
+                do {
+                    ServerCache cache = null;
+                    if (hasIndexMaintainers && isDataTable) {
+                        byte[] attribValue = null;
+                        byte[] uuidValue;
+                        if (IndexMetaDataCacheClient.useIndexMetadataCache(mutations, tempPtr.getLength())) {
+                            IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
+                            cache = client.addIndexMetadataCache(mutations, tempPtr);
+                            uuidValue = cache.getId();
+                            // If we haven't retried yet, retry for this case only, as it's possible that
+                            // a split will occur after we send the index metadata cache to all known
+                            // region servers.
+                            shouldRetry = true;
                         } else {
-                            sqlE = ServerUtil.parseServerException(e);
+                            attribValue = ByteUtil.copyKeyBytesIfNecessary(tempPtr);
+                            uuidValue = ServerCacheClient.generateId();
                         }
+                        // Either set the UUID to be able to access the index metadata from the cache
+                        // or set the index metadata directly on the Mutation
+                        for (Mutation mutation : mutations) {
+                            mutation.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
+                            if (attribValue != null) {
+                                mutation.setAttribute(PhoenixIndexCodec.INDEX_MD, attribValue);
+                            }
+                        }
+                    }
+                    
+                    SQLException sqlE = null;
+                    HTableInterface hTable = connection.getQueryServices().getTable(htableName);
+                    try {
+                        if (logger.isDebugEnabled()) logMutationSize(hTable, mutations);
+                        long startTime = System.currentTimeMillis();
+                        hTable.batch(mutations);
+                        shouldRetry = false;
+                        if (logger.isDebugEnabled()) logger.debug("Total time for batch call of  " + mutations.size() + " mutations into " + table.getName().getString() + ": " + (System.currentTimeMillis() - startTime) + " ms");
+                        committedList.add(entry);
+                    } catch (Exception e) {
+                        SQLException inferredE = ServerUtil.parseServerExceptionOrNull(e);
+                        if (inferredE != null) {
+                            if (shouldRetry && retryCount == 0 && inferredE.getErrorCode() == SQLExceptionCode.INDEX_METADATA_NOT_FOUND.getErrorCode()) {
+                                // Swallow this exception once, as it's possible that we split after sending the index metadata
+                                // and one of the region servers doesn't have it. This will cause it to have it the next go around.
+                                // If it fails again, we don't retry.
+                                logger.warn("Swallowing exception and retrying after " + inferredE);
+                                continue;
+                            }
+                            e = inferredE;
+                        }
+                        // Throw to client with both what was committed so far and what is left to be committed.
+                        // That way, client can either undo what was done or try again with what was not done.
+                        sqlE = new CommitException(e, this, new MutationState(committedList, this.sizeOffset, this.maxSize, this.connection));
                     } finally {
                         try {
-                            if (cache != null) {
-                                cache.close();
+                            hTable.close();
+                        } catch (IOException e) {
+                            if (sqlE != null) {
+                                sqlE.setNextException(ServerUtil.parseServerException(e));
+                            } else {
+                                sqlE = ServerUtil.parseServerException(e);
                             }
                         } finally {
-                            if (sqlE != null) {
-                                throw sqlE;
+                            try {
+                                if (cache != null) {
+                                    cache.close();
+                                }
+                            } finally {
+                                if (sqlE != null) {
+                                    throw sqlE;
+                                }
                             }
                         }
                     }
-                }
+                } while (shouldRetry && retryCount++ < 1);
                 isDataTable = false;
             }
             numEntries -= entry.getValue().size();

@@ -16,11 +16,11 @@
 package com.salesforce.phoenix.index;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -40,7 +40,10 @@ import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
 import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.ServerUtil;
 /**
  * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
  * {@link #getIndexDeletes(TableState)}) as well as what the new index state should be (
@@ -77,7 +80,10 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             IndexMetaDataCache indexCache =
                 (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
             if (indexCache == null) {
-                throw new DoNotRetryIOException("Unable to find " + INDEX_UUID + " in cache for '" + Bytes.toStringBinary(uuid) + "' in " + env.getRegion());
+                String msg = Bytes.toStringBinary(uuid) + "' in " + env.getRegion();
+                SQLException e = new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_METADATA_NOT_FOUND)
+                    .setMessage(msg).setTableName(env.getRegion().getTableDesc().getNameAsString()).build().buildException();
+                ServerUtil.throwIOException(msg, e); // will not return
             }
             indexMaintainers = indexCache.getIndexMaintainers();
         }

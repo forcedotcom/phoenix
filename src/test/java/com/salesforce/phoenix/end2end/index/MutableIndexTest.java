@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.junit.Before;
@@ -527,6 +528,85 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         assertEquals("a", rs.getString(1));
         assertEquals("y", rs.getString(2));
         assertNull(rs.getString(3));
+        assertFalse(rs.next());
+    }
+
+    @Test
+    public void testSplitAfterSendingIndexMetaData() throws Exception {
+        String query;
+        ResultSet rs;
+    
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+    
+        // make sure that the tables are empty, but reachable
+        conn.createStatement().execute(
+          "CREATE TABLE " + DATA_TABLE_FULL_NAME
+              + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) " + HTableDescriptor.MAX_FILESIZE + "=1, " + HTableDescriptor.MEMSTORE_FLUSHSIZE + "=1");
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        conn.createStatement().execute(
+          "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME + " (v1, v2)");
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        // load some data into the table
+        PreparedStatement stmt =
+            conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "x");
+        stmt.setString(3, "1");
+        stmt.execute();
+        stmt.setString(1, "b");
+        stmt.setString(2, "y");
+        stmt.setString(3, "2");
+        stmt.execute();
+        stmt.setString(1, "c");
+        stmt.setString(2, "z");
+        stmt.setString(3, "3");
+        stmt.execute();
+        conn.commit();
+        
+        // make sure the index is working as expected
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("x", rs.getString(1));
+        assertEquals("1", rs.getString(2));
+        assertEquals("a", rs.getString(3));
+        assertTrue(rs.next());
+        assertEquals("y", rs.getString(1));
+        assertEquals("2", rs.getString(2));
+        assertEquals("b", rs.getString(3));
+        assertTrue(rs.next());
+        assertEquals("z", rs.getString(1));
+        assertEquals("3", rs.getString(2));
+        assertEquals("c", rs.getString(3));
+        assertFalse(rs.next());
+
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+        assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME,
+          QueryUtil.getExplainPlan(rs));
+    
+        // check that the data table matches as expected
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a", rs.getString(1));
+        assertEquals("x", rs.getString(2));
+        assertEquals("1", rs.getString(3));
+        assertTrue(rs.next());
+        assertEquals("b", rs.getString(1));
+        assertEquals("y", rs.getString(2));
+        assertEquals("2", rs.getString(3));
+        assertTrue(rs.next());
+        assertEquals("c", rs.getString(1));
+        assertEquals("z", rs.getString(2));
+        assertEquals("3", rs.getString(3));
         assertFalse(rs.next());
     }
 }
