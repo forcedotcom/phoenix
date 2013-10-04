@@ -165,4 +165,9 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return getDelegate().getTableDescriptor(tableName);
     }
+
+    @Override
+    public void clearTableRegionCache(byte[] tableName) throws SQLException {
+        getDelegate().clearTableRegionCache(tableName);
+    }
 }

@@ -26,7 +26,6 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
@@ -39,6 +38,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
+import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
@@ -80,9 +80,9 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             IndexMetaDataCache indexCache =
                 (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
             if (indexCache == null) {
-                String msg = Bytes.toStringBinary(uuid) + "' in " + env.getRegion();
+                String msg = " key="+ServerCacheClient.idToString(uuid) + " region=" + env.getRegion();
                 SQLException e = new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_METADATA_NOT_FOUND)
-                    .setMessage(msg).setTableName(env.getRegion().getTableDesc().getNameAsString()).build().buildException();
+                    .setMessage(msg).build().buildException();
                 ServerUtil.throwIOException(msg, e); // will not return
             }
             indexMaintainers = indexCache.getIndexMaintainers();

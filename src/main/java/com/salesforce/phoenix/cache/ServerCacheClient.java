@@ -278,4 +278,9 @@ public class ServerCacheClient {
         long rand = RANDOM.nextLong();
         return Bytes.toBytes(rand);
     }
+    
+    public static String idToString(byte[] uuid) {
+        assert(uuid.length == Bytes.SIZEOF_LONG);
+        return Long.toString(Bytes.toLong(uuid));
+    }
 }

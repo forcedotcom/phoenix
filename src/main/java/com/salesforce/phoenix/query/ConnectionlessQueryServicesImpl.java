@@ -232,4 +232,8 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return null;
     }
+
+    @Override
+    public void clearTableRegionCache(byte[] tableName) throws SQLException {
+    }
 }

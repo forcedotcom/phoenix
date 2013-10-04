@@ -61,6 +61,7 @@ import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.IndexUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.ServerUtil;
 
@@ -319,6 +320,7 @@ public class MutationState implements SQLCloseable {
     
     public void commit() throws SQLException {
         int i = 0;
+        byte[] tenantId = connection.getTenantId();
         long[] serverTimeStamps = validate();
         Iterator<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> iterator = this.mutations.entrySet().iterator();
         List<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> committedList = Lists.newArrayListWithCapacity(this.mutations.size());
@@ -359,6 +361,9 @@ public class MutationState implements SQLCloseable {
                         // Either set the UUID to be able to access the index metadata from the cache
                         // or set the index metadata directly on the Mutation
                         for (Mutation mutation : mutations) {
+                            if (tenantId != null) {
+                                mutation.setAttribute(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId);
+                            }
                             mutation.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
                             if (attribValue != null) {
                                 mutation.setAttribute(PhoenixIndexCodec.INDEX_MD, attribValue);
@@ -382,7 +387,8 @@ public class MutationState implements SQLCloseable {
                                 // Swallow this exception once, as it's possible that we split after sending the index metadata
                                 // and one of the region servers doesn't have it. This will cause it to have it the next go around.
                                 // If it fails again, we don't retry.
-                                logger.warn("Swallowing exception and retrying after " + inferredE);
+                                logger.warn("Swallowing exception and retrying after clearing meta cache on connection. " + inferredE);
+                                connection.getQueryServices().clearTableRegionCache(htableName);
                                 continue;
                             }
                             e = inferredE;

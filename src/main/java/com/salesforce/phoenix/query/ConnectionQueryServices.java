@@ -85,4 +85,6 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     public int getLowestClusterHBaseVersion();
     public HBaseAdmin getAdmin() throws SQLException;
+
+    void clearTableRegionCache(byte[] tableName) throws SQLException;
 }

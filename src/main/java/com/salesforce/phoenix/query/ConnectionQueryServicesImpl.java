@@ -250,6 +250,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
+    public void clearTableRegionCache(byte[] tableName) throws SQLException {
+        connection.clearRegionCache(tableName);
+    }
+    
+    @Override
     public List<HRegionLocation> getAllTableRegions(byte[] tableName) throws SQLException {
         /*
          * Use HConnection.getRegionLocation as it uses the cache in HConnection, while getting
