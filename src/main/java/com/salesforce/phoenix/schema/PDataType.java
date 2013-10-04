@@ -1290,6 +1290,8 @@ public enum PDataType {
             switch (actualType) {
             case DECIMAL:
                 return toBigDecimal(b, o, l);
+            case DATE:
+            case TIME:
             case LONG:
             case INTEGER:
             case SMALLINT:

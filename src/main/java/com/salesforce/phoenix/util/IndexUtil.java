@@ -77,7 +77,7 @@ public class IndexUtil {
             return dataType;
         }
         // for INT, BIGINT
-        if (dataType.isCoercibleTo(PDataType.DECIMAL)) {
+        if (dataType == PDataType.DATE || dataType == PDataType.TIME || dataType.isCoercibleTo(PDataType.DECIMAL)) {
             return PDataType.DECIMAL;
         }
         // for CHAR

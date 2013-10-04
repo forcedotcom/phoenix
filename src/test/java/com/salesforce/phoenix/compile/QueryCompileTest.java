@@ -953,7 +953,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    public void testUsingNonCoercibleDataTypesInRowValueConstructorFails() throws Exception {
+    public void testUsingNonComparableDataTypesInRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) > (2, 'abc')";
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
@@ -966,7 +966,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    public void testUsingNonCoercibleDataTypesOfColumnRefOnLHSAndRowValueConstructorFails() throws Exception {
+    public void testUsingNonComparableDataTypesOfColumnRefOnLHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE a_integer > ('abc', 2)";
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
@@ -979,7 +979,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    public void testUsingNonCoercibleDataTypesOfLiteralOnLHSAndRowValueConstructorFails() throws Exception {
+    public void testUsingNonComparableDataTypesOfLiteralOnLHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE 'abc' > (a_integer, x_integer)";
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
@@ -992,7 +992,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    public void testUsingNonCoercibleDataTypesOfColumnRefOnRHSAndRowValueConstructorFails() throws Exception {
+    public void testUsingNonComparableDataTypesOfColumnRefOnRHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE ('abc', 2) < a_integer ";
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
@@ -1005,7 +1005,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    public void testUsingNonCoercibleDataTypesOfLiteralOnRHSAndRowValueConstructorFails() throws Exception {
+    public void testUsingNonComparableDataTypesOfLiteralOnRHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) < 'abc'";
         List<Object> binds = Collections.emptyList();
         Scan scan = new Scan();
