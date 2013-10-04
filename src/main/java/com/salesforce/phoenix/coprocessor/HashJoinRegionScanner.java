@@ -124,7 +124,7 @@ public class HashJoinRegionScanner implements RegionScanner {
                             List<KeyValue> rhs = ((ResultTuple) t).getResult().list();
                             List<KeyValue> joined = new ArrayList<KeyValue>(lhs.size() + rhs.size());
                             joined.addAll(lhs);
-                            joined.addAll(rhs); // we don't replace rowkey here, for further reference to the rowkey fields, needs to specify family as well.
+                            joined.addAll(rhs);
                             resultQueue.offer(joined);
                         }
                     }

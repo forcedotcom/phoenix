@@ -181,7 +181,7 @@ public class QueryCompiler {
                     throw new SQLException(e);
                 }
             }
-            Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, null);
+            Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
             ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
             BasicQueryPlan plan = compileSingleQuery(context, JoinCompiler.getSubqueryWithoutJoin(statement, join), binds);
@@ -198,7 +198,7 @@ public class QueryCompiler {
             SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoin(statement, join);
             SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(statement, join);
             context.setCurrentTable(lastJoinTable.getTable());
-            JoinSpec lhsJoin = JoinCompiler.getSubJoinSpec(join);
+            JoinSpec lhsJoin = JoinCompiler.getSubJoinSpecWithoutPostFilters(join);
             Scan subScan;
             try {
                 subScan = new Scan(scanCopy);
@@ -208,7 +208,7 @@ public class QueryCompiler {
             StatementContext lhsCtx = new StatementContext(statement, connection, context.getResolver(), binds, subScan, true, context.getHashClient());
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr(emptyByteArray)};
-            Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, lastJoinTable);
+            Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
             List<Expression> joinExpressions = lastJoinTable.compileRightTableConditions(context);
             List<Expression> hashExpressions = lastJoinTable.compileLeftTableConditions(context);
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
@@ -230,7 +230,7 @@ public class QueryCompiler {
         ScanProjector.serializeProjectorIntoScan(subScan, lastJoinTable.getScanProjector());
         QueryPlan rhsPlan = compile(rhs, binds, subScan);
         ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr(emptyByteArray)};
-        Expression postJoinFilterExpression = JoinCompiler.compilePostJoinFilterExpression(context, join, null);
+        Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
         List<Expression> joinExpressions = lastJoinTable.compileLeftTableConditions(context);
         List<Expression> hashExpressions = lastJoinTable.compileRightTableConditions(context);
         HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);

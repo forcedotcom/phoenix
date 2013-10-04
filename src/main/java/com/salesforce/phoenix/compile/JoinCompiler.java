@@ -102,6 +102,7 @@ public class JoinCompiler {
             this.preFilters = new ArrayList<ParseNode>();
             this.postFilters = new ArrayList<ParseNode>();
             ColumnParseNodeVisitor visitor = new ColumnParseNodeVisitor(resolver);
+            boolean hasRightJoin = false;
             TableNode tableNode = null;
             while (iter.hasNext()) {
                 tableNode = iter.next();
@@ -111,9 +112,17 @@ public class JoinCompiler {
                 JoinTable joinTable = new JoinTable(joinTableNode, tableRefIter.next(), selectList, resolver);
                 joinTables.add(joinTable);
                 joinTableNode.getOnNode().accept(visitor);
+                if (joinTable.getType() == JoinType.Right) {
+                	hasRightJoin = true;
+                }
             }
             if (statement.getWhere() != null) {
-                statement.getWhere().accept(new WhereNodeVisitor(resolver));
+            	if (hasRightJoin) {
+            		// conditions can't be pushed down to the scan filter.
+            		postFilters.add(statement.getWhere());
+            	} else {
+            		statement.getWhere().accept(new WhereNodeVisitor(resolver));
+            	}
             }
             for (AliasedNode node : selectList) {
                 node.getNode().accept(visitor);
@@ -187,18 +196,25 @@ public class JoinCompiler {
             return new ScanProjector(tableName);
         }
         
-        public List<Expression> compilePostFilterExpressions(StatementContext context) throws SQLException {
+        public Expression compilePostFilterExpression(StatementContext context) throws SQLException {
+        	if (postFilters == null || postFilters.isEmpty())
+        		return null;
+        	
             ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
             context.getResolver().setDisambiguateWithTable(true);
-            List<Expression> ret = new ArrayList<Expression>(postFilters.size());
+            List<Expression> expressions = new ArrayList<Expression>(postFilters.size());
             for (ParseNode postFilter : postFilters) {
                 expressionCompiler.reset();
                 Expression expression = postFilter.accept(expressionCompiler);
-                ret.add(expression);
+                expressions.add(expression);
             }
-            return ret;
+            
+            if (expressions.size() == 1)
+            	return expressions.get(0);
+            
+            return new AndExpression(expressions);
         }
-        
+
         public void projectColumns(Scan scan, TableRef table) {
             if (isWildCardSelect(select)) {
                 scan.getFamilyMap().clear();
@@ -300,19 +316,18 @@ public class JoinCompiler {
         }
     }
     
-    public static JoinSpec getSubJoinSpec(JoinSpec join) {
-        return new JoinSpec(join.mainTable, join.select, join.preFilters, join.postFilters, 
+    public static JoinSpec getSubJoinSpecWithoutPostFilters(JoinSpec join) {
+        return new JoinSpec(join.mainTable, join.select, join.preFilters, new ArrayList<ParseNode>(), 
                 join.joinTables.subList(0, join.joinTables.size() - 1), join.columnRefs);
     }
     
     public static class JoinTable {
         private JoinType type;
-        private List<ParseNode> conditions;
         private TableNode tableNode; // original table node
         private TableRef table;
         private List<AliasedNode> select; // all basic nodes related to this table, no aggregation.
         private List<ParseNode> preFilters;
-        private List<ParseNode> postFilters;
+        private List<ParseNode> conditions;
         private SelectStatement subquery;
         
         private Set<TableRef> leftTableRefs;
@@ -322,22 +337,17 @@ public class JoinCompiler {
                 throw new SQLFeatureNotSupportedException();
             
             this.type = node.getType();
-            this.conditions = new ArrayList<ParseNode>();
             this.tableNode = node.getTable();
             this.table = tableRef;
             this.select = extractFromSelect(select,tableRef,resolver);
             this.preFilters = new ArrayList<ParseNode>();
-            this.postFilters = new ArrayList<ParseNode>();
+            this.conditions = new ArrayList<ParseNode>();
             this.leftTableRefs = new HashSet<TableRef>();
             node.getOnNode().accept(new OnNodeVisitor(resolver));
         }
         
         public JoinType getType() {
             return type;
-        }
-        
-        public List<ParseNode> getJoinConditions() {
-            return conditions;
         }
         
         public TableNode getTableNode() {
@@ -356,8 +366,8 @@ public class JoinCompiler {
             return preFilters;
         }
         
-        public List<ParseNode> getPostFilters() {
-            return postFilters;
+        public List<ParseNode> getJoinConditions() {
+            return conditions;
         }
         
         public SelectStatement getSubquery() {
@@ -389,18 +399,6 @@ public class JoinCompiler {
         
         public ScanProjector getScanProjector() {
             return new ScanProjector(ScanProjector.getPrefixForTable(table));
-        }
-        
-        public List<Expression> compilePostFilterExpressions(StatementContext context) throws SQLException {
-            ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
-            context.getResolver().setDisambiguateWithTable(true);
-            List<Expression> ret = new ArrayList<Expression>(postFilters.size());
-            for (ParseNode postFilter : postFilters) {
-                expressionCompiler.reset();
-                Expression expression = postFilter.accept(expressionCompiler);
-                ret.add(expression);
-            }
-            return ret;
         }
         
         public List<Expression> compileLeftTableConditions(StatementContext context) throws SQLException {
@@ -447,7 +445,7 @@ public class JoinCompiler {
                         || type == ColumnParseNodeVisitor.ContentType.SELF_ONLY) {
                     preFilters.add(node);
                 } else {
-                    postFilters.add(node);
+                    throwUnsupportedJoinConditionException();
                 }
                 return null;
             }
@@ -480,25 +478,19 @@ public class JoinCompiler {
                 node.getRHS().accept(rhsVisitor);
                 ColumnParseNodeVisitor.ContentType lhsType = lhsVisitor.getContentType(table);
                 ColumnParseNodeVisitor.ContentType rhsType = rhsVisitor.getContentType(table);
-                if (lhsType == ColumnParseNodeVisitor.ContentType.COMPLEX) {
-                    postFilters.add(node);
-                } else if (lhsType == ColumnParseNodeVisitor.ContentType.FOREIGN_ONLY) {
-                    if (rhsType == ColumnParseNodeVisitor.ContentType.NONE
-                            || rhsType == ColumnParseNodeVisitor.ContentType.SELF_ONLY) {
-                        conditions.add(node);
-                        leftTableRefs.addAll(lhsVisitor.getTableRefSet());
-                    } else {
-                        postFilters.add(node);
-                    }
+                if ((lhsType == ColumnParseNodeVisitor.ContentType.SELF_ONLY || lhsType == ColumnParseNodeVisitor.ContentType.NONE)
+                		&& (rhsType == ColumnParseNodeVisitor.ContentType.SELF_ONLY || rhsType == ColumnParseNodeVisitor.ContentType.NONE)) {
+                    preFilters.add(node);
+                } else if (lhsType == ColumnParseNodeVisitor.ContentType.FOREIGN_ONLY 
+                		&& rhsType == ColumnParseNodeVisitor.ContentType.SELF_ONLY) {
+                    conditions.add(node);
+                    leftTableRefs.addAll(lhsVisitor.getTableRefSet());
+                } else if (rhsType == ColumnParseNodeVisitor.ContentType.FOREIGN_ONLY 
+                		&& lhsType == ColumnParseNodeVisitor.ContentType.SELF_ONLY) {
+                    conditions.add(NODE_FACTORY.equal(node.getRHS(), node.getLHS()));
+                    leftTableRefs.addAll(rhsVisitor.getTableRefSet());
                 } else {
-                    if (rhsType == ColumnParseNodeVisitor.ContentType.COMPLEX) {
-                        postFilters.add(node);
-                    } else if (rhsType == ColumnParseNodeVisitor.ContentType.FOREIGN_ONLY) {
-                        conditions.add(NODE_FACTORY.equal(node.getRHS(), node.getLHS()));
-                        leftTableRefs.addAll(rhsVisitor.getTableRefSet());
-                    } else {
-                        preFilters.add(node);
-                    }
+                	throwUnsupportedJoinConditionException();
                 }
                 return null;
             }
@@ -543,6 +535,18 @@ public class JoinCompiler {
             public Void visitLeave(CastParseNode node, List<Void> l) 
             		throws SQLException {
             	return leaveNonEqBooleanNode(node, l);
+            }
+
+            /*
+             * Conditions in the ON clause can only be:
+             * 1) an equal test between a self table expression and a foreign 
+             *    table expression.
+             * 2) a boolean condition referencing to the self table only.
+             * Otherwise, it can be ambiguous.
+             */
+            private void throwUnsupportedJoinConditionException() 
+            		throws SQLFeatureNotSupportedException {
+            	throw new SQLFeatureNotSupportedException("Does not support non-standard or non-equi join conditions.");
             }
         }
     }
@@ -676,22 +680,12 @@ public class JoinCompiler {
         int count = joinTables.size();
         assert (count > 0);
         List<AliasedNode> select = new ArrayList<AliasedNode>();
-        List<ParseNode> filters = new ArrayList<ParseNode>();
         select.addAll(join.getSelect());
-        filters.addAll(join.getPreFilters());
         for (int i = 0; i < count - 1; i++) {
             select.addAll(joinTables.get(i).getSelect());
-            filters.addAll(joinTables.get(i).getPreFilters());
-            filters.addAll(joinTables.get(i).getPostFilters());
-        }
-        ParseNode where = null;
-        if (filters.size() == 1) {
-            where = filters.get(0);
-        } else if (filters.size() > 1) {
-            where = NODE_FACTORY.and(filters);
         }
         
-        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), false, select, where, null, null, null, null, statement.getBindCount(), false);
+        return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), false, select, join.getPreFiltersCombined(), null, null, null, null, statement.getBindCount(), false);
     }
     
     // Get subquery with complete select and where nodes
@@ -703,25 +697,5 @@ public class JoinCompiler {
             throw new SQLFeatureNotSupportedException("Joins followed by a left join not supported.");
         
         return NODE_FACTORY.select(from.subList(0, from.size() - 1), statement.getHint(), statement.isDistinct(), statement.getSelect(), join.getPreFiltersCombined(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
-    }
-    
-    public static Expression compilePostJoinFilterExpression(StatementContext context, JoinSpec join, JoinTable joinTable) throws SQLException {
-        List<Expression> postFilters = new ArrayList<Expression>();
-        if (joinTable != null) {
-            postFilters.addAll(joinTable.compilePostFilterExpressions(context));
-        } else {
-            for (JoinTable table : join.getJoinTables()) {
-                postFilters.addAll(table.compilePostFilterExpressions(context));
-            }
-        }
-        postFilters.addAll(join.compilePostFilterExpressions(context));
-        Expression postJoinFilterExpression = null;
-        if (postFilters.size() == 1) {
-            postJoinFilterExpression = postFilters.get(0);
-        } else if (postFilters.size() > 1) {
-            postJoinFilterExpression = new AndExpression(postFilters);
-        }
-        
-        return postJoinFilterExpression;
     }
 }
