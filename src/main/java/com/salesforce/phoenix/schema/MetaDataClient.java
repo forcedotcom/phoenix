@@ -250,7 +250,7 @@ public class MetaDataClient {
         }
         final byte[] schemaBytes = PDataType.VARCHAR.toBytes(schemaName);
         final byte[] tableBytes = PDataType.VARCHAR.toBytes(tableName);
-        MetaDataMutationResult result = connection.getQueryServices().getTable(connection.getTenantId(), schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
+        MetaDataMutationResult result = connection.getQueryServices().getTable(connection.getTenantId() == null ? null : connection.getTenantId().getBytes(), schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
         
         MutationCode code = result.getMutationCode();
         PTable resultTable = result.getTable();
@@ -276,7 +276,7 @@ public class MetaDataClient {
 
 
     private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert, String parentTableName, boolean isSalted) throws SQLException {
-        colUpsert.setString(1, Bytes.toString(connection.getTenantId()));
+        colUpsert.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
         colUpsert.setString(2, schemaName);
         colUpsert.setString(3, tableName);
         colUpsert.setString(4, column.getName().getString());
@@ -534,7 +534,7 @@ public class MetaDataClient {
                 parentTableName = parent.getTableName().getString();
                 // Pass through data table sequence number so we can check it hasn't changed
                 PreparedStatement incrementStatement = connection.prepareStatement(INCREMENT_SEQ_NUM);
-                incrementStatement.setString(1, Bytes.toString(connection.getTenantId()));
+                incrementStatement.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
                 incrementStatement.setString(2, schemaName);
                 incrementStatement.setString(3, parentTableName);
                 incrementStatement.setLong(4, parent.getSequenceNumber());
@@ -546,7 +546,7 @@ public class MetaDataClient {
 
                 // Add row linking from data table row to index table row
                 PreparedStatement linkStatement = connection.prepareStatement(CREATE_INDEX_LINK);
-                linkStatement.setString(1, Bytes.toString(connection.getTenantId()));
+                linkStatement.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
                 linkStatement.setString(2, schemaName);
                 linkStatement.setString(3, parentTableName);
                 linkStatement.setString(4, tableName);
@@ -603,8 +603,7 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
             }
             
-            byte[] tenantIdBytes = connection.getTenantId();
-            String tenantId = Bytes.toString(tenantIdBytes);
+            String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
             String baseTableName = (String)tableProps.remove(BASE_TABLE_PROP_NAME);
             
             if ((tenantId == null && baseTableName != null) || (tenantId != null && baseTableName == null)) {
@@ -839,7 +838,7 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
-            byte[] tenantIdBytes = connection.getTenantId();
+            byte[] tenantIdBytes = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
             if (tenantIdBytes == null) tenantIdBytes = ByteUtil.EMPTY_BYTE_ARRAY;
             byte[] key = SchemaUtil.getTableKey(tenantIdBytes, schemaName, tableName);
             Long scn = connection.getSCN();
@@ -1011,7 +1010,7 @@ public class MetaDataClient {
                 int totalColumnCount = position + (isSalted ? 0 : 1);
                 final long seqNum = table.getSequenceNumber() + 1;
                 PreparedStatement tableUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? MUTATE_SYSTEM_TABLE : MUTATE_TABLE);
-                tableUpsert.setString(1, Bytes.toString(connection.getTenantId()));
+                tableUpsert.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
                 tableUpsert.setString(2, schemaName);
                 tableUpsert.setString(3, tableName);
                 tableUpsert.setString(4, table.getType().getSerializedValue());
@@ -1133,7 +1132,7 @@ public class MetaDataClient {
                 colDelete.execute();
                 
                 PreparedStatement colUpdate = connection.prepareStatement(UPDATE_COLUMN_POSITION);
-                colUpdate.setString(1, Bytes.toString(connection.getTenantId()));
+                colUpdate.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
                 colUpdate.setString(2, schemaName);
                 colUpdate.setString(3, tableName);
                 for (int i = columnToDrop.getPosition() + 1; i < table.getColumns().size(); i++) {
@@ -1148,7 +1147,7 @@ public class MetaDataClient {
                 
                 final long seqNum = table.getSequenceNumber() + 1;
                 PreparedStatement tableUpsert = connection.prepareStatement(MUTATE_TABLE);
-                tableUpsert.setString(1, Bytes.toString(connection.getTenantId()));
+                tableUpsert.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
                 tableUpsert.setString(2, schemaName);
                 tableUpsert.setString(3, tableName);
                 tableUpsert.setString(4, table.getType().getSerializedValue());
@@ -1214,7 +1213,7 @@ public class MetaDataClient {
             // Confirm index table is valid and up-to-date
             FromCompiler.getResolver(statement, connection);
             PreparedStatement tableUpsert = connection.prepareStatement(UPDATE_INDEX_STATE);
-            tableUpsert.setString(1, Bytes.toString(connection.getTenantId()));
+            tableUpsert.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
             tableUpsert.setString(2, schemaName);
             tableUpsert.setString(3, indexName);
             tableUpsert.setString(4, statement.getIndexState().getSerializedValue());

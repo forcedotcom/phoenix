@@ -27,8 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.sql.*;
-import java.util.*;
+import static com.google.common.collect.Lists.newArrayListWithCapacity;
+
+import java.sql.ParameterMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
@@ -46,13 +54,36 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SpoolingResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
-import com.salesforce.phoenix.jdbc.*;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixResultSet;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.parse.AliasedNode;
+import com.salesforce.phoenix.parse.BindParseNode;
+import com.salesforce.phoenix.parse.ColumnName;
+import com.salesforce.phoenix.parse.LiteralParseNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.UpsertStatement;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.ConstraintViolationException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableImpl;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -180,10 +211,17 @@ public class UpsertCompiler {
         if (table.getType() == PTableType.VIEW) {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef + ")");
         }
+
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(upsert, connection, resolver, binds, scan);
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
+        final String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
+        if (tenantId != null && table.isTenantSpecificTable()) {
+            PColumn tenantIdColumn = table.getTenantIdColumn();
+            PName familyName = tenantIdColumn.getFamilyName();
+            columnNodes.add(0, ColumnName.caseSensitiveColumnName(familyName == null ? null : familyName.getString(), tenantIdColumn.getName().getString()));
+        }
         List<PColumn> allColumns = table.getColumns();
 
         int[] columnIndexesToBe;
@@ -241,6 +279,9 @@ public class UpsertCompiler {
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
+            if (tenantId != null && table.isTenantSpecificTable()) {
+                select = new SelectStatementWithTenantIdLiteralNode(tenantId, select);
+            }
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
             boolean sameTable = tableRef.equals(selectTableRef);
             /* We can run the upsert in a coprocessor if:
@@ -269,6 +310,9 @@ public class UpsertCompiler {
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
         } else {
+            if (tenantId != null && table.isTenantSpecificTable()) {
+                valueNodes.add(0, new LiteralParseNode(tenantId));
+            }
             nValuesToSet = valueNodes.size();
         }
         final RowProjector projector = rowProjectorToBe;
@@ -564,6 +608,21 @@ public class UpsertCompiler {
                 return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier());
             }
             return super.visit(node);
+        }
+    }
+    
+    private static class SelectStatementWithTenantIdLiteralNode extends SelectStatement {
+        public SelectStatementWithTenantIdLiteralNode(String tenantId, SelectStatement select) {
+            super(select.getFrom(), select.getHint(), select.isDistinct(), newSelectListWithPrependedTenantIdLiteral(tenantId, select.getSelect()), 
+                  select.getWhere(), select.getGroupBy(), select.getHaving(), select.getOrderBy(), select.getLimit(), select.getBindCount(), 
+                  select.isAggregate());
+        }
+        
+        private static List<AliasedNode> newSelectListWithPrependedTenantIdLiteral(String tenantId, List<AliasedNode> select) {
+            List<AliasedNode> result = newArrayListWithCapacity(select.size() + 1);
+            result.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
+            result.addAll(1, select);
+            return result;
         }
     }
 }

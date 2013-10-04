@@ -179,7 +179,7 @@ public class ServerCacheClient {
                         @Override
                         public Boolean call() throws Exception {
                             ServerCachingProtocol protocol = htable.coprocessorProxy(ServerCachingProtocol.class, key);
-                            return protocol.addServerCache(connection.getTenantId(), cacheId, cachePtr, cacheFactory);
+                            return protocol.addServerCache(connection.getTenantId() == null ? null : connection.getTenantId().getBytes(), cacheId, cachePtr, cacheFactory);
                         }
 
                         /**
@@ -256,7 +256,7 @@ public class ServerCacheClient {
                 try {
                     byte[] key = entry.getKey().getStartKey();
                     ServerCachingProtocol protocol = iterateOverTable.coprocessorProxy(ServerCachingProtocol.class, key);
-                    protocol.removeServerCache(connection.getTenantId(), cacheId);
+                    protocol.removeServerCache(connection.getTenantId() == null ? null : connection.getTenantId().getBytes(), cacheId);
                     remainingOnServers.remove(entry.getValue());
                 } catch (Throwable t) {
                     lastThrowable = t;

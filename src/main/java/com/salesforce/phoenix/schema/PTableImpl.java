@@ -756,4 +756,9 @@ public class PTableImpl implements PTable {
     public boolean isTenantSpecificTable() {
         return (getType() == USER || getType() == SYSTEM) && getParentTableName() != null;
     }
+    
+    @Override
+    public PColumn getTenantIdColumn() {
+        return isTenantSpecificTable() ? getPKColumns().get(0) : null;
+    }
 }

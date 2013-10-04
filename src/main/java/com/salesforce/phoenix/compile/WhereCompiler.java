@@ -37,11 +37,8 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Iterator;
 import java.util.Set;
 
-import javax.annotation.Nullable;
-
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
@@ -120,8 +117,9 @@ public class WhereCompiler {
             throw new TypeMismatchException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
         }
         
+        // add tenant data isolation for tenant-specific tables
         TableRef tableRef = context.getResolver().getTables().get(0);
-        String tenantId = getTenantId(context);
+        String tenantId = context.getConnection().getTenantId() == null ? null : context.getConnection().getTenantId().getString();
         if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
            expression = new AndExpression(newArrayList(getTenantIdConstraint(tableRef, tenantId), expression));
         }
@@ -138,11 +136,6 @@ public class WhereCompiler {
         return new ComparisonExpression(EQUAL, newArrayList(tenantIdColumnRef.newColumnExpression(), newConstant(tenantId, PDataType.VARCHAR)));
     }
     
-    private static @Nullable String getTenantId(StatementContext context) {
-        byte[] tenantId = context.getConnection().getTenantId();
-        return tenantId == null ? null : Bytes.toString(tenantId);
-    }
-
     private static class WhereExpressionCompiler extends ExpressionCompiler {
         private boolean disambiguateWithFamily;
 

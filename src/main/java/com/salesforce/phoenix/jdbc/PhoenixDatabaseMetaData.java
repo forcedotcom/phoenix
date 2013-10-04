@@ -264,7 +264,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     private String getTenantIdWhereClause() {
         return TENANT_ID + (connection.getTenantId() == null ? 
             " IS NULL " : 
-            " = '" + StringEscapeUtils.escapeSql(Bytes.toString(connection.getTenantId())) + "' ");
+            " = '" + StringEscapeUtils.escapeSql(connection.getTenantId().getString()) + "' ");
     }
 
     @Override

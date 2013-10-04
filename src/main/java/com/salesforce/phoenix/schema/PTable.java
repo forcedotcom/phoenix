@@ -30,6 +30,8 @@ package com.salesforce.phoenix.schema;
 import java.sql.SQLException;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
@@ -187,4 +189,9 @@ public interface PTable extends Writable {
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
     boolean isTenantSpecificTable();
+    /**
+     * Return the column that identifies tenants.  If non-null, this column is always the leading column.   
+     * @see #isTenantSpecificTable()
+     */
+    @Nullable PColumn getTenantIdColumn();
 }

@@ -335,6 +335,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             assertEquals("Expected 1 row to have been inserted", 1, count);
             
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
+            rs.next();
             assertEquals(2, rs.getInt(1));
         }
         finally {
@@ -351,6 +352,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             assertEquals("Expected 1 row to have been inserted", 1, count);
             
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
+            rs.next();
             assertEquals(1, rs.getInt(1));
         }
         finally {

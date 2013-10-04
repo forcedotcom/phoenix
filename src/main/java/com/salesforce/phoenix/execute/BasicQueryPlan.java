@@ -33,14 +33,23 @@ import java.sql.SQLException;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.ExplainPlan;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.compile.QueryPlan;
+import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.compile.ScanRanges;
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.FilterableStatement;
-import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.DegenerateScanner;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.Scanner;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -108,9 +117,10 @@ public abstract class BasicQueryPlan implements QueryPlan {
     }
 
     private ConnectionQueryServices getConnectionQueryServices(ConnectionQueryServices services) {
-        byte[] tenantId = context.getConnection().getTenantId();
         // Get child services associated with tenantId of query.
-        ConnectionQueryServices childServices = tenantId == null ? services : services.getChildQueryServices(new ImmutableBytesWritable(tenantId));
+        ConnectionQueryServices childServices = context.getConnection().getTenantId() == null ? 
+                services : 
+                services.getChildQueryServices(new ImmutableBytesWritable(context.getConnection().getTenantId().getBytes()));
         return childServices;
     }
 
@@ -145,7 +155,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
         PhoenixConnection connection = context.getConnection();
         Long scn = connection.getSCN();
         ScanUtil.setTimeRange(scan, scn == null ? context.getCurrentTime() : scn);
-        ScanUtil.setTenantId(scan, connection.getTenantId());
+        ScanUtil.setTenantId(scan, connection.getTenantId() == null ? null : connection.getTenantId().getBytes());
         scanner = newScanner();
         return scanner;
     }

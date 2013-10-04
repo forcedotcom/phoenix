@@ -30,10 +30,12 @@ package com.salesforce.phoenix.util;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.util.Bytes;
+import javax.annotation.Nullable;
 
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
+import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.PNameFactory;
 
 
 
@@ -82,8 +84,8 @@ public class JDBCUtil {
         return (batchSizeStr == null ? props.getInt(QueryServices.MUTATE_BATCH_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MUTATE_BATCH_SIZE) : Integer.parseInt(batchSizeStr));
     }
 
-    public static byte[] getTenantId(String url, Properties info) throws SQLException {
+    public static @Nullable PName getTenantId(String url, Properties info) throws SQLException {
         String tenantId = findProperty(url, info, PhoenixRuntime.TENANT_ID_ATTRIB);
-        return (tenantId == null ? null : Bytes.toBytes(tenantId));
+        return (tenantId == null ? null : PNameFactory.newName(tenantId));
     }
 }
