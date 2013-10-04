@@ -165,7 +165,7 @@ public class IndexBuildManager implements Stoppable {
       tasks.add(new Task<Collection<Pair<Mutation, byte[]>>>() {
 
         @Override
-        public Collection<Pair<Mutation, byte[]>> call() throws Exception {
+        public Collection<Pair<Mutation, byte[]>> call() throws IOException {
           return delegate.getIndexUpdate(m);
         }
 
@@ -200,8 +200,10 @@ public class IndexBuildManager implements Stoppable {
     try {
       throw e;
     } catch (IOException e1) {
+      LOG.info("Rethrowing " + e);
       throw e1;
     } catch (Throwable e1) {
+      LOG.info("Rethrowing " + e1 + " as a " + IndexBuildingFailureException.class.getSimpleName());
       throw new IndexBuildingFailureException("Failed to build index for unexpected reason!", e1);
     }
   }

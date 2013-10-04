@@ -27,11 +27,13 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.parallel;
 
+import java.io.IOException;
+
 /**
  * Exception denoting a need to early-exit a task (or group of tasks) due to external notification
  */
 @SuppressWarnings("serial")
-public class EarlyExitFailure extends Exception {
+public class EarlyExitFailure extends IOException {
 
   /**
    * @param msg reason for the early exit
