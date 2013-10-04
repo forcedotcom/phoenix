@@ -182,7 +182,6 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private byte[] emptyKeyValueCF;
     private List<byte[]> indexQualifiers;
     private int estimatedIndexRowKeyBytes;
-    private int[][] dataRowKeyLocator;
     private int[] dataPkPosition;
     private int maxTrailingNulls;
     
@@ -194,7 +193,6 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted, byte[] indexTableName, int nIndexColumns, int nIndexPKColumns, Integer nIndexSaltBuckets) {
         this(dataRowKeySchema, isDataTableSalted);
         int nDataPKColumns = dataRowKeySchema.getFieldCount() - (isDataTableSalted ? 1 : 0);
-        this.dataRowKeyLocator = new int[2][nIndexPKColumns];
         this.indexTableName = indexTableName;
         this.indexedColumns = Sets.newLinkedHashSetWithExpectedSize(nIndexPKColumns-nDataPKColumns);
         this.indexedColumnTypes = Lists.<PDataType>newArrayListWithExpectedSize(nIndexPKColumns-nDataPKColumns);
@@ -220,6 +218,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
             // so we must adjust for that here.
             int dataPosOffset = isDataTableSalted ? 1 : 0 ;
             int nIndexedColumns = getIndexPkColumnCount();
+            int[][] dataRowKeyLocator = new int[2][nIndexedColumns];
             // Skip data table salt byte
             int maxRowKeyOffset = rowKeyPtr.getOffset() + rowKeyPtr.getLength();
             dataRowKeySchema.iterator(rowKeyPtr, ptr, dataPosOffset);
@@ -475,7 +474,6 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
             int dataPkPosition = rowKeyMetaData.getIndexPkPosition(i-dataPkOffset);
             this.dataPkPosition[dataPkPosition] = i;
         }
-        dataRowKeyLocator = new int[2][nIndexPkColumns];
         
         // Calculate the max number of trailing nulls that we should get rid of after building the index row key.
         // We only get rid of nulls for variable length types, so we have to be careful to consider the type of the
