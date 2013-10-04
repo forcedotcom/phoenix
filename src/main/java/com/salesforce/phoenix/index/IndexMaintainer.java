@@ -185,7 +185,6 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private int[][] dataRowKeyLocator;
     private int[] dataPkPosition;
     private int maxTrailingNulls;
-    private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
     
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted) {
         this.dataRowKeySchema = dataRowKeySchema;
@@ -209,6 +208,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     }
 
     public byte[] buildRowKey(ValueGetter valueGetter, ImmutableBytesWritable rowKeyPtr)  {
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedIndexRowKeyBytes);
         DataOutput output = new DataOutputStream(stream);
         try {
