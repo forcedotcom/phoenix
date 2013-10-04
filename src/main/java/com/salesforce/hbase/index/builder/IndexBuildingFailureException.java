@@ -29,11 +29,15 @@ package com.salesforce.hbase.index.builder;
 
 import java.io.IOException;
 
+import org.apache.hadoop.hbase.DoNotRetryIOException;
+
 /**
- * Unexpected failure while building index updates that wasn't caused by an {@link IOException};
+ * Unexpected failure while building index updates that wasn't caused by an {@link IOException}.
+ * This should be used if there is some basic issue with indexing - and no matter of retries will
+ * fix it.
  */
 @SuppressWarnings("serial")
-public class IndexBuildingFailureException extends IOException {
+public class IndexBuildingFailureException extends DoNotRetryIOException {
 
   /**
    * @param msg reason
@@ -42,5 +46,4 @@ public class IndexBuildingFailureException extends IOException {
   public IndexBuildingFailureException(String msg, Throwable cause) {
     super(msg, cause);
   }
-
 }

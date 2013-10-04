@@ -68,6 +68,7 @@ import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Multimap;
 import com.salesforce.hbase.index.builder.IndexBuilder;
+import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
 import com.salesforce.hbase.index.exception.IndexWriteException;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
@@ -292,7 +293,7 @@ public class Indexer extends BaseRegionObserver {
     }
   }
 
-  private void takeUpdateLock(String opDesc) {
+  private void takeUpdateLock(String opDesc) throws IndexBuildingFailureException {
     boolean interrupted = false;
     // lock the log, so we are sure that index write gets atomically committed
     LOG.debug("Taking INDEX_UPDATE readlock for " + opDesc);
@@ -301,6 +302,13 @@ public class Indexer extends BaseRegionObserver {
       try {
         INDEX_UPDATE_LOCK.lockInterruptibly();
         LOG.debug("Got the INDEX_UPDATE readlock for " + opDesc);
+        // unlock the lock so the server can shutdown, if we find that we have stopped since getting
+        // the lock
+        if (this.stopped) {
+          INDEX_UPDATE_LOCK.unlock();
+          throw new IndexBuildingFailureException(
+              "Found server stop after obtaining the update lock, killing update attempt", null);
+        }
         break;
       } catch (InterruptedException e) {
         LOG.info("Interrupted while waiting for update lock. Ignoring unless stopped");
