@@ -27,8 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.math.*;
-import java.sql.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.text.Format;
 import java.util.Map;
 
@@ -38,9 +44,14 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
-import com.google.common.primitives.*;
+import com.google.common.primitives.Booleans;
+import com.google.common.primitives.Doubles;
+import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -1279,6 +1290,8 @@ public enum PDataType {
             switch (actualType) {
             case DECIMAL:
                 return toBigDecimal(b, o, l);
+            case DATE:
+            case TIME:
             case LONG:
             case INTEGER:
             case SMALLINT:
