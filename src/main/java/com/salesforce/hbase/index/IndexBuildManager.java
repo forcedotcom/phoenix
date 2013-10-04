@@ -77,7 +77,7 @@ public class IndexBuildManager implements Stoppable {
    */
   public static String NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY = "index.builder.threads.max";
   /** Default to a single thread. This is the safest course of action, but the slowest as well */
-  private static final int DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS = 10;
+  public static final int DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS = 10;
   /**
    * Amount of time to keep idle threads in the pool. After this time (seconds) we expire the
    * threads and will re-create them as needed, up to the configured max
@@ -122,9 +122,9 @@ public class IndexBuildManager implements Stoppable {
    * @return a thread pool based on the passed configuration whose threads are all daemon threads.
    */
   private static ThreadPoolExecutor getDefaultExecutor(Configuration conf) {
-    int maxThreads =
-        conf.getInt(NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY,
-          DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS);
+    int maxThreads = 3;
+//        conf.getInt(NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY,
+//          DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS);
     if (maxThreads == 0) {
       maxThreads = 1; // is there a better default?
     }
