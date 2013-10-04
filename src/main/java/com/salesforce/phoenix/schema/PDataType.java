@@ -27,8 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.math.*;
-import java.sql.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.text.Format;
 import java.util.Map;
 
@@ -38,9 +44,14 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
-import com.google.common.primitives.*;
+import com.google.common.primitives.Booleans;
+import com.google.common.primitives.Doubles;
+import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 /**
@@ -148,7 +159,7 @@ public enum PDataType {
 
         @Override
         public boolean isBytesComparableWith(PDataType otherType) {
-            return this == otherType || this == CHAR;
+            return super.isBytesComparableWith(otherType) || this == CHAR;
         }
 
         @Override
@@ -281,7 +292,7 @@ public enum PDataType {
 
         @Override
         public boolean isBytesComparableWith(PDataType otherType) {
-            return this == otherType || this == VARCHAR;
+            return super.isBytesComparableWith(otherType) || this == VARCHAR;
         }
         
         @Override
@@ -1706,7 +1717,7 @@ public enum PDataType {
 
         @Override
         public boolean isBytesComparableWith(PDataType otherType) {
-            return this == otherType || this == DATE;
+            return super.isBytesComparableWith(otherType) ||  this == DATE;
         }
         
         @Override
@@ -1801,7 +1812,7 @@ public enum PDataType {
 
         @Override
         public boolean isBytesComparableWith(PDataType otherType) {
-            return this == otherType || this == TIME;
+            return super.isBytesComparableWith(otherType) || this == TIME;
         }
         
         @Override
@@ -3095,7 +3106,7 @@ public enum PDataType {
     }
 
     public boolean isBytesComparableWith(PDataType otherType) {
-        return this == otherType;
+        return this == otherType || this == PDataType.VARBINARY || otherType == PDataType.VARBINARY || this == PDataType.BINARY || otherType == PDataType.BINARY;
     }
 
     public int estimateByteSize(Object o) {
