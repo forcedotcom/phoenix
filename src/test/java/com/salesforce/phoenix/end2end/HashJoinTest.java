@@ -29,15 +29,18 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.JOIN_CUSTOMER_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.JOIN_ITEM_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_ORDER_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.JOIN_SUPPLIER_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -46,6 +49,63 @@ import java.util.Properties;
 import org.junit.Test;
 
 public class HashJoinTest extends BaseClientMangedTimeTest {
+    
+    private void initAllTableValues() throws Exception {
+    	initMetaInfoTableValues();
+        ensureTableCreated(getUrl(), JOIN_ORDER_TABLE);
+        
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        try {
+            // Insert into order table
+            PreparedStatement stmt = conn.prepareStatement(
+                    "upsert into " + JOIN_ORDER_TABLE +
+                    "   (ORDER_ID, " +
+                    "    CUSTOMER_ID, " +
+                    "    ITEM_ID, " +
+                    "    QUANTITY," +
+                    "    DATE) " +
+                    "values (?, ?, ?, ?, ?)");
+            stmt.setString(1, "000000000000001");
+            stmt.setString(2, "0000000004");
+            stmt.setString(3, "0000000001");
+            stmt.setInt(4, 1000);
+            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000002");
+            stmt.setString(2, "0000000003");
+            stmt.setString(3, "0000000006");
+            stmt.setInt(4, 2000);
+            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000003");
+            stmt.setString(2, "0000000002");
+            stmt.setString(3, "0000000002");
+            stmt.setInt(4, 3000);
+            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000004");
+            stmt.setString(2, "0000000004");
+            stmt.setString(3, "0000000006");
+            stmt.setInt(4, 4000);
+            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000005");
+            stmt.setString(2, "0000000005");
+            stmt.setString(3, "0000000003");
+            stmt.setInt(4, 5000);
+            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.execute();
+
+            conn.commit();
+        } finally {
+            conn.close();
+        }
+    }
     
     private void initMetaInfoTableValues() throws Exception {
         ensureTableCreated(getUrl(), JOIN_CUSTOMER_TABLE);
@@ -525,6 +585,121 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             assertEquals(rs.getString(2), "T5");
             assertEquals(rs.getString(3), "0000000005");
             assertEquals(rs.getString(4), "S5");
+
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testStarJoin() throws Exception {
+        initAllTableValues();
+        String query = "SELECT order_id, c.name, i.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
+        	+ JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id LEFT JOIN " 
+        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000001");
+            assertEquals(rs.getString(2), "C4");
+            assertEquals(rs.getString(3), "T1");
+            assertEquals(rs.getInt(4), 1000);
+            assertNotNull(rs.getDate(5));
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000002");
+            assertEquals(rs.getString(2), "C3");
+            assertEquals(rs.getString(3), "T6");
+            assertEquals(rs.getInt(4), 2000);
+            assertNotNull(rs.getDate(5));
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000003");
+            assertEquals(rs.getString(2), "C2");
+            assertEquals(rs.getString(3), "T2");
+            assertEquals(rs.getInt(4), 3000);
+            assertNotNull(rs.getDate(5));
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000004");
+            assertEquals(rs.getString(2), "C4");
+            assertEquals(rs.getString(3), "T6");
+            assertEquals(rs.getInt(4), 4000);
+            assertNotNull(rs.getDate(5));
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000005");
+            assertEquals(rs.getString(2), "C5");
+            assertEquals(rs.getString(3), "T3");
+            assertEquals(rs.getInt(4), 5000);
+            assertNotNull(rs.getDate(5));
+
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testLeftJoinWithAggregation() throws Exception {
+        initAllTableValues();
+        String query = "SELECT i.name, sum(quantity) FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
+        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T1");
+            assertEquals(rs.getInt(2), 1000);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T2");
+            assertEquals(rs.getInt(2), 3000);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T3");
+            assertEquals(rs.getInt(2), 5000);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T6");
+            assertEquals(rs.getInt(2), 6000);
+
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRightJoinWithAggregation() throws Exception {
+        initAllTableValues();
+        String query = "SELECT i.name, sum(quantity) FROM " + JOIN_ORDER_TABLE + " o RIGHT JOIN " 
+        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "INVALID-1");
+            assertEquals(rs.getInt(2), 0);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T1");
+            assertEquals(rs.getInt(2), 1000);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T2");
+            assertEquals(rs.getInt(2), 3000);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T3");
+            assertEquals(rs.getInt(2), 5000);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T4");
+            assertEquals(rs.getInt(2), 0);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T5");
+            assertEquals(rs.getInt(2), 0);
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T6");
+            assertEquals(rs.getInt(2), 6000);
 
             assertFalse(rs.next());
         } finally {
