@@ -27,12 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.cache;
 
-import static com.salesforce.phoenix.query.QueryServices.*;
+import static com.salesforce.phoenix.query.QueryServices.MAX_MEMORY_PERC_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_MEMORY_WAIT_MS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.MAX_TENANT_MEMORY_PERC_ATTRIB;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
@@ -52,7 +55,7 @@ import com.salesforce.phoenix.schema.PTable;
  * @since 0.1
  */
 public class GlobalCache extends TenantCacheImpl {
-    private static volatile GlobalCache INSTANCE = null; 
+    private static String GLOBAL_CACHE_KEY = "PHOENIX_GLOBAL_CACHE";
     
     private final Configuration config;
     // TODO: Use Guava cache with auto removal after lack of access 
@@ -60,15 +63,16 @@ public class GlobalCache extends TenantCacheImpl {
     // Cache for lastest PTable for a given Phoenix table
     private final ConcurrentHashMap<ImmutableBytesPtr,PTable> metaDataCacheMap = new ConcurrentHashMap<ImmutableBytesPtr,PTable>();
     
-    public static GlobalCache getInstance(Configuration config) {
-        if (INSTANCE == null) {
-            synchronized(GlobalCache.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = new GlobalCache(config);
-                }
+    public static GlobalCache getInstance(RegionCoprocessorEnvironment env) {
+        GlobalCache cache = (GlobalCache)env.getSharedData().get(GLOBAL_CACHE_KEY);
+        if (cache == null) {
+            cache = new GlobalCache(env.getConfiguration());
+            GlobalCache oldCache = (GlobalCache)env.getSharedData().putIfAbsent(GLOBAL_CACHE_KEY, cache);
+            if (oldCache != null) {
+                cache = oldCache;
             }
         }
-        return INSTANCE;
+        return cache;
     }
     
     public ConcurrentHashMap<ImmutableBytesPtr,PTable> getMetaDataCache() {
@@ -78,12 +82,12 @@ public class GlobalCache extends TenantCacheImpl {
     /**
      * Get the tenant cache associated with the tenantId. If tenantId is not applicable, null may be
      * used in which case a global tenant cache is returned.
-     * @param config the HBase configuration
+     * @param env the HBase configuration
      * @param tenantId the tenant ID or null if not applicable.
      * @return TenantCache
      */
-    public static TenantCache getTenantCache(Configuration config, ImmutableBytesWritable tenantId) {
-        GlobalCache globalCache = GlobalCache.getInstance(config);
+    public static TenantCache getTenantCache(RegionCoprocessorEnvironment env, ImmutableBytesWritable tenantId) {
+        GlobalCache globalCache = GlobalCache.getInstance(env);
         TenantCache tenantCache = tenantId == null ? globalCache : globalCache.getChildTenantCache(tenantId);      
         return tenantCache;
     }

@@ -76,7 +76,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             byte[] tenantIdBytes = attributes.get(PhoenixRuntime.TENANT_ID_ATTRIB);
             ImmutableBytesWritable tenantId =
                 tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
-            TenantCache cache = GlobalCache.getTenantCache(env.getConfiguration(), tenantId);
+            TenantCache cache = GlobalCache.getTenantCache(env, tenantId);
             IndexMetaDataCache indexCache =
                 (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
             if (indexCache == null) {
