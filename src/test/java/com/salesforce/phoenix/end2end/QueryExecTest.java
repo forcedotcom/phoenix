@@ -88,7 +88,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * 
  * Basic tests for Phoenix JDBC implementation
  *
- * @author jtaylor
+ * @author jtaylor 
  * @since 0.1
  */
 public class QueryExecTest extends BaseClientMangedTimeTest {
