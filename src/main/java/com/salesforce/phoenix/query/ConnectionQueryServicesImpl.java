@@ -260,21 +260,29 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
          * Use HConnection.getRegionLocation as it uses the cache in HConnection, while getting
          * all region locations from the HTable doesn't. 
          */
-        try {
-            // We could surface the package projected HConnectionImplementation.getNumberOfCachedRegionLocations
-            // to get the sizing info we need, but this would require a new class in the same package and a cast
-            // to this implementation class, so it's probably not worth it.
-            List<HRegionLocation> locations = Lists.newArrayList();
-            byte[] currentKey = HConstants.EMPTY_START_ROW;
-            do {
-              HRegionLocation regionLocation = connection.getRegionLocation(tableName, currentKey, false);
-              locations.add(regionLocation);
-              currentKey = regionLocation.getRegionInfo().getEndKey();
-            } while (!Bytes.equals(currentKey, HConstants.EMPTY_END_ROW));
-            return locations;
-        } catch (IOException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.GET_TABLE_REGIONS_FAIL)
-                .setRootCause(e).build().buildException();
+        int retryCount = 0, maxRetryCount = 1;
+        boolean reload =false;
+        while (true) {
+            try {
+                // We could surface the package projected HConnectionImplementation.getNumberOfCachedRegionLocations
+                // to get the sizing info we need, but this would require a new class in the same package and a cast
+                // to this implementation class, so it's probably not worth it.
+                List<HRegionLocation> locations = Lists.newArrayList();
+                byte[] currentKey = HConstants.EMPTY_START_ROW;
+                do {
+                  HRegionLocation regionLocation = connection.getRegionLocation(tableName, currentKey, reload);
+                  locations.add(regionLocation);
+                  currentKey = regionLocation.getRegionInfo().getEndKey();
+                } while (!Bytes.equals(currentKey, HConstants.EMPTY_END_ROW));
+                return locations;
+            } catch (IOException e) {
+                if (retryCount++ < maxRetryCount) { // One retry, in case split occurs while navigating
+                    reload = true;
+                    continue;
+                }
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.GET_TABLE_REGIONS_FAIL)
+                    .setRootCause(e).build().buildException();
+            }
         }
     }
 

@@ -55,7 +55,7 @@ import com.salesforce.phoenix.schema.PTable;
  * @since 0.1
  */
 public class GlobalCache extends TenantCacheImpl {
-    private static String GLOBAL_CACHE_KEY = "PHOENIX_GLOBAL_CACHE";
+    private static volatile GlobalCache INSTANCE; 
     
     private final Configuration config;
     // TODO: Use Guava cache with auto removal after lack of access 
@@ -64,15 +64,14 @@ public class GlobalCache extends TenantCacheImpl {
     private final ConcurrentHashMap<ImmutableBytesPtr,PTable> metaDataCacheMap = new ConcurrentHashMap<ImmutableBytesPtr,PTable>();
     
     public static GlobalCache getInstance(RegionCoprocessorEnvironment env) {
-        GlobalCache cache = (GlobalCache)env.getSharedData().get(GLOBAL_CACHE_KEY);
-        if (cache == null) {
-            cache = new GlobalCache(env.getConfiguration());
-            GlobalCache oldCache = (GlobalCache)env.getSharedData().putIfAbsent(GLOBAL_CACHE_KEY, cache);
-            if (oldCache != null) {
-                cache = oldCache;
+        if (INSTANCE == null) {
+            synchronized(GlobalCache.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new GlobalCache(env.getConfiguration());
+                }
             }
         }
-        return cache;
+        return INSTANCE;
     }
     
     public ConcurrentHashMap<ImmutableBytesPtr,PTable> getMetaDataCache() {

@@ -34,6 +34,8 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
         // Don't split intra region so we can more easily know that the n-way parallelization is for the explain plan
         props.put(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.toString(1));
+        // Forces server cache to be used
+        props.put(QueryServices.INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB, Integer.toString(2));
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
@@ -532,7 +534,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
     }
 
     @Test
-    public void testSplitAfterSendingIndexMetaData() throws Exception {
+    public void testMultipleUpdatesAcrossRegions() throws Exception {
         String query;
         ResultSet rs;
     
@@ -543,7 +545,8 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         // make sure that the tables are empty, but reachable
         conn.createStatement().execute(
           "CREATE TABLE " + DATA_TABLE_FULL_NAME
-              + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) " + HTableDescriptor.MAX_FILESIZE + "=1, " + HTableDescriptor.MEMSTORE_FLUSHSIZE + "=1");
+              + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) " + HTableDescriptor.MAX_FILESIZE + "=1, " + HTableDescriptor.MEMSTORE_FLUSHSIZE + "=1 " +
+                  "SPLIT ON ('b')");
         query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
         rs = conn.createStatement().executeQuery(query);
         assertFalse(rs.next());

@@ -346,7 +346,7 @@ public class MutationState implements SQLCloseable {
                     if (hasIndexMaintainers && isDataTable) {
                         byte[] attribValue = null;
                         byte[] uuidValue;
-                        if (IndexMetaDataCacheClient.useIndexMetadataCache(mutations, tempPtr.getLength())) {
+                        if (IndexMetaDataCacheClient.useIndexMetadataCache(connection, mutations, tempPtr.getLength())) {
                             IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
                             cache = client.addIndexMetadataCache(mutations, tempPtr);
                             uuidValue = cache.getId();
