@@ -100,6 +100,8 @@ public class HashJoinRegionScanner implements RegionScanner {
             Tuple tuple = new ResultTuple(new Result(result));
             boolean cont = true;
             for (int i = 0; i < count; i++) {
+            	if (!(joinInfo.earlyEvaluation()[i]))
+            		continue;
                 ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
                 ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
                 HashCache hashCache = (HashCache)cache.getServerCache(joinId);
@@ -115,11 +117,29 @@ public class HashJoinRegionScanner implements RegionScanner {
             if (cont) {
                 resultQueue.offer(result);
                 for (int i = 0; i < count; i++) {
-                    if (tuples[i] == null || tuples[i].isEmpty())
+                	boolean earlyEvaluation = joinInfo.earlyEvaluation()[i];
+                    if (earlyEvaluation && 
+                    		(tuples[i] == null || tuples[i].isEmpty()))
                         continue;
                     int j = resultQueue.size();
                     while (j-- > 0) {
                         List<KeyValue> lhs = resultQueue.poll();
+                        if (!earlyEvaluation) {
+                        	Collections.sort(lhs, KeyValue.COMPARATOR);
+                        	Tuple t = new ResultTuple(new Result(lhs));
+                            ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(t, joinInfo.getJoinExpressions()[i]);
+                            ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
+                            HashCache hashCache = (HashCache)cache.getServerCache(joinId);
+                            if (hashCache == null)
+                                throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
+                            tuples[i] = hashCache.get(key);                        	
+                            if (tuples[i] == null || tuples[i].isEmpty()) {
+                            	if (joinInfo.getJoinTypes()[i] != JoinType.Inner) {
+                            		resultQueue.offer(lhs);
+                            	}
+                            	continue;
+                            }
+                        }
                         for (Tuple t : tuples[i]) {
                             List<KeyValue> rhs = ((ResultTuple) t).getResult().list();
                             List<KeyValue> joined = new ArrayList<KeyValue>(lhs.size() + rhs.size());

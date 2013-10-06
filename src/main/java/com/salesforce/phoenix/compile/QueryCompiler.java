@@ -38,7 +38,6 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinSpec;
 import com.salesforce.phoenix.compile.JoinCompiler.JoinTable;
-import com.salesforce.phoenix.compile.JoinCompiler.StarJoinType;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.BasicQueryPlan;
@@ -157,8 +156,8 @@ public class QueryCompiler {
             return compileSingleQuery(context, statement, binds);
         }
         
-        StarJoinType starJoin = JoinCompiler.getStarJoinType(join);
-        if (starJoin == StarJoinType.BASIC /* TODO || starJoin == StarJoinType.EXTENDED */) {
+        boolean[] starJoinVector = JoinCompiler.getStarJoinVector(join);
+        if (starJoinVector != null) {
             context.setCurrentTable(context.getResolver().getTables().get(0));
             int count = joinTables.size();
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[count];
@@ -182,7 +181,8 @@ public class QueryCompiler {
                 }
             }
             Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
-            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, joinExpressions, joinTypes, starJoinVector, postJoinFilterExpression);
+            join.projectColumns(context.getScan(), join.getMainTable());
             ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
             BasicQueryPlan plan = compileSingleQuery(context, JoinCompiler.getSubqueryWithoutJoin(statement, join), binds);
             return new HashJoinPlan(plan, joinInfo, hashExpressions, joinPlans);
@@ -211,7 +211,8 @@ public class QueryCompiler {
             Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
             List<Expression> joinExpressions = lastJoinTable.compileRightTableConditions(context);
             List<Expression> hashExpressions = lastJoinTable.compileLeftTableConditions(context);
-            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+            HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {type == JoinType.Inner ? type : JoinType.Left}, new boolean[] {true}, postJoinFilterExpression);
+            join.projectColumns(context.getScan(), lastJoinTable.getTable());
             ScanProjector.serializeProjectorIntoScan(context.getScan(), lastJoinTable.getScanProjector());
             BasicQueryPlan rhsPlan = compileSingleQuery(context, rhs, binds);
             return new HashJoinPlan(rhsPlan, joinInfo, new List[] {hashExpressions}, new QueryPlan[] {lhsPlan});
@@ -233,7 +234,8 @@ public class QueryCompiler {
         Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
         List<Expression> joinExpressions = lastJoinTable.compileLeftTableConditions(context);
         List<Expression> hashExpressions = lastJoinTable.compileRightTableConditions(context);
-        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, postJoinFilterExpression);
+        HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, new boolean[] {true}, postJoinFilterExpression);
+        join.projectColumns(context.getScan(), context.getResolver().getTables().get(0));
         ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
         BasicQueryPlan lhsPlan = compileSingleQuery(context, lhs, binds);
         return new HashJoinPlan(lhsPlan, joinInfo, new List[] {hashExpressions}, new QueryPlan[] {rhsPlan});

@@ -75,12 +75,6 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 public class JoinCompiler {
     
-    public enum StarJoinType {
-        BASIC,
-        EXTENDED,
-        NONE,
-    }
-    
     public static class JoinSpec {
         private TableRef mainTable;
         private List<AliasedNode> select; // all basic nodes related to mainTable, no aggregation.
@@ -632,24 +626,34 @@ public class JoinCompiler {
         return new JoinSpec(statement, context.getResolver());
     }
     
-    public static StarJoinType getStarJoinType(JoinSpec join) {
+    /**
+     * Returns a boolean vector indicating whether the evaluation of join expressions
+     * can be evaluated at an early stage if the input JoinSpec can be taken as a
+     * star join. Otherwise returns null.  
+     * @param join the JoinSpec
+     * @return a boolean vector for a star join; or null for non star join.
+     */
+    public static boolean[] getStarJoinVector(JoinSpec join) {
         assert(!join.getJoinTables().isEmpty());
         
-        StarJoinType starJoinType = StarJoinType.BASIC;
-        for (JoinTable joinTable : join.getJoinTables()) {
+        int count = join.getJoinTables().size();
+        boolean[] vector = new boolean[count];
+        for (int i = 0; i < count; i++) {
+        	JoinTable joinTable = join.getJoinTables().get(i);
             if (joinTable.getType() != JoinType.Left 
                     && joinTable.getType() != JoinType.Inner)
-                return StarJoinType.NONE;
-            if (starJoinType == StarJoinType.BASIC) {
-                for (TableRef tableRef : joinTable.getLeftTableRefs()) {
-                    if (!tableRef.equals(join.getMainTable())) {
-                        starJoinType = StarJoinType.EXTENDED;
-                    }
+                return null;
+            vector[i] = true;
+            Iterator<TableRef> iter = joinTable.getLeftTableRefs().iterator();
+            while (vector[i] == true && iter.hasNext()) {
+            	TableRef tableRef = iter.next();
+                if (!tableRef.equals(join.getMainTable())) {
+                    vector[i] = false;
                 }
             }
         }
         
-        return starJoinType;
+        return vector;
     }
     
     public static SelectStatement getSubqueryWithoutJoin(SelectStatement statement, JoinSpec join) {

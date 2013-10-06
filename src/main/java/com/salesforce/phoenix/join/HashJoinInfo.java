@@ -45,12 +45,14 @@ public class HashJoinInfo {
     private ImmutableBytesPtr[] joinIds;
     private List<Expression>[] joinExpressions;
     private JoinType[] joinTypes;
+    private boolean[] earlyEvaluation;
     private Expression postJoinFilterExpression;
     
-    public HashJoinInfo(ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes, Expression postJoinFilterExpression) {
+    public HashJoinInfo(ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes, boolean[] earlyEvaluation, Expression postJoinFilterExpression) {
         this.joinIds = joinIds;
         this.joinExpressions = joinExpressions;
         this.joinTypes = joinTypes;
+        this.earlyEvaluation = earlyEvaluation;
         this.postJoinFilterExpression = postJoinFilterExpression;
     }
     
@@ -64,6 +66,10 @@ public class HashJoinInfo {
     
     public JoinType[] getJoinTypes() {
         return joinTypes;
+    }
+    
+    public boolean[] earlyEvaluation() {
+    	return earlyEvaluation;
     }
     
     public Expression getPostJoinFilterExpression() {
@@ -84,6 +90,7 @@ public class HashJoinInfo {
                     expr.write(output);
                 }
                 WritableUtils.writeVInt(output, joinInfo.joinTypes[i].ordinal());
+                output.writeBoolean(joinInfo.earlyEvaluation[i]);
             }
             if (joinInfo.postJoinFilterExpression != null) {
                 WritableUtils.writeVInt(output, ExpressionType.valueOf(joinInfo.postJoinFilterExpression).ordinal());
@@ -117,6 +124,7 @@ public class HashJoinInfo {
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[count];
             List<Expression>[] joinExpressions = new List[count];
             JoinType[] joinTypes = new JoinType[count];
+            boolean[] earlyEvaluation = new boolean[count];
             for (int i = 0; i < count; i++) {
                 joinIds[i] = new ImmutableBytesPtr();
                 joinIds[i].readFields(input);
@@ -130,6 +138,7 @@ public class HashJoinInfo {
                 }
                 int type = WritableUtils.readVInt(input);
                 joinTypes[i] = JoinType.values()[type];
+                earlyEvaluation[i] = input.readBoolean();
             }
             Expression postJoinFilterExpression = null;
             int expressionOrdinal = WritableUtils.readVInt(input);
@@ -137,7 +146,7 @@ public class HashJoinInfo {
                 postJoinFilterExpression = ExpressionType.values()[expressionOrdinal].newInstance();
                 postJoinFilterExpression.readFields(input);
             }
-            return new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
+            return new HashJoinInfo(joinIds, joinExpressions, joinTypes, earlyEvaluation, postJoinFilterExpression);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
