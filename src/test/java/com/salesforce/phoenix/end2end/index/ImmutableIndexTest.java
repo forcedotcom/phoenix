@@ -144,7 +144,7 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.setAutoCommit(false);
-        conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true " +  (tableSaltBuckets == null ? "" : ", SALT_BUCKETS=" + tableSaltBuckets));
+        conn.createStatement().execute("CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) immutable_rows=true " +  (tableSaltBuckets == null ? "" : ", SALT_BUCKETS=" + tableSaltBuckets));
         query = "SELECT * FROM t";
         rs = conn.createStatement().executeQuery(query);
         assertFalse(rs.next());
@@ -256,9 +256,9 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
 
     @Test
     public void testIndexWithNullableFixedWithCols() throws Exception {
-    	Properties props = new Properties(TEST_PROPERTIES);
-    	Connection conn = DriverManager.getConnection(getUrl(), props);
-    	conn.setAutoCommit(false);
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
         ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
         populateTestTable();
         String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
@@ -282,5 +282,32 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertEquals("chara", rs.getString(1));
         assertEquals(4, rs.getInt(2));
         assertFalse(rs.next());
+    }
+    
+    @Test
+    public void testAlterTableWithImmutability() throws Exception {
+
+        String query;
+        ResultSet rs;
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+
+        conn.createStatement().execute(
+            "CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)  ");
+        
+        query = "SELECT * FROM t";
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+
+        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
+                .isImmutableRows());
+
+        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true ");
+
+        assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
+                .isImmutableRows());
+
     }
 }
