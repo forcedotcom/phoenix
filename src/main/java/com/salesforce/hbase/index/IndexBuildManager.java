@@ -32,9 +32,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -46,7 +43,6 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
 import org.apache.hadoop.hbase.util.Pair;
-import org.apache.hadoop.hbase.util.Threads;
 
 import com.salesforce.hbase.index.builder.IndexBuilder;
 import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
@@ -54,6 +50,8 @@ import com.salesforce.hbase.index.parallel.EarlyExitFailure;
 import com.salesforce.hbase.index.parallel.QuickFailingTaskRunner;
 import com.salesforce.hbase.index.parallel.Task;
 import com.salesforce.hbase.index.parallel.TaskBatch;
+import com.salesforce.hbase.index.parallel.ThreadPoolBuilder;
+import com.salesforce.hbase.index.parallel.ThreadPoolManager;
 
 /**
  * Manage the building of index updates from primary table updates.
@@ -91,8 +89,8 @@ public class IndexBuildManager implements Stoppable {
    * @throws IOException if an {@link IndexBuilder} cannot be correctly steup
    */
   public IndexBuildManager(RegionCoprocessorEnvironment env) throws IOException {
-    this(getIndexBuilder(env), new QuickFailingTaskRunner(
-        getDefaultExecutor(env.getConfiguration())));
+    this(getIndexBuilder(env), new QuickFailingTaskRunner(ThreadPoolManager.getExecutor(
+      getPoolBuilder(env), env)));
   }
 
   private static IndexBuilder getIndexBuilder(RegionCoprocessorEnvironment e) throws IOException {
@@ -112,40 +110,19 @@ public class IndexBuildManager implements Stoppable {
     }
   }
 
+  private static ThreadPoolBuilder getPoolBuilder(RegionCoprocessorEnvironment env) {
+    String serverName = env.getRegionServerServices().getServerName().getServerName();
+    return new ThreadPoolBuilder(serverName + "-index-builder", env.getConfiguration()).
+        setCoreTimeout(INDEX_BUILDER_KEEP_ALIVE_TIME_CONF_KEY).
+        setMaxThread(NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY,
+          DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS);
+  }
+
   public IndexBuildManager(IndexBuilder builder, QuickFailingTaskRunner pool) {
     this.delegate = builder;
     this.pool = pool;
   }
 
-  /**
-   * @param conf to read
-   * @return a thread pool based on the passed configuration whose threads are all daemon threads.
-   */
-  private static ThreadPoolExecutor getDefaultExecutor(Configuration conf) {
-    int maxThreads =
-        conf.getInt(NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY,
-          DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS);
-    if (maxThreads == 0) {
-      maxThreads = 1; // is there a better default?
-    }
-    LOG.info("Starting builder with " + maxThreads + " threads for all tables");
-    long keepAliveTime = conf.getLong(INDEX_BUILDER_KEEP_ALIVE_TIME_CONF_KEY, 60);
-
-    // we prefer starting a new thread to queuing (the opposite of the usual ThreadPoolExecutor)
-    // since we are probably writing to a bunch of index tables in this case. Any pending requests
-    // are then queued up in an infinite (Integer.MAX_VALUE) queue. However, we allow core threads
-    // to timeout, to we tune up/down for bursty situations. We could be a bit smarter and more
-    // closely manage the core-thread pool size to handle the bursty traffic (so we can always keep
-    // some core threads on hand, rather than starting from scratch each time), but that would take
-    // even more time. If we shutdown the pool, but are still putting new tasks, we can just do the
-    // usual policy and throw a RejectedExecutionException because we are shutting down anyways and
-    // the worst thing is that this coprocessor unloaded.
-    ThreadPoolExecutor pool =
-        new ThreadPoolExecutor(maxThreads, maxThreads, keepAliveTime, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(), Threads.newDaemonThreadFactory("index-builder-"));
-    pool.allowCoreThreadTimeOut(true);
-    return pool;
-  }
 
   public Collection<Pair<Mutation, byte[]>> getIndexUpdate(
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp,

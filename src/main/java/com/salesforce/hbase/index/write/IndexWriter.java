@@ -67,8 +67,8 @@ public class IndexWriter implements Stoppable {
    * @throws IOException if the {@link IndexWriter} or {@link IndexFailurePolicy} cannot be
    *           instantiated
    */
-  public IndexWriter(RegionCoprocessorEnvironment env) throws IOException {
-    this(getCommitter(env), getFailurePolicy(env), env);
+  public IndexWriter(RegionCoprocessorEnvironment env, String name) throws IOException {
+    this(getCommitter(env), getFailurePolicy(env), env, name);
   }
 
   public static IndexCommitter getCommitter(RegionCoprocessorEnvironment env) throws IOException {
@@ -108,9 +108,9 @@ public class IndexWriter implements Stoppable {
    * @param env
    */
   public IndexWriter(IndexCommitter committer, IndexFailurePolicy policy,
-      RegionCoprocessorEnvironment env) {
+      RegionCoprocessorEnvironment env, String name) {
     this(committer, policy);
-    this.writer.setup(this, env);
+    this.writer.setup(this, env, name);
     this.failurePolicy.setup(this, env);
   }
 

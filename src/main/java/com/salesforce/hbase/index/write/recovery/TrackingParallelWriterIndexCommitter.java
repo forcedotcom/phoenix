@@ -53,6 +53,8 @@ import com.salesforce.hbase.index.parallel.EarlyExitFailure;
 import com.salesforce.hbase.index.parallel.Task;
 import com.salesforce.hbase.index.parallel.TaskBatch;
 import com.salesforce.hbase.index.parallel.TaskRunner;
+import com.salesforce.hbase.index.parallel.ThreadPoolBuilder;
+import com.salesforce.hbase.index.parallel.ThreadPoolManager;
 import com.salesforce.hbase.index.parallel.WaitForCompletionTaskRunner;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
@@ -89,16 +91,25 @@ import com.salesforce.hbase.index.write.ParallelWriterIndexCommitter;
 public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
   private static final Log LOG = LogFactory.getLog(TrackingParallelWriterIndexCommitter.class);
 
+  public static String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.trackingwriter.threads.max";
+  private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
+  private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
+      "index.trackingwriter.threads.keepalivetime";
+  
   private TaskRunner pool;
   private HTableFactory factory;
   private CapturingAbortable abortable;
   private Stoppable stopped;
 
   @Override
-  public void setup(IndexWriter parent, RegionCoprocessorEnvironment env) {
+  public void setup(IndexWriter parent, RegionCoprocessorEnvironment env, String name) {
     Configuration conf = env.getConfiguration();
     setup(IndexWriterUtils.getDefaultDelegateHTableFactory(env),
-      IndexWriterUtils.getDefaultExecutor(conf),
+      ThreadPoolManager.getExecutor(
+        new ThreadPoolBuilder(name, conf).
+          setMaxThread(NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY,
+            DEFAULT_CONCURRENT_INDEX_WRITER_THREADS).
+          setCoreTimeout(INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY), env),
       env.getRegionServerServices(), parent, CachingHTableFactory.getCacheSize(conf));
   }
 

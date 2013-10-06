@@ -148,9 +148,8 @@ public class Indexer extends BaseRegionObserver {
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
-
     final RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) e;
-
+    String serverName = env.getRegionServerServices().getServerName().getServerName();
     if (env.getConfiguration().getBoolean(CHECK_VERSION_CONF_KEY, true)) {
       // make sure the right version <-> combinations are allowed.
       String errormsg = Indexer.validateVersion(env.getHBaseVersion(), env.getConfiguration());
@@ -169,7 +168,7 @@ public class Indexer extends BaseRegionObserver {
     log.registerWALActionsListener(new IndexLogRollSynchronizer(INDEX_READ_WRITE_LOCK.writeLock()));
 
     // setup the actual index writer
-    this.writer = new IndexWriter(env);
+    this.writer = new IndexWriter(env, serverName + "-index-writer");
 
     // setup the recovery writer that does retries on the failed edits
     TrackingParallelWriterIndexCommitter recoveryCommmiter =
@@ -185,7 +184,8 @@ public class Indexer extends BaseRegionObserver {
           policyClass.getConstructor(PerRegionIndexWriteCache.class).newInstance(failedIndexEdits);
       LOG.debug("Setting up recovery writter with committer: " + recoveryCommmiter.getClass()
           + " and failure policy: " + policy.getClass());
-      recoveryWriter = new IndexWriter(recoveryCommmiter, policy, env);
+      recoveryWriter =
+          new IndexWriter(recoveryCommmiter, policy, env, serverName + "-recovery-writer");
     } catch (Exception ex) {
       throw new IOException("Could not instantiate recovery failure policy!", ex);
     }
