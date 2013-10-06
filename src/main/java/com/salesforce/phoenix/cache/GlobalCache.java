@@ -55,7 +55,7 @@ import com.salesforce.phoenix.schema.PTable;
  * @since 0.1
  */
 public class GlobalCache extends TenantCacheImpl {
-    private static volatile GlobalCache INSTANCE; 
+    private static GlobalCache INSTANCE; 
     
     private final Configuration config;
     // TODO: Use Guava cache with auto removal after lack of access 
@@ -63,13 +63,11 @@ public class GlobalCache extends TenantCacheImpl {
     // Cache for lastest PTable for a given Phoenix table
     private final ConcurrentHashMap<ImmutableBytesPtr,PTable> metaDataCacheMap = new ConcurrentHashMap<ImmutableBytesPtr,PTable>();
     
-    public static GlobalCache getInstance(RegionCoprocessorEnvironment env) {
+    public static synchronized GlobalCache getInstance(RegionCoprocessorEnvironment env) {
+        // See http://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html
+        // for explanation of why double locking doesn't work. 
         if (INSTANCE == null) {
-            synchronized(GlobalCache.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = new GlobalCache(env.getConfiguration());
-                }
-            }
+            INSTANCE = new GlobalCache(env.getConfiguration());
         }
         return INSTANCE;
     }
