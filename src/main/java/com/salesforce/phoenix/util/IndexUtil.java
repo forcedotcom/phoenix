@@ -71,20 +71,22 @@ public class IndexUtil {
     }
     
     // Since we cannot have nullable fixed length in a row key
-    // we need to translate to variable length.
+    // we need to translate to variable length. The verification that we have a valid index
+    // row key was already done, so here we just need to covert from one built-in type to
+    // another.
     public static PDataType getIndexColumnDataType(boolean isNullable, PDataType dataType) {
-        if (!isNullable || !dataType.isFixedWidth()) {
+        if (!isNullable || !dataType.isFixedWidth() || dataType == PDataType.BINARY) {
             return dataType;
         }
         // for INT, BIGINT
-        if (dataType == PDataType.DATE || dataType == PDataType.TIME || dataType.isCoercibleTo(PDataType.DECIMAL)) {
+        if (dataType.isCoercibleTo(PDataType.TIMESTAMP) || dataType.isCoercibleTo(PDataType.DECIMAL)) {
             return PDataType.DECIMAL;
         }
         // for CHAR
         if (dataType.isCoercibleTo(PDataType.VARCHAR)) {
             return PDataType.VARCHAR;
         }
-        return null;
+        throw new IllegalArgumentException("Unsupported non nullable index type " + dataType);
     }
     
 

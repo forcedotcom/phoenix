@@ -1307,6 +1307,12 @@ public enum PDataType {
             case DOUBLE:
             case UNSIGNED_DOUBLE:
                 return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
+            case TIMESTAMP:
+                Timestamp ts = (Timestamp) actualType.toObject(b, o, l) ;
+                BigDecimal v = BigDecimal.valueOf(ts.getTime());
+                int nanos = ts.getNanos();
+                v = v.add(BigDecimal.valueOf(nanos, 9));
+                return v;
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1584,6 +1590,13 @@ public enum PDataType {
             case DATE:
             case TIME:
                 return new Timestamp(getCodec().decodeLong(b, o, null));
+            case DECIMAL:
+                BigDecimal bd = (BigDecimal) actualType.toObject(b, o, l);
+                long ms = bd.longValue();
+                int nanos = bd.remainder(BigDecimal.ONE).intValue();
+                v = new Timestamp(ms);
+                v.setNanos(nanos);
+                return v;
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
