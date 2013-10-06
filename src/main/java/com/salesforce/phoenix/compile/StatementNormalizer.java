@@ -69,7 +69,11 @@ public class StatementNormalizer extends ParseNodeRewriter {
     @Override
     public ParseNode visitLeave(ComparisonParseNode node, List<ParseNode> nodes) throws SQLException {
          if (nodes.get(0).isConstant() && !nodes.get(1).isConstant()) {
-             return NODE_FACTORY.comparison(node.getInvertFilterOp(), nodes.get(1), nodes.get(0));
+             List<ParseNode> normNodes = Lists.newArrayListWithExpectedSize(2);
+             normNodes.add(nodes.get(1));
+             normNodes.add(nodes.get(0));
+             nodes = normNodes;
+             node = NODE_FACTORY.comparison(node.getInvertFilterOp(), nodes.get(0), nodes.get(1));
          }
          return super.visitLeave(node, nodes);
     }
@@ -79,7 +83,7 @@ public class StatementNormalizer extends ParseNodeRewriter {
        
         LessThanOrEqualParseNode lhsNode =  NODE_FACTORY.lte(node.getChildren().get(1), node.getChildren().get(0));
         LessThanOrEqualParseNode rhsNode =  NODE_FACTORY.lte(node.getChildren().get(0), node.getChildren().get(2));
-        List<ParseNode> parseNodes = Lists.newArrayList();
+        List<ParseNode> parseNodes = Lists.newArrayListWithExpectedSize(2);
         parseNodes.add(this.visitLeave(lhsNode, lhsNode.getChildren()));
         parseNodes.add(this.visitLeave(rhsNode, rhsNode.getChildren()));
         return super.visitLeave(node, parseNodes);
