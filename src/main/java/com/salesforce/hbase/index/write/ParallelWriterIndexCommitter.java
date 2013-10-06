@@ -50,6 +50,8 @@ import com.salesforce.hbase.index.parallel.EarlyExitFailure;
 import com.salesforce.hbase.index.parallel.QuickFailingTaskRunner;
 import com.salesforce.hbase.index.parallel.Task;
 import com.salesforce.hbase.index.parallel.TaskBatch;
+import com.salesforce.hbase.index.parallel.ThreadPoolBuilder;
+import com.salesforce.hbase.index.parallel.ThreadPoolManager;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
@@ -66,6 +68,10 @@ import com.salesforce.hbase.index.table.HTableInterfaceReference;
  */
 public class ParallelWriterIndexCommitter implements IndexCommitter {
 
+  public static String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.writer.threads.max";
+  private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
+  private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
+      "index.writer.threads.keepalivetime";
   private static final Log LOG = LogFactory.getLog(ParallelWriterIndexCommitter.class);
 
   private HTableFactory factory;
@@ -73,9 +79,14 @@ public class ParallelWriterIndexCommitter implements IndexCommitter {
   private QuickFailingTaskRunner pool;
 
   @Override
-  public void setup(IndexWriter parent, RegionCoprocessorEnvironment env) {
+  public void setup(IndexWriter parent, RegionCoprocessorEnvironment env, String name) {
     Configuration conf = env.getConfiguration();
-    setup(IndexWriterUtils.getDefaultDelegateHTableFactory(env), IndexWriterUtils.getDefaultExecutor(conf),
+    setup(IndexWriterUtils.getDefaultDelegateHTableFactory(env),
+      ThreadPoolManager.getExecutor(
+        new ThreadPoolBuilder(name, conf).
+          setMaxThread(NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY,
+            DEFAULT_CONCURRENT_INDEX_WRITER_THREADS).
+          setCoreTimeout(INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY), env),
       env.getRegionServerServices(), parent, CachingHTableFactory.getCacheSize(conf));
   }
 
