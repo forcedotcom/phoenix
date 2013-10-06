@@ -25,23 +25,49 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index.write;
+package com.salesforce.hbase.index.parallel;
 
-import org.apache.hadoop.hbase.Stoppable;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import static org.junit.Assert.*;
 
-import com.google.common.collect.Multimap;
-import com.salesforce.hbase.index.exception.IndexWriteException;
-import com.salesforce.hbase.index.table.HTableInterfaceReference;
+import org.apache.hadoop.conf.Configuration;
+import org.junit.Rule;
+import org.junit.Test;
 
-/**
- * Write the index updates to the index tables
- */
-public interface IndexCommitter extends Stoppable {
+import com.salesforce.hbase.index.TableName;
 
-  void setup(IndexWriter parent, RegionCoprocessorEnvironment env, String name);
+public class TestThreadPoolBuilder {
 
-  public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
-      throws IndexWriteException;
+  @Rule
+  public TableName name = new TableName();
+
+  @Test
+  public void testCoreThreadTimeoutNonZero() {
+    Configuration conf = new Configuration(false);
+    String key = name.getTableNameString()+"-key";
+    ThreadPoolBuilder builder = new ThreadPoolBuilder(name.getTableNameString(), conf);
+    assertTrue("core threads not set, but failed return", builder.getKeepAliveTime() > 0);
+    // set an negative value
+    builder.setCoreTimeout(key, -1);
+    assertTrue("core threads not set, but failed return", builder.getKeepAliveTime() > 0);
+    // set a positive value
+    builder.setCoreTimeout(key, 1234);
+    assertEquals("core threads not set, but failed return", 1234, builder.getKeepAliveTime());
+    // set an empty value
+    builder.setCoreTimeout(key);
+    assertTrue("core threads not set, but failed return", builder.getKeepAliveTime() > 0);
+  }
+  
+  @Test
+  public void testMaxThreadsNonZero() {
+    Configuration conf = new Configuration(false);
+    String key = name.getTableNameString()+"-key";
+    ThreadPoolBuilder builder = new ThreadPoolBuilder(name.getTableNameString(), conf);
+    assertTrue("core threads not set, but failed return", builder.getMaxThreads() > 0);
+    // set an negative value
+    builder.setMaxThread(key, -1);
+    assertTrue("core threads not set, but failed return", builder.getMaxThreads() > 0);
+    // set a positive value
+    builder.setMaxThread(key, 1234);
+    assertEquals("core threads not set, but failed return", 1234, builder.getMaxThreads());
+  }
 }
