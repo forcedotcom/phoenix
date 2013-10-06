@@ -458,7 +458,7 @@ alter_table_node returns [AlterTableStatement ret]
     ;
 
 prop_name returns [String ret]
-    :   p=identifier {$ret = p; }
+    :   p=identifier {$ret = SchemaUtil.normalizeIdentifier(p); }
     ;
     
 properties returns [Map<String,Object> ret]
