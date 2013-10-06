@@ -79,7 +79,7 @@ public interface KeyPart {
     public List<Expression> getExtractNodes();
     
     /**
-     * Gets the primary key column associated with this key part
+     * Gets the primary key column associated with the start of this key part.
      * @return the primary key column for this key part
      */
     public PColumn getColumn();

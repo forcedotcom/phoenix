@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -43,7 +45,8 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDataType.PDataCodec;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
