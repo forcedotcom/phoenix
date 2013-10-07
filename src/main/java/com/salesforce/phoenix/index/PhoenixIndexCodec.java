@@ -80,10 +80,10 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             IndexMetaDataCache indexCache =
                 (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
             if (indexCache == null) {
-                String msg = " key="+ServerCacheClient.idToString(uuid) + " region=" + env.getRegion();
+                String msg = "key="+ServerCacheClient.idToString(uuid) + " region=" + env.getRegion();
                 SQLException e = new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_METADATA_NOT_FOUND)
                     .setMessage(msg).build().buildException();
-                ServerUtil.throwIOException(msg, e); // will not return
+                ServerUtil.throwIOException("Index update failed", e); // will not return
             }
             indexMaintainers = indexCache.getIndexMaintainers();
         }

@@ -43,6 +43,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.InListExpression;
@@ -64,6 +65,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.SaltingUtil;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -156,7 +158,7 @@ public class WhereOptimizer {
                 }
             }
             // We support (a,b) IN ((1,2),(3,4), so in this case we switch to a flattened schema
-            if (slot.getPKSpan() == fullyQualifiedColumnCount) {
+            if (fullyQualifiedColumnCount > 1 && slot.getPKSpan() == fullyQualifiedColumnCount) {
                 schema = SchemaUtil.VAR_BINARY_SCHEMA;
             }
             KeyPart keyPart = slot.getKeyPart();
@@ -626,8 +628,20 @@ public class WhereOptimizer {
             }
             KeyPart childPart = childSlot.getKeyPart();
             // Handles cases like WHERE substr(foo,1,3) IN ('aaa','bbb')
-            for (byte[] key : keys) {
-                ranges.add(ByteUtil.getKeyRange(key, CompareOp.EQUAL, childPart.getColumn().getDataType()));
+            for (final byte[] key : keys) {
+                ranges.add(childPart.getKeyRange(CompareOp.EQUAL, new BaseTerminalExpression() {
+
+                    @Override
+                    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+                        ptr.set(key);
+                        return true;
+                    }
+
+                    @Override
+                    public PDataType getDataType() {
+                        return PDataType.VARBINARY;
+                    }
+                }, childSlot.getPKSpan()));
             }
             return newKeyParts(childSlot, node, ranges, null);
         }

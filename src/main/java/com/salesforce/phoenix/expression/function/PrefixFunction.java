@@ -30,6 +30,13 @@ abstract public class PrefixFunction extends ScalarFunction {
         return false;
     }
 
+    private static byte[] evaluateExpression(Expression rhs) {
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        rhs.evaluate(null, ptr);
+        byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
+        return key;
+    }
+    
     @Override
     public KeyPart newKeyPart(final KeyPart childPart) {
         return new KeyPart() {
@@ -46,19 +53,20 @@ abstract public class PrefixFunction extends ScalarFunction {
 
             @Override
             public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
-                ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-                rhs.evaluate(null, ptr);
-                byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
+                byte[] key;
                 KeyRange range;
                 PDataType type = getColumn().getDataType();
                 switch (op) {
                 case EQUAL:
+                    key = evaluateExpression(rhs);
                     range = type.getKeyRange(key, true, ByteUtil.nextKey(key), false);
                     break;
                 case GREATER:
+                    key = evaluateExpression(rhs);
                     range = type.getKeyRange(ByteUtil.nextKey(key), true, KeyRange.UNBOUND, false);
                     break;
                 case LESS_OR_EQUAL:
+                    key = evaluateExpression(rhs);
                     range = type.getKeyRange(KeyRange.UNBOUND, false, ByteUtil.nextKey(key), false);
                     break;
                 default:
