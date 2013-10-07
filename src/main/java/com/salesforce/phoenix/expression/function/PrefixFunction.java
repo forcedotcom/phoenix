@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.compile.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
@@ -44,7 +45,10 @@ abstract public class PrefixFunction extends ScalarFunction {
             }
 
             @Override
-            public KeyRange getKeyRange(CompareOp op, byte[] key) {
+            public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
+                ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+                rhs.evaluate(null, ptr);
+                byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
                 KeyRange range;
                 PDataType type = getColumn().getDataType();
                 switch (op) {
@@ -58,7 +62,7 @@ abstract public class PrefixFunction extends ScalarFunction {
                     range = type.getKeyRange(KeyRange.UNBOUND, false, ByteUtil.nextKey(key), false);
                     break;
                 default:
-                    return childPart.getKeyRange(op, key);
+                    return childPart.getKeyRange(op, rhs, 1);
                 }
                 Integer length = getColumn().getByteSize();
                 return length == null ? range : range.fill(length);

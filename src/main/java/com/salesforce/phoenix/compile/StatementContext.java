@@ -29,6 +29,7 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.text.Format;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
@@ -36,10 +37,13 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.BindableStatement;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
 
@@ -67,6 +71,7 @@ public class StatementContext {
     
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
+    private KeyRange minMaxRange = null;
 
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
         this.connection = connection;
@@ -130,6 +135,59 @@ public class StatementContext {
     public void setScanRanges(ScanRanges scanRanges) {
         this.scanRanges = scanRanges;
         this.scanRanges.setScanStartStopRow(scan);
+        PTable table = this.getResolver().getTables().get(0).getTable();
+        if (table.getBucketNum() == null && minMaxRange != null) { 
+            KeyRange range = KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow());
+            // TODO: util for this: ScanUtil.toLowerInclusiveUpperExclusiveRange
+            range = range.intersect(minMaxRange);
+            if (!range.lowerUnbound()) {
+                byte[] lowerRange = range.getLowerRange();
+                if (!range.isLowerInclusive()) {
+                    // Find how slots the minMaxRange spans
+                    int pos = 0;
+                    ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+                    RowKeySchema schema = table.getRowKeySchema();
+                    int maxOffset = schema.iterator(lowerRange, ptr);
+                    while (schema.next(ptr, pos, maxOffset) != null) {
+                        pos++;
+                    }
+                    if (!schema.getField(pos-1).getDataType().isFixedWidth()) {
+                        byte[] newLowerRange = new byte[lowerRange.length + 1];
+                        System.arraycopy(lowerRange, 0, newLowerRange, 0, lowerRange.length);
+                        newLowerRange[lowerRange.length] = QueryConstants.SEPARATOR_BYTE;
+                        lowerRange = newLowerRange;
+                    } else {
+                        lowerRange = Arrays.copyOf(lowerRange, lowerRange.length);
+                    }
+                    ByteUtil.nextKey(lowerRange, lowerRange.length);
+                }
+                scan.setStartRow(lowerRange);
+            }
+            
+            byte[] upperRange = range.getUpperRange();
+            if (!range.upperUnbound()) {
+                if (range.isUpperInclusive()) {
+                    // Find how slots the minMaxRange spans
+                    int pos = 0;
+                    ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+                    RowKeySchema schema = table.getRowKeySchema();
+                    int maxOffset = schema.iterator(upperRange, ptr);
+                    while (schema.next(ptr, pos, maxOffset) != null) {
+                        pos++;
+                    }
+                    if (!schema.getField(pos-1).getDataType().isFixedWidth()) {
+                        byte[] newUpperRange = new byte[upperRange.length + 1];
+                        System.arraycopy(upperRange, 0, newUpperRange, 0, upperRange.length);
+                        newUpperRange[upperRange.length] = QueryConstants.SEPARATOR_BYTE;
+                        upperRange = newUpperRange;
+                    } else {
+                        upperRange = Arrays.copyOf(upperRange, upperRange.length);
+                    }
+                    ByteUtil.nextKey(upperRange, upperRange.length);
+                }
+                scan.setStopRow(upperRange);
+            }
+        }
     }
     
     public PhoenixConnection getConnection() {
@@ -154,5 +212,17 @@ public class StatementContext {
         MetaDataClient client = new MetaDataClient(connection);
         currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;
+    }
+
+    /**
+     * Get the key range derived from row value constructor usage in where clause. These are orthogonal to the ScanRanges
+     * and form a range for which each scan is intersected against.
+     */
+    public KeyRange getMinMaxRange () {
+        return minMaxRange;
+    }
+    
+    public void setMinMaxRange(KeyRange minMaxRange) {
+        this.minMaxRange = minMaxRange;
     }
 }

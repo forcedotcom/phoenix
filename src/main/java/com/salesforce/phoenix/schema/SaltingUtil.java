@@ -96,6 +96,31 @@ public class SaltingUtil {
         return result;
     }
 
+    public static List<List<KeyRange>> setSaltByte(List<List<KeyRange>> ranges, int bucketNum) {
+        if (ranges == null || ranges.isEmpty()) {
+            return ScanRanges.NOTHING.getRanges();
+        }
+        for (int i = 1; i < ranges.size(); i++) {
+            List<KeyRange> range = ranges.get(i);
+            if (range != null && !range.isEmpty()) {
+                throw new IllegalStateException();
+            }
+        }
+        List<KeyRange> newRanges = Lists.newArrayListWithExpectedSize(ranges.size());
+        for (KeyRange range : ranges.get(0)) {
+            if (!range.isSingleKey()) {
+                throw new IllegalStateException();
+            }
+            byte[] key = range.getLowerRange();
+            byte saltByte = SaltingUtil.getSaltingByte(key, 0, key.length, bucketNum);
+            byte[] saltedKey = new byte[key.length + 1];
+            System.arraycopy(key, 0, saltedKey, 1, key.length);   
+            saltedKey[0] = saltByte;
+            newRanges.add(KeyRange.getKeyRange(saltedKey, true, saltedKey, true));
+        }
+        return Collections.singletonList(newRanges);
+    }
+    
     public static List<List<KeyRange>> flattenRanges(List<List<KeyRange>> ranges, RowKeySchema schema, int bucketNum) {
         if (ranges == null || ranges.isEmpty()) {
             return ScanRanges.NOTHING.getRanges();

@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -163,6 +165,12 @@ public class SubstrFunction extends PrefixFunction {
 
     @Override
     public Integer getByteSize() {
+        return byteSize;
+    }
+    
+    // TODO: we shouldn't need both getByteSize() and getMaxLength()
+    @Override
+    public Integer getMaxLength() {
         return byteSize;
     }
     

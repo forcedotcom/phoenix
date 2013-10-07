@@ -68,6 +68,14 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         init(isConstant);
     }
 
+    public int getEstimatedSize() {
+        return size;
+    }
+    
+    public boolean isConstant() {
+        return literalExprPtr != null;
+    }
+    
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         List<T> l = acceptChildren(visitor, visitor.visitEnter(this));

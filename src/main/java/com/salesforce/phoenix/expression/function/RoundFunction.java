@@ -200,8 +200,11 @@ public class RoundFunction extends ScalarFunction {
             }
 
             @Override
-            public KeyRange getKeyRange(CompareOp op, byte[] key) {
+            public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
                 PDataType type = getColumn().getDataType();
+                ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+                rhs.evaluate(null, ptr);
+                byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
                 // No need to take into account column modifier, because ROUND
                 // always forces the value to be in ascending order
                 PDataCodec codec = type.getCodec();
@@ -229,7 +232,7 @@ public class RoundFunction extends ScalarFunction {
                     codec.encodeLong((value + divBy - (1 -offset))/divBy*divBy, nextKey, 0);
                     return type.getKeyRange(KeyRange.UNBOUND, false, nextKey, false);
                 default:
-                    return childPart.getKeyRange(op, key);
+                    return childPart.getKeyRange(op, rhs, 1);
                 }
             }
         };
