@@ -234,7 +234,7 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
     public void reset() {
         matchedColumn = null;
         inputTuple.reset();
-        expression.reset();
+        super.reset();
     }
 
     @Override

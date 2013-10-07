@@ -137,6 +137,7 @@ public abstract class SingleKeyValueComparisonFilter extends BooleanExpressionFi
     public void reset() {
         inputTuple.reset();
         matchedColumn = false;
+        super.reset();
     }
 
     @Override
