@@ -25,12 +25,13 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.hbase.index;
+package com.salesforce.hbase.index.builder;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.commons.logging.Log;
@@ -44,9 +45,7 @@ import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.salesforce.hbase.index.builder.IndexBuilder;
-import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
-import com.salesforce.hbase.index.parallel.EarlyExitFailure;
+import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.parallel.QuickFailingTaskRunner;
 import com.salesforce.hbase.index.parallel.Task;
 import com.salesforce.hbase.index.parallel.TaskBatch;
@@ -126,8 +125,7 @@ public class IndexBuildManager implements Stoppable {
 
   public Collection<Pair<Mutation, byte[]>> getIndexUpdate(
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp,
-      Collection<? extends Mutation> mutations)
-      throws IOException {
+      Collection<? extends Mutation> mutations) throws Throwable {
     // notify the delegate that we have started processing a batch
     this.delegate.batchStarted(miniBatchOp);
 
@@ -151,11 +149,11 @@ public class IndexBuildManager implements Stoppable {
     List<Collection<Pair<Mutation, byte[]>>> allResults = null;
     try {
       allResults = pool.submitUninterruptible(tasks);
-    } catch (EarlyExitFailure e) {
-      propagateFailure(e);
+    } catch (CancellationException e) {
+      throw e;
     } catch (ExecutionException e) {
       LOG.error("Found a failed index update!");
-      propagateFailure(e.getCause());
+      throw e.getCause();
     }
 
     // we can only get here if we get successes from each of the tasks, so each of these must have a
@@ -169,22 +167,6 @@ public class IndexBuildManager implements Stoppable {
     return results;
   }
 
-  /**
-   * Propagate the given failure as a generic {@link IOException}, if it isn't already
-   * @param e failure
-   */
-  private void propagateFailure(Throwable e) throws IOException {
-    try {
-      throw e;
-    } catch (IOException e1) {
-      LOG.info("Rethrowing " + e);
-      throw e1;
-    } catch (Throwable e1) {
-      LOG.info("Rethrowing " + e1 + " as a " + IndexBuildingFailureException.class.getSimpleName());
-      throw new IndexBuildingFailureException("Failed to build index for unexpected reason!", e1);
-    }
-  }
-
   public Collection<Pair<Mutation, byte[]>> getIndexUpdate(Delete delete) throws IOException {
     // all we get is a single update, so it would probably just go slower if we needed to queue it
     // up. It will increase underlying resource contention a little bit, but the mutation case is
@@ -195,6 +177,7 @@ public class IndexBuildManager implements Stoppable {
     }
 
     return delegate.getIndexUpdate(delete);
+
   }
 
   public Collection<Pair<Mutation, byte[]>> getIndexUpdateForFilteredRows(
