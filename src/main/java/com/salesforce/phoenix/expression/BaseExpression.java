@@ -103,4 +103,9 @@ public abstract class BaseExpression implements Expression {
         }
         return l;
     }
+    
+    @Override
+    public boolean isConstant() {
+        return false;
+    }
 }

@@ -60,6 +60,7 @@ import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SQLCloseables;
@@ -155,9 +156,20 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
             final UUID scanId = UUID.randomUUID();
             try {
                 ExecutorService executor = services.getExecutor();
-                for (final KeyRange split : splits) {
+                for (KeyRange split : splits) {
                     final Scan splitScan = new Scan(this.context.getScan());
-                    // Intersect with existing start/stop key
+                    // Intersect with existing start/stop key if the table is salted
+                    // If not salted, we've already intersected it. If salted, we need
+                    // to wait until now to intersect, as we're running parallel scans
+                    // on all the possible regions here.
+                    if (tableRef.getTable().getBucketNum() != null) {
+                        KeyRange minMaxRange = context.getMinMaxRange();
+                        if (minMaxRange != null) {
+                            // Add salt byte based on current split, as minMaxRange won't have it
+                            minMaxRange = SaltingUtil.addSaltByte(split.getLowerRange(), minMaxRange);
+                            split = split.intersect(minMaxRange);
+                        }
+                    }
                     if (ScanUtil.intersectScanRange(splitScan, split.getLowerRange(), split.getUpperRange(), this.context.getScanRanges().useSkipScanFilter())) {
                         Future<PeekingResultIterator> future =
                             executor.submit(new JobCallable<PeekingResultIterator>() {
@@ -166,9 +178,9 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                             public PeekingResultIterator call() throws Exception {
                                 // TODO: different HTableInterfaces for each thread or the same is better?
                             	long startTime = System.currentTimeMillis();
-                                ResultIterator scanner = new TableResultIterator(context, table, splitScan);
+                                ResultIterator scanner = new TableResultIterator(context, tableRef, splitScan);
                                 if (logger.isDebugEnabled()) {
-                                	logger.debug("Id: " + scanId + ", Time: " + (System.currentTimeMillis() - startTime) + "ms, Scan: " + split);
+                                	logger.debug("Id: " + scanId + ", Time: " + (System.currentTimeMillis() - startTime) + "ms, Scan: " + splitScan);
                                 }
                                 return iteratorFactory.newIterator(scanner);
                             }

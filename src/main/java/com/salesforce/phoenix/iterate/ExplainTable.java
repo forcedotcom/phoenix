@@ -47,7 +47,7 @@ import com.salesforce.phoenix.schema.TableRef;
 
 public abstract class ExplainTable {
     protected final StatementContext context;
-    protected final TableRef table;
+    protected final TableRef tableRef;
     protected final GroupBy groupBy;
    
     public ExplainTable(StatementContext context, TableRef table) {
@@ -56,7 +56,7 @@ public abstract class ExplainTable {
 
     public ExplainTable(StatementContext context, TableRef table, GroupBy groupBy) {
         this.context = context;
-        this.table = table;
+        this.tableRef = table;
         this.groupBy = groupBy;
     }
 
@@ -92,7 +92,7 @@ public abstract class ExplainTable {
         } else {
             hasSkipScanFilter = explainSkipScan(buf);
         }
-        buf.append("OVER " + table.getTable().getName().getString());
+        buf.append("OVER " + tableRef.getTable().getName().getString());
         appendKeyRanges(buf);
         planSteps.add(buf.toString());
         
@@ -155,7 +155,7 @@ public abstract class ExplainTable {
         }
         ScanRanges scanRanges = context.getScanRanges();
         PDataType type = scanRanges.getSchema().getField(slotIndex).getDataType();
-        ColumnModifier modifier = table.getTable().getPKColumns().get(slotIndex).getColumnModifier();
+        ColumnModifier modifier = tableRef.getTable().getPKColumns().get(slotIndex).getColumnModifier();
         if (modifier != null) {
             range = modifier.apply(range, 0, new byte[range.length], 0, range.length);
         }

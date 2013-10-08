@@ -72,6 +72,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         return size;
     }
     
+    @Override
     public boolean isConstant() {
         return literalExprPtr != null;
     }

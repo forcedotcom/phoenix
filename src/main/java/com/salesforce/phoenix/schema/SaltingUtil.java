@@ -157,4 +157,17 @@ public class SaltingUtil {
         }
         return idx >= 0;
     }
+
+    public static KeyRange addSaltByte(byte[] startKey, KeyRange minMaxRange) {
+        byte saltByte = startKey.length == 0 ? 0 : startKey[0];
+        byte[] lowerRange = minMaxRange.getLowerRange();
+        byte[] newLowerRange = new byte[lowerRange.length + 1];
+        newLowerRange[0] = saltByte;
+        System.arraycopy(lowerRange, 0, newLowerRange, 1, lowerRange.length);
+        byte[] upperRange = minMaxRange.getUpperRange();
+        byte[] newUpperRange = new byte[upperRange.length + 1];
+        newLowerRange[0] = saltByte;
+        System.arraycopy(upperRange, 0, newUpperRange, 1, upperRange.length);
+        return KeyRange.getKeyRange(newLowerRange, newUpperRange);
+    }
 }

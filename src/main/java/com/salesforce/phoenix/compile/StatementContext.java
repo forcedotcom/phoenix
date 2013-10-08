@@ -133,18 +133,14 @@ public class StatementContext {
     public void setScanRanges(ScanRanges scanRanges) {
         setScanRanges(scanRanges, null);
     }
-    
 
     public void setScanRanges(ScanRanges scanRanges, KeyRange minMaxRange) {
         this.scanRanges = scanRanges;
         this.scanRanges.setScanStartStopRow(scan);
         PTable table = this.getResolver().getTables().get(0).getTable();
         if (minMaxRange != null) {
-            // If we're not salting, we can intersect this now with the scan range.
-            // Otherwise, we have to wait to do this when we chunk up the scan.
-            if (table.getBucketNum() == null) {
-                minMaxRange = minMaxRange.intersect(KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow()));
-            }
+            // Ensure minMaxRange is lower inclusive and upper exclusive, as that's
+            // what we need to intersect against for the HBase scan.
             byte[] lowerRange = minMaxRange.getLowerRange();
             if (!minMaxRange.lowerUnbound()) {
                 if (!minMaxRange.isLowerInclusive()) {
@@ -159,10 +155,16 @@ public class StatementContext {
                 }
             }
             if (minMaxRange.getLowerRange() != lowerRange || minMaxRange.getUpperRange() != upperRange) {
-                this.minMaxRange = KeyRange.getKeyRange(lowerRange, true, upperRange, false);
-            } else {
-                this.minMaxRange = minMaxRange;
+                minMaxRange = KeyRange.getKeyRange(lowerRange, true, upperRange, false);
             }
+            // If we're not salting, we can intersect this now with the scan range.
+            // Otherwise, we have to wait to do this when we chunk up the scan.
+            if (table.getBucketNum() == null) {
+                minMaxRange = minMaxRange.intersect(KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow()));
+                scan.setStartRow(minMaxRange.getLowerRange());
+                scan.setStopRow(minMaxRange.getUpperRange());
+            }
+            this.minMaxRange = minMaxRange;
         }
     }
     

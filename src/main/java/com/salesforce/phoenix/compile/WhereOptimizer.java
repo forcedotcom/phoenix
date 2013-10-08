@@ -144,11 +144,11 @@ public class WhereOptimizer {
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.
-            if ((slot == null || slot.getPKPosition() != pkPos + 1)) {
+            if (slot == null || slot.getKeyRanges().isEmpty() || slot.getPKPosition() != pkPos + 1) {
                 if (!forcedSkipScanFilter) {
                     break;
                 }
-                if (slot == null) {
+                if (slot == null || slot.getKeyRanges().isEmpty()) {
                     cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
                     continue;
                 }
@@ -197,20 +197,6 @@ public class WhereOptimizer {
                     cnf.addFirst(SaltingUtil.generateAllSaltingRanges(table.getBucketNum()));
                 }
             }
-//            if (minMaxRange != null) {
-//                byte[] lowerBound = minMaxRange.getLowerRange();
-//                if (!minMaxRange.lowerUnbound()) {
-//                    byte[] newLowerBound = new byte[lowerBound.length + 1];
-//                    System.arraycopy(lowerBound, 0, newLowerBound, 1, lowerBound.length);
-//                }
-//                byte[] upperBound = minMaxRange.getUpperRange();
-//                if (!minMaxRange.upperUnbound()) {
-//                    byte[] newUpperBound = new byte[upperBound.length + 1];
-//                    newUpperBound[0] = (byte)(table.getBucketNum() & 0xFF);
-//                    System.arraycopy(upperBound, 0, newUpperBound, 1, upperBound.length);
-//                }
-//                byte[] uppserBound = minMaxRange.getUpperRange();
-//            }
         }
         context.setScanRanges(
                 ScanRanges.create(ranges, schema, statement.getHint().hasHint(Hint.RANGE_SCAN)),
@@ -319,7 +305,6 @@ public class WhereOptimizer {
                 if (keySlot.getPKPosition() != position) {
                     break;
                 }
-                
                 position++;
                 
                 // If we come to a point where we're not preserving order completely
@@ -327,7 +312,7 @@ public class WhereOptimizer {
                 // in the case of SUBSTR, so we cannot continue building the row key
                 // past that.
                 assert(keySlot.getOrderPreserving() != OrderPreserving.NO);
-                if (keySlot.getOrderPreserving() != OrderPreserving.YES) {
+                if (keySlot.getOrderPreserving() == OrderPreserving.YES_IF_LAST) {
                     break;
                 }
             }
@@ -337,7 +322,7 @@ public class WhereOptimizer {
                 if (span == rvc.getChildren().size()) { // Used all children, so we may extract the node
                     extractNodes = Collections.<Expression>singletonList(rvc);
                 }
-                return new SingleKeySlot(new BaseRowValueConstructorKeyPart(table.getPKColumns().get(initPosition), extractNodes, rvc), initPosition, span, childSlots.get(0).iterator().next().getKeyRanges());
+                return new SingleKeySlot(new BaseRowValueConstructorKeyPart(table.getPKColumns().get(initPosition), extractNodes, rvc), initPosition, span, Collections.<KeyRange>emptyList());
             }
             return null;
         }
@@ -363,29 +348,25 @@ public class WhereOptimizer {
                 if (childSlot == DEGENERATE_KEY_PARTS) {
                     return DEGENERATE_KEY_PARTS;
                 }
-                for (KeySlot slot : childSlot) {
-                    // We have a nested AND with nothing for this slot, so continue
-                    if (slot == null) {
-                        continue;
-                    }
-                    int position = slot.getPKPosition();
-                    KeySlot existing = keySlot[position];
-                    if (existing == null) {
-                        keySlot[position] = slot;
-                    } else {
-                        // We don't handle cases where we have to intersect across spans yet.
-                        // For example: (a,b) IN ((1,2),(3,4)) AND a = 3
-                        if (existing.getPKSpan() > 1 || slot.getPKSpan() > 1) {
-                            return null;
-                        }
-                        keySlot[position] = existing.intersect(slot);
-                        if (keySlot[position] == null) {
-                            return DEGENERATE_KEY_PARTS;
-                        }
-                    }
-                }
                 if (childSlot.getMinMaxRange() != null) { 
                     minMaxRange = minMaxRange.intersect(childSlot.getMinMaxRange());
+                } else {
+                    for (KeySlot slot : childSlot) {
+                        // We have a nested AND with nothing for this slot, so continue
+                        if (slot == null) {
+                            continue;
+                        }
+                        int position = slot.getPKPosition();
+                        KeySlot existing = keySlot[position];
+                        if (existing == null) {
+                            keySlot[position] = slot;
+                        } else {
+                            keySlot[position] = existing.intersect(slot);
+                            if (keySlot[position] == null) {
+                                return DEGENERATE_KEY_PARTS;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -421,37 +402,34 @@ public class WhereOptimizer {
                     // TODO: can this ever happen and can we safely filter the expression tree?
                     continue;
                 }
-                for (KeySlot slot : childSlot) {
-                    // We have a nested OR with nothing for this slot, so continue
-                    if (slot == null) {
-                        continue;
-                    }
-                    /*
-                     * If we see a different PK column than before, we can't
-                     * optimize it because our SkipScanFilter only handles
-                     * top level expressions that are ANDed together (where in
-                     * the same column expressions may be ORed together).
-                     * For example, WHERE a=1 OR b=2 cannot be handled, while
-                     *  WHERE (a=1 OR a=2) AND (b=2 OR b=3) can be handled.
-                     * TODO: We could potentially handle these cases through
-                     * multiple, nested SkipScanFilters, where each OR expression
-                     * is handled by its own SkipScanFilter and the outer one
-                     * increments the child ones and picks the one with the smallest
-                     * key.
-                     */
-                    if (theSlot == null) {
-                        theSlot = slot;
-                    } else if (theSlot.getPKPosition() != slot.getPKPosition()) {
-                        return null;
-                    } else if (theSlot.getPKSpan() > 1 || slot.getPKSpan() > 1) {
-                        // We don't handle cases where we have to union across spans yet.
-                        // For example: (a,b) IN ((1,2),(3,4)) OR a = 5
-                        return null;
-                    }
-                    union.addAll(slot.getKeyRanges());
-                }
                 if (childSlot.getMinMaxRange() != null) { 
                     minMaxRange = minMaxRange.union(childSlot.getMinMaxRange());
+                } else {
+                    for (KeySlot slot : childSlot) {
+                        // We have a nested OR with nothing for this slot, so continue
+                        if (slot == null) {
+                            continue;
+                        }
+                        /*
+                         * If we see a different PK column than before, we can't
+                         * optimize it because our SkipScanFilter only handles
+                         * top level expressions that are ANDed together (where in
+                         * the same column expressions may be ORed together).
+                         * For example, WHERE a=1 OR b=2 cannot be handled, while
+                         *  WHERE (a=1 OR a=2) AND (b=2 OR b=3) can be handled.
+                         * TODO: We could potentially handle these cases through
+                         * multiple, nested SkipScanFilters, where each OR expression
+                         * is handled by its own SkipScanFilter and the outer one
+                         * increments the child ones and picks the one with the smallest
+                         * key.
+                         */
+                        if (theSlot == null) {
+                            theSlot = slot;
+                        } else if (theSlot.getPKPosition() != slot.getPKPosition()) {
+                            return null;
+                        }
+                        union.addAll(slot.getKeyRanges());
+                    }
                 }
             }
 
@@ -530,8 +508,7 @@ public class WhereOptimizer {
         public Iterator<Expression> visitEnter(ComparisonExpression node) {
             Expression rhs = node.getChildren().get(1);
             // TODO: add Expression.isConstant() instead as this is ugly
-            if (! (rhs instanceof LiteralExpression || (rhs instanceof RowValueConstructorExpression && !((RowValueConstructorExpression)rhs).isConstant()) ) 
-                || node.getFilterOp() == CompareOp.NOT_EQUAL) {
+            if (!rhs.isConstant() || node.getFilterOp() == CompareOp.NOT_EQUAL) {
                 return Iterators.emptyIterator();
             }
             return Iterators.singletonIterator(node.getChildren().get(0));
