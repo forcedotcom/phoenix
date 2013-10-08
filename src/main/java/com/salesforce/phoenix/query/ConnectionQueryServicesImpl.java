@@ -1080,7 +1080,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family, byte[] dataTable) throws SQLException {
+    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException {
         byte[][] rowKeyMetaData = new byte[3][];
 
         byte[] rowKey = tableMetaData.get(0).getRow();
@@ -1091,7 +1091,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         if (family != null) {
-            ensureFamilyCreated(dataTable == null ? tableName : dataTable, tableType, family);
+            PTable table = latestMetaData.getTable(Bytes.toString(tableName));
+            ensureFamilyCreated(table.getPhysicalName().getBytes(), tableType, family);
         }
         MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
@@ -1104,7 +1105,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType, byte[] emptyCF, byte[] dataTable) throws SQLException {
+    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
         byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
@@ -1113,7 +1114,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         if (emptyCF != null) {
-            this.ensureFamilyCreated(dataTable == null ? tableName : dataTable, tableType, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
+            this.ensureFamilyCreated(tableName, tableType, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
         }
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {

@@ -33,8 +33,6 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Properties;
 
-import javax.annotation.Nullable;
-
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.ServerName;
@@ -132,13 +130,13 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family, @Nullable byte[] dataTable) throws SQLException {
-        return getDelegate().addColumn(tabeMetaData, tableType, family, dataTable);
+    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException {
+        return getDelegate().addColumn(tabeMetaData, tableType, family);
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType, byte[] emptyCF, @Nullable byte[] dataTable) throws SQLException {
-        return getDelegate().dropColumn(tabeMetaData, tableType, emptyCF, dataTable);
+    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
+        return getDelegate().dropColumn(tabeMetaData, tableType, emptyCF);
     }
 
     @Override

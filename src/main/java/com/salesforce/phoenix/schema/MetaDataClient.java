@@ -1036,8 +1036,7 @@ public class MetaDataClient {
                         }
                     }
                 }
-                byte[] physicalTableName = table.getPhysicalName().getBytes();
-                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType(), family, physicalTableName);
+                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType(), family);
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_ALREADY_EXISTS) {
@@ -1163,8 +1162,7 @@ public class MetaDataClient {
                 if (table.getType() != PTableType.VIEW && !SchemaUtil.isPKColumn(columnToDrop) && table.getColumnFamilies().get(0).getName().equals(columnToDrop.getFamilyName()) && table.getColumnFamilies().get(0).getColumns().size() == 1) {
                     emptyCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies().subList(1, table.getColumnFamilies().size()));
                 }
-                byte[] physicalTableName = table.getPhysicalName().getBytes();
-                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, table.getType(), emptyCF != null && Bytes.compareTo(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES)==0 ? emptyCF : null, physicalTableName);
+                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, table.getType(), emptyCF != null && Bytes.compareTo(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES)==0 ? emptyCF : null);
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_NOT_FOUND) {

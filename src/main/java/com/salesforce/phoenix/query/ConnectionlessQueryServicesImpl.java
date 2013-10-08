@@ -148,12 +148,12 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult addColumn(List<Mutation> tableMetaData, PTableType readOnly, Pair<byte[],Map<String,Object>> family, byte[] dataTable) throws SQLException {
+    public MetaDataMutationResult addColumn(List<Mutation> tableMetaData, PTableType readOnly, Pair<byte[],Map<String,Object>> family) throws SQLException {
         return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, PTableType tableType, byte[] emptyCF, byte[] dataTable) throws SQLException {
+    public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, PTableType tableType, byte[] emptyCF) throws SQLException {
         return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
     }
 
