@@ -220,12 +220,12 @@ public class Indexer extends BaseRegionObserver {
       WALEdit edit, boolean writeToWAL) throws IOException {
     try {
       preDeleteWithExceptions(e, delete, edit, writeToWAL);
+      return;
     } catch (Throwable t) {
       rethrowIndexingException(t);
     }
-    // TODO: Jesse will fix this
-//    throw new RuntimeException(
-//        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
+    throw new RuntimeException(
+        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
   }
 
   public void preDeleteWithExceptions(ObserverContext<RegionCoprocessorEnvironment> e,
@@ -250,9 +250,12 @@ public class Indexer extends BaseRegionObserver {
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
     try {
       preBatchMutateWithExceptions(c, miniBatchOp);
+      return;
     } catch (Throwable t) {
       rethrowIndexingException(t);
     }
+    throw new RuntimeException(
+        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
   }
 
   @SuppressWarnings("deprecation")
@@ -465,9 +468,12 @@ public class Indexer extends BaseRegionObserver {
   private void doPost(WALEdit edit, Mutation m, boolean writeToWAL) throws IOException {
     try {
       doPostWithExceptions(edit, m, writeToWAL);
+      return;
     } catch (Throwable e) {
       rethrowIndexingException(e);
     }
+    throw new RuntimeException(
+        "Somehow didn't complete the index update, but didn't return succesfully either!");
   }
 
   private void doPostWithExceptions(WALEdit edit, Mutation m, boolean writeToWAL) throws Exception {
