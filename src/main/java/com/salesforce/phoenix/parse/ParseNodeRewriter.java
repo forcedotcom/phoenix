@@ -484,6 +484,18 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
 
     @Override
     public ParseNode visitLeave(RowValueConstructorParseNode node, List<ParseNode> children) throws SQLException {
+        if (node.isConstant()) {
+            // Strip trailing nulls from rvc as they have no meaning
+            if (children.get(children.size()-1) == null) {
+                do {
+                    children.remove(children.size()-1);
+                } while (children.size() > 1 && children.get(children.size()-1) == null);
+                // If we're down to a single child, it's not a rvc anymore
+                if (children.size() == 1) {
+                    return children.get(0);
+                }
+            }
+        }
         return leaveCompoundNode(node, children, new CompoundNodeFactory() {
             @Override
             public ParseNode createNode(List<ParseNode> children) {
