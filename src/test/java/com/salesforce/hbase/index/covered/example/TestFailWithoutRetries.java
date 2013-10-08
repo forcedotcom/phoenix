@@ -141,7 +141,7 @@ public class TestFailWithoutRetries {
     conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 20);
     conf.setLong(HConstants.HBASE_CLIENT_PAUSE, 1000);
     HTable primary = new HTable(conf, primaryTable);
-    primary.setAutoFlush(false);
+    primary.setAutoFlush(false, true);
 
     // do a simple put that should be indexed
     Put p = new Put(Bytes.toBytes("row"));
