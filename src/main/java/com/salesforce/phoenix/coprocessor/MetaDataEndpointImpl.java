@@ -48,6 +48,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_IND
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID_INDEX;
+import static com.salesforce.phoenix.schema.PTableType.INDEX;
+import static com.salesforce.phoenix.schema.PTableType.USER;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
@@ -82,6 +84,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -377,7 +380,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
         }
         
-        return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows);
+        return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, tableType == INDEX ? dataTableName : null, 
+                indexes, isImmutableRows, tableType == USER ? dataTableName : null);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -527,7 +531,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
      */
     private boolean hasTenantSpecificTables(HRegion region, byte[] tableName) throws IOException {
         Scan scan = new Scan();
-        scan.setStartRow(new byte[]{1}); // we are looking for keys with non-null tenantId, which is the leading rowkey component
+        scan.setStartRow(KeyRange.IS_NOT_NULL_RANGE.getLowerRange());
         SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, tableName);
         filter.setFilterIfMissing(true);
         scan.setFilter(filter);

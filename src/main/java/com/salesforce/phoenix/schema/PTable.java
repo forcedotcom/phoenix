@@ -183,6 +183,13 @@ public interface PTable extends Writable {
      * @return the name of the data table that this index is on.
      */
     PName getParentTableName();
+    
+    /**
+     * For a tenant-specific table, return the name of table in Phoenix that physically stores data.
+     * @return the name of the data table that tenant-specific table points to or null if this table is not tenant-specifidc.
+     * @see #isTenantSpecificTable()
+     */
+    @Nullable PName getBaseTableName();
     PName getParentName();
     PName getPhysicalName();
     boolean isImmutableRows();

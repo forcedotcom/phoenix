@@ -138,13 +138,15 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] COLUMN_COUNT_BYTES = Bytes.toBytes(COLUMN_COUNT);
     public static final String SALT_BUCKETS = "SALT_BUCKETS";
     public static final byte[] SALT_BUCKETS_BYTES = Bytes.toBytes(SALT_BUCKETS);
-    public static final String TENANT_ID = "TENANT_ID";
-    public static final byte[] TENANT_ID_BYTES = Bytes.toBytes(TENANT_ID);
     
     public static final String DATA_TABLE_NAME = "DATA_TABLE_NAME";
     public static final byte[] DATA_TABLE_NAME_BYTES = Bytes.toBytes(DATA_TABLE_NAME);
     public static final String INDEX_STATE = "INDEX_STATE";
     public static final byte[] INDEX_STATE_BYTES = Bytes.toBytes(INDEX_STATE);
+
+    public static final String TENANT_ID = "TENANT_ID";
+    public static final byte[] TENANT_ID_BYTES = Bytes.toBytes(TENANT_ID);
+    public static final String BASE_TABLE = "BASE_TABLE";
     
     public static final String COLUMN_NAME = "COLUMN_NAME";
     public static final String DATA_TYPE = "DATA_TYPE";
@@ -168,7 +170,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String COLUMN_MODIFIER = "COLUMN_MODIFIER";
     public static final String IMMUTABLE_ROWS = "IMMUTABLE_ROWS";
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
-    public static final String BASE_TABLE = "BASE_TABLE";
+    
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
