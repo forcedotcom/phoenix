@@ -252,7 +252,8 @@ public abstract class BaseTest {
                 "   (customer_id char(10) not null primary key, " +
                 "    name varchar not null, " +
                 "    phone char(12), " +
-                "    address varchar)");
+                "    address varchar, " +
+                "    loc_id char(5))");
         builder.put(JOIN_ITEM_TABLE, "create table " + JOIN_ITEM_TABLE +
                 "   (item_id char(10) not null primary key, " +
                 "    name varchar not null, " +
@@ -263,7 +264,8 @@ public abstract class BaseTest {
                 "   (supplier_id char(10) not null primary key, " +
                 "    name varchar not null, " +
                 "    phone char(12), " +
-                "    address varchar)");
+                "    address varchar, " +
+    			"    loc_id char(5))");
         tableDDLMap = builder.build();
     }
 

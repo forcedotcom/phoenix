@@ -103,7 +103,8 @@ public class ProjectionCompiler {
     
     private static void projectAllTableColumns(StatementContext context, TableRef tableRef, List<Expression> projectedExpressions, List<ExpressionProjector> projectedColumns) throws SQLException {
         List<TableRef> tableRefs;
-        if (context.disambiguateWithTable()) {
+        boolean disambiguateWithTable = context.disambiguateWithTable();
+        if (disambiguateWithTable) {
             tableRefs = context.getResolver().getTables();
         } else {
             tableRefs = new ArrayList<TableRef>();
@@ -113,7 +114,7 @@ public class ProjectionCompiler {
         for (TableRef tRef : tableRefs) {
             PTable table = tRef.getTable();
             for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getColumns().size(); i++) {
-                ColumnRef ref = new ColumnRef(tableRef,i);
+                ColumnRef ref = new ColumnRef(tRef,i,disambiguateWithTable);
                 Expression expression = ref.newColumnExpression();
                 projectedExpressions.add(expression);
                 projectedColumns.add(new ExpressionProjector(ref.getColumn().getName().getString(), table.getName().getString(), expression, false));
