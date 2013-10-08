@@ -165,17 +165,17 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                             output.write(tempPtr.get(), tempPtr.getOffset(), tempPtr.getLength());
                         }
                     }
+                    int outputSize = output.size();
                     byte[] outputBytes = output.getBuffer();
                     int numSeparatorByte = 0;
-                    int outputBytesLength = outputBytes.length;
-                    for(int k = outputBytesLength -1 ; k >=0 ; k--) {
+                    for(int k = outputSize -1 ; k >=0 ; k--) {
                         if(outputBytes[k] == QueryConstants.SEPARATOR_BYTE) {
                             numSeparatorByte++;
                         } else {
                             break;
                         }    
                     }
-                    ptr.set(outputBytes, 0, outputBytesLength - numSeparatorByte);
+                    ptr.set(outputBytes, 0, outputSize - numSeparatorByte);
                     return true;
                 } finally {
                     output.close();
