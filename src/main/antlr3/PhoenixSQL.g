@@ -458,7 +458,7 @@ alter_table_node returns [AlterTableStatement ret]
     ;
 
 prop_name returns [String ret]
-    :   p=identifier {$ret = p; }
+    :   p=identifier {$ret = SchemaUtil.normalizeIdentifier(p); }
     ;
     
 properties returns [Map<String,Object> ret]
@@ -710,7 +710,7 @@ expression_term returns [ParseNode ret]
 @init{ParseNode n;boolean isAscending=true;}
     :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
     |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
-    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_list (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
+    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
         {
             FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);
             contextStack.peek().setAggregate(f.isAggregate());
@@ -733,13 +733,26 @@ expression_term returns [ParseNode ret]
         }
     |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
-    |   LPAREN e=expression RPAREN { $ret = e; }
+    |   LPAREN l=expression_terms RPAREN 
+    	{ 
+    		if(l.size() == 1) {
+    			$ret = l.get(0);
+    		}	
+    		else {
+    			$ret = factory.rowValueConstructor(l);
+    		}	 
+    	}
     |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
     ;
-    
+
 expression_terms returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-    :  v = expression {$ret.add(v);}  (COMMA v = expression {$ret.add(v);} )*
+    :  e = expression {$ret.add(e);}  (COMMA e = expression {$ret.add(e);} )*
+;
+
+expression_list returns [List<ParseNode> ret]
+@init{ret = new ArrayList<ParseNode>(); }
+    :  (v = expression {$ret.add(v);})?  (COMMA v = expression {$ret.add(v);} )*
 ;
 
 index_name returns [NamedNode ret]
@@ -845,11 +858,6 @@ identifier returns [String ret]
 
 parseNoReserved returns [String ret]
     :   n=NAME { $ret = n.getText(); }
-    ;
-
-expression_list returns [List<ParseNode> ret]
-@init{$ret = new ArrayList<ParseNode>();}
-    : (e=expression {ret.add(e);})? ( COMMA e=expression {ret.add(e);} )*
     ;
 
 case_statement returns [ParseNode ret]

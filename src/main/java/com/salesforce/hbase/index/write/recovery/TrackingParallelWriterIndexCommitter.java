@@ -27,19 +27,14 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.write.recovery;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -51,16 +46,22 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.salesforce.hbase.index.CapturingAbortable;
 import com.salesforce.hbase.index.exception.MultiIndexWriteFailureException;
 import com.salesforce.hbase.index.exception.SingleIndexWriteFailureException;
+import com.salesforce.hbase.index.parallel.EarlyExitFailure;
+import com.salesforce.hbase.index.parallel.Task;
+import com.salesforce.hbase.index.parallel.TaskBatch;
+import com.salesforce.hbase.index.parallel.TaskRunner;
+import com.salesforce.hbase.index.parallel.ThreadPoolBuilder;
+import com.salesforce.hbase.index.parallel.ThreadPoolManager;
+import com.salesforce.hbase.index.parallel.WaitForCompletionTaskRunner;
 import com.salesforce.hbase.index.table.CachingHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.write.IndexCommitter;
 import com.salesforce.hbase.index.write.IndexWriter;
+import com.salesforce.hbase.index.write.IndexWriterUtils;
 import com.salesforce.hbase.index.write.ParallelWriterIndexCommitter;
 
 /**
@@ -90,16 +91,25 @@ import com.salesforce.hbase.index.write.ParallelWriterIndexCommitter;
 public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
   private static final Log LOG = LogFactory.getLog(TrackingParallelWriterIndexCommitter.class);
 
-  private ListeningExecutorService writerPool;
+  public static String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.trackingwriter.threads.max";
+  private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
+  private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
+      "index.trackingwriter.threads.keepalivetime";
+  
+  private TaskRunner pool;
   private HTableFactory factory;
   private CapturingAbortable abortable;
   private Stoppable stopped;
 
   @Override
-  public void setup(IndexWriter parent, RegionCoprocessorEnvironment env) {
+  public void setup(IndexWriter parent, RegionCoprocessorEnvironment env, String name) {
     Configuration conf = env.getConfiguration();
-    setup(ParallelWriterIndexCommitter.getDefaultDelegateHTableFactory(env),
-      ParallelWriterIndexCommitter.getDefaultExecutor(conf),
+    setup(IndexWriterUtils.getDefaultDelegateHTableFactory(env),
+      ThreadPoolManager.getExecutor(
+        new ThreadPoolBuilder(name, conf).
+          setMaxThread(NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY,
+            DEFAULT_CONCURRENT_INDEX_WRITER_THREADS).
+          setCoreTimeout(INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY), env),
       env.getRegionServerServices(), parent, CachingHTableFactory.getCacheSize(conf));
   }
 
@@ -110,7 +120,7 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
    */
   void setup(HTableFactory factory, ExecutorService pool, Abortable abortable, Stoppable stop,
       int cacheSize) {
-    this.writerPool = MoreExecutors.listeningDecorator(pool);
+    this.pool = new WaitForCompletionTaskRunner(pool);
     this.factory = new CachingHTableFactory(factory, cacheSize);
     this.abortable = new CapturingAbortable(abortable);
     this.stopped = stop;
@@ -119,35 +129,16 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
   @Override
   public void write(Multimap<HTableInterfaceReference, Mutation> toWrite)
       throws MultiIndexWriteFailureException {
-    // track the failures. We synchronize access to the failures via the basics synchronization
-    // mechanisms. Its faster than using a fully concurrent list since we only need to synchronize
-    // on add. This list is never exposed until all tasks have completed, at which point it is
-    // read-only.
-    final List<HTableInterfaceReference> failures = new LinkedList<HTableInterfaceReference>();
     Set<Entry<HTableInterfaceReference, Collection<Mutation>>> entries = toWrite.asMap().entrySet();
-    CompletionService<Void> ops = new ExecutorCompletionService<Void>(this.writerPool);
-
-    // we can use a simple counter here because its ever only modified by the waiting thread
-    int completedWrites = 0;
-
-    // go through each entry, attempt to write it
+    TaskBatch<Boolean> tasks = new TaskBatch<Boolean>(entries.size());
+    List<HTableInterfaceReference> tables = new ArrayList<HTableInterfaceReference>(entries.size());
     for (Entry<HTableInterfaceReference, Collection<Mutation>> entry : entries) {
-      final HTableInterfaceReference tableReference = entry.getKey();
-      // early exit - no need to submit new tasks if we are shutting down
-      if (this.stopped.isStopped() || this.abortable.isAborted()) {
-        // we continue to add all the remaining tables that we didn't write because of the external
-        // quit notification (stop/abort)
-        synchronized (failures) {
-          failures.add(tableReference);
-        }
-        // this write is considered complete, even without enquing the task
-        completedWrites++;
-        continue;
-      }
-
       // get the mutations for each table. We leak the implementation here a little bit to save
       // doing a complete copy over of all the index update for each table.
       final List<Mutation> mutations = (List<Mutation>) entry.getValue();
+      // track each reference so we can get at it easily later, when determing failures
+      final HTableInterfaceReference tableReference = entry.getKey();
+      tables.add(tableReference);
 
       /*
        * Write a batch of index updates to an index table. This operation stops (is cancelable) via
@@ -159,14 +150,14 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
        * writer implementation (HTableInterface#batch is blocking, but doesn't elaborate when is
        * supports an interrupt).
        */
-      ops.submit(new Callable<Void>() {
+      tasks.add(new Task<Boolean>() {
 
         /**
          * Do the actual write to the primary table. We don't need to worry about closing the table
          * because that is handled the {@link CachingHTableFactory}.
          */
         @Override
-        public Void call() throws Exception {
+        public Boolean call() throws Exception {
           try {
             // this may have been queued, but there was an abort/stop so we try to early exit
             throwFailureIfDone();
@@ -178,15 +169,13 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
             throwFailureIfDone();
             table.batch(mutations);
           } catch (InterruptedException e) {
-            addToFailures(tableReference);
             // reset the interrupt status on the thread
             Thread.currentThread().interrupt();
             throw e;
           } catch (Exception e) {
-            addToFailures(tableReference);
             throw e;
           }
-          return null;
+          return Boolean.TRUE;
         }
 
         private void throwFailureIfDone() throws SingleIndexWriteFailureException {
@@ -197,51 +186,32 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
           }
 
         }
-
-        private void addToFailures(HTableInterfaceReference table) {
-          synchronized (failures) {
-            failures.add(tableReference);
-          }
-        }
       });
     }
 
-    boolean interrupted = false;
-
-    /*
-     * wait for all index writes to complete. This is mainly where we differ from the
-     * ParallelWriterIndexCommiter - we wait for all writes to complete, even if there is a failure,
-     * to ensure that we try to write as many tables as possible.
-     */
-    while (completedWrites < entries.size()) {
-      Future<Void> status = null;
-      try {
-        status = ops.take();
-      } catch (InterruptedException e) {
-        LOG.info("Index writer interrupted, continuing if not aborted or stopped.");
-        // reset the interrupt status so we can wait out that latch
-        interrupted = true;
-        continue;
-      }
-      try {
-        // we don't care what the status is - success is binary, so no error == success
-        status.get();
-      } catch (CancellationException e) {
-        // if we get a cancellation, we already failed for some other reason, so we can ignore it
-        LOG.debug("Found canceled index write - ignoring!");
-      } catch (ExecutionException e) {
-        LOG.error("Found a failed index update!", e.getCause());
-      } catch (InterruptedException e) {
-        assert false : "Should never be interrupted getting a completed future.";
-        LOG.error("Got a completed future, but interrupted while getting the result");
-      }
-      // no matter what happens, as long as we get a status, we update the completed writes
-      completedWrites++;
+    List<Boolean> results = null;
+    try {
+      LOG.debug("Waiting on index update tasks to complete...");
+      results = this.pool.submitUninterruptible(tasks);
+    } catch (ExecutionException e) {
+      throw new RuntimeException(
+          "Should not fail on the results while using a WaitForCompletionTaskRunner", e);
+    } catch (EarlyExitFailure e) {
+      throw new RuntimeException("Stopped while waiting for batch, quiting!", e);
     }
-
-    // reset the interrupt status after we are done
-    if (interrupted) {
-      Thread.currentThread().interrupt();
+    
+    // track the failures. We only ever access this on return from our calls, so no extra
+    // synchronization is needed. We could update all the failures as we find them, but that add a
+    // lot of locking overhead, and just doing the copy later is about as efficient.
+    List<HTableInterfaceReference> failures = new ArrayList<HTableInterfaceReference>();
+    int index = 0;
+    for (Boolean result : results) {
+      // there was a failure
+      if (result == null) {
+        // we know which table failed by the index of the result
+        failures.add(tables.get(index));
+      }
+      index++;
     }
 
     // if any of the tasks failed, then we need to propagate the failure
@@ -255,7 +225,7 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
   @Override
   public void stop(String why) {
     LOG.info("Shutting down " + this.getClass().getSimpleName());
-    this.writerPool.shutdownNow();
+    this.pool.stop(why);
     this.factory.shutdown();
   }
 

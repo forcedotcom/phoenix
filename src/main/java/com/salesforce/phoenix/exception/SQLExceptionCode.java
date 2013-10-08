@@ -73,7 +73,7 @@ public enum SQLExceptionCode {
     /**
      * Invalid Cursor State (errorcode 04, sqlstate 24)
      */
-    CURSOR_BEFORE_FIRST_ROW(401, "24015","Cursor before first tow."),
+    CURSOR_BEFORE_FIRST_ROW(401, "24015","Cursor before first row."),
     CURSOR_PAST_LAST_ROW(401, "24016", "Cursor past last row."),
     
     /**
@@ -161,6 +161,7 @@ public enum SQLExceptionCode {
     INTERRUPTED_EXCEPTION(2005, "INT07", "Interrupted exception."),
     INCOMPATIBLE_CLIENT_SERVER_JAR(2006, "INT08", "Incompatible jars detected between client and server."),
     OUTDATED_JARS(2007, "INT09", "Outdated jars."),
+    INDEX_METADATA_NOT_FOUND(2008, "INT10", "Unable to find cached index metadata. "),
     ;
 
     private final int errorCode;

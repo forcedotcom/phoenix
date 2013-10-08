@@ -1131,4 +1131,35 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(extractedNodes.iterator().next() instanceof OrExpression);
     }
     
+    @Test
+    public void testBasicRVCExpression() throws SQLException {
+        String tenantId = "000000000000001";
+        String entityId = "002333333333331";
+        String query = "select * from atable where (organization_id,entity_id) >= (?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, entityId);
+        compileStatement(query, scan, binds);
+
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+
+    
+    @Test
+    public void testRVCExpressionThroughOr() throws SQLException {
+        String tenantId = "000000000000001";
+        String entityId = "002333333333331";
+        String entityId1 = "002333333333330";
+        String entityId2 = "002333333333332";
+        String query = "select * from atable where (organization_id,entity_id) >= (?,?) and organization_id = ? and  (entity_id = ? or entity_id = ?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, entityId, tenantId, entityId1, entityId2);
+        compileStatement(query, scan, binds);
+
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId));
+        byte[] expectedStopRow = ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId2)));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(expectedStopRow, scan.getStopRow());
+    }
 }

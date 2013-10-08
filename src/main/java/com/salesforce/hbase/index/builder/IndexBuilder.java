@@ -32,7 +32,9 @@ import java.util.Collection;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
@@ -48,7 +50,7 @@ import com.salesforce.hbase.index.Indexer;
  * Either all the index updates will be applied to all tables or the primary table will kill itself
  * and will attempt to replay the index edits through the WAL replay mechanism.
  */
-public interface IndexBuilder {
+public interface IndexBuilder extends Stoppable {
 
   /** Helper method signature to ensure people don't attempt to extend this class directly */
   public void extendBaseIndexBuilderInstead();
@@ -67,9 +69,12 @@ public interface IndexBuilder {
    * tables.
    * <p>
    * The mutation is a generic mutation (not a {@link Put} or a {@link Delete}), as it actually
-   * cooresponds to a batch update. Its important to note that {@link Put}s always go through the
-   * batch update code path, so a single {@link Put}, flushed to the server will come through here
-   * and update the primary table.
+   * corresponds to a batch update. Its important to note that {@link Put}s always go through the
+   * batch update code path, so a single {@link Put} will come through here and update the primary
+   * table as the only update in the mutation.
+   * <p>
+   * Implementers must ensure that this method is thread-safe - it could (and probably will) be
+   * called concurrently for different mutations, which may or may not be part of the same batch.
    * @param mutation update to the primary table to be indexed.
    * @return a Map of the mutations to make -> target index table name
    * @throws IOException on failure
@@ -78,8 +83,16 @@ public interface IndexBuilder {
 
   /**
    * The counter-part to {@link #getIndexUpdate(Mutation)} - your opportunity to update any/all
-   * index tables based on the delete of the primary table row. Its up to your implementation to
-   * ensure that timestamps match between the primary and index tables.
+   * index tables based on the delete of the primary table row. This is only called for cases where
+   * the client sends a single delete ({@link HTable#delete}). We separate this method from
+   * {@link #getIndexUpdate(Mutation...)} only for the ease of implementation as the delete path has
+   * subtly different semantics for updating the families/timestamps from the generic batch path.
+   * <p>
+   * Its up to your implementation to ensure that timestamps match between the primary and index
+   * tables.
+   * <p>
+   * Implementers must ensure that this method is thread-safe - it could (and probably will) be
+   * called concurrently for different mutations, which may or may not be part of the same batch.
    * @param delete {@link Delete} to the primary table that may be indexed
    * @return a {@link Map} of the mutations to make -> target index table name
    * @throws IOException on failure
@@ -126,8 +139,9 @@ public interface IndexBuilder {
    * @param m mutation that should be indexed.
    * @return <tt>true</tt> if indexing is enabled for the given table. This should be on a per-table
    *         basis, as each codec is instantiated per-region.
+ * @throws IOException 
    */
-  public boolean isEnabled(Mutation m);
+  public boolean isEnabled(Mutation m) throws IOException;
 
   /**
    * @param m mutation that has been received by the indexer and is waiting to be indexed

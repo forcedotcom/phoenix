@@ -28,18 +28,25 @@
 package com.salesforce.phoenix.coprocessor;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.cache.*;
+import com.salesforce.phoenix.cache.GlobalCache;
+import com.salesforce.phoenix.cache.HashCache;
+import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
@@ -58,7 +65,7 @@ public class HashJoinRegionScanner implements RegionScanner {
     private boolean hasMore;
     private TenantCache cache;
     
-    public HashJoinRegionScanner(RegionScanner scanner, ScanProjector projector, HashJoinInfo joinInfo, ImmutableBytesWritable tenantId, Configuration conf) throws IOException {
+    public HashJoinRegionScanner(RegionScanner scanner, ScanProjector projector, HashJoinInfo joinInfo, ImmutableBytesWritable tenantId, RegionCoprocessorEnvironment env) throws IOException {
         this.scanner = scanner;
         this.projector = projector;
         this.joinInfo = joinInfo;
@@ -69,7 +76,7 @@ public class HashJoinRegionScanner implements RegionScanner {
                 if (type != JoinType.Inner && type != JoinType.Left)
                     throw new IOException("Got join type '" + type + "'. Expect only INNER or LEFT with hash-joins.");
             }
-            this.cache = GlobalCache.getTenantCache(conf, tenantId);
+            this.cache = GlobalCache.getTenantCache(env, tenantId);
         }
     }
     

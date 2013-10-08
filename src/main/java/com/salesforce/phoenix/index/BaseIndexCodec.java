@@ -49,9 +49,10 @@ public abstract class BaseIndexCodec implements IndexCodec {
    * <p>
    * By default, the codec is always enabled. Subclasses should override this method if they want do
    * decide to index on a per-mutation basis.
+ * @throws IOException 
    */
   @Override
-  public boolean isEnabled(Mutation m) {
+  public boolean isEnabled(Mutation m) throws IOException {
     return true;
   }
 

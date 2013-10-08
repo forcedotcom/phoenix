@@ -27,11 +27,13 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.exception;
 
+import org.apache.hadoop.hbase.HBaseIOException;
+
 /**
  * Generic {@link Exception} that an index write has failed
  */
 @SuppressWarnings("serial")
-public class IndexWriteException extends Exception {
+public class IndexWriteException extends HBaseIOException {
 
   public IndexWriteException() {
     super();

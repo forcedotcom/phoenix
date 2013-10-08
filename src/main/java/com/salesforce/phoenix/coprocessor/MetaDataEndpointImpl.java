@@ -196,10 +196,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return scan;
     }
 
+    @Override
+    public RegionCoprocessorEnvironment getEnvironment() {
+        return (RegionCoprocessorEnvironment)super.getEnvironment();
+    }
+    
     private PTable buildTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException, SQLException {
         Scan scan = newTableRowsScan(key, MIN_TABLE_TIMESTAMP, clientTimeStamp);
         RegionScanner scanner = region.getScanner(scan);
-        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
         try {
             PTable oldTable = metaDataCache.get(cacheKey);
             long tableTimeStamp = oldTable == null ? MIN_TABLE_TIMESTAMP-1 : oldTable.getTimeStamp();
@@ -389,7 +394,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (!results.isEmpty() && results.get(0).getTimestamp() > clientTimeStamp) {
             KeyValue kv = results.get(0);
             if (kv.isDelete()) {
-                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
                 PTable table = newDeletedTableMarker(kv.getTimestamp());
                 metaDataCache.put(cacheKey, table);
                 return table;
@@ -408,7 +413,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     private PTable loadTable(RegionCoprocessorEnvironment env, byte[] key, ImmutableBytesPtr cacheKey, long clientTimeStamp, long asOfTimeStamp) throws IOException, SQLException {
         HRegion region = env.getRegion();
-        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
         PTable table = metaDataCache.get(cacheKey);
         // We always cache the latest version - fault in if not in cache
         if (table != null || (table = buildTable(key, cacheKey, region, asOfTimeStamp)) != null) {
@@ -434,7 +439,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName);
             byte[] parentKey = parentTableName == null ? null : lockKey;
             
-            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+            RegionCoprocessorEnvironment env = getEnvironment();
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(lockKey, region);
             if (result != null) {
@@ -486,7 +491,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 
                 // Invalidate the cache - the next getTable call will add it
                 // TODO: consider loading the table that was just created here, patching up the parent table, and updating the cache
-                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
                 if (parentCacheKey != null) {
                     metaDataCache.remove(parentCacheKey);
                 }
@@ -534,7 +539,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName);
             byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName);
             
-            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+            RegionCoprocessorEnvironment env = getEnvironment();
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {
@@ -551,7 +556,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                     return result;
                 }
-                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
                 // Commit the list of deletion.
                 region.mutateRowsWithLocks(tableMetadata, Collections.<byte[]>emptySet());
                 long currentTime = MetaDataUtil.getClientTimeStamp(tableMetadata);
@@ -576,11 +581,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) throws IOException, SQLException {
         long clientTimeStamp = MetaDataUtil.getClientTimeStamp(rowsToDelete);
 
-        RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+        RegionCoprocessorEnvironment env = getEnvironment();
         HRegion region = env.getRegion();
         ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
         
-        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
         PTable table = metaDataCache.get(cacheKey);
         // We always cache the latest version - fault in if not in cache
         if (table != null || (table = buildTable(key, cacheKey, region, HConstants.LATEST_TIMESTAMP)) != null) {
@@ -664,7 +669,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
-            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+            RegionCoprocessorEnvironment env = getEnvironment();
             byte[] key = SchemaUtil.getTableKey(schemaName,tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
@@ -677,7 +682,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
             try {
                 ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
-                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+                Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
                 PTable table = metaDataCache.get(cacheKey);
                 if (logger.isDebugEnabled()) {
                     if (table == null) {
@@ -824,7 +829,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
             
             // get the co-processor environment
-            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+            RegionCoprocessorEnvironment env = getEnvironment();
             // TODO: check that key is within region.getStartKey() and region.getEndKey()
             // and return special code to force client to lookup region from meta.
             HRegion region = env.getRegion();
@@ -847,7 +852,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     private PTable doGetTable(byte[] key, long clientTimeStamp) throws IOException, SQLException {
         ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
-        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
         PTable table = metaDataCache.get(cacheKey);
         // We only cache the latest, so we'll end up building the table with every call if the client connection has specified an SCN.
         // TODO: If we indicate to the client that we're returning an older version, but there's a newer version available, the client
@@ -861,7 +866,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         // Ask Lars about the expense of this call - if we don't take the lock, we still won't get partial results
         // get the co-processor environment
-        RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+        RegionCoprocessorEnvironment env = getEnvironment();
         // TODO: check that key is within region.getStartKey() and region.getEndKey()
         // and return special code to force client to lookup region from meta.
         HRegion region = env.getRegion();
@@ -901,7 +906,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     @Override
     public void clearCache() {
-        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+        Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
         metaDataCache.clear();
     }
 
@@ -919,7 +924,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
-            RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) getEnvironment();
+            RegionCoprocessorEnvironment env = getEnvironment();
             byte[] key = SchemaUtil.getTableKey(schemaName,tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
@@ -958,7 +963,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 if (currentState != newState) {
                     region.mutateRowsWithLocks(tableMetadata, Collections.<byte[]>emptySet());
                     // Invalidate from cache
-                    Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment().getConfiguration()).getMetaDataCache();
+                    Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
                     metaDataCache.remove(cacheKey);
                 }
                 // Get client timeStamp from mutations, since it may get updated by the mutateRowsWithLocks call

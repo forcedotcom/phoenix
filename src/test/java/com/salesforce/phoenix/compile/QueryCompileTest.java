@@ -951,4 +951,69 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
         }  
     }
+    
+    @Test
+    public void testUsingNonComparableDataTypesInRowValueConstructorFails() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) > (2, 'abc')";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a integer to string isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testUsingNonComparableDataTypesOfColumnRefOnLHSAndRowValueConstructorFails() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE a_integer > ('abc', 2)";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a integer to string isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testUsingNonComparableDataTypesOfLiteralOnLHSAndRowValueConstructorFails() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE 'abc' > (a_integer, x_integer)";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a integer to string isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testUsingNonComparableDataTypesOfColumnRefOnRHSAndRowValueConstructorFails() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ('abc', 2) < a_integer ";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a integer to string isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testUsingNonComparableDataTypesOfLiteralOnRHSAndRowValueConstructorFails() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) < 'abc'";
+        List<Object> binds = Collections.emptyList();
+        Scan scan = new Scan();
+        try {
+            compileQuery(query, binds, scan);
+            fail("Compilation should have failed since casting a integer to string isn't supported");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
+        }
+    }
 }

@@ -27,9 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -41,6 +47,7 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 /*
  * Implementation of a SQL foo IN (a,b,c) expression. Other than the first
@@ -73,6 +80,21 @@ public class InListExpression extends BaseSingleExpression {
             if (ptr.getLength() == 0) {
                 containsNull = true;
             } else {
+                // Pad values that aren't long enough
+                if (type.isFixedWidth()) {
+                    Integer length = getChild().getByteSize();
+                    if (ptr.getLength() < length) {
+                        byte[] key;
+                        // TODO: Add pad method in PDataType
+                        if (getChild().getDataType() == PDataType.CHAR) {
+                            key = StringUtil.padChar(ptr.get(), ptr.getOffset(), ptr.getLength(), length);
+                        } else {
+                            key = new byte[length];
+                            System.arraycopy(ptr.get(), ptr.getOffset(), key, 0, ptr.getLength());
+                        }
+                        ptr.set(key);
+                    }
+                }
                 if (values.add(ptr)) {
                     valuesByteLength += ptr.getLength();
                 }

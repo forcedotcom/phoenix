@@ -90,6 +90,7 @@ public class IndexLogRollSynchronizer implements WALActionsListener {
     //take a write lock on the index - any pending index updates will complete before we finish
     LOG.debug("Taking INDEX_UPDATE writelock");
     logArchiveLock.lock();
+    LOG.debug("Got the INDEX_UPDATE writelock");
   }
   
   @Override

@@ -2993,5 +2993,4 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
-
 }

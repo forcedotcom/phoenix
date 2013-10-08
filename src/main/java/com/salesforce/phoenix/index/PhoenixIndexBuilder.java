@@ -84,12 +84,6 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
     private PhoenixIndexCodec getCodec() {
         return (PhoenixIndexCodec)this.codec;
     }
-
-    @Override
-    public boolean isEnabled(Mutation m) {
-        // ask the codec to see if we should even attempt indexing
-        return this.codec.isEnabled(m);
-    }
     
     @Override
     public byte[] getBatchId(Mutation m){

@@ -814,11 +814,6 @@ public class MetaDataClient {
                     // Create empty table and schema - they're only used to get the name from
                     // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
                     PTable table = result.getTable();
-                    Map<String,PTable>tables = Maps.newHashMapWithExpectedSize(1 + table.getIndexes().size());
-                    tables.put(table.getName().getString(), table);
-                    for (PTable index : table.getIndexes()) {
-                        tables.put(index.getName().getString(), index);
-                    }
                     List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + table.getIndexes().size());
                     tableRefs.add(new TableRef(null, table, ts, false));
                     for (PTable index: table.getIndexes()) {
