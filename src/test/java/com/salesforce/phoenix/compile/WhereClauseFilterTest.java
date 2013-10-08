@@ -27,15 +27,34 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.and;
+import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
+import static com.salesforce.phoenix.util.TestUtil.columnComparison;
+import static com.salesforce.phoenix.util.TestUtil.constantComparison;
+import static com.salesforce.phoenix.util.TestUtil.in;
+import static com.salesforce.phoenix.util.TestUtil.kvColumn;
+import static com.salesforce.phoenix.util.TestUtil.multiKVFilter;
+import static com.salesforce.phoenix.util.TestUtil.not;
+import static com.salesforce.phoenix.util.TestUtil.or;
+import static com.salesforce.phoenix.util.TestUtil.singleKVFilter;
 import static java.util.Collections.emptyList;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.text.Format;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -46,17 +65,23 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.SubstrFunction;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
 
 
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
@@ -890,5 +915,41 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                         BaseConnectionlessQueryTest.A_INTEGER,
                         10)))).toString(),
                 filter.toString());
+    }
+    
+    @Test
+    public void testTenantIdRowKeyFilterAddedToScan() throws SQLException {
+
+        String tenantId = "000000000000123";
+        String url = getUrl(tenantId);
+        createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='ATABLE'");
+        
+        String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId);
+        PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        Filter filter = scan.getFilter();
+        
+        assertEquals(
+            multiKVFilter(and(
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_INTEGER,
+                    0),
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_STRING,
+                    "foo"))),
+            filter);
+        
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = startRow;
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
 }
