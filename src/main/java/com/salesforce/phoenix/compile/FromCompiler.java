@@ -82,6 +82,7 @@ public class FromCompiler {
 
         @Override
         public void setDisambiguateWithTable(boolean disambiguateWithTable) {
+            throw new UnsupportedOperationException();
         }
     };
 
