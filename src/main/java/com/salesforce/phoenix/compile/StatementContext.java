@@ -29,7 +29,6 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.text.Format;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
@@ -42,10 +41,9 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.schema.RowKeySchema;
-import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.ScanUtil;
 
 
 /**
@@ -133,59 +131,37 @@ public class StatementContext {
     }
     
     public void setScanRanges(ScanRanges scanRanges) {
+        setScanRanges(scanRanges, null);
+    }
+    
+
+    public void setScanRanges(ScanRanges scanRanges, KeyRange minMaxRange) {
         this.scanRanges = scanRanges;
         this.scanRanges.setScanStartStopRow(scan);
         PTable table = this.getResolver().getTables().get(0).getTable();
-        if (table.getBucketNum() == null && minMaxRange != null) { 
-            KeyRange range = KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow());
-            // TODO: util for this: ScanUtil.toLowerInclusiveUpperExclusiveRange
-            range = range.intersect(minMaxRange);
-            if (!range.lowerUnbound()) {
-                byte[] lowerRange = range.getLowerRange();
-                if (!range.isLowerInclusive()) {
-                    // Find how slots the minMaxRange spans
-                    int pos = 0;
-                    ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-                    RowKeySchema schema = table.getRowKeySchema();
-                    int maxOffset = schema.iterator(lowerRange, ptr);
-                    while (schema.next(ptr, pos, maxOffset) != null) {
-                        pos++;
-                    }
-                    if (!schema.getField(pos-1).getDataType().isFixedWidth()) {
-                        byte[] newLowerRange = new byte[lowerRange.length + 1];
-                        System.arraycopy(lowerRange, 0, newLowerRange, 0, lowerRange.length);
-                        newLowerRange[lowerRange.length] = QueryConstants.SEPARATOR_BYTE;
-                        lowerRange = newLowerRange;
-                    } else {
-                        lowerRange = Arrays.copyOf(lowerRange, lowerRange.length);
-                    }
-                    ByteUtil.nextKey(lowerRange, lowerRange.length);
+        if (minMaxRange != null) {
+            // If we're not salting, we can intersect this now with the scan range.
+            // Otherwise, we have to wait to do this when we chunk up the scan.
+            if (table.getBucketNum() == null) {
+                minMaxRange = minMaxRange.intersect(KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow()));
+            }
+            byte[] lowerRange = minMaxRange.getLowerRange();
+            if (!minMaxRange.lowerUnbound()) {
+                if (!minMaxRange.isLowerInclusive()) {
+                    lowerRange = ScanUtil.nextKey(lowerRange, table, tempPtr);
                 }
-                scan.setStartRow(lowerRange);
             }
             
-            byte[] upperRange = range.getUpperRange();
-            if (!range.upperUnbound()) {
-                if (range.isUpperInclusive()) {
-                    // Find how slots the minMaxRange spans
-                    int pos = 0;
-                    ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-                    RowKeySchema schema = table.getRowKeySchema();
-                    int maxOffset = schema.iterator(upperRange, ptr);
-                    while (schema.next(ptr, pos, maxOffset) != null) {
-                        pos++;
-                    }
-                    if (!schema.getField(pos-1).getDataType().isFixedWidth()) {
-                        byte[] newUpperRange = new byte[upperRange.length + 1];
-                        System.arraycopy(upperRange, 0, newUpperRange, 0, upperRange.length);
-                        newUpperRange[upperRange.length] = QueryConstants.SEPARATOR_BYTE;
-                        upperRange = newUpperRange;
-                    } else {
-                        upperRange = Arrays.copyOf(upperRange, upperRange.length);
-                    }
-                    ByteUtil.nextKey(upperRange, upperRange.length);
+            byte[] upperRange = minMaxRange.getUpperRange();
+            if (!minMaxRange.upperUnbound()) {
+                if (minMaxRange.isUpperInclusive()) {
+                    upperRange = ScanUtil.nextKey(upperRange, table, tempPtr);
                 }
-                scan.setStopRow(upperRange);
+            }
+            if (minMaxRange.getLowerRange() != lowerRange || minMaxRange.getUpperRange() != upperRange) {
+                this.minMaxRange = KeyRange.getKeyRange(lowerRange, true, upperRange, false);
+            } else {
+                this.minMaxRange = minMaxRange;
             }
         }
     }
@@ -220,9 +196,5 @@ public class StatementContext {
      */
     public KeyRange getMinMaxRange () {
         return minMaxRange;
-    }
-    
-    public void setMinMaxRange(KeyRange minMaxRange) {
-        this.minMaxRange = minMaxRange;
     }
 }

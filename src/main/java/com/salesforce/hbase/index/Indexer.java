@@ -223,8 +223,9 @@ public class Indexer extends BaseRegionObserver {
     } catch (Throwable t) {
       rethrowIndexingException(t);
     }
-    throw new RuntimeException(
-        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
+    // TODO: Jesse will fix this
+//    throw new RuntimeException(
+//        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
   }
 
   public void preDeleteWithExceptions(ObserverContext<RegionCoprocessorEnvironment> e,

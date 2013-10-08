@@ -153,5 +153,6 @@ public class TestFailWithoutRetries {
     } catch (RetriesExhaustedWithDetailsException e) {
       LOG.info("Correclty got a failure of the put!");
     }
+    primary.close();
   }
 }

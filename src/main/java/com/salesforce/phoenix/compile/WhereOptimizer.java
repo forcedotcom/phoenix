@@ -53,6 +53,7 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.OrExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
+import com.salesforce.phoenix.expression.function.FunctionExpression.OrderPreserving;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.parse.FilterableStatement;
@@ -211,8 +212,9 @@ public class WhereOptimizer {
 //                byte[] uppserBound = minMaxRange.getUpperRange();
 //            }
         }
-        context.setMinMaxRange(keySlots.getMinMaxRange()); // TODO: merge with call below
-        context.setScanRanges(ScanRanges.create(ranges, schema, statement.getHint().hasHint(Hint.RANGE_SCAN)));
+        context.setScanRanges(
+                ScanRanges.create(ranges, schema, statement.getHint().hasHint(Hint.RANGE_SCAN)),
+                keySlots.getMinMaxRange());
         return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
     }
 
@@ -295,7 +297,7 @@ public class WhereOptimizer {
             List<Expression> extractNodes = extractNode == null || slot.getKeyPart().getExtractNodes().isEmpty()
                   ? Collections.<Expression>emptyList()
                   : Collections.<Expression>singletonList(extractNode);
-            return new SingleKeySlot(new BaseKeyPart(slot.getKeyPart().getColumn(), extractNodes), slot.getPKPosition(), slot.getPKSpan(), keyRanges, minMaxRange);
+            return new SingleKeySlot(new BaseKeyPart(slot.getKeyPart().getColumn(), extractNodes), slot.getPKPosition(), slot.getPKSpan(), keyRanges, minMaxRange, slot.getOrderPreserving());
         }
 
         public KeySlots newKeyParts(RowValueConstructorExpression rvc, List<KeySlots> childSlots) {
@@ -314,10 +316,20 @@ public class WhereOptimizer {
                 // TODO:  if child slot doesn't use all of the row key column,
                 // for example with (substr(a,1,3), b) > ('foo','bar')  then
                 // we need to stop the iteration and not extract the node.
-                if (keySlot.getPKPosition() != position++) {
+                if (keySlot.getPKPosition() != position) {
                     break;
                 }
-                // If we have a constant in the rvc, then iteration will stop
+                
+                position++;
+                
+                // If we come to a point where we're not preserving order completely
+                // then stop. We should never get a NO here, but we might get a YES_IF_LAST
+                // in the case of SUBSTR, so we cannot continue building the row key
+                // past that.
+                assert(keySlot.getOrderPreserving() != OrderPreserving.NO);
+                if (keySlot.getOrderPreserving() != OrderPreserving.YES) {
+                    break;
+                }
             }
             if (position > initPosition) {
                 List<Expression> extractNodes = Collections.<Expression>emptyList() ;
@@ -340,7 +352,7 @@ public class WhereOptimizer {
             }
             
             // Scalar function always returns primitive and never a row value constructor, so span is always 1
-            return new SingleKeySlot(part, slot.getPKPosition(), 1, slot.getKeyRanges());
+            return new SingleKeySlot(part, slot.getPKPosition(), slot.getKeyRanges(), node.preservesOrder());
         }
 
         private KeySlots andKeySlots(AndExpression andExpression, List<KeySlots> childSlots) {
@@ -680,12 +692,18 @@ public class WhereOptimizer {
             private final int pkSpan;
             private final KeyPart keyPart;
             private final List<KeyRange> keyRanges;
+            private final OrderPreserving orderPreserving;
 
             private KeySlot(KeyPart keyPart, int pkPosition, int pkSpan, List<KeyRange> keyRanges) {
+                this (keyPart, pkPosition, pkSpan, keyRanges, OrderPreserving.YES);
+            }
+            
+            private KeySlot(KeyPart keyPart, int pkPosition, int pkSpan, List<KeyRange> keyRanges, OrderPreserving orderPreserving) {
                 this.pkPosition = pkPosition;
                 this.pkSpan = pkSpan;
                 this.keyPart = keyPart;
                 this.keyRanges = keyRanges;
+                this.orderPreserving = orderPreserving;
             }
 
             public KeyPart getKeyPart() {
@@ -721,7 +739,12 @@ public class WhereOptimizer {
                                                       that.getKeyPart().getExtractNodes())),
                         this.getPKPosition(),
                         this.getPKSpan(),
-                        keyRanges);
+                        keyRanges,
+                        this.getOrderPreserving());
+            }
+
+            public OrderPreserving getOrderPreserving() {
+                return orderPreserving;
             }
         }
 
@@ -749,13 +772,24 @@ public class WhereOptimizer {
             private final KeySlot slot;
             private final KeyRange minMaxRange;
             
-            private SingleKeySlot(KeyPart part, int pkPosition, int pkSpan, List<KeyRange> ranges) {
-                this.slot = new KeySlot(part, pkPosition, pkSpan, ranges);
-                this.minMaxRange = null;
+            private SingleKeySlot(KeyPart part, int pkPosition, List<KeyRange> ranges) {
+                this(part, pkPosition, 1, ranges);
             }
             
-            private SingleKeySlot(KeyPart part, int pkPosition, int pkSpan, List<KeyRange> ranges, KeyRange minMaxRange) {
-                this.slot = new KeySlot(part, pkPosition, pkSpan, ranges);
+            private SingleKeySlot(KeyPart part, int pkPosition, List<KeyRange> ranges, OrderPreserving orderPreserving) {
+                this(part, pkPosition, 1, ranges, orderPreserving);
+            }
+            
+            private SingleKeySlot(KeyPart part, int pkPosition, int pkSpan, List<KeyRange> ranges) {
+                this(part,pkPosition,pkSpan,ranges, null, null);
+            }
+            
+            private SingleKeySlot(KeyPart part, int pkPosition, int pkSpan, List<KeyRange> ranges, OrderPreserving orderPreserving) {
+                this(part,pkPosition,pkSpan,ranges, null, orderPreserving);
+            }
+            
+            private SingleKeySlot(KeyPart part, int pkPosition, int pkSpan, List<KeyRange> ranges, KeyRange minMaxRange, OrderPreserving orderPreserving) {
+                this.slot = new KeySlot(part, pkPosition, pkSpan, ranges, orderPreserving);
                 this.minMaxRange = minMaxRange;
             }
             
