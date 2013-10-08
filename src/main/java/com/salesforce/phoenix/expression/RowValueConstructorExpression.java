@@ -187,4 +187,14 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
             throw new RuntimeException(e); //Impossible.
         }
     }
+    
+    @Override
+    public final String toString() {
+        StringBuilder buf = new StringBuilder("(");
+        for (int i = 0; i < children.size() - 1; i++) {
+            buf.append(children.get(i) + ", ");
+        }
+        buf.append(children.get(children.size()-1) + ")");
+        return buf.toString();
+    }
 }

@@ -100,7 +100,6 @@ public class WhereOptimizer {
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, FilterableStatement statement,
             Expression whereClause, Set<Expression> extractNodes) {
-        boolean forcedSkipScanFilter = statement.getHint().hasHint(Hint.SKIP_SCAN);
         if (whereClause == null) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
@@ -138,14 +137,17 @@ public class WhereOptimizer {
         int pkPos = table.getBucketNum() == null ? -1 : 0;
         LinkedList<List<KeyRange>> cnf = new LinkedList<List<KeyRange>>();
         RowKeySchema schema = table.getRowKeySchema();
+        boolean forcedSkipScan = statement.getHint().hasHint(Hint.SKIP_SCAN);
+        boolean forcedRangeScan = statement.getHint().hasHint(Hint.RANGE_SCAN);
         boolean hasUnboundedRange = false;
+        boolean hasAnyRange = false;
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.
             if (slot == null || slot.getKeyRanges().isEmpty() || slot.getPKPosition() != pkPos + 1) {
-                if (!forcedSkipScanFilter) {
+                if (!forcedSkipScan) {
                     break;
                 }
                 if (slot == null || slot.getKeyRanges().isEmpty()) {
@@ -164,16 +166,22 @@ public class WhereOptimizer {
             }
             KeyPart keyPart = slot.getKeyPart();
             pkPos = slot.getPKPosition();
-            cnf.add(slot.getKeyRanges());
-            for (KeyRange range : slot.getKeyRanges()) {
+            List<KeyRange> keyRanges = slot.getKeyRanges();
+            cnf.add(keyRanges);
+            for (KeyRange range : keyRanges) {
                 hasUnboundedRange |= range.isUnbound();
             }
             
             // Will be null in cases for which only part of the expression was factored out here
             // to set the start/end key. An example would be <column> LIKE 'foo%bar' where we can
             // set the start key to 'foo' but still need to match the regex at filter time.
-            List<Expression> nodesToExtract = keyPart.getExtractNodes();
-            extractNodes.addAll(nodesToExtract);
+            // Don't extract expressions if we're forcing a range scan and we've already come
+            // across a range for a prior slot. The reason is that we have an inexact range after
+            // that, so must filter on the remaining conditions (see issue #467).
+            if (!forcedRangeScan || !hasAnyRange) {
+                List<Expression> nodesToExtract = keyPart.getExtractNodes();
+                extractNodes.addAll(nodesToExtract);
+            }
             // Stop building start/stop key once we encounter a non single key range.
             // TODO: remove this soon after more testing on SkipScanFilter
             if (hasUnboundedRange) {
@@ -182,6 +190,7 @@ public class WhereOptimizer {
                 // loop in the absence of a range for a key slot.
                 break;
             }
+            hasAnyRange |= keyRanges.size() > 1 || (keyRanges.size() == 1 && !keyRanges.get(0).isSingleKey());
         }
         List<List<KeyRange>> ranges = cnf;
         if (table.getBucketNum() != null) {

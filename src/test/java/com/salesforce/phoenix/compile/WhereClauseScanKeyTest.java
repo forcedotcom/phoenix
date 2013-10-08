@@ -52,6 +52,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.junit.Test;
 
+import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.OrExpression;
@@ -67,6 +68,7 @@ import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 
@@ -1131,6 +1133,28 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(extractedNodes.iterator().next() instanceof OrExpression);
     }
     
+    @Test
+    public void testForceRangeScanKeepsFilters() throws SQLException {
+        ensureTableCreated(getUrl(), TestUtil.ENTITY_HISTORY_TABLE_NAME);
+        String tenantId = "000000000000001";
+        String keyPrefix = "002";
+        String query = "select /*+ RANGE_SCAN */ ORGANIZATION_ID, PARENT_ID, CREATED_DATE, ENTITY_HISTORY_ID from " + TestUtil.ENTITY_HISTORY_TABLE_NAME + 
+                " where ORGANIZATION_ID=? and SUBSTR(PARENT_ID, 1, 3) = ? and  CREATED_DATE >= ? and CREATED_DATE < ? order by ORGANIZATION_ID, PARENT_ID, CREATED_DATE, ENTITY_HISTORY_ID limit 6";
+        Scan scan = new Scan();
+        Date startTime = new Date(System.currentTimeMillis());
+        Date stopTime = new Date(startTime.getTime() + TestUtil.MILLIS_IN_DAY);
+        List<Object> binds = Arrays.<Object>asList(tenantId, keyPrefix, startTime, stopTime);
+        Set<Expression> extractedNodes = Sets.newHashSet();
+        compileStatement(query, scan, binds, 6, extractedNodes);
+        assertEquals(2, extractedNodes.size());
+        assertNotNull(scan.getFilter());
+
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), ByteUtil.fillKey(PDataType.VARCHAR.toBytes(keyPrefix),15), PDataType.DATE.toBytes(startTime));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        byte[] expectedStopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), ByteUtil.fillKey(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(keyPrefix)),15), PDataType.DATE.toBytes(stopTime));
+        assertArrayEquals(expectedStopRow, scan.getStopRow());
+    }
+
     @Test
     public void testBasicRVCExpression() throws SQLException {
         String tenantId = "000000000000001";
