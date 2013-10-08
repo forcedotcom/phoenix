@@ -322,7 +322,7 @@ public class WhereOptimizer {
                 if (span == rvc.getChildren().size()) { // Used all children, so we may extract the node
                     extractNodes = Collections.<Expression>singletonList(rvc);
                 }
-                return new SingleKeySlot(new BaseRowValueConstructorKeyPart(table.getPKColumns().get(initPosition), extractNodes, rvc), initPosition, span, Collections.<KeyRange>emptyList());
+                return new SingleKeySlot(new BaseRowValueConstructorKeyPart(table.getPKColumns().get(initPosition), extractNodes, rvc), initPosition, span, EVERYTHING_RANGES);
             }
             return null;
         }
@@ -785,6 +785,20 @@ public class WhereOptimizer {
         private static class BaseKeyPart implements KeyPart {
             @Override
             public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
+                // Need special case for this, as we cannot put the completely evaluated
+                // key for the rhs in the row key, but instead need to only put the first
+                // child value. However, this may subtly affect the CompareOp we need
+                // to use. For example: a < (1,2) is true if a = 1, so we need to switch
+                // the compare op to <= like this: a <= 1. Since we strip trailing nulls
+                // in the rvc, we don't need to worry about the a < (1,null) case.
+                if (rhs instanceof RowValueConstructorExpression) {
+                    rhs = rhs.getChildren().get(0); // TODO: nested rvc: recurse until non rvc
+                    if (op == CompareOp.LESS) {
+                        op = CompareOp.LESS_OR_EQUAL;
+                    } else if (op == CompareOp.GREATER_OR_EQUAL) {
+                        op = CompareOp.GREATER;
+                    }
+                }
                 ImmutableBytesWritable ptr = new ImmutableBytesWritable();
                 rhs.evaluate(null, ptr);
                 byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
@@ -848,11 +862,12 @@ public class WhereOptimizer {
                 try {
                     // Coerce from the type used by row value constructor expression to the type expected by
                     // the row key column.
+                    boolean isRHSRVC = (rhs instanceof RowValueConstructorExpression);
                     for (; i < span; i++) {
                         PColumn column = table.getPKColumns().get(i + posOffset);
                         boolean isNullable = column.isNullable();
                         ColumnModifier mod = column.getColumnModifier();
-                        Expression src =  (span == 1 ? rhs : rhs.getChildren().get(i));
+                        Expression src =  (isRHSRVC ? rhs.getChildren().get(i) : rhs);
                         src.evaluate(null, ptr);
                         boolean isNull = ptr.getLength() == 0;
                         if (!isNullable && isNull) {

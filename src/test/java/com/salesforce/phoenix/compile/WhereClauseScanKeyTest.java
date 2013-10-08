@@ -1162,4 +1162,18 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(expectedStopRow, scan.getStopRow());
     }
+    
+    @Test
+    public void testRVCExpressionWithSubsetOfPKCols() throws SQLException {
+        String tenantId = "000000000000001";
+        String aString = "002";
+        String query = "select * from atable where (organization_id, a_string) >= (?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, aString);
+        compileStatement(query, scan, binds);
+
+        byte[] expectedStartRow = PDataType.VARCHAR.toBytes(tenantId);
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
 }
