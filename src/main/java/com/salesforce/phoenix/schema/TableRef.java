@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import org.apache.hadoop.hbase.HConstants;
+
 
 
 public final class TableRef {
@@ -34,6 +36,10 @@ public final class TableRef {
     private final String alias;
     private final long timeStamp;
     private final boolean hasDynamicCols;
+
+    public TableRef(PTable table) {
+        this(null, table, HConstants.LATEST_TIMESTAMP, false);
+    }
 
     public TableRef(String alias, PTable table, long timeStamp, boolean hasDynamicCols) {
         this.alias = alias;
