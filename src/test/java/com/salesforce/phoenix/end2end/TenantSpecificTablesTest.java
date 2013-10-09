@@ -27,10 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
+import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DROP_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.COLUMN_EXIST_IN_DEF;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CREATE_TENANT_TABLE_NO_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.TABLE_UNDEFINED;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.TENANT_TABLE_PK;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 import static com.salesforce.phoenix.schema.PTableType.SYSTEM;
@@ -152,6 +154,29 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
                 rs = conn.createStatement().executeQuery("select tenant_col from TENANT_TABLE");
             }
             catch (ColumnNotFoundException expected) {}
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testMutationOfPKInTenantTablesNotAllowed() throws Exception {
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+        try {
+            try {
+                conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " add new_tenant_pk char(1) primary key");
+            }
+            catch (SQLException expected) {
+                assertEquals(TENANT_TABLE_PK.getErrorCode(), expected.getErrorCode());
+            }
+            
+            try {
+                conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " drop column id");
+            }
+            catch (SQLException expected) {
+                assertEquals(CANNOT_DROP_PK.getErrorCode(), expected.getErrorCode());
+            }
         }
         finally {
             conn.close();

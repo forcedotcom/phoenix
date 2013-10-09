@@ -970,7 +970,7 @@ public class MetaDataClient {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
                         .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
                 }
-                
+                assertNotAlteringPKOfTenantTable(colDef, table);
                 if (statement.getProps().remove(PhoenixDatabaseMetaData.SALT_BUCKETS) != null) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.SALT_ONLY_ON_CREATE_TABLE)
                     .setTableName(table.getName().getString()).build().buildException();
@@ -1233,6 +1233,13 @@ public class MetaDataClient {
             return new MutationState(0, connection);
         } finally {
             connection.setAutoCommit(wasAutoCommit);
+        }
+    }
+    
+    private void assertNotAlteringPKOfTenantTable(ColumnDef col, PTable table) throws SQLException {
+        if (col != null && col.isPK() && table.isTenantSpecificTable()) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.TENANT_TABLE_PK)
+                .setColumnName(col.getColumnDefName().getColumnName()).build().buildException();
         }
     }
 }
