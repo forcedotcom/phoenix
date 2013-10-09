@@ -184,6 +184,47 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     }
     
     @Test
+    public void testColumnMutationInParentTableWithExistingTenantTable() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            // try adding a PK col
+            try {
+                conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " add new_pk varchar primary key");
+            }
+            catch (SQLException expected) {
+                assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
+            }
+            
+            // try adding a non-PK col
+            try {
+                conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " add new_col char(1)");
+            }
+            catch (SQLException expected) {
+                assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
+            }
+            
+            // try removing a PK col
+            try {
+                conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " drop column id");
+            }
+            catch (SQLException expected) {
+                assertEquals(CANNOT_DROP_PK.getErrorCode(), expected.getErrorCode());
+            }
+            
+            // try removing a non-PK col
+            try {
+                conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " drop column user");
+            }
+            catch (SQLException expected) {
+                assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
+            }
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
     public void testDropParentTableWithExistingTenantTable() throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         try {

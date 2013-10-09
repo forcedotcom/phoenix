@@ -526,7 +526,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
     
     /**
-     * @param tableName parent table
+     * @param tableName parent table's name
      * @return true if there exist tenant-specific tables that use this table as their parent.
      */
     private boolean hasTenantSpecificTables(HRegion region, byte[] tableName) throws IOException {
@@ -745,10 +745,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     return new MetaDataMutationResult(MutationCode.CONCURRENT_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), table);
                 }
                 
-                // Disallow mutation of an index table
                 PTableType type = table.getType();
-                if (type == PTableType.INDEX) {
+                if (type == PTableType.INDEX) { 
+                    // Disallow mutation of an index table
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                } else if (type == PTableType.USER && !table.isTenantSpecificTable()) {
+                    // Disallow any column mutations for parents of tenant tables
+                    if (hasTenantSpecificTables(region, tableName)) {
+                        return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                    }
                 }
                 
                 result = verifier.checkColumns(table, rowKeyMetaData, tableMetadata);
