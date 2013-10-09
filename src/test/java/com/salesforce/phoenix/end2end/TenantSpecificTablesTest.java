@@ -293,7 +293,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testDeletetOnlyDeletesTenantData() throws Exception {
+    public void testDeleteOnlyDeletesTenantData() throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
@@ -312,6 +312,30 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             
             conn = DriverManager.getConnection(getUrl());
             rs = conn.createStatement().executeQuery("select count(*) from " + PARENT_TABLE_NAME);
+            rs.next();
+            assertEquals(1, rs.getInt(1));
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDropTenantTableOnlyDeletesTenantData() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.close();
+            
+            conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+            conn.setAutoCommit(true);
+            conn.createStatement().execute("drop table " + TENANT_TABLE_NAME);
+            conn.close();
+            
+            conn = DriverManager.getConnection(getUrl());
+            ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + PARENT_TABLE_NAME);
             rs.next();
             assertEquals(1, rs.getInt(1));
         }

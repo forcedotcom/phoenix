@@ -48,8 +48,14 @@ import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 
 
@@ -152,6 +158,11 @@ public class PostDDLCompiler {
                                 scan.addFamily(family);
                             }
                             projector = new RowProjector(projector,false);
+                        }
+                        PName tenantId = connection.getTenantId();
+                        if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
+                            scan.setStartRow(tenantId.getBytes());
+                            scan.setStopRow(ByteUtil.nextKey(tenantId.getBytes()));
                         }
                         QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(connection.getQueryServices()), GroupBy.EMPTY_GROUP_BY, null);
                         Scanner scanner = plan.getScanner();

@@ -131,7 +131,7 @@ public class WhereCompiler {
     }
     
     private static Expression getTenantIdConstraint(TableRef tableRef, String tenantId) throws SQLException {
-        PColumn tenantIdColumn = tableRef.getTable().getPKColumns().get(0);
+        PColumn tenantIdColumn = tableRef.getTable().getTenantIdColumn();
         ColumnRef tenantIdColumnRef = new ColumnRef(tableRef, tenantIdColumn.getPosition());
         return new ComparisonExpression(EQUAL, newArrayList(tenantIdColumnRef.newColumnExpression(), newConstant(tenantId, PDataType.VARCHAR)));
     }

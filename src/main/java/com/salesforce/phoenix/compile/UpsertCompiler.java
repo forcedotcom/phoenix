@@ -612,10 +612,14 @@ public class UpsertCompiler {
     }
     
     private static class SelectStatementWithTenantIdLiteralNode extends SelectStatement {
-        public SelectStatementWithTenantIdLiteralNode(String tenantId, SelectStatement select) {
-            super(select.getFrom(), select.getHint(), select.isDistinct(), newSelectListWithPrependedTenantIdLiteral(tenantId, select.getSelect()), 
-                  select.getWhere(), select.getGroupBy(), select.getHaving(), select.getOrderBy(), select.getLimit(), select.getBindCount(), 
-                  select.isAggregate());
+        /**
+         * Constructs a {@link SelectStatement} clone whose <code>select</code> list consists of a tenantId literal followed by
+         * the <code>select</code> list of the provided <code>selectStatement</code>.
+         */
+        public SelectStatementWithTenantIdLiteralNode(String tenantId, SelectStatement selectStatement) {
+            super(selectStatement.getFrom(), selectStatement.getHint(), selectStatement.isDistinct(), newSelectListWithPrependedTenantIdLiteral(tenantId, selectStatement.getSelect()), 
+                  selectStatement.getWhere(), selectStatement.getGroupBy(), selectStatement.getHaving(), selectStatement.getOrderBy(), selectStatement.getLimit(), selectStatement.getBindCount(), 
+                  selectStatement.isAggregate());
         }
         
         private static List<AliasedNode> newSelectListWithPrependedTenantIdLiteral(String tenantId, List<AliasedNode> select) {
