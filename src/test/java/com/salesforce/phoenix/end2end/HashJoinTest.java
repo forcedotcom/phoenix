@@ -1003,7 +1003,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     @Test
     public void testJoinMultiJoinKeys() throws Exception {
         initMetaInfoTableValues();
-        String query = "SELECT c.name, s.name FROM " + JOIN_CUSTOMER_TABLE + " c LEFT JOIN " + JOIN_SUPPLIER_TABLE + " s ON customer_id = supplier_id AND c.loc_id = s.loc_id";
+        String query = "SELECT c.name, s.name FROM " + JOIN_CUSTOMER_TABLE + " c LEFT JOIN " + JOIN_SUPPLIER_TABLE + " s ON customer_id = supplier_id AND c.loc_id = s.loc_id AND substr(s.name, 2, 1) = substr(c.name, 2, 1)";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {

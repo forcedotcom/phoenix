@@ -30,6 +30,8 @@ package com.salesforce.phoenix.compile;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,6 +41,7 @@ import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.Expression;
@@ -395,32 +398,51 @@ public class JoinCompiler {
             return new ScanProjector(ScanProjector.getPrefixForTable(table));
         }
         
-        public List<Expression> compileLeftTableConditions(StatementContext context) throws SQLException {
+        public Pair<List<Expression>, List<Expression>> compileJoinConditions(StatementContext context) throws SQLException {
             ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
             context.getResolver().setDisambiguateWithTable(true);
-            List<Expression> ret = new ArrayList<Expression>(conditions.size());
+            List<Pair<Expression, Expression>> compiled = new ArrayList<Pair<Expression, Expression>>(conditions.size());
             for (ParseNode condition : conditions) {
                 assert (condition instanceof EqualParseNode);
                 EqualParseNode equalNode = (EqualParseNode) condition;
                 expressionCompiler.reset();
-                Expression expression = equalNode.getLHS().accept(expressionCompiler);
-                ret.add(expression);
-            }
-            return ret;
-        }
-        
-        public List<Expression> compileRightTableConditions(StatementContext context) throws SQLException {
-            ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
-            context.getResolver().setDisambiguateWithTable(true);
-            List<Expression> ret = new ArrayList<Expression>(conditions.size());
-            for (ParseNode condition : conditions) {
-                assert (condition instanceof EqualParseNode);
-                EqualParseNode equalNode = (EqualParseNode) condition;
+                Expression left = equalNode.getLHS().accept(expressionCompiler);
                 expressionCompiler.reset();
-                Expression expression = equalNode.getRHS().accept(expressionCompiler);
-                ret.add(expression);
+                Expression right = equalNode.getRHS().accept(expressionCompiler);
+                compiled.add(new Pair<Expression, Expression>(left, right));
             }
-            return ret;
+            Collections.sort(compiled, new Comparator<Pair<Expression, Expression>>() {
+                @Override
+                public int compare(Pair<Expression, Expression> o1, Pair<Expression, Expression> o2) {
+                    Expression e1 = o1.getFirst();
+                    Expression e2 = o2.getFirst();
+                    boolean isFixed1 = e1.getDataType().isFixedWidth();
+                    boolean isFixed2 = e2.getDataType().isFixedWidth();
+                    boolean isFixedNullable1 = e1.isNullable() &&isFixed1;
+                    boolean isFixedNullable2 = e2.isNullable() && isFixed2;
+                    if (isFixedNullable1 == isFixedNullable2) {
+                        if (isFixed1 == isFixed2) {
+                            return 0;
+                        } else if (isFixed1) {
+                            return -1;
+                        } else {
+                            return 1;
+                        }
+                    } else if (isFixedNullable1) {
+                        return 1;
+                    } else {
+                        return -1;
+                    }
+                }
+            });
+            List<Expression> lConditions = new ArrayList<Expression>(compiled.size());
+            List<Expression> rConditions = new ArrayList<Expression>(compiled.size());
+            for (Pair<Expression, Expression> pair : compiled) {
+            	lConditions.add(pair.getFirst());
+            	rConditions.add(pair.getSecond());
+            }
+            
+            return new Pair<List<Expression>, List<Expression>>(lConditions, rConditions);
         }
         
         private class OnNodeVisitor  extends TraverseNoParseNodeVisitor<Void> {

@@ -33,6 +33,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
@@ -168,8 +169,9 @@ public class QueryCompiler {
             for (int i = 0; i < count; i++) {
                 JoinTable joinTable = joinTables.get(i);
                 joinIds[i] = new ImmutableBytesPtr(emptyByteArray); // place-holder
-                joinExpressions[i] = joinTable.compileLeftTableConditions(context);
-                hashExpressions[i] = joinTable.compileRightTableConditions(context);
+                Pair<List<Expression>, List<Expression>> joinConditions = joinTable.compileJoinConditions(context);
+                joinExpressions[i] = joinConditions.getFirst();
+                hashExpressions[i] = joinConditions.getSecond();
                 joinTypes[i] = joinTable.getType();
                 try {
                     Scan subScan = new Scan(scanCopy);
@@ -209,8 +211,9 @@ public class QueryCompiler {
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin);
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr(emptyByteArray)};
             Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
-            List<Expression> joinExpressions = lastJoinTable.compileRightTableConditions(context);
-            List<Expression> hashExpressions = lastJoinTable.compileLeftTableConditions(context);
+            Pair<List<Expression>, List<Expression>> joinConditions = lastJoinTable.compileJoinConditions(context);
+            List<Expression> joinExpressions = joinConditions.getSecond();
+            List<Expression> hashExpressions = joinConditions.getFirst();
             HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {type == JoinType.Inner ? type : JoinType.Left}, new boolean[] {true}, postJoinFilterExpression);
             join.projectColumns(context.getScan(), lastJoinTable.getTable());
             ScanProjector.serializeProjectorIntoScan(context.getScan(), lastJoinTable.getScanProjector());
@@ -232,8 +235,9 @@ public class QueryCompiler {
         QueryPlan rhsPlan = compile(rhs, binds, subScan);
         ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr(emptyByteArray)};
         Expression postJoinFilterExpression = join.compilePostFilterExpression(context);
-        List<Expression> joinExpressions = lastJoinTable.compileLeftTableConditions(context);
-        List<Expression> hashExpressions = lastJoinTable.compileRightTableConditions(context);
+        Pair<List<Expression>, List<Expression>> joinConditions = lastJoinTable.compileJoinConditions(context);
+        List<Expression> joinExpressions = joinConditions.getFirst();
+        List<Expression> hashExpressions = joinConditions.getSecond();
         HashJoinInfo joinInfo = new HashJoinInfo(joinIds, new List[] {joinExpressions}, new JoinType[] {JoinType.Left}, new boolean[] {true}, postJoinFilterExpression);
         join.projectColumns(context.getScan(), context.getResolver().getTables().get(0));
         ScanProjector.serializeProjectorIntoScan(context.getScan(), join.getScanProjector());
