@@ -65,6 +65,7 @@ import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.ColumnName;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
@@ -280,7 +281,7 @@ public class UpsertCompiler {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
             if (tenantId != null && table.isTenantSpecificTable()) {
-                select = new SelectStatementWithTenantIdLiteralNode(tenantId, select);
+                select = cloneAndPrependTenantIdToSelect(select, tenantId);
             }
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
             boolean sameTable = tableRef.equals(selectTableRef);
@@ -611,22 +612,10 @@ public class UpsertCompiler {
         }
     }
     
-    private static class SelectStatementWithTenantIdLiteralNode extends SelectStatement {
-        /**
-         * Constructs a {@link SelectStatement} clone whose <code>select</code> list consists of a tenantId literal followed by
-         * the <code>select</code> list of the provided <code>selectStatement</code>.
-         */
-        public SelectStatementWithTenantIdLiteralNode(String tenantId, SelectStatement selectStatement) {
-            super(selectStatement.getFrom(), selectStatement.getHint(), selectStatement.isDistinct(), newSelectListWithPrependedTenantIdLiteral(tenantId, selectStatement.getSelect()), 
-                  selectStatement.getWhere(), selectStatement.getGroupBy(), selectStatement.getHaving(), selectStatement.getOrderBy(), selectStatement.getLimit(), selectStatement.getBindCount(), 
-                  selectStatement.isAggregate());
-        }
-        
-        private static List<AliasedNode> newSelectListWithPrependedTenantIdLiteral(String tenantId, List<AliasedNode> select) {
-            List<AliasedNode> result = newArrayListWithCapacity(select.size() + 1);
-            result.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
-            result.addAll(1, select);
-            return result;
-        }
+    private static SelectStatement cloneAndPrependTenantIdToSelect(SelectStatement statement, String tenantId) {
+        List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 1);
+        select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
+        select.addAll(1, statement.getSelect());
+        return new ParseNodeFactory().select(statement.getFrom(), statement.getHint(), statement.isDistinct(), select, statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
 }
