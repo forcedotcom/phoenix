@@ -1231,4 +1231,23 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
+    
+    @Test
+    public void testUseOfFunctionOnLHSInRVC() throws SQLException {
+        String tenantId = "000000000000001";
+        String subStringTenantId = tenantId.substring(0,3);
+        String parentId = "000000000000002";
+        Date createdDate = new Date(System.currentTimeMillis());
+        ensureTableCreated(getUrl(),TestUtil.ENTITY_HISTORY_TABLE_NAME);
+        
+        String query = "select * from entity_history where (substr(organization_id, 1, 3), parent_id, created_date) >= (?,?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(subStringTenantId, parentId, createdDate);
+        Set<Expression> expectedFilters = new HashSet<Expression>(2);
+        compileStatement(query, scan, binds, expectedFilters);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(subStringTenantId));
+        assertTrue(expectedFilters.size() == 0);
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
 }

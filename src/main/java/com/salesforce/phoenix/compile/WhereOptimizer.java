@@ -313,9 +313,10 @@ public class WhereOptimizer {
                 position++;
                 
                 // If we come to a point where we're not preserving order completely
-                // then stop. We should never get a NO here, but we might get a YES_IF_LAST
-                // in the case of SUBSTR, so we cannot continue building the row key
-                // past that.
+                // then stop. We will never get a NO here, but we might get a YES_IF_LAST
+                // if the child expression is only using part of the underlying pk column.
+                // (for example, in the case of SUBSTR). In this case, we must stop building
+                // the row key constructor at that point.
                 assert(keySlot.getOrderPreserving() != OrderPreserving.NO);
                 if (keySlot.getOrderPreserving() == OrderPreserving.YES_IF_LAST) {
                     break;

@@ -291,11 +291,7 @@ public class MetaDataClient {
             ColumnModifier columnModifier = def.getColumnModifier();
             boolean isPK = def.isPK();
             if (pkConstraint != null) {
-                ColumnName pkColumnDefName = columnDefName;
-                if (columnDefName.getFamilyName() != null) { // Look for name without family as this is an error condition
-                    pkColumnDefName = ColumnName.newColumnName(columnDefName.getColumnNode());
-                }
-                Pair<ColumnName,ColumnModifier> pkColumnModifier = pkConstraint.getColumn(pkColumnDefName);
+                Pair<ColumnName,ColumnModifier> pkColumnModifier = pkConstraint.getColumn(columnDefName);
                 if (pkColumnModifier != null) {
                     isPK = true;
                     columnModifier = pkColumnModifier.getSecond();
@@ -506,7 +502,7 @@ public class MetaDataClient {
 
     private static ColumnDef findColumnDefOrNull(List<ColumnDef> colDefs, ColumnName colName) {
         for (ColumnDef colDef : colDefs) {
-            if (colDef.getColumnDefName().equals(colName)) {
+            if (colDef.getColumnDefName().getColumnName().equals(colName.getColumnName())) {
                 return colDef;
             }
         }
@@ -603,11 +599,12 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
             }
             
-            int position = 0;
+            int positionOffset = 0;
             if (isSalted) {
-                position = 1;
+                positionOffset = 1;
                 pkColumns.add(SaltingUtil.SALTING_COLUMN);
             }
+            int position = positionOffset;
             
             for (ColumnDef colDef : colDefs) {
                 if (colDef.isPK()) {
@@ -642,12 +639,17 @@ public class MetaDataClient {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
-            if (!pkColumnsNames.isEmpty() && pkColumnsNames.size() != pkColumns.size()) { // Then a column name in the primary key constraint wasn't resolved
+            if (!pkColumnsNames.isEmpty() && pkColumnsNames.size() != pkColumns.size() - positionOffset) { // Then a column name in the primary key constraint wasn't resolved
                 Iterator<Pair<ColumnName,ColumnModifier>> pkColumnNamesIterator = pkColumnsNames.iterator();
                 while (pkColumnNamesIterator.hasNext()) {
                     ColumnName colName = pkColumnNamesIterator.next().getFirst();
-                    if (findColumnDefOrNull(colDefs, colName) == null) {
+                    ColumnDef colDef = findColumnDefOrNull(colDefs, colName);
+                    if (colDef == null) {
                         throw new ColumnNotFoundException(schemaName, tableName, null, colName.getColumnName());
+                    }
+                    if (colDef.getColumnDefName().getFamilyName() != null) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_WITH_FAMILY_NAME)
+                        .setColumnName(colDef.getColumnDefName().getColumnName() ).setFamilyName(colDef.getColumnDefName().getFamilyName()).build().buildException();
                     }
                 }
                 // The above should actually find the specific one, but just in case...

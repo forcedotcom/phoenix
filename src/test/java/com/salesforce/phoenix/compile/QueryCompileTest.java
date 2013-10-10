@@ -140,7 +140,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1003 (42J01): Primary key should not have a family name. columnName=A.PK"));
+            assertEquals(e.getErrorCode(), SQLExceptionCode.PRIMARY_KEY_WITH_FAMILY_NAME.getErrorCode());
         } finally {
             conn.close();
         }
