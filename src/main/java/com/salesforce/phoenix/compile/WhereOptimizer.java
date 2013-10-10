@@ -146,13 +146,14 @@ public class WhereOptimizer {
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.
-            if (slot == null || slot.getKeyRanges().isEmpty() || slot.getPKPosition() != pkPos + 1) {
-                if (!forcedSkipScan) {
-                    break;
-                }
-                if (slot == null || slot.getKeyRanges().isEmpty()) {
+            if (slot == null || slot.getKeyRanges().isEmpty())  {
+                if (!forcedSkipScan) break;
+                continue;
+            }
+            if (slot.getPKPosition() != pkPos + 1) {
+                if (!forcedSkipScan) break;
+                for (int i=pkPos + 1; i < slot.getPKPosition(); i++) {
                     cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
-                    continue;
                 }
             }
             // We support (a,b) IN ((1,2),(3,4), so in this case we switch to a flattened schema
@@ -179,7 +180,7 @@ public class WhereOptimizer {
             }
             // Stop building start/stop key once we encounter a non single key range.
             // TODO: remove this soon after more testing on SkipScanFilter
-            if (hasUnboundedRange && !forcedRangeScan) {
+            if (hasUnboundedRange && !forcedSkipScan) {
                 // TODO: when stats are available, we may want to continue this loop if the
                 // cardinality of this slot is low. We could potentially even continue this
                 // loop in the absence of a range for a key slot.
