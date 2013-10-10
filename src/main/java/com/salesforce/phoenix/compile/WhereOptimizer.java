@@ -291,7 +291,7 @@ public class WhereOptimizer {
             return new SingleKeySlot(new BaseKeyPart(slot.getKeyPart().getColumn(), extractNodes), slot.getPKPosition(), slot.getPKSpan(), keyRanges, minMaxRange, slot.getOrderPreserving());
         }
 
-        public KeySlots newKeyParts(RowValueConstructorExpression rvc, List<KeySlots> childSlots) {
+        private KeySlots newRowValueConstructorKeyParts(RowValueConstructorExpression rvc, List<KeySlots> childSlots) {
             if (childSlots.isEmpty() || rvc.isConstant()) {
                 return null;
             }
@@ -350,12 +350,19 @@ public class WhereOptimizer {
             int nColumns = table.getPKColumns().size();
             KeySlot[] keySlot = new KeySlot[nColumns];
             KeyRange minMaxRange = KeyRange.EVERYTHING_RANGE;
+            List<Expression> minMaxExtractNodes = Lists.<Expression>newArrayList();
+            int initPosition = (table.getBucketNum() ==null ? 0 : 1);
             for (KeySlots childSlot : childSlots) {
                 if (childSlot == DEGENERATE_KEY_PARTS) {
                     return DEGENERATE_KEY_PARTS;
                 }
-                if (childSlot.getMinMaxRange() != null) { 
+                if (childSlot.getMinMaxRange() != null) {
+                    // TODO: potentially use KeySlot.intersect here. However, we can't intersect the key ranges in the slot
+                    // with our minMaxRange, since it spans columns and this would mess up our skip scan.
                     minMaxRange = minMaxRange.intersect(childSlot.getMinMaxRange());
+                    for (KeySlot slot : childSlot) {
+                        minMaxExtractNodes.addAll(slot.getKeyPart().getExtractNodes());
+                    }
                 } else {
                     for (KeySlot slot : childSlot) {
                         // We have a nested AND with nothing for this slot, so continue
@@ -376,12 +383,17 @@ public class WhereOptimizer {
                 }
             }
 
+            if (!minMaxExtractNodes.isEmpty()) {
+                if (keySlot[initPosition] == null) {
+                    keySlot[initPosition] = new KeySlot(new BaseKeyPart(table.getPKColumns().get(initPosition), minMaxExtractNodes), initPosition, 1, EVERYTHING_RANGES, null);
+                } else {
+                    keySlot[initPosition] = keySlot[initPosition].concatExtractNodes(minMaxExtractNodes);
+                }
+            }
             List<KeySlot> keySlots = Arrays.asList(keySlot);
             // If we have a salt column, skip that slot because
             // they'll never be an expression contained by it.
-            if (table.getBucketNum() != null) {
-                keySlots = keySlots.subList(1, keySlots.size());
-            }
+            keySlots = keySlots.subList(initPosition, keySlots.size());
             return new MultiKeySlot(keySlots, minMaxRange == KeyRange.EVERYTHING_RANGE ? null : minMaxRange);
         }
 
@@ -497,7 +509,7 @@ public class WhereOptimizer {
 
         @Override
         public KeySlots visitLeave(RowValueConstructorExpression node, List<KeySlots> childSlots) {
-            return newKeyParts(node, childSlots);
+            return newRowValueConstructorKeyParts(node, childSlots);
         }
 
         @Override
@@ -705,6 +717,16 @@ public class WhereOptimizer {
                 return keyRanges;
             }
 
+            public final KeySlot concatExtractNodes(List<Expression> extractNodes) {
+                return new KeySlot(
+                        new BaseKeyPart(this.getKeyPart().getColumn(),
+                                    SchemaUtil.concat(this.getKeyPart().getExtractNodes(),extractNodes)),
+                        this.getPKPosition(),
+                        this.getPKSpan(),
+                        this.getKeyRanges(),
+                        this.getOrderPreserving());
+            }
+            
             public final KeySlot intersect(KeySlot that) {
                 if (this.getPKPosition() != that.getPKPosition()) {
                     throw new IllegalArgumentException("Position must be equal for intersect");

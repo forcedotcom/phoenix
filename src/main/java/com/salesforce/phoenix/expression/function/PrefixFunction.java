@@ -40,6 +40,7 @@ abstract public class PrefixFunction extends ScalarFunction {
     @Override
     public KeyPart newKeyPart(final KeyPart childPart) {
         return new KeyPart() {
+            private final List<Expression> extractNodes = extractNode() ? Collections.<Expression>singletonList(PrefixFunction.this) : Collections.<Expression>emptyList();
 
             @Override
             public PColumn getColumn() {
@@ -48,7 +49,7 @@ abstract public class PrefixFunction extends ScalarFunction {
 
             @Override
             public List<Expression> getExtractNodes() {
-                return extractNode() ? Collections.<Expression>singletonList(PrefixFunction.this) : Collections.<Expression>emptyList();
+                return extractNodes;
             }
 
             @Override

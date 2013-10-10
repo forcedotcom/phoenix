@@ -1250,4 +1250,22 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
-}
+    
+    @Test
+    public void testRVCInCombinationWithOtherNonRVC() throws SQLException {
+        String firstOrgId = "000000000000001";
+        String secondOrgId = "000000000000008";
+        
+        String parentId = "000000000000002";
+        Date createdDate = new Date(System.currentTimeMillis());
+        ensureTableCreated(getUrl(),TestUtil.ENTITY_HISTORY_TABLE_NAME);
+       
+        String query = "select * from entity_history where (organization_id, parent_id, created_date) >= (?,?,?) AND organization_id <= ?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstOrgId, parentId, createdDate, secondOrgId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 2);
+        assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstOrgId), PDataType.VARCHAR.toBytes(parentId), PDataType.DATE.toBytes(createdDate)), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(secondOrgId)), scan.getStopRow());
+    }}

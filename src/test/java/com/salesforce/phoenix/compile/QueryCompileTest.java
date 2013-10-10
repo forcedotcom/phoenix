@@ -59,6 +59,7 @@ import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -1042,4 +1043,29 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         }
     }
     
+    
+    @Test
+    public void testDuplicatePKColumn() throws Exception {
+        String ddl = "CREATE TABLE t (k1 VARCHAR, k1 VARCHAR CONSTRAINT pk PRIMARY KEY(k1))";
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(ddl);
+            fail();
+        } catch (ColumnAlreadyExistsException e) {
+            assertEquals("K1",e.getColumnName());
+        }
+    }
+    
+    
+    @Test
+    public void testDuplicateKVColumn() throws Exception {
+        String ddl = "CREATE TABLE t (k1 VARCHAR, v1 VARCHAR, v2 VARCHAR, v1 INTEGER CONSTRAINT pk PRIMARY KEY(k1))";
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(ddl);
+            fail();
+        } catch (ColumnAlreadyExistsException e) {
+            assertEquals("V1",e.getColumnName());
+        }
+    }
 }

@@ -74,6 +74,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.ColumnResolver;
 import com.salesforce.phoenix.compile.FromCompiler;
 import com.salesforce.phoenix.compile.MutationPlan;
@@ -554,7 +555,7 @@ public class MetaDataClient {
             
             List<ColumnDef> colDefs = statement.getColumnDefs();
             List<PColumn> columns = Lists.newArrayListWithExpectedSize(colDefs.size());
-            List<PColumn> pkColumns = Lists.newArrayListWithExpectedSize(colDefs.size() + 1); // in case salted
+            LinkedHashSet<PColumn> pkColumns = Sets.newLinkedHashSetWithExpectedSize(colDefs.size() + 1); // in case salted
             PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
             Map<String, PName> familyNames = Maps.newLinkedHashMap();
             boolean isPK = false;
@@ -617,11 +618,13 @@ public class MetaDataClient {
                 PColumn column = newColumn(position++, colDef, pkConstraint);
                 if (SchemaUtil.isPKColumn(column)) {
                     // TODO: remove this constraint?
-                    if (!pkColumnsNames.isEmpty() && !column.getName().getString().equals(pkColumnsIterator.next().getFirst().getColumnName())) {
+                    if (pkColumnsIterator.hasNext() && !column.getName().getString().equals(pkColumnsIterator.next().getFirst().getColumnName())) {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_OUT_OF_ORDER).setSchemaName(schemaName)
                             .setTableName(tableName).setColumnName(column.getName().getString()).build().buildException();
                     }
-                    pkColumns.add(column);
+                    if (!pkColumns.add(column)) {
+                        throw new ColumnAlreadyExistsException(schemaName, tableName, column.getName().getString());
+                    }
                 }
                 columns.add(column);
                 if (colDef.getDataType() == PDataType.VARBINARY 

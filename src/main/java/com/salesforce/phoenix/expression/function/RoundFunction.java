@@ -188,6 +188,7 @@ public class RoundFunction extends ScalarFunction {
     @Override
     public KeyPart newKeyPart(final KeyPart childPart) {
         return new KeyPart() {
+            private final List<Expression> extractNodes = Collections.<Expression>singletonList(RoundFunction.this);
 
             @Override
             public PColumn getColumn() {
@@ -196,7 +197,7 @@ public class RoundFunction extends ScalarFunction {
 
             @Override
             public List<Expression> getExtractNodes() {
-                return Collections.<Expression>singletonList(RoundFunction.this);
+                return extractNodes;
             }
 
             @Override
