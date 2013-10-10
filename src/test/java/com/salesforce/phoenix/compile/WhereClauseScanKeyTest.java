@@ -1193,7 +1193,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         String query = "select * from atable where (organization_id,entity_id) >= (?,?)";
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId, entityId);
-        compileStatement(query, scan, binds);
+        Set<Expression> extractedFilters = new HashSet<Expression>(2);
+        compileStatement(query, scan, binds, extractedFilters);
+        assertEquals(1,extractedFilters.size());
 
         byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
