@@ -1,9 +1,10 @@
 package com.salesforce.hbase.index.scanner;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -22,6 +23,7 @@ import com.salesforce.hbase.index.covered.filter.ColumnTrackingNextLargestTimest
 import com.salesforce.hbase.index.covered.filter.MaxTimestampFilter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.covered.update.ColumnTracker;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  *
@@ -66,7 +68,7 @@ public class ScannerBuilder {
     // filter out things with a newer timestamp
     filters.addFilter(new MaxTimestampFilter(ts));
     // filter out kvs based on deletes
-    List<byte[]> families = getAllFamilies(columns);
+    Set<ImmutableBytesPtr> families = getAllFamilies(columns);
     filters.addFilter(new ApplyAndFilterDeletesFilter(families));
     return getFilteredScanner(filters);
   }
@@ -96,10 +98,11 @@ public class ScannerBuilder {
     return columnFilters;
   }
 
-  private List<byte[]> getAllFamilies(Collection<? extends ColumnReference> columns) {
-    List<byte[]> families = new ArrayList<byte[]>(columns.size());
+  private Set<ImmutableBytesPtr>
+      getAllFamilies(Collection<? extends ColumnReference> columns) {
+    Set<ImmutableBytesPtr> families = new HashSet<ImmutableBytesPtr>();
     for (ColumnReference ref : columns) {
-      families.add(ref.getFamily());
+      families.add(new ImmutableBytesPtr(ref.getFamily()));
     }
     return families;
   }
