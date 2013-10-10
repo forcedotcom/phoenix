@@ -231,8 +231,7 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         
         // Will use data table now, since there's a LIMIT clause and
-        // we're able to optimize out the ORDER BY, unless the data
-        // table is salted.
+        // we're able to optimize out the ORDER BY.
         query = "SELECT k,v FROM t WHERE v >= 'x' ORDER BY k LIMIT 2";
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
@@ -248,9 +247,11 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
              "    SERVER FILTER BY V >= 'x'\n" + 
              "    SERVER 2 ROW LIMIT\n" + 
              "CLIENT 2 ROW LIMIT" :
-             "CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
-             "    SERVER TOP 2 ROWS SORTED BY [:K]\n" + 
-             "CLIENT MERGE SORT";
+             "CLIENT PARALLEL 3-WAY FULL SCAN OVER T\n" + 
+             "    SERVER FILTER BY V >= 'x'\n" + 
+             "    SERVER 2 ROW LIMIT\n" + 
+             "CLIENT MERGE SORT\n" + 
+             "CLIENT 2 ROW LIMIT";
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
     }
 

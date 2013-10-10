@@ -173,9 +173,11 @@ public class MutableSaltedIndexTest extends BaseMutableIndexTest{
              "    SERVER FILTER BY V >= 'x'\n" + 
              "    SERVER 2 ROW LIMIT\n" + 
              "CLIENT 2 ROW LIMIT" :
-             "CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER " + INDEX_TABLE_FULL_NAME + " 0...3,(*-'x']\n" + 
-             "    SERVER TOP 2 ROWS SORTED BY [:K]\n" + 
-             "CLIENT MERGE SORT";
+                 "CLIENT PARALLEL 3-WAY FULL SCAN OVER " + DATA_TABLE_FULL_NAME + "\n" +
+                 "    SERVER FILTER BY V >= 'x'\n" + 
+                 "    SERVER 2 ROW LIMIT\n" + 
+                 "CLIENT MERGE SORT\n" + 
+                 "CLIENT 2 ROW LIMIT";
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
     }
 }

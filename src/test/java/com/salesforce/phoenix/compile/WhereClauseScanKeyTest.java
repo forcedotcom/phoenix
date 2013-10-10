@@ -1134,6 +1134,29 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
+    public void testForceSkipScanOnSaltedTable() throws SQLException {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE IF NOT EXISTS user_messages (\n" + 
+                "        SENDER_ID UNSIGNED_LONG NOT NULL,\n" + 
+                "        RECIPIENT_ID UNSIGNED_LONG NOT NULL,\n" + 
+                "        SENDER_IP VARCHAR,\n" + 
+                "        IS_READ VARCHAR,\n" + 
+                "        IS_DELETED VARCHAR,\n" + 
+                "        M_TEXT VARCHAR,\n" + 
+                "        M_TIMESTAMP timestamp  NOT NULL,\n" + 
+                "        ROW_ID UNSIGNED_LONG NOT NULL\n" + 
+                "        constraint rowkey primary key (SENDER_ID,RECIPIENT_ID,M_TIMESTAMP DESC,ROW_ID))\n" + 
+                "SALT_BUCKETS=12\n");
+        String query = "select /*+ SKIP_SCAN */ count(*) from user_messages where is_read='N' and recipient_id=5399179882";
+        Scan scan = new Scan();
+        List<Object> binds = Collections.emptyList();
+        Set<Expression> extractedNodes = Sets.newHashSet();
+        compileStatement(query, scan, binds, null, extractedNodes);
+        assertEquals(1, extractedNodes.size());
+        assertNotNull(scan.getFilter());
+    }
+    
+    @Test
     public void testForceRangeScanKeepsFilters() throws SQLException {
         ensureTableCreated(getUrl(), TestUtil.ENTITY_HISTORY_TABLE_NAME);
         String tenantId = "000000000000001";

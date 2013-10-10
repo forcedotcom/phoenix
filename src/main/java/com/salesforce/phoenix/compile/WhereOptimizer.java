@@ -154,11 +154,6 @@ public class WhereOptimizer {
                     cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
                     continue;
                 }
-                    
-                int limit = table.getBucketNum() == null ? slot.getPKPosition() : slot.getPKPosition() - 1;
-                for (int i=0; i<limit; i++) {
-                    cnf.add(Collections.singletonList(KeyRange.EVERYTHING_RANGE));
-                }
             }
             // We support (a,b) IN ((1,2),(3,4), so in this case we switch to a flattened schema
             if (fullyQualifiedColumnCount > 1 && slot.getPKSpan() == fullyQualifiedColumnCount) {
@@ -184,7 +179,7 @@ public class WhereOptimizer {
             }
             // Stop building start/stop key once we encounter a non single key range.
             // TODO: remove this soon after more testing on SkipScanFilter
-            if (hasUnboundedRange) {
+            if (hasUnboundedRange && !forcedRangeScan) {
                 // TODO: when stats are available, we may want to continue this loop if the
                 // cardinality of this slot is low. We could potentially even continue this
                 // loop in the absence of a range for a key slot.
