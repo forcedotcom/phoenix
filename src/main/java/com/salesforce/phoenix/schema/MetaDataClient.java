@@ -291,7 +291,11 @@ public class MetaDataClient {
             ColumnModifier columnModifier = def.getColumnModifier();
             boolean isPK = def.isPK();
             if (pkConstraint != null) {
-                Pair<ColumnName,ColumnModifier> pkColumnModifier = pkConstraint.getColumn(columnDefName);
+                ColumnName pkColumnDefName = columnDefName;
+                if (columnDefName.getFamilyName() != null) { // Look for name without family as this is an error condition
+                    pkColumnDefName = ColumnName.newColumnName(columnDefName.getColumnNode());
+                }
+                Pair<ColumnName,ColumnModifier> pkColumnModifier = pkConstraint.getColumn(pkColumnDefName);
                 if (pkColumnModifier != null) {
                     isPK = true;
                     columnModifier = pkColumnModifier.getSecond();
@@ -500,6 +504,15 @@ public class MetaDataClient {
         throw new IllegalStateException(); // impossible
     }
 
+    private static ColumnDef findColumnDefOrNull(List<ColumnDef> colDefs, ColumnName colName) {
+        for (ColumnDef colDef : colDefs) {
+            if (colDef.getColumnDefName().equals(colName)) {
+                return colDef;
+            }
+        }
+        return null;
+    }
+    
     private PTable createTable(CreateTableStatement statement, byte[][] splits, PTable parent) throws SQLException {
         PTableType tableType = statement.getTableType();
         boolean wasAutoCommit = connection.getAutoCommit();
@@ -628,6 +641,18 @@ public class MetaDataClient {
             if (!isPK && pkColumnsNames.isEmpty()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
+            }
+            if (!pkColumnsNames.isEmpty() && pkColumnsNames.size() != pkColumns.size()) { // Then a column name in the primary key constraint wasn't resolved
+                Iterator<Pair<ColumnName,ColumnModifier>> pkColumnNamesIterator = pkColumnsNames.iterator();
+                while (pkColumnNamesIterator.hasNext()) {
+                    ColumnName colName = pkColumnNamesIterator.next().getFirst();
+                    if (findColumnDefOrNull(colDefs, colName) == null) {
+                        throw new ColumnNotFoundException(schemaName, tableName, null, colName.getColumnName());
+                    }
+                }
+                // The above should actually find the specific one, but just in case...
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_PRIMARY_KEY_CONSTRAINT)
+                .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
             
             List<Pair<byte[],Map<String,Object>>> familyPropList = Lists.newArrayListWithExpectedSize(familyNames.size());

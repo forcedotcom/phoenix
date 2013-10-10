@@ -22,10 +22,8 @@
  */
 -->
 <configuration>
-<!--
-	<property>
-		<name>phoenix.mutate.upsertBatchSize</name>
-		<value>50000</value>
-	</property>
--->
+  <property>
+    <name>hbase.regionserver.wal.codec</name>
+    <value>org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec</value>
+  </property>
 </configuration>

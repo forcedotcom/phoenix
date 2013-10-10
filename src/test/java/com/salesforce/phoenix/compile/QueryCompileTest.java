@@ -59,6 +59,7 @@ import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -1016,4 +1017,29 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
         }
     }
+    
+    @Test
+    public void testKeyValueColumnInPKConstraint() throws Exception {
+        String ddl = "CREATE TABLE t (a.k VARCHAR, b.v VARCHAR CONSTRAINT pk PRIMARY KEY(k))";
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(ddl);
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.PRIMARY_KEY_WITH_FAMILY_NAME.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testUnknownColumnInPKConstraint() throws Exception {
+        String ddl = "CREATE TABLE t (k1 VARCHAR, b.v VARCHAR CONSTRAINT pk PRIMARY KEY(k1, k2))";
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(ddl);
+            fail();
+        } catch (ColumnNotFoundException e) {
+            assertEquals("K2",e.getColumnName());
+        }
+    }
+    
 }
