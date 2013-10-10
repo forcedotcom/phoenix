@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DROP_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.COLUMN_EXIST_IN_DEF;
@@ -152,6 +153,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             
             try {
                 rs = conn.createStatement().executeQuery("select tenant_col from TENANT_TABLE");
+                fail();
             }
             catch (ColumnNotFoundException expected) {}
         }
@@ -166,6 +168,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         try {
             try {
                 conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " add new_tenant_pk char(1) primary key");
+                fail();
             }
             catch (SQLException expected) {
                 assertEquals(TENANT_TABLE_PK.getErrorCode(), expected.getErrorCode());
@@ -173,6 +176,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             
             try {
                 conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " drop column id");
+                fail();
             }
             catch (SQLException expected) {
                 assertEquals(CANNOT_DROP_PK.getErrorCode(), expected.getErrorCode());
@@ -190,6 +194,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             // try adding a PK col
             try {
                 conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " add new_pk varchar primary key");
+                fail();
             }
             catch (SQLException expected) {
                 assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
@@ -198,6 +203,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             // try adding a non-PK col
             try {
                 conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " add new_col char(1)");
+                fail();
             }
             catch (SQLException expected) {
                 assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
@@ -206,6 +212,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             // try removing a PK col
             try {
                 conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " drop column id");
+                fail();
             }
             catch (SQLException expected) {
                 assertEquals(CANNOT_DROP_PK.getErrorCode(), expected.getErrorCode());
@@ -214,6 +221,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             // try removing a non-PK col
             try {
                 conn.createStatement().execute("alter table " + PARENT_TABLE_NAME + " drop column user");
+                fail();
             }
             catch (SQLException expected) {
                 assertEquals(CANNOT_MUTATE_TABLE.getErrorCode(), expected.getErrorCode());
@@ -294,6 +302,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE DIFFSCHEMA.TENANT_TABLE2 ( \n" + 
                     "                tenant_col VARCHAR) \n" + 
                     "                BASE_TABLE='" + PARENT_TABLE_NAME + '\'');
+            fail();
         }
         catch (SQLException expected) {
             assertEquals(TABLE_UNDEFINED.getErrorCode(), expected.getErrorCode());
@@ -309,6 +318,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 ( \n" + 
                     "                tenant_col VARCHAR PRIMARY KEY) \n" + 
                     "                BASE_TABLE='PARENT_TABLE'");
+            fail();
         }
         catch (SQLException expected) {
             assertEquals(CREATE_TENANT_TABLE_NO_PK.getErrorCode(), expected.getErrorCode());
@@ -324,6 +334,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 ( \n" + 
                     "                user INTEGER) \n" + 
                     "                BASE_TABLE='PARENT_TABLE'");
+            fail();
         }
         catch (SQLException expected) {
             assertEquals(COLUMN_EXIST_IN_DEF.getErrorCode(), expected.getErrorCode());
@@ -447,6 +458,17 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         }
         finally {
             conn.close();
+        }
+    }
+    
+    @Test
+    public void testCreateTenantTableBaseTableTopLevel() throws Exception {
+        try {
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (COL VARCHAR) BASE_TABLE='TENANT_TABLE'");
+            fail();
+        }
+        catch (SQLException expected) {
+            assertEquals(BASE_TABLE_NOT_TOP_LEVEL.getErrorCode(), expected.getErrorCode());
         }
     }
     

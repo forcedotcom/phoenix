@@ -138,6 +138,7 @@ public enum SQLExceptionCode {
     CREATE_TENANT_TABLE_TENANT_ID(1026, "42Y85", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
     CREATE_TENANT_TABLE_NO_PK(1027, "42Y86", "Defining PK columns not allowed for tenant-specific tables."),
     NO_MUTABLE_INDEXES(1028, "42Y87", "Mutable secondary indexes are only supported for HBase version " + MetaDataUtil.decodeHBaseVersionAsString(PhoenixDatabaseMetaData.MUTABLE_SI_VERSION_THRESHOLD) + " and above."),
+    BASE_TABLE_NOT_TOP_LEVEL(1029, "42Y88", "Base table for a tenant table-specific table must be top level."),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),

@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.schema;
 
 import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
@@ -618,6 +619,9 @@ public class MetaDataClient {
             
             if (tenantId != null) {
                 PTable baseTable = resolveTable(connection, schemaName, baseTableName);
+                if (baseTable.isTenantSpecificTable()) {
+                    throw new SQLExceptionInfo.Builder(BASE_TABLE_NOT_TOP_LEVEL).setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                }
                 columns = newArrayListWithExpectedSize(baseTable.getColumns().size() + colDefs.size());
                 columns.addAll(baseTable.getColumns());
                 pkColumns = ImmutableList.copyOf(baseTable.getPKColumns());
