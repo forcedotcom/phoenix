@@ -30,9 +30,11 @@ package com.salesforce.phoenix.end2end;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -40,8 +42,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import org.apache.hadoop.hbase.TableNotFoundException;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.junit.Before;
 import org.junit.Test;
 
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -53,6 +60,28 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
     public static final String INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "I");
 
 
+    @Before // FIXME: this shouldn't be necessary, but the tests hang without it.
+    public void destroyTables() throws Exception {
+        // Physically delete HBase table so that splits occur as expected for each test
+        Properties props = new Properties(TEST_PROPERTIES);
+        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
+        HBaseAdmin admin = services.getAdmin();
+        try {
+            try {
+                admin.disableTable(INDEX_TABLE_FULL_NAME);
+                admin.deleteTable(INDEX_TABLE_FULL_NAME);
+            } catch (TableNotFoundException e) {
+            }
+            try {
+                admin.disableTable(DATA_TABLE_FULL_NAME);
+                admin.deleteTable(DATA_TABLE_FULL_NAME);
+            } catch (TableNotFoundException e) {
+            }
+       } finally {
+                admin.close();
+        }
+    }
+    
     @Test
     public void testAlterTableWithVarBinaryKey() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
@@ -205,6 +234,132 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         assertTrue(rs.next());
         assertEquals("a",rs.getString(1));
         assertEquals("2",rs.getString(2));
+        assertFalse(rs.next());
+    }
+    
+    @Test
+    public void testDropCoveredColumn() throws Exception {
+        String query;
+        ResultSet rs;
+        PreparedStatement stmt;
+    
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+    
+        // make sure that the tables are empty, but reachable
+        conn.createStatement().execute(
+          "CREATE TABLE " + DATA_TABLE_FULL_NAME
+              + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR, v3 VARCHAR)");
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        conn.createStatement().execute(
+          "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME + " (v1) include (v2, v3)");
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        // load some data into the table
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?,?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "x");
+        stmt.setString(3, "1");
+        stmt.setString(4, "j");
+        stmt.execute();
+        conn.commit();
+        
+        assertIndexExists(conn,true);
+        conn.createStatement().execute("ALTER TABLE " + DATA_TABLE_FULL_NAME + " DROP COLUMN v2");
+        // TODO: verify meta data that we get back to confirm our column was dropped
+        assertIndexExists(conn,true);
+        
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertEquals("j",rs.getString(3));
+        assertFalse(rs.next());
+        
+        // load some data into the table
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "y");
+        stmt.setString(3, "k");
+        stmt.execute();
+        conn.commit();
+        
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("y",rs.getString(2));
+        assertEquals("k",rs.getString(3));
+        assertFalse(rs.next());
+    }
+    
+    @Test
+    public void testAddPKColumnToTableWithIndex() throws Exception {
+        String query;
+        ResultSet rs;
+        PreparedStatement stmt;
+    
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+    
+        // make sure that the tables are empty, but reachable
+        conn.createStatement().execute(
+          "CREATE TABLE " + DATA_TABLE_FULL_NAME
+              + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR)");
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        conn.createStatement().execute(
+          "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME + " (v1) include (v2)");
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        // load some data into the table
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "x");
+        stmt.setString(3, "1");
+        stmt.execute();
+        conn.commit();
+        
+        assertIndexExists(conn,true);
+        conn.createStatement().execute("ALTER TABLE " + DATA_TABLE_FULL_NAME + " ADD k2 DECIMAL PRIMARY KEY");
+        // TODO: verify metadata of index
+        assertIndexExists(conn,true);
+        
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("x",rs.getString(2));
+        assertEquals("1",rs.getString(3));
+        assertNull(rs.getBigDecimal(4));
+        assertFalse(rs.next());
+        
+        // load some data into the table
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + "(K,K2,V1,V2) VALUES(?,?,?,?)");
+        stmt.setString(1, "b");
+        stmt.setBigDecimal(2, BigDecimal.valueOf(2));
+        stmt.setString(3, "y");
+        stmt.setString(4, "2");
+        stmt.execute();
+        conn.commit();
+        
+        query = "SELECT k,k2 FROM " + DATA_TABLE_FULL_NAME + " WHERE v1='y'";
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("b",rs.getString(1));
+        assertEquals(BigDecimal.valueOf(2),rs.getBigDecimal(2));
         assertFalse(rs.next());
     }
 }

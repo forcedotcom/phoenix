@@ -970,10 +970,12 @@ public class MetaDataClient {
                     }
                 }
                 
-                if (isAddingPKColumn) {
+                if (isAddingPKColumn && !table.getIndexes().isEmpty()) {
                     for (PTable index : table.getIndexes()) {
                         incrementTableSeqNum(index);
                     }
+                    tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
+                    connection.rollback();
                 }
                 long seqNum = incrementTableSeqNum(table, isImmutableRows);
                 

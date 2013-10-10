@@ -75,10 +75,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 nIndexPKColumns,
                 index.getBucketNum());
         RowKeyMetaData rowKeyMetaData = maintainer.getRowKeyMetaData();
-        int j = indexPosOffset;
-        for (; j < nIndexPKColumns + indexPosOffset; j++) {
-            PColumn indexColumn = index.getColumns().get(j);
-            assert(j == indexColumn.getPosition());
+        for (int j = indexPosOffset; j < index.getPKColumns().size(); j++) {
+            PColumn indexColumn = index.getPKColumns().get(j);
             int indexPos = j - indexPosOffset;
             PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
             boolean isPKColumn = SchemaUtil.isPKColumn(column);
@@ -94,10 +92,12 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 rowKeyMetaData.getDescIndexColumnBitSet().set(indexPos);
             }
         }
-        for (; j < nIndexColumns; j++) {
+        for (int j = 0; j < nIndexColumns; j++) {
             PColumn indexColumn = index.getColumns().get(j);
-            PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
-            maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
+            if (!SchemaUtil.isPKColumn(indexColumn)) {
+                PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
+                maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
+            }
         }
         maintainer.initCachedState();
         return maintainer;
