@@ -37,6 +37,10 @@ public final class TableRef {
     private final long timeStamp;
     private final boolean hasDynamicCols;
 
+    public TableRef(TableRef tableRef, long timeStamp) {
+        this(tableRef.alias, tableRef.table, timeStamp, tableRef.hasDynamicCols);
+    }
+    
     public TableRef(PTable table) {
         this(null, table, HConstants.LATEST_TIMESTAMP, false);
     }

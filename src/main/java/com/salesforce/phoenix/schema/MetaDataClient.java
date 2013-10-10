@@ -1199,6 +1199,10 @@ public class MetaDataClient {
                         connection.getQueryServices().updateData(compiler.compile(indexesToDrop, null, null, Collections.<PColumn>emptyList(), ts));
                         // Update empty key value column if necessary
                         for (ColumnRef droppedColumnRef : columnsToDrop) {
+                            // Painful, but we need a TableRef with a pre-set timestamp to prevent attempts
+                            // to get any updates from the region server.
+                            // TODO: move this into PostDDLCompiler
+                            droppedColumnRef = new ColumnRef(droppedColumnRef, ts);
                             TableRef droppedColumnTableRef = droppedColumnRef.getTableRef();
                             PColumn droppedColumn = droppedColumnRef.getColumn();
                             MutationPlan plan = compiler.compile(

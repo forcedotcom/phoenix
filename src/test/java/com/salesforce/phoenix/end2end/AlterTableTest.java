@@ -28,15 +28,30 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Properties;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.util.SchemaUtil;
+
 
 public class AlterTableTest extends BaseHBaseManagedTimeTest {
+    public static final String SCHEMA_NAME = "";
+    public static final String DATA_TABLE_NAME = "T";
+    public static final String INDEX_TABLE_NAME = "I";
+    public static final String DATA_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "T");
+    public static final String INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "I");
+
 
     @Test
     public void testAlterTableWithVarBinaryKey() throws Exception {
@@ -128,5 +143,68 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         } finally {
             conn.close();
         }
+    }
+    
+    private static void assertIndexExists(Connection conn, boolean exists) throws SQLException {
+        ResultSet rs = conn.getMetaData().getIndexInfo(null, SCHEMA_NAME, DATA_TABLE_NAME, false, false);
+        assertEquals(exists, rs.next());
+    }
+    
+    @Test
+    public void testDropIndexedColumn() throws Exception {
+        String query;
+        ResultSet rs;
+        PreparedStatement stmt;
+    
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+    
+        // make sure that the tables are empty, but reachable
+        conn.createStatement().execute(
+          "CREATE TABLE " + DATA_TABLE_FULL_NAME
+              + " (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR)");
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        conn.createStatement().execute(
+          "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME + " (v1, v2)");
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertFalse(rs.next());
+    
+        // load some data into the table
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "x");
+        stmt.setString(3, "1");
+        stmt.execute();
+        conn.commit();
+        
+        assertIndexExists(conn,true);
+        conn.createStatement().execute("ALTER TABLE " + DATA_TABLE_FULL_NAME + " DROP COLUMN v1");
+        assertIndexExists(conn,false);
+        
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("1",rs.getString(2));
+        assertFalse(rs.next());
+        
+        // load some data into the table
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?)");
+        stmt.setString(1, "a");
+        stmt.setString(2, "2");
+        stmt.execute();
+        conn.commit();
+        
+        query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("a",rs.getString(1));
+        assertEquals("2",rs.getString(2));
+        assertFalse(rs.next());
     }
 }
