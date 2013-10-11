@@ -545,6 +545,22 @@ public class QueryParserTest {
     }
 
     @Test
+    public void testRVCInList() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where k in ( (1,2), (3,4) )"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testInList() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where k in ( 1,2 )"));
+        parser.parseStatement();
+    }
+
+    @Test
     public void testHavingWithNot() throws Exception {
         SQLParser parser = new SQLParser(
                 new StringReader(
