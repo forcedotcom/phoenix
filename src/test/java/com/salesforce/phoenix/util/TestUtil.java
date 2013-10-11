@@ -139,6 +139,7 @@ public class TestUtil {
     public static final String TEST_SCHEMA_FILE_NAME = "config" + File.separator + "test-schema.xml";
     public static final String CED_SCHEMA_FILE_NAME = "config" + File.separator + "schema.xml";
     public static final String ENTITY_HISTORY_TABLE_NAME = "ENTITY_HISTORY";
+    public static final String ENTITY_HISTORY_SALTED_TABLE_NAME = "ENTITY_HISTORY_SALTED";
     public static final String ATABLE_NAME = "ATABLE";
     public static final String SUM_DOUBLE_NAME = "SumDoubleTest";
     public static final String ATABLE_SCHEMA_NAME = "";
