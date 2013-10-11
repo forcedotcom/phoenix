@@ -46,10 +46,12 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 public abstract class ExplainTable {
@@ -156,41 +158,28 @@ public abstract class ExplainTable {
         groupBy.explain(planSteps);
     }
 
-    private void appendPKColumnValue(StringBuilder buf, byte[] range, int slotIndex) {
-        if (range.length == 0) {
+    private void appendPKColumnValue(StringBuilder buf, byte[] range, Boolean isNull, int slotIndex) {
+        if (Boolean.TRUE.equals(isNull)) {
             buf.append("null");
+            return;
+        }
+        if (Boolean.FALSE.equals(isNull)) {
+            buf.append("not null");
+            return;
+        }
+        if (range.length == 0) {
+            buf.append('*');
             return;
         }
         ScanRanges scanRanges = context.getScanRanges();
         PDataType type = scanRanges.getSchema().getField(slotIndex).getDataType();
         ColumnModifier modifier = tableRef.getTable().getPKColumns().get(slotIndex).getColumnModifier();
         if (modifier != null) {
+            buf.append('~');
             range = modifier.apply(range, 0, new byte[range.length], 0, range.length);
         }
         Format formatter = context.getConnection().getFormatter(type);
         buf.append(type.toStringLiteral(range, formatter));
-    }
-    
-    private void appendKeyRange(StringBuilder buf, KeyRange range, int i) {
-        if (range.isSingleKey()) {
-            buf.append('[');
-            appendPKColumnValue(buf, range.getLowerRange(), i);
-            buf.append(']');
-        } else {
-            buf.append(range.isLowerInclusive() ? '[' : '(');
-            if (range.lowerUnbound()) {
-                buf.append('*');
-            } else {
-                appendPKColumnValue(buf, range.getLowerRange(), i);
-            }
-            buf.append('-');
-            if (range.upperUnbound()) {
-                buf.append('*');
-            } else {
-                appendPKColumnValue(buf, range.getUpperRange(), i);
-            }
-            buf.append(range.isUpperInclusive() ? ']' : ')');
-        }
     }
     
     private static class RowKeyValueIterator implements Iterator<byte[]> {
@@ -236,12 +225,57 @@ public abstract class ExplainTable {
         
     }
     
+    private void appendScanRow(StringBuilder buf, Bound bound) {
+        ScanRanges scanRanges = context.getScanRanges();
+        KeyRange minMaxRange = context.getMinMaxRange();
+        Iterator<byte[]> minMaxIterator = Iterators.emptyIterator();
+        if (minMaxRange != null) {
+            RowKeySchema schema = tableRef.getTable().getRowKeySchema();
+            if (!minMaxRange.isUnbound(bound)) {
+                minMaxIterator = new RowKeyValueIterator(schema, minMaxRange.getRange(bound));
+            }
+        }
+        int nRanges = scanRanges.getRanges().size();
+        for (int i = 0, minPos = 0; minPos < nRanges || minMaxIterator.hasNext(); i++) {
+            List<KeyRange> ranges = minPos >= nRanges ? EVERYTHING :  scanRanges.getRanges().get(minPos++);
+            KeyRange range = bound == Bound.LOWER ? ranges.get(0) : ranges.get(ranges.size()-1);
+            byte[] b = range.getRange(bound);
+            Boolean isNull = KeyRange.IS_NULL_RANGE == range ? Boolean.TRUE : KeyRange.IS_NOT_NULL_RANGE == range ? Boolean.FALSE : null;
+            if (minMaxIterator.hasNext()) {
+                byte[] bMinMax = minMaxIterator.next();
+                int cmp = Bytes.compareTo(bMinMax, b) * (bound == Bound.LOWER ? 1 : -1);
+                if (cmp > 0) {
+                    minPos = nRanges;
+                    b = bMinMax;
+                    isNull = null;
+                } else if (cmp < 0) {
+                    minMaxIterator = Iterators.emptyIterator();
+                }
+            }
+            appendPKColumnValue(buf, b, isNull, i);
+            buf.append(',');
+        }
+    }
+    
     private void appendKeyRanges(StringBuilder buf) {
         ScanRanges scanRanges = context.getScanRanges();
         KeyRange minMaxRange = context.getMinMaxRange();
         if (minMaxRange == null && (scanRanges == ScanRanges.EVERYTHING || scanRanges == ScanRanges.NOTHING)) {
             return;
         }
+        buf.append(" [");
+        StringBuilder buf1 = new StringBuilder();
+        appendScanRow(buf1, Bound.LOWER);
+        buf.append(buf1);
+        buf.setCharAt(buf.length()-1, ']');
+        StringBuilder buf2 = new StringBuilder();
+        appendScanRow(buf2, Bound.UPPER);
+        if (!StringUtil.equals(buf1, buf2)) {
+            buf.append( " - [");
+            buf.append(buf2);
+        }
+        buf.setCharAt(buf.length()-1, ']');
+        /*
         Iterator<byte[]> minIterator = Iterators.emptyIterator();
         Iterator<byte[]> maxIterator = Iterators.emptyIterator();
         if (minMaxRange != null) {
@@ -253,40 +287,49 @@ public abstract class ExplainTable {
                 maxIterator = new RowKeyValueIterator(schema, minMaxRange.getUpperRange());
             }
         }
-        buf.append(' ');
+        buf.append(" [");
         int nRanges = scanRanges.getRanges().size();
         for (int i = 0, minPos = 0, maxPos = 0; minPos < nRanges || maxPos < nRanges || minIterator.hasNext() || maxIterator.hasNext(); i++) {
             List<KeyRange> lowerRanges = minPos >= nRanges ? EVERYTHING :  scanRanges.getRanges().get(minPos++);
-            List<KeyRange> upperRanges = maxPos >= nRanges ? EVERYTHING :  scanRanges.getRanges().get(maxPos++);
-            KeyRange range = KeyRange.getKeyRange(lowerRanges.get(0).getLowerRange(), lowerRanges.get(0).isLowerInclusive(), upperRanges.get(upperRanges.size()-1).getUpperRange(), upperRanges.get(upperRanges.size()-1).isUpperInclusive());
-            boolean lowerInclusive = range.isLowerInclusive();
-            byte[] lowerRange = range.getLowerRange();
+            KeyRange range = lowerRanges.get(0);
+            byte[] b = range.getLowerRange();
+            Boolean isNull = KeyRange.IS_NULL_RANGE == range ? Boolean.TRUE : KeyRange.IS_NOT_NULL_RANGE == range ? Boolean.FALSE : null;
             if (minIterator.hasNext()) {
                 byte[] lowerRange2 = minIterator.next();
-                int cmp = Bytes.compareTo(lowerRange2, lowerRange);
+                int cmp = Bytes.compareTo(lowerRange2, b);
                 if (cmp > 0) {
                     minPos = nRanges;
-                    lowerRange = lowerRange2;
-                    lowerInclusive = true;
+                    b = lowerRange2;
+                    isNull = null;
                 } else if (cmp < 0) {
                     minIterator = Iterators.emptyIterator();
                 }
             }
-            boolean upperInclusive = range.isUpperInclusive();
-            byte[] upperRange = range.getUpperRange();
+            appendPKColumnValue(buf, b, isNull, i);
+            buf.append(',');
+        }
+        buf.setLength(buf.length()-1);
+        buf.append( "] - [");
+        for (int i = 0, minPos = 0, maxPos = 0; minPos < nRanges || maxPos < nRanges || minIterator.hasNext() || maxIterator.hasNext(); i++) {
+            List<KeyRange> upperRanges = maxPos >= nRanges ? EVERYTHING :  scanRanges.getRanges().get(maxPos++);
+            KeyRange range = upperRanges.get(upperRanges.size()-1);
+            byte[] bound = range.getUpperRange();
+            Boolean isNull = KeyRange.IS_NULL_RANGE == range ? Boolean.TRUE : KeyRange.IS_NOT_NULL_RANGE == range ? Boolean.FALSE : null;
             if (maxIterator.hasNext()) {
                 byte[] upperRange2 = maxIterator.next();
-                int cmp = range.upperUnbound() ? 1 :  Bytes.compareTo(upperRange2, upperRange);
+                int cmp = range.upperUnbound() ? 1 :  Bytes.compareTo(upperRange2, bound);
                 if (cmp < 0) {
                     maxPos = nRanges;
-                    upperRange = upperRange2;
-                    upperInclusive = maxIterator.hasNext();
+                    bound = upperRange2;
+                    isNull = null;
                 } else if (cmp > 0) {
                     maxIterator = Iterators.emptyIterator();
                 }
             }
-            range = KeyRange.getKeyRange(lowerRange, lowerInclusive, upperRange, upperInclusive);
-            appendKeyRange(buf, range, i);
+            appendPKColumnValue(buf, bound, isNull, i);
+            buf.append(',');
         }
+        buf.setCharAt(buf.length()-1, ']');
+        */
     }
 }
