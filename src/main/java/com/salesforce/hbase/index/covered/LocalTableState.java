@@ -78,7 +78,7 @@ public class LocalTableState implements TableState {
     this.env = environment;
     this.table = table;
     this.update = update;
-    this.memstore = new IndexMemStore(IndexMemStore.COMPARATOR);
+    this.memstore = new IndexMemStore();
     this.scannerBuilder = new ScannerBuilder(memstore, update);
     this.columnSet = new CoveredColumns();
   }
