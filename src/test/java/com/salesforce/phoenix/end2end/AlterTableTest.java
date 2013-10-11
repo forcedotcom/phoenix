@@ -362,4 +362,36 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         assertEquals(BigDecimal.valueOf(2),rs.getBigDecimal(2));
         assertFalse(rs.next());
     }
+    
+    @Test
+    public void testSetSaltedTableAsImmutable() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        
+        try {
+            String ddl = "CREATE TABLE MESSAGES (\n" + 
+            		"        SENDER_ID UNSIGNED_LONG NOT NULL,\n" + 
+            		"        RECIPIENT_ID UNSIGNED_LONG NOT NULL,\n" + 
+            		"        M_TIMESTAMP DATE  NOT NULL,\n" + 
+            		"        ROW_ID UNSIGNED_LONG NOT NULL,\n" + 
+            		"        IS_READ TINYINT,\n" + 
+            		"        IS_DELETED TINYINT,\n" + 
+            		"        VISIBILITY TINYINT,\n" + 
+            		"        B.SENDER_IP VARCHAR,\n" + 
+            		"        B.JSON VARCHAR,\n" + 
+            		"        B.M_TEXT VARCHAR\n" + 
+            		"        CONSTRAINT ROWKEY PRIMARY KEY\n" + 
+            		"(SENDER_ID,RECIPIENT_ID,M_TIMESTAMP DESC,ROW_ID))\n" + 
+            		"SALT_BUCKETS=4";
+            conn.createStatement().execute(ddl);
+            
+            ddl = "ALTER TABLE MESSAGES SET IMMUTABLE_ROWS=true";
+            conn.createStatement().execute(ddl);
+            
+        } finally {
+            conn.close();
+        }
+    }
+    
 }

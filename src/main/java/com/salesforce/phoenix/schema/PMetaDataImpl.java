@@ -82,13 +82,19 @@ public class PMetaDataImpl implements PMetaData {
     }
 
     @Override
-    public PMetaData addColumn(String tableName, List<PColumn> newColumns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException {
+    public PMetaData addColumn(String tableName, List<PColumn> columnsToAdd, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException {
         PTable table = getTable(tableName);
         Map<String,PTable> tables = Maps.newHashMap(metaData);
-        List<PColumn> columns = Lists.newArrayListWithExpectedSize(table.getColumns().size() + 1);
-        columns.addAll(table.getColumns());
-        columns.addAll(newColumns);
-        PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns, isImmutableRows);
+        List<PColumn> oldColumns = PTableImpl.getColumnsToClone(table);
+        List<PColumn> newColumns;
+        if (columnsToAdd.isEmpty()) {
+            newColumns = oldColumns;
+        } else {
+            newColumns = Lists.newArrayListWithExpectedSize(oldColumns.size() + columnsToAdd.size());
+            newColumns.addAll(oldColumns);
+            newColumns.addAll(columnsToAdd);
+        }
+        PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, newColumns, isImmutableRows);
         tables.put(tableName, newTable);
         return new PMetaDataImpl(tables);
     }

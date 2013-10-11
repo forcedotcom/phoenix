@@ -137,14 +137,14 @@ public class PTableImpl implements PTable {
     }
 
     // When cloning table, ignore the salt column as it will be added back in the constructor
-    private static List<PColumn> getColumnsToClone(PTable table, Integer saltBuckets) {
+    public static List<PColumn> getColumnsToClone(PTable table) {
         return table.getBucketNum() == null ? table.getColumns() : table.getColumns().subList(1, table.getColumns().size());
     }
     
     public static PTableImpl makePTable(PTable table, long timeStamp, List<PTable> indexes) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
-                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getParentTableName(), indexes, table.isImmutableRows());
+                table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), indexes, table.isImmutableRows());
     }
 
     public static PTableImpl makePTable(PTable table, List<PColumn> columns) throws SQLException {
@@ -168,7 +168,7 @@ public class PTableImpl implements PTable {
     public static PTableImpl makePTable(PTable table, PIndexState state) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), state, table.getTimeStamp(), table.getSequenceNumber(), 
-                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getParentTableName(), table.getIndexes(), table.isImmutableRows());
+                table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), table.getIndexes(), table.isImmutableRows());
     }
 
     public static PTableImpl makePTable(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
