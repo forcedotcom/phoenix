@@ -205,7 +205,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         
         query = "SELECT v1 as foo FROM " + DATA_TABLE_FULL_NAME + " WHERE v2 = '1' ORDER BY foo";
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER " +INDEX_TABLE_FULL_NAME + " '1'\n" + 
+        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER " +INDEX_TABLE_FULL_NAME + " [~'1']\n" + 
                 "    SERVER TOP -1 ROWS SORTED BY [V1]\n" + 
                 "CLIENT MERGE SORT", QueryUtil.getExplainPlan(rs));
 

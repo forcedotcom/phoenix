@@ -183,8 +183,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         String expectedPlan;
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
         expectedPlan = indexSaltBuckets == null ? 
-             "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'" : 
-            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 KEYS OVER I 0...3,'y'\n" + 
+             "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I [~'y']" : 
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 KEYS OVER I [0,~'y'] - [3,~'y']\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
 
@@ -202,8 +202,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertFalse(rs.next());
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
         expectedPlan = indexSaltBuckets == null ? 
-            "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']" :
-            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
+            "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I [*] - [~'x']" :
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I [0,*] - [3,~'x']\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         
@@ -222,10 +222,10 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         // being returned. Without stats we don't know. The alternative
         // would be a full table scan.
         expectedPlan = indexSaltBuckets == null ? 
-            ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']\n" + 
+            ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I [*] - [~'x']\n" + 
              "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
              "CLIENT MERGE SORT") :
-            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I [0,*] - [3,~'x']\n" + 
              "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
