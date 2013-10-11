@@ -225,4 +225,10 @@ public class IndexManagementUtil {
       throw new IndexBuildingFailureException("Failed to build index for unexpected reason!", e1);
     }
   }
+
+  public static void setIfNotSet(Configuration conf, String key, int value) {
+    if (conf.get(key) == null) {
+      conf.setInt(key, value);
+    }
+  }
 }
