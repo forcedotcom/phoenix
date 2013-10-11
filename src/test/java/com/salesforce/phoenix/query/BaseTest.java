@@ -30,6 +30,7 @@ package com.salesforce.phoenix.query;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_FULL_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_SALTED_TABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_TABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.FUNKY_NAME;
 import static com.salesforce.phoenix.util.TestUtil.GROUPBYTEST_NAME;
@@ -81,6 +82,15 @@ public abstract class BaseTest {
                 "    new_value varchar\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id)\n" +
                 ")");
+        builder.put(ENTITY_HISTORY_SALTED_TABLE_NAME,"create table " + ENTITY_HISTORY_SALTED_TABLE_NAME +
+                "   (organization_id char(15) not null,\n" +
+                "    parent_id char(15) not null,\n" +
+                "    created_date date not null,\n" +
+                "    entity_history_id char(15) not null,\n" +
+                "    old_value varchar,\n" +
+                "    new_value varchar\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id))\n" +
+                "    SALT_BUCKETS = 4");
         builder.put(ATABLE_NAME,"create table " + ATABLE_NAME +
                 "   (organization_id char(15) not null, \n" +
                 "    entity_id char(15) not null,\n" +

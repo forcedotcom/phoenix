@@ -11,8 +11,15 @@ import org.junit.Test;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
+    
+    public static final String SCHEMA_NAME = "";
+    public static final String DATA_TABLE_NAME = "T";
+    public static final String INDEX_TABLE_NAME = "I";
+    public static final String DATA_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "T");
+    public static final String INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "I");
 
     public QueryOptimizerTest() {
     }
@@ -201,5 +208,25 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         assertEquals("IDX", plan.getTableRef().getTable().getTableName().getString());
     }
     
-
+    @Test
+    public void testRVCForTableWithSecondaryIndexBasic() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE T (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR)");
+        conn.createStatement().execute("CREATE INDEX IDX ON T(v1, v2)");
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        String query = "select * from t where (v1, v2) <= ('1', '2')";
+        QueryPlan plan = stmt.optimizeQuery(query);
+        assertEquals("IDX", plan.getTableRef().getTable().getTableName().getString());
+    }
+    
+    @Test
+    public void testRVCAllColsForTableWithSecondaryIndexBasic() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE T (k VARCHAR NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR)");
+        conn.createStatement().execute("CREATE INDEX IDX ON T(v1, v2)");
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        String query = "select * from t where (k, v1, v2) <= ('3', '1', '2')";
+        QueryPlan plan = stmt.optimizeQuery(query);
+        assertEquals("T", plan.getTableRef().getTable().getTableName().getString());
+    }
 }
