@@ -435,7 +435,11 @@ public class WhereOptimizer {
                 // TODO: rethink always rewriting (a,b) = (1,2) as a=1 and b=2, as we could
                 // potentially do the same optimization that we do for IN if the RVC is
                 // fully qualified.
-                if (childSlot.getMinMaxRange() != null) { 
+                if (childSlot.getMinMaxRange() != null) {
+                    /// TODO: union together first slot of RVC with existing union 
+                    if (!union.isEmpty()) { // Not combining RVC and non RVC currently
+                        return null;
+                    }
                     minMaxRange = minMaxRange.union(childSlot.getMinMaxRange());
                     thePosition = initialPos;
                     for (KeySlot slot : childSlot) {
@@ -465,7 +469,8 @@ public class WhereOptimizer {
                         if (thePosition == -1) {
                             theSlot = slot;
                             thePosition = slot.getPKPosition();
-                        } else if (thePosition != slot.getPKPosition()) {
+                        } else if (thePosition != slot.getPKPosition() || minMaxRange != KeyRange.EMPTY_RANGE) {
+                            // TODO: union together first slot of RVC with these may work to combine them
                             return null;
                         }
                         List<Expression> slotExtractNodes = slot.getKeyPart().getExtractNodes();
@@ -487,7 +492,7 @@ public class WhereOptimizer {
             return newKeyParts(
                     theSlot, 
                     extractAll ? Collections.<Expression>singletonList(orExpression) : extractNodes, 
-                    KeyRange.coalesce(union), 
+                    union.isEmpty() ? EVERYTHING_RANGES : KeyRange.coalesce(union), 
                     minMaxRange == KeyRange.EMPTY_RANGE ? null : minMaxRange);
         }
 
