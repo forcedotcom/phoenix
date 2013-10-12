@@ -137,45 +137,52 @@ public class IndexUtil {
     }
 
     public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
-        IndexMaintainer maintainer = index.getIndexMaintainer(table);
-        List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
-        for (final Mutation dataMutation : dataMutations) {
-            // Ignore deletes
-            if (dataMutation instanceof Put) {
-                // TODO: is this more efficient than looking in our mutation map
-                // using the key plus finding the PColumn?
-                ValueGetter valueGetter = new ValueGetter() {
-    
-                    @Override
-                    public ImmutableBytesPtr getLatestValue(ColumnReference ref) {
-                        Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
-                        byte[] family = ref.getFamily();
-                        List<KeyValue> kvs = familyMap.get(family);
-                        if (kvs == null) {
-                            return null;
-                        }
-                        byte[] qualifier = ref.getQualifier();
-                        for (KeyValue kv : kvs) {
-                            if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), family, 0, family.length) == 0 &&
-                                Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), qualifier, 0, qualifier.length) == 0) {
-                                return new ImmutableBytesPtr(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
-                            }
-                        }
-                        return null;
-                    }
-                    
-                };
-                // TODO: we could only handle a delete if maintainer.getIndexColumns().isEmpty(),
-                // since the Delete marker will have no key values
+        try {
+            IndexMaintainer maintainer = index.getIndexMaintainer(table);
+            List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
+           for (final Mutation dataMutation : dataMutations) {
                 long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
                 ptr.set(dataMutation.getRow());
-                try {
+                if (dataMutation instanceof Put) {
+                    // TODO: is this more efficient than looking in our mutation map
+                    // using the key plus finding the PColumn?
+                    ValueGetter valueGetter = new ValueGetter() {
+        
+                        @Override
+                        public ImmutableBytesPtr getLatestValue(ColumnReference ref) {
+                            Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
+                            byte[] family = ref.getFamily();
+                            List<KeyValue> kvs = familyMap.get(family);
+                            if (kvs == null) {
+                                return null;
+                            }
+                            byte[] qualifier = ref.getQualifier();
+                            for (KeyValue kv : kvs) {
+                                if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), family, 0, family.length) == 0 &&
+                                    Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), qualifier, 0, qualifier.length) == 0) {
+                                    return new ImmutableBytesPtr(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+                                }
+                            }
+                            return null;
+                        }
+                        
+                    };
                     indexMutations.add(maintainer.buildUpdateMutation(valueGetter, ptr, ts));
-                } catch (IOException e) {
-                    throw new SQLException(e);
+                } else {
+                    if (!maintainer.getIndexedColumns().isEmpty()) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX).setSchemaName(table.getSchemaName().getString())
+                        .setTableName(table.getTableName().getString()).build().buildException();
+                    }
+                    indexMutations.add(maintainer.buildDeleteMutation(ptr, ts));
                 }
             }
+            return indexMutations;
+        } catch (IOException e) {
+            throw new SQLException(e);
         }
-        return indexMutations;
+    }
+
+    public static boolean isDataPKColumn(PColumn column) {
+        return column.getName().getString().startsWith(INDEX_COLUMN_NAME_SEP);
     }
 }

@@ -345,11 +345,19 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         return false;
     }
 
+    /**
+     * Used for immutable indexes that only index PK column values. In that case, we can handle a data row deletion,
+     * since we can build the corresponding index row key.
+     */
+    public Delete buildDeleteMutation(ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
+        return buildDeleteMutation(null, dataRowKeyPtr, Collections.<KeyValue>emptyList(), ts);
+    }
+    
     @SuppressWarnings("deprecation")
     public Delete buildDeleteMutation(ValueGetter oldState, ImmutableBytesWritable dataRowKeyPtr, Collection<KeyValue> pendingUpdates, long ts) throws IOException {
         byte[] indexRowKey = this.buildRowKey(oldState, dataRowKeyPtr);
         // Delete the entire row if any of the indexed columns changed
-        if (indexedColumnsChanged(oldState, pendingUpdates)) { // Deleting the entire row
+        if (oldState == null || indexedColumnsChanged(oldState, pendingUpdates)) { // Deleting the entire row
             Delete delete = new Delete(indexRowKey, ts, null);
             return delete;
         }

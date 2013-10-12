@@ -6,6 +6,7 @@ import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -22,6 +23,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -310,5 +312,84 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
 
+    }
+    
+    @Test
+    public void testDeleteFromAllPKColumnIndex() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (long_pk, varchar_pk)"
+                + " INCLUDE (long_col1, long_col2)";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ResultSet rs;
+        
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + "IDX");
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        
+        String dml = "DELETE from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE +
+                " WHERE long_col2 = 4";
+        conn.createStatement().execute(dml);
+        conn.commit();
+        
+        String query = "SELECT long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertTrue(rs.next());
+        assertEquals(3L, rs.getLong(1));
+        assertFalse(rs.next());
+        
+        query = "SELECT * FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + "IDX" ;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertTrue(rs.next());
+        assertEquals(3L, rs.getLong(1));
+        assertFalse(rs.next());
+    }
+    
+    
+    @Test
+    public void testDropIfImmutableKeyValueColumn() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (long_col1)";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ResultSet rs;
+        
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + "IDX");
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        
+        conn.setAutoCommit(true);
+        String dml = "DELETE from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE +
+                " WHERE long_col2 = 4";
+        try {
+            conn.createStatement().execute(dml);
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX.getErrorCode(), e.getErrorCode());
+        }
+            
+        conn.createStatement().execute("DROP TABLE " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
     }
 }

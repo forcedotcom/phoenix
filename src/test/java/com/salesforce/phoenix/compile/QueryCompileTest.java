@@ -1068,4 +1068,19 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals("V1",e.getColumnName());
         }
     }
+    
+    @Test
+    public void testDeleteFromImmutableWithKV() throws Exception {
+        String ddl = "CREATE TABLE t (k1 VARCHAR, v1 VARCHAR, v2 VARCHAR CONSTRAINT pk PRIMARY KEY(k1)) immutable_rows=true";
+        String indexDDL = "CREATE INDEX i ON t (v1)";
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(ddl);
+            conn.createStatement().execute(indexDDL);
+            conn.createStatement().execute("DELETE FROM t");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX.getErrorCode(), e.getErrorCode());
+        }
+    }
 }
