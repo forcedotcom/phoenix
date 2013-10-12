@@ -42,13 +42,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.TableNotFoundException;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.junit.Before;
 import org.junit.Test;
 
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -60,28 +55,6 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
     public static final String INDEX_TABLE_FULL_NAME = SchemaUtil.getTableName(SCHEMA_NAME, "I");
 
 
-    @Before // FIXME: this shouldn't be necessary, but the tests hang without it.
-    public void destroyTables() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
-        Properties props = new Properties(TEST_PROPERTIES);
-        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
-        HBaseAdmin admin = services.getAdmin();
-        try {
-            try {
-                admin.disableTable(INDEX_TABLE_FULL_NAME);
-                admin.deleteTable(INDEX_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-            try {
-                admin.disableTable(DATA_TABLE_FULL_NAME);
-                admin.deleteTable(DATA_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-       } finally {
-                admin.close();
-        }
-    }
-    
     @Test
     public void testAlterTableWithVarBinaryKey() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
@@ -389,9 +362,43 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             ddl = "ALTER TABLE MESSAGES SET IMMUTABLE_ROWS=true";
             conn.createStatement().execute(ddl);
             
+            conn.createStatement().executeQuery("select count(*) from messages").next();
+            
         } finally {
             conn.close();
         }
     }
     
+    
+    @Test
+    public void testDropColumnFromSaltedTable() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        
+        try {
+            String ddl = "CREATE TABLE MESSAGES (\n" + 
+                    "        SENDER_ID UNSIGNED_LONG NOT NULL,\n" + 
+                    "        RECIPIENT_ID UNSIGNED_LONG NOT NULL,\n" + 
+                    "        M_TIMESTAMP DATE  NOT NULL,\n" + 
+                    "        ROW_ID UNSIGNED_LONG NOT NULL,\n" + 
+                    "        IS_READ TINYINT,\n" + 
+                    "        IS_DELETED TINYINT,\n" + 
+                    "        VISIBILITY TINYINT,\n" + 
+                    "        B.SENDER_IP VARCHAR,\n" + 
+                    "        B.JSON VARCHAR,\n" + 
+                    "        B.M_TEXT VARCHAR\n" + 
+                    "        CONSTRAINT ROWKEY PRIMARY KEY\n" + 
+                    "(SENDER_ID,RECIPIENT_ID,M_TIMESTAMP DESC,ROW_ID))\n" + 
+                    "SALT_BUCKETS=4";
+            conn.createStatement().execute(ddl);
+            
+            ddl = "ALTER TABLE MESSAGES DROP COLUMN B.JSON";
+            conn.createStatement().execute(ddl);
+            
+            conn.createStatement().executeQuery("select count(*) from messages").next();
+        } finally {
+            conn.close();
+        }
+    }
 }

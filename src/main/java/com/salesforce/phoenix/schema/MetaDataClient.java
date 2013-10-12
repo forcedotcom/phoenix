@@ -259,7 +259,7 @@ public class MetaDataClient {
     }
 
 
-    private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert, String parentTableName, boolean isSalted) throws SQLException {
+    private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert, String parentTableName) throws SQLException {
         colUpsert.setString(1, schemaName);
         colUpsert.setString(2, tableName);
         colUpsert.setString(3, column.getName().getString());
@@ -276,7 +276,7 @@ public class MetaDataClient {
         } else {
             colUpsert.setInt(8, column.getScale());
         }
-        colUpsert.setInt(9, column.getPosition() + (isSalted ? 0 : 1));
+        colUpsert.setInt(9, column.getPosition() + 1);
         if (colUpsert.getParameterMetaData().getParameterCount() > 9) {
             colUpsert.setInt(10, ColumnModifier.toSystemValue(column.getColumnModifier()));
         }
@@ -718,7 +718,7 @@ public class MetaDataClient {
             }
             
             for (PColumn column : columns) {
-                addColumnMutation(schemaName, tableName, column, colUpsert, parentTableName, isSalted);
+                addColumnMutation(schemaName, tableName, column, colUpsert, parentTableName);
             }
             
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
@@ -894,22 +894,22 @@ public class MetaDataClient {
         return mutationCode;
     }
 
-    private  long incrementTableSeqNum(PTable table) throws SQLException {
-        return incrementTableSeqNum(table, table.isImmutableRows());
+    private  long incrementTableSeqNum(PTable table, int columnCountDelta) throws SQLException {
+        return incrementTableSeqNum(table, table.isImmutableRows(), columnCountDelta);
     }
     
-    private  long incrementTableSeqNum(PTable table, boolean isImmutableRows) throws SQLException {
+    private  long incrementTableSeqNum(PTable table, boolean isImmutableRows, int columnCountDelta) throws SQLException {
         String schemaName = table.getSchemaName().getString();
         String tableName = table.getTableName().getString();
         // Ordinal position is 1-based and we don't count SALT column in ordinal position
-        int totalColumnCount = table.getColumns().size() + (table.getBucketNum() != null ? 0 : 1);
+        int totalColumnCount = table.getColumns().size() + (table.getBucketNum() == null ? 0 : -1);
         final long seqNum = table.getSequenceNumber() + 1;
         PreparedStatement tableUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? MUTATE_SYSTEM_TABLE : MUTATE_TABLE);
         tableUpsert.setString(1, schemaName);
         tableUpsert.setString(2, tableName);
         tableUpsert.setString(3, table.getType().getSerializedValue());
         tableUpsert.setLong(4, seqNum);
-        tableUpsert.setInt(5, totalColumnCount);
+        tableUpsert.setInt(5, totalColumnCount + columnCountDelta);
         if (tableUpsert.getParameterMetaData().getParameterCount() > 5) {
             tableUpsert.setBoolean(6, isImmutableRows);
         }
@@ -974,7 +974,7 @@ public class MetaDataClient {
                 if (colDef != null) {
                     PColumn column = newColumn(position, colDef, PrimaryKeyConstraint.EMPTY);
                     columns.add(column);
-                    addColumnMutation(schemaName, tableName, column, colUpsert, null, isSalted);
+                    addColumnMutation(schemaName, tableName, column, colUpsert, null);
                     // TODO: support setting properties on other families?
                     if (column.getFamilyName() != null) {
                         family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
@@ -986,7 +986,7 @@ public class MetaDataClient {
                             ColumnName indexColName = ColumnName.caseSensitiveColumnName(IndexUtil.getIndexColumnName(column));
                             ColumnDef indexColDef = FACTORY.columnDef(indexColName, indexColDataType.getSqlTypeName(), column.isNullable(), column.getMaxLength(), column.getScale(), true, column.getColumnModifier());
                             PColumn indexColumn = newColumn(indexColPosition, indexColDef, PrimaryKeyConstraint.EMPTY);
-                            addColumnMutation(schemaName, index.getTableName().getString(), indexColumn, colUpsert, index.getParentTableName().getString(), index.getBucketNum() != null);
+                            addColumnMutation(schemaName, index.getTableName().getString(), indexColumn, colUpsert, index.getParentTableName().getString());
                         }
                     }
                     
@@ -1002,12 +1002,12 @@ public class MetaDataClient {
                 
                 if (isAddingPKColumn && !table.getIndexes().isEmpty()) {
                     for (PTable index : table.getIndexes()) {
-                        incrementTableSeqNum(index);
+                        incrementTableSeqNum(index, 1);
                     }
                     tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                     connection.rollback();
                 }
-                long seqNum = incrementTableSeqNum(table, isImmutableRows);
+                long seqNum = incrementTableSeqNum(table, isImmutableRows, 1);
                 
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
@@ -1102,7 +1102,9 @@ public class MetaDataClient {
             PColumn column = table.getColumns().get(i);
             colUpdate.setString(3, column.getName().getString());
             colUpdate.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
-            colUpdate.setInt(5, i);
+            // Since ORDINAL_POSITION is 1 based, by setting it to column.getPosition(), we're subtracting one,
+            // since column.getPosition() is zero based.
+            colUpdate.setInt(5, column.getPosition());
             colUpdate.execute();
         }
         return familyName;
@@ -1162,7 +1164,7 @@ public class MetaDataClient {
                         if (SchemaUtil.isPKColumn(indexColumn)) {
                             indexesToDrop.add(new TableRef(index));
                         } else {
-                            incrementTableSeqNum(index);
+                            incrementTableSeqNum(index, -1);
                             dropColumnMutations(index, indexColumn, tableMetaData);
                             columnsToDrop.add(new ColumnRef(tableRef, columnToDrop.getPosition()));
                         }
@@ -1172,7 +1174,7 @@ public class MetaDataClient {
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 
-                long seqNum = incrementTableSeqNum(table);
+                long seqNum = incrementTableSeqNum(table, -1);
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 // Force table header to be first in list

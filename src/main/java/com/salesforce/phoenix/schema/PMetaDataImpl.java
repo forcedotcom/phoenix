@@ -125,14 +125,20 @@ public class PMetaDataImpl implements PMetaData {
         } else {
             column = table.getColumnFamily(familyName).getColumn(columnName);
         }
+        int positionOffset = 0;
         int position = column.getPosition();
         List<PColumn> oldColumns = table.getColumns();
-        List<PColumn> columns = Lists.newArrayListWithExpectedSize(table.getColumns().size() - 1);
+        if (table.getBucketNum() != null) {
+            position--;
+            positionOffset = 1;
+            oldColumns = oldColumns.subList(positionOffset, oldColumns.size());
+        }
+        List<PColumn> columns = Lists.newArrayListWithExpectedSize(oldColumns.size() - 1);
         columns.addAll(oldColumns.subList(0, position));
         // Update position of columns that follow removed column
         for (int i = position+1; i < oldColumns.size(); i++) {
             PColumn oldColumn = oldColumns.get(i);
-            PColumn newColumn = new PColumnImpl(oldColumn.getName(), oldColumn.getFamilyName(), oldColumn.getDataType(), oldColumn.getMaxLength(), oldColumn.getScale(), oldColumn.isNullable(), i-1, oldColumn.getColumnModifier());
+            PColumn newColumn = new PColumnImpl(oldColumn.getName(), oldColumn.getFamilyName(), oldColumn.getDataType(), oldColumn.getMaxLength(), oldColumn.getScale(), oldColumn.isNullable(), i-1+positionOffset, oldColumn.getColumnModifier());
             columns.add(newColumn);
         }
         

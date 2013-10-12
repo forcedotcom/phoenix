@@ -244,7 +244,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         indexes.add(indexTable);
     }
 
-    private void addColumnToTable(List<KeyValue> results, PName colName, PName famName, KeyValue[] colKeyValues, List<PColumn> columns, int posOffset) {
+    private void addColumnToTable(List<KeyValue> results, PName colName, PName famName, KeyValue[] colKeyValues, List<PColumn> columns) {
         int i = 0;
         int j = 0;
         while (i < results.size() && j < COLUMN_KV_COLUMNS.size()) {
@@ -279,7 +279,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (maxLength == null && dataType == PDataType.BINARY) dataType = PDataType.VARBINARY; // For backward compatibility.
         KeyValue columnModifierKv = colKeyValues[COLUMN_MODIFIER_INDEX];
         ColumnModifier sortOrder = columnModifierKv == null ? null : ColumnModifier.fromSystemValue(PDataType.INTEGER.getCodec().decodeInt(columnModifierKv.getBuffer(), columnModifierKv.getValueOffset(), null));
-        PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1+posOffset, sortOrder);
+        PColumn column = new PColumnImpl(colName, famName, dataType, maxLength, scale, isNullable, position-1, sortOrder);
         columns.add(column);
     }
 
@@ -359,7 +359,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
-        int posOffset = saltBucketNum == null ? 0 : 1;
         while (true) {
             results.clear();
             scanner.next(results);
@@ -374,7 +373,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             if (colName.getString().isEmpty() && famName != null) {
                 addIndexToTable(schemaName, famName, tableName, clientTimeStamp, indexes);                
             } else {
-                addColumnToTable(results, colName, famName, colKeyValues, columns, posOffset);
+                addColumnToTable(results, colName, famName, colKeyValues, columns);
             }
         }
         
