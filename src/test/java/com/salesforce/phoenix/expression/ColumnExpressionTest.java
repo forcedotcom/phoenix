@@ -49,7 +49,7 @@ public class ColumnExpressionTest {
         int maxLen = 30;
         int scale = 5;
         PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.DECIMAL, maxLen, scale,
-                true, 20, null);
+                true, 20, null, false);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dOut = new DataOutputStream(baos);
@@ -69,7 +69,7 @@ public class ColumnExpressionTest {
     public void testSerializationWithNullScale() throws Exception {
         int maxLen = 30;
         PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.BINARY, maxLen, null,
-                true, 20, null);
+                true, 20, null, false);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dOut = new DataOutputStream(baos);
@@ -89,7 +89,7 @@ public class ColumnExpressionTest {
     public void testSerializationWithNullMaxLength() throws Exception {
         int scale = 5;
         PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.VARCHAR, null, scale,
-                true, 20, null);
+                true, 20, null, false);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dOut = new DataOutputStream(baos);
@@ -108,7 +108,7 @@ public class ColumnExpressionTest {
     @Test
     public void testSerializationWithNullScaleAndMaxLength() throws Exception {
         PColumn column = new PColumnImpl(PNameFactory.newName("c1"), PNameFactory.newName("f1"), PDataType.DECIMAL, null, null, true,
-                20, null);
+                20, null, false);
         ColumnExpression colExp = new KeyValueColumnExpression(column);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dOut = new DataOutputStream(baos);

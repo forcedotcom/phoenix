@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 public class DelegateColumn extends DelegateDatum implements PColumn {
     
@@ -68,5 +70,10 @@ public class DelegateColumn extends DelegateDatum implements PColumn {
     @Override
     public int getPosition() {
         return getDelegate().getPosition();
+    }
+    
+    @Override
+    public boolean isHidden() {
+        return getDelegate().isHidden();
     }
 }

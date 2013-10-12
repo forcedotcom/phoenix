@@ -31,6 +31,7 @@ import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_T
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DROP_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.COLUMN_EXIST_IN_DEF;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.CREATE_INDEX_TENANT_TABLE;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CREATE_TENANT_TABLE_NO_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.TABLE_UNDEFINED;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.TENANT_TABLE_PK;
@@ -109,8 +110,8 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         try {
             conn.setAutoCommit(false);
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Cheap Sunglasses')");
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 2, 'Viva Las Vegas')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (1, 'Cheap Sunglasses')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (2, 'Viva Las Vegas')");
             conn.commit();
             
             ResultSet rs = conn.createStatement().executeQuery("select tenant_col from " + TENANT_TABLE_NAME + " where id = 1");
@@ -132,10 +133,10 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         conn.setAutoCommit(true);
         try {
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Viva Las Vegas')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (1, 'Viva Las Vegas')");
             
             conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " add tenant_col2 char(1) null");
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col2) values ('" + TENANT_ID + "', 2, 'a')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col2) values (2, 'a')");
             
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
             rs.next();
@@ -279,12 +280,10 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             assertTableMetaData(rs, null, TENANT_TABLE_NAME, USER);
             assertFalse(rs.next());
             
-            // make sure tenants see paren table's columns and their own
+            // make sure tenants see parent table's columns and their own
             rs = meta.getColumns(null, null, null, null);
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "user");
-            assertTrue(rs.next());
-            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_id");
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "id");
             assertTrue(rs.next());
@@ -438,6 +437,15 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
             rs.next();
             assertEquals(2, rs.getInt(1));
+            
+            rs = conn.createStatement().executeQuery("select id, user from " + TENANT_TABLE_NAME + " order by id");
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt("id"));
+            assertEquals("Billy Gibbons", rs.getString("user"));
+            assertTrue(rs.next());
+            assertEquals(101, rs.getInt("id"));
+            assertEquals("Billy Gibbons", rs.getString("user"));
+            assertFalse(rs.next());
         }
         finally {
             conn.close();
@@ -469,6 +477,75 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         }
         catch (SQLException expected) {
             assertEquals(BASE_TABLE_NOT_TOP_LEVEL.getErrorCode(), expected.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testCreateIndexOnTenantTable() throws Exception {
+        try {
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE INDEX TENANT_INDEX ON " + TENANT_TABLE_NAME + "(USER DESC)");
+            fail();
+        }
+        catch (SQLException expected) {
+            assertEquals(CREATE_INDEX_TENANT_TABLE.getErrorCode(), expected.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testTenantIdColumnCannotBeUsedInStatements() throws Exception {
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+        try {
+            // select projection
+            try {
+                conn.createStatement().execute("select tenant_id from " + TENANT_TABLE_NAME);
+                fail();
+            }
+            catch (ColumnNotFoundException expected) {};
+            
+            // select where
+            try {
+                conn.createStatement().execute("select * from " + TENANT_TABLE_NAME + " where tenant_id is not null");
+                fail();
+            }
+            catch (ColumnNotFoundException expected) {};
+            
+            // select order by
+            try {
+                conn.createStatement().execute("select * from " + TENANT_TABLE_NAME + " order by tenant_id");
+                fail();
+            }
+            catch (ColumnNotFoundException expected) {};
+            
+            // select group by
+            try {
+                conn.createStatement().execute("select * from " + TENANT_TABLE_NAME + " group by tenant_id");
+                fail();
+            }
+            catch (ColumnNotFoundException expected) {};
+            
+            // upsert values
+            try {
+                conn.createStatement().execute("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, user) values ('a', 1, 'Bon Scott')");
+                fail();
+            }
+            catch (ColumnNotFoundException expected) {};
+            
+            // upsert select
+            try {
+                conn.createStatement().execute("upsert into " + TENANT_TABLE_NAME + "(tenant_id, id, user) select tenant_id, 5, user from " + TENANT_TABLE_NAME);
+                fail();
+            }
+            catch (ColumnNotFoundException expected) {};
+            
+            // delete where
+            try {
+                conn.createStatement().execute("delete from " + TENANT_TABLE_NAME + " where tenant_id is not null");
+                fail();
+            }
+            catch (ColumnNotFoundException expected) {};
+        }
+        finally {
+            conn.close();
         }
     }
     

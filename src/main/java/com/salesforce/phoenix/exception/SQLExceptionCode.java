@@ -122,6 +122,7 @@ public enum SQLExceptionCode {
     // Index related errors
     INDEX_ALREADY_EXIST(1023, "42N01", "Index already exists."),
     CANNOT_MUTATE_INDEX(1024, "42N02", "Cannot mutate existing index."),
+    CREATE_INDEX_TENANT_TABLE(1030, "42N03", "Index creation on tenant-specific tables is not supported."),
     // Syntax error
     TYPE_NOT_SUPPORTED_FOR_OPERATOR(1014, "42Y01", "The operator does not support the operand type."),
     SCHEMA_NOT_FOUND(1015, "42Y07", "Schema not found."),

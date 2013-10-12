@@ -51,4 +51,9 @@ public interface PColumn extends PDatum, Writable {
      * @return the zero-based ordinal position of the column
      */
     int getPosition();
+    
+    /**
+     * @return whether or not this column should be hidden from user-facing metadata
+     */
+    boolean isHidden();
 }

@@ -29,6 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.CREATE_INDEX_TENANT_TABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
@@ -36,6 +37,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.HIDDEN_COLUMN;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
@@ -77,7 +79,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -188,9 +189,10 @@ public class MetaDataClient {
         COLUMN_SIZE + "," +
         DECIMAL_DIGITS + "," +
         ORDINAL_POSITION + "," + 
+        HIDDEN_COLUMN + "," +
         COLUMN_MODIFIER + "," +
         DATA_TABLE_NAME + // write this both in the column and table rows for access by metadata APIs
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     // Don't write DATA_TABLE_NAME for system table since at upgrade time from 1.2 to 2.0, we won't have this column yet.
     private static final String INSERT_SYSTEM_COLUMN =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " + 
@@ -295,11 +297,12 @@ public class MetaDataClient {
             colUpsert.setInt(9, column.getScale());
         }
         colUpsert.setInt(10, column.getPosition() + (isSalted ? 0 : 1));
-        if (colUpsert.getParameterMetaData().getParameterCount() > 10) {
-            colUpsert.setInt(11, ColumnModifier.toSystemValue(column.getColumnModifier()));
-        }
+        colUpsert.setBoolean(11, column.isHidden());
         if (colUpsert.getParameterMetaData().getParameterCount() > 11) {
-            colUpsert.setString(12, parentTableName);
+            colUpsert.setInt(12, ColumnModifier.toSystemValue(column.getColumnModifier()));
+        }
+        if (colUpsert.getParameterMetaData().getParameterCount() > 12) {
+            colUpsert.setString(13, parentTableName);
         }
         colUpsert.execute();
     }
@@ -338,7 +341,7 @@ public class MetaDataClient {
             }
             
             PColumn column = new PColumnImpl(PNameFactory.newName(columnName), familyName, def.getDataType(),
-                    def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier);
+                    def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier, false);
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);
@@ -406,6 +409,9 @@ public class MetaDataClient {
                 ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
                 tableRef = resolver.getTables().get(0);
                 PTable dataTable = tableRef.getTable();
+                if (dataTable.isTenantSpecificTable()) {
+                    throw new SQLExceptionInfo.Builder(CREATE_INDEX_TENANT_TABLE).setTableName(dataTable.getName().getString()).build().buildException();
+                }
                 Set<PColumn> unusedPkColumns;
                 if (dataTable.getBucketNum() != null) { // Ignore SALT column
                     unusedPkColumns = new LinkedHashSet<PColumn>(dataTable.getPKColumns().subList(1, dataTable.getPKColumns().size()));
@@ -623,8 +629,11 @@ public class MetaDataClient {
                     throw new SQLExceptionInfo.Builder(BASE_TABLE_NOT_TOP_LEVEL).setSchemaName(schemaName).setTableName(tableName).build().buildException();
                 }
                 columns = newArrayListWithExpectedSize(baseTable.getColumns().size() + colDefs.size());
-                columns.addAll(baseTable.getColumns());
-                pkColumns = ImmutableList.copyOf(baseTable.getPKColumns());
+                columns.addAll(cloneColumnListAndMarkTenantIdColumnHidden(baseTable.getColumns(), baseTable));
+                
+                // mark first pk column, which is tenantId inherited from parent table, hidden 
+                pkColumns = newArrayListWithExpectedSize(baseTable.getPKColumns().size() + 1); // in case salted
+                pkColumns.addAll(cloneColumnListAndMarkTenantIdColumnHidden(baseTable.getPKColumns(), baseTable));
             }
             else {
                 columns = newArrayListWithExpectedSize(colDefs.size());
@@ -1245,5 +1254,18 @@ public class MetaDataClient {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.TENANT_TABLE_PK)
                 .setColumnName(col.getColumnDefName().getColumnName()).build().buildException();
         }
+    }
+    
+    private List<PColumn> cloneColumnListAndMarkTenantIdColumnHidden(List<PColumn> columns, PTable baseTable) {
+        PColumn tenantIdColumn = baseTable.getTenantIdColumn();
+        assert tenantIdColumn != null;
+        List<PColumn> result = newArrayListWithExpectedSize(columns.size());
+        for (PColumn column : columns) {
+            if (tenantIdColumn.equals(column)) {
+                column = new PColumnImpl(tenantIdColumn, true);
+            }
+            result.add(column);
+        }
+        return result;
     }
 }
