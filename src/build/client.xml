@@ -66,7 +66,6 @@
       <includes>
         <include>*.txt*</include>
         <include>*.md</include>
-	<include>*.properties</include>
         <include>NOTICE*</include>
       </includes>
       <excludes>
