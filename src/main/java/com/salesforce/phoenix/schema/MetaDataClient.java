@@ -968,7 +968,6 @@ public class MetaDataClient {
                 }
                 
                 boolean isAddingPKColumn = false;
-                boolean isSalted = table.getBucketNum() != null;
                 PreparedStatement colUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? INSERT_SYSTEM_COLUMN : INSERT_COLUMN);
                 Pair<byte[],Map<String,Object>> family = null;
                 if (colDef != null) {
