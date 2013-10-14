@@ -51,8 +51,7 @@ public class PColumnImpl implements PColumn {
     private boolean nullable;
     private int position;
     private ColumnModifier columnModifier;
-    private boolean hidden;
-    
+
     public PColumnImpl() {
     }
 
@@ -63,19 +62,13 @@ public class PColumnImpl implements PColumn {
                        Integer scale,
                        boolean nullable,
                        int position,
-                       ColumnModifier sortOrder,
-                       boolean hidden) {
-        init(name, familyName, dataType, maxLength, scale, nullable, position, sortOrder, hidden);
+                       ColumnModifier sortOrder) {
+        init(name, familyName, dataType, maxLength, scale, nullable, position, sortOrder);
     }
 
     public PColumnImpl(PColumn column, int position) {
         this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
-                column.getScale(), column.isNullable(), position, column.getColumnModifier(), column.isHidden());
-    }
-    
-    public PColumnImpl(PColumn column, boolean hidden) {
-        this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
-                column.getScale(), column.isNullable(), column.getPosition(), column.getColumnModifier(), hidden);
+                column.getScale(), column.isNullable(), position, column.getColumnModifier());
     }
 
     private void init(PName name,
@@ -85,8 +78,7 @@ public class PColumnImpl implements PColumn {
             Integer scale,
             boolean nullable,
             int position,
-            ColumnModifier columnModifier,
-            boolean hidden) {
+            ColumnModifier columnModifier) {
         this.dataType = dataType;
         if (familyName == null) {
             // Allow nullable columns in PK, but only if they're variable length.
@@ -104,7 +96,6 @@ public class PColumnImpl implements PColumn {
         this.nullable = nullable;
         this.position = position;
         this.columnModifier = columnModifier;
-        this.hidden = hidden;
     }
 
     @Override
@@ -153,11 +144,6 @@ public class PColumnImpl implements PColumn {
     public ColumnModifier getColumnModifier() {
     	return columnModifier;
     }
-    
-    @Override
-    public boolean isHidden() {
-        return hidden;
-    }
 
     @Override
     public String toString() {
@@ -177,9 +163,8 @@ public class PColumnImpl implements PColumn {
         boolean nullable = input.readBoolean();
         int position = WritableUtils.readVInt(input);
         ColumnModifier columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
-        boolean hidden = input.readBoolean();
         init(columnName, familyName, dataType, maxLength == NO_MAXLENGTH ? null : maxLength,
-                scale == NO_SCALE ? null : scale, nullable, position, columnModifier, hidden);
+                scale == NO_SCALE ? null : scale, nullable, position, columnModifier);
     }
 
     @Override
@@ -192,30 +177,5 @@ public class PColumnImpl implements PColumn {
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
         WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
-        output.writeBoolean(hidden);
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((familyName == null) ? 0 : familyName.hashCode());
-        result = prime * result + ((name == null) ? 0 : name.hashCode());
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        PColumnImpl other = (PColumnImpl)obj;
-        if (familyName == null) {
-            if (other.familyName != null) return false;
-        } else if (!familyName.equals(other.familyName)) return false;
-        if (name == null) {
-            if (other.name != null) return false;
-        } else if (!name.equals(other.name)) return false;
-        return true;
     }
 }

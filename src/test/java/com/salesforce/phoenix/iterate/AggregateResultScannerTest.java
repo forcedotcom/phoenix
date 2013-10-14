@@ -27,21 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN;
-import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
-import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY_NAME;
-import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_NAME;
+import static com.salesforce.phoenix.query.QueryConstants.*;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
@@ -58,10 +50,7 @@ import com.salesforce.phoenix.expression.function.SumAggregateFunction;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PLongColumn;
-import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.AssertResults;
@@ -113,11 +102,6 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             @Override
             public int getPosition() {
                 return 0;
-            }
-            
-            @Override
-            public boolean isHidden() {
-                return false;
             }
             
             @Override

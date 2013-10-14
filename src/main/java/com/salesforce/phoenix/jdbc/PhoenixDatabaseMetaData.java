@@ -170,7 +170,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String COLUMN_MODIFIER = "COLUMN_MODIFIER";
     public static final String IMMUTABLE_ROWS = "IMMUTABLE_ROWS";
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
-    public static final String HIDDEN_COLUMN = "HIDDEN_COLUMN";
+    
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
@@ -298,7 +298,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where ");
         buf.append(getTenantIdWhereClause());
-        buf.append(" and " + HIDDEN_COLUMN + " = false");
         if (schemaPattern != null) {
             buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
         }

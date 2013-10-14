@@ -78,6 +78,7 @@ import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnImpl;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.PTableType;
@@ -217,7 +218,11 @@ public class UpsertCompiler {
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
         final String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
-        boolean prependTenantIdColumn = tenantId != null && table.isTenantSpecificTable();
+        if (tenantId != null && table.isTenantSpecificTable()) {
+            PColumn tenantIdColumn = table.getTenantIdColumn();
+            PName familyName = tenantIdColumn.getFamilyName();
+            columnNodes.add(0, ColumnName.caseSensitiveColumnName(familyName == null ? null : familyName.getString(), tenantIdColumn.getName().getString()));
+        }
         List<PColumn> allColumns = table.getColumns();
 
         int[] columnIndexesToBe;
@@ -227,13 +232,9 @@ public class UpsertCompiler {
         int posOffset = isSalted ? 1 : 0;
         // Allow full row upsert if no columns or only dynamic one are specified and values count match
         if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
-            int columnArrayLength = allColumns.size() - posOffset;
-            if (prependTenantIdColumn) {
-                columnArrayLength++;
-            }
-            columnIndexesToBe = new int[columnArrayLength];
-            pkSlotIndexesToBe = new int[columnArrayLength];
-            targetColumns = new PColumn[columnArrayLength];
+            columnIndexesToBe = new int[allColumns.size() - posOffset];
+            pkSlotIndexesToBe = new int[columnIndexesToBe.length];
+            targetColumns = new PColumn[columnIndexesToBe.length];
             for (int i = posOffset, j = posOffset; i < allColumns.size(); i++) {
                 PColumn column = allColumns.get(i);
                 columnIndexesToBe[i-posOffset] = i;
@@ -243,42 +244,30 @@ public class UpsertCompiler {
                 }
             }
         } else {
-            int columnArrayLength = columnNodes.size() - posOffset;
-            if (prependTenantIdColumn) {
-                columnArrayLength++;
-            }
-            columnIndexesToBe = new int[columnArrayLength];
-            pkSlotIndexesToBe = new int[columnArrayLength];
-            targetColumns = new PColumn[columnArrayLength];
+            columnIndexesToBe = new int[columnNodes.size()];
+            pkSlotIndexesToBe = new int[columnIndexesToBe.length];
+            targetColumns = new PColumn[columnIndexesToBe.length];
             Arrays.fill(columnIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             Arrays.fill(pkSlotIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             BitSet pkColumnsSet = new BitSet(table.getPKColumns().size());
-            for (int i = 0; i < columnNodes.size(); i++) {
-                int indexForInsertionIntoNewArrays = prependTenantIdColumn ? i+1 : i;
+            for (int i =0; i < columnNodes.size(); i++) {
                 ColumnName colName = columnNodes.get(i);
                 ColumnRef ref = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName());
-                columnIndexesToBe[indexForInsertionIntoNewArrays] = ref.getColumnPosition();
-                targetColumns[indexForInsertionIntoNewArrays] = ref.getColumn();
+                columnIndexesToBe[i] = ref.getColumnPosition();
+                targetColumns[i] = ref.getColumn();
                 if (SchemaUtil.isPKColumn(ref.getColumn())) {
-                    pkColumnsSet.set(pkSlotIndexesToBe[indexForInsertionIntoNewArrays] = ref.getPKSlotPosition());
+                    pkColumnsSet.set(pkSlotIndexesToBe[i] = ref.getPKSlotPosition());
                 }
             }
             int i = posOffset;
             for ( ; i < table.getPKColumns().size(); i++) {
                 PColumn pkCol = table.getPKColumns().get(i);
                 if (!pkColumnsSet.get(i)) {
-                    if (!pkCol.isNullable() && !pkCol.isHidden()) {
+                    if (!pkCol.isNullable()) {
                         throw new ConstraintViolationException(table.getName().getString() + "." + pkCol.getName().getString() + " may not be null");
                     }
                 }
             }
-        }
-        
-        if (prependTenantIdColumn) {
-            PColumn tenantIdColumn = table.getTenantIdColumn();
-            columnIndexesToBe[0] = tenantIdColumn.getPosition();
-            pkSlotIndexesToBe[0] = 0;
-            targetColumns[0] = tenantIdColumn;
         }
         
         List<ParseNode> valueNodes = upsert.getValues();
@@ -291,7 +280,7 @@ public class UpsertCompiler {
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
-            if (prependTenantIdColumn) {
+            if (tenantId != null && table.isTenantSpecificTable()) {
                 select = cloneAndPrependTenantIdToSelect(select, tenantId);
             }
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
@@ -322,7 +311,7 @@ public class UpsertCompiler {
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
         } else {
-            if (prependTenantIdColumn) {
+            if (tenantId != null && table.isTenantSpecificTable()) {
                 valueNodes.add(0, new LiteralParseNode(tenantId));
             }
             nValuesToSet = valueNodes.size();

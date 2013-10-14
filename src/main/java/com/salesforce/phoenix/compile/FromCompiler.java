@@ -173,9 +173,6 @@ public class FromCompiler {
         	PColumn column = tableName == null ? 
         			tableRef.getTable().getColumn(colName) : 
         			tableRef.getTable().getColumnFamily(tableName).getColumn(colName);
-        	if (column.isHidden()) {
-        	    throw new ColumnNotFoundException(colName);
-        	}
             return new ColumnRef(tableRef, column.getPosition());
 		}
 
@@ -206,7 +203,7 @@ public class FromCompiler {
                         familyName = PNameFactory.newName(family);
                     }
                     allcolumns.add(new PColumnImpl(name, familyName, dynColumn.getDataType(), dynColumn.getMaxLength(),
-                            dynColumn.getScale(), dynColumn.isNull(), position, dynColumn.getColumnModifier(), false));
+                            dynColumn.getScale(), dynColumn.isNull(), position, dynColumn.getColumnModifier()));
                     position++;
                 }
                 theTable = PTableImpl.makePTable(theTable, allcolumns);
@@ -337,17 +334,13 @@ public class FromCompiler {
                 Iterator<TableRef> iterator = tables.iterator();
                 while (iterator.hasNext()) {
                     TableRef tableRef = iterator.next();
-                    PColumn column = null;
                     try {
-                        column = tableRef.getTable().getColumn(colName);
+                        PColumn column = tableRef.getTable().getColumn(colName);
                         if (theTableRef != null) { throw new AmbiguousColumnException(colName); }
                         theTableRef = tableRef;
                         theColumnPosition = column.getPosition();
                     } catch (ColumnNotFoundException e) {
 
-                    }
-                    if (column != null && column.isHidden()) {
-                        throw new ColumnNotFoundException(colName);
                     }
                 }
                 if (theTableRef != null) { return new ColumnRef(theTableRef, theColumnPosition); }
@@ -356,17 +349,11 @@ public class FromCompiler {
                 try {
                     TableRef tableRef = resolveTable(schemaName, tableName);
                     PColumn column = tableRef.getTable().getColumn(colName);
-                    if (column.isHidden()) {
-                        throw new ColumnNotFoundException(colName);
-                    }
                     return new ColumnRef(tableRef, column.getPosition());
                 } catch (TableNotFoundException e) {
                     // Try using the tableName as a columnFamily reference instead
                     ColumnFamilyRef cfRef = resolveColumnFamily(schemaName, tableName);
                     PColumn column = cfRef.getFamily().getColumn(colName);
-                    if (column.isHidden()) {
-                        throw new ColumnNotFoundException(colName);
-                    }
                     return new ColumnRef(cfRef.getTableRef(), column.getPosition());
                 }
             }
