@@ -109,8 +109,8 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         try {
             conn.setAutoCommit(false);
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Cheap Sunglasses')");
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 2, 'Viva Las Vegas')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (1, 'Cheap Sunglasses')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (2, 'Viva Las Vegas')");
             conn.commit();
             
             ResultSet rs = conn.createStatement().executeQuery("select tenant_col from " + TENANT_TABLE_NAME + " where id = 1");
@@ -132,10 +132,10 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         conn.setAutoCommit(true);
         try {
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col) values ('" + TENANT_ID + "', 1, 'Viva Las Vegas')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (1, 'Viva Las Vegas')");
             
             conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " add tenant_col2 char(1) null");
-            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (tenant_id, id, tenant_col2) values ('" + TENANT_ID + "', 2, 'a')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col2) values (2, 'a')");
             
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
             rs.next();
