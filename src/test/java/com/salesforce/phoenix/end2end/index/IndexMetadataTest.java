@@ -118,6 +118,10 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             assertIndexInfoMetadata(rs, INDEX_DATA_SCHEMA, MUTABLE_INDEX_DATA_TABLE, "IDX", 9, "B:INT_COL2", null);
             assertFalse(rs.next());
             
+            rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), StringUtil.escapeLike("IDX"), new String[] {PTableType.INDEX.getValue().getString() });
+            assertTrue(rs.next());
+            assertEquals(PIndexState.ACTIVE.toString(), rs.getString("INDEX_STATE"));
+
             // Verify that there is a row inserted into the data table for the index table.
             rs = IndexTestUtil.readDataTableIndexRow(conn, INDEX_DATA_SCHEMA, MUTABLE_INDEX_DATA_TABLE, "IDX");
             assertTrue(rs.next());
@@ -132,7 +136,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
-            assertEquals(PIndexState.INACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
+            assertEquals(PIndexState.INACTIVE.toString(), rs.getString("INDEX_STATE"));
             assertFalse(rs.next());
             
             assertActiveIndex(conn, INDEX_DATA_SCHEMA, MUTABLE_INDEX_DATA_TABLE);
@@ -143,7 +147,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
-            assertEquals(PIndexState.ACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
+            assertEquals(PIndexState.ACTIVE.toString(), rs.getString("INDEX_STATE"));
             assertFalse(rs.next());
             
             assertActiveIndex(conn, INDEX_DATA_SCHEMA, MUTABLE_INDEX_DATA_TABLE);
@@ -154,7 +158,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
-            assertEquals(PIndexState.DISABLE.getSerializedValue(), rs.getString("INDEX_STATE"));
+            assertEquals(PIndexState.DISABLE.toString(), rs.getString("INDEX_STATE"));
             assertFalse(rs.next());
             
             assertNoActiveIndex(conn, INDEX_DATA_SCHEMA, MUTABLE_INDEX_DATA_TABLE);
@@ -180,7 +184,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             rs = conn.getMetaData().getTables(null, StringUtil.escapeLike(INDEX_DATA_SCHEMA), "IDX", new String[] {PTableType.INDEX.toString()});
             assertTrue(rs.next());
             assertEquals("IDX", rs.getString(3));
-            assertEquals(PIndexState.ACTIVE.getSerializedValue(), rs.getString("INDEX_STATE"));
+            assertEquals(PIndexState.ACTIVE.toString(), rs.getString("INDEX_STATE"));
             assertFalse(rs.next());
             
             assertActiveIndex(conn, INDEX_DATA_SCHEMA, MUTABLE_INDEX_DATA_TABLE);

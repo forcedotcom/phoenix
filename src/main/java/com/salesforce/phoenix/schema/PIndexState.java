@@ -38,13 +38,19 @@ public enum PIndexState {
     REBUILD("r");
 
     private final String serializedValue;
+    private final byte[] nameBytesValue;
 
     private PIndexState(String value) {
         this.serializedValue = value;
+        this.nameBytesValue = PDataType.VARCHAR.toBytes(this.toString());
     }
 
     public String getSerializedValue() {
         return serializedValue;
+    }
+
+    public byte[] toBytes() {
+        return nameBytesValue;
     }
 
     private static final PIndexState[] FROM_VALUE;
