@@ -38,13 +38,13 @@ Usage: csv-bulk-loader <option value>
 
 <option>  <value>
 -i        CSV data file path in hdfs (mandatory)
--s        Phoenix schema name (mandatory if table is created without default phoenix schema name)
+-s        Phoenix schema name (mandatory if not default)
 -t        Phoenix table name (mandatory)
 -sql      Phoenix create table sql file path (mandatory)
 -zk       Zookeeper IP:<port> (mandatory)
 -o        Output directory path in hdfs (optional)
 -idx      Phoenix index table name (optional, not yet supported)
--error    Ignore error while reading rows from CSV ? (1 - YES | 0 - NO, defaults to 1) (optional)
+-error    Ignore error while reading rows from CSV? (1-YES | 0-NO, default-1) (optional)
 -help     Print all options (optional)
 
 Example: Set the HADOOP_HOME variable and run as:
