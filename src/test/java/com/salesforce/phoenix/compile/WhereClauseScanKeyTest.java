@@ -1520,12 +1520,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(firstTenantId, firstParentId, secondTenantId);
         HashSet<Expression> extractedFilters = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedFilters);
-        assertTrue(extractedFilters.size() == 0);
-        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstTenantId), PDataType.VARCHAR.toBytes(firstParentId)), scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
-//        assertTrue(extractedFilters.size() == 1);
-//        assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(secondTenantId)), scan.getStartRow());
-//        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
     
     @Test
@@ -1539,12 +1536,9 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(firstTenantId, firstParentId, secondTenantId);
         HashSet<Expression> extractedFilters = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedFilters);
-        assertTrue(extractedFilters.size() == 0);
+        assertTrue(extractedFilters.size() == 1);
         assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
-//        assertTrue(extractedFilters.size() == 1);
-//        assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstTenantId),  PDataType.VARCHAR.toBytes(firstParentId)), scan.getStartRow());
-//        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(secondTenantId)), scan.getStopRow());
     }
     
     @Test

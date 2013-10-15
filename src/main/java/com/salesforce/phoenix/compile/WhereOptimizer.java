@@ -409,12 +409,12 @@ public class WhereOptimizer {
             }
             int initialPos = (table.getBucketNum() == null ? 0 : 1);
             KeySlot theSlot = null;
-            List<Expression> extractNodes = Lists.<Expression>newArrayList();
+            List<Expression> slotExtractNodes = Lists.<Expression>newArrayList();
             int thePosition = -1;
             boolean extractAll = true;
             // TODO: Have separate list for single span versus multi span
             // For multi-span, we only need to keep a single range.
-            List<KeyRange> union = Lists.newArrayList();
+            List<KeyRange> slotRanges = Lists.newArrayList();
             KeyRange minMaxRange = KeyRange.EMPTY_RANGE;
             for (KeySlots childSlot : childSlots) {
                 if (childSlot == DEGENERATE_KEY_PARTS) {
@@ -426,15 +426,15 @@ public class WhereOptimizer {
                 // fully qualified.
                 if (childSlot.getMinMaxRange() != null) {
                     /// TODO: union together first slot of RVC with existing union 
-                    if (!union.isEmpty()) { // Not combining RVC and non RVC currently
+                    if (!slotRanges.isEmpty() && thePosition != initialPos) { // ORing together rvc in initial slot with other slots
                         return null;
                     }
                     minMaxRange = minMaxRange.union(childSlot.getMinMaxRange());
                     thePosition = initialPos;
                     for (KeySlot slot : childSlot) {
-                        List<Expression> slotExtractNodes = slot.getKeyPart().getExtractNodes();
-                        extractAll &= !slotExtractNodes.isEmpty();
-                        extractNodes.addAll(slotExtractNodes);
+                        List<Expression> extractNodes = slot.getKeyPart().getExtractNodes();
+                        extractAll &= !extractNodes.isEmpty();
+                        slotExtractNodes.addAll(extractNodes);
                     }
                 } else {
                     for (KeySlot slot : childSlot) {
@@ -458,14 +458,13 @@ public class WhereOptimizer {
                         if (thePosition == -1) {
                             theSlot = slot;
                             thePosition = slot.getPKPosition();
-                        } else if (thePosition != slot.getPKPosition() || minMaxRange != KeyRange.EMPTY_RANGE) {
-                            // TODO: union together first slot of RVC with these may work to combine them
+                        } else if (thePosition != slot.getPKPosition()) {
                             return null;
                         }
-                        List<Expression> slotExtractNodes = slot.getKeyPart().getExtractNodes();
-                        extractAll &= !slotExtractNodes.isEmpty();
-                        extractNodes.addAll(slotExtractNodes);
-                        union.addAll(slot.getKeyRanges());
+                        List<Expression> extractNodes = slot.getKeyPart().getExtractNodes();
+                        extractAll &= !extractNodes.isEmpty();
+                        slotExtractNodes.addAll(extractNodes);
+                        slotRanges.addAll(slot.getKeyRanges());
                     }
                 }
             }
@@ -473,15 +472,42 @@ public class WhereOptimizer {
             if (thePosition == -1) {
                 return null;
             }
+            // With a mix of both, we can't use skip scan, so empty out the union
+            // and only extract the min/max nodes.
+            if (!slotRanges.isEmpty() && minMaxRange != KeyRange.EMPTY_RANGE) {
+                boolean clearExtracts = false;
+                // Union the minMaxRanges together with the slotRanges.
+                for (KeyRange range : slotRanges) {
+                    if (!clearExtracts) {
+                        /*
+                         * Detect when to clear the extract nodes by determining if there
+                         * are gaps left by combining the ranges. If there are gaps, we
+                         * cannot extract the nodes, but must them as filters instead.
+                         */
+                        KeyRange intersection = minMaxRange.intersect(range);
+                        if (intersection == KeyRange.EMPTY_RANGE 
+                                || !range.equals(intersection.union(range)) 
+                                || !minMaxRange.equals(intersection.union(minMaxRange))) {
+                            clearExtracts = true;
+                        }
+                    }
+                    minMaxRange = minMaxRange.union(range);
+                }
+                if (clearExtracts) {
+                    extractAll = false;
+                    slotExtractNodes = Collections.emptyList();
+                }
+                slotRanges = Collections.emptyList();
+            }
             if (theSlot == null) {
-                theSlot = new KeySlot(new BaseKeyPart(table.getPKColumns().get(initialPos), extractNodes), initialPos, 1, EVERYTHING_RANGES, null);
-            } else if (minMaxRange != KeyRange.EMPTY_RANGE && !extractNodes.isEmpty()) {
-                theSlot = theSlot.concatExtractNodes(extractNodes);
+                theSlot = new KeySlot(new BaseKeyPart(table.getPKColumns().get(initialPos), slotExtractNodes), initialPos, 1, EVERYTHING_RANGES, null);
+            } else if (minMaxRange != KeyRange.EMPTY_RANGE && !slotExtractNodes.isEmpty()) {
+                theSlot = theSlot.concatExtractNodes(slotExtractNodes);
             }
             return newKeyParts(
                     theSlot, 
-                    extractAll ? Collections.<Expression>singletonList(orExpression) : extractNodes, 
-                    union.isEmpty() ? EVERYTHING_RANGES : KeyRange.coalesce(union), 
+                    extractAll ? Collections.<Expression>singletonList(orExpression) : slotExtractNodes, 
+                    slotRanges.isEmpty() ? EVERYTHING_RANGES : KeyRange.coalesce(slotRanges), 
                     minMaxRange == KeyRange.EMPTY_RANGE ? null : minMaxRange);
         }
 
