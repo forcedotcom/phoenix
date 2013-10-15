@@ -4543,20 +4543,14 @@ public enum PDataType {
     public abstract Object toObject(String value);
     
     public Object toObject(Object object, PDataType actualType) {
-    	return toObject(object, actualType, null); 
+        if (this == actualType) {
+            return object;
+        }
+        throw new IllegalDataException("Cannot convert from " + actualType + " to " + this);
     }
 
-    public Object toObject(Object object, PDataType actualType, ColumnModifier sortOrder) {
-        if (actualType != this) {
-            byte[] b = actualType.toBytes(object, sortOrder);
-            return this.toObject(b, 0, b.length, actualType);
-        }
-        return object;
-    }
-    
     public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
-        throw new IllegalDataException("Cannot convert from " + actualType + " to " + this);
-        //return toObject(bytes, offset, length, actualType, null);
+        return toObject(bytes, offset, length, actualType, null);
     }
 
     public Object toObject(byte[] bytes, int offset, int length, PDataType actualType, ColumnModifier columnModifier) {
