@@ -107,7 +107,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             assertEquals("b",rs.getString(1));
             assertFalse(rs.next());
             
-            ddl = "ALTER TABLE test_table ADD b_string VARCHAR NULL PRIMARY KEY";
+            ddl = "ALTER TABLE test_table ADD  c_int integer , b_string VARCHAR  NULL PRIMARY KEY";
             conn.createStatement().execute(ddl);
             
             query = "SELECT * FROM test_table WHERE a_string = 'a' AND b_string IS NULL";

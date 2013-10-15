@@ -183,6 +183,8 @@ public interface PTable extends Writable {
     PName getParentName();
     boolean isImmutableRows();
     
+    byte[] getRowKeySeparatorBytes();
+    
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
 }

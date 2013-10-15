@@ -530,8 +530,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableAddColumnStatement extends AddColumnStatement implements ExecutableStatement {
 
-        ExecutableAddColumnStatement(NamedTableNode table, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
-            super(table, columnDef, ifNotExists, props);
+        ExecutableAddColumnStatement(NamedTableNode table, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String, Object> props) {
+            super(table, columnDefs, ifNotExists, props);
         }
 
         @Override
@@ -816,8 +816,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public AddColumnStatement addColumn(NamedTableNode table,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
-            return new ExecutableAddColumnStatement(table, columnDef, ifNotExists, props);
+        public AddColumnStatement addColumn(NamedTableNode table,  List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
+            return new ExecutableAddColumnStatement(table, columnDefs, ifNotExists, props);
         }
         
         @Override
