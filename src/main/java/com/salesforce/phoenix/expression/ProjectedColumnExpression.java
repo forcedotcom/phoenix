@@ -30,98 +30,111 @@ package com.salesforce.phoenix.expression;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.Arrays;
 
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.join.ScanProjector;
+import com.salesforce.phoenix.join.ScanProjector.ProjectedValue;
+import com.salesforce.phoenix.schema.KeyValueSchema;
 import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.ValueBitSet;
+import com.salesforce.phoenix.schema.KeyValueSchema.KeyValueSchemaBuilder;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SchemaUtil;
 
+public class ProjectedColumnExpression extends ColumnExpression {
+	private KeyValueSchema schema;
+	private int position;
+	
+	public ProjectedColumnExpression() {
+	}
 
-/**
- * 
- * Class to access a column value stored in a KeyValue
- *
- * @author jtaylor
- * @since 0.1
- */
-public class KeyValueColumnExpression extends ColumnExpression {
-    private byte[] cf;
-    private byte[] cq;
-
-    public KeyValueColumnExpression() {
+	public ProjectedColumnExpression(PColumn column, PTable table) {
+		super(column);
+		this.schema = buildSchema(table);
+		this.position = column.getPosition() - table.getPKColumns().size();
+	}
+    
+    private static KeyValueSchema buildSchema(PTable table) {
+    	KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder(0);
+        for (PColumn column : table.getColumns()) {
+        	if (!SchemaUtil.isPKColumn(column)) {
+        		builder.addField(column);
+        	}
+        }
+        return builder.build();
     }
-
-    public KeyValueColumnExpression(PColumn column) {
-        super(column);
-        this.cf = column.getFamilyName().getBytes();
-        this.cq = column.getName().getBytes();
+    
+    public KeyValueSchema getSchema() {
+    	return schema;
     }
-
-    public byte[] getColumnFamily() {
-        return cf;
-    }
-
-    public byte[] getColumnName() {
-        return cq;
+    
+    public int getPosition() {
+    	return position;
     }
 
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + Arrays.hashCode(cf);
-        result = prime * result + Arrays.hashCode(cq);
+        result = prime * result + schema.hashCode();
+        result = prime * result + position;
         return result;
     }
 
-    // TODO: assumes single table
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
-        KeyValueColumnExpression other = (KeyValueColumnExpression)obj;
-        if (!Arrays.equals(cf, other.cf)) return false;
-        if (!Arrays.equals(cq, other.cq)) return false;
+        ProjectedColumnExpression other = (ProjectedColumnExpression)obj;
+        if (!schema.equals(other.schema)) return false;
+        if (position != other.position) return false;
         return true;
     }
 
     @Override
     public String toString() {
-        return SchemaUtil.getColumnDisplayName(cf, cq);
+        return "{PROJECTED}[" + position + "]";
     }
-
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        KeyValue keyValue = tuple.getValue(cf, cq);
-        if (keyValue != null) {
-            ptr.set(keyValue.getBuffer(), keyValue.getValueOffset(), keyValue.getValueLength());
-            return true;
-        }
-        return false;
-    }
+	
+	@Override
+	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+		try {
+			ProjectedValue value = ScanProjector.decodeProjectedValue(tuple);
+			ImmutableBytesWritable bytesValue = value.getBytesValue();
+			ValueBitSet bitSet = value.getValueBitSetDeserialized(schema);
+			schema.iterator(bytesValue, ptr, position, bitSet);
+			Boolean hasValue = schema.next(ptr, position, bytesValue.getOffset() + bytesValue.getLength(), bitSet);
+			if (hasValue == null || !hasValue.booleanValue())
+				return false;
+		} catch (IOException e) {
+			return false;
+		}
+		
+		return true;
+	}
 
     @Override
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
-        cf = Bytes.readByteArray(input);
-        cq = Bytes.readByteArray(input);
+        schema = new KeyValueSchema();
+        schema.readFields(input);
+        position = input.readInt();
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
         super.write(output);
-        Bytes.writeByteArray(output, cf);
-        Bytes.writeByteArray(output, cq);
+        schema.write(output);
+        output.writeInt(position);
     }
 
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return visitor.visit(this);
     }
+
 }

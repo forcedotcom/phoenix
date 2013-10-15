@@ -29,7 +29,6 @@ package com.salesforce.phoenix.coprocessor;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -50,10 +49,14 @@ import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
+import com.salesforce.phoenix.join.ScanProjector.ProjectedValue;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.KeyValueSchema;
+import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.TupleUtil;
 
 public class HashJoinRegionScanner implements RegionScanner {
@@ -86,11 +89,8 @@ public class HashJoinRegionScanner implements RegionScanner {
             return;
         
         if (projector != null) {
-            List<KeyValue> kvs = new ArrayList<KeyValue>(result.size() + 1);
-            kvs.add(projector.projectRow(result.get(0)));
-            for (KeyValue kv : result) {
-                kvs.add(projector.projectedKeyValue(kv));
-            }
+            List<KeyValue> kvs = new ArrayList<KeyValue>(1);
+            kvs.add(projector.projectResults(result));
             if (joinInfo != null) {
                 result = kvs;
             } else {
@@ -122,7 +122,8 @@ public class HashJoinRegionScanner implements RegionScanner {
                 }
             }
             if (cont) {
-                resultQueue.offer(result);
+            	KeyValueSchema schema = joinInfo.getJoinedSchema();
+                resultQueue.offer(init(result, schema));
                 for (int i = 0; i < count; i++) {
                 	boolean earlyEvaluation = joinInfo.earlyEvaluation()[i];
                     if (earlyEvaluation && 
@@ -132,7 +133,6 @@ public class HashJoinRegionScanner implements RegionScanner {
                     while (j-- > 0) {
                         List<KeyValue> lhs = resultQueue.poll();
                         if (!earlyEvaluation) {
-                        	Collections.sort(lhs, KeyValue.COMPARATOR);
                         	Tuple t = new ResultTuple(new Result(lhs));
                             ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(t, joinInfo.getJoinExpressions()[i]);
                             ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
@@ -148,15 +148,12 @@ public class HashJoinRegionScanner implements RegionScanner {
                             }
                         }
                         for (Tuple t : tuples[i]) {
-                            List<KeyValue> rhs = ((ResultTuple) t).getResult().list();
-                            List<KeyValue> joined = new ArrayList<KeyValue>(lhs.size() + rhs.size());
-                            joined.addAll(lhs);
-                            joined.addAll(rhs);
+                            List<KeyValue> joined = join(lhs, t, schema, joinInfo.getSchemas()[i], joinInfo.getFieldPositions()[i]);
                             resultQueue.offer(joined);
                         }
                     }
                 }
-                // sort kvs and apply post-join filter
+                // apply post-join filter
                 Expression postFilter = joinInfo.getPostJoinFilterExpression();
                 for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
                     List<KeyValue> kvs = iter.next();
@@ -178,10 +175,46 @@ public class HashJoinRegionScanner implements RegionScanner {
                             continue;
                         }
                     }
-                    Collections.sort(kvs, KeyValue.COMPARATOR);
                 }
             }
         }
+    }
+    
+    private static List<KeyValue> init(List<KeyValue> left, KeyValueSchema schema) throws IOException {
+    	ProjectedValue value = ScanProjector.decodeProjectedValue(left);
+    	ValueBitSet bitSet = ValueBitSet.newInstance(schema);
+    	bitSet.clear();
+    	bitSet.or(value.getValueBitSet());
+    	byte[] encoded = ScanProjector.encodeProjectedValue(new ProjectedValue(value.getBytesValue(), bitSet));
+    	KeyValue kv = left.get(0);
+    	List<KeyValue> ret = new ArrayList<KeyValue>(1);
+        ret.add(KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(), 
+        		kv.getFamily(), kv.getQualifier(), kv.getTimestamp(), encoded, 0, encoded.length));
+        return ret;
+    }
+    
+    private static List<KeyValue> join(List<KeyValue> left, Tuple right, KeyValueSchema leftSchema, KeyValueSchema rightSchema, int fieldPosition) throws IOException {
+    	ProjectedValue leftDecoded = ScanProjector.decodeProjectedValue(left);
+    	ProjectedValue rightDecoded = ScanProjector.decodeProjectedValue(right);
+    	byte[] joinedBytesValue = new byte[leftDecoded.getBytesValue().getLength() + rightDecoded.getBytesValue().getLength()];
+    	Bytes.putBytes(joinedBytesValue, 0, leftDecoded.getBytesValue().get(), leftDecoded.getBytesValue().getOffset(), leftDecoded.getBytesValue().getLength());
+    	Bytes.putBytes(joinedBytesValue, leftDecoded.getBytesValue().getLength(), rightDecoded.getBytesValue().get(), rightDecoded.getBytesValue().getOffset(), rightDecoded.getBytesValue().getLength());
+    	ValueBitSet joinedBitSet = leftDecoded.getValueBitSetDeserialized(leftSchema);
+    	setValueBitSet(joinedBitSet, rightDecoded.getValueBitSetDeserialized(rightSchema), fieldPosition);
+    	byte[] encoded = ScanProjector.encodeProjectedValue(new ProjectedValue(new ImmutableBytesWritable(joinedBytesValue), joinedBitSet));
+    	KeyValue kv = left.get(0);
+    	List<KeyValue> ret = new ArrayList<KeyValue>(1);
+        ret.add(KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(), 
+        		kv.getFamily(), kv.getQualifier(), kv.getTimestamp(), encoded, 0, encoded.length));
+        return ret;    	
+    }
+    
+    private static void setValueBitSet(ValueBitSet dest, ValueBitSet src, int offset) {
+    	for (int i = 0; i < src.getMaxSetBit(); i++) {
+    		if (src.get(i)) {
+    			dest.set(offset + i);
+    		}
+    	}
     }
     
     private boolean shouldAdvance() {

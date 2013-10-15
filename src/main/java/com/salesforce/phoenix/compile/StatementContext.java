@@ -57,7 +57,7 @@ import com.salesforce.phoenix.util.ScanUtil;
  * @since 0.1
  */
 public class StatementContext {
-    private final ColumnResolver resolver;
+    private ColumnResolver resolver;
     private final BindManager binds;
     private final Scan scan;
     private final ExpressionManager expressions;
@@ -73,15 +73,14 @@ public class StatementContext {
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
     private KeyRange minMaxRange = null;
 
-    private final boolean disambiguateWithTable;
     private final HashCacheClient hashClient;
     private TableRef currentTable;
     
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
-        this(statement, connection, resolver, binds, scan, false, null);
+        this(statement, connection, resolver, binds, scan, null);
     }
     
-    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, boolean disambiguateWithTable, HashCacheClient hashClient) {
+    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, HashCacheClient hashClient) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -93,7 +92,6 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
-        this.disambiguateWithTable = disambiguateWithTable;
         this.hashClient = hashClient;
         if (resolver != null && !resolver.getTables().isEmpty()) {
             this.currentTable = resolver.getTables().get(0);
@@ -124,10 +122,6 @@ public class StatementContext {
         return binds;
     }
     
-    public boolean disambiguateWithTable() {
-        return disambiguateWithTable;
-    }
-    
     public HashCacheClient getHashClient() {
         return hashClient;
     }
@@ -146,6 +140,10 @@ public class StatementContext {
 
     public ColumnResolver getResolver() {
         return resolver;
+    }
+
+    public void setResolver(ColumnResolver resolver) {
+        this.resolver = resolver;
     }
 
     public ExpressionManager getExpressionManager() {
@@ -168,7 +166,7 @@ public class StatementContext {
     public void setScanRanges(ScanRanges scanRanges, KeyRange minMaxRange) {
         this.scanRanges = scanRanges;
         this.scanRanges.setScanStartStopRow(scan);
-        PTable table = this.getResolver().getTables().get(0).getTable();
+        PTable table = this.getCurrentTable().getTable();
         if (minMaxRange != null) {
             // Ensure minMaxRange is lower inclusive and upper exclusive, as that's
             // what we need to intersect against for the HBase scan.
@@ -204,7 +202,7 @@ public class StatementContext {
     }
 
     public long getCurrentTime() throws SQLException {
-        long ts = this.getResolver().getTables().get(0).getTimeStamp();
+        long ts = this.getCurrentTable().getTimeStamp();
         if (ts != QueryConstants.UNSET_TIMESTAMP) {
             return ts;
         }
@@ -217,7 +215,7 @@ public class StatementContext {
          * current time at execution time. In that case, we'll call MetaDataClient.updateCache
          * purely to bind the current time based on the server time.
          */
-        PTable table = this.getResolver().getTables().get(0).getTable();
+        PTable table = this.getCurrentTable().getTable();
         MetaDataClient client = new MetaDataClient(connection);
         currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;

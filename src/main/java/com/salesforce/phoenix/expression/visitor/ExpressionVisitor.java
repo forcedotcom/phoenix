@@ -44,6 +44,7 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.MultiplyExpression;
 import com.salesforce.phoenix.expression.NotExpression;
 import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.ProjectedColumnExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
@@ -108,6 +109,7 @@ public interface ExpressionVisitor<E> {
     public E visit(LiteralExpression node);
     public E visit(RowKeyColumnExpression node);
     public E visit(KeyValueColumnExpression node);
+    public E visit(ProjectedColumnExpression node);
     
 	public Iterator<Expression> visitEnter(StringConcatExpression node);
 	public E visitLeave(StringConcatExpression node, List<E> l);

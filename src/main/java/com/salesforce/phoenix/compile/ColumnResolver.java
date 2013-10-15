@@ -62,10 +62,4 @@ public interface ColumnResolver {
      * @throws AmbiguousColumnException if the column name is ambiguous
      */
     public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException;
-
-    /**
-     * Set if disambiguateWithTable when resolving a column.
-     * @param disambiguateWithTable
-     */
-    public void setDisambiguateWithTable(boolean disambiguateWithTable);
 }

@@ -127,7 +127,8 @@ public enum ExpressionType {
     RowValueConstructorExpression(RowValueConstructorExpression.class),
     MD5Function(MD5Function.class),
     SqlTableType(SqlTableType.class),
-    IndexKeyValue(IndexKeyValueColumnExpression.class);
+    IndexKeyValue(IndexKeyValueColumnExpression.class),
+    ProjectedColumnExpression(ProjectedColumnExpression.class);
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

@@ -130,19 +130,15 @@ public class WhereCompiler {
             // Track if we need to compare KeyValue during filter evaluation
             // using column family. If the column qualifier is enough, we
             // just use that.
-            if (ref.disambiguateWithTable()) {
-                disambiguateWithFamily = true;
-            } else {
-                try {
-                    if (!SchemaUtil.isPKColumn(ref.getColumn())) {
-                        table.getColumn(ref.getColumn().getName().getString());
-                    }
-                } catch (AmbiguousColumnException e) {
-                    disambiguateWithFamily = true;
+            try {
+                if (!SchemaUtil.isPKColumn(ref.getColumn())) {
+                    table.getColumn(ref.getColumn().getName().getString());
                 }
+            } catch (AmbiguousColumnException e) {
+                disambiguateWithFamily = true;
             }
             return ref;
-        }
+         }
     }
 
     private static final class Counter {
@@ -164,7 +160,6 @@ public class WhereCompiler {
 
             }
         }
-        
         public Count getCount() {
             return count;
         }

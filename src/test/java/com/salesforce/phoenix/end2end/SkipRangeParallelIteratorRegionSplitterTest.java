@@ -359,11 +359,6 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
             public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
                 throw new UnsupportedOperationException();
             }
-
-			@Override
-			public void setDisambiguateWithTable(boolean disambiguateWithTable) {
-                throw new UnsupportedOperationException();
-			}
             
         };
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);

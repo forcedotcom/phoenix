@@ -128,8 +128,7 @@ public class TrackOrderPreservingExpressionCompiler  extends ExpressionCompiler 
         ColumnRef ref = super.resolveColumn(node);
         // If we encounter any non PK column, then we can't aggregate on-the-fly
         // because the distinct groups have no correlation to the KV column value
-        if (ref.disambiguateWithTable() 
-        		|| !SchemaUtil.isPKColumn(ref.getColumn())) {
+        if (!SchemaUtil.isPKColumn(ref.getColumn())) {
             orderPreserving = OrderPreserving.NO;
         }
         

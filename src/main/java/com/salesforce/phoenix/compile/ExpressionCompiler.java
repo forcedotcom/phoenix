@@ -80,7 +80,6 @@ import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.ComparisonParseNode;
 import com.salesforce.phoenix.parse.DivideParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LikeParseNode;
@@ -93,12 +92,12 @@ import com.salesforce.phoenix.parse.RowValueConstructorParseNode;
 import com.salesforce.phoenix.parse.StringConcatParseNode;
 import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
-import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.TypeMismatchException;
@@ -113,7 +112,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     protected final StatementContext context;
     protected final GroupBy groupBy;
     private int nodeCount;
-    private List<PTable> tables;
     
     ExpressionCompiler(StatementContext context) {
         this(context,GroupBy.EMPTY_GROUP_BY);
@@ -122,7 +120,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     ExpressionCompiler(StatementContext context, GroupBy groupBy) {
         this.context = context;
         this.groupBy = groupBy;
-        this.tables = new ArrayList<PTable>(1);
     }
 
     public boolean isAggregate() {
@@ -133,14 +130,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         return nodeCount == 0;
     }
     
-    public List<PTable> getTables() {
-        return tables;
-    }
-    
     public void reset() {
         this.isAggregate = false;
         this.nodeCount = 0;
-        this.tables.clear();
     }
 
     @Override
@@ -518,7 +510,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     public Expression visit(ColumnParseNode node) throws SQLException {
         ColumnRef ref = resolveColumn(node);
         TableRef tableRef = ref.getTableRef();
-        tables.add(tableRef.getTable());
         if (tableRef.equals(context.getCurrentTable()) 
                 && !SchemaUtil.isPKColumn(ref.getColumn())) { // project only kv columns
             context.getScan().addColumn(ref.getColumn().getFamilyName().getBytes(), ref.getColumn().getName().getBytes());
