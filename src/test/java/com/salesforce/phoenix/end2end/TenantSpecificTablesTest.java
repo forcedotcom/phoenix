@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DROP_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.COLUMN_EXIST_IN_DEF;
@@ -59,6 +60,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 /**
@@ -469,6 +471,69 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         }
         catch (SQLException expected) {
             assertEquals(BASE_TABLE_NOT_TOP_LEVEL.getErrorCode(), expected.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testBaseTableCannotBeUsedInStatementsInMultitenantConnections() throws Exception {
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+        try {
+            try {
+                conn.createStatement().execute("select * from " + PARENT_TABLE_NAME);
+                fail();
+            }
+            catch (TableNotFoundException expected) {};   
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testTenantTableCannotBeUsedInStatementsInNonMultitenantConnections() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            try {
+                conn.createStatement().execute("select * from " + TENANT_TABLE_NAME);
+                fail();
+            }
+            catch (TableNotFoundException expected) {};   
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testBaseTableWrongFormat() throws Exception {
+        // only one PK column
+        try {
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID))");
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2'");
+            fail();
+        }
+        catch (SQLException expected) {
+            assertEquals(BASE_TABLE_NO_TENANT_ID_PK.getErrorCode(), expected.getErrorCode());
+        }
+        
+        // nullable tenantId column
+        try {
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID))");
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2'");
+            fail();
+        }
+        catch (SQLException expected) {
+            assertEquals(BASE_TABLE_NO_TENANT_ID_PK.getErrorCode(), expected.getErrorCode());
+        }
+        
+        // tenantId column of wrong type
+        try {
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID))");
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2'");
+            fail();
+        }
+        catch (SQLException expected) {
+            assertEquals(BASE_TABLE_NO_TENANT_ID_PK.getErrorCode(), expected.getErrorCode());
         }
     }
     

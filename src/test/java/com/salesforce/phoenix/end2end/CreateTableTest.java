@@ -61,9 +61,10 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.createStatement().execute("CREATE TABLE PARENT_TABLE ( \n" + 
-                "                user VARCHAR ,\n" + 
-                "                id INTEGER not null primary key desc\n" + 
-                "                ) ");
+                "                user VARCHAR ,\n" +
+                "                tenant_id VARCHAR not null,\n" +
+                "                id INTEGER not null\n" + 
+                "                constraint pk primary key (tenant_id, id)) ");
         conn.close();
         
         props.setProperty(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId);

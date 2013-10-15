@@ -29,6 +29,7 @@ package com.salesforce.phoenix.schema;
 
 import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
@@ -50,6 +51,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.schema.PDataType.CHAR;
+import static com.salesforce.phoenix.schema.PDataType.VARCHAR;
 import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
 import java.sql.DriverManager;
@@ -622,6 +625,9 @@ public class MetaDataClient {
                 if (baseTable.isTenantSpecificTable()) {
                     throw new SQLExceptionInfo.Builder(BASE_TABLE_NOT_TOP_LEVEL).setSchemaName(schemaName).setTableName(tableName).build().buildException();
                 }
+                if (!doesTableStructureSupportTenantTables(baseTable)) {
+                    throw new SQLExceptionInfo.Builder(BASE_TABLE_NO_TENANT_ID_PK).setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                }
                 columns = newArrayListWithExpectedSize(baseTable.getColumns().size() + colDefs.size());
                 columns.addAll(baseTable.getColumns());
                 pkColumns = ImmutableList.copyOf(baseTable.getPKColumns());
@@ -820,6 +826,20 @@ public class MetaDataClient {
            }
         }
         return false;
+    }
+    
+    /**
+     * A table can be a parent table to tenant-specific tables if all of the following conditions are true:
+     * <ol>
+     * <li>It has 2 or more PK columns AND
+     * <li>The leading PK column is not nullible AND 
+     * <li>The leading PK column's data type is either VARCHAR or CHAR 
+     * </ol>
+     */
+    private static boolean doesTableStructureSupportTenantTables(PTable table) {
+        List<PColumn> pkCols = table.getPKColumns();
+        PColumn firstPkCol = pkCols.get(0);
+        return (pkCols.size() > 1 && !firstPkCol.isNullable() && (firstPkCol.getDataType() == VARCHAR || firstPkCol.getDataType() == CHAR));
     }
 
     private PTable resolveTable(PhoenixConnection connection, String schemaName, String tableName) throws TableNotFoundException {
