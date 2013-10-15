@@ -50,8 +50,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -94,10 +95,13 @@ import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.RowKeySchema;
+import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.SaltingUtil;
 
 
@@ -112,9 +116,42 @@ import com.salesforce.phoenix.schema.SaltingUtil;
 public class SchemaUtil {
     private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
-    private static final byte PAD_BYTE = (byte)0;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
+    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
+    
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+    
+        @Override
+        public PDataType getDataType() {
+            return PDataType.VARBINARY;
+        }
+    
+        @Override
+        public Integer getByteSize() {
+            return null;
+        }
+    
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+    
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+    
+        @Override
+        public ColumnModifier getColumnModifier() {
+            return null;
+        }
+        
+    }, false, null).build();
+    
     /**
      * May not be instantiated
      */
@@ -268,7 +305,15 @@ public class SchemaUtil {
     }
 
     public static String getTableName(byte[] schemaName, byte[] tableName) {
-        return Bytes.toString(getTableNameAsBytes(schemaName,tableName));
+        return getName(schemaName, tableName);
+    }
+
+    public static String getColumnDisplayName(byte[] cf, byte[] cq) {
+        return getName(Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? ByteUtil.EMPTY_BYTE_ARRAY : cf, cq);
+    }
+
+    public static String getColumnDisplayName(String cf, String cq) {
+        return getName(QueryConstants.DEFAULT_COLUMN_FAMILY.equals(cf) ? null : cf, cq);
     }
 
     public static String getMetaDataEntityName(String schemaName, String tableName, String familyName, String columnName) {
@@ -306,16 +351,10 @@ public class SchemaUtil {
         }
     }
 
-    public static int getUnpaddedCharLength(byte[] b, int offset, int length, ColumnModifier columnModifier) {
-        int i = offset + length -1;
-        // If bytes are inverted, we need to invert the byte we're looking for too
-        byte padByte = columnModifier == null ? PAD_BYTE : columnModifier.apply(PAD_BYTE);
-        while(i > offset && b[i] == padByte) {
-            i--;
-        }
-        return i - offset + 1;
+    public static String getName(byte[] nameOne, byte[] nameTwo) {
+        return Bytes.toString(getNameAsBytes(nameOne,nameTwo));
     }
-    
+
     public static int getVarCharLength(byte[] buf, int keyOffset, int maxLength) {
         return getVarCharLength(buf, keyOffset, maxLength, 1);
     }
@@ -406,16 +445,13 @@ public class SchemaUtil {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME_BYTES) == 0;
     }
     
-    public static byte[] padChar(byte[] byteValue, Integer byteSize) {
-        return Arrays.copyOf(byteValue, byteSize);
-    }
-
     public static boolean isMetaTable(String schemaName, String tableName) {
         return PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(schemaName) && PhoenixDatabaseMetaData.TYPE_TABLE.equals(tableName);
     }
 
     // Given the splits and the rowKeySchema, find out the keys that 
-    public static byte[][] processSplits(byte[][] splits, List<PColumn> pkColumns, Integer saltBucketNum, boolean defaultRowKeyOrder) throws SQLException {
+    public static byte[][] processSplits(byte[][] splits, LinkedHashSet<PColumn> pkColumns, Integer saltBucketNum, boolean defaultRowKeyOrder) throws SQLException {
+        // FIXME: shouldn't this return if splits.length == 0?
         if (splits == null) return null;
         // We do not accept user specified splits if the table is salted and we specify defaultRowKeyOrder. In this case,
         // throw an exception.
@@ -435,17 +471,18 @@ public class SchemaUtil {
 
     // Go through each slot in the schema and try match it with the split byte array. If the split
     // does not confer to the schema, extends its length to match the schema.
-    private static byte[] processSplit(byte[] split, List<PColumn> pkColumns) {
+    private static byte[] processSplit(byte[] split, LinkedHashSet<PColumn> pkColumns) {
         int pos = 0, offset = 0, maxOffset = split.length;
+        Iterator<PColumn> iterator = pkColumns.iterator();
         while (pos < pkColumns.size()) {
-            PColumn column = pkColumns.get(pos);
+            PColumn column = iterator.next();
             if (column.getDataType().isFixedWidth()) { // Fixed width
                 int length = column.getByteSize();
                 if (maxOffset - offset < length) {
                     // The split truncates the field. Fill in the rest of the part and any fields that
                     // are missing after this field.
                     int fillInLength = length - (maxOffset - offset);
-                    fillInLength += estimatePartLength(pos + 1, pkColumns);
+                    fillInLength += estimatePartLength(pos + 1, iterator);
                     return ByteUtil.fillKey(split, split.length + fillInLength);
                 }
                 // Account for this field, move to next position;
@@ -462,7 +499,7 @@ public class SchemaUtil {
                 if (offset == maxOffset) {
                     // The var-length field does not end with a separator and it's not the last field.
                     int fillInLength = 1; // SEPARATOR byte for the current var-length slot.
-                    fillInLength += estimatePartLength(pos + 1, pkColumns);
+                    fillInLength += estimatePartLength(pos + 1, iterator);
                     return ByteUtil.fillKey(split, split.length + fillInLength);
                 }
                 // Move to the next position;
@@ -474,10 +511,10 @@ public class SchemaUtil {
     }
 
     // Estimate the key length after pos slot for schema.
-    private static int estimatePartLength(int pos, List<PColumn> pkColumns) {
+    private static int estimatePartLength(int pos, Iterator<PColumn> iterator) {
         int length = 0;
-        while (pos < pkColumns.size()) {
-            PColumn column = pkColumns.get(pos++);
+        while (iterator.hasNext()) {
+            PColumn column = iterator.next();
             if (column.getDataType().isFixedWidth()) {
                 length += column.getByteSize();
             } else {

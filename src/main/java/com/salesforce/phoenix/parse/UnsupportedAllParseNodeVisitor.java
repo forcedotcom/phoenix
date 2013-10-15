@@ -65,7 +65,7 @@ abstract public class UnsupportedAllParseNodeVisitor<E> extends BaseParseNodeVis
     }
 
     @Override
-    public E visit(FamilyParseNode node) throws SQLException {
+    public E visit(FamilyWildcardParseNode node) throws SQLException {
         throw new SQLFeatureNotSupportedException(node.toString());
     }
 

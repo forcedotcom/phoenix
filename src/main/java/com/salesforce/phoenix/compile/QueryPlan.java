@@ -32,6 +32,7 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
@@ -69,4 +70,6 @@ public interface QueryPlan extends StatementPlan {
     List<KeyRange> getSplits();
 
     StatementContext getContext();
+    
+    FilterableStatement getStatement();
 }

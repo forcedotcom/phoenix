@@ -55,7 +55,7 @@ import com.salesforce.phoenix.util.SizedUtil;
  * @author syyang, jtaylor
  * @since 0.1
  */
-public class OrderedResultIterator implements ResultIterator {
+public class OrderedResultIterator implements PeekingResultIterator {
 
     /** A container that holds pointers to a {@link Result} and its sort keys. */
     protected static class ResultEntry {
@@ -104,7 +104,7 @@ public class OrderedResultIterator implements ResultIterator {
     private final List<OrderByExpression> orderByExpressions;
     private final long estimatedByteSize;
     
-    private ResultIterator resultIterator;
+    private PeekingResultIterator resultIterator;
     private long byteSize;
 
     protected ResultIterator getDelegate() {
@@ -179,7 +179,7 @@ public class OrderedResultIterator implements ResultIterator {
         return getResultIterator().next();
     }
     
-    private ResultIterator getResultIterator() throws SQLException {
+    private PeekingResultIterator getResultIterator() throws SQLException {
         if (resultIterator != null) {
             return resultIterator;
         }
@@ -189,18 +189,34 @@ public class OrderedResultIterator implements ResultIterator {
         final Comparator<ResultEntry> comparator = buildComparator(orderByExpressions);
         try{
             final MappedByteBufferSortedQueue queueEntries = new MappedByteBufferSortedQueue(comparator, limit, thresholdBytes);
-            resultIterator = new BaseResultIterator() {
+            resultIterator = new PeekingResultIterator() {
                 int count = 0;
                 @Override
                 public Tuple next() throws SQLException {
                     ResultEntry entry = queueEntries.poll();
                     if (entry == null || (limit != null && ++count > limit)) {
-                        resultIterator = ResultIterator.EMPTY_ITERATOR;
+                        resultIterator = PeekingResultIterator.EMPTY_ITERATOR;
+                        return null;
+                    }
+                    return entry.getResult();
+                }
+                
+                @Override
+                public Tuple peek() throws SQLException {
+                    if (limit != null && count > limit) {
+                        return null;
+                    }
+                    ResultEntry entry =  queueEntries.peek();
+                    if (entry == null) {
                         return null;
                     }
                     return entry.getResult();
                 }
 
+                @Override
+                public void explain(List<String> planSteps) {
+                }
+                
                 @Override
                 public void close() throws SQLException {
                     queueEntries.close();
@@ -228,8 +244,13 @@ public class OrderedResultIterator implements ResultIterator {
     }
 
     @Override
+    public Tuple peek() throws SQLException {
+        return getResultIterator().peek();
+    }
+
+    @Override
     public void close()  {
-        resultIterator = ResultIterator.EMPTY_ITERATOR;
+        resultIterator = PeekingResultIterator.EMPTY_ITERATOR;
     }
 
 

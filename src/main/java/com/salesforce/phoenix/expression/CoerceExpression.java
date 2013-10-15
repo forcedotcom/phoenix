@@ -27,19 +27,24 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
 public class CoerceExpression extends BaseSingleExpression {
     private PDataType toType;
+    private ColumnModifier toMod;
+    private Integer byteSize;
     
     public CoerceExpression() {
     }
@@ -50,15 +55,33 @@ public class CoerceExpression extends BaseSingleExpression {
     
     //Package protected for tests
     CoerceExpression(Expression expression, PDataType toType) {
+        this(expression, toType, null, null);
+    }
+    
+    CoerceExpression(Expression expression, PDataType toType, ColumnModifier toMod, Integer byteSize) {
         super(expression);
         this.toType = toType;
+        this.toMod = toMod;
+        this.byteSize = byteSize;
+    }
+
+    @Override
+    public Integer getByteSize() {
+        return byteSize;
+    }
+    
+    @Override
+    public Integer getMaxLength() {
+        return byteSize;
     }
     
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + toType.hashCode();
+        result = prime * result + ((byteSize == null) ? 0 : byteSize.hashCode());
+        result = prime * result + ((toMod == null) ? 0 : toMod.hashCode());
+        result = prime * result + ((toType == null) ? 0 : toType.hashCode());
         return result;
     }
 
@@ -68,6 +91,10 @@ public class CoerceExpression extends BaseSingleExpression {
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
         CoerceExpression other = (CoerceExpression)obj;
+        if (byteSize == null) {
+            if (other.byteSize != null) return false;
+        } else if (!byteSize.equals(other.byteSize)) return false;
+        if (toMod != other.toMod) return false;
         if (toType != other.toType) return false;
         return true;
     }
@@ -76,12 +103,17 @@ public class CoerceExpression extends BaseSingleExpression {
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
         toType = PDataType.values()[WritableUtils.readVInt(input)];
+        toMod = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
+        int byteSize = WritableUtils.readVInt(input);
+        this.byteSize = byteSize == -1 ? null : byteSize;
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
         super.write(output);
         WritableUtils.writeVInt(output, toType.ordinal());
+        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(toMod));
+        WritableUtils.writeVInt(output, byteSize == null ? -1 : byteSize);
     }
 
     @Override
@@ -98,6 +130,11 @@ public class CoerceExpression extends BaseSingleExpression {
         return toType;
     }
     
+    @Override
+    public ColumnModifier getColumnModifier() {
+            return toMod;
+    }    
+
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return getChild().accept(visitor);

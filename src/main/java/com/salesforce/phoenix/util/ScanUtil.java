@@ -49,8 +49,8 @@ import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.KeyRange.Bound;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeySchema;
-import com.salesforce.phoenix.schema.SaltingUtil;
 
 
 /**
@@ -398,7 +398,26 @@ public class ScanUtil {
         for (Mutation m : mutations) {
             keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
         }
-        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SaltingUtil.VAR_BINARY_SCHEMA);
+        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SchemaUtil.VAR_BINARY_SCHEMA);
         return keyRanges;
+    }
+
+    public static byte[] nextKey(byte[] key, PTable table, ImmutableBytesWritable ptr) {
+        int pos = 0;
+        RowKeySchema schema = table.getRowKeySchema();
+        int maxOffset = schema.iterator(key, ptr);
+        while (schema.next(ptr, pos, maxOffset) != null) {
+            pos++;
+        }
+        if (!schema.getField(pos-1).getDataType().isFixedWidth()) {
+            byte[] newLowerRange = new byte[key.length + 1];
+            System.arraycopy(key, 0, newLowerRange, 0, key.length);
+            newLowerRange[key.length] = QueryConstants.SEPARATOR_BYTE;
+            key = newLowerRange;
+        } else {
+            key = Arrays.copyOf(key, key.length);
+        }
+        ByteUtil.nextKey(key, key.length);
+        return key;
     }
 }

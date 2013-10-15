@@ -28,10 +28,9 @@
 package com.salesforce.phoenix.iterate;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
 
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.HRegionLocation;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
@@ -39,6 +38,8 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -56,23 +57,33 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
     }
 
     @Override
-    protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
-        NavigableMap<HRegionInfo, ServerName> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table);
+    protected List<HRegionLocation> getAllRegions() throws SQLException {
+        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(tableRef.getTable().getPhysicalName().getBytes());
         return filterRegions(allTableRegions, context.getScanRanges());
     }
 
-    public static List<Map.Entry<HRegionInfo, ServerName>> filterRegions(NavigableMap<HRegionInfo, ServerName> allTableRegions, final ScanRanges ranges) {
-        Iterable<Map.Entry<HRegionInfo, ServerName>> regions;
+    public List<HRegionLocation> filterRegions(List<HRegionLocation> allTableRegions, final ScanRanges ranges) {
+        Iterable<HRegionLocation> regions;
         if (ranges == ScanRanges.EVERYTHING) {
-            regions = allTableRegions.entrySet();
-        } else if (ranges == ScanRanges.NOTHING) {
-            return Lists.<Map.Entry<HRegionInfo, ServerName>>newArrayList();
+            return allTableRegions;
+        } else if (ranges == ScanRanges.NOTHING) { // TODO: why not emptyList?
+            return Lists.<HRegionLocation>newArrayList();
         } else {
-            regions = Iterables.filter(allTableRegions.entrySet(),
-                    new Predicate<Map.Entry<HRegionInfo, ServerName>>() {
+            regions = Iterables.filter(allTableRegions,
+                    new Predicate<HRegionLocation>() {
                     @Override
-                    public boolean apply(Map.Entry<HRegionInfo, ServerName> region) {
-                        return ranges.intersect(region.getKey().getStartKey(), region.getKey().getEndKey());
+                    public boolean apply(HRegionLocation region) {
+                        KeyRange minMaxRange = context.getMinMaxRange();
+                        if (minMaxRange != null) {
+                            KeyRange range = KeyRange.getKeyRange(region.getRegionInfo().getStartKey(), region.getRegionInfo().getEndKey());
+                            if (tableRef.getTable().getBucketNum() != null) {
+                                // Add salt byte, as minMaxRange won't have it
+                                minMaxRange = SaltingUtil.addSaltByte(region.getRegionInfo().getStartKey(), minMaxRange);
+                            }
+                            range = range.intersect(minMaxRange);
+                            return ranges.intersect(range.getLowerRange(), range.getUpperRange());
+                        }
+                        return ranges.intersect(region.getRegionInfo().getStartKey(), region.getRegionInfo().getEndKey());
                     }
             });
         }

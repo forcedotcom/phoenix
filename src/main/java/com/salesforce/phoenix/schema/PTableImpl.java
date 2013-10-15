@@ -66,6 +66,7 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
 import com.salesforce.phoenix.schema.stat.PTableStatsImpl;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.StringUtil;
 import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
 
@@ -138,14 +139,14 @@ public class PTableImpl implements PTable {
     }
 
     // When cloning table, ignore the salt column as it will be added back in the constructor
-    private static List<PColumn> getColumnsToClone(PTable table, Integer saltBuckets) {
+    public static List<PColumn> getColumnsToClone(PTable table) {
         return table.getBucketNum() == null ? table.getColumns() : table.getColumns().subList(1, table.getColumns().size());
     }
     
     public static PTableImpl makePTable(PTable table, long timeStamp, List<PTable> indexes) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
-                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getParentTableName(), indexes, table.isImmutableRows(),
+                table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), indexes, table.isImmutableRows(),
                 table.getBaseTableName());
     }
 
@@ -170,7 +171,7 @@ public class PTableImpl implements PTable {
     public static PTableImpl makePTable(PTable table, PIndexState state) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), state, table.getTimeStamp(), table.getSequenceNumber(), 
-                table.getPKName(), table.getBucketNum(), getColumnsToClone(table,table.getBucketNum()), table.getParentTableName(), 
+                table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), 
                 table.getIndexes(), table.isImmutableRows(), table.getBaseTableName());
     }
 
@@ -358,7 +359,7 @@ public class PTableImpl implements PTable {
                 }
                 Integer byteSize = column.getByteSize();
                 if (type.isFixedWidth() && byteValue.length <= byteSize) {
-                    byteValue = SchemaUtil.padChar(byteValue, byteSize);
+                    byteValue = StringUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
                 }
@@ -522,7 +523,7 @@ public class PTableImpl implements PTable {
             } else {
                 Integer byteSize = column.getByteSize();
                 if (type.isFixedWidth() && byteValue.length <= byteSize) { 
-                    byteValue = SchemaUtil.padChar(byteValue, byteSize);
+                    byteValue = StringUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }

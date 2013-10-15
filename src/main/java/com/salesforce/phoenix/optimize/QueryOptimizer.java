@@ -44,7 +44,9 @@ public class QueryOptimizer {
         if (!useIndexes) {
             return dataPlan;
         }
-        
+        // Get the statement as it's been normalized now
+        // TODO: the recompile for the index tables could skip the normalize step
+        select = (SelectStatement)dataPlan.getStatement();
         PTable dataTable = dataPlan.getTableRef().getTable();
         List<PTable>indexes = Lists.newArrayList(dataTable.getIndexes());
         if (indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || select.getHint().hasHint(Hint.NO_INDEX)) {

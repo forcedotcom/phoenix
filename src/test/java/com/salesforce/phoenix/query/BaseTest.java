@@ -27,11 +27,34 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_FULL_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_SALTED_TABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_TABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.FUNKY_NAME;
+import static com.salesforce.phoenix.util.TestUtil.GROUPBYTEST_NAME;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_DYNAMIC_COLUMNS;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_NATIVE;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.KEYONLY_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MDTEST_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MULTI_CF_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PRODUCT_METRICS_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB2_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB3_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
+import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_SALTING;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
 
@@ -50,6 +73,24 @@ public abstract class BaseTest {
     private static final Map<String,String> tableDDLMap;
     static {
         ImmutableMap.Builder<String,String> builder = ImmutableMap.builder();
+        builder.put(ENTITY_HISTORY_TABLE_NAME,"create table " + ENTITY_HISTORY_TABLE_NAME +
+                "   (organization_id char(15) not null,\n" +
+                "    parent_id char(15) not null,\n" +
+                "    created_date date not null,\n" +
+                "    entity_history_id char(15) not null,\n" +
+                "    old_value varchar,\n" +
+                "    new_value varchar\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id)\n" +
+                ")");
+        builder.put(ENTITY_HISTORY_SALTED_TABLE_NAME,"create table " + ENTITY_HISTORY_SALTED_TABLE_NAME +
+                "   (organization_id char(15) not null,\n" +
+                "    parent_id char(15) not null,\n" +
+                "    created_date date not null,\n" +
+                "    entity_history_id char(15) not null,\n" +
+                "    old_value varchar,\n" +
+                "    new_value varchar\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id))\n" +
+                "    SALT_BUCKETS = 4");
         builder.put(ATABLE_NAME,"create table " + ATABLE_NAME +
                 "   (organization_id char(15) not null, \n" +
                 "    entity_id char(15) not null,\n" +

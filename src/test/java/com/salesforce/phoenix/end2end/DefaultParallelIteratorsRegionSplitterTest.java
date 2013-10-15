@@ -44,12 +44,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
@@ -133,13 +131,13 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
     
     private static List<KeyRange> getSplits(Connection conn, long ts, final Scan scan)
             throws SQLException {
-        TableRef table = getTableRef(conn, ts);
+        TableRef tableRef = getTableRef(conn, ts);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        final NavigableMap<HRegionInfo, ServerName> regions =  pconn.getQueryServices().getAllTableRegions(table);
+        final List<HRegionLocation> regions =  pconn.getQueryServices().getAllTableRegions(tableRef.getTable().getPhysicalName().getBytes());
         StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, pconn, null, Collections.emptyList(), scan);
-        DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, table, HintNode.EMPTY_HINT_NODE) {
+        DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, tableRef, HintNode.EMPTY_HINT_NODE) {
             @Override
-            protected List<Map.Entry<HRegionInfo, ServerName>> getAllRegions() throws SQLException {
+            protected List<HRegionLocation> getAllRegions() throws SQLException {
                 return DefaultParallelIteratorRegionSplitter.filterRegions(regions, scan.getStartRow(), scan.getStopRow());
             }
         };

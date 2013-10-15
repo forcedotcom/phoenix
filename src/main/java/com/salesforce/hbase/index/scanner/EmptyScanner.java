@@ -24,4 +24,9 @@ public class EmptyScanner implements Scanner {
   public KeyValue peek() throws IOException {
     return null;
   }
+
+  @Override
+  public void close() throws IOException {
+    // noop
+  }
 }

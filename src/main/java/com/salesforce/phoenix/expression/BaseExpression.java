@@ -71,7 +71,7 @@ public abstract class BaseExpression implements Expression {
     
     @Override
     public ColumnModifier getColumnModifier() {
-    	return null;
+    	    return null;
     }    
 
     @Override
@@ -102,5 +102,10 @@ public abstract class BaseExpression implements Expression {
             }
         }
         return l;
+    }
+    
+    @Override
+    public boolean isConstant() {
+        return false;
     }
 }

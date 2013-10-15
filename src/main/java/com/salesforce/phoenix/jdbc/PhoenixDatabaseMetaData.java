@@ -878,7 +878,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             }
             buf.setCharAt(buf.length()-1, ')');
         }
-        buf.append(" order by " + TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
+        buf.append(" order by " + TYPE_SCHEMA_AND_TABLE + "." +TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
     }

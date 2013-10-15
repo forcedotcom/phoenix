@@ -112,7 +112,7 @@ public class IndexTestUtil {
                                 PColumn indexColumn = indexTable.getColumn(IndexUtil.getIndexColumnName(family.getName().getString(), dataColumn.getName().getString()));
                                 ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
                                 coerceDataValueToIndexValue(dataColumn, indexColumn, ptr);
-                                indexValues[indexColumn.getPosition()-indexOffset] = ptr.copyBytes();
+                                indexValues[indexPKColumns.indexOf(indexColumn)-indexOffset] = ptr.copyBytes();
                                 if (!SchemaUtil.isPKColumn(indexColumn)) {
                                     indexValuesSet.set(indexColumn.getPosition()-nIndexColumns-indexOffset);
                                 }

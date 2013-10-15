@@ -30,12 +30,10 @@ package com.salesforce.phoenix.query;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -50,7 +48,6 @@ import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.TableRef;
 
 
 public class DelegateConnectionQueryServices extends DelegateQueryServices implements ConnectionQueryServices {
@@ -80,8 +77,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException {
-        return getDelegate().getAllTableRegions(table);
+    public List<HRegionLocation> getAllTableRegions(byte[] tableName) throws SQLException {
+        return getDelegate().getAllTableRegions(tableName);
     }
 
     @Override
@@ -135,8 +132,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
-        return getDelegate().dropColumn(tabeMetaData, tableType, emptyCF);
+    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType) throws SQLException {
+        return getDelegate().dropColumn(tabeMetaData, tableType);
     }
 
     @Override
@@ -167,5 +164,10 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     @Override
     public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return getDelegate().getTableDescriptor(tableName);
+    }
+
+    @Override
+    public void clearTableRegionCache(byte[] tableName) throws SQLException {
+        getDelegate().clearTableRegionCache(tableName);
     }
 }

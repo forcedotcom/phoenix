@@ -178,6 +178,11 @@ public abstract class BasicQueryPlan implements QueryPlan {
     }
 
     @Override
+    public FilterableStatement getStatement() {
+        return statement;
+    }
+
+    @Override
     public StatementContext getContext() {
         return context;
     }

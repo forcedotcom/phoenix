@@ -82,13 +82,19 @@ public class PMetaDataImpl implements PMetaData {
     }
 
     @Override
-    public PMetaData addColumn(String tableName, List<PColumn> newColumns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException {
+    public PMetaData addColumn(String tableName, List<PColumn> columnsToAdd, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException {
         PTable table = getTable(tableName);
         Map<String,PTable> tables = Maps.newHashMap(metaData);
-        List<PColumn> columns = Lists.newArrayListWithExpectedSize(table.getColumns().size() + 1);
-        columns.addAll(table.getColumns());
-        columns.addAll(newColumns);
-        PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns, isImmutableRows);
+        List<PColumn> oldColumns = PTableImpl.getColumnsToClone(table);
+        List<PColumn> newColumns;
+        if (columnsToAdd.isEmpty()) {
+            newColumns = oldColumns;
+        } else {
+            newColumns = Lists.newArrayListWithExpectedSize(oldColumns.size() + columnsToAdd.size());
+            newColumns.addAll(oldColumns);
+            newColumns.addAll(columnsToAdd);
+        }
+        PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, newColumns, isImmutableRows);
         tables.put(tableName, newTable);
         return new PMetaDataImpl(tables);
     }
@@ -119,14 +125,20 @@ public class PMetaDataImpl implements PMetaData {
         } else {
             column = table.getColumnFamily(familyName).getColumn(columnName);
         }
+        int positionOffset = 0;
         int position = column.getPosition();
         List<PColumn> oldColumns = table.getColumns();
-        List<PColumn> columns = Lists.newArrayListWithExpectedSize(table.getColumns().size() - 1);
+        if (table.getBucketNum() != null) {
+            position--;
+            positionOffset = 1;
+            oldColumns = oldColumns.subList(positionOffset, oldColumns.size());
+        }
+        List<PColumn> columns = Lists.newArrayListWithExpectedSize(oldColumns.size() - 1);
         columns.addAll(oldColumns.subList(0, position));
         // Update position of columns that follow removed column
         for (int i = position+1; i < oldColumns.size(); i++) {
             PColumn oldColumn = oldColumns.get(i);
-            PColumn newColumn = new PColumnImpl(oldColumn.getName(), oldColumn.getFamilyName(), oldColumn.getDataType(), oldColumn.getMaxLength(), oldColumn.getScale(), oldColumn.isNullable(), i-1, oldColumn.getColumnModifier());
+            PColumn newColumn = new PColumnImpl(oldColumn.getName(), oldColumn.getFamilyName(), oldColumn.getDataType(), oldColumn.getMaxLength(), oldColumn.getScale(), oldColumn.isNullable(), i-1+positionOffset, oldColumn.getColumnModifier());
             columns.add(newColumn);
         }
         

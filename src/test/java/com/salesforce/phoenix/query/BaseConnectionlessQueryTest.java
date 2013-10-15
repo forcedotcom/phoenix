@@ -29,6 +29,7 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_TABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.FUNKY_NAME;
 import static com.salesforce.phoenix.util.TestUtil.MULTI_CF_NAME;
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_CONNECTIONLESS_JDBC_URL;
@@ -73,6 +74,7 @@ public class BaseConnectionlessQueryTest extends BaseTest {
     public static void doSetup() throws Exception {
         startServer(getUrl());
         ensureTableCreated(getUrl(), ATABLE_NAME);
+        ensureTableCreated(getUrl(), ENTITY_HISTORY_TABLE_NAME);
         ensureTableCreated(getUrl(), FUNKY_NAME);
         ensureTableCreated(getUrl(), PTSDB_NAME);
         ensureTableCreated(getUrl(), MULTI_CF_NAME);

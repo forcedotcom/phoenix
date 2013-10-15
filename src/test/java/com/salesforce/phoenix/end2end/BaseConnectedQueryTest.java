@@ -31,8 +31,28 @@ import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
 import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
 import static com.salesforce.phoenix.util.TestUtil.C_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID1;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID2;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID3;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID4;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID5;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID6;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID7;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID8;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID9;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_SALTED_TABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_TABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.E_VALUE;
 import static com.salesforce.phoenix.util.TestUtil.MILLIS_IN_DAY;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID1;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID2;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID3;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID4;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID5;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID6;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID7;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID8;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID9;
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.ROW1;
 import static com.salesforce.phoenix.util.TestUtil.ROW2;
@@ -387,4 +407,220 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             conn.close();
         }
     }
+    protected static void initEntityHistoryTableValues(String tenantId, byte[][] splits) throws Exception {
+        initEntityHistoryTableValues(tenantId, splits, null);
+    }
+    
+    protected static void initEntityHistoryTableValues(String tenantId, byte[][] splits, Date date) throws Exception {
+        initEntityHistoryTableValues(tenantId, splits, date, null);
+    }
+    
+    protected static void initEntityHistoryTableValues(String tenantId, byte[][] splits, Date date, Long ts) throws Exception {
+        if (ts == null) {
+            ensureTableCreated(getUrl(), ENTITY_HISTORY_TABLE_NAME, splits);
+        } else {
+            ensureTableCreated(getUrl(), ENTITY_HISTORY_TABLE_NAME, splits, ts-2);
+        }
+        
+        Properties props = new Properties();
+        if (ts != null) {
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+        }
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        try {
+            // Insert all rows at ts
+            PreparedStatement stmt = conn.prepareStatement(
+                    "upsert into " +
+                    ENTITY_HISTORY_TABLE_NAME+
+                    "(" +
+                    "    ORGANIZATION_ID, " +
+                    "    PARENT_ID, " +
+                    "    CREATED_DATE, " +
+                    "    ENTITY_HISTORY_ID, " +
+                    "    OLD_VALUE, " +
+                    "    NEW_VALUE) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)");
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID1);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID1);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+                
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID2);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID2);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+                
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID3);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID3);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID4);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID4);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID5);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID5);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID6);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID6);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID7);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID7);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID8);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID8);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID9);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID9);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            conn.commit();
+        } finally {
+            conn.close();
+        }
+    }
+    
+    protected static void initSaltedEntityHistoryTableValues(String tenantId, byte[][] splits, Date date, Long ts) throws Exception {
+        if (ts == null) {
+            ensureTableCreated(getUrl(), ENTITY_HISTORY_SALTED_TABLE_NAME, splits);
+        } else {
+            ensureTableCreated(getUrl(), ENTITY_HISTORY_SALTED_TABLE_NAME, splits, ts-2);
+        }
+        
+        Properties props = new Properties();
+        if (ts != null) {
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+        }
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        try {
+            // Insert all rows at ts
+            PreparedStatement stmt = conn.prepareStatement(
+                    "upsert into " +
+                    ENTITY_HISTORY_SALTED_TABLE_NAME+
+                    "(" +
+                    "    ORGANIZATION_ID, " +
+                    "    PARENT_ID, " +
+                    "    CREATED_DATE, " +
+                    "    ENTITY_HISTORY_ID, " +
+                    "    OLD_VALUE, " +
+                    "    NEW_VALUE) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)");
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID1);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID1);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+                
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID2);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID2);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+                
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID3);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID3);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID4);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID4);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID5);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID5);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID6);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID6);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID7);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID7);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID8);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID8);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            stmt.setString(1, tenantId);
+            stmt.setString(2, PARENTID9);
+            stmt.setDate(3, date);
+            stmt.setString(4, ENTITYHISTID9);
+            stmt.setString(5,  A_VALUE);
+            stmt.setString(6,  B_VALUE);
+            stmt.execute();
+            
+            conn.commit();
+        } finally {
+            conn.close();
+        }
+    }
+
 }

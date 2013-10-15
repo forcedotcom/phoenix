@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -114,5 +116,10 @@ abstract public class BooleanExpressionFilter extends FilterBase {
     public void write(DataOutput output) throws IOException {
         WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
         expression.write(output);
+    }
+    
+    @Override
+    public void reset() {
+        expression.reset();
     }
 }

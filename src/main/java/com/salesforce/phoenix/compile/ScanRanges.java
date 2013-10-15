@@ -33,6 +33,8 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.RowKeySchema;
@@ -42,28 +44,40 @@ import com.salesforce.phoenix.util.ScanUtil;
 public class ScanRanges {
     private static final List<List<KeyRange>> EVERYTHING_RANGES = Collections.<List<KeyRange>>emptyList();
     private static final List<List<KeyRange>> NOTHING_RANGES = Collections.<List<KeyRange>>singletonList(Collections.<KeyRange>singletonList(KeyRange.EMPTY_RANGE));
-    public static final ScanRanges EVERYTHING = new ScanRanges(EVERYTHING_RANGES,null);
-    public static final ScanRanges NOTHING = new ScanRanges(NOTHING_RANGES,null);
+    public static final ScanRanges EVERYTHING = new ScanRanges(EVERYTHING_RANGES,null,false);
+    public static final ScanRanges NOTHING = new ScanRanges(NOTHING_RANGES,null,false);
 
     public static ScanRanges create(List<List<KeyRange>> ranges, RowKeySchema schema) {
+        return create(ranges, schema, false);
+    }
+    
+    public static ScanRanges create(List<List<KeyRange>> ranges, RowKeySchema schema, boolean forceRangeScan) {
         if (ranges.isEmpty()) {
             return EVERYTHING;
         } else if (ranges.size() == 1 && ranges.get(0).size() == 1 && ranges.get(0).get(0) == KeyRange.EMPTY_RANGE) {
             return NOTHING;
         }
-        return new ScanRanges(ranges, schema);
+        return new ScanRanges(ranges, schema, forceRangeScan);
     }
 
     private SkipScanFilter filter;
     private final List<List<KeyRange>> ranges;
     private final RowKeySchema schema;
+    private final boolean forceRangeScan;
 
-    private ScanRanges (List<List<KeyRange>> ranges, RowKeySchema schema) {
-        this.ranges = ranges;
-        this.schema = schema;
-        if (schema != null && !ranges.isEmpty() ) {
-            this.filter = new SkipScanFilter(ranges, schema);
+    private ScanRanges (List<List<KeyRange>> ranges, RowKeySchema schema, boolean forceRangeScan) {
+        List<List<KeyRange>> sortedRanges = Lists.newArrayListWithExpectedSize(ranges.size());
+        for (int i = 0; i < ranges.size(); i++) {
+            List<KeyRange> sorted = Lists.newArrayList(ranges.get(i));
+            Collections.sort(sorted, KeyRange.COMPARATOR);
+            sortedRanges.add(ImmutableList.copyOf(sorted));
         }
+        this.ranges = ImmutableList.copyOf(sortedRanges);
+        this.schema = schema;
+        if (schema != null && !ranges.isEmpty()) {
+            this.filter = new SkipScanFilter(this.ranges, schema);
+        }
+        this.forceRangeScan = forceRangeScan;
     }
 
     public SkipScanFilter getSkipScanFilter() {
@@ -93,6 +107,9 @@ public class ScanRanges {
      *    not the last key slot
      */
     public boolean useSkipScanFilter() {
+        if (forceRangeScan) {
+            return false;
+        }
         boolean hasRangeKey = false, useSkipScan = false;
         for (List<KeyRange> orRanges : ranges) {
             useSkipScan |= orRanges.size() > 1 | hasRangeKey;

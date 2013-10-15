@@ -67,11 +67,11 @@ public class SpoolingResultIteratorTest {
 
     @Test
     public void testInMemorySpooling() throws Throwable {
-        testSpooling(1024*1024, QueryServicesOptions.DEFAULT_SPOOL_TO_DISK_BYTES);
+        testSpooling(1024*1024, QueryServicesOptions.DEFAULT_MAX_SPOOL_TO_DISK_BYTES);
     }
     @Test
     public void testOnDiskSpooling() throws Throwable {
-        testSpooling(1, QueryServicesOptions.DEFAULT_SPOOL_TO_DISK_BYTES);
+        testSpooling(1, QueryServicesOptions.DEFAULT_MAX_SPOOL_TO_DISK_BYTES);
     }
 
     @Test(expected = SpoolTooBigToDiskException.class)

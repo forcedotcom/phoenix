@@ -51,7 +51,7 @@ public class RowKeyColumnExpression  extends ColumnExpression {
     private PDataType fromType;
     private RowKeyValueAccessor accessor;
     
-    private final String name;
+    protected final String name;
     
     public RowKeyColumnExpression() {
         name = null; // Only on client

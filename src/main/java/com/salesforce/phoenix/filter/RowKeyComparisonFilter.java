@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -65,6 +67,7 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
     @Override
     public void reset() {
         this.keepRow = false;
+        super.reset();
     }
 
     @Override

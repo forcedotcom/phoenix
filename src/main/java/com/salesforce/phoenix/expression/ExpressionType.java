@@ -124,8 +124,14 @@ public enum ExpressionType {
     DoubleSubtractExpression(DoubleSubtractExpression.class),
     DoubleMultiplyExpression(DoubleMultiplyExpression.class),
     DoubleDivideExpression(DoubleDivideExpression.class),
+    RowValueConstructorExpression(RowValueConstructorExpression.class),
     MD5Function(MD5Function.class),
-    SqlTableType(SqlTableType.class);
+    SqlTableType(SqlTableType.class),
+    CeilingDecimalExpression(CeilingDecimalExpression.class),
+    CeilingTimestampExpression(CeilingTimestampExpression.class),
+    FloorDecimalExpression(FloorDecimalExpression.class),
+    FloorTimestampExpression(FloorTimestampExpression.class),
+    IndexKeyValue(IndexKeyValueColumnExpression.class);
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

@@ -31,16 +31,17 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.filter.FilterBase;
-import org.apache.hadoop.hbase.util.Bytes;
+
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * Only allow the 'latest' timestamp of each family:qualifier pair, ensuring that they aren't
@@ -64,20 +65,25 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class ApplyAndFilterDeletesFilter extends FilterBase {
 
   private boolean done = false;
-  List<byte[]>families;
-  private KeyValue coveringDelete;
+  List<ImmutableBytesPtr> families;
+  private final DeleteTracker coveringDelete = new DeleteTracker();
   private Hinter currentHint;
   private DeleteColumnHinter columnHint = new DeleteColumnHinter();
   private DeleteFamilyHinter familyHint = new DeleteFamilyHinter();
   
-  public ApplyAndFilterDeletesFilter(Collection<byte[]> families){
-    this.families = new ArrayList<byte[]>(families);
-    Collections.sort(this.families, Bytes.BYTES_COMPARATOR);
+  /**
+   * Setup the filter to only include the given families. This allows us to seek intelligently pass
+   * families we don't care about.
+   * @param families
+   */
+  public ApplyAndFilterDeletesFilter(Set<ImmutableBytesPtr> families) {
+    this.families = new ArrayList<ImmutableBytesPtr>(families);
+    Collections.sort(this.families);
   }
       
   
-  private byte[] getNextFamily(byte[] family){
-    int index = Collections.binarySearch(families, family, Bytes.BYTES_COMPARATOR);
+  private ImmutableBytesPtr getNextFamily(ImmutableBytesPtr family) {
+    int index = Collections.binarySearch(families, family);
     //doesn't match exactly, be we can find the right next match
     //this is pretty unlikely, but just incase
     if(index < 0){
@@ -96,7 +102,7 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
   
   @Override
   public void reset(){
-    this.coveringDelete = null;
+    this.coveringDelete.reset();
     this.done = false;
   }
   
@@ -105,58 +111,79 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
   public KeyValue getNextKeyHint(KeyValue peeked){
     return currentHint.getHint(peeked);
   }
-  
+
   @Override
-  public ReturnCode filterKeyValue(KeyValue next){
-    //we marked ourselves done, but the END_ROW_KEY didn't manage to seek to the very last key
-    if(this.done){
+  public ReturnCode filterKeyValue(KeyValue next) {
+    // we marked ourselves done, but the END_ROW_KEY didn't manage to seek to the very last key
+    if (this.done) {
       return ReturnCode.SKIP;
     }
 
     switch (KeyValue.Type.codeToType(next.getType())) {
     /*
-     * check for a delete to see if we can just replace this with a single delete; if its a family
-     * delete, then we have deleted all columns and are definitely done with this family. This works
-     * because deletes will always sort first, so we can be sure that if we see a delete, we can
-     * skip everything else.
-     * 
+     * DeleteFamily will always sort first because those KVs (we assume) don't have qualifiers (or
+     * rather are null). Therefore, we have to keep a hold of all the delete families until we get
+     * to a Put entry that is covered by that delete (in which case, we are done with the family).
      */
     case DeleteFamily:
-      // we are doing a little bit of funny stuff here in that we are just flipping the pointer
-      // around for the hint, rather than re-creating the object each time. Just can't be access
-      // concurrently.
-      this.currentHint = familyHint;
-      return ReturnCode.SEEK_NEXT_USING_HINT; 
+      // track the family to delete. If we are updating the delete, that means we have passed all
+      // kvs in the last column, so we can safely ignore the last deleteFamily, and just use this
+      // one
+      this.coveringDelete.deleteFamily = next;
+      return ReturnCode.SKIP;
     case DeleteColumn:
-      this.currentHint = columnHint;
-      return ReturnCode.SEEK_NEXT_USING_HINT;
+      // similar to deleteFamily, all the newer deletes/puts would have been seen at this point, so
+      // we can safely replace the more recent delete column with the more recent one
+      this.coveringDelete.deleteColumn = next;
+      return ReturnCode.SKIP;
     case Delete:
       // we are just deleting the single column value at this point.
       // therefore we just skip this entry and go onto the next one. The only caveat is that
       // we should still cover the next entry if this delete applies to the next entry, so we
       // have to keep around a reference to the KV to compare against the next valid entry
-      this.coveringDelete = next;
+      this.coveringDelete.pointDelete = next;
       return ReturnCode.SKIP;
     default:
-      // its definitely not a DeleteFamily, since we checked that already, so its a valid
-      // entry and we can just add it, as long as it isn't directly covered by the previous
-      // delete
-      if (coveringDelete != null
-          && coveringDelete.matchingColumn(next.getFamily(), next.getQualifier())) {
-        // check to see if the match applies directly to this version
-        if (coveringDelete.getTimestamp() == next.getTimestamp()) {
-          /*
-           * this covers this exact key. Therefore, we can skip this key. However, we can't discard
-           * the covering delete because it might match the next put as well (in the case of having
-           * the same put twice).
-           */
+      // no covering delete or it doesn't match this family.
+      if (coveringDelete.empty() || !coveringDelete.matchingFamily(next)) {
+        // we must be onto a new column family, so all the old markers are now defunct - we can
+        // throw them out and track the next ones we find instead
+        this.coveringDelete.reset();
+        return ReturnCode.INCLUDE;
+      }
+
+      long nextTs = next.getTimestamp();
+      // delete family applies, so we can skip everything else in the family after this
+      if (coveringDelete.deleteFamily != null
+          && coveringDelete.deleteFamily.getTimestamp() >= nextTs) {
+        // hint to the next family
+        this.currentHint = familyHint;
+        return ReturnCode.SEEK_NEXT_USING_HINT;
+      }
+
+      if (coveringDelete.deleteColumn != null
+          && coveringDelete.deleteColumn.getTimestamp() >= nextTs) {
+        // hint to the next column
+        this.currentHint = columnHint;
+        return ReturnCode.SEEK_NEXT_USING_HINT;
+      }
+
+      // point deletes only apply to the exact KV that they reference, so we only need to ensure
+      // that the timestamp matches exactly. Because we sort by timestamp first, either the next
+      // keyvalue has the exact timestamp or is an older (smaller) timestamp, and we can allow that
+      // one.
+      if (coveringDelete.pointDelete != null) {
+        if (coveringDelete.pointDelete.getTimestamp() == nextTs) {
           return ReturnCode.SKIP;
         }
+        // clear the point delete since the TS must not be matching
+        coveringDelete.pointDelete = null;
       }
-      // delete no longer applies, we are onto the next entry
-      coveringDelete = null;
-      return ReturnCode.INCLUDE;
+
     }
+
+    // none of the deletes matches, we are done
+    return ReturnCode.INCLUDE;
   }
 
   @Override
@@ -186,15 +213,17 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
     @Override
     public KeyValue getHint(KeyValue peeked) {
       // check to see if we have another column to seek
-      byte[] nextFamily = getNextFamily(peeked.getFamily());
+      ImmutableBytesPtr nextFamily =
+          getNextFamily(new ImmutableBytesPtr(peeked.getBuffer(), peeked.getFamilyOffset(),
+              peeked.getFamilyLength()));
       if (nextFamily == null) {
         // no known next family, so we can be completely done
         done = true;
         return KeyValue.LOWESTKEY;
-      } else {
-        // there is a valid family, so we should seek to that
-        return KeyValue.createFirstOnRow(peeked.getRow(), nextFamily, HConstants.EMPTY_BYTE_ARRAY);
       }
+        // there is a valid family, so we should seek to that
+      return KeyValue.createFirstOnRow(peeked.getRow(), nextFamily.copyBytesIfNecessary(),
+        HConstants.EMPTY_BYTE_ARRAY);
     }
 
   }
@@ -210,6 +239,45 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
       return KeyValue.createLastOnRow(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(),
         kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(), kv.getBuffer(),
         kv.getQualifierOffset(), kv.getQualifierLength());
+    }
+  }
+
+  class DeleteTracker {
+
+    public KeyValue deleteFamily;
+    public KeyValue deleteColumn;
+    public KeyValue pointDelete;
+
+    public void reset() {
+      this.deleteFamily = null;
+      this.deleteColumn = null;
+      this.pointDelete = null;
+
+    }
+
+    /**
+     * Check to see if any of the deletes match the family of the keyvalue
+     * @param next
+     * @return <tt>true</tt> if any of current delete applies to this family
+     */
+    public boolean matchingFamily(KeyValue next) {
+      if (deleteFamily != null && deleteFamily.matchingFamily(next)) {
+        return true;
+      }
+      if (deleteColumn != null && deleteColumn.matchingFamily(next)) {
+        return true;
+      }
+      if (pointDelete != null && pointDelete.matchingFamily(next)) {
+        return true;
+      }
+      return false;
+    }
+
+    /**
+     * @return <tt>true</tt> if no delete has been set
+     */
+    public boolean empty() {
+      return deleteFamily == null && deleteColumn == null && pointDelete == null;
     }
   }
 }

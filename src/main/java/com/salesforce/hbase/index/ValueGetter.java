@@ -30,6 +30,7 @@ package com.salesforce.hbase.index;
 import java.io.IOException;
 
 import com.salesforce.hbase.index.covered.update.ColumnReference;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 public interface ValueGetter {
 
@@ -41,5 +42,5 @@ public interface ValueGetter {
    *         present.
    * @throws IOException if there is an error accessing the underlying data storage
    */
-  public byte[] getLatestValue(ColumnReference ref) throws IOException;
+  public ImmutableBytesPtr getLatestValue(ColumnReference ref) throws IOException;
 }

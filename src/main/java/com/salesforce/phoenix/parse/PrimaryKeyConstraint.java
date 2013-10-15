@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 
 import org.apache.hadoop.hbase.util.Pair;
 

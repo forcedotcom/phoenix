@@ -42,7 +42,10 @@ import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 import org.apache.hadoop.hbase.util.Bytes;
+
 
 
 /**
@@ -61,6 +64,8 @@ public class IndexTestingUtils {
   public static void setupConfig(Configuration conf) {
       conf.setInt(MASTER_INFO_PORT_KEY, -1);
       conf.setInt(RS_INFO_PORT_KEY, -1);
+    // setup our codec, so we get proper replay/write
+      conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class.getName());
   }
   /**
    * Verify the state of the index table between the given key and time ranges against the list of
