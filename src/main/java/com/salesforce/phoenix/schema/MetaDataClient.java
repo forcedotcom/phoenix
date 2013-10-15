@@ -97,6 +97,7 @@ import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.DropColumnStatement;
 import com.salesforce.phoenix.parse.DropIndexStatement;
 import com.salesforce.phoenix.parse.DropTableStatement;
+import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.PrimaryKeyConstraint;
 import com.salesforce.phoenix.parse.TableName;
@@ -349,6 +350,59 @@ public class MetaDataClient {
         return connection.getQueryServices().updateData(plan);
     }
 
+    private MetaDataClient newClientAtNextTimeStamp() throws SQLException {
+            Properties props = new Properties(connection.getClientInfo());
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(connection.getSCN()+1));
+            return new MetaDataClient(DriverManager.getConnection(connection.getURL(), props).unwrap(PhoenixConnection.class));
+    }
+    
+    private MutationState buildIndexAtTimeStamp(PTable index, NamedTableNode dataTableNode) throws SQLException {
+        // If our connection is at a fixed point-in-time, we need to open a new
+        // connection so that our new index table is visible.
+        MetaDataClient client = newClientAtNextTimeStamp();
+        // Re-resolve the tableRef from the now newer connection
+        client.connection.setAutoCommit(true);
+        ColumnResolver resolver = FromCompiler.getResolver(dataTableNode, client.connection);
+        TableRef tableRef = resolver.getTables().get(0);
+        boolean success = false;
+        SQLException sqlException = null;
+        try {
+            MutationState state = client.buildIndex(index, tableRef);
+            success = true;
+            return state;
+        } catch (SQLException e) {
+            sqlException = e;
+        } finally {
+            try {
+                client.connection.close();
+            } catch (SQLException e) {
+                if (sqlException == null) {
+                    // If we're not in the middle of throwing another exception
+                    // then throw the exception we got on close.
+                    if (success) {
+                        sqlException = e;
+                    }
+                } else {
+                    sqlException.setNextException(e);
+                }
+            }
+            if (sqlException != null) {
+                throw sqlException;
+            }
+        }
+        throw new IllegalStateException(); // impossible
+    }
+    
+    private MutationState buildIndex(PTable index, TableRef dataTableRef) throws SQLException {
+        PostIndexDDLCompiler compiler = new PostIndexDDLCompiler(connection, dataTableRef);
+        MutationPlan plan = compiler.compile(index);
+        MutationState state = connection.getQueryServices().updateData(plan);
+        AlterIndexStatement indexStatement = FACTORY.alterIndex(FACTORY.namedTable(null, 
+                TableName.create(index.getSchemaName().getString(), index.getTableName().getString())),
+                dataTableRef.getTable().getTableName().getString(), false, PIndexState.ACTIVE);
+        alterIndex(indexStatement);
+        return state;
+    }
 
     /**
      * Create an index table by morphing the CreateIndexStatement into a CreateTableStatement and calling
@@ -372,7 +426,6 @@ public class MetaDataClient {
     public MutationState createIndex(CreateIndexStatement statement, byte[][] splits) throws SQLException {
         PrimaryKeyConstraint pk = statement.getIndexConstraint();
         TableName indexTableName = statement.getIndexTableName();
-        String dataTableName = statement.getTable().getName().getTableName();
         
         int hbaseVersion = connection.getQueryServices().getLowestClusterHBaseVersion();
         if (hbaseVersion < PhoenixDatabaseMetaData.MUTABLE_SI_VERSION_THRESHOLD) {
@@ -454,51 +507,13 @@ public class MetaDataClient {
         if (table == null) {
             return new MutationState(0,connection);
         }
-        boolean success = false;
-        MetaDataClient client = this;
-        SQLException sqlException = null;
-        try {
-            // If our connection is at a fixed point-in-time, we need to open a new
-            // connection so that our new index table is visible.
-            if (connection.getSCN() != null) {
-                Properties props = new Properties(connection.getClientInfo());
-                props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(connection.getSCN()+1));
-                client = new MetaDataClient(DriverManager.getConnection(connection.getURL(), props).unwrap(PhoenixConnection.class));
-                // Re-resolve the tableRef from the now newer connection
-                ColumnResolver resolver = FromCompiler.getResolver(statement, client.connection);
-                tableRef = resolver.getTables().get(0);
-            }
-            PostIndexDDLCompiler compiler = new PostIndexDDLCompiler(client.connection, tableRef);
-            MutationPlan plan = compiler.compile(table);
-            MutationState state = client.connection.getQueryServices().updateData(plan);
-            AlterIndexStatement indexStatement = FACTORY.alterIndex(FACTORY.namedTable(null, indexTableName), dataTableName, false, PIndexState.ACTIVE);
-            client.alterIndex(indexStatement);
-            success = true;
-            return state;
-        } catch (SQLException e) {
-            sqlException = e;
-        } finally {
-            // If we had to open another connection, then close it here
-            if (client != this) {
-                try {
-                    client.connection.close();
-                } catch (SQLException e) {
-                    if (sqlException == null) {
-                        // If we're not in the middle of throwing another exception
-                        // then throw the exception we got on close.
-                        if (success) {
-                            sqlException = e;
-                        }
-                    } else {
-                        sqlException.setNextException(e);
-                    }
-                }
-            }
-            if (sqlException != null) {
-                throw sqlException;
-            }
+        // If our connection is at a fixed point-in-time, we need to open a new
+        // connection so that our new index table is visible.
+        if (connection.getSCN() != null) {
+            return buildIndexAtTimeStamp(table, statement.getTable());
         }
-        throw new IllegalStateException(); // impossible
+        
+        return buildIndex(table, tableRef);
     }
 
     private static ColumnDef findColumnDefOrNull(List<ColumnDef> colDefs, ColumnName colName) {
@@ -1270,13 +1285,17 @@ public class MetaDataClient {
             String dataTableName = statement.getTableName();
             String schemaName = statement.getTable().getName().getSchemaName();
             String indexName = statement.getTable().getName().getTableName();
+            PIndexState newIndexState = statement.getIndexState();
+            if (newIndexState == PIndexState.REBUILD) {
+                newIndexState = PIndexState.BUILDING;
+            }
             connection.setAutoCommit(false);
             // Confirm index table is valid and up-to-date
-            FromCompiler.getResolver(statement, connection);
+            TableRef indexRef = FromCompiler.getResolver(statement, connection).getTables().get(0);
             PreparedStatement tableUpsert = connection.prepareStatement(UPDATE_INDEX_STATE);
             tableUpsert.setString(1, schemaName);
             tableUpsert.setString(2, indexName);
-            tableUpsert.setString(3, statement.getIndexState().getSerializedValue());
+            tableUpsert.setString(3, newIndexState.getSerializedValue());
             tableUpsert.execute();
             List<Mutation> tableMetadata = connection.getMutationState().toMutations().next().getSecond();
             connection.rollback();
@@ -1286,10 +1305,30 @@ public class MetaDataClient {
             if (code == MutationCode.TABLE_NOT_FOUND) {
                 throw new TableNotFoundException(schemaName,indexName);
             }
+            if (code == MutationCode.UNALLOWED_TABLE_MUTATION) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_INDEX_STATE_TRANSITION)
+                .setMessage(" currentState=" + indexRef.getTable().getIndexState() + ". requestedState=" + newIndexState )
+                .setSchemaName(schemaName).setTableName(indexName).build().buildException();
+            }
             if (code == MutationCode.TABLE_ALREADY_EXISTS) {
                 if (result.getTable() != null) { // To accommodate connection-less update of index state
                     connection.addTable(result.getTable());
                 }
+            }
+            if (newIndexState == PIndexState.BUILDING) {
+                PTable index = indexRef.getTable();
+                // First delete any existing rows of the index
+                Long scn = connection.getSCN();
+                long ts = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
+                MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(indexRef), null, null, Collections.<PColumn>emptyList(), ts);
+                connection.getQueryServices().updateData(plan);
+                NamedTableNode dataTableNode = NamedTableNode.create(null, TableName.create(schemaName, dataTableName));
+                // Next rebuild the index
+                if (connection.getSCN() != null) {
+                    return buildIndexAtTimeStamp(index, dataTableNode);
+                }
+                TableRef dataTableRef = FromCompiler.getResolver(dataTableNode, connection).getTables().get(0);
+                return buildIndex(index, dataTableRef);
             }
             return new MutationState(1, connection);
         } catch (TableNotFoundException e) {

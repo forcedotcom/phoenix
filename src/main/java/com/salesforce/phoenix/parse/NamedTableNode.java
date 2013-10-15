@@ -32,6 +32,10 @@ public class NamedTableNode extends ConcreteTableNode {
 
     private final List<ColumnDef> dyncolumns;
 
+    public static NamedTableNode create (String alias, TableName name) {
+        return new NamedTableNode(alias, name);
+    }
+    
     NamedTableNode(String alias, TableName name) {
         super(alias, name);
         dyncolumns = Collections.<ColumnDef> emptyList();

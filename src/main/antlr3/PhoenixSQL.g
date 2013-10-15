@@ -91,10 +91,12 @@ tokens
     INDEX='index';
     INCLUDE='include';
     WITHIN='within';
-    ENABLE='enable';
-    DISABLE='disable';
     SET='set';
     CAST='cast';
+    USABLE='usable';
+    UNUSABLE='unusable';
+    DISABLE='disable';
+    REBUILD='rebuild';
 }
 
 
@@ -446,8 +448,8 @@ drop_index_node returns [DropIndexStatement ret]
 
 // Parse a alter index statement
 alter_index_node returns [AlterIndexStatement ret]
-    : ALTER INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name (ENABLE | d=DISABLE)
-      {ret = factory.alterIndex(factory.namedTable(null,factory.table(t.getSchemaName(),i.getName())), t.getTableName(), ex!=null, d==null ? PIndexState.ENABLE : PIndexState.DISABLE); }
+    : ALTER INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name s=(USABLE | UNUSABLE | REBUILD | DISABLE)
+      {ret = factory.alterIndex(factory.namedTable(null,factory.table(t.getSchemaName(),i.getName())), t.getTableName(), ex!=null, PIndexState.valueOf(s.getText())); }
     ;
 
 // Parse an alter table statement.

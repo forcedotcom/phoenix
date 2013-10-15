@@ -23,6 +23,8 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -33,6 +35,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
@@ -103,6 +106,15 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         return maintainer;
     }
     
+    public static Iterator<PTable> nonDisabledIndexIterator(Iterator<PTable> indexes) {
+        return Iterators.filter(indexes, new Predicate<PTable>() {
+            @Override
+            public boolean apply(PTable index) {
+                return !PIndexState.DISABLE.equals(index.getIndexState());
+            }
+        });
+    }
+    
     /**
      * For client-side to serialize all IndexMaintainers for a given table
      * @param schemaName name of schema containing data table
@@ -111,24 +123,28 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
      * @throws IOException 
      */
     public static void serialize(PTable dataTable, ImmutableBytesWritable ptr) {
-        List<PTable> indexes = dataTable.getIndexes();
-        if (dataTable.isImmutableRows() || indexes.isEmpty()) {
+        Iterator<PTable> indexes = nonDisabledIndexIterator(dataTable.getIndexes().iterator());
+        if (dataTable.isImmutableRows() || !indexes.hasNext()) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return;
         }
+        int nIndexes = 0;
         int estimatedSize = dataTable.getRowKeySchema().getEstimatedByteSize() + 2;
-        for (PTable index : indexes) {
+        while (indexes.hasNext()) {
+            nIndexes++;
+            PTable index = indexes.next();
             estimatedSize += index.getIndexMaintainer(dataTable).getEstimatedByteSize();
         }
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedSize + 1);
         DataOutput output = new DataOutputStream(stream);
         try {
             // Encode data table salting in sign of number of indexes
-            WritableUtils.writeVInt(output, indexes.size() * (dataTable.getBucketNum() == null ? 1 : -1));
+            WritableUtils.writeVInt(output, nIndexes * (dataTable.getBucketNum() == null ? 1 : -1));
             // Write out data row key schema once, since it's the same for all index maintainers
             dataTable.getRowKeySchema().write(output);
-            for (PTable index : indexes) {
-                index.getIndexMaintainer(dataTable).write(output);
+            indexes = nonDisabledIndexIterator(dataTable.getIndexes().iterator());
+            while (indexes.hasNext()) {
+                    indexes.next().getIndexMaintainer(dataTable).write(output);
             }
         } catch (IOException e) {
             throw new RuntimeException(e); // Impossible

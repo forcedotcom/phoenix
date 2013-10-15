@@ -30,10 +30,12 @@ package com.salesforce.phoenix.schema;
 
 public enum PIndexState {
     BUILDING("b"),
-    ENABLE("e"),
-    DISABLE("d"),
+    USABLE("e"),
+    UNUSABLE("d"),
     ACTIVE("a"),
-    INACTIVE("i");
+    INACTIVE("i"),
+    DISABLE("x"),
+    REBUILD("r");
 
     private final String serializedValue;
 

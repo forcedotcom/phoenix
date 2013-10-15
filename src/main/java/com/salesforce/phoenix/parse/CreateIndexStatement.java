@@ -47,7 +47,7 @@ public class CreateIndexStatement extends SingleTableSQLStatement {
             PrimaryKeyConstraint indexConstraint, List<ColumnName> includeColumns, List<ParseNode> splits,
             ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
         super(dataTable, bindCount);
-        this.indexTableName = new TableName(dataTable.getName().getSchemaName(),indexTableName.getName());
+        this.indexTableName =TableName.createNormalized(dataTable.getName().getSchemaName(),indexTableName.getName());
         this.indexConstraint = indexConstraint == null ? PrimaryKeyConstraint.EMPTY : indexConstraint;
         this.includeColumns = includeColumns == null ? Collections.<ColumnName>emptyList() : includeColumns;
         this.splitNodes = splits == null ? Collections.<ParseNode>emptyList() : splits;
