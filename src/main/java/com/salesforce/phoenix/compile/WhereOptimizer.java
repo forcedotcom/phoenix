@@ -421,11 +421,7 @@ public class WhereOptimizer {
                     // TODO: can this ever happen and can we safely filter the expression tree?
                     continue;
                 }
-                // TODO: rethink always rewriting (a,b) = (1,2) as a=1 and b=2, as we could
-                // potentially do the same optimization that we do for IN if the RVC is
-                // fully qualified.
                 if (childSlot.getMinMaxRange() != null) {
-                    /// TODO: union together first slot of RVC with existing union 
                     if (!slotRanges.isEmpty() && thePosition != initialPos) { // ORing together rvc in initial slot with other slots
                         return null;
                     }
@@ -437,10 +433,11 @@ public class WhereOptimizer {
                         slotExtractNodes.addAll(extractNodes);
                     }
                 } else {
+                    // TODO: Do the same optimization that we do for IN if the childSlots specify a fully qualified row key
                     for (KeySlot slot : childSlot) {
                         // We have a nested OR with nothing for this slot, so continue
                         if (slot == null) {
-                            continue;
+                            continue; // FIXME: I don't think this is ever necessary
                         }
                         /*
                          * If we see a different PK column than before, we can't
