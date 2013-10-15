@@ -220,13 +220,6 @@ public class CSVBulkLoader {
 		log("[TS - M-R HFile generated..Now dumping to HBase] :: " + new Date() + "\n");
 		
     		LoadIncrementalHFiles loader = new LoadIncrementalHFiles(conf);
-    		//Not a good support for index table. Need to change it.
-    		if(idxTable != null && idxTable.trim().length() > 0){
-    			String indexTable = schemaName.toUpperCase() + "." + idxTable.toUpperCase();
-    			HTable hIndxTable = new HTable(conf, indexTable);
-    			FileUtil.copy(fs, new Path(outFile + "/_0"), fs, new Path(outFile + "/_IDX/IDX"), true, conf);
-        		loader.doBulkLoad(new Path(outFile + "/_IDX"), hIndxTable);
-    		}
     		loader.doBulkLoad(new Path(outFile), hDataTable);
 	    
 		log("[TS - FINISH] :: " + new Date() + "\n");
@@ -262,9 +255,6 @@ public class CSVBulkLoader {
 	
 	private static void loadMapRedConfigs(Configuration conf){
 
-		conf.set("fs.defaultFS", "hdfs://localhost:54310");
-		conf.set("fs.default.name", "hdfs://localhost:54310");
-		conf.set("mapred.job.tracker", "localhost:54311");
 		conf.set("IGNORE.INVALID.ROW", skipErrors);
 		conf.set("schemaName", schemaName);
 		conf.set("tableName", tableName);
