@@ -864,43 +864,61 @@ public class WhereOptimizer {
             }
         }
         
-        private  class RowValueConstructorKeyPart extends BaseKeyPart {
+        private  class RowValueConstructorKeyPart implements KeyPart {
             private final RowValueConstructorExpression rvc;
+            private final PColumn column;
+            private final List<Expression> nodes;
 
             private RowValueConstructorKeyPart(PColumn column, RowValueConstructorExpression rvc, int span) {
-                super (column, span == rvc.getChildren().size() ? Collections.<Expression>singletonList(rvc) : Collections.<Expression>emptyList());
-                this.rvc = span == rvc.getChildren().size() ? rvc : new RowValueConstructorExpression(rvc.getChildren().subList(0, span),rvc.isConstant());
+                this.column = column;
+                if (span == rvc.getChildren().size()) {
+                    this.rvc = rvc;
+                    this.nodes = Collections.<Expression>singletonList(rvc);
+                } else {
+                    this.rvc = new RowValueConstructorExpression(rvc.getChildren().subList(0, span),rvc.isConstant());
+                    this.nodes = Collections.<Expression>emptyList();
+                }
             }
 
             @Override
+            public List<Expression> getExtractNodes() {
+                return nodes;
+            }
+
+            @Override
+            public PColumn getColumn() {
+                return column;
+            }
+           @Override
             public KeyRange getKeyRange(CompareOp op, Expression rhs) {
-                if (op == CompareOp.EQUAL) {
-                    // Since row value constructors in equality expressions are always rewritten
-                    // to be simple equality expressions, we know that equality here is for an
-                    // IN (1,2,3) expression. In that case, we want to use the regular key part
-                    // logic, as the rhs is not a row value constructor.
-                    super.getKeyRange(op, rhs);
-                }
-                ImmutableBytesWritable ptr = context.getTempPtr();
-                boolean usedAllofLHS = this.getExtractNodes().isEmpty();
-                // We know that rhs was converted to a row value constructor and that it's a constant
-                Expression expr= rvc.getChildren().size() == rhs.getChildren().size() && usedAllofLHS ? rhs : new RowValueConstructorExpression(rhs.getChildren().subList(0, Math.min(rvc.getChildren().size(), rhs.getChildren().size())), rhs.isConstant());
-                if (!expr.evaluate(null, ptr) || ptr.getLength()==0) {
-                    return null; // Returning null means that it can never be a match
-                }
-                byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
-                // Need special case for a single valued lhs row value constructor (only when
-                // we're extracting it), as this may subtly affect the CompareOp we need
-                // to use. For example: a < (1,2) is true if a = 1, so we need to switch
-                // the compare op to <= like this: a <= 1. Since we strip trailing nulls
-                // in the rvc, we don't need to worry about the a < (1,null) case.
-                if (usedAllofLHS && rvc.getChildren().size() < rhs.getChildren().size()) {
-                    if (op == CompareOp.LESS) {
-                        op = CompareOp.LESS_OR_EQUAL;
-                    } else if (op == CompareOp.GREATER_OR_EQUAL) {
-                        op = CompareOp.GREATER;
+                // Since row value constructors in equality expressions are always rewritten
+                // to be simple equality expressions, we know that equality here is for an
+                // IN (1,2,3) expression. In that case, we want to use the regular key part
+                // logic, as the rhs is not a row value constructor.
+                if (op != CompareOp.EQUAL) {
+                    boolean usedAllOfLHS = !nodes.isEmpty();
+                    // Need special case for a single valued lhs row value constructor (only when
+                    // we're extracting it), as this may subtly affect the CompareOp we need
+                    // to use. For example: a < (1,2) is true if a = 1, so we need to switch
+                    // the compare op to <= like this: a <= 1. Since we strip trailing nulls
+                    // in the rvc, we don't need to worry about the a < (1,null) case.
+                    if (usedAllOfLHS && rvc.getChildren().size() < rhs.getChildren().size()) {
+                        if (op == CompareOp.LESS) {
+                            op = CompareOp.LESS_OR_EQUAL;
+                        } else if (op == CompareOp.GREATER_OR_EQUAL) {
+                            op = CompareOp.GREATER;
+                        }
+                    }
+                    if (!usedAllOfLHS || rvc.getChildren().size() != rhs.getChildren().size()) {
+                        // We know that rhs was converted to a row value constructor and that it's a constant
+                        rhs= new RowValueConstructorExpression(rhs.getChildren().subList(0, Math.min(rvc.getChildren().size(), rhs.getChildren().size())), rhs.isConstant());
                     }
                 }
+                ImmutableBytesWritable ptr = context.getTempPtr();
+                if (!rhs.evaluate(null, ptr) || ptr.getLength()==0) {
+                    return null; 
+                }
+                byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
                 return ByteUtil.getKeyRange(key, op, PDataType.VARBINARY);
             }
 
