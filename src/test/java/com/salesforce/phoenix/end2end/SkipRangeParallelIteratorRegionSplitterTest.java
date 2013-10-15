@@ -54,6 +54,7 @@ import org.junit.runners.Parameterized.Parameters;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.compile.ColumnResolver;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.filter.SkipScanFilter;
@@ -64,6 +65,7 @@ import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.RowKeySchema;
@@ -343,12 +345,26 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
 
-    private static List<KeyRange> getSplits(TableRef table, final Scan scan, final List<HRegionLocation> regions,
+    private static List<KeyRange> getSplits(TableRef tableRef, final Scan scan, final List<HRegionLocation> regions,
             final ScanRanges scanRanges) throws SQLException {
+        final List<TableRef> tableRefs = Collections.singletonList(tableRef);
+        ColumnResolver resolver = new ColumnResolver() {
+
+            @Override
+            public List<TableRef> getTables() {
+                return tableRefs;
+            }
+
+            @Override
+            public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
+                throw new UnsupportedOperationException();
+            }
+            
+        };
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, connection, null, Collections.emptyList(), scan);
+        StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, connection, resolver, Collections.emptyList(), scan);
         context.setScanRanges(scanRanges);
-        SkipRangeParallelIteratorRegionSplitter splitter = SkipRangeParallelIteratorRegionSplitter.getInstance(context, table, HintNode.EMPTY_HINT_NODE);
+        SkipRangeParallelIteratorRegionSplitter splitter = SkipRangeParallelIteratorRegionSplitter.getInstance(context, tableRef, HintNode.EMPTY_HINT_NODE);
         List<KeyRange> keyRanges = splitter.getSplits();
         Collections.sort(keyRanges, new Comparator<KeyRange>() {
             @Override

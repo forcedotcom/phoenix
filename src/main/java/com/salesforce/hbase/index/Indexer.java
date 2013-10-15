@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.hbase.index;
 
+import static com.salesforce.hbase.index.util.IndexManagementUtil.rethrowIndexingException;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -67,11 +69,12 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Multimap;
+import com.salesforce.hbase.index.builder.IndexBuildManager;
 import com.salesforce.hbase.index.builder.IndexBuilder;
 import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
-import com.salesforce.hbase.index.exception.IndexWriteException;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
 import com.salesforce.hbase.index.write.IndexFailurePolicy;
 import com.salesforce.hbase.index.write.IndexWriter;
@@ -208,13 +211,25 @@ public class Indexer extends BaseRegionObserver {
   public void prePut(final ObserverContext<RegionCoprocessorEnvironment> c, final Put put,
       final WALEdit edit, final boolean writeToWAL) throws IOException {
     // just have to add a batch marker to the WALEdit so we get the edit again in the batch
-    // processing step
+    // processing step. We let it throw an exception here because something terrible has happened.
     edit.add(BATCH_MARKER);
   }
 
   @Override
   public void preDelete(ObserverContext<RegionCoprocessorEnvironment> e, Delete delete,
       WALEdit edit, boolean writeToWAL) throws IOException {
+    try {
+      preDeleteWithExceptions(e, delete, edit, writeToWAL);
+      return;
+    } catch (Throwable t) {
+      rethrowIndexingException(t);
+    }
+    throw new RuntimeException(
+        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
+  }
+
+  public void preDeleteWithExceptions(ObserverContext<RegionCoprocessorEnvironment> e,
+      Delete delete, WALEdit edit, boolean writeToWAL) throws Exception {
     // if we are making the update as part of a batch, we need to add in a batch marker so the WAL
     // is retained
     if (this.builder.getBatchId(delete) != null) {
@@ -230,10 +245,22 @@ public class Indexer extends BaseRegionObserver {
     }
   }
 
-  @SuppressWarnings("deprecation")
   @Override
   public void preBatchMutate(ObserverContext<RegionCoprocessorEnvironment> c,
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
+    try {
+      preBatchMutateWithExceptions(c, miniBatchOp);
+      return;
+    } catch (Throwable t) {
+      rethrowIndexingException(t);
+    }
+    throw new RuntimeException(
+        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
+  }
+
+  @SuppressWarnings("deprecation")
+  public void preBatchMutateWithExceptions(ObserverContext<RegionCoprocessorEnvironment> c,
+      MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws Throwable {
 
     // first group all the updates for a single row into a single update to be processed
     Map<ImmutableBytesPtr, MultiMutation> mutations =
@@ -307,7 +334,7 @@ public class Indexer extends BaseRegionObserver {
         if (this.stopped) {
           INDEX_UPDATE_LOCK.unlock();
           throw new IndexBuildingFailureException(
-              "Found server stop after obtaining the update lock, killing update attempt", null);
+              "Found server stop after obtaining the update lock, killing update attempt");
         }
         break;
       } catch (InterruptedException e) {
@@ -405,9 +432,9 @@ public class Indexer extends BaseRegionObserver {
       try {
         this.writer.write(indexUpdates);
         return false;
-      } catch (IndexWriteException e) {
+      } catch (Throwable e) {
         LOG.error("Failed to update index with entries:" + indexUpdates, e);
-        throw new IOException(e);
+        IndexManagementUtil.rethrowIndexingException(e);
       }
     }
 
@@ -438,12 +465,18 @@ public class Indexer extends BaseRegionObserver {
     // noop for the rest of the indexer - its handled by the first call to put/delete
   }
 
-  /**
-   * @param edit
-   * @param writeToWAL
- * @throws IOException 
-   */
   private void doPost(WALEdit edit, Mutation m, boolean writeToWAL) throws IOException {
+    try {
+      doPostWithExceptions(edit, m, writeToWAL);
+      return;
+    } catch (Throwable e) {
+      rethrowIndexingException(e);
+    }
+    throw new RuntimeException(
+        "Somehow didn't complete the index update, but didn't return succesfully either!");
+  }
+
+  private void doPostWithExceptions(WALEdit edit, Mutation m, boolean writeToWAL) throws Exception {
     //short circuit, if we don't need to do any work
     if (!writeToWAL || !this.builder.isEnabled(m)) {
       // already did the index update in prePut, so we are done

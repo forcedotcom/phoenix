@@ -1076,6 +1076,39 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         if (family != null) {
             ensureFamilyCreated(tableName, tableType, family);
         }
+        // Special case for call during drop table to ensure that the empty column family exists.
+        // Also, could be used to update property values on ALTER TABLE t SET prop=xxx
+        if (tableMetaData.isEmpty()) {
+            return null;
+        }
+        MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
+            new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
+                @Override
+                public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
+                    return instance.addColumn(tableMetaData);
+                }
+            });
+        return result;
+    }
+    
+    @Override
+    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, List<Pair<byte[],Map<String,Object>>> families) throws SQLException {
+        byte[][] rowKeyMetaData = new byte[2][];
+        byte[] rowKey = tableMetaData.get(0).getRow();
+        SchemaUtil.getVarChars(rowKey, rowKeyMetaData);
+        byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
+        byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
+        for ( Pair<byte[],Map<String,Object>>  family : families) {
+            
+            ensureFamilyCreated(tableName, tableType, family);
+        }
+        // Special case for call during drop table to ensure that the empty column family exists.
+        // Also, could be used to update property values on ALTER TABLE t SET prop=xxx
+        if (tableMetaData.isEmpty()) {
+            return null;
+        }
         MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -1087,16 +1120,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
+    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
-        if (emptyCF != null) {
-            this.ensureFamilyCreated(tableName, tableType, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
-        }
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -1136,7 +1165,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MutationState updateData(MutationPlan plan) throws SQLException { 
+    public MutationState updateData(MutationPlan plan) throws SQLException {
         return plan.execute();
     }
 

@@ -51,6 +51,12 @@ public final class ColumnRef {
     private final int columnPosition;
     private final int pkSlotPosition;
     
+    public ColumnRef(ColumnRef columnRef, long timeStamp) {
+        this.tableRef = new TableRef(columnRef.tableRef, timeStamp);
+        this.columnPosition = columnRef.columnPosition;
+        this.pkSlotPosition = columnRef.pkSlotPosition;
+    }
+
     public ColumnRef(TableRef tableRef, int columnPosition) {
         if (tableRef == null) {
             throw new NullPointerException();

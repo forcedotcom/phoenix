@@ -127,6 +127,10 @@ public enum ExpressionType {
     RowValueConstructorExpression(RowValueConstructorExpression.class),
     MD5Function(MD5Function.class),
     SqlTableType(SqlTableType.class),
+    CeilingDecimalExpression(CeilingDecimalExpression.class),
+    CeilingTimestampExpression(CeilingTimestampExpression.class),
+    FloorDecimalExpression(FloorDecimalExpression.class),
+    FloorTimestampExpression(FloorTimestampExpression.class),
     IndexKeyValue(IndexKeyValueColumnExpression.class);
     
     ExpressionType(Class<? extends Expression> clazz) {

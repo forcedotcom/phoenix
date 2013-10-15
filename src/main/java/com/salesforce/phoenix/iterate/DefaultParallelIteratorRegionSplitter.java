@@ -50,6 +50,7 @@ import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.StatsManager;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 
@@ -91,7 +92,10 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
     // Get the mapping between key range and the regions that contains them.
     protected List<HRegionLocation> getAllRegions() throws SQLException {
         Scan scan = context.getScan();
-        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(tableRef.getTable().getName().getBytes());
+        PTable table = tableRef.getTable();
+        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table.getName().getBytes());
+        // If we're not salting, then we've already intersected the minMaxRange with the scan range
+        // so there's nothing to do here.
         return filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());
     }
 

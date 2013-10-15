@@ -118,6 +118,10 @@ public class KeyRange implements Writable {
     private boolean upperInclusive;
     private boolean isSingleKey;
 
+    public static KeyRange getKeyRange(byte[] point) {
+        return getKeyRange(point, true, point, true);
+    }
+    
     public static KeyRange getKeyRange(byte[] lowerRange, byte[] upperRange) {
         return getKeyRange(lowerRange, true, upperRange, false);
     }

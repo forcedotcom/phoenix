@@ -32,6 +32,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
@@ -42,6 +44,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
+import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
 import com.salesforce.hbase.index.covered.data.LazyValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.scanner.Scanner;
@@ -55,6 +58,7 @@ public class IndexManagementUtil {
     // private ctor for util classes
   }
 
+  private static final Log LOG = LogFactory.getLog(IndexManagementUtil.class);
   public static String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
 
   public static void ensureMutableIndexingCorrectlyConfigured(Configuration conf)
@@ -203,5 +207,28 @@ public class IndexManagementUtil {
       }
       s.setMaxVersions();
       return s;
+  }
+
+  /**
+   * Propagate the given failure as a generic {@link IOException}, if it isn't already
+   * @param e reason indexing failed. If ,tt>null</tt>, throws a {@link NullPointerException}, which
+   *          should unload the coprocessor.
+   */
+  public static void rethrowIndexingException(Throwable e) throws IOException {
+    try {
+      throw e;
+    } catch (IOException e1) {
+      LOG.info("Rethrowing " + e);
+      throw e1;
+    } catch (Throwable e1) {
+      LOG.info("Rethrowing " + e1 + " as a " + IndexBuildingFailureException.class.getSimpleName());
+      throw new IndexBuildingFailureException("Failed to build index for unexpected reason!", e1);
+    }
+  }
+
+  public static void setIfNotSet(Configuration conf, String key, int value) {
+    if (conf.get(key) == null) {
+      conf.setInt(key, value);
+    }
   }
 }

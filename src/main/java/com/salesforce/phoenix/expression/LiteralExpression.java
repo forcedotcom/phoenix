@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -37,7 +39,10 @@ import org.apache.hadoop.io.WritableUtils;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.StringUtil;
@@ -254,5 +259,10 @@ public class LiteralExpression extends BaseTerminalExpression {
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return visitor.visit(this);
+    }
+    
+    @Override
+    public boolean isConstant() {
+        return true;
     }
 }

@@ -27,7 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.query.QueryConstants.*;
+import static com.salesforce.phoenix.query.QueryConstants.AGG_TIMESTAMP;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
+import static com.salesforce.phoenix.query.QueryConstants.UNGROUPED_AGG_ROW_KEY;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -36,9 +39,12 @@ import org.apache.hadoop.hbase.KeyValue;
 
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.PeekingResultIterator;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;

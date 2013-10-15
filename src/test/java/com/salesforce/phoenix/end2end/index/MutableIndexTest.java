@@ -14,15 +14,10 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.TableNotFoundException;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.QueryUtil;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -38,28 +33,6 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         props.put(QueryServices.INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB, Integer.toString(2));
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
-    }
-        
-    @Before // FIXME: this shouldn't be necessary, but the tests hang without it.
-    public void destroyTables() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
-        Properties props = new Properties(TEST_PROPERTIES);
-        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
-        HBaseAdmin admin = services.getAdmin();
-        try {
-            try {
-                admin.disableTable(INDEX_TABLE_FULL_NAME);
-                admin.deleteTable(INDEX_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-            try {
-                admin.disableTable(DATA_TABLE_FULL_NAME);
-                admin.deleteTable(DATA_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-       } finally {
-                admin.close();
-        }
     }
     
     @Test
@@ -232,7 +205,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         
         query = "SELECT v1 as foo FROM " + DATA_TABLE_FULL_NAME + " WHERE v2 = '1' ORDER BY foo";
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
-        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER " +INDEX_TABLE_FULL_NAME + " '1'\n" + 
+        assertEquals("CLIENT PARALLEL 1-WAY RANGE SCAN OVER " +INDEX_TABLE_FULL_NAME + " [~'1']\n" + 
                 "    SERVER TOP -1 ROWS SORTED BY [V1]\n" + 
                 "CLIENT MERGE SORT", QueryUtil.getExplainPlan(rs));
 

@@ -36,15 +36,14 @@ public class TrackOrderPreservingExpressionCompiler  extends ExpressionCompiler 
     
     private final List<Entry> entries;
     private final Ordering ordering;
+    private final int positionOffset;
     private OrderPreserving orderPreserving = OrderPreserving.YES;
     private ColumnRef columnRef;
     private boolean isOrderPreserving = true;
     
     TrackOrderPreservingExpressionCompiler(StatementContext context, GroupBy groupBy, int expectedEntrySize, Ordering ordering) {
         super(context, groupBy);
-        if (context.getResolver().getTables().get(0).getTable().getBucketNum() != null) {
-            orderPreserving = OrderPreserving.NO;
-        }
+        positionOffset =  context.getResolver().getTables().get(0).getTable().getBucketNum() == null ? 0 : 1;
         entries = Lists.newArrayListWithExpectedSize(expectedEntrySize);
         this.ordering = ordering;
     }
@@ -66,7 +65,7 @@ public class TrackOrderPreservingExpressionCompiler  extends ExpressionCompiler 
         // Determine if there are any gaps in the PK columns (in which case we don't need
         // to sort in the coprocessor because the keys will already naturally be in sorted
         // order.
-        int prevPos = -1;
+        int prevPos = positionOffset - 1;
         OrderPreserving prevOrderPreserving = OrderPreserving.YES;
         for (int i = 0; i < entries.size() && isOrderPreserving; i++) {
             Entry entry = entries.get(i);

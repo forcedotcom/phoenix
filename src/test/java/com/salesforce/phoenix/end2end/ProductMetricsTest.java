@@ -48,6 +48,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
@@ -55,12 +56,14 @@ import org.junit.Test;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 public class ProductMetricsTest extends BaseClientMangedTimeTest {
     private static Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
@@ -1949,4 +1952,84 @@ public class ProductMetricsTest extends BaseClientMangedTimeTest {
             conn.close();
         }
     }
+    
+    private static void destroyTable() throws Exception {
+        // Physically delete HBase table so that splits occur as expected for each test
+        Properties props = new Properties(TEST_PROPERTIES);
+        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
+        HBaseAdmin admin = services.getAdmin();
+        try {
+            try {
+                admin.disableTable(PRODUCT_METRICS_NAME);
+                admin.deleteTable(PRODUCT_METRICS_NAME);
+            } catch (TableNotFoundException e) {
+            }
+       } finally {
+                admin.close();
+        }
+    }
+    
+    @Test
+    public void testSaltedOrderBy() throws Exception {
+        destroyTable();
+        long ts = nextTimestamp();
+        String ddl = "create table " + PRODUCT_METRICS_NAME +
+        "   (organization_id char(15) not null," +
+        "    date date not null," +
+        "    feature char(1) not null," +
+        "    unique_users integer not null,\n" +
+        "    db_utilization decimal(31,10),\n" +
+        "    transactions bigint,\n" +
+        "    cpu_utilization decimal(31,10),\n" +
+        "    response_time bigint,\n" +
+        "    io_time bigint,\n" +
+        "    region varchar,\n" +
+        "    unset_column decimal(31,10)\n" +
+        "    CONSTRAINT pk PRIMARY KEY (organization_id, date, feature, unique_users)) salt_buckets=3";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts-1); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        conn.createStatement().execute(ddl);
+        conn.close();
+
+        String tenantId = getOrganizationId();
+        Date startDate = new Date(System.currentTimeMillis());
+        initDateTableValues(tenantId, getSplits(tenantId), ts, startDate);
+        // Add more date data
+        url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts); // Run query at timestamp 5
+        props = new Properties(TEST_PROPERTIES);
+        conn = DriverManager.getConnection(url, props);
+        initDateTableValues(conn, tenantId, new Date(startDate.getTime()+TestUtil.MILLIS_IN_DAY*10), 2.0);
+        initDateTableValues(conn, tenantId, new Date(startDate.getTime()+TestUtil.MILLIS_IN_DAY*20), 2.0);
+        conn.commit();
+        conn.close();
+
+        url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        props = new Properties(TEST_PROPERTIES);
+        conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement("SELECT count(1) FROM PRODUCT_METRICS WHERE organization_id = ?");
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(18, rs.getLong(1));
+            
+            statement = conn.prepareStatement("SELECT date FROM PRODUCT_METRICS WHERE organization_id = ?  order by date desc limit 10");
+            statement.setString(1, tenantId);
+            rs = statement.executeQuery();
+            Date date = null;
+            int count = 0;
+            while (rs.next()) {
+                if (date != null) {
+                    assertTrue(date.getTime() >= rs.getDate(1).getTime());
+                }
+                count++;
+                date = rs.getDate(1);
+            }
+            assertEquals(10,count);
+        } finally {
+            conn.close();
+        }
+    }
+    
 }
