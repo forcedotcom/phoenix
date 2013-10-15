@@ -27,85 +27,33 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.ColumnModifier;
+import java.math.MathContext;
+import java.math.RoundingMode;
 
 
-
-/**
- * 
- * Base class for Expression hierarchy that provides common
- * default implementations for most methods
- *
- * @author jtaylor
- * @since 0.1
- */
-public abstract class BaseExpression implements Expression {
-    @Override
-    public boolean isNullable() {
-        return false;
+public class FloorDecimalExpression extends CeilingDecimalExpression {
+    private static final MathContext FLOOR_CONTEXT = new MathContext(0, RoundingMode.FLOOR);
+    
+    public FloorDecimalExpression() {
     }
-
-    @Override
-    public Integer getByteSize() {
-        return getDataType().isFixedWidth() ? getDataType().getByteSize() : null;
-    }
-
-    @Override
-    public Integer getMaxLength() {
-        return null;
-    }
-
-    @Override
-    public Integer getScale() {
-        return null;
+    
+    public FloorDecimalExpression(Expression child) {
+        super(child);
     }
     
     @Override
-    public ColumnModifier getColumnModifier() {
-    	    return null;
-    }    
-
-    @Override
-    public void readFields(DataInput input) throws IOException {
-    }
-
-    @Override
-    public void write(DataOutput output) throws IOException {
-    }
-
-    @Override
-    public void reset() {
+    protected MathContext getMathContext() {
+        return FLOOR_CONTEXT;
     }
     
-    protected final <T> List<T> acceptChildren(ExpressionVisitor<T> visitor, Iterator<Expression> iterator) {
-        if (iterator == null) {
-            iterator = visitor.defaultIterator(this);
+    
+    @Override
+    public final String toString() {
+        StringBuilder buf = new StringBuilder("FLOOR(");
+        for (int i = 0; i < children.size() - 1; i++) {
+            buf.append(getChild().toString());
         }
-        List<T> l = Collections.emptyList();
-        while (iterator.hasNext()) {
-            Expression child = iterator.next();
-            T t = child.accept(visitor);
-            if (t != null) {
-                if (l.isEmpty()) {
-                    l = new ArrayList<T>(getChildren().size());
-                }
-                l.add(t);
-            }
-        }
-        return l;
-    }
-    
-    @Override
-    public boolean isConstant() {
-        return false;
+        buf.append(")");
+        return buf.toString();
     }
 }

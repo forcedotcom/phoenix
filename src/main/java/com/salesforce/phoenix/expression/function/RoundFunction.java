@@ -201,7 +201,7 @@ public class RoundFunction extends ScalarFunction {
             }
 
             @Override
-            public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
+            public KeyRange getKeyRange(CompareOp op, Expression rhs) {
                 PDataType type = getColumn().getDataType();
                 ImmutableBytesWritable ptr = new ImmutableBytesWritable();
                 rhs.evaluate(null, ptr);
@@ -233,7 +233,7 @@ public class RoundFunction extends ScalarFunction {
                     codec.encodeLong((value + divBy - (1 -offset))/divBy*divBy, nextKey, 0);
                     return type.getKeyRange(KeyRange.UNBOUND, false, nextKey, false);
                 default:
-                    return childPart.getKeyRange(op, rhs, 1);
+                    return childPart.getKeyRange(op, rhs);
                 }
             }
         };

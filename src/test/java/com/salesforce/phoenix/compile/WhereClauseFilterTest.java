@@ -584,7 +584,6 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         assertEquals(
             singleKVFilter(in(
                 kvColumn(BaseConnectionlessQueryTest.A_STRING),
-                PDataType.VARCHAR,
                 "a",
                 "b")),
             filter);

@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -43,7 +42,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.AndExpression;
-import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.InListExpression;
@@ -66,11 +64,9 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.SaltingUtil;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
-import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
 
 /**
@@ -89,7 +85,7 @@ public class WhereOptimizer {
     /**
      * Pushes row key expressions from the where clause into the start/stop key of the scan.
      * @param context the shared context during query compilation
-     * @param statement TODO
+     * @param statement the statement being compiled
      * @param whereClause the where clause expression
      * @return the new where clause with the key expressions removed
      */
@@ -179,7 +175,6 @@ public class WhereOptimizer {
                 extractNodes.addAll(nodesToExtract);
             }
             // Stop building start/stop key once we encounter a non single key range.
-            // TODO: remove this soon after more testing on SkipScanFilter
             if (hasUnboundedRange && !forcedSkipScan) {
                 // TODO: when stats are available, we may want to continue this loop if the
                 // cardinality of this slot is low. We could potentially even continue this
@@ -275,6 +270,10 @@ public class WhereOptimizer {
         }
         
         private static KeySlots newKeyParts(KeySlot slot, Expression extractNode, KeyRange keyRange) {
+            if (keyRange == null) {
+                return DEGENERATE_KEY_PARTS;
+            }
+            
             List<KeyRange> keyRanges = slot.getPKSpan() == 1 ? Collections.<KeyRange>singletonList(keyRange) : EVERYTHING_RANGES;
             KeyRange minMaxRange = slot.getPKSpan() == 1 ? null : keyRange;
             return newKeyParts(slot, extractNode, keyRanges, minMaxRange);
@@ -308,13 +307,7 @@ public class WhereOptimizer {
             int position = initPosition;
             for (KeySlots slots : childSlots) {
                 KeySlot keySlot = slots.iterator().next();
-                // TODO: handle nested rvc
-                if (keySlot.getPKSpan() > 1) {
-                    return null;
-                }
-                // TODO:  if child slot doesn't use all of the row key column,
-                // for example with (substr(a,1,3), b) > ('foo','bar')  then
-                // we need to stop the iteration and not extract the node.
+                // If columns are not in PK order, then stop iteration
                 if (keySlot.getPKPosition() != position) {
                     break;
                 }
@@ -331,12 +324,8 @@ public class WhereOptimizer {
                 }
             }
             if (position > initPosition) {
-                List<Expression> extractNodes = Collections.<Expression>emptyList() ;
                 int span = position - initPosition;
-                if (span == rvc.getChildren().size()) { // Used all children, so we may extract the node
-                    extractNodes = Collections.<Expression>singletonList(rvc);
-                }
-                return new SingleKeySlot(new BaseRowValueConstructorKeyPart(table.getPKColumns().get(initPosition), extractNodes, rvc), initPosition, span, EVERYTHING_RANGES);
+                return new SingleKeySlot(new RowValueConstructorKeyPart(table.getPKColumns().get(initPosition), rvc, span), initPosition, span, EVERYTHING_RANGES);
             }
             return null;
         }
@@ -560,14 +549,9 @@ public class WhereOptimizer {
             return new SingleKeySlot(new BaseKeyPart(column, Collections.<Expression>singletonList(node)), node.getPosition(), 1, EVERYTHING_RANGES);
         }
 
-        // TODO: get rid of datum and backing datum and just use the extracted node
-        // If extracted node becomes empty, then nothing to contribute for that branch
-        // Ok to pass up original backing datum all the way up to the point were exract
-        // node means something - don't need to pass function expression up, I don't think
         @Override
         public Iterator<Expression> visitEnter(ComparisonExpression node) {
             Expression rhs = node.getChildren().get(1);
-            // TODO: add Expression.isConstant() instead as this is ugly
             if (!rhs.isConstant() || node.getFilterOp() == CompareOp.NOT_EQUAL) {
                 return Iterators.emptyIterator();
             }
@@ -593,7 +577,7 @@ public class WhereOptimizer {
             if (modifier != null) {
                 op = modifier.transform(op);
             }
-            KeyRange keyRange = childPart.getKeyRange(op, rhs, childSlot.getPKSpan());
+            KeyRange keyRange = childPart.getKeyRange(op, rhs);
             return newKeyParts(childSlot, node, keyRange);
         }
 
@@ -662,37 +646,26 @@ public class WhereOptimizer {
             return Iterators.singletonIterator(node.getChildren().get(0));
         }
 
-        // TODO: optimize same as OR by having set of key ranges
         @Override
         public KeySlots visitLeave(InListExpression node, List<KeySlots> childParts) {
             if (childParts.isEmpty()) {
                 return null;
             }
 
-            List<byte[]> keys = node.getKeys();
+            List<Expression> keys = node.getKeys();
             List<KeyRange> ranges = Lists.newArrayListWithExpectedSize(keys.size());
             KeySlot childSlot = childParts.get(0).iterator().next();
-            // TODO: optimize (a,b) IN ((1,2),(3,4))
+            KeyPart childPart = childSlot.getKeyPart();
             // We can only optimize a row value constructor that is fully qualified
             if (childSlot.getPKSpan() > 1 && !isFullyQualified(childSlot.getPKSpan())) {
-                return null;
+                return newKeyParts(childSlot, (Expression)null, Collections.singletonList(
+                        KeyRange.getKeyRange(
+                                ByteUtil.copyKeyBytesIfNecessary(node.getMinKey()), true,
+                                ByteUtil.copyKeyBytesIfNecessary(node.getMaxKey()), true)), null);
             }
-            KeyPart childPart = childSlot.getKeyPart();
             // Handles cases like WHERE substr(foo,1,3) IN ('aaa','bbb')
-            for (final byte[] key : keys) {
-                ranges.add(childPart.getKeyRange(CompareOp.EQUAL, new BaseTerminalExpression() {
-
-                    @Override
-                    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-                        ptr.set(key);
-                        return true;
-                    }
-
-                    @Override
-                    public PDataType getDataType() {
-                        return PDataType.VARBINARY;
-                    }
-                }, childSlot.getPKSpan()));
+            for (Expression key : keys) {
+                ranges.add(childPart.getKeyRange(CompareOp.EQUAL, key));
             }
             return newKeyParts(childSlot, node, ranges, null);
         }
@@ -857,21 +830,7 @@ public class WhereOptimizer {
         
         private static class BaseKeyPart implements KeyPart {
             @Override
-            public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
-                // Need special case for this, as we cannot put the completely evaluated
-                // key for the rhs in the row key, but instead need to only put the first
-                // child value. However, this may subtly affect the CompareOp we need
-                // to use. For example: a < (1,2) is true if a = 1, so we need to switch
-                // the compare op to <= like this: a <= 1. Since we strip trailing nulls
-                // in the rvc, we don't need to worry about the a < (1,null) case.
-                if (rhs instanceof RowValueConstructorExpression) {
-                    rhs = rhs.getChildren().get(0); // TODO: nested rvc: recurse until non rvc
-                    if (op == CompareOp.LESS) {
-                        op = CompareOp.LESS_OR_EQUAL;
-                    } else if (op == CompareOp.GREATER_OR_EQUAL) {
-                        op = CompareOp.GREATER;
-                    }
-                }
+            public KeyRange getKeyRange(CompareOp op, Expression rhs) {
                 ImmutableBytesWritable ptr = new ImmutableBytesWritable();
                 rhs.evaluate(null, ptr);
                 byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
@@ -905,75 +864,43 @@ public class WhereOptimizer {
             }
         }
         
-        private  class BaseRowValueConstructorKeyPart implements KeyPart {
-            private final PColumn column;
-            private final List<Expression> nodes;
+        private  class RowValueConstructorKeyPart extends BaseKeyPart {
             private final RowValueConstructorExpression rvc;
 
-            private BaseRowValueConstructorKeyPart(PColumn column, List<Expression> nodes, RowValueConstructorExpression rvc) {
-                this.column = column;
-                this.nodes = nodes;
-                this.rvc = rvc;
+            private RowValueConstructorKeyPart(PColumn column, RowValueConstructorExpression rvc, int span) {
+                super (column, span == rvc.getChildren().size() ? Collections.<Expression>singletonList(rvc) : Collections.<Expression>emptyList());
+                this.rvc = span == rvc.getChildren().size() ? rvc : new RowValueConstructorExpression(rvc.getChildren().subList(0, span),rvc.isConstant());
             }
 
             @Override
-            public List<Expression> getExtractNodes() {
-                return nodes;
-            }
-
-            @Override
-            public PColumn getColumn() {
-                return column;
-            }
-            
-            @Override
-            public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
+            public KeyRange getKeyRange(CompareOp op, Expression rhs) {
+                if (op == CompareOp.EQUAL) {
+                    // Since row value constructors in equality expressions are always rewritten
+                    // to be simple equality expressions, we know that equality here is for an
+                    // IN (1,2,3) expression. In that case, we want to use the regular key part
+                    // logic, as the rhs is not a row value constructor.
+                    super.getKeyRange(op, rhs);
+                }
                 ImmutableBytesWritable ptr = context.getTempPtr();
-                int posOffset = (table.getBucketNum() == null ? 0 : 1);
-                TrustedByteArrayOutputStream output = new TrustedByteArrayOutputStream(rvc.getEstimatedSize());
-                int i = 0;
-                try {
-                    // Coerce from the type used by row value constructor expression to the type expected by
-                    // the row key column.
-                    boolean isRHSRVC = (rhs instanceof RowValueConstructorExpression);
-                    for (; i < span; i++) {
-                        PColumn column = table.getPKColumns().get(i + posOffset);
-                        boolean isNullable = column.isNullable();
-                        ColumnModifier mod = column.getColumnModifier();
-                        Expression src =  (isRHSRVC ? rhs.getChildren().get(i) : rhs);
-                        src.evaluate(null, ptr);
-                        boolean isNull = ptr.getLength() == 0;
-                        if (!isNullable && isNull) {
-                            if (i == 0) {
-                                // This is either always true or always false, since we have a not nullable column 
-                                return op == CompareOp.LESS || op == CompareOp.LESS_OR_EQUAL ? KeyRange.EMPTY_RANGE : KeyRange.EVERYTHING_RANGE;
-                            }
-                            // Since we would always have a value for this slot position (since it's not null),  we can break early
-                            // and still extract the node, since it'll always be true.
-                            break;
-                        }
-                        PDataType dstType = rvc.getChildren().get(i).getDataType();
-                        PDataType srcType = src.getDataType();
-                        dstType.coerceBytes(ptr, srcType, mod, mod);
-                        output.write(ptr.get(), ptr.getOffset(), ptr.getLength());
-                        if (!dstType.isFixedWidth()) {
-                            output.write(QueryConstants.SEPARATOR_BYTE);
-                        }
-                    }
-                } finally {
-                    try {
-                        output.close();
-                    } catch (IOException e) {
-                       throw new RuntimeException(e); // Impossible
+                boolean usedAllofLHS = this.getExtractNodes().isEmpty();
+                // We know that rhs was converted to a row value constructor and that it's a constant
+                Expression expr= rvc.getChildren().size() == rhs.getChildren().size() && usedAllofLHS ? rhs : new RowValueConstructorExpression(rhs.getChildren().subList(0, Math.min(rvc.getChildren().size(), rhs.getChildren().size())), rhs.isConstant());
+                if (!expr.evaluate(null, ptr) || ptr.getLength()==0) {
+                    return null; // Returning null means that it can never be a match
+                }
+                byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
+                // Need special case for a single valued lhs row value constructor (only when
+                // we're extracting it), as this may subtly affect the CompareOp we need
+                // to use. For example: a < (1,2) is true if a = 1, so we need to switch
+                // the compare op to <= like this: a <= 1. Since we strip trailing nulls
+                // in the rvc, we don't need to worry about the a < (1,null) case.
+                if (usedAllofLHS && rvc.getChildren().size() < rhs.getChildren().size()) {
+                    if (op == CompareOp.LESS) {
+                        op = CompareOp.LESS_OR_EQUAL;
+                    } else if (op == CompareOp.GREATER_OR_EQUAL) {
+                        op = CompareOp.GREATER;
                     }
                 }
-                // Remove trailing nulls
-                byte[] outputBytes = output.getBuffer();
-                int length = output.size();
-                for (i--; i >= 0 && !rhs.getChildren().get(i).getDataType().isFixedWidth() && outputBytes[length-1] == QueryConstants.SEPARATOR_BYTE; i--) {
-                    length--;
-                }
-                byte[] key = outputBytes.length == length ? outputBytes : Arrays.copyOf(outputBytes, length);
                 return ByteUtil.getKeyRange(key, op, PDataType.VARBINARY);
             }
 

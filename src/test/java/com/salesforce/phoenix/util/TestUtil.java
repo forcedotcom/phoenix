@@ -48,6 +48,7 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
@@ -240,16 +241,17 @@ public class TestUtil {
     }
 
     public static Expression in(Expression... expressions) throws SQLException {
-        return new InListExpression(Arrays.asList(expressions));
+        return InListExpression.create(Arrays.asList(expressions), new ImmutableBytesWritable());
     }
 
-    public static Expression in(Expression e, PDataType childType, Object... literals) throws SQLException {
+    public static Expression in(Expression e, Object... literals) throws SQLException {
+        PDataType childType = e.getDataType();
         List<Expression> expressions = new ArrayList<Expression>(literals.length + 1);
         expressions.add(e);
         for (Object o : literals) {
             expressions.add(LiteralExpression.newConstant(o, childType));
         }
-        return new InListExpression(expressions);
+        return InListExpression.create(expressions, new ImmutableBytesWritable());
     }
 
     public static void assertDegenerate(StatementContext context) {

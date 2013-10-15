@@ -27,85 +27,69 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
+
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
-
-/**
- * 
- * Base class for Expression hierarchy that provides common
- * default implementations for most methods
- *
- * @author jtaylor
- * @since 0.1
- */
-public abstract class BaseExpression implements Expression {
+public class CeilingDecimalExpression extends BaseSingleExpression {
+    private static final MathContext CEILING_CONTEXT = new MathContext(0, RoundingMode.CEILING);
+    
+    public CeilingDecimalExpression() {
+    }
+    
+    public CeilingDecimalExpression(Expression child)  {
+        super(child);
+    }
+    
+    protected MathContext getMathContext() {
+        return CEILING_CONTEXT;
+    }
+    
     @Override
-    public boolean isNullable() {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        Expression child =  getChild();
+        if (child.evaluate(tuple, ptr)) {
+            PDataType childType = child.getDataType();
+            childType.coerceBytes(ptr, childType, child.getColumnModifier(), null);
+            BigDecimal value = (BigDecimal) childType.toObject(ptr);
+            value = value.round(getMathContext());
+            byte[] b = childType.toBytes(value, child.getColumnModifier());
+            ptr.set(b);
+            return true;
+        }
         return false;
     }
 
     @Override
-    public Integer getByteSize() {
-        return getDataType().isFixedWidth() ? getDataType().getByteSize() : null;
-    }
-
-    @Override
-    public Integer getMaxLength() {
-        return null;
-    }
-
-    @Override
-    public Integer getScale() {
-        return null;
-    }
-    
-    @Override
     public ColumnModifier getColumnModifier() {
-    	    return null;
+            return getChild().getColumnModifier();
     }    
 
     @Override
-    public void readFields(DataInput input) throws IOException {
-    }
-
-    @Override
-    public void write(DataOutput output) throws IOException {
-    }
-
-    @Override
-    public void reset() {
-    }
-    
-    protected final <T> List<T> acceptChildren(ExpressionVisitor<T> visitor, Iterator<Expression> iterator) {
-        if (iterator == null) {
-            iterator = visitor.defaultIterator(this);
-        }
-        List<T> l = Collections.emptyList();
-        while (iterator.hasNext()) {
-            Expression child = iterator.next();
-            T t = child.accept(visitor);
-            if (t != null) {
-                if (l.isEmpty()) {
-                    l = new ArrayList<T>(getChildren().size());
-                }
-                l.add(t);
-            }
-        }
-        return l;
+    public final PDataType getDataType() {
+        return  getChild().getDataType();
     }
     
     @Override
-    public boolean isConstant() {
-        return false;
+    public final <T> T accept(ExpressionVisitor<T> visitor) {
+        return getChild().accept(visitor);
+    }
+    
+    @Override
+    public String toString() {
+        StringBuilder buf = new StringBuilder("CEIL(");
+        for (int i = 0; i < children.size() - 1; i++) {
+            buf.append(getChild().toString());
+        }
+        buf.append(")");
+        return buf.toString();
     }
 }

@@ -324,7 +324,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
      * @throws SQLException 
      */
     private void rewriteRowValueConstuctorEqualityComparison(ParseNode lhs, ParseNode rhs, List<ParseNode> andNodes) throws SQLException {
-        if (lhs instanceof RowValueConstructorParseNode && lhs instanceof RowValueConstructorParseNode) {
+        if (lhs instanceof RowValueConstructorParseNode && rhs instanceof RowValueConstructorParseNode) {
             int i = 0;
             for (; i < Math.min(lhs.getChildren().size(),rhs.getChildren().size()); i++) {
                 rewriteRowValueConstuctorEqualityComparison(lhs.getChildren().get(i), rhs.getChildren().get(i), andNodes);
@@ -371,7 +371,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             // used in an equality expression for each individual part.
             ParseNode lhs = normNode.getChildren().get(0);
             ParseNode rhs = normNode.getChildren().get(1);
-            if (lhs instanceof RowValueConstructorParseNode || lhs instanceof RowValueConstructorParseNode) {
+            if (lhs instanceof RowValueConstructorParseNode || rhs instanceof RowValueConstructorParseNode) {
                 List<ParseNode> andNodes = Lists.newArrayListWithExpectedSize(Math.max(lhs.getChildren().size(), rhs.getChildren().size()));
                 rewriteRowValueConstuctorEqualityComparison(lhs,rhs,andNodes);
                 normNode = NODE_FACTORY.and(andNodes);
@@ -460,10 +460,14 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
         if (node.isConstant()) {
             // Strip trailing nulls from rvc as they have no meaning
             if (children.get(children.size()-1) == null) {
+                children = Lists.newArrayList(children);
                 do {
                     children.remove(children.size()-1);
-                } while (children.size() > 1 && children.get(children.size()-1) == null);
+                } while (children.size() > 0 && children.get(children.size()-1) == null);
                 // If we're down to a single child, it's not a rvc anymore
+                if (children.size() == 0) {
+                    return null;
+                }
                 if (children.size() == 1) {
                     return children.get(0);
                 }

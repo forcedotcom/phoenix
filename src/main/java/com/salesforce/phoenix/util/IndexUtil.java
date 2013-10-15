@@ -75,7 +75,7 @@ public class IndexUtil {
     // row key was already done, so here we just need to covert from one built-in type to
     // another.
     public static PDataType getIndexColumnDataType(boolean isNullable, PDataType dataType) {
-        if (!isNullable || !dataType.isFixedWidth() || dataType == PDataType.BINARY) {
+        if (dataType == null || !isNullable || !dataType.isFixedWidth() || dataType == PDataType.BINARY) {
             return dataType;
         }
         // for INT, BIGINT

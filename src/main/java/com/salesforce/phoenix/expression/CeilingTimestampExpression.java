@@ -27,85 +27,65 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.sql.Timestamp;
+
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
-
-/**
- * 
- * Base class for Expression hierarchy that provides common
- * default implementations for most methods
- *
- * @author jtaylor
- * @since 0.1
- */
-public abstract class BaseExpression implements Expression {
-    @Override
-    public boolean isNullable() {
-        return false;
+public class CeilingTimestampExpression extends BaseSingleExpression {
+    private static final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+    
+    public CeilingTimestampExpression() {
     }
-
-    @Override
-    public Integer getByteSize() {
-        return getDataType().isFixedWidth() ? getDataType().getByteSize() : null;
+    
+    public CeilingTimestampExpression(Expression child) {
+        super(child);
     }
-
-    @Override
-    public Integer getMaxLength() {
-        return null;
-    }
-
-    @Override
-    public Integer getScale() {
-        return null;
+    
+    protected int getRoundUpAmount() {
+        return 1;
     }
     
     @Override
-    public ColumnModifier getColumnModifier() {
-    	    return null;
-    }    
-
-    @Override
-    public void readFields(DataInput input) throws IOException {
-    }
-
-    @Override
-    public void write(DataOutput output) throws IOException {
-    }
-
-    @Override
-    public void reset() {
-    }
-    
-    protected final <T> List<T> acceptChildren(ExpressionVisitor<T> visitor, Iterator<Expression> iterator) {
-        if (iterator == null) {
-            iterator = visitor.defaultIterator(this);
-        }
-        List<T> l = Collections.emptyList();
-        while (iterator.hasNext()) {
-            Expression child = iterator.next();
-            T t = child.accept(visitor);
-            if (t != null) {
-                if (l.isEmpty()) {
-                    l = new ArrayList<T>(getChildren().size());
-                }
-                l.add(t);
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        Expression child = children.get(0);
+        if (child.evaluate(tuple, ptr)) {
+            PDataType childType = child.getDataType();
+            tempPtr.set(ptr.get(), ptr.getOffset(), ptr.getLength());
+            childType.coerceBytes(tempPtr, childType, child.getColumnModifier(), null);
+            Timestamp value = (Timestamp) childType.toObject(tempPtr);
+            if (value.getNanos() > 0) {
+                value = new Timestamp(value.getTime()+getRoundUpAmount());
+                byte[] b = childType.toBytes(value, child.getColumnModifier());
+                ptr.set(b);
             }
+            return true;
         }
-        return l;
+        return false;
+    }
+
+    @Override
+    public final PDataType getDataType() {
+        return children.get(0).getDataType();
     }
     
     @Override
-    public boolean isConstant() {
-        return false;
+    public final <T> T accept(ExpressionVisitor<T> visitor) {
+        return getChild().accept(visitor);
+    }
+    
+    
+    @Override
+    public String toString() {
+        StringBuilder buf = new StringBuilder("CEIL(");
+        for (int i = 0; i < children.size() - 1; i++) {
+            buf.append(getChild().toString());
+        }
+        buf.append(")");
+        return buf.toString();
     }
 }

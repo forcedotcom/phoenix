@@ -32,6 +32,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -101,7 +102,6 @@ import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -139,21 +139,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         return true;
     }
     
-    private void addBindParamMetaData(ParseNode lhsNode, Expression lhsExpr, ParseNode rhsNode, Expression rhsExpr) throws SQLException {
+    private void addBindParamMetaData(ParseNode parentNode, ParseNode lhsNode, ParseNode rhsNode, Expression lhsExpr, Expression rhsExpr) throws SQLException {
         if (lhsNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhsExpr);
         }
         if (rhsNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)rhsNode, lhsExpr);
-        }
-    }
-    
-    private void addNullDatumForBindParamMetaData(int initCount, int diff, List<ParseNode> childNodes) throws SQLException {
-        for(int i = initCount; i <= initCount + diff - 1; i++) {
-            ParseNode childNode = childNodes.get(i);
-            if(childNode instanceof BindParseNode) {
-                context.getBindManager().addParamMetaData((BindParseNode)childNode, null);
-            }    
         }
     }
     
@@ -163,8 +154,41 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         }
     }
     
+    private void checkComparability(ParseNode parentNode, ParseNode lhsNode, ParseNode rhsNode, Expression lhsExpr, Expression rhsExpr) throws SQLException {
+        if (lhsNode instanceof RowValueConstructorParseNode && rhsNode instanceof RowValueConstructorParseNode) {
+            int i = 0;
+            for (; i < Math.min(lhsExpr.getChildren().size(),rhsExpr.getChildren().size()); i++) {
+                checkComparability(parentNode, lhsNode.getChildren().get(i), rhsNode.getChildren().get(i), lhsExpr.getChildren().get(i), rhsExpr.getChildren().get(i));
+            }
+            for (; i < lhsExpr.getChildren().size(); i++) {
+                checkComparability(parentNode, lhsNode.getChildren().get(i), null, lhsExpr.getChildren().get(i), null);
+            }
+            for (; i < rhsExpr.getChildren().size(); i++) {
+                checkComparability(parentNode, null, rhsNode.getChildren().get(i), null, rhsExpr.getChildren().get(i));
+            }
+        } else if (lhsExpr instanceof RowValueConstructorExpression) {
+            checkComparability(parentNode, lhsNode.getChildren().get(0), rhsNode, lhsExpr.getChildren().get(0), rhsExpr);
+            for (int i = 1; i < lhsExpr.getChildren().size(); i++) {
+                checkComparability(parentNode, lhsNode.getChildren().get(i), null, lhsExpr.getChildren().get(i), null);
+            }
+        } else if (rhsExpr instanceof RowValueConstructorExpression) {
+            checkComparability(parentNode, lhsNode, rhsNode.getChildren().get(0), lhsExpr, rhsExpr.getChildren().get(0));
+            for (int i = 1; i < rhsExpr.getChildren().size(); i++) {
+                checkComparability(parentNode, null, rhsNode.getChildren().get(i), null, rhsExpr.getChildren().get(i));
+            }
+        } else if (lhsNode == null && rhsNode == null) { // null == null will end up making the query degenerate
+            
+        } else if (lhsNode == null) { // AND rhs IS NULL
+            addBindParamMetaData(parentNode, lhsNode, rhsNode, lhsExpr, rhsExpr);
+        } else if (rhsNode == null) { // AND lhs IS NULL
+            addBindParamMetaData(parentNode, lhsNode, rhsNode, lhsExpr, rhsExpr);
+        } else { // AND lhs = rhs
+            checkComparability(parentNode, lhsExpr.getDataType(), rhsExpr.getDataType());
+            addBindParamMetaData(parentNode, lhsNode, rhsNode, lhsExpr, rhsExpr);
+        }
+    }
+
     @Override
-    //TODO: handle nested case. 
     public Expression visitLeave(ComparisonParseNode node, List<Expression> children) throws SQLException {
         ParseNode lhsNode = node.getChildren().get(0);
         ParseNode rhsNode = node.getChildren().get(1);
@@ -173,63 +197,16 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
         PDataType lhsExprDataType = lhsExpr.getDataType();
         PDataType rhsExprDataType = rhsExpr.getDataType();
-        checkComparability(node, lhsExprDataType, rhsExprDataType);
-        addBindParamMetaData(lhsNode, lhsExpr, rhsNode, rhsExpr);
+        checkComparability(node, lhsNode, rhsNode, lhsExpr, rhsExpr);
         
-        List<Expression> lhsChildExprs = lhsExpr.getChildren();
-        List<Expression> rhsChildExprs = rhsExpr.getChildren();
-        List<ParseNode> lhsChildNodes = lhsNode.getChildren();
-        List<ParseNode> rhsChildNodes = rhsNode.getChildren();
-
-        int numLhsExprs = lhsChildExprs.size();
-        int numRhsExprs = rhsChildExprs.size();
-        
-        int minNum = (numLhsExprs == 0 || numRhsExprs == 0) ? 1 : Math.min(numLhsExprs, numRhsExprs);
-        int diffSize = numLhsExprs > numRhsExprs ? numLhsExprs - minNum : numRhsExprs - minNum;
-        
-        if(lhsNode instanceof RowValueConstructorParseNode && rhsNode instanceof RowValueConstructorParseNode) {
-            for (int i = 0; i < minNum; i++) {
-                Expression lhsChildExpression = lhsChildExprs.get(i);
-                Expression rhsChildExpression = rhsChildExprs.get(i);
-                ParseNode lhsChildNode = lhsChildNodes.get(i);
-                ParseNode rhsChildNode = rhsChildNodes.get(i);
-                checkComparability(node, lhsChildExpression.getDataType(), rhsChildExpression.getDataType());
-                addBindParamMetaData(lhsChildNode, lhsChildExpression, rhsChildNode, rhsChildExpression);
+        if (lhsExpr instanceof RowValueConstructorExpression || rhsExpr instanceof RowValueConstructorExpression) {
+            rhsExpr = RowValueConstructorExpression.coerce(lhsExpr, rhsExpr, node.getFilterOp());
+            // Always wrap both sides in row value constructor, so we don't have to consider comparing
+            // a non rvc with a rvc.
+            if ( ! ( lhsExpr instanceof RowValueConstructorExpression ) ) {
+                lhsExpr = new RowValueConstructorExpression(Collections.singletonList(lhsExpr), lhsExpr.isConstant());
             }
-        } else if(lhsNode instanceof RowValueConstructorParseNode) {
-            Expression lhsChildExpr = lhsExpr.getChildren().get(0);
-            PDataType lhsChildExprDataType = lhsChildExpr.getDataType();
-            ParseNode lhsChildNode = lhsNode.getChildren().get(0);
-
-            checkComparability(node, lhsChildExprDataType, rhsExprDataType);
-            addBindParamMetaData(lhsChildNode, lhsChildExpr, rhsNode, rhsExpr);
-            if(lhsChildExprDataType != null) {
-                //Because we end up coercing a row value constructor's bytes to the variable width type, in order to keep the comparison operation sane, 
-                //we need to coerce the other side to the same type too. Such kind of coercion is not needed when both sides are row value constructors.
-                PDataType variableWidthDataType = IndexUtil.getIndexColumnDataType(true, lhsChildExprDataType);
-                rhsExpr = CoerceExpression.create(rhsExpr, variableWidthDataType);
-            }
-        } else if(rhsNode instanceof RowValueConstructorParseNode) {
-            Expression rhsChildExpr = rhsExpr.getChildren().get(0);
-            PDataType rhsChildExprDataType = rhsChildExpr.getDataType();
-            ParseNode rhsChildNode = rhsNode.getChildren().get(0);
-
-            checkComparability(node, lhsExprDataType, rhsChildExprDataType);
-            addBindParamMetaData(lhsNode, lhsExpr, rhsChildNode, rhsChildExpr);
-            if(rhsChildExprDataType != null) {
-                //Because we end up coercing a row value constructor's bytes to the variable width type, in order to keep the comparison operation sane, 
-                //we need to coerce the other side to the same type too. Such kind of coercion is not needed when both sides are row value constructors.
-                PDataType variableWidthDataType = IndexUtil.getIndexColumnDataType(true, rhsChildExprDataType);
-                lhsExpr = CoerceExpression.create(lhsExpr, variableWidthDataType);
-            }
-        }
-        
-        if((lhsNode instanceof RowValueConstructorParseNode || rhsNode instanceof RowValueConstructorParseNode) && numLhsExprs != numRhsExprs) { 
-            if(numLhsExprs > numRhsExprs) {
-                addNullDatumForBindParamMetaData(minNum, diffSize, lhsChildNodes);
-            } else {
-                addNullDatumForBindParamMetaData(minNum, diffSize, rhsChildNodes);
-            }
+            children = Arrays.asList(lhsExpr, rhsExpr);
         }
         
         Object lhsValue = null;
@@ -698,67 +675,41 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     public Expression visitLeave(InListParseNode node, List<Expression> l) throws SQLException {
         List<Expression> inChildren = l;
         Expression firstChild = inChildren.get(0);
+        ImmutableBytesWritable ptr = context.getTempPtr();
         PDataType firstChildType = firstChild.getDataType();
         ParseNode firstChildNode = node.getChildren().get(0);
+        
         if (firstChildNode instanceof BindParseNode) {
             PDatum datum = firstChild;
             if (firstChildType == null) {
                 datum = inferBindDatum(inChildren);
                 firstChildType = datum.getDataType();
-                inChildren = new ArrayList<Expression>(l.size());
-                inChildren.add(LiteralExpression.newConstant(null, firstChildType));
             }
             context.getBindManager().addParamMetaData((BindParseNode)firstChildNode, datum);
         }
-        boolean addedNull = false;
         for (int i = 1; i < l.size(); i++) {
             ParseNode childNode = node.getChildren().get(i);
-            LiteralExpression child = (LiteralExpression)l.get(i);
-            PDataType childType = child.getDataType();
-            if (firstChildType != childType || firstChild.getColumnModifier() != child.getColumnModifier()) {
-                if (inChildren == l) {
-                    inChildren = new ArrayList<Expression>(l.subList(0, i));
-                }
-                boolean isNull = (childType == null);
-                if (isNull) {
-                    if (!addedNull) {
-                        inChildren.add(LiteralExpression.newConstant(child.getValue(), firstChildType));
-                    }
-                    addedNull = true; // Don't add more than one null value since this has no effect
-                } else if (childType.isCoercibleTo(firstChildType, child.getValue())) {
-                    inChildren.add(LiteralExpression.newConstant(child.getValue(), firstChildType, firstChild.getColumnModifier()));
-                }
-            } else if (inChildren != l) {
-                inChildren.add(child);
-            }
             if (childNode instanceof BindParseNode) {
                 context.getBindManager().addParamMetaData((BindParseNode)childNode, firstChild);
             }
         }
-        boolean isNot = node.isNegate();
-        // TODO: if inChildren.isEmpty() then Oracle throws a type mismatch exception. This means
-        // that none of the list elements match in type and there's no null element. We'd return
-        // false in this case. Should we throw?
+        if (firstChildNode.isConstant() && firstChild.evaluate(null, ptr) && ptr.getLength() == 0) {
+            return LiteralExpression.newConstant(null, PDataType.BOOLEAN);
+        }
+        
+        Expression e = InListExpression.create(inChildren, ptr);
+        if (node.isNegate()) {
+            e = new NotExpression(e);
+        }
         if (node.isConstant()) {
-            Expression expression = new InListExpression(inChildren);
-            if (isNot) {
-                expression = new NotExpression(expression);
+            if (!e.evaluate(null, ptr) || ptr.getLength() == 0) {
+                return LiteralExpression.newConstant(null, e.getDataType());
             }
-            Object value = null;
-            PDataType type = expression.getDataType();
-            ImmutableBytesWritable ptr = context.getTempPtr();
-            if (expression.evaluate(null, ptr)) {
-                value = type.toObject(ptr);
-            }
-            return LiteralExpression.newConstant(value, type);
+            Object value = e.getDataType().toObject(ptr);
+            return LiteralExpression.newConstant(value, e.getDataType());
         }
-        Expression expression;
-        if (inChildren.size() == 2) {
-            expression = new ComparisonExpression(CompareOp.EQUAL, inChildren);
-        } else {
-            expression = new InListExpression(inChildren);
-        }
-        return isNot ? new NotExpression(expression) : expression;
+        
+        return e;
     }
 
     private static final PDatum DECIMAL_DATUM = new PDatum() {
@@ -1279,7 +1230,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
     @Override
     public Expression visitLeave(RowValueConstructorParseNode node, List<Expression> l) throws SQLException {
-        Expression e = new RowValueConstructorExpression(l, node.isConstant());
-        return e; 
+        // Don't trim trailing nulls here, as we'd potentially be dropping bind
+        // variables that aren't bound yet.
+        return new RowValueConstructorExpression(l, node.isConstant());
     }
 }

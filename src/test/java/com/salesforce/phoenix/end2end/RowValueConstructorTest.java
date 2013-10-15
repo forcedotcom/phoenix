@@ -1,10 +1,14 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID1;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID3;
+import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTID7;
 import static com.salesforce.phoenix.util.TestUtil.ENTITYHISTIDS;
 import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_SALTED_TABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_TABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.PARENTID1;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID3;
+import static com.salesforce.phoenix.util.TestUtil.PARENTID7;
 import static com.salesforce.phoenix.util.TestUtil.PARENTIDS;
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.ROW1;
@@ -17,6 +21,8 @@ import static com.salesforce.phoenix.util.TestUtil.ROW7;
 import static com.salesforce.phoenix.util.TestUtil.ROW8;
 import static com.salesforce.phoenix.util.TestUtil.ROW9;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
@@ -226,7 +232,7 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
                 count++;
             }
             // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
-            assertTrue(count == 3); 
+            assertEquals(3, count); 
         } finally {
             conn.close();
         }
@@ -419,6 +425,36 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         }
         assertTrue("Number of rows returned: ", count == 6);
     }
+    
+    @Test
+    public void testQueryMoreWithInListRowValueConstructor() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        Date date = new Date(System.currentTimeMillis());
+        initEntityHistoryTableValues(tenantId, getDefaultSplits(tenantId), date, ts);
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        
+        PreparedStatement statement = conn.prepareStatement("select parent_id from " + ENTITY_HISTORY_TABLE_NAME + 
+                     " WHERE (organization_id, parent_id, created_date, entity_history_id) IN ((?, ?, ?, ?),(?,?,?,?))");
+        statement.setString(1, tenantId);
+        statement.setString(2, PARENTID3);
+        statement.setDate(3, date);
+        statement.setString(4, ENTITYHISTID3);
+        statement.setString(5, tenantId);
+        statement.setString(6, PARENTID7);
+        statement.setDate(7, date);
+        statement.setString(8, ENTITYHISTID7);
+        ResultSet rs = statement.executeQuery();
+        
+        assertTrue(rs.next());
+        assertEquals(PARENTID3, rs.getString(1));
+        assertTrue(rs.next());
+        assertEquals(PARENTID7, rs.getString(1));
+        assertFalse(rs.next());
+     }
     
     /**
      * Entity History table has primary keys defined in the order

@@ -1196,7 +1196,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         HashSet<Expression> extractedFilters = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedFilters);
         assertTrue(extractedFilters.size() == 1);
-        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId));
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.CHAR.toBytes(tenantId), PDataType.CHAR.toBytes(entityId));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
@@ -1375,7 +1375,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         HashSet<Expression> extractedFilters = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedFilters);
         assertTrue(extractedFilters.size() == 1);
-        byte[] expectedStartRow = PDataType.VARCHAR.toBytes(tenantId);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.CHAR.toBytes(tenantId), new byte[15], ByteUtil.previousKey(PDataType.DATE.toBytes(createdDate)));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
@@ -1392,7 +1392,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         HashSet<Expression> extractedFilters = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedFilters);
         assertTrue(extractedFilters.size() == 1);
-        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        byte[] expectedStartRow = ByteUtil.concat(new byte[15], ByteUtil.previousKey(PDataType.CHAR.toBytes(parentId)), PDataType.DATE.toBytes(createdDate));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
     
@@ -1561,8 +1562,8 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
     
-    // @Test TODO: fix
-    public void testUsingRVCInsideInClause() throws Exception {
+    @Test
+    public void testUsingRVCNonFullyQualifiedInClause() throws Exception {
         String firstOrgId = "000000000000001";
         String secondOrgId = "000000000000009";
         String firstParentId = "000000000000011";
@@ -1572,8 +1573,28 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(firstOrgId, firstParentId, secondOrgId, secondParentId);
         HashSet<Expression> extractedFilters = new HashSet<Expression>();
         compileStatement(query, scan, binds, extractedFilters);
-        assertTrue(extractedFilters.size() == 1);
+        assertTrue(extractedFilters.size() == 0);
         assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstOrgId), PDataType.VARCHAR.toBytes(firstParentId)), scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(secondOrgId), PDataType.VARCHAR.toBytes(secondParentId))), scan.getStopRow());
+    }
+    
+    @Test
+    public void testUsingRVCFullyQualifiedInClause() throws Exception {
+        String firstOrgId = "000000000000001";
+        String secondOrgId = "000000000000009";
+        String firstParentId = "000000000000011";
+        String secondParentId = "000000000000021";
+        String query = "select * from atable where (organization_id, entity_id) IN ((?, ?), (?, ?))";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstOrgId, firstParentId, secondOrgId, secondParentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        StatementContext context = compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        List<List<KeyRange>> skipScanRanges = Collections.singletonList(Arrays.asList(
+                KeyRange.getKeyRange(ByteUtil.concat(PDataType.CHAR.toBytes(firstOrgId), PDataType.CHAR.toBytes(firstParentId))), 
+                KeyRange.getKeyRange(ByteUtil.concat(PDataType.CHAR.toBytes(secondOrgId), PDataType.CHAR.toBytes(secondParentId)))));
+        assertEquals(skipScanRanges, context.getScanRanges().getRanges());
+        assertArrayEquals(ByteUtil.concat(PDataType.CHAR.toBytes(firstOrgId), PDataType.CHAR.toBytes(firstParentId)), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(ByteUtil.concat(PDataType.CHAR.toBytes(secondOrgId), PDataType.CHAR.toBytes(secondParentId), QueryConstants.SEPARATOR_BYTE_ARRAY)), scan.getStopRow());
     }
 }
