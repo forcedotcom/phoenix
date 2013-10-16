@@ -58,7 +58,7 @@ public class IndexWriter implements Stoppable {
 
   private static final Log LOG = LogFactory.getLog(IndexWriter.class);
   private static final String INDEX_COMMITTER_CONF_KEY = "index.writer.commiter.class";
-  private static final String INDEX_FAILURE_POLICY_CONF_KEY = "index.writer.failurepolicy.class";
+  public static final String INDEX_FAILURE_POLICY_CONF_KEY = "index.writer.failurepolicy.class";
   private AtomicBoolean stopped = new AtomicBoolean(false);
   private IndexCommitter writer;
   private IndexFailurePolicy failurePolicy;

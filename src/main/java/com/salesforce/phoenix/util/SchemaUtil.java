@@ -803,4 +803,14 @@ public class SchemaUtil {
         }
         return tableName.substring(0, index);
     }
+
+    public static byte[] getTableKeyFromFullName(String fullTableName) {
+        int index = fullTableName.indexOf(QueryConstants.NAME_SEPARATOR);
+        if (index < 0) {
+            return getTableKey(null, fullTableName); 
+        }
+        String schemaName = fullTableName.substring(0, index);
+        String tableName = fullTableName.substring(index+1);
+        return getTableKey(schemaName, tableName); 
+    }
 }
