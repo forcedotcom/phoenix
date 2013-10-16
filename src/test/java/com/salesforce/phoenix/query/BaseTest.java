@@ -27,11 +27,39 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_FULL_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_SALTED_TABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_TABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.FUNKY_NAME;
+import static com.salesforce.phoenix.util.TestUtil.GROUPBYTEST_NAME;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_DYNAMIC_COLUMNS;
+import static com.salesforce.phoenix.util.TestUtil.HBASE_NATIVE;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
+import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_CUSTOMER_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_ITEM_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_ORDER_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_SUPPLIER_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.KEYONLY_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MDTEST_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MULTI_CF_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MUTABLE_INDEX_DATA_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.PRODUCT_METRICS_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB2_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB3_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
+import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_SALTING;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
 
@@ -50,6 +78,24 @@ public abstract class BaseTest {
     private static final Map<String,String> tableDDLMap;
     static {
         ImmutableMap.Builder<String,String> builder = ImmutableMap.builder();
+        builder.put(ENTITY_HISTORY_TABLE_NAME,"create table " + ENTITY_HISTORY_TABLE_NAME +
+                "   (organization_id char(15) not null,\n" +
+                "    parent_id char(15) not null,\n" +
+                "    created_date date not null,\n" +
+                "    entity_history_id char(15) not null,\n" +
+                "    old_value varchar,\n" +
+                "    new_value varchar\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id)\n" +
+                ")");
+        builder.put(ENTITY_HISTORY_SALTED_TABLE_NAME,"create table " + ENTITY_HISTORY_SALTED_TABLE_NAME +
+                "   (organization_id char(15) not null,\n" +
+                "    parent_id char(15) not null,\n" +
+                "    created_date date not null,\n" +
+                "    entity_history_id char(15) not null,\n" +
+                "    old_value varchar,\n" +
+                "    new_value varchar\n" +
+                "    CONSTRAINT pk PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id))\n" +
+                "    SALT_BUCKETS = 4");
         builder.put(ATABLE_NAME,"create table " + ATABLE_NAME +
                 "   (organization_id char(15) not null, \n" +
                 "    entity_id char(15) not null,\n" +
@@ -240,6 +286,24 @@ public abstract class BaseTest {
                 "   b.decimal_col2 DECIMAL(31, 10) " +
                 "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk DESC, decimal_pk)) " +
                 "IMMUTABLE_ROWS=true");
+        builder.put(MUTABLE_INDEX_DATA_TABLE, "create table " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MUTABLE_INDEX_DATA_TABLE + "(" +
+                "   varchar_pk VARCHAR NOT NULL, " +
+                "   char_pk CHAR(5) NOT NULL, " +
+                "   int_pk INTEGER NOT NULL, "+ 
+                "   long_pk BIGINT NOT NULL, " +
+                "   decimal_pk DECIMAL(31, 10) NOT NULL, " +
+                "   a.varchar_col1 VARCHAR, " +
+                "   a.char_col1 CHAR(5), " +
+                "   a.int_col1 INTEGER, " +
+                "   a.long_col1 BIGINT, " +
+                "   a.decimal_col1 DECIMAL(31, 10), " +
+                "   b.varchar_col2 VARCHAR, " +
+                "   b.char_col2 CHAR(5), " +
+                "   b.int_col2 INTEGER, " +
+                "   b.long_col2 BIGINT, " +
+                "   b.decimal_col2 DECIMAL(31, 10) " +
+                "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk DESC, decimal_pk)) "
+                );
         builder.put("SumDoubleTest","create table SumDoubleTest" +
                 "   (id varchar not null primary key, d DOUBLE, f FLOAT, ud UNSIGNED_DOUBLE, uf UNSIGNED_FLOAT, i integer, de decimal)");
         builder.put(JOIN_ORDER_TABLE, "create table " + JOIN_ORDER_TABLE +
@@ -252,7 +316,8 @@ public abstract class BaseTest {
                 "   (customer_id char(10) not null primary key, " +
                 "    name varchar not null, " +
                 "    phone char(12), " +
-                "    address varchar)");
+                "    address varchar, " +
+                "    loc_id char(5))");
         builder.put(JOIN_ITEM_TABLE, "create table " + JOIN_ITEM_TABLE +
                 "   (item_id char(10) not null primary key, " +
                 "    name varchar not null, " +
@@ -263,7 +328,8 @@ public abstract class BaseTest {
                 "   (supplier_id char(10) not null primary key, " +
                 "    name varchar not null, " +
                 "    phone char(12), " +
-                "    address varchar)");
+                "    address varchar, " +
+    			"    loc_id char(5))");
         tableDDLMap = builder.build();
     }
 

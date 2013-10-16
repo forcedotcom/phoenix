@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.hbase.index;
 
+import static com.salesforce.hbase.index.util.IndexManagementUtil.rethrowIndexingException;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -50,6 +52,7 @@ import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Durability;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
@@ -66,10 +69,12 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Multimap;
+import com.salesforce.hbase.index.builder.IndexBuildManager;
 import com.salesforce.hbase.index.builder.IndexBuilder;
-import com.salesforce.hbase.index.exception.IndexWriteException;
+import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
 import com.salesforce.hbase.index.table.HTableInterfaceReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.hbase.index.wal.IndexedKeyValue;
 import com.salesforce.hbase.index.write.IndexFailurePolicy;
 import com.salesforce.hbase.index.write.IndexWriter;
@@ -87,7 +92,11 @@ import com.salesforce.hbase.index.write.recovery.TrackingParallelWriterIndexComm
  * {@link #preWALRestore(ObserverContext, HRegionInfo, HLogKey, WALEdit)}).
  * <p>
  * If the WAL is disabled, the updates are attempted immediately. No consistency guarantees are made
- * if the WAL is disabled - some or none of the index updates may be successful.
+ * if the WAL is disabled - some or none of the index updates may be successful. All updates in a
+ * single batch must have the same durability level - either everything gets written to the WAL or
+ * nothing does. Currently, we do not support mixed-durability updates within a single batch. If you
+ * want to have different durability levels, you only need to split the updates into two different
+ * batches.
  */
 public class Indexer extends BaseRegionObserver {
 
@@ -96,7 +105,7 @@ public class Indexer extends BaseRegionObserver {
   /** WAL on this server */
   private HLog log;
   protected IndexWriter writer;
-  protected IndexBuilder builder;
+  protected IndexBuildManager builder;
 
   /** Configuration key for the {@link IndexBuilder} to use */
   public static final String INDEX_BUILDER_CONF_KEY = "index.builder";
@@ -136,13 +145,14 @@ public class Indexer extends BaseRegionObserver {
    */
   private IndexWriter recoveryWriter;
 
+  private boolean stopped;
+
   public static String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
-
     final RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) e;
-
+    String serverName = env.getRegionServerServices().getServerName().getServerName();
     if (env.getConfiguration().getBoolean(CHECK_VERSION_CONF_KEY, true)) {
       // make sure the right version <-> combinations are allowed.
       String errormsg = Indexer.validateVersion(env.getHBaseVersion(), env.getConfiguration());
@@ -153,20 +163,7 @@ public class Indexer extends BaseRegionObserver {
       }
     }
 
-    // setup the index entry builder so we can build edits for the index tables
-    Configuration conf = e.getConfiguration();
-    Class<? extends IndexBuilder> builderClass = conf.getClass(Indexer.INDEX_BUILDER_CONF_KEY,
-      null, IndexBuilder.class);
-    try {
-      this.builder = builderClass.newInstance();
-    } catch (InstantiationException e1) {
-      throw new IOException("Couldn't instantiate index builder:" + builderClass
-          + ", disabling indexing on table " + env.getRegion().getTableDesc().getNameAsString());
-    } catch (IllegalAccessException e1) {
-      throw new IOException("Couldn't instantiate index builder:" + builderClass
-          + ", disabling indexing on table " + env.getRegion().getTableDesc().getNameAsString());
-    }
-    this.builder.setup(env);
+    this.builder = new IndexBuildManager(env);
 
     // get a reference to the WAL
     log = env.getRegionServerServices().getWAL();
@@ -174,7 +171,7 @@ public class Indexer extends BaseRegionObserver {
     log.registerWALActionsListener(new IndexLogRollSynchronizer(INDEX_READ_WRITE_LOCK.writeLock()));
 
     // setup the actual index writer
-    this.writer = new IndexWriter(env);
+    this.writer = new IndexWriter(env, serverName + "-index-writer");
 
     // setup the recovery writer that does retries on the failed edits
     TrackingParallelWriterIndexCommitter recoveryCommmiter =
@@ -183,23 +180,29 @@ public class Indexer extends BaseRegionObserver {
     try {
       // get the specified failure policy. We only ever override it in tests, but we need to do it
       // here
-      Class<? extends IndexFailurePolicy> policyClass = conf.getClass(
-        INDEX_RECOVERY_FAILURE_POLICY_KEY,
-      StoreFailuresInCachePolicy.class, IndexFailurePolicy.class);
-      IndexFailurePolicy policy = policyClass.getConstructor(PerRegionIndexWriteCache.class)
-          .newInstance(failedIndexEdits);
+      Class<? extends IndexFailurePolicy> policyClass =
+          env.getConfiguration().getClass(INDEX_RECOVERY_FAILURE_POLICY_KEY,
+            StoreFailuresInCachePolicy.class, IndexFailurePolicy.class);
+      IndexFailurePolicy policy =
+          policyClass.getConstructor(PerRegionIndexWriteCache.class).newInstance(failedIndexEdits);
       LOG.debug("Setting up recovery writter with committer: " + recoveryCommmiter.getClass()
           + " and failure policy: " + policy.getClass());
-      recoveryWriter = new IndexWriter(recoveryCommmiter, policy, env);
+      recoveryWriter =
+          new IndexWriter(recoveryCommmiter, policy, env, serverName + "-recovery-writer");
     } catch (Exception ex) {
       throw new IOException("Could not instantiate recovery failure policy!", ex);
-    } 
+    }
 
   }
 
   @Override
   public void stop(CoprocessorEnvironment e) throws IOException {
+    if (this.stopped) {
+      return;
+    }
+    this.stopped = true;
     String msg = "Indexer is being stopped";
+    this.builder.stop(msg);
     this.writer.stop(msg);
     this.recoveryWriter.stop(msg);
   }
@@ -208,20 +211,28 @@ public class Indexer extends BaseRegionObserver {
   public void prePut(final ObserverContext<RegionCoprocessorEnvironment> c, final Put put,
       final WALEdit edit, final boolean writeToWAL) throws IOException {
     // just have to add a batch marker to the WALEdit so we get the edit again in the batch
-    // processing step
+    // processing step. We let it throw an exception here because something terrible has happened.
     edit.add(BATCH_MARKER);
   }
 
   @Override
   public void preDelete(ObserverContext<RegionCoprocessorEnvironment> e, Delete delete,
       WALEdit edit, boolean writeToWAL) throws IOException {
-    // short circuit so we don't waste time.
-    if (!this.builder.isEnabled(delete)) {
+    try {
+      preDeleteWithExceptions(e, delete, edit, writeToWAL);
       return;
+    } catch (Throwable t) {
+      rethrowIndexingException(t);
     }
+    throw new RuntimeException(
+        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
+  }
+
+  public void preDeleteWithExceptions(ObserverContext<RegionCoprocessorEnvironment> e,
+      Delete delete, WALEdit edit, boolean writeToWAL) throws Exception {
     // if we are making the update as part of a batch, we need to add in a batch marker so the WAL
     // is retained
-    else if (this.builder.getBatchId(delete) != null) {
+    if (this.builder.getBatchId(delete) != null) {
       edit.add(BATCH_MARKER);
       return;
     }
@@ -230,20 +241,31 @@ public class Indexer extends BaseRegionObserver {
     Collection<Pair<Mutation, byte[]>> indexUpdates = this.builder.getIndexUpdate(delete);
 
     if (doPre(indexUpdates, edit, writeToWAL)) {
-      // lock the log, so we are sure that index write gets atomically committed
-      LOG.debug("Taking INDEX_UPDATE readlock for delete");
-      INDEX_UPDATE_LOCK.lock();
+      takeUpdateLock("delete");
     }
   }
 
-  @SuppressWarnings("deprecation")
   @Override
   public void preBatchMutate(ObserverContext<RegionCoprocessorEnvironment> c,
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
+    try {
+      preBatchMutateWithExceptions(c, miniBatchOp);
+      return;
+    } catch (Throwable t) {
+      rethrowIndexingException(t);
+    }
+    throw new RuntimeException(
+        "Somehow didn't return an index update but also didn't propagate the failure to the client!");
+  }
+
+  @SuppressWarnings("deprecation")
+  public void preBatchMutateWithExceptions(ObserverContext<RegionCoprocessorEnvironment> c,
+      MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws Throwable {
 
     // first group all the updates for a single row into a single update to be processed
     Map<ImmutableBytesPtr, MultiMutation> mutations =
         new HashMap<ImmutableBytesPtr, MultiMutation>();
+    boolean durable = false;
     for (int i = 0; i < miniBatchOp.size(); i++) {
       // remove the batch keyvalue marker - its added for all puts
       WALEdit edit = miniBatchOp.getWalEdit(i);
@@ -252,13 +274,21 @@ public class Indexer extends BaseRegionObserver {
       // after checking here, but this saves us the checking again.
       if (edit != null) {
         KeyValue kv = edit.getKeyValues().remove(0);
-        assert kv == BATCH_MARKER : "Didn't get the batch marker from the WALEdit during a batch";
+        assert kv == BATCH_MARKER : "Expected batch marker from the WALEdit, but got: " + kv;
       }
       Pair<Mutation, Integer> op = miniBatchOp.getOperation(i);
       Mutation m = op.getFirst();
       // skip this mutation if we aren't enabling indexing
+      // unfortunately, we really should ask if the raw mutation (rather than the combined mutation)
+      // should be indexed, which means we need to expose another method on the builder. Such is the
+      // way optimization go though.
       if (!this.builder.isEnabled(m)) {
         continue;
+      }
+      
+      // figure out if this is batch is durable or not
+      if(!durable){
+        durable = m.getDurability() != Durability.SKIP_WAL;
       }
 
       // add the mutation to the batch set
@@ -272,10 +302,8 @@ public class Indexer extends BaseRegionObserver {
       stored.addAll(m);
     }
     
-    // only mention that we are indexing a batch after when know we have some edits
-    if (mutations.entrySet().size() > 0) {
-      this.builder.batchStarted(miniBatchOp);
-    } else {
+    // early exit if it turns out we don't have any edits
+    if (mutations.entrySet().size() == 0) {
       return;
     }
 
@@ -283,20 +311,39 @@ public class Indexer extends BaseRegionObserver {
     // don't worry which one we get
     WALEdit edit = miniBatchOp.getWalEdit(0);
 
-    // do the usual updates
-    boolean lock = false;
-    for (Entry<?, MultiMutation> entry : mutations.entrySet()) {
-      Mutation m = entry.getValue();
-      Collection<Pair<Mutation, byte[]>> indexUpdates = this.builder.getIndexUpdate(m);
+    // get the index updates for all elements in this batch
+    Collection<Pair<Mutation, byte[]>> indexUpdates =
+        this.builder.getIndexUpdate(miniBatchOp, mutations.values());
+    // write them
+    if (doPre(indexUpdates, edit, durable)) {
+      takeUpdateLock("batch mutation");
+    }
+  }
 
-      if (doPre(indexUpdates, edit, m.getWriteToWAL())) {
-        lock = true;
+  private void takeUpdateLock(String opDesc) throws IndexBuildingFailureException {
+    boolean interrupted = false;
+    // lock the log, so we are sure that index write gets atomically committed
+    LOG.debug("Taking INDEX_UPDATE readlock for " + opDesc);
+    // wait for the update lock
+    while (!this.stopped) {
+      try {
+        INDEX_UPDATE_LOCK.lockInterruptibly();
+        LOG.debug("Got the INDEX_UPDATE readlock for " + opDesc);
+        // unlock the lock so the server can shutdown, if we find that we have stopped since getting
+        // the lock
+        if (this.stopped) {
+          INDEX_UPDATE_LOCK.unlock();
+          throw new IndexBuildingFailureException(
+              "Found server stop after obtaining the update lock, killing update attempt");
+        }
+        break;
+      } catch (InterruptedException e) {
+        LOG.info("Interrupted while waiting for update lock. Ignoring unless stopped");
+        interrupted = true;
       }
     }
-    // if any of the updates in the batch updated the WAL, then we need to the lock the WAL
-    if (lock) {
-      LOG.debug("Taking INDEX_UPDATE readlock for batch mutation");
-      INDEX_UPDATE_LOCK.lock();
+    if (interrupted) {
+      Thread.currentThread().interrupt();
     }
   }
 
@@ -385,9 +432,9 @@ public class Indexer extends BaseRegionObserver {
       try {
         this.writer.write(indexUpdates);
         return false;
-      } catch (IndexWriteException e) {
+      } catch (Throwable e) {
         LOG.error("Failed to update index with entries:" + indexUpdates, e);
-        throw new IOException(e);
+        IndexManagementUtil.rethrowIndexingException(e);
       }
     }
 
@@ -418,11 +465,18 @@ public class Indexer extends BaseRegionObserver {
     // noop for the rest of the indexer - its handled by the first call to put/delete
   }
 
-  /**
-   * @param edit
-   * @param writeToWAL
-   */
-  private void doPost(WALEdit edit, Mutation m, boolean writeToWAL) {
+  private void doPost(WALEdit edit, Mutation m, boolean writeToWAL) throws IOException {
+    try {
+      doPostWithExceptions(edit, m, writeToWAL);
+      return;
+    } catch (Throwable e) {
+      rethrowIndexingException(e);
+    }
+    throw new RuntimeException(
+        "Somehow didn't complete the index update, but didn't return succesfully either!");
+  }
+
+  private void doPostWithExceptions(WALEdit edit, Mutation m, boolean writeToWAL) throws Exception {
     //short circuit, if we don't need to do any work
     if (!writeToWAL || !this.builder.isEnabled(m)) {
       // already did the index update in prePut, so we are done
@@ -453,18 +507,24 @@ public class Indexer extends BaseRegionObserver {
       // the WAL edit is kept in memory and we already specified the factory when we created the
       // references originally - therefore, we just pass in a null factory here and use the ones
       // already specified on each reference
-      writer.writeAndKillYourselfOnFailure(indexUpdates);
+      try {
+          writer.writeAndKillYourselfOnFailure(indexUpdates);
+      } finally {
+        // With a custom kill policy, we may throw instead of kill the server.
+        // Without doing this in a finally block (at least with the mini cluster),
+        // the region server never goes down.
 
-      // mark the batch as having been written. In the single-update case, this never gets check
-      // again, but in the batch case, we will check it again (see above).
-      ikv.markBatchFinished();
+        // mark the batch as having been written. In the single-update case, this never gets check
+        // again, but in the batch case, we will check it again (see above).
+        ikv.markBatchFinished();
       
-      // release the lock on the index, we wrote everything properly
-      // we took the lock for each Put/Delete, so we have to release it a matching number of times
-      // batch cases only take the lock once, so we need to make sure we don't over-release the
-      // lock.
-      LOG.debug("Releasing INDEX_UPDATE readlock");
-      INDEX_UPDATE_LOCK.unlock();
+        // release the lock on the index, we wrote everything properly
+        // we took the lock for each Put/Delete, so we have to release it a matching number of times
+        // batch cases only take the lock once, so we need to make sure we don't over-release the
+        // lock.
+        LOG.debug("Releasing INDEX_UPDATE readlock");
+        INDEX_UPDATE_LOCK.unlock();
+      }
     }
   }
 
@@ -513,7 +573,11 @@ public class Indexer extends BaseRegionObserver {
     
     // do the usual writer stuff, killing the server again, if we can't manage to make the index
     // writes succeed again
-    writer.writeAndKillYourselfOnFailure(updates);
+    try {
+        writer.writeAndKillYourselfOnFailure(updates);
+    } catch (IOException e) {
+        LOG.error("Exception thrown instead of killing server during index writing", e);
+    }
   }
 
   @Override
@@ -549,10 +613,10 @@ public class Indexer extends BaseRegionObserver {
 
   /**
    * Exposed for testing!
-   * @return the currently instantiated index buidler
+   * @return the currently instantiated index builder
    */
   public IndexBuilder getBuilderForTesting() {
-    return this.builder;
+    return this.builder.getBuilderForTesting();
   }
 
   /**

@@ -48,8 +48,10 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.expression.AndExpression;
@@ -106,13 +108,39 @@ public class TestUtil {
     public final static String ROW7 = "00B723122312312";
     public final static String ROW8 = "00B823122312312";
     public final static String ROW9 = "00C923122312312";
+    
+    public final static String PARENTID1 = "0500x0000000001";
+    public final static String PARENTID2 = "0500x0000000002";
+    public final static String PARENTID3 = "0500x0000000003";
+    public final static String PARENTID4 = "0500x0000000004";
+    public final static String PARENTID5 = "0500x0000000005";
+    public final static String PARENTID6 = "0500x0000000006";
+    public final static String PARENTID7 = "0500x0000000007";
+    public final static String PARENTID8 = "0500x0000000008";
+    public final static String PARENTID9 = "0500x0000000009";
+    
+    public final static List<String> PARENTIDS = Lists.newArrayList(PARENTID1, PARENTID2, PARENTID3, PARENTID4, PARENTID5, PARENTID6, PARENTID7, PARENTID8, PARENTID9);
+    
+    public final static String ENTITYHISTID1 = "017x00000000001";
+    public final static String ENTITYHISTID2 = "017x00000000002";
+    public final static String ENTITYHISTID3 = "017x00000000003";
+    public final static String ENTITYHISTID4 = "017x00000000004";
+    public final static String ENTITYHISTID5 = "017x00000000005";
+    public final static String ENTITYHISTID6 = "017x00000000006";
+    public final static String ENTITYHISTID7 = "017x00000000007";
+    public final static String ENTITYHISTID8 = "017x00000000008";
+    public final static String ENTITYHISTID9 = "017x00000000009";
 
+    public final static List<String> ENTITYHISTIDS = Lists.newArrayList(ENTITYHISTID1, ENTITYHISTID2, ENTITYHISTID3, ENTITYHISTID4, ENTITYHISTID5, ENTITYHISTID6, ENTITYHISTID7, ENTITYHISTID8, ENTITYHISTID9);
+    
     public static final long MILLIS_IN_DAY = 1000 * 60 * 60 * 24;
     public static final String PHOENIX_JDBC_URL = "jdbc:phoenix:localhost;test=true";
     public static final String PHOENIX_CONNECTIONLESS_JDBC_URL = PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + PhoenixRuntime.CONNECTIONLESS  + ";test=true";
 
     public static final String TEST_SCHEMA_FILE_NAME = "config" + File.separator + "test-schema.xml";
     public static final String CED_SCHEMA_FILE_NAME = "config" + File.separator + "schema.xml";
+    public static final String ENTITY_HISTORY_TABLE_NAME = "ENTITY_HISTORY";
+    public static final String ENTITY_HISTORY_SALTED_TABLE_NAME = "ENTITY_HISTORY_SALTED";
     public static final String ATABLE_NAME = "ATABLE";
     public static final String SUM_DOUBLE_NAME = "SumDoubleTest";
     public static final String ATABLE_SCHEMA_NAME = "";
@@ -140,6 +168,7 @@ public class TestUtil {
     public static final String TABLE_WITH_SALTING = "TABLE_WITH_SALTING";
     public static final String INDEX_DATA_SCHEMA = "INDEX_TEST";
     public static final String INDEX_DATA_TABLE = "INDEX_DATA_TABLE";
+    public static final String MUTABLE_INDEX_DATA_TABLE = "MUTABLE_INDEX_DATA_TABLE";
     public static final String JOIN_ORDER_TABLE = "JOIN_ORDER_TABLE";
     public static final String JOIN_CUSTOMER_TABLE = "JOIN_CUSTOMER_TABLE";
     public static final String JOIN_ITEM_TABLE = "JOIN_ITEM_TABLE";
@@ -217,16 +246,17 @@ public class TestUtil {
     }
 
     public static Expression in(Expression... expressions) throws SQLException {
-        return new InListExpression(Arrays.asList(expressions));
+        return InListExpression.create(Arrays.asList(expressions), new ImmutableBytesWritable());
     }
 
-    public static Expression in(Expression e, PDataType childType, Object... literals) throws SQLException {
+    public static Expression in(Expression e, Object... literals) throws SQLException {
+        PDataType childType = e.getDataType();
         List<Expression> expressions = new ArrayList<Expression>(literals.length + 1);
         expressions.add(e);
         for (Object o : literals) {
             expressions.add(LiteralExpression.newConstant(o, childType));
         }
-        return new InListExpression(expressions);
+        return InListExpression.create(expressions, new ImmutableBytesWritable());
     }
 
     public static void assertDegenerate(StatementContext context) {

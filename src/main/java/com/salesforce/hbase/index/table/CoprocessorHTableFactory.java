@@ -11,9 +11,14 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 
 public class CoprocessorHTableFactory implements HTableFactory {
 
+  /** Number of milliseconds per-interval to retry zookeeper */
+  private static final String ZOOKEEPER_RECOVERY_RETRY_INTERVALMILL = "zookeeper.recovery.retry.intervalmill";
+  /** Number of retries for zookeeper */
+  private static final String ZOOKEEPER_RECOVERY_RETRY_KEY = "zookeeper.recovery.retry";
   private static final Log LOG = LogFactory.getLog(CoprocessorHTableFactory.class);
   private CoprocessorEnvironment e;
 
@@ -25,15 +30,15 @@ public class CoprocessorHTableFactory implements HTableFactory {
   public HTableInterface getTable(ImmutableBytesPtr tablename) throws IOException {
     Configuration conf = e.getConfiguration();
     // make sure writers fail fast
-    conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 3);
-    conf.setInt(HConstants.HBASE_CLIENT_PAUSE, 1000);
-    conf.setInt("zookeeper.recovery.retry", 3);
-    conf.setInt("zookeeper.recovery.retry.intervalmill", 100);
-    conf.setInt(HConstants.ZK_SESSION_TIMEOUT, 30000);
-    conf.setInt(HConstants.HBASE_RPC_TIMEOUT_KEY, 5000);
+    IndexManagementUtil.setIfNotSet(conf, HConstants.HBASE_CLIENT_RETRIES_NUMBER, 3);
+    IndexManagementUtil.setIfNotSet(conf, HConstants.HBASE_CLIENT_PAUSE, 1000);
+    IndexManagementUtil.setIfNotSet(conf, ZOOKEEPER_RECOVERY_RETRY_KEY, 3);
+    IndexManagementUtil.setIfNotSet(conf, ZOOKEEPER_RECOVERY_RETRY_INTERVALMILL, 100);
+    IndexManagementUtil.setIfNotSet(conf, HConstants.ZK_SESSION_TIMEOUT, 30000);
+    IndexManagementUtil.setIfNotSet(conf, HConstants.HBASE_RPC_TIMEOUT_KEY, 5000);
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Getting access to new HTable: " + Bytes.toString(tablename.copyBytesIfNecessary()));
+      LOG.debug("Creating new HTable: " + Bytes.toString(tablename.copyBytesIfNecessary()));
     }
     return this.e.getTable(tablename.copyBytesIfNecessary());
   }

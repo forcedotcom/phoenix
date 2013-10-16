@@ -29,6 +29,8 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.QueryServicesOptions.withDefaults;
 
+import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
+
 import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
@@ -48,7 +50,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final int DEFAULT_SPOOL_THRESHOLD_BYTES = 1024 * 1024; // 1m
     private static final int DEFAULT_MAX_MEMORY_WAIT_MS = 0;
     private static final int DEFAULT_MAX_TENANT_MEMORY_PERC = 100;
-    private static final int DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS = 60000 * 10; // 10min (to prevent age-out of hash cache during debugging)
+    private static final int DEFAULT_MAX_SERVER_CACHE_TIME_TO_LIVE_MS = 60000 * 60; // 1HR (to prevent age-out of hash cache during debugging)
     private static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*10;  // 10 Mb
     private static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 4;
     private static final int DEFAULT_MAX_QUERY_CONCURRENCY = 8;
@@ -57,6 +59,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final int DEFAULT_REGIONSERVER_INFO_PORT = -1;
     private static final int DEFAULT_REGIONSERVER_LEASE_PERIOD_MS = 9000000;
     private static final int DEFAULT_RPC_TIMEOUT_MS = 9000000;
+    private static final String DEFAULT_WAL_EDIT_CODEC = IndexedWALEditCodec.class.getName();
     
     public QueryServicesTestImpl() {
         this(ReadOnlyProps.EMPTY_PROPS);
@@ -75,11 +78,12 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setTargetQueryConcurrency(DEFAULT_TARGET_QUERY_CONCURRENCY)
                 .setMaxQueryConcurrency(DEFAULT_MAX_QUERY_CONCURRENCY)
                 .setRowKeyOrderSaltedTable(true)
-                .setMaxServerCacheTTLMs(DEFAULT_MAX_HASH_CACHE_TIME_TO_LIVE_MS)
+                .setMaxServerCacheTTLMs(DEFAULT_MAX_SERVER_CACHE_TIME_TO_LIVE_MS)
                 .setMasterInfoPort(DEFAULT_MASTER_INFO_PORT)
                 .setRegionServerInfoPort(DEFAULT_REGIONSERVER_INFO_PORT)
                 .setRegionServerLeasePeriodMs(DEFAULT_REGIONSERVER_LEASE_PERIOD_MS)
                 .setRpcTimeoutMs(DEFAULT_RPC_TIMEOUT_MS)
+                .setWALEditCodec(DEFAULT_WAL_EDIT_CODEC)
                 .setAll(overrideProps)
         );
     }    

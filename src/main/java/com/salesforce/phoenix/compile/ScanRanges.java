@@ -33,6 +33,8 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.RowKeySchema;
@@ -64,10 +66,16 @@ public class ScanRanges {
     private final boolean forceRangeScan;
 
     private ScanRanges (List<List<KeyRange>> ranges, RowKeySchema schema, boolean forceRangeScan) {
-        this.ranges = ranges;
+        List<List<KeyRange>> sortedRanges = Lists.newArrayListWithExpectedSize(ranges.size());
+        for (int i = 0; i < ranges.size(); i++) {
+            List<KeyRange> sorted = Lists.newArrayList(ranges.get(i));
+            Collections.sort(sorted, KeyRange.COMPARATOR);
+            sortedRanges.add(ImmutableList.copyOf(sorted));
+        }
+        this.ranges = ImmutableList.copyOf(sortedRanges);
         this.schema = schema;
         if (schema != null && !ranges.isEmpty()) {
-            this.filter = new SkipScanFilter(ranges, schema);
+            this.filter = new SkipScanFilter(this.ranges, schema);
         }
         this.forceRangeScan = forceRangeScan;
     }

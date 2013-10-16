@@ -47,6 +47,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionLocation;
@@ -133,6 +134,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
+    private boolean hasInvalidIndexConfiguration = false;
 
     /**
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
@@ -143,16 +145,19 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      */
     public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
         super(services);
-        this.config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
+        Configuration config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
         for (Entry<String,String> entry : services.getProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
         for (Entry<String,String> entry : connectionInfo.asProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
-        this.props = new ReadOnlyProps(config.iterator());
+        // Without making a copy of the configuration we cons up, we lose some of our properties
+        // on the server side during testing.
+        this.config = HBaseConfiguration.create(config);
+        this.props = new ReadOnlyProps(this.config.iterator());
         try {
-            this.connection = HConnectionManager.createConnection(config);
+            this.connection = HConnectionManager.createConnection(this.config);
         } catch (ZooKeeperConnectionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION)
                 .setRootCause(e).build().buildException();
@@ -249,26 +254,39 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
+    public void clearTableRegionCache(byte[] tableName) throws SQLException {
+        connection.clearRegionCache(tableName);
+    }
+    
+    @Override
     public List<HRegionLocation> getAllTableRegions(byte[] tableName) throws SQLException {
         /*
          * Use HConnection.getRegionLocation as it uses the cache in HConnection, while getting
          * all region locations from the HTable doesn't. 
          */
-        try {
-            // We could surface the package projected HConnectionImplementation.getNumberOfCachedRegionLocations
-            // to get the sizing info we need, but this would require a new class in the same package and a cast
-            // to this implementation class, so it's probably not worth it.
-            List<HRegionLocation> locations = Lists.newArrayList();
-            byte[] currentKey = HConstants.EMPTY_START_ROW;
-            do {
-              HRegionLocation regionLocation = connection.getRegionLocation(tableName, currentKey, false);
-              locations.add(regionLocation);
-              currentKey = regionLocation.getRegionInfo().getEndKey();
-            } while (!Bytes.equals(currentKey, HConstants.EMPTY_END_ROW));
-            return locations;
-        } catch (IOException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.GET_TABLE_REGIONS_FAIL)
-                .setRootCause(e).build().buildException();
+        int retryCount = 0, maxRetryCount = 1;
+        boolean reload =false;
+        while (true) {
+            try {
+                // We could surface the package projected HConnectionImplementation.getNumberOfCachedRegionLocations
+                // to get the sizing info we need, but this would require a new class in the same package and a cast
+                // to this implementation class, so it's probably not worth it.
+                List<HRegionLocation> locations = Lists.newArrayList();
+                byte[] currentKey = HConstants.EMPTY_START_ROW;
+                do {
+                  HRegionLocation regionLocation = connection.getRegionLocation(tableName, currentKey, reload);
+                  locations.add(regionLocation);
+                  currentKey = regionLocation.getRegionInfo().getEndKey();
+                } while (!Bytes.equals(currentKey, HConstants.EMPTY_END_ROW));
+                return locations;
+            } catch (IOException e) {
+                if (retryCount++ < maxRetryCount) { // One retry, in case split occurs while navigating
+                    reload = true;
+                    continue;
+                }
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.GET_TABLE_REGIONS_FAIL)
+                    .setRootCause(e).build().buildException();
+            }
         }
     }
 
@@ -899,8 +917,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             logger.info("Upgrade to 2.1.0 completed successfully" );
         }
     }
-
-    private boolean isCompatible(Long serverVersion) {
+    
+    private static boolean isInvalidMutableIndexConfig(Long serverVersion) {
+        if (serverVersion == null) {
+            return false;
+        }
+        return !MetaDataUtil.decodeMutableIndexConfiguredProperly(serverVersion);
+    }
+    
+    private static boolean isCompatible(Long serverVersion) {
         if (serverVersion == null) {
             return false;
         }
@@ -945,6 +970,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     buf.append(name);
                     buf.append(';');
                 }
+                hasInvalidIndexConfiguration |= isInvalidMutableIndexConfig(result.getValue());
                 if (minHBaseVersion > MetaDataUtil.decodeHBaseVersion(result.getValue())) {
                     minHBaseVersion = MetaDataUtil.decodeHBaseVersion(result.getValue());
                 }
@@ -1059,6 +1085,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         if (family != null) {
             ensureFamilyCreated(tableName, tableType, family);
         }
+        // Special case for call during drop table to ensure that the empty column family exists.
+        // Also, could be used to update property values on ALTER TABLE t SET prop=xxx
+        if (tableMetaData.isEmpty()) {
+            return null;
+        }
         MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -1070,16 +1101,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
+    public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType) throws SQLException {
         byte[][] rowKeyMetadata = new byte[2][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
-        if (emptyCF != null) {
-            this.ensureFamilyCreated(tableName, tableType, new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
-        }
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -1119,13 +1146,18 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MutationState updateData(MutationPlan plan) throws SQLException { 
+    public MutationState updateData(MutationPlan plan) throws SQLException {
         return plan.execute();
     }
 
     @Override
     public int getLowestClusterHBaseVersion() {
         return lowestClusterHBaseVersion;
+    }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return hasInvalidIndexConfiguration;
     }
 
     /**

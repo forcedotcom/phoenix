@@ -27,7 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.HRegionInfo;
@@ -45,7 +49,9 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.OrderByExpression;
-import com.salesforce.phoenix.iterate.*;
+import com.salesforce.phoenix.iterate.OrderedResultIterator;
+import com.salesforce.phoenix.iterate.RegionScannerResultIterator;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -137,7 +143,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         
         RegionScanner innerScanner = s;
         if (p != null || j != null) {
-            innerScanner = new HashJoinRegionScanner(s, p, j, tenantId, c.getEnvironment().getConfiguration());
+            innerScanner = new HashJoinRegionScanner(s, p, j, tenantId, c.getEnvironment());
         }
         
         final OrderedResultIterator iterator = deserializeFromScan(scan,innerScanner);
@@ -156,7 +162,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
      */
     private RegionScanner getTopNScanner(final ObserverContext<RegionCoprocessorEnvironment> c, final RegionScanner s, final OrderedResultIterator iterator, ImmutableBytesWritable tenantId) throws Throwable {
         final Tuple firstTuple;
-        TenantCache tenantCache = GlobalCache.getTenantCache(c.getEnvironment().getConfiguration(), tenantId);
+        TenantCache tenantCache = GlobalCache.getTenantCache(c.getEnvironment(), tenantId);
         long estSize = iterator.getEstimatedByteSize();
         final MemoryChunk chunk = tenantCache.getMemoryManager().allocate(estSize);
         final HRegion region = c.getEnvironment().getRegion();

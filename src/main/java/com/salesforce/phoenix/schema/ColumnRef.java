@@ -34,8 +34,8 @@ import org.apache.http.annotation.Immutable;
 import com.salesforce.phoenix.expression.ColumnExpression;
 import com.salesforce.phoenix.expression.IndexKeyValueColumnExpression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.ProjectedColumnExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
-import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -51,13 +51,14 @@ public final class ColumnRef {
     private final TableRef tableRef;
     private final int columnPosition;
     private final int pkSlotPosition;
-    private final boolean disambiguateWithTable;
     
-    public ColumnRef(TableRef tableRef, int columnPosition) {
-        this(tableRef, columnPosition, false);
+    public ColumnRef(ColumnRef columnRef, long timeStamp) {
+        this.tableRef = new TableRef(columnRef.tableRef, timeStamp);
+        this.columnPosition = columnRef.columnPosition;
+        this.pkSlotPosition = columnRef.pkSlotPosition;
     }
-    
-    public ColumnRef(TableRef tableRef, int columnPosition, boolean disambiguateWithTable) {
+
+    public ColumnRef(TableRef tableRef, int columnPosition) {
         if (tableRef == null) {
             throw new NullPointerException();
         }
@@ -77,7 +78,6 @@ public final class ColumnRef {
             }
         }
         pkSlotPosition = i;
-        this.disambiguateWithTable = disambiguateWithTable;
     }
 
     @Override
@@ -101,11 +101,7 @@ public final class ColumnRef {
     }
 
     public ColumnExpression newColumnExpression() throws SQLException {
-        if (SchemaUtil.isPKColumn(this.getColumn())) {
-            if (disambiguateWithTable) {
-                return new KeyValueColumnExpression(getColumn(), ScanProjector.getPrefixForTable(tableRef), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));
-            }
-            
+        if (SchemaUtil.isPKColumn(this.getColumn())) {            
             return new RowKeyColumnExpression(getColumn(), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));
         }
         
@@ -113,8 +109,8 @@ public final class ColumnRef {
             return new IndexKeyValueColumnExpression(getColumn());
         }
         
-        if (disambiguateWithTable) {
-            return new KeyValueColumnExpression(getColumn(), ScanProjector.getPrefixForTable(tableRef));
+        if (tableRef.getTable().getType() == PTableType.JOIN) {
+        	return new ProjectedColumnExpression(getColumn(), tableRef.getTable());
         }
         
         return new KeyValueColumnExpression(getColumn());
@@ -138,9 +134,5 @@ public final class ColumnRef {
     
     public TableRef getTableRef() {
         return tableRef;
-    }
-    
-    public boolean disambiguateWithTable() {
-        return disambiguateWithTable;
     }
 }

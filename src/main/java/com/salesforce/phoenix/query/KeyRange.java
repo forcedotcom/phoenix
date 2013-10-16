@@ -29,8 +29,14 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE_ARRAY;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -85,18 +91,23 @@ public class KeyRange implements Writable {
         }
     };
     public static final Comparator<KeyRange> COMPARATOR = new Comparator<KeyRange>() {
+        @SuppressWarnings("deprecation")
         @Override public int compare(KeyRange o1, KeyRange o2) {
             return ComparisonChain.start()
-                    .compareFalseFirst(o1.lowerUnbound(), o2.lowerUnbound())
+//                    .compareFalseFirst(o1.lowerUnbound(), o2.lowerUnbound())
+                    .compare(o1.lowerUnbound(), o2.lowerUnbound())
                     .compare(o1.getLowerRange(), o2.getLowerRange(), Bytes.BYTES_COMPARATOR)
                     // we want o1 lower inclusive to come before o2 lower inclusive, but
                     // false comes before true, so we have to negate
-                    .compareTrueFirst(o1.isLowerInclusive(), o2.isLowerInclusive())
+//                    .compareTrueFirst(o1.isLowerInclusive(), o2.isLowerInclusive())
+                    .compare(o2.isLowerInclusive(), o1.isLowerInclusive())
                     // for the same lower bounding, we want a finite upper bound to
                     // be ordered before an infinite upper bound
-                    .compareTrueFirst(o1.upperUnbound(), o2.upperUnbound())
+//                    .compareTrueFirst(o1.upperUnbound(), o2.upperUnbound())
+                    .compare(o2.upperUnbound(), o1.upperUnbound())
                     .compare(o1.getUpperRange(), o2.getUpperRange(), Bytes.BYTES_COMPARATOR)
-                    .compareFalseFirst(o1.isUpperInclusive(), o2.isUpperInclusive())
+//                    .compareFalseFirst(o1.isUpperInclusive(), o2.isUpperInclusive())
+                    .compare(o1.isUpperInclusive(), o2.isUpperInclusive())
                     .result();
         }
     };
@@ -107,6 +118,10 @@ public class KeyRange implements Writable {
     private boolean upperInclusive;
     private boolean isSingleKey;
 
+    public static KeyRange getKeyRange(byte[] point) {
+        return getKeyRange(point, true, point, true);
+    }
+    
     public static KeyRange getKeyRange(byte[] lowerRange, byte[] upperRange) {
         return getKeyRange(lowerRange, true, upperRange, false);
     }

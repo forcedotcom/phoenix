@@ -16,6 +16,7 @@
 package com.salesforce.phoenix.index;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +37,15 @@ import com.salesforce.hbase.index.covered.TableState;
 import com.salesforce.hbase.index.scanner.Scanner;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
+import com.salesforce.hbase.index.write.IndexWriter;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
+import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.ServerUtil;
 /**
  * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
  * {@link #getIndexDeletes(TableState)}) as well as what the new index state should be (
@@ -49,15 +55,20 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
     public static final String INDEX_MD = "IdxMD";
     public static final String INDEX_UUID = "IdxUUID";
 
-    private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-    private Configuration conf;
+    private RegionCoprocessorEnvironment env;
 
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
-      this.conf = env.getConfiguration();
+      this.env = env;
+      Configuration conf = env.getConfiguration();
+      // Install handler that will attempt to disable the index first before killing the region server
+      conf.setIfUnset(IndexWriter.INDEX_FAILURE_POLICY_CONF_KEY, PhoenixIndexFailurePolicy.class.getName());
     }
 
-    List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes){
+    List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes) throws IOException{
+        if (attributes == null) {
+            return Collections.emptyList();
+        }
         byte[] uuid = attributes.get(INDEX_UUID);
         if (uuid == null) {
             return Collections.emptyList();
@@ -70,9 +81,15 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             byte[] tenantIdBytes = attributes.get(PhoenixRuntime.TENANT_ID_ATTRIB);
             ImmutableBytesWritable tenantId =
                 tenantIdBytes == null ? null : new ImmutableBytesWritable(tenantIdBytes);
-            TenantCache cache = GlobalCache.getTenantCache(conf, tenantId);
+            TenantCache cache = GlobalCache.getTenantCache(env, tenantId);
             IndexMetaDataCache indexCache =
                 (IndexMetaDataCache) cache.getServerCache(new ImmutableBytesPtr(uuid));
+            if (indexCache == null) {
+                String msg = "key="+ServerCacheClient.idToString(uuid) + " region=" + env.getRegion();
+                SQLException e = new SQLExceptionInfo.Builder(SQLExceptionCode.INDEX_METADATA_NOT_FOUND)
+                    .setMessage(msg).build().buildException();
+                ServerUtil.throwIOException("Index update failed", e); // will not return
+            }
             indexMaintainers = indexCache.getIndexMaintainers();
         }
     
@@ -85,6 +102,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
         if (indexMaintainers.isEmpty()) {
             return Collections.emptyList();
         }
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         List<IndexUpdate> indexUpdates = Lists.newArrayList();
         // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
         byte[] dataRowKey = state.getCurrentRowKey();
@@ -112,6 +130,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             return Collections.emptyList();
         }
         List<IndexUpdate> indexUpdates = Lists.newArrayList();
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
         byte[] dataRowKey = state.getCurrentRowKey();
         for (IndexMaintainer maintainer : indexMaintainers) {
@@ -133,7 +152,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
     }
     
   @Override
-  public boolean isEnabled(Mutation m) {
+  public boolean isEnabled(Mutation m) throws IOException {
       return !getIndexMaintainers(m.getAttributesMap()).isEmpty();
   }
   

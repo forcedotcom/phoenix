@@ -167,6 +167,7 @@ public class ServerCacheClient {
                 if ( ! servers.contains(entry) && 
                         keyRanges.intersect(entry.getRegionInfo().getStartKey(), entry.getRegionInfo().getEndKey())) {  // Call RPC once per server
                     servers.add(entry);
+                    if (LOG.isDebugEnabled()) {LOG.debug("Adding cache entry to be sent for " + entry);}
                     final byte[] key = entry.getRegionInfo().getStartKey();
                     final HTableInterface htable = services.getTable(cacheUsingTableRef.getTable().getName().getBytes());
                     closeables.add(htable);
@@ -188,6 +189,8 @@ public class ServerCacheClient {
                             return ServerCacheClient.this;
                         }
                     }));
+                } else {
+                    if (LOG.isDebugEnabled()) {LOG.debug("NOT adding cache entry to be sent for " + entry + " since one already exists for that entry");}
                 }
             }
             
@@ -276,5 +279,10 @@ public class ServerCacheClient {
     public static byte[] generateId() {
         long rand = RANDOM.nextLong();
         return Bytes.toBytes(rand);
+    }
+    
+    public static String idToString(byte[] uuid) {
+        assert(uuid.length == Bytes.SIZEOF_LONG);
+        return Long.toString(Bytes.toLong(uuid));
     }
 }

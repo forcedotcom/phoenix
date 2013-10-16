@@ -102,8 +102,9 @@ public interface IndexCodec {
    * @param m mutation that should be indexed.
    * @return <tt>true</tt> if indexing is enabled for the given table. This should be on a per-table
    *         basis, as each codec is instantiated per-region.
+ * @throws IOException 
    */
-  public boolean isEnabled(Mutation m);
+  public boolean isEnabled(Mutation m) throws IOException;
 
   /**
    * Get the batch identifier of the given mutation. Generally, updates to the table will take place

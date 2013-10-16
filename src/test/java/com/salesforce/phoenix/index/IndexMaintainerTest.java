@@ -5,8 +5,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -170,6 +173,24 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
     @Test
     public void testCompositeRowKeyVarFixedDescIndex() throws Exception {
         testIndexRowKeyBuilding("k1 VARCHAR, k2 INTEGER NOT NULL, v VARCHAR", "k1,k2", "k2 DESC, k1", new Object [] {"a",1});
+    }
+ 
+    @Test
+    public void testCompositeRowKeyTimeIndex() throws Exception {
+        long timeInMillis = System.currentTimeMillis();
+        long timeInNanos = System.nanoTime();
+        Timestamp ts = new Timestamp(timeInMillis);
+        ts.setNanos((int) (timeInNanos % 1000000000));
+        testIndexRowKeyBuilding("ts1 DATE NOT NULL, ts2 TIME NOT NULL, ts3 TIMESTAMP NOT NULL", "ts1,ts2,ts3", "ts2, ts1", new Object [] {new Date(timeInMillis), new Time(timeInMillis), ts});
+    }
+ 
+    @Test
+    public void testCompositeRowKeyBytesIndex() throws Exception {
+        long timeInMillis = System.currentTimeMillis();
+        long timeInNanos = System.nanoTime();
+        Timestamp ts = new Timestamp(timeInMillis);
+        ts.setNanos((int) (timeInNanos % 1000000000));
+        testIndexRowKeyBuilding("b1 BINARY(3) NOT NULL, v VARCHAR", "b1,v", "v, b1", new Object [] {new byte[] {41,42,43}, "foo"});
     }
  
     @Test

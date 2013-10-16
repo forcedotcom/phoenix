@@ -32,52 +32,70 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.schema.TableRef;
-import com.salesforce.phoenix.util.ByteUtil;
+import com.google.common.collect.ImmutableList;
+import com.salesforce.phoenix.compile.JoinCompiler.ProjectedPTableWrapper;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.ExpressionType;
+import com.salesforce.phoenix.schema.KeyValueSchema;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.ValueBitSet;
+import com.salesforce.phoenix.schema.KeyValueSchema.KeyValueSchemaBuilder;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class ScanProjector {    
-    private static final String SCAN_PROJECTOR = "scanProjector";    
-    private static final byte[] PREFIX_SEPERATOR = Bytes.toBytes(":");
-    private static final byte[] PROJECTED_ROW = Bytes.toBytes("_");
-    private static final byte[] EMPTY_QUALIFIER = new byte[0];
+    public static final byte[] VALUE_COLUMN_FAMILY = Bytes.toBytes("_v");
+    public static final byte[] VALUE_COLUMN_QUALIFIER = new byte[0];
     
-    private final byte[] tablePrefix;
-
-    public static byte[] getRowFamily(byte[] cfPrefix) {
-        return ByteUtil.concat(cfPrefix, PREFIX_SEPERATOR);
+    private static final String SCAN_PROJECTOR = "scanProjector";
+    
+    private final KeyValueSchema schema;
+    private final Expression[] expressions;
+    private final ValueBitSet valueSet;
+    private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+    
+    public ScanProjector(ProjectedPTableWrapper projected) {
+    	List<PColumn> columns = projected.getTable().getColumns();
+    	expressions = new Expression[columns.size() - projected.getTable().getPKColumns().size()];
+    	// we do not count minNullableIndex for we might do later merge.
+    	KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder(0);
+    	int i = 0;
+        for (PColumn column : projected.getTable().getColumns()) {
+        	if (!SchemaUtil.isPKColumn(column)) {
+        		builder.addField(column);
+        		expressions[i++] = projected.getSourceExpression(column);
+        	}
+        }
+        schema = builder.build();
+        valueSet = ValueBitSet.newInstance(schema);
     }
     
-    public static byte[] getRowQualifier() {
-        return EMPTY_QUALIFIER;
-    }
-    
-    public static byte[] getPrefixedColumnFamily(byte[] columnFamily, byte[] cfPrefix) {
-        return ByteUtil.concat(cfPrefix, PREFIX_SEPERATOR, columnFamily);
-    }
-    
-    public static byte[] getPrefixForTable(TableRef table) {
-        if (table.getTableAlias() == null)
-            return table.getTable().getName().getBytes();
-        
-        return Bytes.toBytes(table.getTableAlias());
-    }
-    
-    public ScanProjector(byte[] tablePrefix) {
-        this.tablePrefix = tablePrefix;
+    private ScanProjector(KeyValueSchema schema, Expression[] expressions) {
+    	this.schema = schema;
+    	this.expressions = expressions;
+    	this.valueSet = ValueBitSet.newInstance(schema);
     }
     
     public static void serializeProjectorIntoScan(Scan scan, ScanProjector projector) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             DataOutputStream output = new DataOutputStream(stream);
-            WritableUtils.writeCompressedByteArray(output, projector.tablePrefix);
+            projector.schema.write(output);
+            int count = projector.expressions.length;
+            WritableUtils.writeVInt(output, count);
+            for (int i = 0; i < count; i++) {
+            	WritableUtils.writeVInt(output, ExpressionType.valueOf(projector.expressions[i]).ordinal());
+            	projector.expressions[i].write(output);
+            }
             scan.setAttribute(SCAN_PROJECTOR, stream.toByteArray());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -99,8 +117,16 @@ public class ScanProjector {
         ByteArrayInputStream stream = new ByteArrayInputStream(proj);
         try {
             DataInputStream input = new DataInputStream(stream);
-            byte[] tablePrefix = WritableUtils.readCompressedByteArray(input);
-            return new ScanProjector(tablePrefix);
+            KeyValueSchema schema = new KeyValueSchema();
+            schema.readFields(input);
+            int count = WritableUtils.readVInt(input);
+            Expression[] expressions = new Expression[count];
+            for (int i = 0; i < count; i++) {
+            	int ordinal = WritableUtils.readVInt(input);
+            	expressions[i] = ExpressionType.values()[ordinal].newInstance();
+            	expressions[i].readFields(input);
+            }
+            return new ScanProjector(schema, expressions);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
@@ -112,18 +138,61 @@ public class ScanProjector {
         }
     }
     
-    public byte[] getTablePrefix() {
-        return this.tablePrefix;
+    public List<KeyValue> projectResults(Tuple tuple) {
+    	byte[] bytesValue = schema.toBytes(tuple, expressions, valueSet, ptr);
+    	return encodeProjectedValue(bytesValue, valueSet, tuple.getValue(0));
     }
     
-    public KeyValue projectRow(KeyValue kv) {
-        return KeyValueUtil.newKeyValue(PROJECTED_ROW, getRowFamily(tablePrefix), getRowQualifier(), 
-                kv.getTimestamp(), kv.getBuffer(), kv.getRowOffset(), kv.getRowLength());
+    public static List<KeyValue> encodeProjectedValue(byte[] value, ValueBitSet bitSet, KeyValue base) {
+    	byte[] buf = new byte[bitSet.getEstimatedLength()];
+    	int len = bitSet.toBytes(buf, 0);
+    	return encodeProjectedValue(value, len, base);
     }
     
-    public KeyValue projectedKeyValue(KeyValue kv) {
-        byte[] cf = getPrefixedColumnFamily(kv.getFamily(), tablePrefix);
-        return KeyValueUtil.newKeyValue(PROJECTED_ROW, cf, kv.getQualifier(), 
-                kv.getTimestamp(), kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+    private static List<KeyValue> encodeProjectedValue(byte[] value, int bitSetLen, KeyValue base) {
+    	byte[] encoded = new byte[value.length + Bytes.SIZEOF_INT];
+    	int offset = Bytes.putBytes(encoded, 0, value, 0, value.length);
+    	Bytes.putInt(encoded, offset, bitSetLen);
+        KeyValue kv = KeyValueUtil.newKeyValue(base.getBuffer(), base.getRowOffset(), base.getRowLength(), 
+        		VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER, base.getTimestamp(), encoded, 0, encoded.length);
+        return ImmutableList.of(kv);
+    }
+    
+    public static ImmutableBytesWritable decodeProjectedValue(Tuple tuple) throws IOException {
+    	KeyValue kv = tuple.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
+    	if (kv == null)
+    		throw new IOException("Trying to decode a non-projected value.");
+    	
+    	return new ImmutableBytesWritable(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength() - Bytes.SIZEOF_INT);
+    }
+    
+    public static List<KeyValue> mergeProjectedValue(Tuple dest, KeyValueSchema destSchema, 
+    		Tuple src, KeyValueSchema srcSchema, int offset) throws IOException {
+    	KeyValue destKv = dest.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
+    	if (destKv == null)
+    		throw new IOException("Trying to decode a non-projected value.");
+    	ImmutableBytesWritable destValue = new ImmutableBytesWritable(destKv.getBuffer(), destKv.getValueOffset(), destKv.getValueLength() - Bytes.SIZEOF_INT);
+    	int destBitSetLen = Bytes.toInt(destKv.getBuffer(), destKv.getValueOffset() + destKv.getValueLength() - Bytes.SIZEOF_INT);
+    	ValueBitSet destBitSet = ValueBitSet.newInstance(destSchema);
+    	destBitSet.or(destValue);
+    	KeyValue srcKv = src.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
+    	if (srcKv == null)
+    		throw new IOException("Trying to decode a non-projected value.");
+    	ImmutableBytesWritable srcValue = new ImmutableBytesWritable(srcKv.getBuffer(), srcKv.getValueOffset(), srcKv.getValueLength() - Bytes.SIZEOF_INT);
+    	int srcBitSetLen = Bytes.toInt(srcKv.getBuffer(), srcKv.getValueOffset() + srcKv.getValueLength() - Bytes.SIZEOF_INT);
+    	ValueBitSet srcBitSet = ValueBitSet.newInstance(srcSchema);
+    	srcBitSet.or(srcValue);
+    	for (int i = 0; i < srcBitSet.getMaxSetBit(); i++) {
+    		if (srcBitSet.get(i)) {
+    			destBitSet.set(offset + i);
+    		}
+    	}
+    	byte[] buf = new byte[destBitSet.getEstimatedLength()];
+    	int len = destBitSet.toBytes(buf, 0);
+    	byte[] merged = new byte[destValue.getLength() - destBitSetLen + srcValue.getLength() - srcBitSetLen + len];
+    	int o = Bytes.putBytes(merged, 0, destValue.get(), destValue.getOffset(), destValue.getLength() - destBitSetLen);
+    	o = Bytes.putBytes(merged, o, srcValue.get(), srcValue.getOffset(), srcValue.getLength() - srcBitSetLen);
+    	Bytes.putBytes(merged, o, buf, 0, len);
+    	return encodeProjectedValue(merged, len, dest.getValue(0));
     }
 }

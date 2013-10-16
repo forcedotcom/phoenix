@@ -12,6 +12,7 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 
 import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
+import com.salesforce.hbase.index.covered.IndexCodec;
 
 /**
  * Helper to build the configuration for the {@link CoveredColumnIndexer}.
@@ -111,9 +112,13 @@ public class CoveredColumnIndexSpecifierBuilder {
   }
 
   public void build(HTableDescriptor desc) throws IOException {
+    build(desc, CoveredColumnIndexCodec.class);
+  }
+
+  void build(HTableDescriptor desc, Class<? extends IndexCodec> clazz) throws IOException {
     // add the codec for the index to the map of options
     Map<String, String> opts = this.convertToMap();
-    opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, CoveredColumnIndexCodec.class.getName());
+    opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, clazz.getName());
     Indexer.enableIndexing(desc, CoveredColumnIndexer.class, opts);
   }
 

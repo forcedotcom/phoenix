@@ -93,6 +93,9 @@ public class PostDDLCompiler {
             
             @Override
             public MutationState execute() throws SQLException {
+                if (tableRefs.isEmpty()) {
+                    return null;
+                }
                 boolean wasAutoCommit = connection.getAutoCommit();
                 try {
                     connection.setAutoCommit(true);
@@ -117,11 +120,6 @@ public class PostDDLCompiler {
                             }
                             @Override
                             public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
-                                throw new UnsupportedOperationException();
-                            }
-                            @Override
-                            public void setDisambiguateWithTable(
-                                    boolean disambiguateWithTable) {
                                 throw new UnsupportedOperationException();
                             }
                         };

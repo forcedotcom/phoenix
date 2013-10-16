@@ -32,6 +32,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
@@ -40,9 +42,9 @@ import org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader;
 import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
 import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
+import com.salesforce.hbase.index.builder.IndexBuildingFailureException;
 import com.salesforce.hbase.index.covered.data.LazyValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.scanner.Scanner;
@@ -56,18 +58,28 @@ public class IndexManagementUtil {
     // private ctor for util classes
   }
 
+  private static final Log LOG = LogFactory.getLog(IndexManagementUtil.class);
   public static String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
 
+  public static boolean isWALEditCodecSet(Configuration conf) {
+      // check to see if the WALEditCodec is installed
+      String codecClass = IndexedWALEditCodec.class.getName();
+      if (codecClass.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
+        // its installed, and it can handle compression and non-compression cases
+        return true;
+      }
+      return false;
+  }
   public static void ensureMutableIndexingCorrectlyConfigured(Configuration conf)
       throws IllegalStateException {
-    // check to see if the WALEditCodec is installed
-    String codecClass = IndexedWALEditCodec.class.getName();
-    if (codecClass.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
-      // its installed, and it can handle compression and non-compression cases
-      return;
+
+      // check to see if the WALEditCodec is installed
+    if (isWALEditCodecSet(conf)) {
+        return;
     }
 
     // otherwise, we have to install the indexedhlogreader, but it cannot have compression
+    String codecClass = IndexedWALEditCodec.class.getName();
     String indexLogReaderName = IndexedHLogReader.class.getName();
     if (indexLogReaderName.equals(conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName))) {
       if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
@@ -204,5 +216,28 @@ public class IndexManagementUtil {
       }
       s.setMaxVersions();
       return s;
+  }
+
+  /**
+   * Propagate the given failure as a generic {@link IOException}, if it isn't already
+   * @param e reason indexing failed. If ,tt>null</tt>, throws a {@link NullPointerException}, which
+   *          should unload the coprocessor.
+   */
+  public static void rethrowIndexingException(Throwable e) throws IOException {
+    try {
+      throw e;
+    } catch (IOException e1) {
+      LOG.info("Rethrowing " + e);
+      throw e1;
+    } catch (Throwable e1) {
+      LOG.info("Rethrowing " + e1 + " as a " + IndexBuildingFailureException.class.getSimpleName());
+      throw new IndexBuildingFailureException("Failed to build index for unexpected reason!", e1);
+    }
+  }
+
+  public static void setIfNotSet(Configuration conf, String key, int value) {
+    if (conf.get(key) == null) {
+      conf.setInt(key, value);
+    }
   }
 }

@@ -42,7 +42,9 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 /**
@@ -421,10 +423,47 @@ public class ByteUtil {
             key[i] = 0;
             i--;
             if (i < offset) {
+                // Change bytes back to the way they were
+                do {
+                    key[++i] = -1;
+                } while (i < offset + length - 1);
                 return false;
             }
          }
         key[i] = (byte)(key[i] + 1);
+        return true;
+    }
+
+    public static byte[] previousKey(byte[] key) {
+        byte[] previousKey = new byte[key.length];
+        System.arraycopy(key, 0, previousKey, 0, key.length);
+        if (!previousKey(previousKey, previousKey.length)) {
+            return null;
+        }
+        return previousKey;
+    }
+
+    public static boolean previousKey(byte[] key, int length) {
+        return previousKey(key, 0, length);
+    }
+    
+    public static boolean previousKey(byte[] key, int offset, int length) {
+        if (length == 0) {
+            return false;
+        }
+        int i = offset + length - 1;
+        while (key[i] == 0) {
+            key[i] = -1;
+            i--;
+            if (i < offset) {
+                // Change bytes back to the way they were
+                do {
+                    key[++i] = 0;
+                } while (i < offset + length - 1);
+                return false;
+            }
+         }
+        key[i] = (byte)(key[i] - 1);
         return true;
     }
 
@@ -507,5 +546,22 @@ public class ByteUtil {
             return ptr.get();
         }
         return ptr.copyBytes();
+    }
+    
+    public static KeyRange getKeyRange(byte[] key, CompareOp op, PDataType type) {
+        switch (op) {
+        case EQUAL:
+            return type.getKeyRange(key, true, key, true);
+        case GREATER:
+            return type.getKeyRange(key, false, KeyRange.UNBOUND, false);
+        case GREATER_OR_EQUAL:
+            return type.getKeyRange(key, true, KeyRange.UNBOUND, false);
+        case LESS:
+            return type.getKeyRange(KeyRange.UNBOUND, false, key, false);
+        case LESS_OR_EQUAL:
+            return type.getKeyRange(KeyRange.UNBOUND, false, key, true);
+        default:
+            throw new IllegalArgumentException("Unknown operator " + op);
+        }
     }
 }

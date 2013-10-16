@@ -519,6 +519,14 @@ public class QueryParserTest {
                         "select PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY mark ASC) from core.custom_index_value ind"));
         parser.parseStatement();
     }
+    
+    @Test
+    public void testRowValueConstructorQuery() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select a_integer FROM aTable where (x_integer, y_integer) > (3, 4)"));
+        parser.parseStatement();
+    }
 
     @Test
     public void testSingleTopLevelNot() throws Exception {
@@ -533,6 +541,22 @@ public class QueryParserTest {
         SQLParser parser = new SQLParser(
                 new StringReader(
                         "select * from t where not c"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testRVCInList() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where k in ( (1,2), (3,4) )"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testInList() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where k in ( 1,2 )"));
         parser.parseStatement();
     }
 

@@ -28,24 +28,32 @@
 package com.salesforce.phoenix.coprocessor;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.cache.*;
+import com.salesforce.phoenix.cache.GlobalCache;
+import com.salesforce.phoenix.cache.HashCache;
+import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.KeyValueSchema;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
+import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.TupleUtil;
 
@@ -58,7 +66,7 @@ public class HashJoinRegionScanner implements RegionScanner {
     private boolean hasMore;
     private TenantCache cache;
     
-    public HashJoinRegionScanner(RegionScanner scanner, ScanProjector projector, HashJoinInfo joinInfo, ImmutableBytesWritable tenantId, Configuration conf) throws IOException {
+    public HashJoinRegionScanner(RegionScanner scanner, ScanProjector projector, HashJoinInfo joinInfo, ImmutableBytesWritable tenantId, RegionCoprocessorEnvironment env) throws IOException {
         this.scanner = scanner;
         this.projector = projector;
         this.joinInfo = joinInfo;
@@ -69,7 +77,7 @@ public class HashJoinRegionScanner implements RegionScanner {
                 if (type != JoinType.Inner && type != JoinType.Left)
                     throw new IOException("Got join type '" + type + "'. Expect only INNER or LEFT with hash-joins.");
             }
-            this.cache = GlobalCache.getTenantCache(conf, tenantId);
+            this.cache = GlobalCache.getTenantCache(env, tenantId);
         }
     }
     
@@ -79,11 +87,7 @@ public class HashJoinRegionScanner implements RegionScanner {
             return;
         
         if (projector != null) {
-            List<KeyValue> kvs = new ArrayList<KeyValue>(result.size() + 1);
-            kvs.add(projector.projectRow(result.get(0)));
-            for (KeyValue kv : result) {
-                kvs.add(projector.projectedKeyValue(kv));
-            }
+            List<KeyValue> kvs = projector.projectResults(new ResultTuple(new Result(result)));
             if (joinInfo != null) {
                 result = kvs;
             } else {
@@ -100,6 +104,8 @@ public class HashJoinRegionScanner implements RegionScanner {
             Tuple tuple = new ResultTuple(new Result(result));
             boolean cont = true;
             for (int i = 0; i < count; i++) {
+            	if (!(joinInfo.earlyEvaluation()[i]))
+            		continue;
                 ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
                 ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
                 HashCache hashCache = (HashCache)cache.getServerCache(joinId);
@@ -113,23 +119,40 @@ public class HashJoinRegionScanner implements RegionScanner {
                 }
             }
             if (cont) {
+            	KeyValueSchema schema = joinInfo.getJoinedSchema();
                 resultQueue.offer(result);
                 for (int i = 0; i < count; i++) {
-                    if (tuples[i] == null || tuples[i].isEmpty())
+                	boolean earlyEvaluation = joinInfo.earlyEvaluation()[i];
+                    if (earlyEvaluation && 
+                    		(tuples[i] == null || tuples[i].isEmpty()))
                         continue;
                     int j = resultQueue.size();
                     while (j-- > 0) {
                         List<KeyValue> lhs = resultQueue.poll();
+                        if (!earlyEvaluation) {
+                        	Tuple t = new ResultTuple(new Result(lhs));
+                            ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(t, joinInfo.getJoinExpressions()[i]);
+                            ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
+                            HashCache hashCache = (HashCache)cache.getServerCache(joinId);
+                            if (hashCache == null)
+                                throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
+                            tuples[i] = hashCache.get(key);                        	
+                            if (tuples[i] == null || tuples[i].isEmpty()) {
+                            	if (joinInfo.getJoinTypes()[i] != JoinType.Inner) {
+                            		resultQueue.offer(lhs);
+                            	}
+                            	continue;
+                            }
+                        }
                         for (Tuple t : tuples[i]) {
-                            List<KeyValue> rhs = ((ResultTuple) t).getResult().list();
-                            List<KeyValue> joined = new ArrayList<KeyValue>(lhs.size() + rhs.size());
-                            joined.addAll(lhs);
-                            joined.addAll(rhs); // we don't replace rowkey here, for further reference to the rowkey fields, needs to specify family as well.
+                            List<KeyValue> joined = ScanProjector.mergeProjectedValue(
+                            		new SingleKeyValueTuple(lhs.get(0)), schema, 
+                            		t, joinInfo.getSchemas()[i], joinInfo.getFieldPositions()[i]);
                             resultQueue.offer(joined);
                         }
                     }
                 }
-                // sort kvs and apply post-join filter
+                // apply post-join filter
                 Expression postFilter = joinInfo.getPostJoinFilterExpression();
                 for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
                     List<KeyValue> kvs = iter.next();
@@ -151,7 +174,6 @@ public class HashJoinRegionScanner implements RegionScanner {
                             continue;
                         }
                     }
-                    Collections.sort(kvs, KeyValue.COMPARATOR);
                 }
             }
         }

@@ -38,6 +38,8 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -60,7 +62,7 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
         return filterRegions(allTableRegions, context.getScanRanges());
     }
 
-    public static List<HRegionLocation> filterRegions(List<HRegionLocation> allTableRegions, final ScanRanges ranges) {
+    public List<HRegionLocation> filterRegions(List<HRegionLocation> allTableRegions, final ScanRanges ranges) {
         Iterable<HRegionLocation> regions;
         if (ranges == ScanRanges.EVERYTHING) {
             return allTableRegions;
@@ -71,6 +73,16 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
                     new Predicate<HRegionLocation>() {
                     @Override
                     public boolean apply(HRegionLocation region) {
+                        KeyRange minMaxRange = context.getMinMaxRange();
+                        if (minMaxRange != null) {
+                            KeyRange range = KeyRange.getKeyRange(region.getRegionInfo().getStartKey(), region.getRegionInfo().getEndKey());
+                            if (tableRef.getTable().getBucketNum() != null) {
+                                // Add salt byte, as minMaxRange won't have it
+                                minMaxRange = SaltingUtil.addSaltByte(region.getRegionInfo().getStartKey(), minMaxRange);
+                            }
+                            range = range.intersect(minMaxRange);
+                            return ranges.intersect(range.getLowerRange(), range.getUpperRange());
+                        }
                         return ranges.intersect(region.getRegionInfo().getStartKey(), region.getRegionInfo().getEndKey());
                     }
             });

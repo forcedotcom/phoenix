@@ -17,6 +17,7 @@ import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
@@ -29,9 +30,7 @@ import org.apache.hadoop.hbase.regionserver.RegionServerAccounting;
 import org.apache.hadoop.hbase.regionserver.RegionServerServices;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -42,7 +41,6 @@ import com.salesforce.hbase.index.covered.example.ColumnGroup;
 import com.salesforce.hbase.index.covered.example.CoveredColumn;
 import com.salesforce.hbase.index.covered.example.CoveredColumnIndexSpecifierBuilder;
 import com.salesforce.hbase.index.covered.example.CoveredColumnIndexer;
-import com.salesforce.hbase.index.util.IndexManagementUtil;
 
 /**
  * For pre-0.94.9 instances, this class tests correctly deserializing WALEdits w/o compression. Post
@@ -53,7 +51,7 @@ import com.salesforce.hbase.index.util.IndexManagementUtil;
  * org.apache.hadoop.hhbase.regionserver.wal.TestWALReplay, copied here for completeness and ease of
  * use.
  * <p>
- * This test should only have a sinlge test - otherwise we will start/stop the minicluster multiple
+ * This test should only have a single test - otherwise we will start/stop the minicluster multiple
  * times, which is probably not what you want to do (mostly because its so much effort).
  */
 public class TestWALReplayWithIndexWritesAndCompressedWAL {
@@ -141,9 +139,6 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
    */
   @Test
   public void testReplayEditsWrittenViaHRegion() throws Exception {
-    LOG.info("Jesse: Specified log reader:" + conf.get(IndexManagementUtil.HLOG_READER_IMPL_KEY));
-    LOG.info("Jesse: Compression: " + conf.get(HConstants.ENABLE_WAL_COMPRESSION));
-    LOG.info("Jesse: Codec: " + conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY));
     final String tableNameStr = "testReplayEditsWrittenViaHRegion";
     final HRegionInfo hri = new HRegionInfo(Bytes.toBytes(tableNameStr), null, null, false);
     final Path basedir = new Path(this.hbaseRootDir, tableNameStr);
@@ -169,6 +164,9 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
     Mockito.when(mockRS.getWAL()).thenReturn(wal);
     RegionServerAccounting rsa = Mockito.mock(RegionServerAccounting.class);
     Mockito.when(mockRS.getRegionServerAccounting()).thenReturn(rsa);
+    ServerName mockServerName = Mockito.mock(ServerName.class);
+    Mockito.when(mockServerName.getServerName()).thenReturn(tableNameStr + "-server-1234");
+    Mockito.when(mockRS.getServerName()).thenReturn(mockServerName);
     HRegion region = new HRegion(basedir, wal, this.fs, this.conf, hri, htd, mockRS);
     long seqid = region.initialize();
     // HRegionServer usually does this. It knows the largest seqid across all regions.
@@ -249,10 +247,6 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
    */
   private Path runWALSplit(final Configuration c) throws IOException {
     FileSystem fs = FileSystem.get(c);
-    LOG.info("Jesse: runWALSplit: hlogImpl: " + c.get("hbase.regionserver.hlog.reader.impl"));
-    LOG.info("Jesse: runWALSplit: hlogImpl: " + c.get(IndexManagementUtil.HLOG_READER_IMPL_KEY));
-    LOG.info("Jesse: runWALSplit: Compression: " + conf.get(HConstants.ENABLE_WAL_COMPRESSION));
-    LOG.info("Jesse: runWALSplit: Codec: " + conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY));
     HLogSplitter logSplitter = HLogSplitter.createLogSplitter(c, this.hbaseRootDir, this.logDir,
       this.oldLogDir, fs);
     List<Path> splits = logSplitter.splitLog();

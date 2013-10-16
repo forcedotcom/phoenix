@@ -1,5 +1,7 @@
 package com.salesforce.phoenix.index;
 
+import static com.salesforce.phoenix.query.QueryServices.INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB;
+
 import java.sql.SQLException;
 import java.util.List;
 
@@ -10,11 +12,12 @@ import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.join.MaxServerCacheSizeExceededException;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.ScanUtil;
 
 public class IndexMetaDataCacheClient {
-    private static final int USE_CACHE_THRESHOLD = 5;
 
     private final ServerCacheClient serverCache;
     private TableRef cacheUsingTableRef;
@@ -35,12 +38,15 @@ public class IndexMetaDataCacheClient {
      * Determines whether or not to use the IndexMetaDataCache to send the index metadata
      * to the region servers. The alternative is to just set the index metadata as an attribute on
      * the mutations.
+     * @param connection 
      * @param mutations the list of mutations that will be sent in a batch to server
      * @param indexMetaDataByteLength length in bytes of the index metadata cache
      * @return
      */
-    public static boolean useIndexMetadataCache(List<Mutation> mutations, int indexMetaDataByteLength) {
-        return (indexMetaDataByteLength > ServerCacheClient.UUID_LENGTH && mutations.size() > USE_CACHE_THRESHOLD);
+    public static boolean useIndexMetadataCache(PhoenixConnection connection, List<Mutation> mutations, int indexMetaDataByteLength) {
+        ReadOnlyProps props = connection.getQueryServices().getProps();
+        int threshold = props.getInt(INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB, QueryServicesOptions.DEFAULT_INDEX_MUTATE_BATCH_SIZE_THRESHOLD);
+        return (indexMetaDataByteLength > ServerCacheClient.UUID_LENGTH && mutations.size() > threshold);
     }
     
     /**

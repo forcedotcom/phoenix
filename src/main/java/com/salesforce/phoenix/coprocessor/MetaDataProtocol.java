@@ -61,7 +61,7 @@ import com.salesforce.phoenix.util.MetaDataUtil;
  */
 public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final int PHOENIX_MAJOR_VERSION = 2;
-    public static final int PHOENIX_MINOR_VERSION = 2;
+    public static final int PHOENIX_MINOR_VERSION = 1;
     public static final int PHOENIX_PATCH_NUMBER = 0;
     public static final int PHOENIX_VERSION = 
             MetaDataUtil.encodeVersion(PHOENIX_MAJOR_VERSION, PHOENIX_MINOR_VERSION, PHOENIX_PATCH_NUMBER);
@@ -74,6 +74,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     public static final long MIN_SYSTEM_TABLE_TIMESTAMP = MIN_TABLE_TIMESTAMP + 7;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
 
+    // TODO: pare this down to minimum, as we don't need duplicates for both table and column errors, nor should we need
+    // a different code for every type of error.
+    // ENTITY_ALREADY_EXISTS, ENTITY_NOT_FOUND, NEWER_ENTITY_FOUND, ENTITY_NOT_IN_REGION, CONCURRENT_MODIFICATION
+    // ILLEGAL_MUTATION (+ sql code)
     public enum MutationCode {
         TABLE_ALREADY_EXISTS,
         TABLE_NOT_FOUND, 

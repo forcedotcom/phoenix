@@ -218,11 +218,36 @@ public class StringUtil {
         return getFirstNonBlankCharIdxFromEnd(b, offset, length, columnModifier) - offset + 1;
     }
 
+    public static byte[] padChar(byte[] value, int offset, int length, int paddedLength) {
+        byte[] key = new byte[paddedLength];
+        System.arraycopy(value,offset, key, 0, length);
+        Arrays.fill(key, length, paddedLength, SPACE_UTF8);
+        return key;
+    }
+
     public static byte[] padChar(byte[] value, Integer byteSize) {
         byte[] newValue = Arrays.copyOf(value, byteSize);
         if (newValue.length > value.length) {
             Arrays.fill(newValue, value.length, newValue.length, SPACE_UTF8);
         }
         return newValue;
+    }
+    
+    /**
+     * Lame - StringBuilder.equals is retarded.
+     * @param b1
+     * @param b2
+     * @return
+     */
+    public static boolean equals(StringBuilder b1, StringBuilder b2) {
+        if (b1.length() != b2.length()) {
+            return false;
+        }
+        for (int i = 0; i < b1.length(); i++) {
+            if (b1.charAt(i) != b2.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

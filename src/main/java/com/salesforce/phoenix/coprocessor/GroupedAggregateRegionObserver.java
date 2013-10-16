@@ -130,7 +130,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);        
         RegionScanner innerScanner = s;
         if (p != null || j != null) {
-            innerScanner = new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment().getConfiguration());
+            innerScanner = new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment());
         }
         
         if (keyOrdered) { // Optimize by taking advantage that the rows are already in the required group by key order
@@ -205,7 +205,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             estDistVals = Math.min(MIN_DISTINCT_VALUES, (int)(Bytes.toInt(estDistValsBytes) * 1.5f));  // Allocate 1.5x estimation
         }
         
-        TenantCache tenantCache = GlobalCache.getTenantCache(c.getEnvironment().getConfiguration(), ScanUtil.getTenantId(scan));
+        TenantCache tenantCache = GlobalCache.getTenantCache(c.getEnvironment(), ScanUtil.getTenantId(scan));
         int estSize = sizeOfUnorderedGroupByMap(estDistVals, aggregators.getSize());
         final MemoryChunk chunk = tenantCache.getMemoryManager().allocate(estSize);
         boolean success = false;

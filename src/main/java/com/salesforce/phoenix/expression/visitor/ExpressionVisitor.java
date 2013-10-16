@@ -30,7 +30,25 @@ package com.salesforce.phoenix.expression.visitor;
 import java.util.Iterator;
 import java.util.List;
 
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.AddExpression;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.CaseExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
+import com.salesforce.phoenix.expression.DivideExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.InListExpression;
+import com.salesforce.phoenix.expression.IsNullExpression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.LikeExpression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.MultiplyExpression;
+import com.salesforce.phoenix.expression.NotExpression;
+import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.ProjectedColumnExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.expression.RowValueConstructorExpression;
+import com.salesforce.phoenix.expression.StringConcatExpression;
+import com.salesforce.phoenix.expression.SubtractExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
 
@@ -91,9 +109,12 @@ public interface ExpressionVisitor<E> {
     public E visit(LiteralExpression node);
     public E visit(RowKeyColumnExpression node);
     public E visit(KeyValueColumnExpression node);
+    public E visit(ProjectedColumnExpression node);
     
 	public Iterator<Expression> visitEnter(StringConcatExpression node);
 	public E visitLeave(StringConcatExpression node, List<E> l);
 	
-	
+	public Iterator<Expression> visitEnter(RowValueConstructorExpression node);
+    public E visitLeave(RowValueConstructorExpression node, List<E> l);
+    
 }

@@ -37,9 +37,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.schema.PColumn;
-import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -54,7 +52,6 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class KeyValueColumnExpression extends ColumnExpression {
     private byte[] cf;
     private byte[] cq;
-    private RowKeyValueAccessor accessor;
 
     public KeyValueColumnExpression() {
     }
@@ -65,29 +62,12 @@ public class KeyValueColumnExpression extends ColumnExpression {
         this.cq = column.getName().getBytes();
     }
 
-    public KeyValueColumnExpression(PColumn column, byte[] cfPrefix) {
-        super(column);
-        this.cf = ScanProjector.getPrefixedColumnFamily(column.getFamilyName().getBytes(), cfPrefix);
-        this.cq = column.getName().getBytes();
-    }
-
-    public KeyValueColumnExpression(PColumn column, byte[] cfPrefix, RowKeyValueAccessor accessor) {
-        super(column);
-        this.cf = ScanProjector.getRowFamily(cfPrefix);
-        this.cq = ScanProjector.getRowQualifier();
-        this.accessor = accessor;
-    }
-
     public byte[] getColumnFamily() {
         return cf;
     }
 
     public byte[] getColumnName() {
         return cq;
-    }
-    
-    public int getPosition() {
-        return accessor.getIndex();
     }
 
     @Override
@@ -96,7 +76,6 @@ public class KeyValueColumnExpression extends ColumnExpression {
         int result = 1;
         result = prime * result + Arrays.hashCode(cf);
         result = prime * result + Arrays.hashCode(cq);
-        result = prime * result + ((accessor == null) ? 0 : accessor.hashCode());
         return result;
     }
 
@@ -109,15 +88,12 @@ public class KeyValueColumnExpression extends ColumnExpression {
         KeyValueColumnExpression other = (KeyValueColumnExpression)obj;
         if (!Arrays.equals(cf, other.cf)) return false;
         if (!Arrays.equals(cq, other.cq)) return false;
-        if ((accessor != null && !accessor.equals(other.accessor)) 
-                || (accessor == null && other.accessor != null)) 
-            return false;
         return true;
     }
 
     @Override
     public String toString() {
-        return SchemaUtil.getColumnDisplayName(cf, cq) + (accessor == null ? "" : ("[" + accessor.getIndex() + "]"));
+        return SchemaUtil.getColumnDisplayName(cf, cq);
     }
 
     @Override
@@ -125,27 +101,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
         KeyValue keyValue = tuple.getValue(cf, cq);
         if (keyValue != null) {
             ptr.set(keyValue.getBuffer(), keyValue.getValueOffset(), keyValue.getValueLength());
-            if (accessor == null)
-                return true;
-            int offset = accessor.getOffset(ptr.get(), ptr.getOffset());
-            // Null is represented in the last expression of a multi-part key 
-            // by the bytes not being present.
-            int maxOffset = ptr.getOffset() + ptr.getLength();
-            if (offset < maxOffset) {
-                byte[] buffer = ptr.get();
-                int fixedByteSize = -1;
-                // FIXME: fixedByteSize <= maxByteSize ? fixedByteSize : 0 required because HBase passes bogus keys to filter to position scan (HBASE-6562)
-                if (type.isFixedWidth()) {
-                    fixedByteSize = getByteSize();
-                    fixedByteSize = fixedByteSize <= maxOffset ? fixedByteSize : 0;
-                }
-                int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxOffset);
-                // In the middle of the key, an empty variable length byte array represents null
-                if (length > 0) {
-                    ptr.set(type.toBytes(type.toObject(buffer, offset, length, type)));
-                    return true;
-                }
-            }
+            return true;
         }
         return false;
     }
@@ -155,13 +111,6 @@ public class KeyValueColumnExpression extends ColumnExpression {
         super.readFields(input);
         cf = Bytes.readByteArray(input);
         cq = Bytes.readByteArray(input);
-        boolean hasAccessor = input.readBoolean();
-        if (hasAccessor) {
-            accessor = new RowKeyValueAccessor();
-            accessor.readFields(input);
-        } else {
-            accessor = null;
-        }
     }
 
     @Override
@@ -169,12 +118,6 @@ public class KeyValueColumnExpression extends ColumnExpression {
         super.write(output);
         Bytes.writeByteArray(output, cf);
         Bytes.writeByteArray(output, cq);
-        if (accessor != null) {
-            output.writeBoolean(true);
-            accessor.write(output);
-        } else {
-            output.writeBoolean(false);
-        }
     }
 
     @Override

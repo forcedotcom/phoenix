@@ -132,8 +132,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
-        return getDelegate().dropColumn(tabeMetaData, tableType, emptyCF);
+    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType) throws SQLException {
+        return getDelegate().dropColumn(tabeMetaData, tableType);
     }
 
     @Override
@@ -164,5 +164,15 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     @Override
     public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return getDelegate().getTableDescriptor(tableName);
+    }
+
+    @Override
+    public void clearTableRegionCache(byte[] tableName) throws SQLException {
+        getDelegate().clearTableRegionCache(tableName);
+    }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return getDelegate().hasInvalidIndexConfiguration();
     }
 }

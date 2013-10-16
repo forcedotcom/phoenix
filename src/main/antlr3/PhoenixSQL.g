@@ -91,10 +91,12 @@ tokens
     INDEX='index';
     INCLUDE='include';
     WITHIN='within';
-    ENABLE='enable';
-    DISABLE='disable';
     SET='set';
     CAST='cast';
+    USABLE='usable';
+    UNUSABLE='unusable';
+    DISABLE='disable';
+    REBUILD='rebuild';
 }
 
 
@@ -367,7 +369,7 @@ create_table_node returns [CreateTableStatement ret]
     :   CREATE (tt=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
         (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
-        (SPLIT ON v=values)?
+        (SPLIT ON v=list_expressions)?
         {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
     ;
 
@@ -377,7 +379,7 @@ create_index_node returns [CreateIndexStatement ret]
         (LPAREN pk=index_pk_constraint RPAREN)
         (INCLUDE (LPAREN icrefs=column_names RPAREN))?
         (p=fam_properties)?
-        (SPLIT ON v=values)?
+        (SPLIT ON v=list_expressions)?
         {ret = factory.createIndex(i, factory.namedTable(null,t), pk, icrefs, v, p, ex!=null, getBindCount()); }
     ;
 
@@ -446,8 +448,8 @@ drop_index_node returns [DropIndexStatement ret]
 
 // Parse a alter index statement
 alter_index_node returns [AlterIndexStatement ret]
-    : ALTER INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name (ENABLE | d=DISABLE)
-      {ret = factory.alterIndex(factory.namedTable(null,factory.table(t.getSchemaName(),i.getName())), t.getTableName(), ex!=null, d==null ? PIndexState.ENABLE : PIndexState.DISABLE); }
+    : ALTER INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name s=(USABLE | UNUSABLE | REBUILD | DISABLE)
+      {ret = factory.alterIndex(factory.namedTable(null,factory.table(t.getSchemaName(),i.getName())), t.getTableName(), ex!=null, PIndexState.valueOf(s.getText())); }
     ;
 
 // Parse an alter table statement.
@@ -458,7 +460,7 @@ alter_table_node returns [AlterTableStatement ret]
     ;
 
 prop_name returns [String ret]
-    :   p=identifier {$ret = p; }
+    :   p=identifier {$ret = SchemaUtil.normalizeIdentifier(p); }
     ;
     
 properties returns [Map<String,Object> ret]
@@ -662,7 +664,7 @@ boolean_expr returns [ParseNode ret]
                       |        (BETWEEN r1=expression AND r2=expression {$ret = factory.between(l,r1,r2,n!=null); } )
                       |        ((IN ((r=bind_expression {$ret = factory.inList(Arrays.asList(l,r),n!=null);} )
                                 | (LPAREN r=select_expression RPAREN {$ret = factory.in(l,r,n!=null);} )
-                                | (v=values {List<ParseNode> il = new ArrayList<ParseNode>(v.size() + 1); il.add(l); il.addAll(v); $ret = factory.inList(il,n!=null);})
+                                | (v=list_expressions {List<ParseNode> il = new ArrayList<ParseNode>(v.size() + 1); il.add(l); il.addAll(v); $ret = factory.inList(il,n!=null);})
                                 )))
                       ))
                    |  { $ret = l; } )
@@ -710,7 +712,7 @@ expression_term returns [ParseNode ret]
 @init{ParseNode n;boolean isAscending=true;}
     :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
     |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
-    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_list (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
+    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
         {
             FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);
             contextStack.peek().setAggregate(f.isAggregate());
@@ -731,15 +733,28 @@ expression_term returns [ParseNode ret]
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         }
-    |   e=expression_literal_bind oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
+    |   e=literal_or_bind_value oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
-    |   LPAREN e=expression RPAREN { $ret = e; }
+    |   LPAREN l=expression_terms RPAREN 
+    	{ 
+    		if(l.size() == 1) {
+    			$ret = l.get(0);
+    		}	
+    		else {
+    			$ret = factory.rowValueConstructor(l);
+    		}	 
+    	}
     |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
     ;
-    
+
 expression_terms returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-    :  v = expression {$ret.add(v);}  (COMMA v = expression {$ret.add(v);} )*
+    :  e = expression {$ret.add(e);}  (COMMA e = expression {$ret.add(e);} )*
+;
+
+expression_list returns [List<ParseNode> ret]
+@init{ret = new ArrayList<ParseNode>(); }
+    :  (v = expression {$ret.add(v);})?  (COMMA v = expression {$ret.add(v);} )*
 ;
 
 index_name returns [NamedNode ret]
@@ -759,9 +774,23 @@ from_table_name returns [TableName ret]
     ;
     
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
-expression_literal_bind returns [ParseNode ret]
+literal_or_bind_value returns [ParseNode ret]
     :   e=literal { $ret = e; }
     |   b=bind_name { $ret = factory.bind(b); }    
+    ;
+
+// The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
+literal_expression returns [ParseNode ret]
+    :   e=literal_or_bind_value { $ret = e; }
+    |   LPAREN l=literal_expressions RPAREN 
+        { 
+            if(l.size() == 1) {
+                $ret = l.get(0);
+            }   
+            else {
+                $ret = factory.rowValueConstructor(l);
+            } 
+        }
     ;
 
 // Get a string, integer, double, date, boolean, or NULL value.
@@ -821,9 +850,14 @@ double_literal returns [LiteralParseNode ret]
         }
     ;
 
-values returns [List<ParseNode> ret]
+list_expressions returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-    :   LPAREN v = expression_literal_bind {$ret.add(v);}  (COMMA v = expression_literal_bind {$ret.add(v);} )* RPAREN
+    :   LPAREN v = literal_expressions RPAREN { $ret = v; }
+;
+
+literal_expressions returns [List<ParseNode> ret]
+@init{ret = new ArrayList<ParseNode>(); }
+    :   v = literal_expression {$ret.add(v);}  (COMMA v = literal_expression {$ret.add(v);} )*
 ;
 
 // parse a field, if it might be a bind name.
@@ -845,11 +879,6 @@ identifier returns [String ret]
 
 parseNoReserved returns [String ret]
     :   n=NAME { $ret = n.getText(); }
-    ;
-
-expression_list returns [List<ParseNode> ret]
-@init{$ret = new ArrayList<ParseNode>();}
-    : (e=expression {ret.add(e);})? ( COMMA e=expression {ret.add(e);} )*
     ;
 
 case_statement returns [ParseNode ret]

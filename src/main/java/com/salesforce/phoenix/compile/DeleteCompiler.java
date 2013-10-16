@@ -43,6 +43,8 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.execute.ScanPlan;
@@ -61,10 +63,12 @@ import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.IndexUtil;
 
 public class DeleteCompiler {
     private final PhoenixConnection connection;
@@ -119,6 +123,24 @@ public class DeleteCompiler {
         
     }
     
+    private boolean hasImmutableIndex(TableRef tableRef) {
+        return tableRef.getTable().isImmutableRows() && !tableRef.getTable().getIndexes().isEmpty();
+    }
+    
+    private boolean hasImmutableIndexWithKeyValueColumns(TableRef tableRef) {
+        if (!hasImmutableIndex(tableRef)) {
+            return false;
+        }
+        for (PTable index : tableRef.getTable().getIndexes()) {
+            for (PColumn column : index.getPKColumns()) {
+                if (!IndexUtil.isDataPKColumn(column)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
     public MutationPlan compile(DeleteStatement statement, List<Object> binds) throws SQLException {
         final boolean isAutoCommit = connection.getAutoCommit();
         final ConnectionQueryServices services = connection.getQueryServices();
@@ -133,6 +155,11 @@ public class DeleteCompiler {
         final OrderBy orderBy = OrderByCompiler.compile(context, statement, GroupBy.EMPTY_GROUP_BY, limit); 
         Expression whereClause = WhereCompiler.compile(context, statement);
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
+ 
+        if (hasImmutableIndexWithKeyValueColumns(tableRef)) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX).setSchemaName(tableRef.getTable().getSchemaName().getString())
+            .setTableName(tableRef.getTable().getTableName().getString()).build().buildException();
+        }
         
         if (LiteralExpression.TRUE_EXPRESSION.equals(whereClause) && context.getScanRanges().isSingleRowScan()) {
             final ImmutableBytesPtr key = new ImmutableBytesPtr(scan.getStartRow());
@@ -160,7 +187,7 @@ public class DeleteCompiler {
                     return connection;
                 }
             };
-        } else if (isAutoCommit && limit == null) {
+        } else if (isAutoCommit && limit == null && !hasImmutableIndex(tableRef)) {
             // TODO: better abstraction - DeletePlan ?
             scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>

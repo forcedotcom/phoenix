@@ -37,6 +37,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.parse.BindableStatement;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
@@ -44,6 +45,7 @@ import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.ScanUtil;
 
 
 /**
@@ -55,7 +57,7 @@ import com.salesforce.phoenix.util.NumberUtil;
  * @since 0.1
  */
 public class StatementContext {
-    private final ColumnResolver resolver;
+    private ColumnResolver resolver;
     private final BindManager binds;
     private final Scan scan;
     private final ExpressionManager expressions;
@@ -69,16 +71,16 @@ public class StatementContext {
     
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
+    private KeyRange minMaxRange = null;
 
-    private final boolean disambiguateWithTable;
     private final HashCacheClient hashClient;
     private TableRef currentTable;
     
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
-        this(statement, connection, resolver, binds, scan, false, null);
+        this(statement, connection, resolver, binds, scan, null);
     }
     
-    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, boolean disambiguateWithTable, HashCacheClient hashClient) {
+    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, HashCacheClient hashClient) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -90,7 +92,6 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
-        this.disambiguateWithTable = disambiguateWithTable;
         this.hashClient = hashClient;
         if (resolver != null && !resolver.getTables().isEmpty()) {
             this.currentTable = resolver.getTables().get(0);
@@ -121,10 +122,6 @@ public class StatementContext {
         return binds;
     }
     
-    public boolean disambiguateWithTable() {
-        return disambiguateWithTable;
-    }
-    
     public HashCacheClient getHashClient() {
         return hashClient;
     }
@@ -145,6 +142,10 @@ public class StatementContext {
         return resolver;
     }
 
+    public void setResolver(ColumnResolver resolver) {
+        this.resolver = resolver;
+    }
+
     public ExpressionManager getExpressionManager() {
         return expressions;
     }
@@ -159,8 +160,41 @@ public class StatementContext {
     }
     
     public void setScanRanges(ScanRanges scanRanges) {
+        setScanRanges(scanRanges, null);
+    }
+
+    public void setScanRanges(ScanRanges scanRanges, KeyRange minMaxRange) {
         this.scanRanges = scanRanges;
         this.scanRanges.setScanStartStopRow(scan);
+        PTable table = this.getCurrentTable().getTable();
+        if (minMaxRange != null) {
+            // Ensure minMaxRange is lower inclusive and upper exclusive, as that's
+            // what we need to intersect against for the HBase scan.
+            byte[] lowerRange = minMaxRange.getLowerRange();
+            if (!minMaxRange.lowerUnbound()) {
+                if (!minMaxRange.isLowerInclusive()) {
+                    lowerRange = ScanUtil.nextKey(lowerRange, table, tempPtr);
+                }
+            }
+            
+            byte[] upperRange = minMaxRange.getUpperRange();
+            if (!minMaxRange.upperUnbound()) {
+                if (minMaxRange.isUpperInclusive()) {
+                    upperRange = ScanUtil.nextKey(upperRange, table, tempPtr);
+                }
+            }
+            if (minMaxRange.getLowerRange() != lowerRange || minMaxRange.getUpperRange() != upperRange) {
+                minMaxRange = KeyRange.getKeyRange(lowerRange, true, upperRange, false);
+            }
+            // If we're not salting, we can intersect this now with the scan range.
+            // Otherwise, we have to wait to do this when we chunk up the scan.
+            if (table.getBucketNum() == null) {
+                minMaxRange = minMaxRange.intersect(KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow()));
+                scan.setStartRow(minMaxRange.getLowerRange());
+                scan.setStopRow(minMaxRange.getUpperRange());
+            }
+            this.minMaxRange = minMaxRange;
+        }
     }
     
     public PhoenixConnection getConnection() {
@@ -168,7 +202,7 @@ public class StatementContext {
     }
 
     public long getCurrentTime() throws SQLException {
-        long ts = this.getResolver().getTables().get(0).getTimeStamp();
+        long ts = this.getCurrentTable().getTimeStamp();
         if (ts != QueryConstants.UNSET_TIMESTAMP) {
             return ts;
         }
@@ -181,9 +215,17 @@ public class StatementContext {
          * current time at execution time. In that case, we'll call MetaDataClient.updateCache
          * purely to bind the current time based on the server time.
          */
-        PTable table = this.getResolver().getTables().get(0).getTable();
+        PTable table = this.getCurrentTable().getTable();
         MetaDataClient client = new MetaDataClient(connection);
         currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;
+    }
+
+    /**
+     * Get the key range derived from row value constructor usage in where clause. These are orthogonal to the ScanRanges
+     * and form a range for which each scan is intersected against.
+     */
+    public KeyRange getMinMaxRange () {
+        return minMaxRange;
     }
 }

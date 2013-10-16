@@ -27,16 +27,26 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end.salted;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_SALTING;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Properties;
 
 import org.junit.Test;
 
 import com.salesforce.phoenix.end2end.BaseClientMangedTimeTest;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.QueryUtil;
 
 
 /**
@@ -453,6 +463,71 @@ public class SaltedTableTest extends BaseClientMangedTimeTest {
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testSelectWithOrderByRowKey() throws Exception {
+        long ts = nextTimestamp();
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5);
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            initTableValues(null, ts);
+            
+            String query = "SELECT * FROM " + TABLE_WITH_SALTING + " ORDER  BY  a_integer, a_string, a_id";
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet explainPlan = statement.executeQuery("EXPLAIN " + query);
+            // Confirm that ORDER BY in row key order will be optimized out for salted table
+            assertEquals("CLIENT PARALLEL 4-WAY FULL SCAN OVER TABLE_WITH_SALTING\n" + 
+                    "CLIENT MERGE SORT", QueryUtil.getExplainPlan(explainPlan));
+            ResultSet rs = statement.executeQuery();
+            
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("ab", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("456", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("de", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("abc", rs.getString(4));
+            assertEquals(111, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(2, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("def", rs.getString(4));
+            assertEquals(222, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(3, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("ghi", rs.getString(4));
+            assertEquals(333, rs.getInt(5));
+            
+            assertTrue(rs.next());
+            assertEquals(4, rs.getInt(1));
+            assertEquals("abc", rs.getString(2));
+            assertEquals("123", rs.getString(3));
+            assertEquals("jkl", rs.getString(4));
+            assertEquals(444, rs.getInt(5));
+            
             assertFalse(rs.next());
         } finally {
             conn.close();

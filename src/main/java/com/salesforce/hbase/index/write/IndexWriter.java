@@ -58,7 +58,7 @@ public class IndexWriter implements Stoppable {
 
   private static final Log LOG = LogFactory.getLog(IndexWriter.class);
   private static final String INDEX_COMMITTER_CONF_KEY = "index.writer.commiter.class";
-  private static final String INDEX_FAILURE_POLICY_CONF_KEY = "index.writer.failurepolicy.class";
+  public static final String INDEX_FAILURE_POLICY_CONF_KEY = "index.writer.failurepolicy.class";
   private AtomicBoolean stopped = new AtomicBoolean(false);
   private IndexCommitter writer;
   private IndexFailurePolicy failurePolicy;
@@ -67,8 +67,8 @@ public class IndexWriter implements Stoppable {
    * @throws IOException if the {@link IndexWriter} or {@link IndexFailurePolicy} cannot be
    *           instantiated
    */
-  public IndexWriter(RegionCoprocessorEnvironment env) throws IOException {
-    this(getCommitter(env), getFailurePolicy(env), env);
+  public IndexWriter(RegionCoprocessorEnvironment env, String name) throws IOException {
+    this(getCommitter(env), getFailurePolicy(env), env, name);
   }
 
   public static IndexCommitter getCommitter(RegionCoprocessorEnvironment env) throws IOException {
@@ -108,9 +108,9 @@ public class IndexWriter implements Stoppable {
    * @param env
    */
   public IndexWriter(IndexCommitter committer, IndexFailurePolicy policy,
-      RegionCoprocessorEnvironment env) {
+      RegionCoprocessorEnvironment env, String name) {
     this(committer, policy);
-    this.writer.setup(this, env);
+    this.writer.setup(this, env, name);
     this.failurePolicy.setup(this, env);
   }
 
@@ -136,8 +136,9 @@ public class IndexWriter implements Stoppable {
    * which ensures that the server crashes when an index write fails, ensuring that we get WAL
    * replay of the index edits.
    * @param indexUpdates Updates to write
+ * @throws IOException 
    */
-  public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, byte[]>> indexUpdates) {
+  public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, byte[]>> indexUpdates) throws IOException  {
     // convert the strings to htableinterfaces to which we can talk and group by TABLE
     Multimap<HTableInterfaceReference, Mutation> toWrite = resolveTableReferences(indexUpdates);
     writeAndKillYourselfOnFailure(toWrite);
@@ -146,11 +147,14 @@ public class IndexWriter implements Stoppable {
   /**
    * see {@link #writeAndKillYourselfOnFailure(Collection)}.
    * @param toWrite
+ * @throws IOException 
    */
-  public void writeAndKillYourselfOnFailure(Multimap<HTableInterfaceReference, Mutation> toWrite) {
+  public void writeAndKillYourselfOnFailure(Multimap<HTableInterfaceReference, Mutation> toWrite) throws IOException {
     try {
       write(toWrite);
-      LOG.info("Done writing all index updates!");
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Done writing all index updates!\n\t" + toWrite);
+      }
     } catch (Exception e) {
       this.failurePolicy.handleFailure(toWrite, e);
     }

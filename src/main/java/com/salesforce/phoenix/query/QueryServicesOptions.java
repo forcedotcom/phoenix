@@ -31,6 +31,7 @@ import static com.salesforce.phoenix.query.QueryServices.CALL_QUEUE_PRODUCER_ATT
 import static com.salesforce.phoenix.query.QueryServices.CALL_QUEUE_ROUND_ROBIN_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.DATE_FORMAT_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.IMMUTABLE_ROWS_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.KEEP_ALIVE_MS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MASTER_INFO_PORT_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB;
@@ -60,6 +61,7 @@ import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -98,8 +100,8 @@ public class QueryServicesOptions {
     public static final int DEFAULT_SCAN_CACHE_SIZE = 1000;
     public static final int DEFAULT_MAX_INTRA_REGION_PARALLELIZATION = DEFAULT_MAX_QUERY_CONCURRENCY;
     public static final int DEFAULT_DISTINCT_VALUE_COMPRESS_THRESHOLD = 1024 * 1024 * 1; // 1 Mb
-    
-    public static final long DEFAULT_SPOOL_TO_DISK_BYTES = -1;
+    public static final int DEFAULT_INDEX_MUTATE_BATCH_SIZE_THRESHOLD = 5;
+    public static final long DEFAULT_MAX_SPOOL_TO_DISK_BYTES = 1024000000;
     
     private final Configuration config;
     
@@ -147,7 +149,8 @@ public class QueryServicesOptions {
             .setIfUnset(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, DEFAULT_ROW_KEY_ORDER_SALTED_TABLE)
             .setIfUnset(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES)
             .setIfUnset(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS)
-            .setIfUnset(MAX_SPOOL_TO_DISK_BYTES_ATTRIB, DEFAULT_SPOOL_TO_DISK_BYTES);
+            .setIfUnset(INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB, DEFAULT_INDEX_MUTATE_BATCH_SIZE_THRESHOLD)
+            .setIfUnset(MAX_SPOOL_TO_DISK_BYTES_ATTRIB, DEFAULT_MAX_SPOOL_TO_DISK_BYTES);
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
@@ -348,6 +351,10 @@ public class QueryServicesOptions {
     
     public QueryServicesOptions setImmutableRows(boolean isImmutableRows) {
         return set(IMMUTABLE_ROWS_ATTRIB, isImmutableRows);
+    }
+
+    public QueryServicesOptions setWALEditCodec(String walEditCodec) {
+        return set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, walEditCodec);
     }
     
 }

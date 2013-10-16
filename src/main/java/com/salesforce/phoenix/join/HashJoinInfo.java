@@ -38,20 +38,59 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.schema.KeyValueSchema;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.KeyValueSchema.KeyValueSchemaBuilder;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class HashJoinInfo {
     private static final String HASH_JOIN = "HashJoin";
     
+    private KeyValueSchema joinedSchema;
     private ImmutableBytesPtr[] joinIds;
     private List<Expression>[] joinExpressions;
     private JoinType[] joinTypes;
+    private boolean[] earlyEvaluation;
+    private KeyValueSchema[] schemas;
+    private int[] fieldPositions;
     private Expression postJoinFilterExpression;
     
-    public HashJoinInfo(ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes, Expression postJoinFilterExpression) {
-        this.joinIds = joinIds;
+    public HashJoinInfo(PTable joinedTable, ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes, boolean[] earlyEvaluation, PTable[] tables, int[] fieldPositions, Expression postJoinFilterExpression) {
+    	this(buildSchema(joinedTable), joinIds, joinExpressions, joinTypes, earlyEvaluation, buildSchemas(tables), fieldPositions, postJoinFilterExpression);
+    }
+    
+    private static KeyValueSchema[] buildSchemas(PTable[] tables) {
+    	KeyValueSchema[] schemas = new KeyValueSchema[tables.length];
+    	for (int i = 0; i < tables.length; i++) {
+    		schemas[i] = buildSchema(tables[i]);
+    	}
+    	return schemas;
+    }
+    
+    private static KeyValueSchema buildSchema(PTable table) {
+    	KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder(0);
+        for (PColumn column : table.getColumns()) {
+        	if (!SchemaUtil.isPKColumn(column)) {
+        		builder.addField(column);
+        	}
+        }
+        return builder.build();
+    }
+    
+    private HashJoinInfo(KeyValueSchema joinedSchema, ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes, boolean[] earlyEvaluation, KeyValueSchema[] schemas, int[] fieldPositions, Expression postJoinFilterExpression) {
+    	this.joinedSchema = joinedSchema;
+    	this.joinIds = joinIds;
         this.joinExpressions = joinExpressions;
         this.joinTypes = joinTypes;
+        this.earlyEvaluation = earlyEvaluation;
+        this.schemas = schemas;
+        this.fieldPositions = fieldPositions;
         this.postJoinFilterExpression = postJoinFilterExpression;
+    }
+    
+    public KeyValueSchema getJoinedSchema() {
+    	return joinedSchema;
     }
     
     public ImmutableBytesPtr[] getJoinIds() {
@@ -66,6 +105,18 @@ public class HashJoinInfo {
         return joinTypes;
     }
     
+    public boolean[] earlyEvaluation() {
+    	return earlyEvaluation;
+    }
+    
+    public KeyValueSchema[] getSchemas() {
+    	return schemas;
+    }
+    
+    public int[] getFieldPositions() {
+    	return fieldPositions;
+    }
+    
     public Expression getPostJoinFilterExpression() {
         return postJoinFilterExpression;
     }
@@ -74,6 +125,7 @@ public class HashJoinInfo {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             DataOutputStream output = new DataOutputStream(stream);
+            joinInfo.joinedSchema.write(output);
             int count = joinInfo.joinIds.length;
             WritableUtils.writeVInt(output, count);
             for (int i = 0; i < count; i++) {
@@ -84,6 +136,9 @@ public class HashJoinInfo {
                     expr.write(output);
                 }
                 WritableUtils.writeVInt(output, joinInfo.joinTypes[i].ordinal());
+                output.writeBoolean(joinInfo.earlyEvaluation[i]);
+                joinInfo.schemas[i].write(output);
+                WritableUtils.writeVInt(output, joinInfo.fieldPositions[i]);
             }
             if (joinInfo.postJoinFilterExpression != null) {
                 WritableUtils.writeVInt(output, ExpressionType.valueOf(joinInfo.postJoinFilterExpression).ordinal());
@@ -113,10 +168,15 @@ public class HashJoinInfo {
         ByteArrayInputStream stream = new ByteArrayInputStream(join);
         try {
             DataInputStream input = new DataInputStream(stream);
+            KeyValueSchema joinedSchema = new KeyValueSchema();
+            joinedSchema.readFields(input);
             int count = WritableUtils.readVInt(input);
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[count];
             List<Expression>[] joinExpressions = new List[count];
             JoinType[] joinTypes = new JoinType[count];
+            boolean[] earlyEvaluation = new boolean[count];
+            KeyValueSchema[] schemas = new KeyValueSchema[count];
+            int[] fieldPositions = new int[count];
             for (int i = 0; i < count; i++) {
                 joinIds[i] = new ImmutableBytesPtr();
                 joinIds[i].readFields(input);
@@ -130,6 +190,10 @@ public class HashJoinInfo {
                 }
                 int type = WritableUtils.readVInt(input);
                 joinTypes[i] = JoinType.values()[type];
+                earlyEvaluation[i] = input.readBoolean();
+                schemas[i] = new KeyValueSchema();
+                schemas[i].readFields(input);
+                fieldPositions[i] = WritableUtils.readVInt(input);
             }
             Expression postJoinFilterExpression = null;
             int expressionOrdinal = WritableUtils.readVInt(input);
@@ -137,7 +201,7 @@ public class HashJoinInfo {
                 postJoinFilterExpression = ExpressionType.values()[expressionOrdinal].newInstance();
                 postJoinFilterExpression.readFields(input);
             }
-            return new HashJoinInfo(joinIds, joinExpressions, joinTypes, postJoinFilterExpression);
+            return new HashJoinInfo(joinedSchema, joinIds, joinExpressions, joinTypes, earlyEvaluation, schemas, fieldPositions, postJoinFilterExpression);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {

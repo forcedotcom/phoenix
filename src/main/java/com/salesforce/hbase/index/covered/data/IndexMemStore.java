@@ -105,12 +105,18 @@ public class IndexMemStore implements KeyValueStore {
     }
   };
 
+  public IndexMemStore() {
+    this(COMPARATOR);
+  }
+
   /**
    * Create a store with the given comparator. This comparator is used to determine both sort order
    * <b>as well as equality of {@link KeyValue}s</b>.
+   * <p>
+   * Exposed for subclassing/testing.
    * @param comparator to use
    */
-  public IndexMemStore(Comparator<KeyValue> comparator) {
+  IndexMemStore(Comparator<KeyValue> comparator) {
     this.comparator = comparator;
     this.kvset = IndexKeyValueSkipListSet.create(comparator);
   }

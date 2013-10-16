@@ -30,6 +30,7 @@ package com.salesforce.phoenix.coprocessor;
 import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
@@ -50,14 +51,14 @@ public class ServerCachingEndpointImpl extends BaseEndpointCoprocessor implement
 
     @Override
     public boolean addServerCache(byte[] tenantId, byte[] cacheId, ImmutableBytesWritable cachePtr, ServerCacheFactory cacheFactory) throws SQLException {
-        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), tenantId == null ? null : new ImmutableBytesPtr(tenantId));
+        TenantCache tenantCache = GlobalCache.getTenantCache((RegionCoprocessorEnvironment)this.getEnvironment(), tenantId == null ? null : new ImmutableBytesPtr(tenantId));
         tenantCache.addServerCache(new ImmutableBytesPtr(cacheId), cachePtr, cacheFactory);
         return true;
     }
 
     @Override
     public boolean removeServerCache(byte[] tenantId, byte[] cacheId) throws SQLException {
-        TenantCache tenantCache = GlobalCache.getTenantCache(this.getEnvironment().getConfiguration(), tenantId == null ? null : new ImmutableBytesPtr(tenantId));
+        TenantCache tenantCache = GlobalCache.getTenantCache((RegionCoprocessorEnvironment)this.getEnvironment(), tenantId == null ? null : new ImmutableBytesPtr(tenantId));
         tenantCache.removeServerCache(new ImmutableBytesPtr(cacheId));
         return true;
     }

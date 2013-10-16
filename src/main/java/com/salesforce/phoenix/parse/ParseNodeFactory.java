@@ -300,7 +300,7 @@ public class ParseNodeFactory {
     }
     
     public TableName table(String schemaName, String tableName) {
-        return new TableName(schemaName,tableName);
+        return TableName.createNormalized(schemaName,tableName);
     }
 
     public NamedNode indexName(String name) {
@@ -411,6 +411,10 @@ public class ParseNodeFactory {
     
     public CastParseNode cast(ParseNode expression, PDataType dataType) {
     	return new CastParseNode(expression, dataType);
+    }
+    
+    public ParseNode rowValueConstructor(List<ParseNode> l) {
+        return new RowValueConstructorParseNode(l);
     }
     
     private void checkTypeMatch (PDataType expectedType, PDataType actualType) throws SQLException {
