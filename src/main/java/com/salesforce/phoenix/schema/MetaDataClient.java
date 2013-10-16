@@ -1033,6 +1033,7 @@ public class MetaDataClient {
                 // Force the table header row to be first
                 Collections.reverse(tableMetaData);
                 
+                // Figure out if the empty column family is changing as a result of adding the new column
                 byte[] emptyCF = null;
                 byte[] projectCF = null;
                 if (table.getType() != PTableType.VIEW && family != null) {
