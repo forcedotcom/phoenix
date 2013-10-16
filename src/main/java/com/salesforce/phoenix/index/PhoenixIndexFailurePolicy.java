@@ -15,11 +15,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.index;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -61,9 +64,11 @@ public class PhoenixIndexFailurePolicy extends  KillServerOnFailurePolicy {
     }
 
     @Override
-    public void handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) {
+    public void handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) throws IOException {
+        Set<HTableInterfaceReference> refs = attempted.asMap().keySet();
+        StringBuilder buf = new StringBuilder("Disabled index" + (refs.size() > 1 ? "es " : " "));
         try {
-            for (HTableInterfaceReference ref : attempted.asMap().keySet()) {
+            for (HTableInterfaceReference ref : refs) {
                 // Disable the index by using the updateIndexState method of MetaDataProtocol end point coprocessor.
                 String indexTableName = ref.getTableName();
                 byte[] indexTableKey = SchemaUtil.getTableKeyFromFullName(indexTableName);
@@ -79,10 +84,15 @@ public class PhoenixIndexFailurePolicy extends  KillServerOnFailurePolicy {
                     super.handleFailure(attempted, cause);
                 }
                 LOG.info("Successfully disabled index " + indexTableName);
+                buf.append(indexTableName);
+                buf.append(',');
             }
+            buf.setLength(buf.length()-1);
+            buf.append(" due to an exception while writing updates");
         } catch (Throwable t) {
             super.handleFailure(attempted, cause);
         }
+        throw new DoNotRetryIOException(buf.toString(), cause);
     }
 
 }

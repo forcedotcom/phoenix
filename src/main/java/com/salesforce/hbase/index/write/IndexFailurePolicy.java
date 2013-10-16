@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.write;
 
+import java.io.IOException;
+
 import org.apache.hadoop.hbase.Stoppable;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
@@ -45,7 +47,8 @@ public interface IndexFailurePolicy extends Stoppable {
    * Handle the failure of the attempted index updates
    * @param attempted map of index table -> mutations to apply
    * @param cause reason why there was a failure
+ * @throws IOException 
    */
   public void
-      handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause);
+      handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) throws IOException;
 }

@@ -507,18 +507,24 @@ public class Indexer extends BaseRegionObserver {
       // the WAL edit is kept in memory and we already specified the factory when we created the
       // references originally - therefore, we just pass in a null factory here and use the ones
       // already specified on each reference
-      writer.writeAndKillYourselfOnFailure(indexUpdates);
+      try {
+          writer.writeAndKillYourselfOnFailure(indexUpdates);
+      } finally {
+        // With a custom kill policy, we may throw instead of kill the server.
+        // Without doing this in a finally block (at least with the mini cluster),
+        // the region server never goes down.
 
-      // mark the batch as having been written. In the single-update case, this never gets check
-      // again, but in the batch case, we will check it again (see above).
-      ikv.markBatchFinished();
+        // mark the batch as having been written. In the single-update case, this never gets check
+        // again, but in the batch case, we will check it again (see above).
+        ikv.markBatchFinished();
       
-      // release the lock on the index, we wrote everything properly
-      // we took the lock for each Put/Delete, so we have to release it a matching number of times
-      // batch cases only take the lock once, so we need to make sure we don't over-release the
-      // lock.
-      LOG.debug("Releasing INDEX_UPDATE readlock");
-      INDEX_UPDATE_LOCK.unlock();
+        // release the lock on the index, we wrote everything properly
+        // we took the lock for each Put/Delete, so we have to release it a matching number of times
+        // batch cases only take the lock once, so we need to make sure we don't over-release the
+        // lock.
+        LOG.debug("Releasing INDEX_UPDATE readlock");
+        INDEX_UPDATE_LOCK.unlock();
+      }
     }
   }
 
@@ -567,7 +573,11 @@ public class Indexer extends BaseRegionObserver {
     
     // do the usual writer stuff, killing the server again, if we can't manage to make the index
     // writes succeed again
-    writer.writeAndKillYourselfOnFailure(updates);
+    try {
+        writer.writeAndKillYourselfOnFailure(updates);
+    } catch (IOException e) {
+        LOG.error("Exception thrown instead of killing server during index writing", e);
+    }
   }
 
   @Override

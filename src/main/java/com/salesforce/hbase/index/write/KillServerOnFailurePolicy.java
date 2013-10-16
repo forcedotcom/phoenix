@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.write;
 
+import java.io.IOException;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.Abortable;
@@ -68,7 +70,7 @@ public class KillServerOnFailurePolicy implements IndexFailurePolicy {
 
   @Override
   public void
-      handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) {
+      handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) throws IOException {
     // cleanup resources
     this.stop("Killing ourselves because of an error:" + cause);
     // notify the regionserver of the failure

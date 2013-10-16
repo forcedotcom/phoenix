@@ -136,7 +136,7 @@ public class TestWALRecoveryCaching {
 
     @Override
     public void handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted,
-        Exception cause) {
+        Exception cause) throws IOException {
       LOG.debug("Found index update failure!");
       if (allowIndexTableToRecover != null) {
         LOG.info("failed index write on WAL recovery - allowing index table to be restored.");

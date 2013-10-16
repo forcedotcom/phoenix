@@ -136,8 +136,9 @@ public class IndexWriter implements Stoppable {
    * which ensures that the server crashes when an index write fails, ensuring that we get WAL
    * replay of the index edits.
    * @param indexUpdates Updates to write
+ * @throws IOException 
    */
-  public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, byte[]>> indexUpdates) {
+  public void writeAndKillYourselfOnFailure(Collection<Pair<Mutation, byte[]>> indexUpdates) throws IOException  {
     // convert the strings to htableinterfaces to which we can talk and group by TABLE
     Multimap<HTableInterfaceReference, Mutation> toWrite = resolveTableReferences(indexUpdates);
     writeAndKillYourselfOnFailure(toWrite);
@@ -146,8 +147,9 @@ public class IndexWriter implements Stoppable {
   /**
    * see {@link #writeAndKillYourselfOnFailure(Collection)}.
    * @param toWrite
+ * @throws IOException 
    */
-  public void writeAndKillYourselfOnFailure(Multimap<HTableInterfaceReference, Mutation> toWrite) {
+  public void writeAndKillYourselfOnFailure(Multimap<HTableInterfaceReference, Mutation> toWrite) throws IOException {
     try {
       write(toWrite);
       if (LOG.isTraceEnabled()) {
