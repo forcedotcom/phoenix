@@ -236,4 +236,9 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     @Override
     public void clearTableRegionCache(byte[] tableName) throws SQLException {
     }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return false;
+    }
 }

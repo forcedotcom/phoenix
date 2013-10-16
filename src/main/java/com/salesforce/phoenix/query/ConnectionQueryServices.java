@@ -87,4 +87,6 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     public HBaseAdmin getAdmin() throws SQLException;
 
     void clearTableRegionCache(byte[] tableName) throws SQLException;
+
+    boolean hasInvalidIndexConfiguration();
 }

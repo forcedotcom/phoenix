@@ -65,6 +65,18 @@ public class MetaDataUtil {
     public static int decodePhoenixVersion(long version) {
         return (int) ((version << Byte.SIZE * 3) >>> Byte.SIZE * 4);
     }
+    
+    // TODO: generalize this to use two bytes to return a SQL error code instead
+    public static long encodeMutableIndexConfiguredProperly(long version, boolean isValid) {
+        if (!isValid) {
+            return version | 1;
+        }
+        return version;
+    }
+    
+    public static boolean decodeMutableIndexConfiguredProperly(long version) {
+        return (version & 0xF) == 0;
+    }
 
     // Given the encoded integer representing the client hbase version in the encoded version value.
     // The second byte in int would be the major version, 3rd byte minor version, and 4th byte 
