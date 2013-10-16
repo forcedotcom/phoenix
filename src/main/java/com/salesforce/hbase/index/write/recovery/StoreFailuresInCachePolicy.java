@@ -17,6 +17,7 @@
  */
 package com.salesforce.hbase.index.write.recovery;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.Stoppable;
@@ -58,7 +59,7 @@ public class StoreFailuresInCachePolicy implements IndexFailurePolicy {
   }
 
   @Override
-  public void handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) {
+  public void handleFailure(Multimap<HTableInterfaceReference, Mutation> attempted, Exception cause) throws IOException {
     // if its not an exception we can handle, let the delegate take care of it
     if (!(cause instanceof MultiIndexWriteFailureException)) {
       delegate.handleFailure(attempted, cause);

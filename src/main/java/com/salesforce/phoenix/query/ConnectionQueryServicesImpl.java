@@ -47,6 +47,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionLocation;
@@ -133,6 +134,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
+    private boolean hasInvalidIndexConfiguration = false;
 
     /**
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
@@ -143,16 +145,19 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      */
     public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
         super(services);
-        this.config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
+        Configuration config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
         for (Entry<String,String> entry : services.getProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
         for (Entry<String,String> entry : connectionInfo.asProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
-        this.props = new ReadOnlyProps(config.iterator());
+        // Without making a copy of the configuration we cons up, we lose some of our properties
+        // on the server side during testing.
+        this.config = HBaseConfiguration.create(config);
+        this.props = new ReadOnlyProps(this.config.iterator());
         try {
-            this.connection = HConnectionManager.createConnection(config);
+            this.connection = HConnectionManager.createConnection(this.config);
         } catch (ZooKeeperConnectionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION)
                 .setRootCause(e).build().buildException();
@@ -912,8 +917,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             logger.info("Upgrade to 2.1.0 completed successfully" );
         }
     }
-
-    private boolean isCompatible(Long serverVersion) {
+    
+    private static boolean isInvalidMutableIndexConfig(Long serverVersion) {
+        if (serverVersion == null) {
+            return false;
+        }
+        return !MetaDataUtil.decodeMutableIndexConfiguredProperly(serverVersion);
+    }
+    
+    private static boolean isCompatible(Long serverVersion) {
         if (serverVersion == null) {
             return false;
         }
@@ -958,6 +970,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     buf.append(name);
                     buf.append(';');
                 }
+                hasInvalidIndexConfiguration |= isInvalidMutableIndexConfig(result.getValue());
                 if (minHBaseVersion > MetaDataUtil.decodeHBaseVersion(result.getValue())) {
                     minHBaseVersion = MetaDataUtil.decodeHBaseVersion(result.getValue());
                 }
@@ -1140,6 +1153,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public int getLowestClusterHBaseVersion() {
         return lowestClusterHBaseVersion;
+    }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return hasInvalidIndexConfiguration;
     }
 
     /**

@@ -77,6 +77,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -968,9 +969,17 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     @Override
     public long getVersion() {
-        // The first 5 bytes of the long is used to encoding the HBase version as major.minor.patch.
-        // The next 5 bytes of the value is used to encode the Phoenix version as major.minor.patch.
-        return MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
+        // The first 3 bytes of the long is used to encoding the HBase version as major.minor.patch.
+        // The next 4 bytes of the value is used to encode the Phoenix version as major.minor.patch.
+        long version = MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
+        
+        // The last byte is used to communicate whether or not mutable secondary indexing
+        // was configured properly.
+        RegionCoprocessorEnvironment env = getEnvironment();
+        version = MetaDataUtil.encodeMutableIndexConfiguredProperly(
+                version, 
+                IndexManagementUtil.isWALEditCodecSet(env.getConfiguration()));
+        return version;
     }
 
     @Override

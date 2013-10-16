@@ -61,6 +61,7 @@ import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -350,6 +351,10 @@ public class QueryServicesOptions {
     
     public QueryServicesOptions setImmutableRows(boolean isImmutableRows) {
         return set(IMMUTABLE_ROWS_ATTRIB, isImmutableRows);
+    }
+
+    public QueryServicesOptions setWALEditCodec(String walEditCodec) {
+        return set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, walEditCodec);
     }
     
 }

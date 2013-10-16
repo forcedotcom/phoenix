@@ -29,6 +29,8 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.QueryServicesOptions.withDefaults;
 
+import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
+
 import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
@@ -57,6 +59,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final int DEFAULT_REGIONSERVER_INFO_PORT = -1;
     private static final int DEFAULT_REGIONSERVER_LEASE_PERIOD_MS = 9000000;
     private static final int DEFAULT_RPC_TIMEOUT_MS = 9000000;
+    private static final String DEFAULT_WAL_EDIT_CODEC = IndexedWALEditCodec.class.getName();
     
     public QueryServicesTestImpl() {
         this(ReadOnlyProps.EMPTY_PROPS);
@@ -80,6 +83,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setRegionServerInfoPort(DEFAULT_REGIONSERVER_INFO_PORT)
                 .setRegionServerLeasePeriodMs(DEFAULT_REGIONSERVER_LEASE_PERIOD_MS)
                 .setRpcTimeoutMs(DEFAULT_RPC_TIMEOUT_MS)
+                .setWALEditCodec(DEFAULT_WAL_EDIT_CODEC)
                 .setAll(overrideProps)
         );
     }    
