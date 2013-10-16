@@ -234,7 +234,7 @@ public class QueryCompiler {
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin, true);
             ColumnResolver lhsResolver = lhsCtx.getResolver();
             PTableWrapper lhsProjTable = ((JoinedTableColumnResolver) (lhsResolver)).getPTableWrapper();
-            ProjectedPTableWrapper rhsProjTable = join.createProjectedTable(lastJoinTable.getTable(), false);
+            ProjectedPTableWrapper rhsProjTable = join.createProjectedTable(lastJoinTable.getTable(), !asSubquery);
             ColumnResolver rhsResolver = JoinCompiler.getColumnResolver(rhsProjTable);
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[] {new ImmutableBytesPtr(emptyByteArray)};
             Pair<List<Expression>, List<Expression>> joinConditions = lastJoinTable.compileJoinConditions(context, lhsResolver, rhsResolver);
