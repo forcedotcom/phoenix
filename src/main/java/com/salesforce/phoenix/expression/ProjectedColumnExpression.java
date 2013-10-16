@@ -35,7 +35,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.join.ScanProjector;
-import com.salesforce.phoenix.join.ScanProjector.ProjectedValue;
 import com.salesforce.phoenix.schema.KeyValueSchema;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PTable;
@@ -103,11 +102,11 @@ public class ProjectedColumnExpression extends ColumnExpression {
 	@Override
 	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
 		try {
-			ProjectedValue value = ScanProjector.decodeProjectedValue(tuple);
-			ImmutableBytesWritable bytesValue = value.getBytesValue();
-			ValueBitSet bitSet = value.getValueBitSetDeserialized(schema);
-			schema.iterator(bytesValue, ptr, position, bitSet);
-			Boolean hasValue = schema.next(ptr, position, bytesValue.getOffset() + bytesValue.getLength(), bitSet);
+			ImmutableBytesWritable value = ScanProjector.decodeProjectedValue(tuple);
+			ValueBitSet bitSet = ValueBitSet.newInstance(schema);
+			bitSet.or(value);
+			schema.iterator(value, ptr, position, bitSet);
+			Boolean hasValue = schema.next(ptr, position, value.getOffset() + value.getLength(), bitSet);
 			if (hasValue == null || !hasValue.booleanValue())
 				return false;
 		} catch (IOException e) {

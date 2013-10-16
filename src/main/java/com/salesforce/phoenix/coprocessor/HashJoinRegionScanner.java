@@ -49,14 +49,12 @@ import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
-import com.salesforce.phoenix.join.ScanProjector.ProjectedValue;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.KeyValueSchema;
-import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
+import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.TupleUtil;
 
 public class HashJoinRegionScanner implements RegionScanner {
@@ -89,8 +87,7 @@ public class HashJoinRegionScanner implements RegionScanner {
             return;
         
         if (projector != null) {
-            List<KeyValue> kvs = new ArrayList<KeyValue>(1);
-            kvs.add(projector.projectResults(result));
+            List<KeyValue> kvs = projector.projectResults(new ResultTuple(new Result(result)));
             if (joinInfo != null) {
                 result = kvs;
             } else {
@@ -123,7 +120,7 @@ public class HashJoinRegionScanner implements RegionScanner {
             }
             if (cont) {
             	KeyValueSchema schema = joinInfo.getJoinedSchema();
-                resultQueue.offer(init(result, schema));
+                resultQueue.offer(result);
                 for (int i = 0; i < count; i++) {
                 	boolean earlyEvaluation = joinInfo.earlyEvaluation()[i];
                     if (earlyEvaluation && 
@@ -148,7 +145,9 @@ public class HashJoinRegionScanner implements RegionScanner {
                             }
                         }
                         for (Tuple t : tuples[i]) {
-                            List<KeyValue> joined = join(lhs, t, schema, joinInfo.getSchemas()[i], joinInfo.getFieldPositions()[i]);
+                            List<KeyValue> joined = ScanProjector.mergeProjectedValue(
+                            		new SingleKeyValueTuple(lhs.get(0)), schema, 
+                            		t, joinInfo.getSchemas()[i], joinInfo.getFieldPositions()[i]);
                             resultQueue.offer(joined);
                         }
                     }
@@ -178,43 +177,6 @@ public class HashJoinRegionScanner implements RegionScanner {
                 }
             }
         }
-    }
-    
-    private static List<KeyValue> init(List<KeyValue> left, KeyValueSchema schema) throws IOException {
-    	ProjectedValue value = ScanProjector.decodeProjectedValue(left);
-    	ValueBitSet bitSet = ValueBitSet.newInstance(schema);
-    	bitSet.clear();
-    	bitSet.or(value.getValueBitSet());
-    	byte[] encoded = ScanProjector.encodeProjectedValue(new ProjectedValue(value.getBytesValue(), bitSet));
-    	KeyValue kv = left.get(0);
-    	List<KeyValue> ret = new ArrayList<KeyValue>(1);
-        ret.add(KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(), 
-        		kv.getFamily(), kv.getQualifier(), kv.getTimestamp(), encoded, 0, encoded.length));
-        return ret;
-    }
-    
-    private static List<KeyValue> join(List<KeyValue> left, Tuple right, KeyValueSchema leftSchema, KeyValueSchema rightSchema, int fieldPosition) throws IOException {
-    	ProjectedValue leftDecoded = ScanProjector.decodeProjectedValue(left);
-    	ProjectedValue rightDecoded = ScanProjector.decodeProjectedValue(right);
-    	byte[] joinedBytesValue = new byte[leftDecoded.getBytesValue().getLength() + rightDecoded.getBytesValue().getLength()];
-    	Bytes.putBytes(joinedBytesValue, 0, leftDecoded.getBytesValue().get(), leftDecoded.getBytesValue().getOffset(), leftDecoded.getBytesValue().getLength());
-    	Bytes.putBytes(joinedBytesValue, leftDecoded.getBytesValue().getLength(), rightDecoded.getBytesValue().get(), rightDecoded.getBytesValue().getOffset(), rightDecoded.getBytesValue().getLength());
-    	ValueBitSet joinedBitSet = leftDecoded.getValueBitSetDeserialized(leftSchema);
-    	setValueBitSet(joinedBitSet, rightDecoded.getValueBitSetDeserialized(rightSchema), fieldPosition);
-    	byte[] encoded = ScanProjector.encodeProjectedValue(new ProjectedValue(new ImmutableBytesWritable(joinedBytesValue), joinedBitSet));
-    	KeyValue kv = left.get(0);
-    	List<KeyValue> ret = new ArrayList<KeyValue>(1);
-        ret.add(KeyValueUtil.newKeyValue(kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(), 
-        		kv.getFamily(), kv.getQualifier(), kv.getTimestamp(), encoded, 0, encoded.length));
-        return ret;    	
-    }
-    
-    private static void setValueBitSet(ValueBitSet dest, ValueBitSet src, int offset) {
-    	for (int i = 0; i < src.getMaxSetBit(); i++) {
-    		if (src.get(i)) {
-    			dest.set(offset + i);
-    		}
-    	}
     }
     
     private boolean shouldAdvance() {
