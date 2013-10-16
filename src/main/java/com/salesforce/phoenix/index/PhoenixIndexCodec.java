@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -36,6 +37,7 @@ import com.salesforce.hbase.index.covered.TableState;
 import com.salesforce.hbase.index.scanner.Scanner;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
+import com.salesforce.hbase.index.write.IndexWriter;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
 import com.salesforce.phoenix.cache.ServerCacheClient;
@@ -58,6 +60,9 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
       this.env = env;
+      Configuration conf = env.getConfiguration();
+      // Install handler that will attempt to disable the index first before killing the region server
+      conf.setIfUnset(IndexWriter.INDEX_FAILURE_POLICY_CONF_KEY, PhoenixIndexFailurePolicy.class.getName());
     }
 
     List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes) throws IOException{

@@ -43,7 +43,7 @@ public interface IndexFailurePolicy extends Stoppable {
 
   /**
    * Handle the failure of the attempted index updates
-   * @param attempted map of target table -> mutations to apply
+   * @param attempted map of index table -> mutations to apply
    * @param cause reason why there was a failure
    */
   public void
