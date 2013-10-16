@@ -188,6 +188,7 @@ public class RoundFunction extends ScalarFunction {
     @Override
     public KeyPart newKeyPart(final KeyPart childPart) {
         return new KeyPart() {
+            private final List<Expression> extractNodes = Collections.<Expression>singletonList(RoundFunction.this);
 
             @Override
             public PColumn getColumn() {
@@ -196,11 +197,11 @@ public class RoundFunction extends ScalarFunction {
 
             @Override
             public List<Expression> getExtractNodes() {
-                return Collections.<Expression>singletonList(RoundFunction.this);
+                return extractNodes;
             }
 
             @Override
-            public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
+            public KeyRange getKeyRange(CompareOp op, Expression rhs) {
                 PDataType type = getColumn().getDataType();
                 ImmutableBytesWritable ptr = new ImmutableBytesWritable();
                 rhs.evaluate(null, ptr);
@@ -232,7 +233,7 @@ public class RoundFunction extends ScalarFunction {
                     codec.encodeLong((value + divBy - (1 -offset))/divBy*divBy, nextKey, 0);
                     return type.getKeyRange(KeyRange.UNBOUND, false, nextKey, false);
                 default:
-                    return childPart.getKeyRange(op, rhs, 1);
+                    return childPart.getKeyRange(op, rhs);
                 }
             }
         };

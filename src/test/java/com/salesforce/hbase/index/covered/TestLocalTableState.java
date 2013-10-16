@@ -200,4 +200,7 @@ public class TestLocalTableState {
     Mockito.verify(env, Mockito.times(1)).getRegion();
     Mockito.verify(region, Mockito.times(1)).getScanner(Mockito.any(Scan.class));
   }
+
+  // TODO add test here for making sure multiple column references with the same column family don't
+  // cause an infinite loop
 }

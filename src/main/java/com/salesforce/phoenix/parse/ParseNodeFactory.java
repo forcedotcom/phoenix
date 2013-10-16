@@ -300,7 +300,7 @@ public class ParseNodeFactory {
     }
     
     public TableName table(String schemaName, String tableName) {
-        return new TableName(schemaName,tableName);
+        return TableName.createNormalized(schemaName,tableName);
     }
 
     public NamedNode indexName(String name) {

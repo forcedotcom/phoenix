@@ -150,7 +150,9 @@ public class IndexWriter implements Stoppable {
   public void writeAndKillYourselfOnFailure(Multimap<HTableInterfaceReference, Mutation> toWrite) {
     try {
       write(toWrite);
-      LOG.info("Done writing all index updates!");
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Done writing all index updates!\n\t" + toWrite);
+      }
     } catch (Exception e) {
       this.failurePolicy.handleFailure(toWrite, e);
     }

@@ -358,6 +358,7 @@ public enum PDataType {
                 BigDecimal d = (BigDecimal)object;
                 return d.longValueExact();
             case VARBINARY:
+            case BINARY:
                 byte[] o = (byte[]) object;
                 if (o.length == Bytes.SIZEOF_LONG) {
                     return Bytes.toLong(o);
@@ -4439,20 +4440,25 @@ public enum PDataType {
         return compareTo(ptr1.get(), ptr1.getOffset(), ptr1.getLength(), null, ptr2.get(), ptr2.getOffset(), ptr2.getLength(), null);
     }
 
-    public int compareTo(byte[] b1, int offset1, int length1, ColumnModifier mod1, byte[] b2, int offset2, int length2, ColumnModifier mod2) {
-        int resultMultiplier = -1;
-        // TODO: have compare go through ColumnModifier?
-        boolean invertResult = (mod1 == ColumnModifier.SORT_DESC && mod2 == ColumnModifier.SORT_DESC);
-        if (!invertResult) {
-            if (mod1 != null) {
-                b1 = mod1.apply(b1, offset1, new byte[length1], 0, length1);
+    public int compareTo(byte[] ba1, int offset1, int length1, ColumnModifier mod1, byte[] ba2, int offset2, int length2, ColumnModifier mod2) {
+        if (mod1 != mod2) {
+            int length = Math.min(length1, length2);
+            for (int i = 0; i < length; i++) {
+                byte b1 = ba1[offset1+i];
+                byte b2 = ba2[offset2+i];
+                if (mod1 != null) {
+                    b1 = mod1.apply(b1);
+                } else {
+                    b2 = mod2.apply(b2);
+                }
+                int c = b1 - b2;
+                if (c != 0) {
+                    return c;
+                }
             }
-            if (mod2 != null) {
-                b2 = mod2.apply(b2, offset2, new byte[length2], 0, length2);
-            }            
-            resultMultiplier = 1;
+            return (length1 - length2);
         }
-        return Bytes.compareTo(b1, offset1, length1, b2, offset2, length2) * resultMultiplier;
+        return Bytes.compareTo(ba1, offset1, length1, ba2, offset2, length2) * (mod1 == ColumnModifier.SORT_DESC ? -1 : 1);
     }
 
     public int compareTo(ImmutableBytesWritable ptr1, ColumnModifier ptr1ColumnModifier, ImmutableBytesWritable ptr2, ColumnModifier ptr2ColumnModifier, PDataType type2) {
@@ -4487,8 +4493,18 @@ public enum PDataType {
      * @return the byte length of the serialized object
      */
     public abstract int toBytes(Object object, byte[] bytes, int offset);
+   
+//   TODO: we need one that coerces and inverts and scales
+//    public void coerceBytes(ImmutableBytesWritable ptr, PDataType actualType, 
+//            Integer actualMaxLength, Integer actualScale, ColumnModifier actualModifier,
+//            Integer desiredMaxLength, Integer desiredScale, ColumnModifier desiredModifier) {
+//        
+//    }
     
     public void coerceBytes(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier actualModifier, ColumnModifier expectedModifier) {
+        if (ptr.getLength() == 0) {
+            return;
+        }
         if (this.isBytesComparableWith(actualType)) { // No coerce necessary
             if (actualModifier == expectedModifier) {
                 return;
@@ -4527,26 +4543,24 @@ public enum PDataType {
     public abstract Object toObject(String value);
     
     public Object toObject(Object object, PDataType actualType) {
-    	return toObject(object, actualType, null); 
+        if (this == actualType) {
+            return object;
+        }
+        throw new IllegalDataException("Cannot convert from " + actualType + " to " + this);
     }
 
-    public Object toObject(Object object, PDataType actualType, ColumnModifier sortOrder) {
-        if (actualType != this) {
-            byte[] b = actualType.toBytes(object, sortOrder);
-            return this.toObject(b, 0, b.length, actualType);
-        }
-        return object;
-    }
-    
-    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) { 
+    public Object toObject(byte[] bytes, int offset, int length, PDataType actualType) {
         return toObject(bytes, offset, length, actualType, null);
     }
 
     public Object toObject(byte[] bytes, int offset, int length, PDataType actualType, ColumnModifier columnModifier) {
-    	if (columnModifier != null) {
-    	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
-    	    offset = 0;
-    	}
+        if (actualType == null) {
+            return null;
+        }
+        	if (columnModifier != null) {
+        	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
+        	    offset = 0;
+        	}
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
     }

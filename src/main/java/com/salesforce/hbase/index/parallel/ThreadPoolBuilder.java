@@ -40,7 +40,7 @@ public class ThreadPoolBuilder {
 
   private static final Log LOG = LogFactory.getLog(ThreadPoolBuilder.class);
   private static final long DEFAULT_TIMEOUT = 60;
-  private static final int DEFAULT_MAX_THREADS = 1;
+  private static final int DEFAULT_MAX_THREADS = 1;// is there a better default?
   private Pair<String, Long> timeout;
   private Pair<String, Integer> maxThreads;
   private String name;
@@ -65,7 +65,7 @@ public class ThreadPoolBuilder {
 
   public ThreadPoolBuilder setMaxThread(String confkey, int defaultThreads) {
     if (defaultThreads <= 0) {
-      defaultThreads = DEFAULT_MAX_THREADS; // is there a better default?
+      defaultThreads = DEFAULT_MAX_THREADS;
     }
     this.maxThreads = new Pair<String, Integer>(confkey, defaultThreads);
     return this;
@@ -82,7 +82,7 @@ public class ThreadPoolBuilder {
       maxThreads =
           key == null ? this.maxThreads.getSecond() : conf.getInt(key, this.maxThreads.getSecond());
     }
-    LOG.info("Building pool with " + maxThreads + " threads ");
+    LOG.trace("Creating pool builder with max " + maxThreads + " threads ");
     return maxThreads;
   }
 
@@ -94,7 +94,7 @@ public class ThreadPoolBuilder {
           key == null ? this.timeout.getSecond() : conf.getLong(key, this.timeout.getSecond());
     }
 
-    LOG.info("Building pool with core thread timeout of " + timeout + " seconds ");
+    LOG.trace("Creating pool builder with core thread timeout of " + timeout + " seconds ");
     return timeout;
   }
 }

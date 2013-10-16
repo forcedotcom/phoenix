@@ -50,6 +50,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -183,7 +184,7 @@ public class MutationState implements SQLCloseable {
         }
         final Iterator<PTable> indexes = // Only maintain tables with immutable rows through this client-side mechanism
                 (tableRef.getTable().isImmutableRows() || includeMutableIndexes) ? 
-                        tableRef.getTable().getIndexes().iterator() : 
+                        IndexMaintainer.nonDisabledIndexIterator(tableRef.getTable().getIndexes().iterator()) : 
                         Iterators.<PTable>emptyIterator();
         return new Iterator<Pair<byte[],List<Mutation>>>() {
             boolean isFirst = true;

@@ -23,6 +23,8 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -33,6 +35,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
@@ -75,10 +78,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 nIndexPKColumns,
                 index.getBucketNum());
         RowKeyMetaData rowKeyMetaData = maintainer.getRowKeyMetaData();
-        int j = indexPosOffset;
-        for (; j < nIndexPKColumns + indexPosOffset; j++) {
-            PColumn indexColumn = index.getColumns().get(j);
-            assert(j == indexColumn.getPosition());
+        for (int j = indexPosOffset; j < index.getPKColumns().size(); j++) {
+            PColumn indexColumn = index.getPKColumns().get(j);
             int indexPos = j - indexPosOffset;
             PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
             boolean isPKColumn = SchemaUtil.isPKColumn(column);
@@ -94,13 +95,24 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 rowKeyMetaData.getDescIndexColumnBitSet().set(indexPos);
             }
         }
-        for (; j < nIndexColumns; j++) {
+        for (int j = 0; j < nIndexColumns; j++) {
             PColumn indexColumn = index.getColumns().get(j);
-            PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
-            maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
+            if (!SchemaUtil.isPKColumn(indexColumn)) {
+                PColumn column = IndexUtil.getDataColumn(dataTable, indexColumn.getName().getString());
+                maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
+            }
         }
         maintainer.initCachedState();
         return maintainer;
+    }
+    
+    public static Iterator<PTable> nonDisabledIndexIterator(Iterator<PTable> indexes) {
+        return Iterators.filter(indexes, new Predicate<PTable>() {
+            @Override
+            public boolean apply(PTable index) {
+                return !PIndexState.DISABLE.equals(index.getIndexState());
+            }
+        });
     }
     
     /**
@@ -111,24 +123,28 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
      * @throws IOException 
      */
     public static void serialize(PTable dataTable, ImmutableBytesWritable ptr) {
-        List<PTable> indexes = dataTable.getIndexes();
-        if (dataTable.isImmutableRows() || indexes.isEmpty()) {
+        Iterator<PTable> indexes = nonDisabledIndexIterator(dataTable.getIndexes().iterator());
+        if (dataTable.isImmutableRows() || !indexes.hasNext()) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             return;
         }
+        int nIndexes = 0;
         int estimatedSize = dataTable.getRowKeySchema().getEstimatedByteSize() + 2;
-        for (PTable index : indexes) {
+        while (indexes.hasNext()) {
+            nIndexes++;
+            PTable index = indexes.next();
             estimatedSize += index.getIndexMaintainer(dataTable).getEstimatedByteSize();
         }
         TrustedByteArrayOutputStream stream = new TrustedByteArrayOutputStream(estimatedSize + 1);
         DataOutput output = new DataOutputStream(stream);
         try {
             // Encode data table salting in sign of number of indexes
-            WritableUtils.writeVInt(output, indexes.size() * (dataTable.getBucketNum() == null ? 1 : -1));
+            WritableUtils.writeVInt(output, nIndexes * (dataTable.getBucketNum() == null ? 1 : -1));
             // Write out data row key schema once, since it's the same for all index maintainers
             dataTable.getRowKeySchema().write(output);
-            for (PTable index : indexes) {
-                index.getIndexMaintainer(dataTable).write(output);
+            indexes = nonDisabledIndexIterator(dataTable.getIndexes().iterator());
+            while (indexes.hasNext()) {
+                    indexes.next().getIndexMaintainer(dataTable).write(output);
             }
         } catch (IOException e) {
             throw new RuntimeException(e); // Impossible
@@ -345,11 +361,19 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         return false;
     }
 
+    /**
+     * Used for immutable indexes that only index PK column values. In that case, we can handle a data row deletion,
+     * since we can build the corresponding index row key.
+     */
+    public Delete buildDeleteMutation(ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
+        return buildDeleteMutation(null, dataRowKeyPtr, Collections.<KeyValue>emptyList(), ts);
+    }
+    
     @SuppressWarnings("deprecation")
     public Delete buildDeleteMutation(ValueGetter oldState, ImmutableBytesWritable dataRowKeyPtr, Collection<KeyValue> pendingUpdates, long ts) throws IOException {
         byte[] indexRowKey = this.buildRowKey(oldState, dataRowKeyPtr);
         // Delete the entire row if any of the indexed columns changed
-        if (indexedColumnsChanged(oldState, pendingUpdates)) { // Deleting the entire row
+        if (oldState == null || indexedColumnsChanged(oldState, pendingUpdates)) { // Deleting the entire row
             Delete delete = new Delete(indexRowKey, ts, null);
             return delete;
         }

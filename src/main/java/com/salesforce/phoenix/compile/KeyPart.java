@@ -55,12 +55,13 @@ public interface KeyPart {
      * bytes would be filled out to the fixed length.
      * @param op comparison operator (=, <=, <, >=, >, !=)
      * @param rhs the constant on the RHS of an expression.
-     * @param span how many pk slots the key spans
      * @return the key range that encompasses the range for the
-     *  expression for which this keyPart is associated.
+     *  expression for which this keyPart is associated or null if the
+     *  the expression cannot possibly be satisfied.
+     *  
      * @see com.salesforce.phoenix.expression.function.ScalarFunction#newKeyPart(KeyPart)
      */
-    public KeyRange getKeyRange(CompareOp op, Expression rhs, int span);
+    public KeyRange getKeyRange(CompareOp op, Expression rhs);
     
     /**
      * Determines whether an expression gets extracted from the

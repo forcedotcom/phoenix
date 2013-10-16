@@ -93,6 +93,9 @@ public class PostDDLCompiler {
             
             @Override
             public MutationState execute() throws SQLException {
+                if (tableRefs.isEmpty()) {
+                    return null;
+                }
                 boolean wasAutoCommit = connection.getAutoCommit();
                 try {
                     connection.setAutoCommit(true);
