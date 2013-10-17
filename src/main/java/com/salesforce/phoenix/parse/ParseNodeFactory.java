@@ -231,20 +231,8 @@ public class ParseNodeFactory {
         return new StringConcatParseNode(children);
     }
 
-    public ColumnParseNode column(String name) {
-        return new ColumnParseNode(name);
-    }
-
-    public ColumnParseNode column(TableName tableName, String name) {
-        return new ColumnParseNode(tableName,name);
-    }
-    
-    public DynamicColumnParseNode dynColumn(ColumnDef node) {
-        return new DynamicColumnParseNode(node);
-    }
-    
-    public IndexColumnParseNode indexColumn(String name, ColumnModifier modifier) {
-        return new IndexColumnParseNode(name, modifier);
+    public ColumnParseNode column(TableName tableName, String name, String alias) {
+        return new ColumnParseNode(tableName,name,alias);
     }
     
     public ColumnName columnName(String columnName) {

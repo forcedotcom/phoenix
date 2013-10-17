@@ -50,22 +50,29 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class RowKeyColumnExpression  extends ColumnExpression {
     private PDataType fromType;
     private RowKeyValueAccessor accessor;
-    
     protected final String name;
     
     public RowKeyColumnExpression() {
         name = null; // Only on client
     }
     
-    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor) {
-        this(datum, accessor, datum.getDataType());
-    }
-    
-    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType) {
+    private RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType, String name) {
         super(datum);
         this.accessor = accessor;
         this.fromType = fromType;
-        this.name = datum.toString();
+        this.name = name;
+    }
+    
+    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor) {
+        this(datum, accessor, datum.getDataType(), datum.toString());
+    }
+    
+    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, String name) {
+        this(datum, accessor, datum.getDataType(), name);
+    }
+    
+    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType) {
+        this(datum, accessor, fromType, datum.toString());
     }
     
     public int getPosition() {

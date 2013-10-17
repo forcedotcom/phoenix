@@ -570,7 +570,7 @@ select_list returns [List<AliasedNode> ret]
 
 // Parse either a select field or a sub select.
 selectable returns [AliasedNode ret]
-    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
+    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a == null ? field.getAlias() : a, field); }
     | 	familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
     ;
 
@@ -721,8 +721,8 @@ expression_negate returns [ParseNode ret]
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
 expression_term returns [ParseNode ret]
 @init{ParseNode n;boolean isAscending=true;}
-    :   field=identifier oj=OUTER_JOIN? {n = factory.column(field); $ret = oj==null ? n : factory.outer(n); }
-    |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field); $ret = oj==null ? n : factory.outer(n); }
+    :   field=identifier oj=OUTER_JOIN? {n = factory.column(null,field,field); $ret = oj==null ? n : factory.outer(n); }
+    |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field, field); $ret = oj==null ? n : factory.outer(n); }
     |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
         {
             FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);

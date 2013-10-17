@@ -98,6 +98,14 @@ public class IndexUtil {
         return name.substring(0,name.indexOf(INDEX_COLUMN_NAME_SEP));
     }
 
+    public static String getDataColumnFullName(String name) {
+        int index = name.indexOf(INDEX_COLUMN_NAME_SEP) ;
+        if (index == 0) {
+            return name.substring(index+1);
+        }
+        return SchemaUtil.getColumnDisplayName(name.substring(0, index), name.substring(index+1));
+    }
+
     public static String getIndexColumnName(String dataColumnFamilyName, String dataColumnName) {
         return (dataColumnFamilyName == null ? "" : dataColumnFamilyName) + INDEX_COLUMN_NAME_SEP + dataColumnName;
     }

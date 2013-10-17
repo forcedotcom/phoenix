@@ -75,7 +75,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
-            String query = "SELECT char_col1, int_col1 from " + DATA_TABLE_FULL_NAME;
+            String query = "SELECT d.char_col1, int_col1 from " + DATA_TABLE_FULL_NAME + " as d";
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
             assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
             
