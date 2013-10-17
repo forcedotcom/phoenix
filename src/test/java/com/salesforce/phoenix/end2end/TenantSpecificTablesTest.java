@@ -31,7 +31,6 @@ import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_T
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DROP_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.COLUMN_EXIST_IN_DEF;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CREATE_TENANT_TABLE_NO_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.TABLE_UNDEFINED;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.TENANT_TABLE_PK;
@@ -58,6 +57,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableNotFoundException;
@@ -330,16 +330,12 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         }
     }
     
-    @Test
+    @Test(expected=ColumnAlreadyExistsException.class)
     public void testTenantSpecificTableCannotOverrideParentCol() throws SQLException {
         try {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 ( \n" + 
                     "                user INTEGER) \n" + 
                     "                BASE_TABLE='PARENT_TABLE'");
-            fail();
-        }
-        catch (SQLException expected) {
-            assertEquals(COLUMN_EXIST_IN_DEF.getErrorCode(), expected.getErrorCode());
         }
         finally {
             dropTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "TENANT_TABLE2");

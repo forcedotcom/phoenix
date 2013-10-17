@@ -680,9 +680,9 @@ public class MetaDataClient {
                         throw new ColumnAlreadyExistsException(schemaName, tableName, column.getName().getString());
                     }
                 }
-                if (hasColumnWithSameNameAndFamily(columns, column)) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.COLUMN_EXIST_IN_DEF)
-                        .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException(); 
+                if (tenantId != null && hasColumnWithSameNameAndFamily(columns, column)) {
+                    // we only need to check for dup columns for tenant tables because they inherit columns from parent
+                    throw new ColumnAlreadyExistsException(schemaName, tableName, column.getName().getString());
                 }
                 columns.add(column);
                 if (colDef.getDataType() == PDataType.VARBINARY 

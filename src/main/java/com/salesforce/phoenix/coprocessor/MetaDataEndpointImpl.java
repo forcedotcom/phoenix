@@ -884,7 +884,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                             acquireLock(region, indexKey, lids);
                                             // Drop the index table. The doDropTable will expand this to all of the table rows and invalidate the index table
                                             additionalTableMetaData.add(new Delete(indexKey, clientTimeStamp, null));
-                                            byte[] linkKey = MetaDataUtil.getParentLinkKey(schemaName, tableName, index.getTableName().getBytes());
+                                            byte[] linkKey = MetaDataUtil.getParentLinkKey(tenantId, schemaName, tableName, index.getTableName().getBytes());
                                             // Drop the link between the data table and the index table
                                             additionalTableMetaData.add(new Delete(linkKey, clientTimeStamp, null));
                                             doDropTable(indexKey, tenantId, index.getSchemaName().getBytes(), index.getTableName().getBytes(), index.getType(), additionalTableMetaData, invalidateList, lids);

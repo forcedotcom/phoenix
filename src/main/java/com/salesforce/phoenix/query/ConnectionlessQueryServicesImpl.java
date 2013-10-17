@@ -216,7 +216,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata, String parentTableName) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetadata.get(0).getRow(), rowKeyMetadata);
         KeyValue newKV = tableMetadata.get(0).getFamilyMap().get(TABLE_FAMILY_BYTES).get(0);
         PIndexState newState =  PIndexState.fromSerializedValue(newKV.getBuffer()[newKV.getValueOffset()]);
