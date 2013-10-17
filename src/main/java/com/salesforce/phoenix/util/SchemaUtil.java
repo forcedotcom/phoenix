@@ -788,7 +788,9 @@ public class SchemaUtil {
                 try {
                     admin.close();
                 } finally {
-                    htable.close();
+                    if(htable != null) {
+                        htable.close();
+                    }
                 }
             } catch (IOException e) {
                 throw new SQLException(e);

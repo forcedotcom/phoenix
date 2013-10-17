@@ -11,7 +11,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.join.MaxServerCacheSizeExceededException;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -26,7 +25,6 @@ public class IndexMetaDataCacheClient {
      * for caching during batched put for secondary index maintenance.
      * @param connection the client connection
      * @param cacheUsingTableRef table ref to table that will use the cache during its scan
-     * @param List<Mutation> the list of mutations that will be sent in the batched put
      */
     public IndexMetaDataCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
         serverCache = new ServerCacheClient(connection, cacheUsingTableRef);
@@ -39,7 +37,6 @@ public class IndexMetaDataCacheClient {
      * @param connection 
      * @param mutations the list of mutations that will be sent in a batch to server
      * @param indexMetaDataByteLength length in bytes of the index metadata cache
-     * @return
      */
     public static boolean useIndexMetadataCache(PhoenixConnection connection, List<Mutation> mutations, int indexMetaDataByteLength) {
         ReadOnlyProps props = connection.getQueryServices().getProps();

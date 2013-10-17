@@ -683,7 +683,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             PDatum datum = firstChild;
             if (firstChildType == null) {
                 datum = inferBindDatum(inChildren);
-                firstChildType = datum.getDataType();
             }
             context.getBindManager().addParamMetaData((BindParseNode)firstChildNode, datum);
         }

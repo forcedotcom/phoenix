@@ -231,18 +231,26 @@ public class CSVBulkLoader {
 	public static void createPTable(String stmt) {
 		
 		Connection conn = null;
-		PreparedStatement statement;
+		PreparedStatement statement = null;
 
 		try {
 			conn = DriverManager.getConnection(getUrl(), "", "");
-			statement = conn.prepareStatement(stmt);
-			statement.execute();
-			conn.commit();
+			try {
+    			statement = conn.prepareStatement(stmt);
+    			statement.execute();
+    			conn.commit();
+			} finally {
+			    if(statement != null) {
+			        statement.close();
+			    }
+			}
 		} catch (Exception e) {
 			System.err.println("Error creating the table :: " + e.getMessage());
 		} finally{
 			try {
-				conn.close();
+			    if(conn != null) {
+			        conn.close();
+			    }
 			} catch (Exception e) {
 				System.err.println("Failed to close connection :: " + e.getMessage());
 			}

@@ -53,13 +53,13 @@ public class ThreadPoolManager {
   /**
    * Get an executor for the given name, based on the passed {@link Configuration}. If a thread pool
    * already exists with that name, it will be returned.
-   * @param name
-   * @param conf
+   * @param builder
+   * @param env
    * @return a {@link ThreadPoolExecutor} for the given name. Thread pool that only shuts down when
    *         there are no more explicit references to it. You do not need to shutdown the threadpool
    *         on your own - it is managed for you. When you are done, you merely need to release your
    *         reference. If you do attempt to shutdown the pool, you should be careful to call
-   *         {@link #shutdown()} XOR {@link #shutdownNow()} - extra calls to either can lead to
+   *         {@link ThreadPoolExecutor#shutdown()} XOR {@link ThreadPoolExecutor#shutdownNow()} - extra calls to either can lead to
    *         early shutdown of the pool.
    */
   public static synchronized ThreadPoolExecutor getExecutor(ThreadPoolBuilder builder,
