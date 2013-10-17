@@ -309,11 +309,11 @@ public class SchemaUtil {
     }
 
     public static String getColumnDisplayName(byte[] cf, byte[] cq) {
-        return getName(Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? ByteUtil.EMPTY_BYTE_ARRAY : cf, cq);
+        return getName(cf == null || cf.length == 0 || Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? ByteUtil.EMPTY_BYTE_ARRAY : cf, cq);
     }
 
     public static String getColumnDisplayName(String cf, String cq) {
-        return getName(QueryConstants.DEFAULT_COLUMN_FAMILY.equals(cf) ? null : cf, cq);
+        return getName(cf == null || cf.isEmpty() || QueryConstants.DEFAULT_COLUMN_FAMILY.equals(cf) ? null : cf, cq);
     }
 
     public static String getMetaDataEntityName(String schemaName, String tableName, String familyName, String columnName) {

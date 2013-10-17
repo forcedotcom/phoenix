@@ -93,7 +93,8 @@ public class KeyValueColumnExpression extends ColumnExpression {
 
     @Override
     public String toString() {
-        return SchemaUtil.getColumnDisplayName(cf, cq);
+        // Used to form alias, so only use the cq part
+        return SchemaUtil.getColumnDisplayName(null, cq);
     }
 
     @Override

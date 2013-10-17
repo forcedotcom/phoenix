@@ -187,7 +187,7 @@ public class ProjectionCompiler {
                     ExpressionCompiler.throwNonAggExpressionInAggException(node.toString());
                 }
                 isWildcard = true;
-               if (tableRef.getTable().getType() == PTableType.INDEX && ((WildcardParseNode)node).isRewrite()) {
+                if (tableRef.getTable().getType() == PTableType.INDEX && ((WildcardParseNode)node).isRewrite()) {
                    projectAllIndexColumns(context, tableRef, projectedExpressions, projectedColumns);
                 } else {
                     projectAllTableColumns(context, tableRef, projectedExpressions, projectedColumns);
@@ -230,7 +230,7 @@ public class ProjectionCompiler {
                 }
                 String columnAlias = aliasedNode.getAlias();
                 boolean isCaseSensitive = aliasedNode.isCaseSensitve() || selectVisitor.isCaseSensitive;
-                String name = columnAlias == null ? node.toString() : columnAlias;
+                String name = columnAlias == null ? expression.toString() : columnAlias;
                 projectedColumns.add(new ExpressionProjector(name, table.getName().getString(), expression, isCaseSensitive));
             }
             selectVisitor.reset();

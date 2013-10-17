@@ -137,6 +137,7 @@ import com.google.common.collect.ListMultimap;
 import org.apache.hadoop.hbase.util.Pair;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Stack;
 import java.sql.SQLException;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
@@ -564,13 +565,13 @@ hintClause returns [HintNode ret]
 select_list returns [List<AliasedNode> ret]
 @init{ret = new ArrayList<AliasedNode>();}
     :   n=selectable {ret.add(n);} (COMMA n=selectable {ret.add(n);})*
+    |	ASTERISK { $ret = Collections.<AliasedNode>singletonList(factory.aliasedNode(null, factory.wildcard()));} // i.e. the '*' in 'select * from'    
     ;
 
 // Parse either a select field or a sub select.
 selectable returns [AliasedNode ret]
     :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
-      | familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
-      | ASTERISK { $ret = factory.aliasedNode(null, factory.wildcard());} // i.e. the '*' in 'select * from'    
+    | 	familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
     ;
 
 

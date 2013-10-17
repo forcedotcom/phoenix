@@ -39,6 +39,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.util.Pair;
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 
@@ -558,6 +559,19 @@ public class QueryParserTest {
                 new StringReader(
                         "select * from t where k in ( 1,2 )"));
         parser.parseStatement();
+    }
+
+    @Test
+    public void testInvalidSelectStar() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select *,k from t where k in ( 1,2 )"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.UNWANTED_TOKEN.getErrorCode(), e.getErrorCode());
+        }
     }
 
     @Test

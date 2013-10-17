@@ -52,6 +52,10 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     protected static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
 
     
+    public AliasedNode newAliasedNode(int i, AliasedNode aliasNode, ParseNode selectNode) {
+        return NODE_FACTORY.aliasedNode(aliasNode.getAlias(), selectNode);
+    }
+    
     /**
      * Rewrite the select statement by switching any constants to the right hand side
      * of the expression.
@@ -89,8 +93,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             if (selectNodes == normSelectNodes) {
                 normSelectNodes = Lists.newArrayList(selectNodes.subList(0, i));
             }
-            AliasedNode normAliasNode = NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode);
-            normSelectNodes.add(normAliasNode);
+            normSelectNodes.add(rewriter.newAliasedNode(i, aliasedNode, normSelectNode));
         }
         // Add to map in separate pass so that we don't try to use aliases
         // while processing the select expressions
