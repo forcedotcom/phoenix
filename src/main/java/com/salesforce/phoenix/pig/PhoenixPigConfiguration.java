@@ -92,9 +92,7 @@ public class PhoenixPigConfiguration {
 	}
 	
 	/**
-	 * Creates a {@link Connection} and autoCommit to false.
-	 * 
-	 * @return 
+	 * Creates a {@link Connection} with autoCommit set to false.
 	 * @throws SQLException
 	 */
 	public Connection getConnection() throws SQLException {

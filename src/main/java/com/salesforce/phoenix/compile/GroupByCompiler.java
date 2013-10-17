@@ -48,8 +48,6 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 
 

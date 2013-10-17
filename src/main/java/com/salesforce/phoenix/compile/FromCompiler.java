@@ -186,7 +186,7 @@ public class FromCompiler {
                         }
                     }
 			    } else { // schemaName == null && tableName != null
-                    if (!tableName.equals(alias) && (!tableName.equals(resolvedTableName) || !resolvedSchemaName.equals(""))) {
+                    if (tableName != null && !tableName.equals(alias) && (!tableName.equals(resolvedTableName) || !resolvedSchemaName.equals(""))) {
                         resolveCF = true;
                    }
 			    }

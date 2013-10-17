@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
@@ -44,12 +43,9 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.schema.TableRef;
 
 

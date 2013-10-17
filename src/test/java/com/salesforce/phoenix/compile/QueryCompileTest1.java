@@ -30,7 +30,10 @@ package com.salesforce.phoenix.compile;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -49,7 +52,7 @@ public class QueryCompileTest1 extends BaseConnectionlessQueryTest {
     public void testPercentileWrongQueryWithMixOfAggrAndNonAggrExps() throws Exception {
         String query = "select a_integer, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
         try {
-            compileQuery(query, null, new Scan());
+            compileQuery(query, Collections.emptyList(), new Scan());
             fail();
         } catch (SQLException e) {
             assertEquals("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_INTEGER",
@@ -61,7 +64,7 @@ public class QueryCompileTest1 extends BaseConnectionlessQueryTest {
     public void testPercentileWrongQuery1() throws Exception {
         String query = "select PERCENTILE_CONT('*') WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
         try {
-            compileQuery(query, null, new Scan());
+            compileQuery(query, Collections.emptyList(), new Scan());
             fail();
         } catch (SQLException e) {
             assertEquals(
@@ -74,7 +77,7 @@ public class QueryCompileTest1 extends BaseConnectionlessQueryTest {
     public void testPercentileWrongQuery2() throws Exception {
         String query = "select PERCENTILE_CONT(1.1) WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
         try {
-            compileQuery(query, null, new Scan());
+            compileQuery(query, Collections.emptyList(), new Scan());
             fail();
         } catch (SQLException e) {
             assertEquals(
@@ -87,7 +90,7 @@ public class QueryCompileTest1 extends BaseConnectionlessQueryTest {
     public void testPercentileWrongQuery3() throws Exception {
         String query = "select PERCENTILE_CONT(-1) WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
         try {
-            compileQuery(query, null, new Scan());
+            compileQuery(query, Collections.emptyList(), new Scan());
             fail();
         } catch (Exception e) {
             assertEquals(

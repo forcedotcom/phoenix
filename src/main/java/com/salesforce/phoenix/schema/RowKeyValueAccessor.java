@@ -186,7 +186,7 @@ public class RowKeyValueAccessor implements Writable   {
      * Calculate the length of the PK column value
      * @param keyBuffer the byte array of the row key
      * @param keyOffset the offset in the byte array of where the key begins
-     * @param keyLength the length of the entire row key
+     * @param maxOffset maximum offset to use while calculating length 
      * @return the length of the PK column value
      */
     public int getLength(byte[] keyBuffer, int keyOffset, int maxOffset) {

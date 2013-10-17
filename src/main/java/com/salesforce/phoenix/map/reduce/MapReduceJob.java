@@ -169,7 +169,7 @@ public class MapReduceJob {
 				}
 
 				for(int i = 0 ; i < tokens.length && i < colDetails.size() ;i++){
-					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(new Integer(i+1))));
+					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(Integer.valueOf(i+1))));
 				}
 				
 				upsertStatement.execute();

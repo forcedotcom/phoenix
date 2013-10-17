@@ -452,4 +452,16 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
         assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
         assertEquals(null, pmd.getParameterClassName(2));
     }
+    
+    @Test
+    public void testBindParamMetaDataForNestedRVC() throws Exception {
+        String query = "SELECT organization_id, entity_id, a_string FROM aTable WHERE (organization_id, (entity_id, a_string)) >= (?, (?, ?))";
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(3, pmd.getParameterCount());
+        assertEquals(String.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(String.class.getName(), pmd.getParameterClassName(2));
+        assertEquals(String.class.getName(), pmd.getParameterClassName(3));
+    }
 }

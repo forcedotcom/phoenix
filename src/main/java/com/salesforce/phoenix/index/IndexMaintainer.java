@@ -52,7 +52,7 @@ import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
  * 
  * Class that builds index row key from data row key and current state of
  * row and caches any covered columns. Client-side serializes into byte array using 
- * {@link #serialize(byte[], PTable, ImmutableBytesWritable)}
+ * @link #serialize(PTable, ImmutableBytesWritable)}
  * and transmits to server-side through either the 
  * {@link com.salesforce.phoenix.index.PhoenixIndexCodec#INDEX_MD}
  * Mutation attribute or as a separate RPC call using 
@@ -117,10 +117,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     
     /**
      * For client-side to serialize all IndexMaintainers for a given table
-     * @param schemaName name of schema containing data table
      * @param dataTable data table
      * @param ptr bytes pointer to hold returned serialized value
-     * @throws IOException 
      */
     public static void serialize(PTable dataTable, ImmutableBytesWritable ptr) {
         Iterator<PTable> indexes = nonDisabledIndexIterator(dataTable.getIndexes().iterator());
