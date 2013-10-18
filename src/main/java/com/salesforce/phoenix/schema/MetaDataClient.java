@@ -963,13 +963,6 @@ public class MetaDataClient {
             
                 
                 List<ColumnDef> columnDefs = statement.getColumnDefs();
-               /* if( columnDefs == null || columnDefs.size() == 0 ) {
-                    // Only support setting IMMUTABLE_ROWS=true on ALTER TABLE SET command
-                    if (!statement.getProps().isEmpty()) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.SET_UNSUPPORTED_PROP_ON_ALTER_TABLE)
-                        .setTableName(table.getName().getString()).build().buildException();
-                    }
-                }*/
                 List<Pair<byte[],Map<String,Object>>> families = Lists.newArrayList();
                 List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnDefs == null ? 1 : columnDefs.size());
                 if ( columnDefs != null ) {

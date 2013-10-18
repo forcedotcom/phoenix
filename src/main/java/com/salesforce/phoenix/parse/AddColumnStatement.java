@@ -47,11 +47,6 @@ public class AddColumnStatement extends AlterTableStatement {
         return columnDefs;
     }
     
-    public ColumnDef getColumnDef() {
-        return columnDefs.get(0);
-    }
-
-
     public boolean ifNotExists() {
         return ifNotExists;
     }
