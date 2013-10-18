@@ -71,12 +71,30 @@ public class HintNode {
        * Table and index names may be surrounded by double quotes
        * if they are case sensitive.
        */
-       INDEX;
+       INDEX,
+       /**
+        * All things being equal, use the data table instead of
+        * the index table when optimizing.
+        */
+       USE_DATA_OVER_INDEX_TABLE,
+       /**
+        * All things being equal, use the index table instead of
+        * the data table when optimizing.
+        */
+       USE_INDEX_OVER_DATA_TABLE,
     };
 
     private final Map<Hint,String> hints = new HashMap<Hint,String>();
 
+    public static HintNode create(Hint hint) {
+        return new HintNode(hint,"");
+    }
+    
     private HintNode() {
+    }
+
+    private HintNode(Hint hint, String value) {
+        hints.put(hint, value);
     }
 
     public HintNode(String hint) {

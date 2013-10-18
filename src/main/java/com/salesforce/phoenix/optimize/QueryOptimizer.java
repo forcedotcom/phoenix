@@ -5,12 +5,15 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import org.apache.hadoop.hbase.client.Scan;
+
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ColumnResolver;
 import com.salesforce.phoenix.compile.FromCompiler;
 import com.salesforce.phoenix.compile.IndexStatementRewriter;
 import com.salesforce.phoenix.compile.QueryCompiler;
 import com.salesforce.phoenix.compile.QueryPlan;
+import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.HintNode;
@@ -21,6 +24,7 @@ import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
@@ -37,9 +41,13 @@ public class QueryOptimizer {
     }
 
     public QueryPlan optimize(SelectStatement select, PhoenixStatement statement) throws SQLException {
+        return optimize(select, statement, null, null);
+    }
+
+    public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
         List<Object> binds = statement.getParameters();
         PhoenixConnection connection = statement.getConnection();
-        QueryCompiler compiler = new QueryCompiler(connection, statement.getMaxRows());
+        QueryCompiler compiler = new QueryCompiler(connection, statement.getMaxRows(), new Scan(), targetDatums, parallelIteratorFactory);
         QueryPlan dataPlan = compiler.compile(select, binds);
         if (!useIndexes) {
             return dataPlan;
@@ -57,18 +65,18 @@ public class QueryOptimizer {
         plans.add(dataPlan);
         ColumnResolver resolver = FromCompiler.getResolver(select, connection);
         SelectStatement translatedSelect = IndexStatementRewriter.translate(select, resolver);
-        QueryPlan hintedPlan = getHintedQueryPlan(statement, translatedSelect, indexes, plans);
+        QueryPlan hintedPlan = getHintedQueryPlan(statement, translatedSelect, indexes, targetDatums, parallelIteratorFactory, plans);
         if (hintedPlan != null) {
             return hintedPlan;
         }
         for (PTable index : indexes) {
-            addPlan(statement, translatedSelect, index, plans);
+            addPlan(statement, translatedSelect, index, targetDatums, parallelIteratorFactory, plans);
         }
         
         return chooseBestPlan(select, plans);
     }
     
-    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement translatedSelect, List<PTable> indexes, List<QueryPlan> plans) throws SQLException {
+    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement translatedSelect, List<PTable> indexes, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
         String indexHint = translatedSelect.getHint().getHint(Hint.INDEX);
         if (indexHint == null) {
@@ -103,7 +111,7 @@ public class QueryOptimizer {
                 int indexPos = getIndexPosition(indexes, indexName);
                 if (indexPos >= 0) {
                     // Hinted index is applicable, so return it. It'll be the plan at position 1, after the data plan
-                    if (addPlan(statement, translatedSelect, indexes.get(indexPos), plans)) {
+                    if (addPlan(statement, translatedSelect, indexes.get(indexPos), targetDatums, parallelIteratorFactory, plans)) {
                         return plans.get(1);
                     }
                     indexes.remove(indexPos);
@@ -123,7 +131,7 @@ public class QueryOptimizer {
         return -1;
     }
     
-    private static boolean addPlan(PhoenixStatement statement, SelectStatement translatedSelect, PTable index, List<QueryPlan> plans) throws SQLException {
+    private static boolean addPlan(PhoenixStatement statement, SelectStatement translatedSelect, PTable index, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
         List<Object> binds = statement.getParameters();
         PhoenixConnection connection = statement.getConnection();        
         QueryPlan dataPlan = plans.get(0);
@@ -136,7 +144,7 @@ public class QueryOptimizer {
         List<? extends TableNode> tables = Collections.singletonList(FACTORY.namedTable(alias, FACTORY.table(schemaName, tableName)));
         try {
             SelectStatement indexSelect = FACTORY.select(translatedSelect, tables);
-            QueryCompiler compiler = new QueryCompiler(connection, statement.getMaxRows());
+            QueryCompiler compiler = new QueryCompiler(connection, statement.getMaxRows(), new Scan(), targetDatums, parallelIteratorFactory);
             QueryPlan plan = compiler.compile(indexSelect, binds);
             // Checking the index status and number of columns handles the wildcard cases correctly
             // We can't check the status earlier, because the index table may be out-of-date.
@@ -186,6 +194,7 @@ public class QueryOptimizer {
                 candidates.addAll(plans);
             }
         }
+        final int comparisonOfDataVersusIndexTable = select.getHint().hasHint(Hint.USE_DATA_OVER_INDEX_TABLE) ? -1 : 1;
         Collections.sort(candidates, new Comparator<QueryPlan>() {
 
             @Override
@@ -203,12 +212,13 @@ public class QueryOptimizer {
                 c = (table1.getColumns().size() - table1.getPKColumns().size()) - (table2.getColumns().size() - table2.getPKColumns().size());
                 if (c != 0) return c;
                 
-                // All things being equal, just use the data table
-                if (plan1.getTableRef().getTable().getType() != PTableType.INDEX) {
-                    return -1;
+                // All things being equal, just use the index table
+                // TODO: have hint that drives this
+                if (plan1.getTableRef().getTable().getType() == PTableType.INDEX) {
+                    return comparisonOfDataVersusIndexTable;
                 }
-                if (plan2.getTableRef().getTable().getType() != PTableType.INDEX) {
-                    return 1;
+                if (plan2.getTableRef().getTable().getType() == PTableType.INDEX) {
+                    return -comparisonOfDataVersusIndexTable;
                 }
                 
                 return 0;

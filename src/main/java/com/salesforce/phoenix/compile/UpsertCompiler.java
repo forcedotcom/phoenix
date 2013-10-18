@@ -57,8 +57,11 @@ import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixResultSet;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.ColumnName;
+import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
@@ -205,8 +208,6 @@ public class UpsertCompiler {
         if (table.getType() == PTableType.VIEW) {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef + ")");
         }
-        Scan scan = new Scan();
-        final StatementContext context = new StatementContext(upsert, connection, resolver, binds, scan);
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
         List<PColumn> allColumns = table.getColumns();
@@ -288,9 +289,18 @@ public class UpsertCompiler {
                 // if we don't have any post processing that's required.
                 parallelIteratorFactory = upsertParallelIteratorFactoryToBe = new UpsertingParallelIteratorFactory(connection, tableRef);
             }
+            // If we may be able to run on the server, add a hint that favors using the data table
+            // if all else is equal.
+            // TODO: it'd be nice if we could figure out in advance if the PK is potentially changing,
+            // as this would disallow running on the server. We currently use the row projector we
+            // get back to figure this out.
+            if (runOnServer /* && !upsert.getHintNode().hasHint(Hint.USE_INDEX_OVER_DATA_TABLE) */) {
+                select = SelectStatement.create(select, HintNode.create(Hint.USE_DATA_OVER_INDEX_TABLE));
+            }
             // Pass scan through if same table in upsert and select so that projection is computed correctly
-            QueryCompiler compiler = new QueryCompiler(connection, 0, sameTable ? scan : new Scan(), targetColumns, parallelIteratorFactory);
-            plan = compiler.compile(select, binds);
+            // Use optimizer to choose the best plan 
+            plan = new QueryOptimizer(services).optimize(select, statement, targetColumns, parallelIteratorFactory);
+            runOnServer &= plan.getTableRef().equals(tableRef);
             rowProjectorToBe = plan.getProjector();
             nValuesToSet = rowProjectorToBe.getColumnCount();
             // Cannot auto commit if doing aggregation or topN or salted
@@ -391,7 +401,7 @@ public class UpsertCompiler {
                     PTable projectedTable = PTableImpl.makePTable(table, projectedColumns);
                     
                     SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, upsert.getSelect().getHint());
-                    final RowProjector aggProjector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
+                    final RowProjector aggProjector = ProjectionCompiler.compile(queryPlan.getContext(), select, GroupBy.EMPTY_GROUP_BY);
                     /*
                      * Transfer over PTable representing subset of columns selected, but all PK columns.
                      * Move columns setting PK first in pkSlot order, adding LiteralExpression of null for any missing ones.
@@ -399,10 +409,11 @@ public class UpsertCompiler {
                      * In region scan, evaluate expressions in order, collecting first n columns for PK and collection non PK in mutation Map
                      * Create the PRow and get the mutations, adding them to the batch
                      */
+                    Scan scan = queryPlan.getContext().getScan();
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
                     // Ignore order by - it has no impact
-                    final QueryPlan aggPlan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
+                    final QueryPlan aggPlan = new AggregatePlan(queryPlan.getContext(), select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                     return new MutationPlan() {
     
                         @Override
@@ -412,7 +423,7 @@ public class UpsertCompiler {
     
                         @Override
                         public ParameterMetaData getParameterMetaData() {
-                            return context.getBindManager().getParameterMetaData();
+                            return queryPlan.getContext().getBindManager().getParameterMetaData();
                         }
     
                         @Override
@@ -421,7 +432,7 @@ public class UpsertCompiler {
                             ResultIterator iterator = scanner.iterator();
                             try {
                                 Tuple row = iterator.next();
-                                ImmutableBytesWritable ptr = context.getTempPtr();
+                                ImmutableBytesWritable ptr = queryPlan.getContext().getTempPtr();
                                 final long mutationCount = (Long)aggProjector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
                                 return new MutationState(maxSize, connection) {
                                     @Override
@@ -458,7 +469,7 @@ public class UpsertCompiler {
                 
                 @Override
                 public ParameterMetaData getParameterMetaData() {
-                    return context.getBindManager().getParameterMetaData();
+                    return queryPlan.getContext().getBindManager().getParameterMetaData();
                 }
 
                 @Override
@@ -501,6 +512,7 @@ public class UpsertCompiler {
         int nodeIndex = 0;
         // Allocate array based on size of all columns in table,
         // since some values may not be set (if they're nullable).
+        final StatementContext context = new StatementContext(upsert, connection, resolver, binds, new Scan());
         UpsertValuesCompiler expressionBuilder = new UpsertValuesCompiler(context);
         final byte[][] values = new byte[nValuesToSet][];
         for (ParseNode valueNode : valueNodes) {

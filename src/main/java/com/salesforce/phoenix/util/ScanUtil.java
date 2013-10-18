@@ -33,6 +33,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.NavigableSet;
+import java.util.TreeMap;
 
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Scan;
@@ -83,7 +86,11 @@ public class ScanUtil {
 
     public static Scan newScan(Scan scan) {
         try {
-            return new Scan(scan);
+            Scan newScan = new Scan(scan);
+            TreeMap<byte [], NavigableSet<byte []>> existingMap = (TreeMap<byte[], NavigableSet<byte[]>>)scan.getFamilyMap();
+            Map<byte [], NavigableSet<byte []>> clonedMap = new TreeMap<byte [], NavigableSet<byte []>>(existingMap);
+            newScan.setFamilyMap(clonedMap);
+            return newScan;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -47,6 +47,7 @@ import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.compile.BindManager;
 import com.salesforce.phoenix.compile.ColumnProjector;
 import com.salesforce.phoenix.compile.CreateIndexCompiler;
 import com.salesforce.phoenix.compile.CreateTableCompiler;
@@ -135,7 +136,6 @@ import com.salesforce.phoenix.util.ServerUtil;
  * @since 0.1
  */
 public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce.phoenix.jdbc.Jdbc7Shim.Statement {
-    protected static final Object UNBOUND_PARAMETER = new Object();
     public enum UpdateOperation {
         DELETED("deleted"),
         UPSERTED("upserted");
@@ -990,7 +990,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     protected void throwIfUnboundParameters() throws SQLException {
         int i = 0;
         for (Object param : getParameters()) {
-            if (param == UNBOUND_PARAMETER) {
+            if (param == BindManager.UNBOUND_PARAMETER) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
                     .setMessage("Parameter " + (i + 1) + " is unbound").build().buildException();
             }
