@@ -380,7 +380,7 @@ public class ParseNodeFactory {
         return new JoinTableNode(alias, table, on, type);
     }
 
-    public DerivedTableNode subselect (String alias, SelectStatement select) {
+    public DerivedTableNode derivedTable (String alias, SelectStatement select) {
         return new DerivedTableNode(alias, select);
     }
 
@@ -505,11 +505,11 @@ public class ParseNodeFactory {
     public SelectStatement select(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where,
             List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount, boolean isAggregate) {
 
-        return new SelectStatement(from, hint == null ? HintNode.EMPTY_HINT_NODE : hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount, isAggregate);
+        return new SelectStatement(from, hint, isDistinct, select, where, groupBy == null ? Collections.<ParseNode>emptyList() : groupBy, having, orderBy == null ? Collections.<OrderByNode>emptyList() : orderBy, limit, bindCount, isAggregate);
     }
     
-    public UpsertStatement upsert(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
-        return new UpsertStatement(table, columns, values, select, bindCount);
+    public UpsertStatement upsert(NamedTableNode table, HintNode hint, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+        return new UpsertStatement(table, hint, columns, values, select, bindCount);
     }
     
     public DeleteStatement delete(NamedTableNode table, HintNode hint, ParseNode node, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
@@ -522,6 +522,10 @@ public class ParseNodeFactory {
 
     public SelectStatement select(SelectStatement statement, List<? extends TableNode> tables) {
         return select(tables, statement.getHint(), statement.isDistinct(), statement.getSelect(), statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
+    }
+
+    public SelectStatement select(SelectStatement statement, HintNode hint) {
+        return hint == null || hint.isEmpty() ? statement : select(statement.getFrom(), hint, statement.isDistinct(), statement.getSelect(), statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
 
     public SubqueryParseNode subquery(SelectStatement select) {

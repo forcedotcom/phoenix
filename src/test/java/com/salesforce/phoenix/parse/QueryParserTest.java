@@ -575,6 +575,27 @@ public class QueryParserTest {
     }
 
     @Test
+    public void testInvalidUpsertSelectHint() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "upsert into t select /*+ NO_INDEX */ k from t where k in ( 1,2 )"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.PARSER_ERROR.getErrorCode(), e.getErrorCode());
+        }
+    }
+
+    @Test
+    public void testValidUpsertSelectHint() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "upsert /*+ NO_INDEX */ into t select k from t where k in ( 1,2 )"));
+            parser.parseStatement();
+    }
+
+    @Test
     public void testHavingWithNot() throws Exception {
         SQLParser parser = new SQLParser(
                 new StringReader(

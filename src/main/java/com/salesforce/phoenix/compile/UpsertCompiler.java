@@ -296,9 +296,11 @@ public class UpsertCompiler {
             // TODO: it'd be nice if we could figure out in advance if the PK is potentially changing,
             // as this would disallow running on the server. We currently use the row projector we
             // get back to figure this out.
-            if (runOnServer /* && !upsert.getHintNode().hasHint(Hint.USE_INDEX_OVER_DATA_TABLE) */) {
-                select = SelectStatement.create(select, HintNode.create(Hint.USE_DATA_OVER_INDEX_TABLE));
+            HintNode hint = upsert.getHint();
+            if (!upsert.getHint().hasHint(Hint.USE_INDEX_OVER_DATA_TABLE)) {
+                hint = HintNode.create(hint, Hint.USE_DATA_OVER_INDEX_TABLE);
             }
+            select = SelectStatement.create(select, hint);
             // Pass scan through if same table in upsert and select so that projection is computed correctly
             // Use optimizer to choose the best plan 
             plan = new QueryOptimizer(services).optimize(select, statement, targetColumns, parallelIteratorFactory);

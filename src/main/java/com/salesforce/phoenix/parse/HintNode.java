@@ -30,6 +30,7 @@ package com.salesforce.phoenix.parse;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.common.collect.ImmutableMap;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -84,20 +85,28 @@ public class HintNode {
        USE_INDEX_OVER_DATA_TABLE,
     };
 
-    private final Map<Hint,String> hints = new HashMap<Hint,String>();
+    private final Map<Hint,String> hints;
 
-    public static HintNode create(Hint hint) {
-        return new HintNode(hint,"");
+    public static HintNode create(HintNode hintNode, Hint hint) {
+        return create(hintNode, hint, "");
+    }
+    
+    public static HintNode create(HintNode hintNode, Hint hint, String value) {
+        Map<Hint,String> hints = new HashMap<Hint,String>(hintNode.hints);
+        hints.put(hint, value);
+        return new HintNode(hints);
     }
     
     private HintNode() {
+        hints = new HashMap<Hint,String>();
     }
 
-    private HintNode(Hint hint, String value) {
-        hints.put(hint, value);
+    private HintNode(Map<Hint,String> hints) {
+        this.hints = ImmutableMap.copyOf(hints);
     }
 
     public HintNode(String hint) {
+        Map<Hint,String> hints = new HashMap<Hint,String>();
         // Split on whitespace or parenthesis. We do not need to handle escaped or
         // embedded whitespace/parenthesis, since we are parsing what will be HBase
         // table names which are not allowed to contain whitespace or parenthesis.
@@ -130,6 +139,11 @@ public class HintNode {
             } catch (IllegalArgumentException e) { // Ignore unknown/invalid hints
             }
         }
+        this.hints = ImmutableMap.copyOf(hints);
+    }
+    
+    public boolean isEmpty() {
+        return hints.isEmpty();
     }
 
     /**

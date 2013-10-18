@@ -333,12 +333,12 @@ statement returns [BindableStatement ret]
 
 // Parses a select statement which must be the only statement (expects an EOF after the statement).
 query returns [SelectStatement ret]
-    :   q=select_node EOF {$ret=q;}
+    :   SELECT s=hinted_select_node EOF {$ret=s;}
     ;
 
 // Parses a single SQL statement (expects an EOF after the select statement).
 oneStatement returns [BindableStatement ret]
-    :   (q=select_node {$ret=q;} 
+    :   (SELECT s=hinted_select_node {$ret=s;} 
     |    ns=non_select_node {$ret=ns;}
         )
     ;
@@ -506,30 +506,41 @@ dyn_column_name_or_def returns [ColumnDef ret]
             null); }
     ;
 
-// Parses a select statement which must be the only statement (expects an EOF after the statement).
-select_expression returns [ParseNode ret]
-    :   s=select_node {$ret = factory.subquery(s);}
+select_expression returns [SelectStatement ret]
+    :  SELECT s=select_node {$ret = s;}
+    ;
+    
+subquery_expression returns [ParseNode ret]
+    :  s=select_expression {$ret = factory.subquery(s);}
     ;
     
 // Parse a full select expression structure.
 select_node returns [SelectStatement ret]
 @init{ contextStack.push(new ParseContext()); }
-    :   SELECT (hint=hintClause)? (d=DISTINCT | ALL)? sel=select_list
+    :   (d=DISTINCT | ALL)? sel=select_list
         FROM from=parseFrom
         (WHERE where=condition)?
         (GROUP BY group=group_by)?
         (HAVING having=condition)?
         (ORDER BY order=order_by)?
         (LIMIT l=limit)?
-        { ParseContext context = contextStack.pop(); $ret = factory.select(from, hint, d!=null, sel, where, group, having, order, l, getBindCount(), context.isAggregate()); }
+        { ParseContext context = contextStack.pop(); $ret = factory.select(from, null, d!=null, sel, where, group, having, order, l, getBindCount(), context.isAggregate()); }
+    ;
+
+// Parse a full select expression structure.
+hinted_select_node returns [SelectStatement ret]
+@init{ contextStack.push(new ParseContext()); }
+    :   (hint=hintClause)? 
+        s=select_node
+        { $ret = factory.select(s, hint); }
     ;
 
 // Parse a full upsert expression structure.
 upsert_node returns [UpsertStatement ret]
-    :   UPSERT INTO t=from_table_name
+    :   UPSERT (hint=hintClause)? INTO t=from_table_name
         (LPAREN p=upsert_column_refs RPAREN)?
-        ((VALUES LPAREN v=expression_terms RPAREN) | s=select_node)
-        {ret = factory.upsert(factory.namedTable(null,t,p == null ? null : p.getFirst()), p == null ? null : p.getSecond(), v, s, getBindCount()); }
+        ((VALUES LPAREN v=expression_terms RPAREN) | s=select_expression)
+        {ret = factory.upsert(factory.namedTable(null,t,p == null ? null : p.getFirst()), hint, p == null ? null : p.getSecond(), v, s, getBindCount()); }
     ;
 
 upsert_column_refs returns [Pair<List<ColumnDef>,List<ColumnName>> ret]
@@ -538,11 +549,6 @@ upsert_column_refs returns [Pair<List<ColumnDef>,List<ColumnName>> ret]
        (COMMA d=dyn_column_name_or_def { if (d.getDataType()!=null) { $ret.getFirst().add(d); } $ret.getSecond().add(d.getColumnDefName()); } )*
 ;
 	
-// Parses a select statement which must be the only statement (expects an EOF after the statement).
-upsert_select_node returns [SelectStatement ret]
-    :   s=select_node {$ret = s;}
-    ;
-    
 // Parse a full delete expression structure.
 delete_node returns [DeleteStatement ret]
     :   DELETE (hint=hintClause)? FROM t=from_table_name
@@ -617,7 +623,7 @@ named_table returns [NamedTableNode ret]
 table_ref returns [TableNode ret]
     :   n=bind_name ((AS)? alias=identifier)? { $ret = factory.bindTable(alias, factory.table(null,n)); } // TODO: review
     |   t=from_table_name ((AS)? alias=identifier)? (LPAREN cdefs=dyn_column_defs RPAREN)? { $ret = factory.namedTable(alias,t,cdefs); }
-    |   LPAREN s=select_node RPAREN ((AS)? alias=identifier)? { $ret = factory.subselect(alias, s); }
+    |   LPAREN SELECT s=hinted_select_node RPAREN ((AS)? alias=identifier)? { $ret = factory.derivedTable(alias, s); }
     ;
 
 join_specs returns [List<TableNode> ret]
@@ -671,10 +677,10 @@ boolean_expr returns [ParseNode ret]
                   |  (GT EQ r=expression {$ret = factory.gte(l,r); } )
                   |  (IS n=NOT? NULL {$ret = factory.isNull(l,n!=null); } )
                   |  ( n=NOT? ((LIKE r=expression {$ret = factory.like(l,r,n!=null); } )
-                      |        (EXISTS LPAREN r=select_expression RPAREN {$ret = factory.exists(l,r,n!=null);} )
+                      |        (EXISTS LPAREN r=subquery_expression RPAREN {$ret = factory.exists(l,r,n!=null);} )
                       |        (BETWEEN r1=expression AND r2=expression {$ret = factory.between(l,r1,r2,n!=null); } )
                       |        ((IN ((r=bind_expression {$ret = factory.inList(Arrays.asList(l,r),n!=null);} )
-                                | (LPAREN r=select_expression RPAREN {$ret = factory.in(l,r,n!=null);} )
+                                | (LPAREN r=subquery_expression RPAREN {$ret = factory.in(l,r,n!=null);} )
                                 | (v=list_expressions {List<ParseNode> il = new ArrayList<ParseNode>(v.size() + 1); il.add(l); il.addAll(v); $ret = factory.inList(il,n!=null);})
                                 )))
                       ))
