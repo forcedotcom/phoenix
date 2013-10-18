@@ -59,7 +59,7 @@ public class IndexManagementUtil {
   }
 
   private static final Log LOG = LogFactory.getLog(IndexManagementUtil.class);
-  public static String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
+  public static final String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
 
   public static boolean isWALEditCodecSet(Configuration conf) {
       // check to see if the WALEditCodec is installed

@@ -47,7 +47,7 @@ public class WrappedScanner implements Scanner {
     private final ResultIterator scanner;
     private final RowProjector projector;
     // TODO: base on stats
-    private final int estimatedSize = DEFAULT_ESTIMATED_SIZE;
+    private static final int estimatedSize = DEFAULT_ESTIMATED_SIZE;
 
     public WrappedScanner(ResultIterator scanner, RowProjector projector) {
         this.scanner = scanner;

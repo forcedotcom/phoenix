@@ -49,6 +49,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -118,7 +119,7 @@ public class SchemaUtil {
     private static final int VAR_LENGTH_ESTIMATE = 10;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
-    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
+    public static final RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
     
         @Override
         public boolean isNullable() {
@@ -654,12 +655,24 @@ public class SchemaUtil {
         Properties props = conn.getClientInfo();
         PMetaData metaData = conn.getPMetaData();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(scn));
-        PhoenixConnection metaConnection = new PhoenixConnection(conn.getQueryServices(), url, props, metaData);
+        PhoenixConnection metaConnection = null;
+
+        Statement stmt = null;
         try {
-            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + columnDef);
-            return metaConnection;
+            metaConnection = new PhoenixConnection(conn.getQueryServices(), url, props, metaData);
+            try {
+                stmt = metaConnection.createStatement();
+                stmt.executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + columnDef);
+                return metaConnection;
+            } finally {
+                if(stmt != null) {
+                    stmt.close();
+                }
+            }
         } finally {
-            metaConnection.close();
+            if(metaConnection != null) {
+                metaConnection.close();
+            }
         }
     }
     

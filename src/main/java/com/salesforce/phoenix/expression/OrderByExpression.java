@@ -2,7 +2,9 @@ package com.salesforce.phoenix.expression;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
@@ -42,7 +44,7 @@ public class OrderByExpression implements Writable {
         if (this == o) {
             return true;
         }
-        if (o != null && o.getClass() == OrderByExpression.class) {
+        if (o != null && this.getClass() == o.getClass()) {
             OrderByExpression that = (OrderByExpression)o;
             return isNullsLast == that.isNullsLast
                 && isAscending == that.isAscending

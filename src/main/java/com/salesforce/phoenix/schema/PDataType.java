@@ -1181,7 +1181,7 @@ public enum PDataType {
                             || d == Double.NEGATIVE_INFINITY
                             || (d >= -Float.MAX_VALUE && d <= Float.MAX_VALUE);
                 case UNSIGNED_FLOAT:
-                    return d == Double.NaN || d == Double.POSITIVE_INFINITY
+                    return Double.isNaN(d) || d == Double.POSITIVE_INFINITY
                             || (d >= 0 && d <= Float.MAX_VALUE);
                 case UNSIGNED_LONG:
                     return (d >= 0 && d <= Long.MAX_VALUE);
@@ -2768,7 +2768,7 @@ public enum PDataType {
                     return Double.isNaN(d) || d == Double.POSITIVE_INFINITY
                             || (d >= 0 && d <= Float.MAX_VALUE);
                 case FLOAT:
-                    return d == Double.NaN
+                    return Double.isNaN(d)
                             || d == Double.POSITIVE_INFINITY
                             || (d >= -Float.MAX_VALUE && d <= Float.MAX_VALUE);
                 case UNSIGNED_LONG:

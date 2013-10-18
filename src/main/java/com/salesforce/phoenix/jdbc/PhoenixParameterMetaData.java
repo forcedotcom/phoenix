@@ -49,10 +49,8 @@ import com.salesforce.phoenix.schema.TypeMismatchException;
  * @since 0.1
  */
 public class PhoenixParameterMetaData implements ParameterMetaData {
-    public static final PhoenixParameterMetaData EMPTY_PARAMETER_META_DATA = new PhoenixParameterMetaData(0);
     private final PDatum[] params;
     private static final PDatum EMPTY_DATUM = new PDatum() {
-        
         @Override
         public boolean isNullable() {
             return false;
@@ -83,7 +81,7 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
             return null;
         }
     };
-    
+    public static final PhoenixParameterMetaData EMPTY_PARAMETER_META_DATA = new PhoenixParameterMetaData(0);
     public PhoenixParameterMetaData(int paramCount) {
         params = new PDatum[paramCount];
         //initialize the params array with the empty_datum marker value.

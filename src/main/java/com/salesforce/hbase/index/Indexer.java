@@ -147,7 +147,7 @@ public class Indexer extends BaseRegionObserver {
 
   private boolean stopped;
 
-  public static String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
+  public static final String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {

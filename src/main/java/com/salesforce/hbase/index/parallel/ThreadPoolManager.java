@@ -132,7 +132,7 @@ public class ThreadPoolManager {
     protected void finalize() {
       // override references counter if we go out of scope - ensures the pool gets cleaned up
       LOG.info("Shutting down pool '" + poolName + "' because no more references");
-      super.shutdown();
+      super.finalize();
     }
 
     @Override

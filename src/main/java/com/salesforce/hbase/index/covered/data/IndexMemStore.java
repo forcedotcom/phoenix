@@ -93,7 +93,7 @@ public class IndexMemStore implements KeyValueStore {
    * {@link KeyValue#COMPARATOR}, but doesn't take into consideration the memstore timestamps. We
    * instead manage which KeyValue to retain based on how its loaded here
    */
-  public static Comparator<KeyValue> COMPARATOR = new Comparator<KeyValue>() {
+  public static final Comparator<KeyValue> COMPARATOR = new Comparator<KeyValue>() {
 
     private final KeyComparator rawcomparator = new KeyComparator();
 
