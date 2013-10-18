@@ -61,6 +61,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Properties;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -726,6 +727,8 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
     
     //Keeping this test disabled. There is some bug in nested RVC. For some reason (organization_id, (entity_id, a_string)) is not 
     //returning the same rows as (organization_id, entity_id, a_string) and ((organization_id, entity_id), a_string)
+    @Ignore // FIXME
+    @Test
     public void testNestedRVCBasic() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();

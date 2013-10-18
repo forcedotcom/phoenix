@@ -107,10 +107,16 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
         // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
         byte[] dataRowKey = state.getCurrentRowKey();
         for (IndexMaintainer maintainer : indexMaintainers) {
+//            if (maintainer.isRowDeleted(state.getPendingUpdate())) {
+//                continue;
+//            }
             // TODO: if more efficient, I could do this just once with all columns in all indexes
             Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             IndexUpdate indexUpdate = statePair.getSecond();
             Scanner scanner = statePair.getFirst();
+            if (scanner.peek() == null) { // TODO: better way?
+                continue;
+            }
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
             Put put = maintainer.buildUpdateMutation(valueGetter, ptr, state.getCurrentTimestamp());

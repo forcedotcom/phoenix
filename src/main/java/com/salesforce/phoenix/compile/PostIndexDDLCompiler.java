@@ -108,7 +108,7 @@ public class PostIndexDDLCompiler {
                     String tableName = indexTable.getTableName().getString();
                     
                     StringBuilder updateStmtStr = new StringBuilder();
-                    updateStmtStr.append("UPSERT INTO ").append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(tableName).append("\"(")
+                    updateStmtStr.append("UPSERT /*+ NO_INDEX */ INTO ").append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(tableName).append("\"(")
                         .append(indexColumns).append(") SELECT ").append(dataColumns).append(" FROM ")
                         .append(schemaName.length() == 0 ? "" : '"' + schemaName + "\".").append('"').append(dataTableRef.getTable().getTableName().getString()).append('"');
                     PreparedStatement updateStmt = connection.prepareStatement(updateStmtStr.toString());

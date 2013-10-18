@@ -10,7 +10,9 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
+import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.join.MaxServerCacheSizeExceededException;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -58,4 +60,18 @@ public class IndexMetaDataCacheClient {
         return serverCache.addServerCache(ScanUtil.newScanRanges(mutations), ptr, new IndexMetaDataCacheFactory());
     }
     
+    
+    /**
+     * Send the index metadata cahce to all region servers for regions that will handle the mutations.
+     * @return client-side {@link ServerCache} representing the added index metadata cache
+     * @throws SQLException 
+     * @throws MaxServerCacheSizeExceededException if size of hash cache exceeds max allowed
+     * size
+     */
+    public ServerCache addIndexMetadataCache(ScanRanges ranges, ImmutableBytesWritable ptr) throws SQLException {
+        /**
+         * Serialize and compress hashCacheTable
+         */
+        return serverCache.addServerCache(ranges, ptr, new IndexMetaDataCacheFactory());
+    }
 }

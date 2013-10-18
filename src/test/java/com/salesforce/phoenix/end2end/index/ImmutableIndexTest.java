@@ -365,10 +365,18 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         
         String dml = "DELETE from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE +
                 " WHERE long_col2 = 4";
-        conn.createStatement().execute(dml);
+        assertEquals(1,conn.createStatement().executeUpdate(dml));
         conn.commit();
         
-        String query = "SELECT long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        String query = "SELECT /*+ NO_INDEX */ long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertTrue(rs.next());
+        assertEquals(3L, rs.getLong(1));
+        assertFalse(rs.next());
+        
+        query = "SELECT long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
         assertEquals(1L, rs.getLong(1));

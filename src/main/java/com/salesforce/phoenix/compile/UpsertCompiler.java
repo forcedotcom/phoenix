@@ -43,6 +43,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
@@ -52,6 +53,8 @@ import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
+import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -404,7 +407,7 @@ public class UpsertCompiler {
                     // Build table from projectedColumns
                     PTable projectedTable = PTableImpl.makePTable(table, projectedColumns);
                     
-                    SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, upsert.getSelect().getHint());
+                    SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, upsert.getHint());
                     final RowProjector aggProjector = ProjectionCompiler.compile(queryPlan.getContext(), select, GroupBy.EMPTY_GROUP_BY);
                     /*
                      * Transfer over PTable representing subset of columns selected, but all PK columns.
@@ -413,11 +416,12 @@ public class UpsertCompiler {
                      * In region scan, evaluate expressions in order, collecting first n columns for PK and collection non PK in mutation Map
                      * Create the PRow and get the mutations, adding them to the batch
                      */
-                    Scan scan = queryPlan.getContext().getScan();
+                    final StatementContext context = queryPlan.getContext();
+                    final Scan scan = context.getScan();
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_TABLE, UngroupedAggregateRegionObserver.serialize(projectedTable));
                     scan.setAttribute(UngroupedAggregateRegionObserver.UPSERT_SELECT_EXPRS, UngroupedAggregateRegionObserver.serialize(projectedExpressions));
                     // Ignore order by - it has no impact
-                    final QueryPlan aggPlan = new AggregatePlan(queryPlan.getContext(), select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
+                    final QueryPlan aggPlan = new AggregatePlan(context, select, tableRef, aggProjector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                     return new MutationPlan() {
     
                         @Override
@@ -432,20 +436,34 @@ public class UpsertCompiler {
     
                         @Override
                         public MutationState execute() throws SQLException {
-                            Scanner scanner = aggPlan.getScanner();
-                            ResultIterator iterator = scanner.iterator();
+                            ImmutableBytesWritable ptr = context.getTempPtr();
+                            tableRef.getTable().getIndexMaintainers(ptr);
+                            ServerCache cache = null;
                             try {
-                                Tuple row = iterator.next();
-                                ImmutableBytesWritable ptr = queryPlan.getContext().getTempPtr();
-                                final long mutationCount = (Long)aggProjector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
-                                return new MutationState(maxSize, connection) {
-                                    @Override
-                                    public long getUpdateCount() {
-                                        return mutationCount;
-                                    }
-                                };
+                                if (ptr.getLength() > 0) {
+                                    IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
+                                    cache = client.addIndexMetadataCache(context.getScanRanges(), ptr);
+                                    byte[] uuidValue = cache.getId();
+                                    scan.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
+                                }
+                                Scanner scanner = aggPlan.getScanner();
+                                ResultIterator iterator = scanner.iterator();
+                                try {
+                                    Tuple row = iterator.next();
+                                    final long mutationCount = (Long)aggProjector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
+                                    return new MutationState(maxSize, connection) {
+                                        @Override
+                                        public long getUpdateCount() {
+                                            return mutationCount;
+                                        }
+                                    };
+                                } finally {
+                                    iterator.close();
+                                }
                             } finally {
-                                iterator.close();
+                                if (cache != null) {
+                                    cache.close();
+                                }
                             }
                         }
     

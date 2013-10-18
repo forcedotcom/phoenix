@@ -863,8 +863,11 @@ public class MetaDataClient {
                     PTable table = result.getTable();
                     List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + table.getIndexes().size());
                     tableRefs.add(new TableRef(null, table, ts, false));
-                    for (PTable index: table.getIndexes()) {
-                        tableRefs.add(new TableRef(null, index, ts, false));
+                    // Let the standard mutable secondary index maintenance handle this
+                    /* TODO if (table.isImmutableRows()) */ {
+                        for (PTable index: table.getIndexes()) {
+                            tableRefs.add(new TableRef(null, index, ts, false));
+                        }
                     }
                     MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, null, Collections.<PColumn>emptyList(), ts);
                     return connection.getQueryServices().updateData(plan);
@@ -1039,6 +1042,7 @@ public class MetaDataClient {
                 Collections.reverse(tableMetaData);
                 
                 // Figure out if the empty column family is changing as a result of adding the new column
+                // The empty column family of an index will never change as a result of adding a new data column
                 byte[] emptyCF = null;
                 byte[] projectCF = null;
                 if (table.getType() != PTableType.VIEW && family != null) {
@@ -1268,6 +1272,9 @@ public class MetaDataClient {
                             // Painful, but we need a TableRef with a pre-set timestamp to prevent attempts
                             // to get any updates from the region server.
                             // TODO: move this into PostDDLCompiler
+                            // TODO: consider filtering mutable indexes here, but then the issue is that
+                            // we'd need to force an update of the data row empty key value if a mutable
+                            // secondary index is changing its empty key value family.
                             droppedColumnRef = new ColumnRef(droppedColumnRef, ts);
                             TableRef droppedColumnTableRef = droppedColumnRef.getTableRef();
                             PColumn droppedColumn = droppedColumnRef.getColumn();

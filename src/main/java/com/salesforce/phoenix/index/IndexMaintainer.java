@@ -198,6 +198,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private int estimatedIndexRowKeyBytes;
     private int[] dataPkPosition;
     private int maxTrailingNulls;
+    //private ColumnReference emptyKeyValue;
     
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted) {
         this.dataRowKeySchema = dataRowKeySchema;
@@ -316,7 +317,12 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     }
 
     public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
-        byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
+        // If we don't have our empty key value, then there is no row
+        // TODO: why is this called in this case?
+//        if (valueGetter.getLatestValue(emptyKeyValue) == null) {
+//            return null;
+//        }
+         byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
         Put put = new Put(indexRowKey);
         int i = 0;
         for (ColumnReference ref : this.getCoverededColumns()) {
@@ -337,7 +343,23 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         return buildDeleteMutation(valueGetter, dataRowKeyPtr, pendingUpdates, HConstants.LATEST_TIMESTAMP);
     }
     
-    private boolean indexedColumnsChanged(ValueGetter oldState, Collection<KeyValue> pendingUpdates) throws IOException {
+    private boolean isRowDeleted(Collection<KeyValue> pendingUpdates) {
+        if (pendingUpdates.size() == 1) {
+            KeyValue kv = pendingUpdates.iterator().next();
+            boolean isEmptyCF = Bytes.compareTo(kv.getFamily(), this.getEmptyKeyValueFamily()) == 0;
+            if (isEmptyCF && kv.getType() != KeyValue.Type.Put.getCode()) {
+                if (kv.getType() == KeyValue.Type.DeleteFamily.getCode()) {
+                    return true;
+                }
+                if (Bytes.compareTo(kv.getQualifier(), QueryConstants.EMPTY_COLUMN_BYTES) == 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    private boolean hasIndexedColumnChanged(ValueGetter oldState, Collection<KeyValue> pendingUpdates) throws IOException {
         if (pendingUpdates.isEmpty()) {
             return false;
         }
@@ -371,7 +393,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     public Delete buildDeleteMutation(ValueGetter oldState, ImmutableBytesWritable dataRowKeyPtr, Collection<KeyValue> pendingUpdates, long ts) throws IOException {
         byte[] indexRowKey = this.buildRowKey(oldState, dataRowKeyPtr);
         // Delete the entire row if any of the indexed columns changed
-        if (oldState == null || indexedColumnsChanged(oldState, pendingUpdates)) { // Deleting the entire row
+        if (oldState == null || isRowDeleted(pendingUpdates) || hasIndexedColumnChanged(oldState, pendingUpdates)) { // Deleting the entire row
             Delete delete = new Delete(indexRowKey, ts, null);
             return delete;
         }
@@ -477,6 +499,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         } else {
             emptyKeyValueCF = coveredColumns.iterator().next().getFamily();
         }
+       // emptyKeyValue = new ColumnReference(emptyKeyValueCF, QueryConstants.EMPTY_COLUMN_BYTES);
 
         indexQualifiers = Lists.newArrayListWithExpectedSize(this.coveredColumns.size());
         for (ColumnReference ref : coveredColumns) {

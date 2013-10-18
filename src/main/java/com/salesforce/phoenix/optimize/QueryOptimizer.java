@@ -61,7 +61,7 @@ public class QueryOptimizer {
         List<QueryPlan> plans = Lists.newArrayListWithExpectedSize(1 + indexes.size());
         plans.add(dataPlan);
         ColumnResolver resolver = FromCompiler.getResolver(select, connection);
-        SelectStatement translatedSelect = IndexStatementRewriter.translate(select, resolver);
+        SelectStatement translatedSelect = IndexStatementRewriter.translate(select, resolver, dataPlan.getContext().getResolver());
         QueryPlan hintedPlan = getHintedQueryPlan(statement, translatedSelect, indexes, targetColumns, parallelIteratorFactory, plans);
         if (hintedPlan != null) {
             return hintedPlan;

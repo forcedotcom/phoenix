@@ -70,6 +70,7 @@ import com.salesforce.phoenix.expression.ExpressionType;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServicesOptions;
@@ -154,6 +155,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         }
         final RegionScanner innerScanner = theScanner;
         
+        byte[] indexUUID = scan.getAttribute(PhoenixIndexCodec.INDEX_UUID);
         PTable projectedTable = null;
         List<Expression> selectExpressions = null;
         byte[] upsertSelectTable = scan.getAttribute(UPSERT_SELECT_TABLE);
@@ -219,6 +221,9 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                             // of the client.
                             Delete delete = new Delete(results.get(0).getRow(),ts,null);
                             mutations.add(new Pair<Mutation,Integer>(delete,null));
+                            if (indexUUID != null) {
+                                delete.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
+                            }
                         } else if (isUpsert) {
                             Arrays.fill(values, null);
                             int i = 0;
@@ -261,6 +266,9 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                 }
                             }
                             for (Mutation mutation : row.toRowMutations()) {
+                                if (indexUUID != null) {
+                                    mutation.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
+                                }
                                 mutations.add(new Pair<Mutation,Integer>(mutation,null));
                             }
                         } else if (deleteCF != null && deleteCQ != null) {
@@ -269,6 +277,9 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                             if (emptyCF == null || result.getValue(deleteCF, deleteCQ) != null) {
                                 Delete delete = new Delete(results.get(0).getRow());
                                 delete.deleteColumns(deleteCF,  deleteCQ, ts);
+                                /* TODO if (indexUUID != null) {
+                                    delete.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
+                                }*/
                                 mutations.add(new Pair<Mutation,Integer>(delete,null));
                             }
                         }
@@ -286,6 +297,11 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                 long kvts = kv.getTimestamp();
                                 if (!timeStamps.contains(kvts)) {
                                     Put put = new Put(kv.getRow());
+                                    // This is the one case where we're managing a mutable secondary index
+                                    // from the client side - when the empty key value family changes.
+//                                    if (indexUUID != null) {
+//                                        put.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
+//                                    }
                                     put.add(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES, kvts, ByteUtil.EMPTY_BYTE_ARRAY);
                                     mutations.add(new Pair<Mutation,Integer>(put,null));
                                 }
