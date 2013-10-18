@@ -60,7 +60,7 @@ public class InstanceResolver {
         if(obj == null) {
             obj = o;
         }
-        return (T)o;
+        return (T)obj;
     }
     
     private synchronized static <T> T resolveSingleton(Class<T> clazz, T defaultInstance) {

@@ -68,7 +68,7 @@ import com.salesforce.hbase.index.table.HTableInterfaceReference;
  */
 public class ParallelWriterIndexCommitter implements IndexCommitter {
 
-  public static String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.writer.threads.max";
+  public static final String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.writer.threads.max";
   private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
   private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
       "index.writer.threads.keepalivetime";

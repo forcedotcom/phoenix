@@ -350,31 +350,29 @@ public class MetaDataClient {
         return connection.getQueryServices().updateData(plan);
     }
 
-    private MetaDataClient newClientAtNextTimeStamp() throws SQLException {
-            Properties props = new Properties(connection.getClientInfo());
-            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(connection.getSCN()+1));
-            return new MetaDataClient(DriverManager.getConnection(connection.getURL(), props).unwrap(PhoenixConnection.class));
-    }
-    
     private MutationState buildIndexAtTimeStamp(PTable index, NamedTableNode dataTableNode) throws SQLException {
         // If our connection is at a fixed point-in-time, we need to open a new
         // connection so that our new index table is visible.
-        MetaDataClient client = newClientAtNextTimeStamp();
+        Properties props = new Properties(connection.getClientInfo());
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(connection.getSCN()+1));
+        PhoenixConnection conn = DriverManager.getConnection(connection.getURL(), props).unwrap(PhoenixConnection.class);
+        MetaDataClient newClientAtNextTimeStamp = new MetaDataClient(conn);
+        
         // Re-resolve the tableRef from the now newer connection
-        client.connection.setAutoCommit(true);
-        ColumnResolver resolver = FromCompiler.getResolver(dataTableNode, client.connection);
+        conn.setAutoCommit(true);
+        ColumnResolver resolver = FromCompiler.getResolver(dataTableNode, conn);
         TableRef tableRef = resolver.getTables().get(0);
         boolean success = false;
         SQLException sqlException = null;
         try {
-            MutationState state = client.buildIndex(index, tableRef);
+            MutationState state = newClientAtNextTimeStamp.buildIndex(index, tableRef);
             success = true;
             return state;
         } catch (SQLException e) {
             sqlException = e;
         } finally {
             try {
-                client.connection.close();
+                conn.close();
             } catch (SQLException e) {
                 if (sqlException == null) {
                     // If we're not in the middle of throwing another exception
@@ -855,7 +853,7 @@ public class MetaDataClient {
                 try {
                     // TODO: should we update the parent table by removing the index?
                     connection.removeTable(tableName);
-                } catch (TableNotFoundException e) { } // Ignore - just means wasn't cached
+                } catch (TableNotFoundException ignore) { } // Ignore - just means wasn't cached
                 if (result.getTable() != null && tableType != PTableType.VIEW) {
                     connection.setAutoCommit(true);
                     // Delete everything in the column. You'll still be able to do queries at earlier timestamps
@@ -924,16 +922,23 @@ public class MetaDataClient {
         // Ordinal position is 1-based and we don't count SALT column in ordinal position
         int totalColumnCount = table.getColumns().size() + (table.getBucketNum() == null ? 0 : -1);
         final long seqNum = table.getSequenceNumber() + 1;
-        PreparedStatement tableUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? MUTATE_SYSTEM_TABLE : MUTATE_TABLE);
-        tableUpsert.setString(1, schemaName);
-        tableUpsert.setString(2, tableName);
-        tableUpsert.setString(3, table.getType().getSerializedValue());
-        tableUpsert.setLong(4, seqNum);
-        tableUpsert.setInt(5, totalColumnCount + columnCountDelta);
-        if (tableUpsert.getParameterMetaData().getParameterCount() > 5) {
-            tableUpsert.setBoolean(6, isImmutableRows);
+        PreparedStatement tableUpsert = null;
+        try {
+            tableUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? MUTATE_SYSTEM_TABLE : MUTATE_TABLE);
+            tableUpsert.setString(1, schemaName);
+            tableUpsert.setString(2, tableName);
+            tableUpsert.setString(3, table.getType().getSerializedValue());
+            tableUpsert.setLong(4, seqNum);
+            tableUpsert.setInt(5, totalColumnCount + columnCountDelta);
+            if (tableUpsert.getParameterMetaData().getParameterCount() > 5) {
+                tableUpsert.setBoolean(6, isImmutableRows);
+            }
+            tableUpsert.execute();
+        } finally {
+            if(tableUpsert != null) {
+                tableUpsert.close();
+            }
         }
-        tableUpsert.execute();
         return seqNum;
     }
     
@@ -1109,11 +1114,18 @@ public class MetaDataClient {
             binds.add(familyName = columnToDrop.getFamilyName().getString());
         }
         
-        PreparedStatement colDelete = connection.prepareStatement(buf.toString());
-        for (int i = 0; i < binds.size(); i++) {
-            colDelete.setString(i+1, binds.get(i));
+        PreparedStatement colDelete = null;
+        try {
+            colDelete = connection.prepareStatement(buf.toString());
+            for (int i = 0; i < binds.size(); i++) {
+                colDelete.setString(i+1, binds.get(i));
+            }
+            colDelete.execute();
+        } finally {
+            if(colDelete != null) {
+                colDelete.close();
+            }
         }
-        colDelete.execute();
         
         PreparedStatement colUpdate = connection.prepareStatement(UPDATE_COLUMN_POSITION);
         colUpdate.setString(1, schemaName);
@@ -1298,11 +1310,18 @@ public class MetaDataClient {
             connection.setAutoCommit(false);
             // Confirm index table is valid and up-to-date
             TableRef indexRef = FromCompiler.getResolver(statement, connection).getTables().get(0);
-            PreparedStatement tableUpsert = connection.prepareStatement(UPDATE_INDEX_STATE);
-            tableUpsert.setString(1, schemaName);
-            tableUpsert.setString(2, indexName);
-            tableUpsert.setString(3, newIndexState.getSerializedValue());
-            tableUpsert.execute();
+            PreparedStatement tableUpsert = null;
+            try {
+                tableUpsert = connection.prepareStatement(UPDATE_INDEX_STATE);
+                tableUpsert.setString(1, schemaName);
+                tableUpsert.setString(2, indexName);
+                tableUpsert.setString(3, newIndexState.getSerializedValue());
+                tableUpsert.execute();
+            } finally {
+                if(tableUpsert != null) {
+                    tableUpsert.close();
+                }
+            }
             List<Mutation> tableMetadata = connection.getMutationState().toMutations().next().getSecond();
             connection.rollback();
 

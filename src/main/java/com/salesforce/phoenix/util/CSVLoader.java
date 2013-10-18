@@ -148,6 +148,9 @@ public class CSVLoader {
     		System.out.println("CSV Upsert complete. " + rowCount + " rows upserted");
     		System.out.println("Time: " + elapsedDuration + " sec(s)\n");
 		} finally {
+		    if(stmt != null) {
+		        stmt.close();
+		    }
 		    if (wasAutoCommit) conn.setAutoCommit(true);
 		}
 	}
