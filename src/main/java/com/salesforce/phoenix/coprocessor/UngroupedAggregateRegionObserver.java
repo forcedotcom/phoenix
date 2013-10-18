@@ -105,7 +105,12 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
     public static final String DELETE_CF = "DeleteCF";
     public static final String EMPTY_CF = "EmptyCF";
     
-    private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations) throws IOException {
+    private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations, byte[] indexUUID) throws IOException {
+        if (indexUUID != null) {
+            for (Pair<Mutation,Integer> pair : mutations) {
+                pair.getFirst().setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
+            }
+        }
         @SuppressWarnings("unchecked")
         Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
         // TODO: should we use the one that is all or none?
@@ -221,9 +226,6 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                             // of the client.
                             Delete delete = new Delete(results.get(0).getRow(),ts,null);
                             mutations.add(new Pair<Mutation,Integer>(delete,null));
-                            if (indexUUID != null) {
-                                delete.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
-                            }
                         } else if (isUpsert) {
                             Arrays.fill(values, null);
                             int i = 0;
@@ -266,9 +268,6 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                 }
                             }
                             for (Mutation mutation : row.toRowMutations()) {
-                                if (indexUUID != null) {
-                                    mutation.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
-                                }
                                 mutations.add(new Pair<Mutation,Integer>(mutation,null));
                             }
                         } else if (deleteCF != null && deleteCQ != null) {
@@ -277,9 +276,6 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                             if (emptyCF == null || result.getValue(deleteCF, deleteCQ) != null) {
                                 Delete delete = new Delete(results.get(0).getRow());
                                 delete.deleteColumns(deleteCF,  deleteCQ, ts);
-                                /* TODO if (indexUUID != null) {
-                                    delete.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
-                                }*/
                                 mutations.add(new Pair<Mutation,Integer>(delete,null));
                             }
                         }
@@ -297,11 +293,6 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                 long kvts = kv.getTimestamp();
                                 if (!timeStamps.contains(kvts)) {
                                     Put put = new Put(kv.getRow());
-                                    // This is the one case where we're managing a mutable secondary index
-                                    // from the client side - when the empty key value family changes.
-//                                    if (indexUUID != null) {
-//                                        put.setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
-//                                    }
                                     put.add(emptyCF, QueryConstants.EMPTY_COLUMN_BYTES, kvts, ByteUtil.EMPTY_BYTE_ARRAY);
                                     mutations.add(new Pair<Mutation,Integer>(put,null));
                                 }
@@ -309,7 +300,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                         }
                         // Commit in batches based on UPSERT_BATCH_SIZE_ATTRIB in config
                         if (!mutations.isEmpty() && batchSize > 0 && mutations.size() % batchSize == 0) {
-                            commitBatch(region,mutations);
+                            commitBatch(region,mutations, indexUUID);
                             mutations.clear();
                         }
                     } catch (ConstraintViolationException e) {
@@ -331,7 +322,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         }
 
         if (!mutations.isEmpty()) {
-            commitBatch(region,mutations);
+            commitBatch(region,mutations, indexUUID);
         }
 
         final boolean hadAny = hasAny;

@@ -150,7 +150,7 @@ public class PostDDLCompiler {
                                     }
                                     */
                                 } else {
-                                    // In the case of the emtpy key value column family changing, do not send the index
+                                    // In the case of the empty key value column family changing, do not send the index
                                     // metadata, as we're currently managing this from the client. It's possible for the
                                     // data empty column family to stay the same, while the index empty column family
                                     // changes.

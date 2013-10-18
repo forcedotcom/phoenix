@@ -1,3 +1,18 @@
+/*******************************************************************************
+ * Copyright (c) 2013, Salesforce.com, Inc. All rights reserved. Redistribution and use in source and binary forms, with
+ * or without modification, are permitted provided that the following conditions are met: Redistributions of source code
+ * must retain the above copyright notice, this list of conditions and the following disclaimer. Redistributions in
+ * binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution. Neither the name of Salesforce.com nor the names
+ * of its contributors may be used to endorse or promote products derived from this software without specific prior
+ * written permission. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ******************************************************************************/
 package com.salesforce.phoenix.index;
 
 import java.io.ByteArrayInputStream;
@@ -76,7 +91,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 index.getName().getBytes(), 
                 nIndexColumns,
                 nIndexPKColumns,
-                index.getBucketNum());
+                index.getBucketNum(),
+                SchemaUtil.getEmptyColumnFamily(dataTable.getColumnFamilies()));
         RowKeyMetaData rowKeyMetaData = maintainer.getRowKeyMetaData();
         for (int j = indexPosOffset; j < index.getPKColumns().size(); j++) {
             PColumn indexColumn = index.getPKColumns().get(j);
@@ -188,6 +204,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private RowKeyMetaData rowKeyMetaData;
     private byte[] indexTableName;
     private int nIndexSaltBuckets;
+    private byte[] dataEmptyKeyValueCF;
 
     // Transient state
     private final boolean isDataTableSalted;
@@ -198,14 +215,14 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private int estimatedIndexRowKeyBytes;
     private int[] dataPkPosition;
     private int maxTrailingNulls;
-    //private ColumnReference emptyKeyValue;
     
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted) {
         this.dataRowKeySchema = dataRowKeySchema;
         this.isDataTableSalted = isDataTableSalted;
     }
 
-    private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted, byte[] indexTableName, int nIndexColumns, int nIndexPKColumns, Integer nIndexSaltBuckets) {
+    private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted, byte[] indexTableName,
+            int nIndexColumns, int nIndexPKColumns, Integer nIndexSaltBuckets, byte[] dataEmptyKeyValueCF) {
         this(dataRowKeySchema, isDataTableSalted);
         int nDataPKColumns = dataRowKeySchema.getFieldCount() - (isDataTableSalted ? 1 : 0);
         this.indexTableName = indexTableName;
@@ -218,6 +235,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         this.allColumns.addAll(coveredColumns);
         this.rowKeyMetaData = newRowKeyMetaData(nIndexPKColumns);
         this.nIndexSaltBuckets  = nIndexSaltBuckets == null ? 0 : nIndexSaltBuckets;
+        this.dataEmptyKeyValueCF = dataEmptyKeyValueCF;
     }
 
     public byte[] buildRowKey(ValueGetter valueGetter, ImmutableBytesWritable rowKeyPtr)  {
@@ -317,11 +335,6 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     }
 
     public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
-        // If we don't have our empty key value, then there is no row
-        // TODO: why is this called in this case?
-//        if (valueGetter.getLatestValue(emptyKeyValue) == null) {
-//            return null;
-//        }
          byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
         Put put = new Put(indexRowKey);
         int i = 0;
@@ -343,10 +356,10 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         return buildDeleteMutation(valueGetter, dataRowKeyPtr, pendingUpdates, HConstants.LATEST_TIMESTAMP);
     }
     
-    private boolean isRowDeleted(Collection<KeyValue> pendingUpdates) {
+    public boolean isRowDeleted(Collection<KeyValue> pendingUpdates) {
         if (pendingUpdates.size() == 1) {
             KeyValue kv = pendingUpdates.iterator().next();
-            boolean isEmptyCF = Bytes.compareTo(kv.getFamily(), this.getEmptyKeyValueFamily()) == 0;
+            boolean isEmptyCF = Bytes.compareTo(kv.getFamily(), dataEmptyKeyValueCF) == 0;
             if (isEmptyCF && kv.getType() != KeyValue.Type.Put.getCode()) {
                 if (kv.getType() == KeyValue.Type.DeleteFamily.getCode()) {
                     return true;
@@ -476,6 +489,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
             coveredColumns.add(new ColumnReference(cf,cq));
         }
         indexTableName = Bytes.readByteArray(input);
+        dataEmptyKeyValueCF = Bytes.readByteArray(input);
         rowKeyMetaData = newRowKeyMetaData();
         rowKeyMetaData.readFields(input);
         
@@ -603,6 +617,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
             Bytes.writeByteArray(output, ref.getQualifier());
         }
         Bytes.writeByteArray(output, indexTableName);
+        Bytes.writeByteArray(output, dataEmptyKeyValueCF);
         rowKeyMetaData.write(output);
     }
 

@@ -45,7 +45,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.util.QueryUtil;
 
-public class DeleteRangeTest extends BaseHBaseManagedTimeTest {
+public class DeleteTest extends BaseHBaseManagedTimeTest {
     private static final int NUMBER_OF_ROWS = 20;
     private static final int NTH_ROW_NULL = 5;
     
