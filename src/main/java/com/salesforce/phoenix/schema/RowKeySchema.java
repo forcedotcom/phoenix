@@ -48,21 +48,17 @@ import com.salesforce.phoenix.query.QueryConstants;
  * @since 0.1
  */
 public class RowKeySchema extends ValueSchema {
-    public static final RowKeySchema EMPTY_SCHEMA = new RowKeySchema(0,Collections.<Field>emptyList() , QueryConstants.SEPARATOR_BYTE_ARRAY )
+    public static final RowKeySchema EMPTY_SCHEMA = new RowKeySchema(0,Collections.<Field>emptyList())
     ;
-    
-    private byte [] rowKeySeparatorBytes ;   
     
     public RowKeySchema() {
     }
     
-    protected RowKeySchema(int minNullable, List<Field> fields, byte[] rowKeySeparatorBytes ) {
+    protected RowKeySchema(int minNullable, List<Field> fields) {
         super(minNullable, fields);
-        this.rowKeySeparatorBytes  = rowKeySeparatorBytes;
     }
 
     public static class RowKeySchemaBuilder extends ValueSchemaBuilder {
-        private byte [] rowKeySeparatorBytes ;  
         public RowKeySchemaBuilder(int maxFields) {
             super(maxFields);
             setMaxFields(maxFields);
@@ -73,16 +69,11 @@ public class RowKeySchema extends ValueSchema {
             super.addField(datum, isNullable, columnModifier);
             return this;
         }
-        
-        public RowKeySchemaBuilder addRowKeySeparator( byte[] rowKeySeparator ) {
-            this.rowKeySeparatorBytes  = rowKeySeparator;
-            return this;
-        }
 
         @Override
         public RowKeySchema build() {
             List<Field> condensedFields = buildFields();
-            return new RowKeySchema(this.minNullable, condensedFields,rowKeySeparatorBytes);
+            return new RowKeySchema(this.minNullable, condensedFields);
         }
     }
 
