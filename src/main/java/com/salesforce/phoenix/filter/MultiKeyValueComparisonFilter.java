@@ -192,11 +192,11 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
     
     @Override
     public ReturnCode filterKeyValue(KeyValue keyValue) {
-        if (this.matchedColumn.equals(Boolean.TRUE)) {
+        if (this.matchedColumn != null && this.matchedColumn.equals(Boolean.TRUE)) {
           // We already found and matched the single column, all keys now pass
           return ReturnCode.INCLUDE;
         }
-        if (this.matchedColumn.equals(Boolean.FALSE)) {
+        if (this.matchedColumn != null && this.matchedColumn.equals(Boolean.FALSE)) {
           // We found all the columns, but did not match the expression, so skip to next row
           return ReturnCode.NEXT_ROW;
         }
