@@ -360,7 +360,7 @@ public class MetaDataClient {
         
         // Re-resolve the tableRef from the now newer connection
         conn.setAutoCommit(true);
-        ColumnResolver resolver = FromCompiler.getResolver(dataTableNode, newClientAtNextTimeStamp.connection);
+        ColumnResolver resolver = FromCompiler.getResolver(dataTableNode, conn);
         TableRef tableRef = resolver.getTables().get(0);
         boolean success = false;
         SQLException sqlException = null;
