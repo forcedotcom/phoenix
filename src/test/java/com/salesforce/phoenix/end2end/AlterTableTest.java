@@ -117,7 +117,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             assertEquals("b",rs.getString(1));
             assertFalse(rs.next());
             
-            ddl = "ALTER TABLE test_table ADD  c_int integer , b_string VARCHAR  NULL PRIMARY KEY";
+            ddl = "ALTER TABLE test_table ADD   b_string VARCHAR  NULL PRIMARY KEY  ";
             conn.createStatement().execute(ddl);
             
             query = "SELECT * FROM test_table WHERE a_string = 'a' AND b_string IS NULL";
@@ -184,7 +184,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
                     fail("Should have caught exception.");
                     
                 } catch (SQLException e) {
-                    assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1025 (42Y84): Unsupported property set in ALTER TABLE command.."));
+                    assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1025 (42Y84): Unsupported property set in ALTER TABLE command."));
                 } 
         }finally {
             conn.close();
@@ -445,5 +445,100 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
 
+    }
+    
+    
+    @Test
+    public void testAddVarCols() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        
+        try {
+            String ddl = "CREATE TABLE test_table " +
+                    "  (a_string varchar not null, col1 integer" +
+                    "  CONSTRAINT pk PRIMARY KEY (a_string))\n";
+            conn.createStatement().execute(ddl);
+            
+            String dml = "UPSERT INTO test_table VALUES(?)";
+            PreparedStatement stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "b");
+            stmt.execute();
+            stmt.setString(1, "a");
+            stmt.execute();
+            conn.commit();
+            
+            String query = "SELECT * FROM test_table";
+            ResultSet rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("a",rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals("b",rs.getString(1));
+            assertFalse(rs.next());
+            
+            
+            query = "SELECT * FROM test_table WHERE a_string = 'a' ";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("a",rs.getString(1));
+          
+            ddl = "ALTER TABLE test_table ADD  c1.col2 VARCHAR  , c1.col3 integer , c2.col4 integer";
+            conn.createStatement().execute(ddl);
+          
+            
+            dml = "UPSERT INTO test_table VALUES(?,?,?,?,?)";
+            stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "c");
+            stmt.setInt(2, 100);
+            stmt.setString(3, "d");
+            stmt.setInt(4, 101);
+            stmt.setInt(5, 102);
+            stmt.execute();
+            conn.commit();
+           
+            query = "SELECT * FROM test_table WHERE a_string = 'c' ";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("c",rs.getString(1));
+            assertEquals(100,rs.getInt(2));
+            assertEquals("d",rs.getString(3));
+            assertEquals(101,rs.getInt(4));
+            assertEquals(102,rs.getInt(5));
+            assertFalse(rs.next());
+            
+            ddl = "ALTER TABLE test_table ADD  col5 integer";
+            conn.createStatement().execute(ddl);
+            
+            query = "SELECT c1.* FROM test_table WHERE a_string = 'c' ";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("d",rs.getString(1));
+            assertEquals(101,rs.getInt(2));
+            assertFalse(rs.next());
+            
+            
+            dml = "UPSERT INTO test_table(a_string,col1,col5) VALUES(?,?,?)";
+            stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "e");
+            stmt.setInt(2, 200);
+            stmt.setInt(3, 201);
+            stmt.execute();
+            conn.commit();
+            
+            
+            
+            
+            query = "SELECT a_string,col1,col5 FROM test_table WHERE a_string = 'e' ";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("e",rs.getString(1));
+            assertEquals(200,rs.getInt(2));
+            assertEquals(201,rs.getInt(3));
+            assertFalse(rs.next());
+            
+            
+        } finally {
+            conn.close();
+        }
     }
 }

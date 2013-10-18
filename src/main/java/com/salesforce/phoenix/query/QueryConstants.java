@@ -39,7 +39,6 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.KEY_SEPARATOR;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_AUTOINCREMENT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_NULLABLE;
@@ -167,8 +166,7 @@ public interface QueryConstants {
             // Columns added in 2.0.0
             DATA_TABLE_NAME + " VARCHAR NULL," +
             INDEX_STATE + " CHAR(1)\n," +
-            IMMUTABLE_ROWS + " BOOLEAN\n," +
-            KEY_SEPARATOR + " VARBINARY\n " +
+            IMMUTABLE_ROWS + " BOOLEAN\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
             + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
