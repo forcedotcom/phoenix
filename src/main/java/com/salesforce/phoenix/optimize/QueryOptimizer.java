@@ -5,8 +5,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import org.apache.hadoop.hbase.client.Scan;
-
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ColumnResolver;
 import com.salesforce.phoenix.compile.FromCompiler;
@@ -41,14 +39,13 @@ public class QueryOptimizer {
     }
 
     public QueryPlan optimize(SelectStatement select, PhoenixStatement statement) throws SQLException {
-        return optimize(select, statement, null, null);
+        return optimize(select, statement, Collections.<PColumn>emptyList(), null);
     }
 
-    public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
-        List<Object> binds = statement.getParameters();
+    public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
         PhoenixConnection connection = statement.getConnection();
-        QueryCompiler compiler = new QueryCompiler(connection, statement.getMaxRows(), new Scan(), targetDatums, parallelIteratorFactory);
-        QueryPlan dataPlan = compiler.compile(select, binds);
+        QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory);
+        QueryPlan dataPlan = compiler.compile(select);
         if (!useIndexes) {
             return dataPlan;
         }
@@ -65,18 +62,18 @@ public class QueryOptimizer {
         plans.add(dataPlan);
         ColumnResolver resolver = FromCompiler.getResolver(select, connection);
         SelectStatement translatedSelect = IndexStatementRewriter.translate(select, resolver);
-        QueryPlan hintedPlan = getHintedQueryPlan(statement, translatedSelect, indexes, targetDatums, parallelIteratorFactory, plans);
+        QueryPlan hintedPlan = getHintedQueryPlan(statement, translatedSelect, indexes, targetColumns, parallelIteratorFactory, plans);
         if (hintedPlan != null) {
             return hintedPlan;
         }
         for (PTable index : indexes) {
-            addPlan(statement, translatedSelect, index, targetDatums, parallelIteratorFactory, plans);
+            addPlan(statement, translatedSelect, index, targetColumns, parallelIteratorFactory, plans);
         }
         
         return chooseBestPlan(select, plans);
     }
     
-    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement translatedSelect, List<PTable> indexes, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
+    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement translatedSelect, List<PTable> indexes, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
         String indexHint = translatedSelect.getHint().getHint(Hint.INDEX);
         if (indexHint == null) {
@@ -111,7 +108,7 @@ public class QueryOptimizer {
                 int indexPos = getIndexPosition(indexes, indexName);
                 if (indexPos >= 0) {
                     // Hinted index is applicable, so return it. It'll be the plan at position 1, after the data plan
-                    if (addPlan(statement, translatedSelect, indexes.get(indexPos), targetDatums, parallelIteratorFactory, plans)) {
+                    if (addPlan(statement, translatedSelect, indexes.get(indexPos), targetColumns, parallelIteratorFactory, plans)) {
                         return plans.get(1);
                     }
                     indexes.remove(indexPos);
@@ -131,9 +128,7 @@ public class QueryOptimizer {
         return -1;
     }
     
-    private static boolean addPlan(PhoenixStatement statement, SelectStatement translatedSelect, PTable index, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
-        List<Object> binds = statement.getParameters();
-        PhoenixConnection connection = statement.getConnection();        
+    private static boolean addPlan(PhoenixStatement statement, SelectStatement translatedSelect, PTable index, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
         int nColumns = dataPlan.getProjector().getColumnCount();
         String alias = '"' + dataPlan.getTableRef().getTableAlias() + '"'; // double quote in case it's case sensitive
@@ -144,8 +139,8 @@ public class QueryOptimizer {
         List<? extends TableNode> tables = Collections.singletonList(FACTORY.namedTable(alias, FACTORY.table(schemaName, tableName)));
         try {
             SelectStatement indexSelect = FACTORY.select(translatedSelect, tables);
-            QueryCompiler compiler = new QueryCompiler(connection, statement.getMaxRows(), new Scan(), targetDatums, parallelIteratorFactory);
-            QueryPlan plan = compiler.compile(indexSelect, binds);
+            QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory);
+            QueryPlan plan = compiler.compile(indexSelect);
             // Checking the index status and number of columns handles the wildcard cases correctly
             // We can't check the status earlier, because the index table may be out-of-date.
             if (plan.getTableRef().getTable().getIndexState() == PIndexState.ACTIVE && plan.getProjector().getColumnCount() == nColumns) {

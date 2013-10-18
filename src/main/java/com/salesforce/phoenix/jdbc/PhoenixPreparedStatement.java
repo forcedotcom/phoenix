@@ -127,7 +127,24 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public ResultSetMetaData getMetaData() throws SQLException {
-        return statement.getResultSetMetaData();
+        int paramCount = statement.getBindCount();
+        List<Object> params = this.getParameters();
+        BitSet unsetParams = new BitSet(statement.getBindCount());
+        for (int i = 0; i < paramCount; i++) {
+            if ( params.get(i) == BindManager.UNBOUND_PARAMETER) {
+                unsetParams.set(i);
+                params.set(i, null);
+            }
+        }
+        try {
+            return statement.getResultSetMetaData();
+        } finally {
+            int lastSetBit = 0;
+            while ((lastSetBit = unsetParams.nextSetBit(lastSetBit)) != -1) {
+                params.set(lastSetBit, BindManager.UNBOUND_PARAMETER);
+                lastSetBit++;
+            }
+        }
     }
 
     @Override
@@ -141,13 +158,16 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
                 params.set(i, null);
             }
         }
-        StatementPlan plan = statement.compilePlan(params);
-        int lastSetBit = 0;
-        while ((lastSetBit = unsetParams.nextSetBit(lastSetBit)) != -1) {
-            params.set(lastSetBit, BindManager.UNBOUND_PARAMETER);
-            lastSetBit++;
+        try {
+            StatementPlan plan = statement.compilePlan();
+            return plan.getParameterMetaData();
+        } finally {
+            int lastSetBit = 0;
+            while ((lastSetBit = unsetParams.nextSetBit(lastSetBit)) != -1) {
+                params.set(lastSetBit, BindManager.UNBOUND_PARAMETER);
+                lastSetBit++;
+            }
         }
-        return plan.getParameterMetaData();
     }
 
     @Override

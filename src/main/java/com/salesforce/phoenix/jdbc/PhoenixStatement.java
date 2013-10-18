@@ -181,7 +181,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public PhoenixResultSet executeQuery() throws SQLException;
         public ResultSetMetaData getResultSetMetaData() throws SQLException;
         public StatementPlan optimizePlan() throws SQLException;
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException;
+        public StatementPlan compilePlan() throws SQLException;
     }
     
     protected static interface MutatableStatement extends ExecutableStatement {
@@ -224,16 +224,15 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
-            return new QueryCompiler(connection, getMaxRows()).compile(this, binds);
+        public StatementPlan compilePlan() throws SQLException {
+            return new QueryCompiler(PhoenixStatement.this).compile(this);
         }
         
         @Override
         public ResultSetMetaData getResultSetMetaData() throws SQLException {
             if (resultSetMetaData == null) {
                 // Just compile top level query without optimizing to get ResultSetMetaData
-                List<Object> nullParameters = Arrays.asList(new Object[this.getBindCount()]);
-                QueryPlan plan = new QueryCompiler(connection, getMaxRows()).compile(this, nullParameters);
+                QueryPlan plan = new QueryCompiler(PhoenixStatement.this).compile(this);
                 resultSetMetaData = new PhoenixResultSetMetaData(connection, plan.getProjector());
             }
             return resultSetMetaData;
@@ -286,14 +285,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
+        public MutationPlan compilePlan() throws SQLException {
             UpsertCompiler compiler = new UpsertCompiler(PhoenixStatement.this);
-            return compiler.compile(this, binds);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
     
@@ -325,14 +324,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
-            DeleteCompiler compiler = new DeleteCompiler(connection);
-            return compiler.compile(this, binds);
+        public MutationPlan compilePlan() throws SQLException {
+            DeleteCompiler compiler = new DeleteCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
     
@@ -369,14 +368,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
-            CreateTableCompiler compiler = new CreateTableCompiler(connection);
-            return compiler.compile(this, binds);
+        public MutationPlan compilePlan() throws SQLException {
+            CreateTableCompiler compiler = new CreateTableCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -415,14 +414,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
-            CreateIndexCompiler compiler = new CreateIndexCompiler(connection);
-            return compiler.compile(this, binds);
+        public MutationPlan compilePlan() throws SQLException {
+            CreateIndexCompiler compiler = new CreateIndexCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -460,7 +459,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -477,7 +476,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -515,7 +514,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
                 
                 @Override
@@ -532,7 +531,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -570,7 +569,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
                 
                 @Override
@@ -587,7 +586,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -625,7 +624,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -642,7 +641,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -680,7 +679,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -697,7 +696,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -786,13 +785,13 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return StatementPlan.EMPTY_PLAN;
         }
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -837,7 +836,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -854,7 +853,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -1018,6 +1017,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     public QueryPlan optimizeQuery(String sql) throws SQLException {
         throwIfUnboundParameters();
         return (QueryPlan)parseStatement(sql).optimizePlan();
+    }
+
+    public QueryPlan compileQuery(String sql) throws SQLException {
+        throwIfUnboundParameters();
+        return (QueryPlan)parseStatement(sql).compilePlan();
     }
 
     @Override

@@ -198,7 +198,7 @@ public class UpsertCompiler {
         this.statement = statement;
     }
     
-    public MutationPlan compile(UpsertStatement upsert, List<Object> binds) throws SQLException {
+    public MutationPlan compile(UpsertStatement upsert) throws SQLException {
         final PhoenixConnection connection = statement.getConnection();
         ConnectionQueryServices services = connection.getQueryServices();
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
@@ -214,18 +214,19 @@ public class UpsertCompiler {
 
         int[] columnIndexesToBe;
         int[] pkSlotIndexesToBe;
-        PColumn[] targetColumns;
+        List<PColumn> targetColumns;
         boolean isSalted = table.getBucketNum() != null;
         int posOffset = isSalted ? 1 : 0;
         // Allow full row upsert if no columns or only dynamic one are specified and values count match
         if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
             columnIndexesToBe = new int[allColumns.size() - posOffset];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
-            targetColumns = new PColumn[columnIndexesToBe.length];
+            targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
+            targetColumns.addAll(Collections.<PColumn>nCopies(columnIndexesToBe.length, null));
             for (int i = posOffset, j = posOffset; i < allColumns.size(); i++) {
                 PColumn column = allColumns.get(i);
                 columnIndexesToBe[i-posOffset] = i;
-                targetColumns[i-posOffset] = column;
+                targetColumns.set(i-posOffset, column);
                 if (SchemaUtil.isPKColumn(column)) {
                     pkSlotIndexesToBe[i-posOffset] = j++;
                 }
@@ -233,7 +234,8 @@ public class UpsertCompiler {
         } else {
             columnIndexesToBe = new int[columnNodes.size()];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
-            targetColumns = new PColumn[columnIndexesToBe.length];
+            targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
+            targetColumns.addAll(Collections.<PColumn>nCopies(columnIndexesToBe.length, null));
             Arrays.fill(columnIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             Arrays.fill(pkSlotIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             BitSet pkColumnsSet = new BitSet(table.getPKColumns().size());
@@ -241,7 +243,7 @@ public class UpsertCompiler {
                 ColumnName colName = columnNodes.get(i);
                 ColumnRef ref = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName());
                 columnIndexesToBe[i] = ref.getColumnPosition();
-                targetColumns[i] = ref.getColumn();
+                targetColumns.set(i, ref.getColumn());
                 if (SchemaUtil.isPKColumn(ref.getColumn())) {
                     pkColumnsSet.set(pkSlotIndexesToBe[i] = ref.getPKSlotPosition());
                 }
@@ -512,7 +514,7 @@ public class UpsertCompiler {
         int nodeIndex = 0;
         // Allocate array based on size of all columns in table,
         // since some values may not be set (if they're nullable).
-        final StatementContext context = new StatementContext(upsert, connection, resolver, binds, new Scan());
+        final StatementContext context = new StatementContext(upsert, connection, resolver, statement.getParameters(), new Scan());
         UpsertValuesCompiler expressionBuilder = new UpsertValuesCompiler(context);
         final byte[][] values = new byte[nValuesToSet][];
         for (ParseNode valueNode : valueNodes) {

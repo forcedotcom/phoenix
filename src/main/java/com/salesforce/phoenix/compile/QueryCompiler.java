@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
@@ -41,8 +43,11 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
@@ -65,38 +70,28 @@ public class QueryCompiler {
      * dependency on 0.94.5 or above, switch this around.
      */
     private static final String LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR = "_ondemand_";
-    private final PhoenixConnection connection;
+    private final PhoenixStatement statement;
     private final Scan scan;
-    private final int maxRows;
-    private final PColumn[] targetColumns;
+    private final List<PColumn> targetColumns;
     private final ParallelIteratorFactory parallelIteratorFactory;
 
-    public QueryCompiler(PhoenixConnection connection, int maxRows) {
-        this(connection, maxRows, new Scan());
+    public QueryCompiler(PhoenixStatement statement) throws SQLException {
+        this(statement, Collections.<PColumn>emptyList(), null);
     }
     
-    public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan) {
-        this(connection, maxRows, scan, null, null);
-    }
-    
-    public QueryCompiler(PhoenixConnection connection, int maxRows, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory) {
-        this(connection, maxRows, new Scan(), targetDatums, parallelIteratorFactory);
-    }
-
-    public QueryCompiler(PhoenixConnection connection, int maxRows, Scan scan, PColumn[] targetDatums, ParallelIteratorFactory parallelIteratorFactory) {
-        this.connection = connection;
-        this.maxRows = maxRows;
-        this.scan = scan;
-        this.targetColumns = targetDatums;
+    public QueryCompiler(PhoenixStatement statement, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
+        this.statement = statement;
+        this.scan = new Scan();
+        this.targetColumns = targetColumns;
         this.parallelIteratorFactory = parallelIteratorFactory;
-        if (connection.getQueryServices().getLowestClusterHBaseVersion() >= PhoenixDatabaseMetaData.ESSENTIAL_FAMILY_VERSION_THRESHOLD) {
+        if (statement.getConnection().getQueryServices().getLowestClusterHBaseVersion() >= PhoenixDatabaseMetaData.ESSENTIAL_FAMILY_VERSION_THRESHOLD) {
             this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
         }
     }
 
     /**
      * Builds an executable query plan from a parsed SQL statement
-     * @param statement parsed SQL statement
+     * @param select parsed SQL statement
      * @param binds values of bind variables
      * @return executable query plan
      * @throws SQLException if mismatched types are found, bind value do not match binds,
@@ -106,33 +101,34 @@ public class QueryCompiler {
      * @throws ColumnNotFoundException if column name could not be resolved
      * @throws AmbiguousColumnException if an unaliased column name is ambiguous across multiple tables
      */
-    public QueryPlan compile(SelectStatement statement, List<Object> binds) throws SQLException {
-        assert(binds.size() == statement.getBindCount());
-        
-        ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
-        statement = StatementNormalizer.normalize(statement, resolver);
+    public QueryPlan compile(SelectStatement select) throws SQLException {
+        PhoenixConnection connection = statement.getConnection();
+        List<Object> binds = statement.getParameters();
+        ColumnResolver resolver = FromCompiler.getResolver(select, connection);
+        select = StatementNormalizer.normalize(select, resolver);
         TableRef tableRef = resolver.getTables().get(0);
-        StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
+        StatementContext context = new StatementContext(select, connection, resolver, binds, scan);
         // Short circuit out if we're compiling an index query and the index isn't active.
         // We must do this after the ColumnResolver resolves the table, as we may be updating the local
         // cache of the index table and it may now be inactive.
         if (tableRef.getTable().getType() == PTableType.INDEX && tableRef.getTable().getIndexState() != PIndexState.ACTIVE) {
-            return new DegenerateQueryPlan(context, statement, tableRef);
+            return new DegenerateQueryPlan(context, select, tableRef);
         }
-        Integer limit = LimitCompiler.compile(context, statement);
+        Integer limit = LimitCompiler.compile(context, select);
 
-        GroupBy groupBy = GroupByCompiler.compile(context, statement);
+        GroupBy groupBy = GroupByCompiler.compile(context, select);
         // Optimize the HAVING clause by finding any group by expressions that can be moved
         // to the WHERE clause
-        statement = HavingCompiler.rewrite(context, statement, groupBy);
-        Expression having = HavingCompiler.compile(context, statement, groupBy);
+        select = HavingCompiler.rewrite(context, select, groupBy);
+        Expression having = HavingCompiler.compile(context, select, groupBy);
         // Don't pass groupBy when building where clause expression, because we do not want to wrap these
         // expressions as group by key expressions since they're pre, not post filtered.
-        WhereCompiler.compile(context, statement);
-        OrderBy orderBy = OrderByCompiler.compile(context, statement, groupBy, limit); 
-        RowProjector projector = ProjectionCompiler.compile(context, statement, groupBy, targetColumns);
+        WhereCompiler.compile(context, select);
+        OrderBy orderBy = OrderByCompiler.compile(context, select, groupBy, limit); 
+        RowProjector projector = ProjectionCompiler.compile(context, select, groupBy, targetColumns);
         
         // Final step is to build the query plan
+        int maxRows = statement.getMaxRows();
         if (maxRows > 0) {
             if (limit != null) {
                 limit = Math.min(limit, maxRows);
@@ -140,10 +136,10 @@ public class QueryCompiler {
                 limit = maxRows;
             }
         }
-        if (statement.isAggregate() || statement.isDistinct()) {
-            return new AggregatePlan(context, statement, tableRef, projector, limit, orderBy, parallelIteratorFactory, groupBy, having);
+        if (select.isAggregate() || select.isDistinct()) {
+            return new AggregatePlan(context, select, tableRef, projector, limit, orderBy, parallelIteratorFactory, groupBy, having);
         } else {
-            return new ScanPlan(context, statement, tableRef, projector, limit, orderBy, parallelIteratorFactory);
+            return new ScanPlan(context, select, tableRef, projector, limit, orderBy, parallelIteratorFactory);
         }
     }
 }

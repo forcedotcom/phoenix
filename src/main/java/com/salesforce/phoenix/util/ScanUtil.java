@@ -87,6 +87,9 @@ public class ScanUtil {
     public static Scan newScan(Scan scan) {
         try {
             Scan newScan = new Scan(scan);
+            // Clone the underlying family map instead of sharing it between
+            // the existing and cloned Scan (which is the retarded default
+            // behavior).
             TreeMap<byte [], NavigableSet<byte []>> existingMap = (TreeMap<byte[], NavigableSet<byte[]>>)scan.getFamilyMap();
             Map<byte [], NavigableSet<byte []>> clonedMap = new TreeMap<byte [], NavigableSet<byte []>>(existingMap);
             newScan.setFamilyMap(clonedMap);

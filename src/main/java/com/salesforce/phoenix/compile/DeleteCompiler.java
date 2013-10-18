@@ -54,6 +54,7 @@ import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.DeleteStatement;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
@@ -71,10 +72,10 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.IndexUtil;
 
 public class DeleteCompiler {
-    private final PhoenixConnection connection;
+    private final PhoenixStatement statement;
     
-    public DeleteCompiler(PhoenixConnection connection) {
-        this.connection = connection;
+    public DeleteCompiler(PhoenixStatement statement) {
+        this.statement = statement;
     }
     
     private static MutationState deleteRows(PhoenixConnection connection, TableRef tableRef, ResultIterator iterator) throws SQLException {
@@ -141,19 +142,20 @@ public class DeleteCompiler {
         return false;
     }
     
-    public MutationPlan compile(DeleteStatement statement, List<Object> binds) throws SQLException {
+    public MutationPlan compile(DeleteStatement delete) throws SQLException {
+        final PhoenixConnection connection = statement.getConnection();
         final boolean isAutoCommit = connection.getAutoCommit();
         final ConnectionQueryServices services = connection.getQueryServices();
-        final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+        final ColumnResolver resolver = FromCompiler.getResolver(delete, connection);
         final TableRef tableRef = resolver.getTables().get(0);
         if (tableRef.getTable().getType() == PTableType.VIEW) {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef.getTable() + ")");
         }
         Scan scan = new Scan();
-        final StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
-        final Integer limit = LimitCompiler.compile(context, statement);
-        final OrderBy orderBy = OrderByCompiler.compile(context, statement, GroupBy.EMPTY_GROUP_BY, limit); 
-        Expression whereClause = WhereCompiler.compile(context, statement);
+        final StatementContext context = new StatementContext(delete, connection, resolver, statement.getParameters(), scan);
+        final Integer limit = LimitCompiler.compile(context, delete);
+        final OrderBy orderBy = OrderByCompiler.compile(context, delete, GroupBy.EMPTY_GROUP_BY, limit); 
+        Expression whereClause = WhereCompiler.compile(context, delete);
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
  
         if (hasImmutableIndexWithKeyValueColumns(tableRef)) {
@@ -193,7 +195,7 @@ public class DeleteCompiler {
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>
             // The coprocessor will delete each row returned from the scan
             // Ignoring ORDER BY, since with auto commit on and no limit makes no difference
-            SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, statement.getHint());
+            SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, delete.getHint());
             final RowProjector projector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
             final QueryPlan plan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
             return new MutationPlan() {
@@ -241,7 +243,7 @@ public class DeleteCompiler {
             // If there's no post processing (i.e. no limit), then we can issue the deletes in parallel as we get results back for the scan
             // Otherwise, we need to buffer the results and process afterwards.
             ParallelIteratorFactory parallelIteratorFactory = limit == null ? new DeletingParallelIteratorFactory(connection, tableRef) : new SpoolingResultIteratorFactory(services);
-            final QueryPlan plan = new ScanPlan(context, statement, tableRef, projector, limit, orderBy, parallelIteratorFactory);
+            final QueryPlan plan = new ScanPlan(context, delete, tableRef, projector, limit, orderBy, parallelIteratorFactory);
             return new MutationPlan() {
 
                 @Override
