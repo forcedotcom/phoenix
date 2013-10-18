@@ -56,6 +56,9 @@ public class InvertFunction extends ScalarFunction {
     if (!getChildExpression().evaluate(tuple, ptr)) {
       return false;
     }
+    if (ptr.getLength() == 0) {
+        return true;
+    }
     byte[] buf = new byte[ptr.getLength()];
     ColumnModifier.SORT_DESC.apply(ptr.get(), ptr.getOffset(), buf, 0, ptr.getLength());
     ptr.set(buf);
