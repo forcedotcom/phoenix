@@ -131,16 +131,9 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         }
     }
     
-    protected static void initSumDoubleValues(byte[][] splits, Long ts) throws Exception {
-        if (ts == null) {
-            ensureTableCreated(getUrl(), "SumDoubleTest", splits);
-        } else {
-            ensureTableCreated(getUrl(), "SumDoubleTest", splits, ts-2);
-        }
+    protected static void initSumDoubleValues(byte[][] splits) throws Exception {
+        ensureTableCreated(getUrl(), "SumDoubleTest", splits);
         Properties props = new Properties();
-        if (ts != null) {
-            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
-        }
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
             // Insert all rows at ts
@@ -206,12 +199,12 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         if (ts == null) {
             ensureTableCreated(getUrl(), ATABLE_NAME, splits);
         } else {
-            ensureTableCreated(getUrl(), ATABLE_NAME, splits, ts-2);
+            ensureTableCreated(getUrl(), ATABLE_NAME, splits, ts-5);
         }
         
         Properties props = new Properties();
         if (ts != null) {
-            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts-3));
         }
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {

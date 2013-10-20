@@ -60,6 +60,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -70,13 +72,17 @@ import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -91,13 +97,142 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @author jtaylor
  * @since 0.1
  */
-public class QueryExecTest extends BaseClientMangedTimeTest {
+@RunWith(Parameterized.class)
+public class QueryTest extends BaseClientMangedTimeTest {
+    private static final String tenantId = getOrganizationId();
+    
+//    @BeforeClass
+//    public static void doSetup() throws Exception {
+//        int targetQueryConcurrency = 3;
+//        int maxQueryConcurrency = 5;
+//        Map<String,String> props = Maps.newHashMapWithExpectedSize(3);
+//        props.put(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, Integer.toString(maxQueryConcurrency));
+//        props.put(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, Integer.toString(targetQueryConcurrency));
+//        //props.put(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.toString(Integer.MAX_VALUE));
+//        props.put("index.builder.threads.max", Integer.toString(2));
+//        props.put("index.writer.threads.max", Integer.toString(2));
+//        props.put("hbase.htable.threads.max", Integer.toString(10));
+//        props.put("hbase.regionserver.handler.count", Integer.toString(10));
+//        
+//        // Must update config before starting server
+//        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
+//    }
+    
+    private long ts;
+    private String indexDDL;
+    
+    public QueryTest(String indexDDL) {
+        this.indexDDL = indexDDL;
+    }
+    
+    @Before
+    public void initTable() throws Exception {
+        ts = nextTimestamp();
+        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
+        if (indexDDL != null && indexDDL.length() > 0) {
+            Properties props = new Properties(TEST_PROPERTIES);
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+            Connection conn = DriverManager.getConnection(getUrl(), props);
+            conn.createStatement().execute(indexDDL);
+        }
+    }
+    
+    @Parameters(name="{0}")
+    public static Collection<Object> data() {
+        List<Object> testCases = Lists.newArrayList();
+        // FIXME Jesse: Comment out as these tests get unbearably slow when an index is added
+//        testCases.add(
+//                new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer) INCLUDE (" +
+//                        "    A_STRING, " +
+//                        "    B_STRING, " +
+//                        "    A_DATE)"}
+//                );
+        testCases.add(
+                new String[] {""});
+        return testCases;
+    }
+    
+    private void assertValueEqualsResultSet(ResultSet rs, List<Object> expectedResults) throws SQLException {
+        List<List<Object>> nestedExpectedResults = Lists.newArrayListWithExpectedSize(expectedResults.size());
+        for (Object expectedResult : expectedResults) {
+            nestedExpectedResults.add(Arrays.asList(expectedResult));
+        }
+        assertValuesEqualsResultSet(rs, nestedExpectedResults); 
+    }
+    
+    private void assertValuesEqualsResultSet(ResultSet rs, List<List<Object>> expectedResults) throws SQLException {
+        Set<List<Object>> expectedResultsSet = Sets.newHashSet(expectedResults);
+        int count = 0;
+        while (rs.next()) {
+            List<Object> results = Lists.newArrayList();
+            for (int i = 0; i < rs.getMetaData().getColumnCount(); i++) {
+                results.add(rs.getObject(i+1));
+            }
+            assertTrue(expectedResultsSet.contains(results));
+            count++;
+        }
+        assertEquals(count, expectedResults.size());
+    }
+    
+    @Test
+    public void testIntFilter() throws Exception {
+        String updateStmt = 
+            "upsert into " +
+            "ATABLE(" +
+            "    ORGANIZATION_ID, " +
+            "    ENTITY_ID, " +
+            "    A_INTEGER) " +
+            "VALUES (?, ?, ?)";
+        // Override value that was set at creation time
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 1);
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection upsertConn = DriverManager.getConnection(url, props);
+        upsertConn.setAutoCommit(true); // Test auto commit
+        PreparedStatement stmt = upsertConn.prepareStatement(updateStmt);
+        stmt.setString(1, tenantId);
+        stmt.setString(2, ROW4);
+        stmt.setInt(3, -10);
+        stmt.execute();
+        upsertConn.close();
+
+        String query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer >= ?";
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        PreparedStatement statement = conn.prepareStatement(query);
+        statement.setString(1, tenantId);
+        statement.setInt(2, 7);
+        ResultSet rs = statement.executeQuery();
+        assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW7, ROW8, ROW9));
+
+        query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer < 2";
+        statement = conn.prepareStatement(query);
+        statement.setString(1, tenantId);
+        rs = statement.executeQuery();
+        assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW1, ROW4));
+
+        query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer <= 2";
+        statement = conn.prepareStatement(query);
+        statement.setString(1, tenantId);
+        rs = statement.executeQuery();
+        assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW1, ROW2, ROW4));
+
+        query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer >=9";
+        statement = conn.prepareStatement(query);
+        statement.setString(1, tenantId);
+        rs = statement.executeQuery();
+        assertTrue (rs.next());
+        assertEquals(rs.getString(1), ROW9);
+        assertFalse(rs.next());
+        conn.close();
+    }
+    
+    @Test
+    public void testEmptyStringValue() throws Exception {
+        testNoStringValue("");
+    }
 
     @Test
     public void testScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_string, /* comment ok? */ b_string FROM aTable WHERE ?=organization_id and 5=a_integer";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -117,10 +252,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testScanByByteValue() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, /* comment ok? */ b_string, a_byte FROM aTable WHERE ?=organization_id and 1=a_byte";
+        String query = "SELECT a_string, b_string, a_byte FROM aTable WHERE ?=organization_id and 1=a_byte";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -140,10 +272,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testScanByShortValue() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, /* comment ok? */ b_string, a_short FROM aTable WHERE ?=organization_id and 128=a_short";
+        String query = "SELECT a_string, b_string, a_short FROM aTable WHERE ?=organization_id and 128=a_short";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -163,10 +292,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testScanByFloatValue() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, /* comment ok? */ b_string, a_float FROM aTable WHERE ?=organization_id and ?=a_float";
+        String query = "SELECT a_string, b_string, a_float FROM aTable WHERE ?=organization_id and ?=a_float";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -187,10 +313,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testScanByUnsignedFloatValue() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, /* comment ok? */ b_string, a_unsigned_float FROM aTable WHERE ?=organization_id and ?=a_unsigned_float";
+        String query = "SELECT a_string, b_string, a_unsigned_float FROM aTable WHERE ?=organization_id and ?=a_unsigned_float";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -211,10 +334,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testScanByDoubleValue() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, /* comment ok? */ b_string, a_double FROM aTable WHERE ?=organization_id and ?=a_double";
+        String query = "SELECT a_string, b_string, a_double FROM aTable WHERE ?=organization_id and ?=a_double";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -235,10 +355,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testScanByUnsigned_DoubleValue() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT a_string, /* comment ok? */ b_string, a_unsigned_double FROM aTable WHERE ?=organization_id and ?=a_unsigned_double";
+        String query = "SELECT a_string, b_string, a_unsigned_double FROM aTable WHERE ?=organization_id and ?=a_unsigned_double";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -259,10 +376,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testAllScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT ALL a_string, /* comment ok? */ b_string FROM aTable WHERE ?=organization_id and 5=a_integer";
+        String query = "SELECT ALL a_string, b_string FROM aTable WHERE ?=organization_id and 5=a_integer";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -281,9 +395,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testDistinctScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT DISTINCT a_string FROM aTable WHERE organization_id=?";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -306,9 +417,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testInListSkipScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id, b_string FROM aTable WHERE organization_id=? and entity_id IN (?,?)";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -336,9 +444,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testNotInList() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id=? and entity_id NOT IN (?,?,?,?,?,?)";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -366,86 +471,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testSumDouble() throws Exception {
-        long ts = nextTimestamp();
-        initSumDoubleValues(null, ts);
-        String query = "SELECT SUM(d) FROM SumDoubleTest";
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertTrue(Doubles.compare(rs.getDouble(1), 0.015)==0);
-            assertFalse(rs.next());
-        } finally {
-            conn.close();
-        }
-    }
-    
-    @Test
-    public void testSumUnsignedDouble() throws Exception {
-        long ts = nextTimestamp();
-        initSumDoubleValues(null, ts);
-        String query = "SELECT SUM(ud) FROM SumDoubleTest";
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertTrue(Doubles.compare(rs.getDouble(1), 0.015)==0);
-            assertFalse(rs.next());
-        } finally {
-            conn.close();
-        }
-    }
-    
-    @Test
-    public void testSumFloat() throws Exception {
-        long ts = nextTimestamp();
-        initSumDoubleValues(null, ts);
-        String query = "SELECT SUM(f) FROM SumDoubleTest";
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertTrue(Floats.compare(rs.getFloat(1), 0.15f)==0);
-            assertFalse(rs.next());
-        } finally {
-            conn.close();
-        }
-    }
-    
-    @Test
-    public void testSumUnsignedFloat() throws Exception {
-        long ts = nextTimestamp();
-        initSumDoubleValues(null, ts);
-        String query = "SELECT SUM(uf) FROM SumDoubleTest";
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertTrue(Floats.compare(rs.getFloat(1), 0.15f)==0);
-            assertFalse(rs.next());
-        } finally {
-            conn.close();
-        }
-    }
-    
-    @Test
     public void testNotInListOfFloat() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_float FROM aTable WHERE organization_id=? and a_float NOT IN (?,?,?,?,?,?)";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -474,9 +500,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNotInListOfDouble() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_double FROM aTable WHERE organization_id=? and a_double NOT IN (?,?,?,?,?,?)";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -505,9 +528,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testGroupByPlusOne() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_integer+1 FROM aTable WHERE organization_id=? and a_integer = 5 GROUP BY a_integer+1";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -526,9 +546,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNoWhereScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT y_integer FROM aTable";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -551,9 +568,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testToDateOnString() throws Exception { // TODO: test more conversion combinations
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_string FROM aTable WHERE organization_id=? and a_integer = 5";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -573,9 +587,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testNotEquals() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_integer != 1 and a_integer <= 2";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -595,9 +606,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNotEqualsByTinyInt() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_byte -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_byte != 1 and a_byte <= 2";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -617,9 +625,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNotEqualsBySmallInt() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_short -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_short != 128 and a_short !=0 and a_short <= 129";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -639,9 +644,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNotEqualsByFloat() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_float -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_float != 0.01d and a_float <= 0.02d";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -661,9 +663,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNotEqualsByUnsignedFloat() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_unsigned_float -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_unsigned_float != 0.01d and a_unsigned_float <= 0.02d";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -683,9 +682,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNotEqualsByDouble() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_double -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_double != 0.0001d and a_double <= 0.0002d";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -705,9 +701,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNotEqualsByUnsignedDouble() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_unsigned_double -- and here comment\n" + 
         "FROM aTable WHERE organization_id=? and a_unsigned_double != 0.0001d and a_unsigned_double <= 0.0002d";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -727,9 +720,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testNotEquals2() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM // one more comment  \n" +
         "aTable WHERE organization_id=? and not a_integer = 1 and a_integer <= 2";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -749,9 +739,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testColumnOnBothSides() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_string = b_string";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -769,9 +756,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
 
     public void testNoStringValue(String value) throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 1);
         Properties props = new Properties(TEST_PROPERTIES);
         Connection upsertConn = DriverManager.getConnection(url, props);
@@ -795,7 +779,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
             assertTrue (rs.next());
             assertEquals(null, rs.getString(1));
             assertTrue(rs.wasNull());
-            assertEquals(rs.getString("B_string"), C_VALUE);
+            assertEquals(C_VALUE, rs.getString("B_string"));
             assertFalse(rs.next());
         } finally {
             conn.close();
@@ -808,15 +792,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testEmptyStringValue() throws Exception {
-        testNoStringValue("");
-    }
-
-    @Test
     public void testPointInTimeScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         // Override value that was set at creation time
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 1); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -867,9 +843,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testPointInTimeLimitedScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         // Override value that was set at creation time
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 1); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -920,9 +893,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testUpperLowerBoundRangeScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id=? and substr(entity_id,1,3) > '00A' and substr(entity_id,1,3) < '00C'";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -947,9 +917,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testUpperBoundRangeScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id=? and substr(entity_id,1,3) >= '00B' ";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -976,9 +943,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testLowerBoundRangeScan() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id=? and substr(entity_id,1,3) < '00B' ";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -1003,9 +967,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testUnboundRangeScan1() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id <= ?";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -1040,9 +1001,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testUnboundRangeScan2() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id >= ?";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -1081,9 +1039,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     // have to. I think something may no be being closed to reclaim the memory.
     @Test
     public void testGroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         // Tests that you don't get an ambiguous column exception when using the same alias as the column name
         String query = "SELECT a_string as a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1113,9 +1068,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testDistinctGroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT DISTINCT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string, b_string ORDER BY a_string, count(1)";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -1158,9 +1110,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testDistinctLimitedGroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT DISTINCT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string, b_string ORDER BY count(1) desc,a_string LIMIT 2";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -1188,9 +1137,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testDistinctUngroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT DISTINCT count(1), 'foo' FROM atable WHERE organization_id=?";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -1210,9 +1156,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testGroupedLimitedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_string, count(1) FROM atable WHERE organization_id=? GROUP BY a_string LIMIT 2";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -1235,9 +1178,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testPointInTimeGroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String updateStmt = 
             "upsert into " +
             "ATABLE VALUES ('" + tenantId + "','" + ROW5 + "','" + C_VALUE +"')";
@@ -1286,9 +1226,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testUngroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT count(1) FROM atable WHERE organization_id=? and a_string = ?";
         String url = PHOENIX_JDBC_URL;
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1323,9 +1260,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testUngroupedAggregationNoWhere() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT count(*) FROM atable";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1344,9 +1278,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testPointInTimeUngroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         // Override value that was set at creation time
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 1); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1399,9 +1330,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testPointInTimeUngroupedLimitedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String updateStmt = 
             "upsert into " +
             "ATABLE(" +
@@ -1454,9 +1382,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testPointInTimeDeleteUngroupedAggregation() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String updateStmt = 
             "upsert into " +
             "ATABLE(" +
@@ -1508,77 +1433,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
         conn.close();
     }
 
-    @Test
-    public void testIntFilter() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String updateStmt = 
-            "upsert into " +
-            "ATABLE(" +
-            "    ORGANIZATION_ID, " +
-            "    ENTITY_ID, " +
-            "    A_INTEGER) " +
-            "VALUES (?, ?, ?)";
-        // Override value that was set at creation time
-        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 1);
-        Properties props = new Properties(TEST_PROPERTIES);
-        Connection upsertConn = DriverManager.getConnection(url, props);
-        upsertConn.setAutoCommit(true); // Test auto commit
-        PreparedStatement stmt = upsertConn.prepareStatement(updateStmt);
-        stmt.setString(1, tenantId);
-        stmt.setString(2, ROW4);
-        stmt.setInt(3, -10);
-        stmt.execute();
-        upsertConn.close();
-
-        String query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer >= ?";
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        PreparedStatement statement = conn.prepareStatement(query);
-        statement.setString(1, tenantId);
-        statement.setInt(2, 7);
-        ResultSet rs = statement.executeQuery();
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW7);
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW8);
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW9);
-        assertFalse(rs.next());
-
-        query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer < 2";
-        statement = conn.prepareStatement(query);
-        statement.setString(1, tenantId);
-        rs = statement.executeQuery();
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW1);
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW4);
-        assertFalse(rs.next());
-
-        query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer <= 2";
-        statement = conn.prepareStatement(query);
-        statement.setString(1, tenantId);
-        rs = statement.executeQuery();
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW1);
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW2);
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW4);
-        assertFalse(rs.next());
-
-        query = "SELECT entity_id FROM aTable WHERE organization_id=? and a_integer >=9";
-        statement = conn.prepareStatement(query);
-        statement.setString(1, tenantId);
-        rs = statement.executeQuery();
-        assertTrue (rs.next());
-        assertEquals(rs.getString(1), ROW9);
-        assertFalse(rs.next());
-        conn.close();
-    }
-    
 
     private static boolean compare(CompareOp op, ImmutableBytesWritable lhsOutPtr, ImmutableBytesWritable rhsOutPtr) {
         int compareResult = Bytes.compareTo(lhsOutPtr.get(), lhsOutPtr.getOffset(), lhsOutPtr.getLength(), rhsOutPtr.get(), rhsOutPtr.getOffset(), rhsOutPtr.getLength());
@@ -1587,9 +1441,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testDateAdd() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
         String query = "SELECT entity_id, b_string FROM ATABLE WHERE a_date + 0.5d < ?";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1612,9 +1463,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testDateSubtract() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
         String query = "SELECT entity_id, b_string FROM ATABLE WHERE a_date - 0.5d > ?";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1637,9 +1485,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testTimestamp() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String updateStmt = 
             "upsert into " +
             "ATABLE(" +
@@ -1702,14 +1547,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testCoerceTinyIntToSmallInt() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? AND a_byte >= a_short";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1723,14 +1565,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testCoerceIntegerToLong() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? AND x_long >= x_integer";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1746,14 +1585,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testCoerceLongToDecimal1() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? AND x_decimal > x_integer";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1767,14 +1603,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testCoerceLongToDecimal2() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? AND x_integer <= x_decimal";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1788,14 +1621,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testSimpleCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT CASE a_integer WHEN 1 THEN 'a' WHEN 2 THEN 'b' WHEN 3 THEN 'c' ELSE 'd' END AS a FROM ATABLE WHERE organization_id=? AND a_integer < 6";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1817,14 +1647,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testMultiCondCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT CASE WHEN a_integer <= 2 THEN 1.5 WHEN a_integer = 3 THEN 2 WHEN a_integer <= 6 THEN 4.5 ELSE 5 END AS a FROM ATABLE WHERE organization_id=?";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1854,14 +1681,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testPartialEvalCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? and CASE WHEN 1234 = a_integer THEN 1 WHEN x_integer = 5 THEN 2 ELSE 3 END = 2";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1875,14 +1699,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testFoundIndexOnPartialEvalCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? and CASE WHEN a_integer = 1234 THEN 1 WHEN x_integer = 3 THEN y_integer ELSE 3 END = 300";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1897,14 +1718,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     // TODO: we need some tests that have multiple versions of key values
     @Test
     public void testUnfoundMultiColumnCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id, b_string FROM ATABLE WHERE organization_id=? and CASE WHEN a_integer = 1234 THEN 1 WHEN a_date < ? THEN y_integer WHEN x_integer = 4 THEN 4 ELSE 3 END = 4";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             statement.setDate(2, new Date(System.currentTimeMillis()));
@@ -1919,13 +1737,10 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testUnfoundSingleColumnCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id, b_string FROM ATABLE WHERE organization_id=? and CASE WHEN a_integer = 0 or a_integer != 0 THEN 1 ELSE 0 END = 0";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         // Set ROW5.A_INTEGER to null so that we have one row
         // where the else clause of the CASE statement will
         // fire.
@@ -1955,14 +1770,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNonNullMultiCondCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT CASE WHEN entity_id = '000000000000000' THEN 1 WHEN entity_id = '000000000000001' THEN 2 ELSE 3 END FROM ATABLE WHERE organization_id=?";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1975,14 +1787,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNullMultiCondCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT CASE WHEN entity_id = '000000000000000' THEN 1 WHEN entity_id = '000000000000001' THEN 2 END FROM ATABLE WHERE organization_id=?";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -1995,14 +1804,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNullabilityMultiCondCaseStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT CASE WHEN a_integer <= 2 THEN ? WHEN a_integer = 3 THEN ? WHEN a_integer <= ? THEN ? ELSE 5 END AS a FROM ATABLE WHERE organization_id=?";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setBigDecimal(1,BigDecimal.valueOf(1.5));
             statement.setInt(2,2);
@@ -2036,14 +1842,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testSimpleInListStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? AND a_integer IN (2,4)";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
@@ -2063,14 +1866,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
      */
     @Test
     public void testInFilterOnKey() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT count(entity_id) FROM ATABLE WHERE organization_id IN (?,?)";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             statement.setString(2, tenantId);
@@ -2085,14 +1885,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testOneInListStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? AND b_string IN (?)";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             statement.setString(2, E_VALUE);
@@ -2112,14 +1909,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testMixedTypeInListStatement() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         String query = "SELECT entity_id FROM ATABLE WHERE organization_id=? AND x_long IN (5, ?)";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
         try {
-            initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             long l = Integer.MAX_VALUE + 1L;
@@ -2137,9 +1931,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testIsNull() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE X_DECIMAL is null";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2167,9 +1958,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testCountIsNull() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT count(1) FROM aTable WHERE X_DECIMAL is null";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2187,9 +1975,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testCountIsNotNull() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT count(1) FROM aTable WHERE X_DECIMAL is not null";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2207,9 +1992,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testIsNotNull() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE X_DECIMAL is not null";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2231,9 +2013,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testIntSubtractionExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER - 4  <= 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2256,9 +2035,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testDecimalSubtraction1Expression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER - 3.5  <= 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2279,9 +2055,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testDecimalSubtraction2Expression() throws Exception {// check if decimal part makes a difference
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where X_DECIMAL - 3.5  > 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2298,9 +2071,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testLongSubtractionExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where X_LONG - 1  < 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2317,9 +2087,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testDoubleSubtractionExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where a_double - 0.0002d  < 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2336,9 +2103,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testSmallIntSubtractionExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where a_short - 129  = 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2356,9 +2120,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testTernarySubtractionExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where  X_INTEGER - X_LONG - 10  < 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2377,9 +2138,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testSelectWithSubtractionExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id, x_integer - 4 FROM aTable where  x_integer - 4 = 0";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2397,9 +2155,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testConstantSubtractionExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER = 5 - 1 - 2";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2417,9 +2172,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testIntDivideExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER / 3 > 2";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2437,9 +2189,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testDoubleDivideExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where a_double / 3.0d = 0.0003";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2457,9 +2206,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testSmallIntDivideExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where a_short / 135 = 1";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2477,9 +2223,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testIntToDecimalDivideExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER / 3.0 > 2";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2501,9 +2244,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testConstantDivideExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER = 9 / 3 / 3";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2520,9 +2260,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     @Test
     public void testSelectWithDivideExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id, a_integer/3 FROM aTable where  a_integer = 9";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2541,9 +2278,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testNegateExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER - 4 = -1";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2561,9 +2295,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testIntMultiplyExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER * 2 = 16";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2581,9 +2312,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testDoubleMultiplyExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_DOUBLE * 2.0d = 0.0002";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2601,9 +2329,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testLongMultiplyExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where X_LONG * 2 * 2 = 20";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2621,9 +2346,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testIntToDecimalMultiplyExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER * 1.5 > 9";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2646,9 +2368,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testDecimalMultiplyExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where X_DECIMAL * A_INTEGER > 29.5";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2668,9 +2387,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testIntAddExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER + 2 = 4";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2688,9 +2404,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testDecimalAddExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where A_INTEGER + X_DECIMAL > 11";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2710,9 +2423,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testDoubleAddExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where a_double + a_float > 0.08";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2732,9 +2442,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testUnsignedDoubleAddExpression() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable where a_unsigned_double + a_unsigned_float > 0.08";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2757,9 +2464,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
             justification="Test code.")
     @Test
     public void testValidArithmetic() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String[] queries = new String[] { 
                 "SELECT entity_id,organization_id FROM atable where (A_DATE - A_DATE) * 5 < 0",
                 "SELECT entity_id,organization_id FROM atable where 1 + A_DATE  < A_DATE",
@@ -2783,15 +2487,11 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testValidStringConcatExpression() throws Exception {//test fails with stack overflow wee
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
         int counter=0;
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String[] answers = new String[]{"00D300000000XHP5bar","a5bar","5bar","15bar","5bar","5bar"};
+        String[] answers = new String[]{"00D300000000XHP5bar","a5bar","15bar","5bar","5bar"};
         String[] queries = new String[] { 
         		"SELECT  organization_id || 5 || 'bar' FROM atable limit 1",
         		"SELECT a_string || 5 || 'bar' FROM atable limit 1",
-        		"SELECT a_date||5||'bar' FROM atable limit 1",
         		"SELECT a_integer||5||'bar' FROM atable limit 1",
         		"SELECT x_decimal||5||'bar' FROM atable limit 1",
         		"SELECT x_long||5||'bar' FROM atable limit 1"
@@ -2815,29 +2515,7 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testStartKeyStopKey() throws SQLException {
-        long ts = nextTimestamp();
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
-        Connection conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("CREATE TABLE start_stop_test (pk char(2) not null primary key) SPLIT ON ('EA','EZ')");
-        conn.close();
-        
-        String query = "select count(*) from start_stop_test where pk >= 'EA' and pk < 'EZ'";
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
-        conn = DriverManager.getConnection(getUrl(), props);
-        Statement statement = conn.createStatement();
-        statement.execute(query);
-        PhoenixStatement pstatement = statement.unwrap(PhoenixStatement.class);
-        List<KeyRange>splits = pstatement.getQueryPlan().getSplits();
-        assertTrue(splits.size() > 0);
-    }
-    
-    @Test
     public void testRowKeySingleIn() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id=? and entity_id IN (?,?,?)";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2864,9 +2542,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testRowKeyMultiIn() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT entity_id FROM aTable WHERE organization_id=? and entity_id IN (?,?,?) and a_string IN (?,?)";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2892,9 +2567,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testCastOperatorInSelect() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT CAST a_integer AS DECIMAL/2 FROM aTable WHERE ?=organization_id and 5=a_integer";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2913,9 +2585,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testCastOperatorInWhere() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         String query = "SELECT a_integer FROM aTable WHERE ?=organization_id and 2.5=CAST a_integer AS DECIMAL/2 ";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
@@ -2934,9 +2603,6 @@ public class QueryExecTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testSplitWithCachedMeta() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
         // Tests that you don't get an ambiguous column exception when using the same alias as the column name
         String query = "SELECT a_string, b_string, count(1) FROM atable WHERE organization_id=? and entity_id<=? GROUP BY a_string,b_string";
         Properties props = new Properties(TEST_PROPERTIES);

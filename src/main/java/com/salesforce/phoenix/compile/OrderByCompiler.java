@@ -29,16 +29,21 @@ package com.salesforce.phoenix.compile;
 
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 
-import com.google.common.collect.*;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.TrackOrderPreservingExpressionCompiler.Ordering;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.OrderByExpression;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.FilterableStatement;
+import com.salesforce.phoenix.parse.OrderByNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 /**

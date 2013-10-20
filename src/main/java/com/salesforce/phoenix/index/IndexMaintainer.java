@@ -215,6 +215,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private int estimatedIndexRowKeyBytes;
     private int[] dataPkPosition;
     private int maxTrailingNulls;
+    private ColumnReference dataEmptyKeyValueRef;
     
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted) {
         this.dataRowKeySchema = dataRowKeySchema;
@@ -335,16 +336,25 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     }
 
     public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
-         byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
-        Put put = new Put(indexRowKey);
+        Put put = null;
+        // New row being inserted: add the empty key value
+        if (valueGetter.getLatestValue(dataEmptyKeyValueRef) == null) {
+            byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
+            put = new Put(indexRowKey);
+            put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
+        }
         int i = 0;
         for (ColumnReference ref : this.getCoverededColumns()) {
             byte[] cq = this.indexQualifiers.get(i++);
             ImmutableBytesPtr value = valueGetter.getLatestValue(ref);
-            put.add(ref.getFamily(), cq, ts, value == null ? null : value.copyBytesIfNecessary());
+            if (value != null) {
+                if (put == null) {
+                    byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
+                    put = new Put(indexRowKey);
+                }
+                put.add(ref.getFamily(), cq, ts, value.copyBytesIfNecessary());
+            }
         }
-        // Add the empty key value
-        put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
         return put;
     }
 
@@ -384,7 +394,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
             KeyValue newValue = newState.get(ref);
             if (newValue != null) { // Indexed column was potentially changed
                 ImmutableBytesPtr oldValue = oldState.getLatestValue(ref);
-                if (oldValue == null || 
+                if (oldValue != null && 
                         Bytes.compareTo(oldValue.get(), oldValue.getOffset(), oldValue.getLength(), 
                                                    newValue.getBuffer(), newValue.getValueOffset(), newValue.getValueLength()) != 0){
                     return true;
@@ -513,7 +523,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         } else {
             emptyKeyValueCF = coveredColumns.iterator().next().getFamily();
         }
-       // emptyKeyValue = new ColumnReference(emptyKeyValueCF, QueryConstants.EMPTY_COLUMN_BYTES);
+        dataEmptyKeyValueRef = new ColumnReference(emptyKeyValueCF, QueryConstants.EMPTY_COLUMN_BYTES);
 
         indexQualifiers = Lists.newArrayListWithExpectedSize(this.coveredColumns.size());
         for (ColumnReference ref : coveredColumns) {

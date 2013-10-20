@@ -140,15 +140,18 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             }
             normOrderByNodes.add(NODE_FACTORY.orderBy(normNode, orderByNode.isNullsLast(), orderByNode.isAscending()));
         }
+        List<TableNode> tableNodes = statement.getFrom();
+        List<TableNode> normTableNodes = rewriter.normalizeTableNodes(statement);
         // Return new SELECT statement with updated WHERE clause
         if (normWhere == where && 
                 normHaving == having && 
                 selectNodes == normSelectNodes && 
                 groupByNodes == normGroupByNodes &&
-                orderByNodes == normOrderByNodes) {
+                orderByNodes == normOrderByNodes &&
+                tableNodes == normTableNodes) {
             return statement;
         }
-        return NODE_FACTORY.select(statement.getFrom(), statement.getHint(), statement.isDistinct(),
+        return NODE_FACTORY.select(normTableNodes, statement.getHint(), statement.isDistinct(),
                 normSelectNodes, normWhere, normGroupByNodes, normHaving, normOrderByNodes,
                 statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
@@ -161,13 +164,26 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     private final Map<String, ParseNode> aliasMap;
     
     protected ParseNodeRewriter() {
-        aliasMap = null;
-        resolver = null;
+        this.resolver = null;
+        this.aliasMap = null;
+    }
+    
+    protected ParseNodeRewriter(ColumnResolver resolver) {
+        this.resolver = resolver;
+        this.aliasMap = null;
+    }
+    
+    protected List<TableNode> normalizeTableNodes(SelectStatement statement) {
+        return statement.getFrom();
     }
     
     protected ParseNodeRewriter(ColumnResolver resolver, int maxAliasCount) {
         this.resolver = resolver;
-        aliasMap = Maps.newHashMapWithExpectedSize(maxAliasCount);
+        this.aliasMap = Maps.newHashMapWithExpectedSize(maxAliasCount);
+    }
+    
+    protected ColumnResolver getResolver() {
+        return resolver;
     }
     
     protected void reset() {

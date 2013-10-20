@@ -2,27 +2,31 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.List;
 
-import com.salesforce.phoenix.expression.function.InvertFunction;
+import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.FamilyWildcardParseNode;
+import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.ParseNodeRewriter;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.parse.WildcardParseNode;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.IndexUtil;
 
 public class IndexStatementRewriter extends ParseNodeRewriter {
     private static final ParseNodeFactory FACTORY = new ParseNodeFactory();
     
-    private final ColumnResolver indexResolver;
     private final ColumnResolver dataResolver;
     
     public IndexStatementRewriter(ColumnResolver indexResolver,  ColumnResolver dataResolver) {
-        this.indexResolver = indexResolver;
+        super(indexResolver);
         this.dataResolver = dataResolver;
     }
     
@@ -38,17 +42,32 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
     }
 
     @Override
+    protected List<TableNode> normalizeTableNodes(SelectStatement statement) {
+        ColumnResolver resolver = this.getResolver();
+        TableRef tableRef = resolver.getTables().get(0);
+        List<TableNode> normTableNodes = Collections.<TableNode>singletonList(
+            NamedTableNode.create(
+                tableRef.getTableAlias(), 
+                TableName.create(
+                    tableRef.getTable().getSchemaName().getString(), 
+                    tableRef.getTable().getTableName().getString()),
+                Collections.<ColumnDef>emptyList()));
+        return normTableNodes;
+    }
+    
+    @Override
     public ParseNode visit(ColumnParseNode node) throws SQLException {
-        ColumnRef indexColumnRef = indexResolver.resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
-        // Don't provide a TableName, as the column name for an index column will always be unique
-        ParseNode indexColNode = new ColumnParseNode(null, IndexUtil.getIndexColumnName(indexColumnRef.getColumn()), node.toString());
-        ColumnRef dataColumnRef = dataResolver.resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
+        ColumnRef dataColRef = dataResolver.resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
+        String indexColName = IndexUtil.getIndexColumnName(dataColRef.getColumn());
+        ParseNode indexColNode = new ColumnParseNode(null, indexColName, node.toString());
+        // Don't provide a schema or table name, as the column name for an index column will always be unique
+        ColumnRef indexColRef = getResolver().resolveColumn(null, null, indexColName);
         
-        PColumn indexCol = indexColumnRef.getColumn();
-        PColumn dataCol = dataColumnRef.getColumn();
-        if (indexCol.getColumnModifier() != dataCol.getColumnModifier()) {
-            indexColNode = FACTORY.function(InvertFunction.NAME, Collections.singletonList(indexColNode));
-        }
+        PColumn indexCol = dataColRef.getColumn();
+        PColumn dataCol = indexColRef.getColumn();
+        // Coerce index column reference back to same type as data column so that
+        // expression behave exactly the same. No need to invert, as this will be done
+        // automatically as needed.
         if (!indexCol.getDataType().isBytesComparableWith(dataCol.getDataType())) {
             indexColNode = FACTORY.cast(indexColNode, dataCol.getDataType());
         }

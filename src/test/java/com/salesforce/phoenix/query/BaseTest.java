@@ -112,7 +112,7 @@ public abstract class BaseTest {
                 "    a_unsigned_float unsigned_float,\n" +
                 "    a_unsigned_double unsigned_double\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
-                ")");
+                ") ");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
                 "   (a_string varchar not null, \n" +
                 "    a_id char(3) not null,\n" +

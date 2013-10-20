@@ -1354,7 +1354,7 @@ public class MetaDataClient {
                 long ts = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
                 MutationPlan plan = new PostDDLCompiler(connection).compile(Collections.singletonList(indexRef), null, null, Collections.<PColumn>emptyList(), ts);
                 connection.getQueryServices().updateData(plan);
-                NamedTableNode dataTableNode = NamedTableNode.create(null, TableName.create(schemaName, dataTableName));
+                NamedTableNode dataTableNode = NamedTableNode.create(null, TableName.create(schemaName, dataTableName), Collections.<ColumnDef>emptyList());
                 // Next rebuild the index
                 if (connection.getSCN() != null) {
                     return buildIndexAtTimeStamp(index, dataTableNode);
