@@ -141,14 +141,20 @@ public class QueryTest extends BaseClientMangedTimeTest {
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
         // FIXME Jesse: Comment out as these tests get unbearably slow when an index is added
-//        testCases.add(
-//                new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer) INCLUDE (" +
-//                        "    A_STRING, " +
-//                        "    B_STRING, " +
-//                        "    A_DATE)"}
-//                );
         testCases.add(
-                new String[] {""});
+                new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer DESC) INCLUDE (" +
+                        "    A_STRING, " +
+                        "    B_STRING, " +
+                        "    A_DATE)"}
+                );
+//      testCases.add(
+//      new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer) INCLUDE (" +
+//              "    A_STRING, " +
+//              "    B_STRING, " +
+//              "    A_DATE)"}
+//      );
+//        testCases.add(
+//                new String[] {""});
         return testCases;
     }
     

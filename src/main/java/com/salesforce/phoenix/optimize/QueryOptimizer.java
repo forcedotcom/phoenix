@@ -6,8 +6,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.ColumnResolver;
-import com.salesforce.phoenix.compile.FromCompiler;
 import com.salesforce.phoenix.compile.IndexStatementRewriter;
 import com.salesforce.phoenix.compile.QueryCompiler;
 import com.salesforce.phoenix.compile.QueryPlan;
@@ -15,9 +13,9 @@ import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
-import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -56,14 +54,15 @@ public class QueryOptimizer {
             return dataPlan;
         }
         
+        SelectStatement translatedIndexSelect = IndexStatementRewriter.translate(select, dataPlan.getContext().getResolver());
         List<QueryPlan> plans = Lists.newArrayListWithExpectedSize(1 + indexes.size());
         plans.add(dataPlan);
-        QueryPlan hintedPlan = getHintedQueryPlan(statement, select, indexes, targetColumns, parallelIteratorFactory, plans);
+        QueryPlan hintedPlan = getHintedQueryPlan(statement, translatedIndexSelect, indexes, targetColumns, parallelIteratorFactory, plans);
         if (hintedPlan != null) {
             return hintedPlan;
         }
         for (PTable index : indexes) {
-            addPlan(statement, select, index, targetColumns, parallelIteratorFactory, plans);
+            addPlan(statement, translatedIndexSelect, index, targetColumns, parallelIteratorFactory, plans);
         }
         
         return chooseBestPlan(select, plans);
@@ -132,12 +131,11 @@ public class QueryOptimizer {
         schemaName = schemaName.length() == 0 ? null :  '"' + schemaName + '"';
 
         String tableName = '"' + index.getTableName().getString() + '"';
-        NamedTableNode indexTableNode = FACTORY.namedTable(alias, FACTORY.table(schemaName, tableName));
+        List<? extends TableNode> tables = Collections.singletonList(FACTORY.namedTable(alias, FACTORY.table(schemaName, tableName)));
         try {
-            ColumnResolver resolver = FromCompiler.getResolver(indexTableNode, statement.getConnection());
-            SelectStatement translatedIndexSelect = IndexStatementRewriter.translate(select, resolver, dataPlan.getContext().getResolver());
+            SelectStatement indexSelect = FACTORY.select(select, tables);            
             QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory);
-            QueryPlan plan = compiler.compile(translatedIndexSelect);
+            QueryPlan plan = compiler.compile(indexSelect);
             // Checking the index status and number of columns handles the wildcard cases correctly
             // We can't check the status earlier, because the index table may be out-of-date.
             if (plan.getTableRef().getTable().getIndexState() == PIndexState.ACTIVE && plan.getProjector().getColumnCount() == nColumns) {

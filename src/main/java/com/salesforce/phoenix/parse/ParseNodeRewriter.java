@@ -140,18 +140,16 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             }
             normOrderByNodes.add(NODE_FACTORY.orderBy(normNode, orderByNode.isNullsLast(), orderByNode.isAscending()));
         }
-        List<TableNode> tableNodes = statement.getFrom();
-        List<TableNode> normTableNodes = rewriter.normalizeTableNodes(statement);
+        
         // Return new SELECT statement with updated WHERE clause
         if (normWhere == where && 
                 normHaving == having && 
                 selectNodes == normSelectNodes && 
                 groupByNodes == normGroupByNodes &&
-                orderByNodes == normOrderByNodes &&
-                tableNodes == normTableNodes) {
+                orderByNodes == normOrderByNodes) {
             return statement;
         }
-        return NODE_FACTORY.select(normTableNodes, statement.getHint(), statement.isDistinct(),
+        return NODE_FACTORY.select(statement.getFrom(), statement.getHint(), statement.isDistinct(),
                 normSelectNodes, normWhere, normGroupByNodes, normHaving, normOrderByNodes,
                 statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
@@ -171,10 +169,6 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     protected ParseNodeRewriter(ColumnResolver resolver) {
         this.resolver = resolver;
         this.aliasMap = null;
-    }
-    
-    protected List<TableNode> normalizeTableNodes(SelectStatement statement) {
-        return statement.getFrom();
     }
     
     protected ParseNodeRewriter(ColumnResolver resolver, int maxAliasCount) {
