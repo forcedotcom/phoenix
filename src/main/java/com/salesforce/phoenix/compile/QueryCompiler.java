@@ -92,7 +92,6 @@ public class QueryCompiler {
     /**
      * Builds an executable query plan from a parsed SQL statement
      * @param select parsed SQL statement
-     * @param binds values of bind variables
      * @return executable query plan
      * @throws SQLException if mismatched types are found, bind value do not match binds,
      * or invalid function arguments are encountered.
