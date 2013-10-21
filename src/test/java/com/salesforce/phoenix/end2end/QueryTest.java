@@ -70,6 +70,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -88,6 +89,7 @@ import com.google.common.collect.Sets;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
@@ -107,6 +109,8 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 @RunWith(Parameterized.class)
 public class QueryTest extends BaseClientMangedTimeTest {
     private static final String tenantId = getOrganizationId();
+    private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
+    private static String lastIndexDDL = null;
     
     @BeforeClass
     public static void doSetup() throws Exception {
@@ -133,8 +137,35 @@ public class QueryTest extends BaseClientMangedTimeTest {
         this.indexDDL = indexDDL;
     }
     
+    private void destroyTables() throws Exception {
+        // Physically delete HBase table so that splits occur as expected for each test
+        Properties props = new Properties(TEST_PROPERTIES);
+        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
+        HBaseAdmin admin = services.getAdmin();
+        try {
+            try {
+                admin.disableTable(ATABLE_NAME);
+                admin.deleteTable(ATABLE_NAME);
+            } catch (TableNotFoundException e) {
+            }
+            try {
+                admin.disableTable(ATABLE_INDEX_NAME);
+                admin.deleteTable(ATABLE_INDEX_NAME);
+            } catch (TableNotFoundException e) {
+            }
+       } finally {
+                admin.close();
+        }
+    }
+    
     @Before
     public void initTable() throws Exception {
+        // TODO: Jesse to fix. The old deleted state is sometimes being used when it shouldn't
+        // Deleting the index and data table between parameterized runs works around this.
+        if (lastIndexDDL != indexDDL) {
+            lastIndexDDL = indexDDL;
+            destroyTables();
+        }
          ts = nextTimestamp();
         initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
         if (indexDDL != null && indexDDL.length() > 0) {
@@ -148,24 +179,24 @@ public class QueryTest extends BaseClientMangedTimeTest {
     @Parameters(name="{0}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
+        // TODO: James to fix - ColumnModifier is not making it over to the server sometimes
+      testCases.add(
+              new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer DESC) INCLUDE (" +
+                      "    A_STRING, " +
+                      "    B_STRING, " +
+                      "    A_DATE)"}
+           );
        testCases.add(
-                new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer, a_string) INCLUDE (" +
+                new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer, a_string) INCLUDE (" +
                         // TODO: Jesse to fix"    B_STRING, " +
                         "    A_DATE)"}
                 );
       testCases.add(
-          new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer) INCLUDE (" +
+          new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer) INCLUDE (" +
                   "    A_STRING, " +
                   "    B_STRING, " +
                   "    A_DATE)"}
           );
-      // TODO: James to fix - ColumnModifier is not making it over to the server sometimes
-//      testCases.add(
-//              new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer DESC) INCLUDE (" +
-//                      "    A_STRING, " +
-//                      "    B_STRING, " +
-//                      "    A_DATE)"}
-//           );
         testCases.add(
                 new String[] {""});
          return testCases;
