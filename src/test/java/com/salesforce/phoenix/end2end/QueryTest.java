@@ -179,7 +179,6 @@ public class QueryTest extends BaseClientMangedTimeTest {
     @Parameters(name="{0}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
-        // TODO: James to fix - ColumnModifier is not making it over to the server sometimes
       testCases.add(
               new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer DESC) INCLUDE (" +
                       "    A_STRING, " +
