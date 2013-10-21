@@ -48,19 +48,20 @@ public class InstanceResolver {
      * @return The resolved instance or the default instance provided.
      *         {@code null} if an instance is not registered and a default is not provided.
      */
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+            value="AT",
+            justification="Resolve singleton calls are serialized and putIfAbsent will not overwrite existing values")
     @SuppressWarnings("unchecked")
     public static <T> T getSingleton(Class<T> clazz, T defaultInstance) {
-        Object obj = RESOLVED_SINGLETONS.get(clazz);
-        if(obj != null) {
-            return (T)obj;
+        if (!RESOLVED_SINGLETONS.containsKey(clazz)) {
+            // check the type of the default instance if provided
+            if (defaultInstance != null && !clazz.isInstance(defaultInstance)) throw new IllegalArgumentException("defaultInstance is not of type " + clazz.getName());
+            // multiple operations on concurrent hash maps are not atomic
+            // to avoid locking the map, checking again, and then adding the resolved class we
+            // serialize resolveSingleton calls and use putIfAbsent so only the first put succeeds
+            RESOLVED_SINGLETONS.putIfAbsent(clazz, resolveSingleton(clazz, defaultInstance));
         }
-        if (defaultInstance != null && !clazz.isInstance(defaultInstance)) throw new IllegalArgumentException("defaultInstance is not of type " + clazz.getName());
-        final Object o = resolveSingleton(clazz, defaultInstance);
-        obj = RESOLVED_SINGLETONS.putIfAbsent(clazz, o);
-        if(obj == null) {
-            obj = o;
-        }
-        return (T)obj;
+        return (T) RESOLVED_SINGLETONS.get(clazz);
     }
     
     private synchronized static <T> T resolveSingleton(Class<T> clazz, T defaultInstance) {
