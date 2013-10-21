@@ -38,6 +38,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -119,13 +120,19 @@ public class RowKeyColumnExpression  extends ColumnExpression {
             int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxOffset);
             // In the middle of the key, an empty variable length byte array represents null
             if (length > 0) {
+                /*
                 if (type == fromType) {
                     ptr.set(buffer,offset,length);
                 } else {
                     ptr.set(type.toBytes(type.toObject(buffer, offset, length, fromType)));
                 }
-                return true;
+                */
+                ptr.set(buffer,offset,length);
+                type.coerceBytes(ptr, fromType, getColumnModifier(), getColumnModifier());
+            } else {
+                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             }
+            return true;
         }
         return false;
     }

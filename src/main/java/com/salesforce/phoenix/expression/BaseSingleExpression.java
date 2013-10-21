@@ -27,11 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.io.WritableUtils;
-
 
 import com.google.common.collect.ImmutableList;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
@@ -83,10 +84,15 @@ public abstract class BaseSingleExpression extends BaseExpression {
         children.get(0).reset();
     }
 
-    final <T> void acceptChild(ExpressionVisitor<T> visitor)  {
-        children.get(0).accept(visitor);
+    @Override
+    public <T> T accept(ExpressionVisitor<T> visitor) {
+        List<T> l = acceptChildren(visitor, null);
+        if (l.isEmpty()) {
+            return visitor.defaultReturn(this, l);
+        }
+        return l.get(0);
     }
-
+    
     public Expression getChild() {
         return children.get(0);
     }

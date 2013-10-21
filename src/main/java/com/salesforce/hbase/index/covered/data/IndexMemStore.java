@@ -134,17 +134,17 @@ public class IndexMemStore implements KeyValueStore {
       kvset.add(kv);
     }
 
-    if (LOG.isDebugEnabled()) {
+    if (LOG.isTraceEnabled()) {
       dump();
     }
   }
 
   private void dump() {
-    LOG.debug("Current kv state:\n");
+    LOG.trace("Current kv state:\n");
     for (KeyValue kv : this.kvset) {
-      LOG.debug("KV: " + toString(kv));
+      LOG.trace("KV: " + toString(kv));
     }
-    LOG.debug("========== END MemStore Dump ==================\n");
+    LOG.trace("========== END MemStore Dump ==================\n");
   }
 
   private String toString(KeyValue kv) {
@@ -158,7 +158,7 @@ public class IndexMemStore implements KeyValueStore {
     }
     // If the key is in the store, delete it
     this.kvset.remove(kv);
-    if (LOG.isDebugEnabled()) {
+    if (LOG.isTraceEnabled()) {
       dump();
     }
   }

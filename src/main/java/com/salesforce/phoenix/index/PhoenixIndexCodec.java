@@ -115,9 +115,6 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             IndexUpdate indexUpdate = statePair.getSecond();
             Scanner scanner = statePair.getFirst();
-//            if (scanner.peek() == null) { // TODO: better way?
-//                continue;
-//            }
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
             Put put = maintainer.buildUpdateMutation(valueGetter, ptr, state.getCurrentTimestamp());
