@@ -963,11 +963,12 @@ public class MetaDataClient {
             
                 
                 List<ColumnDef> columnDefs = statement.getColumnDefs();
+                if (columnDefs == null) {
+                    columnDefs = Lists.newArrayListWithExpectedSize(1);
+                }
                 List<Pair<byte[],Map<String,Object>>> families = Lists.newArrayList();
-                List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnDefs == null ? 1 : columnDefs.size());
-                if ( columnDefs != null ) {
-                    
-                    
+                List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnDefs.size());
+                if ( columnDefs.size() > 0 ) {
                     for( ColumnDef  colDef : columnDefs) {
                         if (colDef != null && !colDef.isNull() && colDef.isPK()) {
                             throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
