@@ -62,49 +62,49 @@ public class InListExpression extends BaseSingleExpression {
     private int valuesByteLength;
     private boolean containsNull;
     private int fixedWidth = -1;
-    private List<Expression> keys;
     private ImmutableBytesPtr value = new ImmutableBytesPtr();
+    private List<Expression> keyExpressions; // client side only
 
     public static Expression create (List<Expression> children, ImmutableBytesWritable ptr) throws SQLException {
         Expression firstChild = children.get(0);
         PDataType firstChildType = firstChild.getDataType();
 
         boolean addedNull = false;
-        List<Expression> inChildren = Lists.newArrayListWithExpectedSize(children.size());
-        inChildren.add(firstChild);
+        List<Expression> keys = Lists.newArrayListWithExpectedSize(children.size());
+        keys.add(firstChild);
         for (int i = 1; i < children.size(); i++) {
             Expression rhs = children.get(i);
             if (rhs.evaluate(null, ptr)) {
                 if (ptr.getLength() == 0) {
                     if (!addedNull) {
                         addedNull = true;
-                        inChildren.add(LiteralExpression.newConstant(null, PDataType.VARBINARY));
+                        keys.add(LiteralExpression.newConstant(null, PDataType.VARBINARY));
                     }
                 } else {
                     // Don't specify the firstChild column modifier here, as we specify it in the LiteralExpression creation below
                     try {
                         firstChildType.coerceBytes(ptr, rhs.getDataType(), rhs.getColumnModifier(), null);
                         rhs = LiteralExpression.newConstant(ByteUtil.copyKeyBytesIfNecessary(ptr), PDataType.VARBINARY, firstChild.getColumnModifier());
-                        inChildren.add(rhs);
+                        keys.add(rhs);
                     } catch (ConstraintViolationException e) { // Ignore and continue
                     }
                 }
             }
         }
-        if (inChildren.size() == 1) {
+        if (keys.size() == 1) {
             return LiteralExpression.FALSE_EXPRESSION;
         }
-        if (inChildren.size() == 2 && addedNull) {
+        if (keys.size() == 2 && addedNull) {
             return LiteralExpression.newConstant(null, PDataType.BOOLEAN);
         }
         Expression expression;
         // TODO: if inChildren.isEmpty() then Oracle throws a type mismatch exception. This means
         // that none of the list elements match in type and there's no null element. We'd return
         // false in this case. Should we throw?
-        if (inChildren.size() == 2) {
-            expression = new ComparisonExpression(CompareOp.EQUAL, inChildren);
+        if (keys.size() == 2) {
+            expression = new ComparisonExpression(CompareOp.EQUAL, keys);
         } else {
-            expression = new InListExpression(inChildren);
+            expression = new InListExpression(keys, children);
         }
         return expression;
     }
@@ -112,15 +112,15 @@ public class InListExpression extends BaseSingleExpression {
     public InListExpression() {
     }
 
-    private InListExpression(List<Expression> children) throws SQLException {
-        super(children.get(0));
-        this.keys = Lists.newArrayListWithExpectedSize(children.size()-1);
-        Set<ImmutableBytesPtr> values = Sets.newHashSetWithExpectedSize(children.size()-1);
+    private InListExpression(List<Expression> keys, List<Expression> keyExpressions) throws SQLException {
+        super(keyExpressions.get(0));
+        this.keyExpressions = keyExpressions.subList(1, keyExpressions.size());
+        Set<ImmutableBytesPtr> values = Sets.newHashSetWithExpectedSize(keys.size()-1);
         int fixedWidth = -1;
         boolean isFixedLength = true;
-        for (int i = 1; i < children.size(); i++) {
+        for (int i = 1; i < keys.size(); i++) {
             ImmutableBytesPtr ptr = new ImmutableBytesPtr();
-            Expression child = children.get(i);
+            Expression child = keys.get(i);
             assert(child.getDataType() == PDataType.VARBINARY);
             child.evaluate(null, ptr);
             if (ptr.getLength() == 0) {
@@ -135,7 +135,6 @@ public class InListExpression extends BaseSingleExpression {
                     }
                     
                     valuesByteLength += ptr.getLength();
-                    keys.add(child);
                 }
             }
         }
@@ -255,13 +254,8 @@ public class InListExpression extends BaseSingleExpression {
         return t;
     }
 
-    /**
-     * Gets the list of values in the IN expression, in
-     * sorted order.
-     * @return the list of values in the IN expression
-     */
-    public List<Expression> getKeys() {
-        return keys;
+    public List<Expression> getKeyExpressions() {
+        return keyExpressions;
     }
 
     public ImmutableBytesWritable getMinKey() {

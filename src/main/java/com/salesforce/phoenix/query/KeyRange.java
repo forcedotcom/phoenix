@@ -46,6 +46,7 @@ import org.apache.hadoop.io.WritableUtils;
 import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.util.ByteUtil;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -552,6 +553,23 @@ public class KeyRange implements Writable {
             return KeyRange.getKeyRange(newLowerRange, this.isLowerInclusive(), newUpperRange, this.isUpperInclusive());
         }
         return this;
+    }
+    
+    public KeyRange invert() {
+        byte[] lower = this.getLowerRange();
+        if (!this.lowerUnbound()) {
+            lower = ColumnModifier.SORT_DESC.apply(lower, 0, lower.length);
+        }
+        byte[] upper;
+        if (this.isSingleKey()) {
+            upper = lower;
+        } else {
+            upper = this.getUpperRange();
+            if (!this.upperUnbound()) {
+                upper = ColumnModifier.SORT_DESC.apply(upper, 0, upper.length);
+            }
+        }
+        return KeyRange.getKeyRange(lower, this.isLowerInclusive(), upper, this.isUpperInclusive());
     }
 
     @Override

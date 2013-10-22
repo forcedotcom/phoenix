@@ -36,11 +36,13 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.QueryUtil;
@@ -188,4 +190,33 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
     public void testDeleteRangeAutoCommitWithIndex() throws Exception {
         testDeleteRange(true, true);
     }
-}
+    
+    @Ignore("Generate and execute multiple Delete mutation plans and only error if not able to optimize")
+    @Test
+    public void testDeleteAllFromTableWithIndex() throws SQLException {
+        Connection con = null;
+        try {
+            con = DriverManager.getConnection(getUrl());
+            con.setAutoCommit(true);
+
+            Statement stm = con.createStatement();
+            stm.execute("DROP TABLE IF EXISTS test.date2");
+            stm.execute("CREATE TABLE test.date2(id BIGINT NOT NULL PRIMARY KEY, d DATE NOT NULL) IMMUTABLE_ROWS=true");
+            stm.execute("CREATE INDEX idx_d ON test.date2(d)");
+            stm.execute("DELETE FROM test.date2");
+            stm.close();
+
+            PreparedStatement psInsert = con
+                    .prepareStatement("UPSERT INTO test.date2 VALUES(?,?)");
+            psInsert.setLong(1, 1);
+            psInsert.setDate(2, new java.sql.Date(Long.MAX_VALUE));
+            psInsert.execute();
+            psInsert.close();
+
+        } finally {
+            try {
+                con.close();
+            } catch (Exception ex) {
+            }
+        }
+    }}

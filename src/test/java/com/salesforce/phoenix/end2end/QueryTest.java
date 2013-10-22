@@ -46,6 +46,7 @@ import static com.salesforce.phoenix.util.TestUtil.ROW9;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -64,29 +65,37 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 
@@ -100,23 +109,26 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 @RunWith(Parameterized.class)
 public class QueryTest extends BaseClientMangedTimeTest {
     private static final String tenantId = getOrganizationId();
+    private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
+    private static String lastIndexDDL = null;
     
-//    @BeforeClass
-//    public static void doSetup() throws Exception {
-//        int targetQueryConcurrency = 3;
-//        int maxQueryConcurrency = 5;
-//        Map<String,String> props = Maps.newHashMapWithExpectedSize(3);
-//        props.put(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, Integer.toString(maxQueryConcurrency));
-//        props.put(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, Integer.toString(targetQueryConcurrency));
-//        //props.put(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.toString(Integer.MAX_VALUE));
+    @BeforeClass
+    public static void doSetup() throws Exception {
+        int targetQueryConcurrency = 2;
+        int maxQueryConcurrency = 3;
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(3);
+        props.put(QueryServices.QUEUE_SIZE_ATTRIB, Integer.toString(100));
+        props.put(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, Integer.toString(maxQueryConcurrency));
+        props.put(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, Integer.toString(targetQueryConcurrency));
+//        props.put(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.toString(Integer.MAX_VALUE));
 //        props.put("index.builder.threads.max", Integer.toString(2));
 //        props.put("index.writer.threads.max", Integer.toString(2));
-//        props.put("hbase.htable.threads.max", Integer.toString(10));
+        props.put("hbase.htable.threads.max", Integer.toString(100));
 //        props.put("hbase.regionserver.handler.count", Integer.toString(10));
-//        
-//        // Must update config before starting server
-//        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
-//    }
+        
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
+    }
     
     private long ts;
     private String indexDDL;
@@ -125,9 +137,36 @@ public class QueryTest extends BaseClientMangedTimeTest {
         this.indexDDL = indexDDL;
     }
     
+    private void destroyTables() throws Exception {
+        // Physically delete HBase table so that splits occur as expected for each test
+        Properties props = new Properties(TEST_PROPERTIES);
+        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
+        HBaseAdmin admin = services.getAdmin();
+        try {
+            try {
+                admin.disableTable(ATABLE_NAME);
+                admin.deleteTable(ATABLE_NAME);
+            } catch (TableNotFoundException e) {
+            }
+            try {
+                admin.disableTable(ATABLE_INDEX_NAME);
+                admin.deleteTable(ATABLE_INDEX_NAME);
+            } catch (TableNotFoundException e) {
+            }
+       } finally {
+                admin.close();
+        }
+    }
+    
     @Before
     public void initTable() throws Exception {
-        ts = nextTimestamp();
+        // TODO: Jesse to fix. The old deleted state is sometimes being used when it shouldn't
+        // Deleting the index and data table between parameterized runs works around this.
+        if (lastIndexDDL != indexDDL) {
+            lastIndexDDL = indexDDL;
+            destroyTables();
+        }
+         ts = nextTimestamp();
         initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
         if (indexDDL != null && indexDDL.length() > 0) {
             Properties props = new Properties(TEST_PROPERTIES);
@@ -140,22 +179,25 @@ public class QueryTest extends BaseClientMangedTimeTest {
     @Parameters(name="{0}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
-        // FIXME Jesse: Comment out as these tests get unbearably slow when an index is added
-//        testCases.add(
-//                new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer DESC) INCLUDE (" +
-//                        "    A_STRING, " +
-//                        "    B_STRING, " +
-//                        "    A_DATE)"}
-//                );
-//      testCases.add(
-//      new String[] {"CREATE INDEX a_integer_idx1 ON aTable (a_integer) INCLUDE (" +
-//              "    A_STRING, " +
-//              "    B_STRING, " +
-//              "    A_DATE)"}
-//      );
+      testCases.add(
+              new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer DESC) INCLUDE (" +
+                      "    A_STRING, " +
+                      "    B_STRING, " +
+                      "    A_DATE)"}
+           );
+       testCases.add(
+                new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer, a_string) INCLUDE (" +
+                        "    B_STRING, " + "    A_DATE)"}
+                );
+      testCases.add(
+          new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer) INCLUDE (" +
+                  "    A_STRING, " +
+                  "    B_STRING, " +
+                  "    A_DATE)"}
+          );
         testCases.add(
                 new String[] {""});
-        return testCases;
+         return testCases;
     }
     
     private void assertValueEqualsResultSet(ResultSet rs, List<Object> expectedResults) throws SQLException {
@@ -174,10 +216,38 @@ public class QueryTest extends BaseClientMangedTimeTest {
             for (int i = 0; i < rs.getMetaData().getColumnCount(); i++) {
                 results.add(rs.getObject(i+1));
             }
-            assertTrue(expectedResultsSet.contains(results));
+            assertTrue("Expected to find " + results + " in results: " + results, expectedResultsSet.contains(results));
             count++;
         }
         assertEquals(count, expectedResults.size());
+    }
+    
+    private void assertOneOfValuesEqualsResultSet(ResultSet rs, List<List<Object>>... expectedResultsArray) throws SQLException {
+        List<List<Object>> results = Lists.newArrayList();
+        while (rs.next()) {
+            List<Object> result = Lists.newArrayList();
+            for (int i = 0; i < rs.getMetaData().getColumnCount(); i++) {
+                result.add(rs.getObject(i+1));
+            }
+            results.add(result);
+        }
+        for (int j = 0; j < expectedResultsArray.length; j++) {
+                List<List<Object>> expectedResults = expectedResultsArray[j];
+                Set<List<Object>> expectedResultsSet = Sets.newHashSet(expectedResults);
+                int count = 0;
+                boolean brokeEarly = false;
+                for (List<Object> result : results) {
+                    if (!expectedResultsSet.contains(result)) {
+                        brokeEarly = true;
+                        break;
+                    }
+                    count++;
+                }
+                if (!brokeEarly && count == expectedResults.size()) {
+                    return;
+                }
+        }
+        fail("Unable to find " + results + " in " + Arrays.asList(expectedResultsArray));
     }
     
     @Test
@@ -847,6 +917,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         conn.close();
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testPointInTimeLimitedScan() throws Exception {
         // Override value that was set at creation time
@@ -887,14 +958,16 @@ public class QueryTest extends BaseClientMangedTimeTest {
         PreparedStatement statement = conn.prepareStatement(query);
         statement.setString(1, tenantId);
         ResultSet rs = statement.executeQuery();
-        assertTrue(rs.next());
-        assertEquals(2, rs.getInt(1));
-        assertEquals(C_VALUE, rs.getString(2));
-        assertTrue(rs.next());
-        assertEquals(3, rs.getInt(1));
-        assertEquals(E_VALUE, rs.getString(2));
-        assertFalse(rs.next());
-        conn.close();
+        List<List<Object>> expectedResultsA = Lists.newArrayList(
+                Arrays.<Object>asList(2, C_VALUE),
+                Arrays.<Object>asList( 3, E_VALUE));
+        List<List<Object>> expectedResultsB = Lists.newArrayList(
+                Arrays.<Object>asList(4, B_VALUE),
+                Arrays.<Object>asList( 5, C_VALUE));
+        // Since we're not ordering and we may be using a descending index, we don't
+        // know which rows we'll get back.
+        assertOneOfValuesEqualsResultSet(rs, expectedResultsA,expectedResultsB);
+       conn.close();
     }
 
     @Test
@@ -1455,13 +1528,12 @@ public class QueryTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setDate(1, new Date(System.currentTimeMillis() + MILLIS_IN_DAY));
             ResultSet rs = statement.executeQuery();
-            assertTrue(rs.next());
-            assertEquals(ROW1, rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals(ROW4, rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals(ROW7, rs.getString(1));
-            assertFalse(rs.next());
+            @SuppressWarnings("unchecked")
+            List<List<Object>> expectedResults = Lists.newArrayList(
+                    Arrays.<Object>asList(ROW1, B_VALUE),
+                    Arrays.<Object>asList( ROW4, B_VALUE), 
+                    Arrays.<Object>asList(ROW7, B_VALUE));
+            assertValuesEqualsResultSet(rs, expectedResults);
         } finally {
             conn.close();
         }
@@ -1477,13 +1549,12 @@ public class QueryTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setDate(1, new Date(System.currentTimeMillis() + MILLIS_IN_DAY));
             ResultSet rs = statement.executeQuery();
-            assertTrue(rs.next());
-            assertEquals(ROW3, rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals(ROW6, rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals(ROW9, rs.getString(1));
-            assertFalse(rs.next());
+            @SuppressWarnings("unchecked")
+            List<List<Object>> expectedResults = Lists.newArrayList(
+                    Arrays.<Object>asList(ROW3, E_VALUE),
+                    Arrays.<Object>asList( ROW6, E_VALUE), 
+                    Arrays.<Object>asList(ROW9, E_VALUE));
+            assertValuesEqualsResultSet(rs, expectedResults);
         } finally {
             conn.close();
         }
@@ -1627,7 +1698,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testSimpleCaseStatement() throws Exception {
-        String query = "SELECT CASE a_integer WHEN 1 THEN 'a' WHEN 2 THEN 'b' WHEN 3 THEN 'c' ELSE 'd' END AS a FROM ATABLE WHERE organization_id=? AND a_integer < 6";
+        String query = "SELECT CASE a_integer WHEN 1 THEN 'a' WHEN 2 THEN 'b' WHEN 3 THEN 'c' ELSE 'd' END, entity_id AS a FROM ATABLE WHERE organization_id=? AND a_integer < 6";
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(url, props);
@@ -1635,17 +1706,14 @@ public class QueryTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
-            assertTrue(rs.next());
-            assertEquals("a", rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals("b", rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals("c", rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals("d", rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals("d", rs.getString(1));
-            assertFalse(rs.next());
+            @SuppressWarnings("unchecked")
+            List<List<Object>> expectedResults = Lists.newArrayList(
+                Arrays.<Object>asList("a",ROW1),
+                Arrays.<Object>asList( "b",ROW2), 
+                Arrays.<Object>asList("c",ROW3),
+                Arrays.<Object>asList("d",ROW4),
+                Arrays.<Object>asList("d",ROW5));
+            assertValuesEqualsResultSet(rs, expectedResults);
         } finally {
             conn.close();
         }
@@ -1856,11 +1924,40 @@ public class QueryTest extends BaseClientMangedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
-            assertTrue(rs.next());
-            assertEquals(ROW2, rs.getString(1));
-            assertTrue(rs.next());
-            assertEquals(ROW4, rs.getString(1));
-            assertFalse(rs.next());
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW2, ROW4));
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testPartiallyQualifiedRVCInList() throws Exception {
+        String query = "SELECT entity_id FROM ATABLE WHERE (a_integer,a_string) IN ((2,'a'),(5,'b'))";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW2, ROW5));
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testFullyQualifiedRVCInList() throws Exception {
+        String query = "SELECT entity_id FROM ATABLE WHERE (a_integer,a_string, organization_id,entity_id) IN ((2,'a',:1,:2),(5,'b',:1,:3))";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW2);
+            statement.setString(3, ROW5);
+            ResultSet rs = statement.executeQuery();
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW2, ROW5));
         } finally {
             conn.close();
         }
@@ -2026,15 +2123,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         try {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW1);
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW2);
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW3);
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), ROW4);
-            assertFalse(rs.next());
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW1, ROW2, ROW3, ROW4));
         } finally {
             conn.close();
         }
@@ -2048,13 +2137,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         try {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertEquals(ROW1, rs.getString(1));
-            assertTrue (rs.next());
-            assertEquals(ROW2, rs.getString(1));
-            assertTrue (rs.next());
-            assertEquals(ROW3, rs.getString(1));
-            assertFalse(rs.next());
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW1, ROW2, ROW3));
         } finally {
             conn.close();
         }
@@ -2236,13 +2319,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         try {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertEquals(ROW7, rs.getString(1));
-            assertTrue (rs.next());
-            assertEquals(ROW8, rs.getString(1));
-            assertTrue (rs.next());
-            assertEquals(ROW9, rs.getString(1));
-            assertFalse(rs.next());
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW7, ROW8, ROW9));
         } finally {
             conn.close();
         }
@@ -2359,13 +2436,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         try {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertEquals(ROW7, rs.getString(1));
-            assertTrue (rs.next());
-            assertEquals(ROW8, rs.getString(1));
-            assertTrue (rs.next());
-            assertEquals(ROW9, rs.getString(1));
-            assertFalse(rs.next());
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW7, ROW8, ROW9));
         } finally {
             conn.close();
         }
@@ -2381,11 +2452,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         try {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertEquals(ROW8, rs.getString(1));
-            assertTrue (rs.next());
-            assertEquals(ROW9, rs.getString(1));
-            assertFalse(rs.next());
+            assertValueEqualsResultSet(rs, Arrays.<Object>asList(ROW8, ROW9));
         } finally {
             conn.close();
         }
@@ -2607,6 +2674,11 @@ public class QueryTest extends BaseClientMangedTimeTest {
         }
     }
     
+    private static AtomicInteger runCount = new AtomicInteger(0);
+    private static int nextRunCount() {
+        return runCount.getAndAdd(1);
+    }
+    
     @Test
     public void testSplitWithCachedMeta() throws Exception {
         // Tests that you don't get an ambiguous column exception when using the same alias as the column name
@@ -2639,11 +2711,14 @@ public class QueryTest extends BaseClientMangedTimeTest {
             HTable htable = (HTable)conn.unwrap(PhoenixConnection.class).getQueryServices().getTable(tableName);
             htable.clearRegionCache();
             int nRegions = htable.getRegionLocations().size();
-            admin.split(tableName, ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes("00A3")));
+            admin.split(tableName, ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes("00A" + Character.valueOf((char)('3' + nextRunCount()))+ ts))); // vary split point with test run
+            int retryCount = 0;
             do {
                 Thread.sleep(2000);
-                htable.clearRegionCache();
-            } while (htable.getRegionLocations().size() == nRegions);
+                retryCount++;
+                //htable.clearRegionCache();
+            } while (retryCount < 10 && htable.getRegionLocations().size() == nRegions);
+            assertNotEquals(nRegions,htable.getRegionLocations().size());
             
             statement.setString(1, tenantId);
             rs = statement.executeQuery();
@@ -2662,6 +2737,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
             assertFalse(rs.next());
             
         } finally {
+            admin.close();
             conn.close();
         }
     }

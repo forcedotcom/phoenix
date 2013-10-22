@@ -229,7 +229,14 @@ package com.salesforce.phoenix.parse;
     }
     
     public String nextBind() {
-        return Integer.toString(anonBindNum++);
+        return Integer.toString(++anonBindNum);
+    }
+    
+    public void updateBind(String namedBind){
+         int nBind = Integer.parseInt(namedBind);
+         if (nBind > anonBindNum) {
+             anonBindNum = nBind;
+         }
     }
 
     protected Object recoverFromMismatchedToken(IntStream input, int ttype, BitSet follow)
@@ -885,7 +892,7 @@ table returns [String ret]
 
 // Bind names are a colon followed by 1+ letter/digits/underscores, or '?' (unclear how Oracle acutally deals with this, but we'll just treat it as a special bind)
 bind_name returns [String ret]
-    :   bname=BIND_NAME { $ret = bname.getText().substring(1); } 
+    :   bname=BIND_NAME { String bnameStr = bname.getText().substring(1); updateBind(bnameStr); $ret = bnameStr; } 
     |   QUESTION { $ret = nextBind(); } // TODO: only support this?
     ;
 
