@@ -29,28 +29,92 @@ package com.salesforce.phoenix.jdbc;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.sql.*;
+import java.sql.ParameterMetaData;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLWarning;
+import java.sql.Statement;
 import java.text.Format;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.compile.BindManager;
+import com.salesforce.phoenix.compile.ColumnProjector;
+import com.salesforce.phoenix.compile.CreateIndexCompiler;
+import com.salesforce.phoenix.compile.CreateTableCompiler;
+import com.salesforce.phoenix.compile.DeleteCompiler;
+import com.salesforce.phoenix.compile.ExplainPlan;
+import com.salesforce.phoenix.compile.ExpressionProjector;
+import com.salesforce.phoenix.compile.MutationPlan;
+import com.salesforce.phoenix.compile.QueryCompiler;
+import com.salesforce.phoenix.compile.QueryPlan;
+import com.salesforce.phoenix.compile.RowProjector;
+import com.salesforce.phoenix.compile.StatementPlan;
+import com.salesforce.phoenix.compile.UpsertCompiler;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
-import com.salesforce.phoenix.parse.*;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.parse.AddColumnStatement;
+import com.salesforce.phoenix.parse.AliasedNode;
+import com.salesforce.phoenix.parse.AlterIndexStatement;
+import com.salesforce.phoenix.parse.BindableStatement;
+import com.salesforce.phoenix.parse.ColumnDef;
+import com.salesforce.phoenix.parse.ColumnName;
+import com.salesforce.phoenix.parse.CreateIndexStatement;
+import com.salesforce.phoenix.parse.CreateTableStatement;
+import com.salesforce.phoenix.parse.DeleteStatement;
+import com.salesforce.phoenix.parse.DropColumnStatement;
+import com.salesforce.phoenix.parse.DropIndexStatement;
+import com.salesforce.phoenix.parse.DropTableStatement;
+import com.salesforce.phoenix.parse.ExplainStatement;
+import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.parse.LimitNode;
+import com.salesforce.phoenix.parse.NamedNode;
+import com.salesforce.phoenix.parse.NamedTableNode;
+import com.salesforce.phoenix.parse.OrderByNode;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeFactory;
+import com.salesforce.phoenix.parse.PrimaryKeyConstraint;
+import com.salesforce.phoenix.parse.SQLParser;
+import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.ShowTablesStatement;
+import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.parse.TableNode;
+import com.salesforce.phoenix.parse.UpsertStatement;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.query.WrappedScanner;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ExecuteQueryNotApplicableException;
+import com.salesforce.phoenix.schema.ExecuteUpdateNotApplicableException;
+import com.salesforce.phoenix.schema.MetaDataClient;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SQLCloseables;
+import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.ServerUtil;
 
 
 /**
@@ -72,7 +136,6 @@ import com.salesforce.phoenix.util.*;
  * @since 0.1
  */
 public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce.phoenix.jdbc.Jdbc7Shim.Statement {
-    protected static final Object UNBOUND_PARAMETER = new Object();
     public enum UpdateOperation {
         DELETED("deleted"),
         UPSERTED("upserted");
@@ -118,7 +181,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         public PhoenixResultSet executeQuery() throws SQLException;
         public ResultSetMetaData getResultSetMetaData() throws SQLException;
         public StatementPlan optimizePlan() throws SQLException;
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException;
+        public StatementPlan compilePlan() throws SQLException;
     }
     
     protected static interface MutatableStatement extends ExecutableStatement {
@@ -161,16 +224,15 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
-            return new QueryCompiler(connection, getMaxRows()).compile(this, binds);
+        public StatementPlan compilePlan() throws SQLException {
+            return new QueryCompiler(PhoenixStatement.this).compile(this);
         }
         
         @Override
         public ResultSetMetaData getResultSetMetaData() throws SQLException {
             if (resultSetMetaData == null) {
                 // Just compile top level query without optimizing to get ResultSetMetaData
-                List<Object> nullParameters = Arrays.asList(new Object[this.getBindCount()]);
-                QueryPlan plan = new QueryCompiler(connection, getMaxRows()).compile(this, nullParameters);
+                QueryPlan plan = new QueryCompiler(PhoenixStatement.this).compile(this);
                 resultSetMetaData = new PhoenixResultSetMetaData(connection, plan.getProjector());
             }
             return resultSetMetaData;
@@ -196,8 +258,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
     
     private class ExecutableUpsertStatement extends UpsertStatement implements MutatableStatement {
-        private ExecutableUpsertStatement(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
-            super(table, columns, values, select, bindCount);
+        private ExecutableUpsertStatement(NamedTableNode table, HintNode hintNode, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+            super(table, hintNode, columns, values, select, bindCount);
         }
 
         @Override
@@ -223,14 +285,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
+        public MutationPlan compilePlan() throws SQLException {
             UpsertCompiler compiler = new UpsertCompiler(PhoenixStatement.this);
-            return compiler.compile(this, binds);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
     
@@ -262,14 +324,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
-            DeleteCompiler compiler = new DeleteCompiler(connection);
-            return compiler.compile(this, binds);
+        public MutationPlan compilePlan() throws SQLException {
+            DeleteCompiler compiler = new DeleteCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
     
@@ -306,14 +368,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
-            CreateTableCompiler compiler = new CreateTableCompiler(connection);
-            return compiler.compile(this, binds);
+        public MutationPlan compilePlan() throws SQLException {
+            CreateTableCompiler compiler = new CreateTableCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -352,14 +414,14 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public MutationPlan compilePlan(List<Object> binds) throws SQLException {
-            CreateIndexCompiler compiler = new CreateIndexCompiler(connection);
-            return compiler.compile(this, binds);
+        public MutationPlan compilePlan() throws SQLException {
+            CreateIndexCompiler compiler = new CreateIndexCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
         }
         
         @Override
         public MutationPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -397,7 +459,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -414,7 +476,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -452,7 +514,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
                 
                 @Override
@@ -469,7 +531,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -507,7 +569,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
                 
                 @Override
@@ -524,7 +586,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -562,7 +624,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -579,7 +641,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -617,7 +679,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -634,7 +696,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -723,13 +785,13 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return StatementPlan.EMPTY_PLAN;
         }
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -751,13 +813,21 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
         @Override
         public int executeUpdate() throws SQLException {
-            ResultSet rs = connection.getMetaData().getTables(null,null,null,null);
-            while (rs.next()) {
-                String schema = rs.getString(2);
-                String table = rs.getString(3);
-                SchemaUtil.getTableName(schema,table);
+            ResultSet rs = null;
+            try {
+                rs = connection.getMetaData().getTables(null,null,null,null);
+                while (rs.next()) {
+                    String schema = rs.getString(2);
+                    String table = rs.getString(3);
+                    SchemaUtil.getTableName(schema,table);
+                }
+                return 0;
+            } finally {
+                if(rs != null) {
+                    rs.close();
+                }
             }
-            return 0;
+            
         }
 
         @Override
@@ -766,7 +836,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
 
         @Override
-        public StatementPlan compilePlan(List<Object> binds) throws SQLException {
+        public StatementPlan compilePlan() throws SQLException {
             return new StatementPlan() {
 
                 @Override
@@ -783,7 +853,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         
         @Override
         public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan(getParameters());
+            return compilePlan();
         }
     }
 
@@ -796,8 +866,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public ExecutableUpsertStatement upsert(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
-            return new ExecutableUpsertStatement(table, columns, values, select, bindCount);
+        public ExecutableUpsertStatement upsert(NamedTableNode table, HintNode hintNode, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+            return new ExecutableUpsertStatement(table, hintNode, columns, values, select, bindCount);
         }
         
         @Override
@@ -919,7 +989,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     protected void throwIfUnboundParameters() throws SQLException {
         int i = 0;
         for (Object param : getParameters()) {
-            if (param == UNBOUND_PARAMETER) {
+            if (param == BindManager.UNBOUND_PARAMETER) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
                     .setMessage("Parameter " + (i + 1) + " is unbound").build().buildException();
             }
@@ -947,6 +1017,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     public QueryPlan optimizeQuery(String sql) throws SQLException {
         throwIfUnboundParameters();
         return (QueryPlan)parseStatement(sql).optimizePlan();
+    }
+
+    public QueryPlan compileQuery(String sql) throws SQLException {
+        throwIfUnboundParameters();
+        return (QueryPlan)parseStatement(sql).compilePlan();
     }
 
     @Override

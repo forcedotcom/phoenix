@@ -57,7 +57,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
  * <li>In a preXXX hook,
  * <ol>
  * <li>Build the {@link WALEdit} + index information</li>
- * <li>Lock the {@link IndexLogRollSynchronizer#INDEX_UPDATE_LOCK}</li>
+ * <li>Lock the {@link IndexLogRollSynchronizer#logArchiveLock}</li>
  * <ul>
  * <li>This is a reentrant readlock on the WAL archiving, so we can make multiple WAL/index updates
  * concurrently</li>
@@ -69,7 +69,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
  * <li>In the corresponding postXXX,
  * <ol>
  * <li>make the updates to the index tables</li>
- * <li>Unlock {@link IndexLogRollSynchronizer#INDEX_UPDATE_LOCK}</li>
+ * <li>Unlock {@link IndexLogRollSynchronizer#logArchiveLock}</li>
  * </ol>
  * </li> </ol>
  * <p>

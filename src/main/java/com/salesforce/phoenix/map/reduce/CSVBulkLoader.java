@@ -45,7 +45,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTable;
@@ -58,6 +57,7 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import com.google.common.io.Closeables;
 import com.salesforce.phoenix.map.reduce.util.ConfigReader;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
@@ -107,7 +107,8 @@ public class CSVBulkLoader {
 	 * -help	Print all options (Optional)
 	 */
 
-	public static void main(String[] args) throws Exception{
+	@SuppressWarnings("deprecation")
+    public static void main(String[] args) throws Exception{
 		
 		String inputFile = null;
 		String outFile = null;
@@ -230,18 +231,26 @@ public class CSVBulkLoader {
 	public static void createPTable(String stmt) {
 		
 		Connection conn = null;
-		PreparedStatement statement;
+		PreparedStatement statement = null;
 
 		try {
 			conn = DriverManager.getConnection(getUrl(), "", "");
-			statement = conn.prepareStatement(stmt);
-			statement.execute();
-			conn.commit();
+			try {
+    			statement = conn.prepareStatement(stmt);
+    			statement.execute();
+    			conn.commit();
+			} finally {
+			    if(statement != null) {
+			        statement.close();
+			    }
+			}
 		} catch (Exception e) {
 			System.err.println("Error creating the table :: " + e.getMessage());
 		} finally{
 			try {
-				conn.close();
+			    if(conn != null) {
+			        conn.close();
+			    }
 			} catch (Exception e) {
 				System.err.println("Failed to close connection :: " + e.getMessage());
 			}
@@ -305,10 +314,10 @@ public class CSVBulkLoader {
 	
 	private static String[] getCreatePSQLstmts(String path){
 		
+	    BufferedReader br = null;
 		try {
-			
 			FileReader file = new FileReader(path);
-			BufferedReader br = new BufferedReader(file);
+			br = new BufferedReader(file);
 			//Currently, we can have at-most 2 SQL statements - 1 for create table and 1 for index
 			String[] sb = new String[2];
 			String line;
@@ -319,6 +328,8 @@ public class CSVBulkLoader {
 			
 		} catch (IOException e) {
 			System.err.println("Error reading the file :: " + path + ", " + e.getMessage());
+		} finally {
+		    if (br != null) Closeables.closeQuietly(br);
 		}
 		return null;
 	}

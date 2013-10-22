@@ -35,7 +35,7 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public class ColumnReference implements Comparable<ColumnReference> {
     
-  public static byte[] ALL_QUALIFIERS = new byte[0];
+  public static final byte[] ALL_QUALIFIERS = new byte[0];
   
   private static int calcHashCode(byte[] family, byte[] qualifier) {
     final int prime = 31;

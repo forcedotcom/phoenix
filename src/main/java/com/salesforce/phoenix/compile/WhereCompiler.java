@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -54,7 +53,6 @@ import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;

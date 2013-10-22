@@ -168,6 +168,7 @@ public class TestUtil {
     public static final String TABLE_WITH_SALTING = "TABLE_WITH_SALTING";
     public static final String INDEX_DATA_SCHEMA = "INDEX_TEST";
     public static final String INDEX_DATA_TABLE = "INDEX_DATA_TABLE";
+    public static final String MUTABLE_INDEX_DATA_TABLE = "MUTABLE_INDEX_DATA_TABLE";
 
     public static final Properties TEST_PROPERTIES = new Properties();
 

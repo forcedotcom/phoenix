@@ -237,7 +237,7 @@ public class StringUtil {
      * Lame - StringBuilder.equals is retarded.
      * @param b1
      * @param b2
-     * @return
+     * @return whether or not the two builders consist the same sequence of characters
      */
     public static boolean equals(StringBuilder b1, StringBuilder b2) {
         if (b1.length() != b2.length()) {

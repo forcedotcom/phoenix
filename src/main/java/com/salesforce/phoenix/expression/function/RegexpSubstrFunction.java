@@ -48,7 +48,7 @@ import com.salesforce.phoenix.util.ByteUtil;
  * where <offset> is the offset from the start of <string>. Positive offset is treated as 1-based,
  * a zero offset is treated as 0-based, and a negative offset starts from the end of the string 
  * working backwards. The <pattern> is the pattern we would like to search for in the <source> string.
- * The function returns the first occurance of any substring in the <source> string that matches
+ * The function returns the first occurrence of any substring in the <source> string that matches
  * the <pattern> input as a VARCHAR. 
  * 
  * @author zhuang

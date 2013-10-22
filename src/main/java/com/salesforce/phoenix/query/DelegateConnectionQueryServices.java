@@ -171,4 +171,9 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public void clearTableRegionCache(byte[] tableName) throws SQLException {
         getDelegate().clearTableRegionCache(tableName);
     }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return getDelegate().hasInvalidIndexConfiguration();
+    }
 }

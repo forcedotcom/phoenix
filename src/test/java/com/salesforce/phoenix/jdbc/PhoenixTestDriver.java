@@ -31,7 +31,10 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import com.salesforce.phoenix.end2end.ConnectionQueryServicesTestImpl;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.ConnectionlessQueryServicesImpl;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesTestImpl;
 
 
 

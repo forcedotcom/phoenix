@@ -99,6 +99,7 @@ import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -661,7 +662,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
         }
         if (dataType!= null && targetDataType != null && !dataType.isCoercibleTo(targetDataType)) {
-            throw new TypeMismatchException(dataType, targetDataType, child.toString());
+            // TODO: remove soon. Allow cast for indexes, as we know what we're doing :-)
+            if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
+                throw new TypeMismatchException(dataType, targetDataType, child.toString());
+            }
         }
         return CoerceExpression.create(child, targetDataType); 
     }
@@ -683,7 +687,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             PDatum datum = firstChild;
             if (firstChildType == null) {
                 datum = inferBindDatum(inChildren);
-                firstChildType = datum.getDataType();
             }
             context.getBindManager().addParamMetaData((BindParseNode)firstChildNode, datum);
         }

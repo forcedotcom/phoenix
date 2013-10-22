@@ -231,7 +231,7 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             // compare a higher length col with lower length : a_string(10), b_string(8) 
             query = "select a_string, b_string from " + tableName + "  where a_id = 3 and b_string = a_string";
             statement = conn.prepareStatement(query);
-            rs = statement.executeQuery();
+            statement.executeQuery();
             assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
             
             upsert = "UPSERT INTO " + tableName + " values (4, '" + rowKey2 + "', '" + rowKey2 + "') ";

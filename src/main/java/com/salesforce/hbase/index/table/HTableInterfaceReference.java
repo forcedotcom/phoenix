@@ -22,7 +22,7 @@ public class HTableInterfaceReference {
   }
 
   public String getTableName() {
-    return this.tableName.toString();
+    return Bytes.toString(this.tableName.get(),this.tableName.getOffset(), this.tableName.getLength());
   }
 
   @Override

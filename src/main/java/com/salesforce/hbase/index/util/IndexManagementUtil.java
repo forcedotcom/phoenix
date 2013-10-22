@@ -59,18 +59,27 @@ public class IndexManagementUtil {
   }
 
   private static final Log LOG = LogFactory.getLog(IndexManagementUtil.class);
-  public static String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
+  public static final String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
 
+  public static boolean isWALEditCodecSet(Configuration conf) {
+      // check to see if the WALEditCodec is installed
+      String codecClass = IndexedWALEditCodec.class.getName();
+      if (codecClass.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
+        // its installed, and it can handle compression and non-compression cases
+        return true;
+      }
+      return false;
+  }
   public static void ensureMutableIndexingCorrectlyConfigured(Configuration conf)
       throws IllegalStateException {
-    // check to see if the WALEditCodec is installed
-    String codecClass = IndexedWALEditCodec.class.getName();
-    if (codecClass.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
-      // its installed, and it can handle compression and non-compression cases
-      return;
+
+      // check to see if the WALEditCodec is installed
+    if (isWALEditCodecSet(conf)) {
+        return;
     }
 
     // otherwise, we have to install the indexedhlogreader, but it cannot have compression
+    String codecClass = IndexedWALEditCodec.class.getName();
     String indexLogReaderName = IndexedHLogReader.class.getName();
     if (indexLogReaderName.equals(conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName))) {
       if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
@@ -178,7 +187,7 @@ public class IndexManagementUtil {
    * assumes that for any index, there are going to small number of kvs, versus the number of
    * columns in any one batch.
    * <p>
-   * This employs the same logic as {@link #updateMatchesColumns(List, List)}, but is flips the
+   * This employs the same logic as {@link #updateMatchesColumns(Collection, List)}, but is flips the
    * iteration logic to search columns before kvs.
    */
   public static boolean columnMatchesUpdate(

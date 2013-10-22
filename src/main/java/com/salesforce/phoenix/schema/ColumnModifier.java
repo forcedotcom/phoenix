@@ -76,6 +76,11 @@ public enum ColumnModifier {
                     throw new IllegalArgumentException("Unknown operator " + op);
             }
         }
+
+        @Override
+        public byte[] apply(byte[] src, int srcOffset, int length) {
+            return apply(src, srcOffset, new byte[length], 0, length);
+        }
     };
         
     private final int serializationId;
@@ -136,6 +141,16 @@ public enum ColumnModifier {
      * @return the destination byte array
      */
     public abstract byte[] apply(byte[] src, int srcOffset, byte[] dest, int dstOffset, int length);
+    /**
+     * Copies the bytes from source array to a newly allocated destination array and applies the column
+     * modifier operation on the bytes starting at the specified offsets.  The column modifier is applied
+     * to the number of bytes matching the specified length.
+     * @param src  the source byte array to copy from, cannot be null
+     * @param srcOffset the offset into the source byte array at which to begin.
+     * @param length the number of bytes for which to apply the modification
+     * @return the newly allocated destination byte array
+     */
+    public abstract byte[] apply(byte[] src, int srcOffset, int length);
     public abstract byte apply(byte b);
     
     public abstract CompareOp transform(CompareOp op);

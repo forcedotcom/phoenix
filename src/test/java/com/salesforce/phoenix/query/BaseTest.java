@@ -41,6 +41,7 @@ import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.KEYONLY_NAME;
 import static com.salesforce.phoenix.util.TestUtil.MDTEST_NAME;
 import static com.salesforce.phoenix.util.TestUtil.MULTI_CF_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MUTABLE_INDEX_DATA_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.PRODUCT_METRICS_NAME;
 import static com.salesforce.phoenix.util.TestUtil.PTSDB2_NAME;
 import static com.salesforce.phoenix.util.TestUtil.PTSDB3_NAME;
@@ -111,7 +112,7 @@ public abstract class BaseTest {
                 "    a_unsigned_float unsigned_float,\n" +
                 "    a_unsigned_double unsigned_double\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
-                ")");
+                ") ");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
                 "   (a_string varchar not null, \n" +
                 "    a_id char(3) not null,\n" +
@@ -281,6 +282,24 @@ public abstract class BaseTest {
                 "   b.decimal_col2 DECIMAL(31, 10) " +
                 "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk DESC, decimal_pk)) " +
                 "IMMUTABLE_ROWS=true");
+        builder.put(MUTABLE_INDEX_DATA_TABLE, "create table " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + MUTABLE_INDEX_DATA_TABLE + "(" +
+                "   varchar_pk VARCHAR NOT NULL, " +
+                "   char_pk CHAR(5) NOT NULL, " +
+                "   int_pk INTEGER NOT NULL, "+ 
+                "   long_pk BIGINT NOT NULL, " +
+                "   decimal_pk DECIMAL(31, 10) NOT NULL, " +
+                "   a.varchar_col1 VARCHAR, " +
+                "   a.char_col1 CHAR(5), " +
+                "   a.int_col1 INTEGER, " +
+                "   a.long_col1 BIGINT, " +
+                "   a.decimal_col1 DECIMAL(31, 10), " +
+                "   b.varchar_col2 VARCHAR, " +
+                "   b.char_col2 CHAR(5), " +
+                "   b.int_col2 INTEGER, " +
+                "   b.long_col2 BIGINT, " +
+                "   b.decimal_col2 DECIMAL(31, 10) " +
+                "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk DESC, decimal_pk)) "
+                );
         builder.put("SumDoubleTest","create table SumDoubleTest" +
                 "   (id varchar not null primary key, d DOUBLE, f FLOAT, ud UNSIGNED_DOUBLE, uf UNSIGNED_FLOAT, i integer, de decimal)");
         tableDDLMap = builder.build();

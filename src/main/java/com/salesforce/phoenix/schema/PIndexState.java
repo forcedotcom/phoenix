@@ -30,19 +30,33 @@ package com.salesforce.phoenix.schema;
 
 public enum PIndexState {
     BUILDING("b"),
-    ENABLE("e"),
-    DISABLE("d"),
+    USABLE("e"),
+    UNUSABLE("d"),
     ACTIVE("a"),
-    INACTIVE("i");
+    INACTIVE("i"),
+    DISABLE("x"),
+    REBUILD("r");
 
     private final String serializedValue;
+    private final byte[] serializedBytes;
+    private final byte[] nameBytesValue;
 
     private PIndexState(String value) {
         this.serializedValue = value;
+        this.serializedBytes = PDataType.VARCHAR.toBytes(value);
+        this.nameBytesValue = PDataType.VARCHAR.toBytes(this.toString());
     }
 
     public String getSerializedValue() {
         return serializedValue;
+    }
+
+    public byte[] getSerializedBytes() {
+        return serializedBytes;
+    }
+
+    public byte[] toBytes() {
+        return nameBytesValue;
     }
 
     private static final PIndexState[] FROM_VALUE;
