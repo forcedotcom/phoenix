@@ -1011,16 +1011,25 @@ public class WhereOptimizer {
                         rhs= new RowValueConstructorExpression(rhs.getChildren().subList(0, Math.min(rvc.getChildren().size(), rhs.getChildren().size())), rhs.isConstant());
                     }
                 }
-                // Recursively transform RHS nodes based on reversing optimizable expressions from
-                // the LHS child nodes.
-                final CompareOp adjustedOp = op;
+                /*
+                 * Recursively transform the RHS row value constructor by applying the same logic as
+                 * is done elsewhere during WHERE optimization: optimizing out LHS functions by applying
+                 * the appropriate transformation to the RHS key.
+                 */
+                // Child slot iterator parallel with child expressions of the LHS row value constructor 
                 final Iterator<KeySlots> keySlotsIterator = childSlots.iterator();
                 try {
+                    // Call our static row value expression constructor with the current LHS row value constructor and
+                    // the current RHS (which has already been coerced to match the LHS expression). We pass through an
+                    // implementation of ExpressionComparabilityWrapper that transforms the RHS key to match the row key
+                    // structure of the LHS column. This is essentially optimizing out the expressions on the LHS by
+                    // applying the appropriate transformations to the RHS key (through the KeyPart#getKeyRange method).
                     rhs = RowValueConstructorExpression.coerce(rvc, rhs, new ExpressionComparabilityWrapper() {
 
                         @Override
                         public Expression wrap(final Expression lhs, final Expression rhs) {
                             final KeyPart childPart = keySlotsIterator.hasNext() ? keySlotsIterator.next().iterator().next().getKeyPart() : null;
+                            // TODO: DelegateExpression
                             return new BaseTerminalExpression() {
                                 @Override
                                 public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
@@ -1034,11 +1043,14 @@ public class WhereOptimizer {
                                         ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
                                         return true;
                                     }
-                                    // Use op here instead and get upper or lower bound based on that?
+                                    // Use the EQUAL operator here, because we're applying transformations to the
+                                    // children of the row value constructor here. After this transformation, we
+                                    // use the operator passed through to do a final transform on the RHS row value
+                                    // constructor.
                                     KeyRange range = childPart.getKeyRange(CompareOp.EQUAL, rhs);
-                                    //byte[] key = adjustedOp == CompareOp.GREATER || adjustedOp == CompareOp.GREATER_OR_EQUAL ? range.getLowerRange() :  range.getUpperRange();
                                     byte[] key = range.getLowerRange();
-                                    // FIXME: this is kind of a hack. We don't want to fill the key yet, but the above will do that.
+                                    // FIXME: this is kind of a hack. We don't want to fill the key yet, but the
+                                    // above will do that.
                                     if (lhs.getByteSize() != null) {
                                         key = Arrays.copyOf(key, lhs.getByteSize());
                                     }
@@ -1087,7 +1099,7 @@ public class WhereOptimizer {
                     return null; 
                 }
                 byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
-                return ByteUtil.getKeyRange(key, adjustedOp, PDataType.VARBINARY);
+                return ByteUtil.getKeyRange(key, op, PDataType.VARBINARY);
             }
 
         }
