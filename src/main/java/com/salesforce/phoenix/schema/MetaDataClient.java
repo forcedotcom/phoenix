@@ -1054,6 +1054,7 @@ public class MetaDataClient {
                 Pair<byte[],Map<String,Object>> family = families.size() > 0 ? families.get(0) : null;
                 
                 // Figure out if the empty column family is changing as a result of adding the new column
+                // The empty column family of an index will never change as a result of adding a new data column
                 byte[] emptyCF = null;
                 byte[] projectCF = null;
                 if (table.getType() != PTableType.VIEW && family != null) {
