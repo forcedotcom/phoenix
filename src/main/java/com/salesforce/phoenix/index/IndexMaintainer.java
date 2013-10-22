@@ -394,7 +394,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
             KeyValue newValue = newState.get(ref);
             if (newValue != null) { // Indexed column was potentially changed
                 ImmutableBytesPtr oldValue = oldState.getLatestValue(ref);
-                if (oldValue != null && 
+                // If there was no old value or the old value is different than the new value, the index row needs to be deleted
+                if (oldValue == null || 
                         Bytes.compareTo(oldValue.get(), oldValue.getOffset(), oldValue.getLength(), 
                                                    newValue.getBuffer(), newValue.getValueOffset(), newValue.getValueLength()) != 0){
                     return true;
