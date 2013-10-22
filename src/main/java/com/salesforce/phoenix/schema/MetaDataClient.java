@@ -977,68 +977,65 @@ public class MetaDataClient {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.NULLABLE_FIXED_WIDTH_LAST_PK)
                         .setColumnName(lastPK.getName().getString()).build().buildException();
                 }
-                
-                List<ColumnDef> columnDefs = statement.getColumnDefs();
-                if( columnDefs == null || columnDefs.size() == 0 ) {
-                    // Only support setting IMMUTABLE_ROWS=true on ALTER TABLE SET command
-                    if (!statement.getProps().isEmpty()) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.SET_UNSUPPORTED_PROP_ON_ALTER_TABLE)
-                        .setTableName(table.getName().getString()).build().buildException();
-                    }
-                }
-                
+                          
                 boolean isImmutableRows = table.isImmutableRows();
                 Boolean isImmutableRowsProp = (Boolean)statement.getProps().remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME);
                 if (isImmutableRowsProp != null) {
                     isImmutableRows = isImmutableRowsProp;
                 }
                 
+                if (statement.getProps().remove(PhoenixDatabaseMetaData.SALT_BUCKETS) != null) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.SALT_ONLY_ON_CREATE_TABLE)
+                    .setTableName(table.getName().getString()).build().buildException();
+                }
+                
                 boolean isAddingPKColumn = false;
                 PreparedStatement colUpsert = connection.prepareStatement(SchemaUtil.isMetaTable(schemaName, tableName) ? INSERT_SYSTEM_COLUMN : INSERT_COLUMN);
                 
+                List<ColumnDef> columnDefs = statement.getColumnDefs();
+                if (columnDefs == null) {                    
+                    columnDefs = Lists.newArrayListWithExpectedSize(1);
+                }
+
+                List<Pair<byte[],Map<String,Object>>> families = Lists.newArrayList();                
                 List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnDefs.size());
-                for( ColumnDef colDef : columnDefs) {
-                    if (colDef != null && !colDef.isNull() && colDef.isPK()) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
-                            .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
+
+                if ( columnDefs.size() > 0 ) {
+                    for( ColumnDef colDef : columnDefs) {
+                        if (colDef != null && !colDef.isNull() && colDef.isPK()) {
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
+                                .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
+                        }
+                        
+                        PColumn column = newColumn(position++, colDef, PrimaryKeyConstraint.EMPTY);
+                        columns.add(column);
+                        addColumnMutation(schemaName, tableName, column, colUpsert, null);
+                     
+                        // TODO: support setting properties on other families?
+                        if (column.getFamilyName() != null) {
+                            families.add(new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps()));
+                        } else { // If adding to primary key, then add the same column to all indexes on the table
+                            isAddingPKColumn = true;
+                            for (PTable index : table.getIndexes()) {
+                                int indexColPosition = index.getColumns().size();
+                                PDataType indexColDataType = IndexUtil.getIndexColumnDataType(column);
+                                ColumnName indexColName = ColumnName.caseSensitiveColumnName(IndexUtil.getIndexColumnName(column));
+                                ColumnDef indexColDef = FACTORY.columnDef(indexColName, indexColDataType.getSqlTypeName(), column.isNullable(), column.getMaxLength(), column.getScale(), true, column.getColumnModifier());
+                                PColumn indexColumn = newColumn(indexColPosition, indexColDef, PrimaryKeyConstraint.EMPTY);
+                                addColumnMutation(schemaName, index.getTableName().getString(), indexColumn, colUpsert, index.getParentTableName().getString());
+                            }
+                        }
+                        
+                        tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
+                        connection.rollback();
                     }
-                    
-                    if (statement.getProps().remove(PhoenixDatabaseMetaData.SALT_BUCKETS) != null) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.SALT_ONLY_ON_CREATE_TABLE)
+                } else {
+                 // Only support setting IMMUTABLE_ROWS=true on ALTER TABLE SET command
+                    if (!statement.getProps().isEmpty()) {
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.SET_UNSUPPORTED_PROP_ON_ALTER_TABLE)
                         .setTableName(table.getName().getString()).build().buildException();
                     }
-                        
-                    PColumn column = newColumn(position++, colDef, PrimaryKeyConstraint.EMPTY);
-                    columns.add(column);
                 }
-                
-               List<Pair<byte[],Map<String,Object>>> families = Lists.newArrayList();
-                Pair<byte[],Map<String,Object>> family = null;
-                
-                for (PColumn column : columns) {
-                    
-                    addColumnMutation(schemaName, tableName, column, colUpsert, null);
-                    // TODO: support setting properties on other families?
-                    if (column.getFamilyName() != null) {
-                        family = new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps());
-                        families.add(family);
-                    } else { // If adding to primary key, then add the same column to all indexes on the table
-                        isAddingPKColumn = true;
-                        for (PTable index : table.getIndexes()) {
-                            int indexColPosition = index.getColumns().size();
-                            PDataType indexColDataType = IndexUtil.getIndexColumnDataType(column);
-                            ColumnName indexColName = ColumnName.caseSensitiveColumnName(IndexUtil.getIndexColumnName(column));
-                            ColumnDef indexColDef = FACTORY.columnDef(indexColName, indexColDataType.getSqlTypeName(), column.isNullable(), column.getMaxLength(), column.getScale(), true, column.getColumnModifier());
-                            PColumn indexColumn = newColumn(indexColPosition, indexColDef, PrimaryKeyConstraint.EMPTY);
-                            addColumnMutation(schemaName, index.getTableName().getString(), indexColumn, colUpsert, index.getParentTableName().getString());
-                        }
-                    }
-                    
-                    tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
-                    connection.rollback();
-                    
-                }
-               
                 
                 if (isAddingPKColumn && !table.getIndexes().isEmpty()) {
                     for (PTable index : table.getIndexes()) {
@@ -1054,6 +1051,9 @@ public class MetaDataClient {
                 // Force the table header row to be first
                 Collections.reverse(tableMetaData);
                 
+                Pair<byte[],Map<String,Object>> family = families.size() > 0 ? families.get(0) : null;
+                
+                // Figure out if the empty column family is changing as a result of adding the new column
                 byte[] emptyCF = null;
                 byte[] projectCF = null;
                 if (table.getType() != PTableType.VIEW && family != null) {
@@ -1246,10 +1246,11 @@ public class MetaDataClient {
                             tableContainingColumnToDrop.getColumnFamily(emptyCF);
                         } catch (ColumnFamilyNotFoundException e) {
                             // Only if it's not already a column family do we need to ensure it's created
+                            List<Pair<byte[],Map<String,Object>>> family = Lists.newArrayListWithExpectedSize(1);
+                            family.add(new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
                             connection.getQueryServices().addColumn(
                                     Collections.<Mutation>emptyList(), 
-                                    tableContainingColumnToDrop.getType(), 
-                                    new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
+                                    tableContainingColumnToDrop.getType(),family);
                         }
                     }
                 }

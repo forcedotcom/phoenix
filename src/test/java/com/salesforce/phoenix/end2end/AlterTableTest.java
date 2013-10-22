@@ -526,8 +526,6 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             conn.commit();
             
             
-            
-            
             query = "SELECT a_string,col1,col5 FROM test_table WHERE a_string = 'e' ";
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
@@ -536,8 +534,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             assertEquals(201,rs.getInt(3));
             assertFalse(rs.next());
             
-            
-        } finally {
+          } finally {
             conn.close();
         }
     }
