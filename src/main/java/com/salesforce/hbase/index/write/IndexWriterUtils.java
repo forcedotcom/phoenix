@@ -64,7 +64,7 @@ public class IndexWriterUtils {
   private static final int DEFAULT_NUM_PER_TABLE_THREADS = Integer.MAX_VALUE;
 
   /** Configuration key that HBase uses to set the max number of threads for an HTable */
-  private static final String HTABLE_THREAD_KEY = "hbase.htable.threads.max";
+  public static final String HTABLE_THREAD_KEY = "hbase.htable.threads.max";
   private IndexWriterUtils() {
     // private ctor for utilites
   }

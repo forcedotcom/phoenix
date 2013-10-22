@@ -70,7 +70,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -88,8 +87,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
+import com.salesforce.hbase.index.write.IndexWriterUtils;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
@@ -109,8 +108,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 @RunWith(Parameterized.class)
 public class QueryTest extends BaseClientMangedTimeTest {
     private static final String tenantId = getOrganizationId();
-    private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
-    private static String lastIndexDDL = null;
+    private static final String ATABLE_INDEX_PREFIX = "ATABLE_IDX";
     
     @BeforeClass
     public static void doSetup() throws Exception {
@@ -120,11 +118,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         props.put(QueryServices.QUEUE_SIZE_ATTRIB, Integer.toString(100));
         props.put(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, Integer.toString(maxQueryConcurrency));
         props.put(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, Integer.toString(targetQueryConcurrency));
-//        props.put(QueryServices.MAX_INTRA_REGION_PARALLELIZATION_ATTRIB, Integer.toString(Integer.MAX_VALUE));
-//        props.put("index.builder.threads.max", Integer.toString(2));
-//        props.put("index.writer.threads.max", Integer.toString(2));
-        props.put("hbase.htable.threads.max", Integer.toString(100));
-//        props.put("hbase.regionserver.handler.count", Integer.toString(10));
+        props.put(IndexWriterUtils.HTABLE_THREAD_KEY, Integer.toString(100));
         
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
@@ -137,35 +131,8 @@ public class QueryTest extends BaseClientMangedTimeTest {
         this.indexDDL = indexDDL;
     }
     
-    private void destroyTables() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
-        Properties props = new Properties(TEST_PROPERTIES);
-        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
-        HBaseAdmin admin = services.getAdmin();
-        try {
-            try {
-                admin.disableTable(ATABLE_NAME);
-                admin.deleteTable(ATABLE_NAME);
-            } catch (TableNotFoundException e) {
-            }
-            try {
-                admin.disableTable(ATABLE_INDEX_NAME);
-                admin.deleteTable(ATABLE_INDEX_NAME);
-            } catch (TableNotFoundException e) {
-            }
-       } finally {
-                admin.close();
-        }
-    }
-    
     @Before
     public void initTable() throws Exception {
-        // TODO: Jesse to fix. The old deleted state is sometimes being used when it shouldn't
-        // Deleting the index and data table between parameterized runs works around this.
-        if (lastIndexDDL != indexDDL) {
-            lastIndexDDL = indexDDL;
-            destroyTables();
-        }
          ts = nextTimestamp();
         initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
         if (indexDDL != null && indexDDL.length() > 0) {
@@ -179,18 +146,20 @@ public class QueryTest extends BaseClientMangedTimeTest {
     @Parameters(name="{0}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
+        // MAKE SURE TO USE UNIQUE INDEX NAMES HERE, as HBASE-6562 will cause old
+        // index values (that are inverted) to be passed through to the filters.
       testCases.add(
-              new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer DESC) INCLUDE (" +
+              new String[] {"CREATE INDEX " + ATABLE_INDEX_PREFIX + "1 ON aTable (a_integer DESC) INCLUDE (" +
                       "    A_STRING, " +
                       "    B_STRING, " +
                       "    A_DATE)"}
            );
        testCases.add(
-                new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer, a_string) INCLUDE (" +
+                new String[] {"CREATE INDEX " + ATABLE_INDEX_PREFIX + "2 ON aTable (a_integer, a_string) INCLUDE (" +
                         "    B_STRING, " + "    A_DATE)"}
                 );
       testCases.add(
-          new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer) INCLUDE (" +
+          new String[] {"CREATE INDEX " + ATABLE_INDEX_PREFIX + "3 ON aTable (a_integer) INCLUDE (" +
                   "    A_STRING, " +
                   "    B_STRING, " +
                   "    A_DATE)"}
