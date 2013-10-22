@@ -340,7 +340,7 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
                 .isImmutableRows());
         
         
-        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=false");
+        conn.createStatement().execute("ALTER TABLE t SET immutable_rows=false");
 
         assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
