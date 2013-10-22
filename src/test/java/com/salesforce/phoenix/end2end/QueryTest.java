@@ -187,8 +187,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
            );
        testCases.add(
                 new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer, a_string) INCLUDE (" +
-                        // TODO: Jesse to fix"    B_STRING, " +
-                        "    A_DATE)"}
+                        "    B_STRING, " + "    A_DATE)"}
                 );
       testCases.add(
           new String[] {"CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer) INCLUDE (" +
