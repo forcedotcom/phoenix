@@ -87,7 +87,7 @@ public abstract class AndOrExpression extends BaseCompoundExpression {
                 // evaluate versus getValue code path.
                 if (child.evaluate(tuple, ptr)) {
                     // Short circuit if we see our stop value
-                    if (PDataType.BOOLEAN.toObject(ptr, child.getDataType()).equals(Boolean.valueOf(stopValue))) {
+                    if (Boolean.valueOf(stopValue).equals(PDataType.BOOLEAN.toObject(ptr, child.getDataType()))) {
                         return true;
                     } else if (partialEvalState != null) {
                         partialEvalState.set(i);
