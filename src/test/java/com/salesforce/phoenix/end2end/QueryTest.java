@@ -108,7 +108,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 @RunWith(Parameterized.class)
 public class QueryTest extends BaseClientMangedTimeTest {
     private static final String tenantId = getOrganizationId();
-    private static final String ATABLE_INDEX_PREFIX = "ATABLE_IDX";
+    private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
     
     @BeforeClass
     public static void doSetup() throws Exception {
@@ -146,27 +146,14 @@ public class QueryTest extends BaseClientMangedTimeTest {
     @Parameters(name="{0}")
     public static Collection<Object> data() {
         List<Object> testCases = Lists.newArrayList();
-        // MAKE SURE TO USE UNIQUE INDEX NAMES HERE, as HBASE-6562 will cause old
-        // index values (that are inverted) to be passed through to the filters.
-      testCases.add(
-              new String[] {"CREATE INDEX " + ATABLE_INDEX_PREFIX + "1 ON aTable (a_integer DESC) INCLUDE (" +
-                      "    A_STRING, " +
-                      "    B_STRING, " +
-                      "    A_DATE)"}
-           );
-       testCases.add(
-                new String[] {"CREATE INDEX " + ATABLE_INDEX_PREFIX + "2 ON aTable (a_integer, a_string) INCLUDE (" +
-                        "    B_STRING, " + "    A_DATE)"}
-                );
-      testCases.add(
-          new String[] {"CREATE INDEX " + ATABLE_INDEX_PREFIX + "3 ON aTable (a_integer) INCLUDE (" +
-                  "    A_STRING, " +
-                  "    B_STRING, " +
-                  "    A_DATE)"}
-          );
-        testCases.add(
-                new String[] {""});
-         return testCases;
+        testCases.add(new String[] { "CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer DESC) INCLUDE ("
+                + "    A_STRING, " + "    B_STRING, " + "    A_DATE)" });
+        testCases.add(new String[] { "CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer, a_string) INCLUDE ("
+                + "    B_STRING, " + "    A_DATE)" });
+        testCases.add(new String[] { "CREATE INDEX " + ATABLE_INDEX_NAME + " ON aTable (a_integer) INCLUDE ("
+                + "    A_STRING, " + "    B_STRING, " + "    A_DATE)" });
+        testCases.add(new String[] { "" });
+        return testCases;
     }
     
     private void assertValueEqualsResultSet(ResultSet rs, List<Object> expectedResults) throws SQLException {
