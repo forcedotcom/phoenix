@@ -49,6 +49,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
@@ -92,7 +93,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 nIndexColumns,
                 nIndexPKColumns,
                 index.getBucketNum(),
-                SchemaUtil.getEmptyColumnFamily(dataTable.getColumnFamilies()));
+                dataTable.getColumnFamilies());
         RowKeyMetaData rowKeyMetaData = maintainer.getRowKeyMetaData();
         for (int j = indexPosOffset; j < index.getPKColumns().size(); j++) {
             PColumn indexColumn = index.getPKColumns().get(j);
@@ -205,6 +206,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private byte[] indexTableName;
     private int nIndexSaltBuckets;
     private byte[] dataEmptyKeyValueCF;
+    private int nDataCFs;
 
     // Transient state
     private final boolean isDataTableSalted;
@@ -223,7 +225,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     }
 
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted, byte[] indexTableName,
-            int nIndexColumns, int nIndexPKColumns, Integer nIndexSaltBuckets, byte[] dataEmptyKeyValueCF) {
+            int nIndexColumns, int nIndexPKColumns, Integer nIndexSaltBuckets, List<PColumnFamily> cfs) {
         this(dataRowKeySchema, isDataTableSalted);
         int nDataPKColumns = dataRowKeySchema.getFieldCount() - (isDataTableSalted ? 1 : 0);
         this.indexTableName = indexTableName;
@@ -236,7 +238,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         this.allColumns.addAll(coveredColumns);
         this.rowKeyMetaData = newRowKeyMetaData(nIndexPKColumns);
         this.nIndexSaltBuckets  = nIndexSaltBuckets == null ? 0 : nIndexSaltBuckets;
-        this.dataEmptyKeyValueCF = dataEmptyKeyValueCF;
+        this.dataEmptyKeyValueCF = SchemaUtil.getEmptyColumnFamily(cfs);
+        this.nDataCFs = cfs.size();
     }
 
     public byte[] buildRowKey(ValueGetter valueGetter, ImmutableBytesWritable rowKeyPtr)  {
@@ -367,19 +370,19 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     }
     
     public boolean isRowDeleted(Collection<KeyValue> pendingUpdates) {
-        if (pendingUpdates.size() == 1) {
-            KeyValue kv = pendingUpdates.iterator().next();
-            boolean isEmptyCF = Bytes.compareTo(kv.getFamily(), dataEmptyKeyValueCF) == 0;
-            if (isEmptyCF && kv.getType() != KeyValue.Type.Put.getCode()) {
-                if (kv.getType() == KeyValue.Type.DeleteFamily.getCode()) {
-                    return true;
-                }
-                if (Bytes.compareTo(kv.getQualifier(), QueryConstants.EMPTY_COLUMN_BYTES) == 0) {
+        int nDeleteCF = 0;
+        for (KeyValue kv : pendingUpdates) {
+            if (kv.getType() == KeyValue.Type.DeleteFamily.getCode()) {
+                nDeleteCF++;
+                boolean isEmptyCF = Bytes.compareTo(kv.getFamily(), dataEmptyKeyValueCF) == 0;
+                // This is what a delete looks like on the client side for immutable indexing...
+                if (isEmptyCF) {
                     return true;
                 }
             }
         }
-        return false;
+        // This is what a delete looks like on the server side for mutable indexing...
+        return nDeleteCF == this.nDataCFs;
     }
     
     private boolean hasIndexedColumnChanged(ValueGetter oldState, Collection<KeyValue> pendingUpdates) throws IOException {
@@ -503,6 +506,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         dataEmptyKeyValueCF = Bytes.readByteArray(input);
         rowKeyMetaData = newRowKeyMetaData();
         rowKeyMetaData.readFields(input);
+        nDataCFs = WritableUtils.readVInt(input);
         
         initCachedState();
     }
@@ -603,6 +607,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         }
         size += indexTableName.length + WritableUtils.getVIntSize(indexTableName.length);
         size += rowKeyMetaData.getByteSize();
+        size += dataEmptyKeyValueCF.length + + WritableUtils.getVIntSize(dataEmptyKeyValueCF.length);
+        size += WritableUtils.getVIntSize(nDataCFs);
         return size;
     }
     
@@ -630,6 +636,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         Bytes.writeByteArray(output, indexTableName);
         Bytes.writeByteArray(output, dataEmptyKeyValueCF);
         rowKeyMetaData.write(output);
+        WritableUtils.writeVInt(output, nDataCFs);
     }
 
     private static void writeInverted(byte[] buf, int offset, int length, DataOutput output) throws IOException {
