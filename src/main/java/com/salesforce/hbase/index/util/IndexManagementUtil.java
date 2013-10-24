@@ -55,7 +55,7 @@ public class IndexManagementUtil {
             // Use reflection to load the IndexedWALEditCodec, since it may not load with an older version
             // of HBase
             Class.forName(INDEX_WAL_EDIT_CODEC_CLASS_NAME);
-        } catch (ClassNotFoundException e) {
+        } catch (Throwable t) {
             return false;
         }
         if (INDEX_WAL_EDIT_CODEC_CLASS_NAME.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
