@@ -123,6 +123,8 @@ syntax-end -->
 
     <a href="#term" >Term</a><br />
 
+    <a href="#row_value_constructor" >Row Value Constructor</a><br />
+
     <a href="#bind_parameter" >Bind Parameter</a><br />
 
     <a href="#value" >Value</a><br />
@@ -200,6 +202,8 @@ syntax-end -->
             
                 <a href="#term" >Term</a><br />
             
+                <a href="#row_value_constructor" >Row Value Constructor</a><br />
+            
                 <a href="#bind_parameter" >Bind Parameter</a><br />
             
                 <a href="#value" >Value</a><br />
@@ -209,9 +213,9 @@ syntax-end -->
                 <a href="#case_when" >Case When</a><br />
             
                 <a href="#name" >Name</a><br />
+                    </td><td class="index">
             
                 <a href="#quoted_name" >Quoted Name</a><br />
-                    </td><td class="index">
             
                 <a href="#alias" >Alias</a><br />
             
@@ -287,15 +291,15 @@ UPSERT INTO TEST VALUES(&#39;foo&#39;,&#39;bar&#39;,3);<br />UPSERT INTO TEST(NA
 <h3 id="upsert_select" class="notranslate">UPSERT SELECT</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-UPSERT INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] <a href="index.html#select">select</a>
+UPSERT [/*+ <a href="index.html#hint">hint</a> */] INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] <a href="index.html#select">select</a>
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPSERT INTO <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">(</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#column_def">columnDef</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#select">select</a></code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPSERT</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">/ * + <a href="index.html#hint">hint</a> * /</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">INTO <a href="index.html#name">tableName</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">(</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#column_def">columnDef</a></code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">, ...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#select">select</a></code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-UPSERT INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] <a href="index.html#select">select</a>
+UPSERT [/*+ <a href="index.html#hint">hint</a> */] INTO <a href="index.html#name">tableName</a> [( { <a href="index.html#column_ref">columnRef</a> | <a href="index.html#column_def">columnDef</a> } [,...] )] <a href="index.html#select">select</a>
 </pre>
 syntax-end -->
 <p>Inserts if not present and updates otherwise rows in the table based on the results of running another query. The values are set based on their matching position between the source and target tables. The list of columns is optional and if not present will map to the column in the order they are declared in the schema. If auto commit is on, and both a) the target table matches the source table, and b) the select performs no aggregation, then the population of the target table will be done completely on the server-side (with constraint violations logged, but otherwise ignored). Otherwise, data is buffered on the client and, if auto commit is on, committed in row batches as specified by the UpsertBatchSize connection property (or the phoenix.mutate.upsertBatchSize <code>HBase</code> config property which defaults to 10000 rows)</p>
@@ -405,7 +409,7 @@ ON <a href="index.html#table_ref">tableRef</a> ( <a href="index.html#column_ref"
 [<a href="index.html#options">indexOptions</a>] [ SPLIT ON ( <a href="index.html#split_point">splitPoint</a> [,...] ) ]
 </pre>
 syntax-end -->
-<p>Creates a new secondary index on a table or view. Currently indexes may only be added to tables that are declared as having immutable rows (i.e. by specifying the <code>IMMUTABLE_ROWS</code>=true property when creating or altering a table). Immutable rows are expected to be inserted once in their entirety and then never updated. This limitation will be removed once incremental index maintenance has been implemented. The current implementation inserts the index rows when the data row is inserted.</p>
+<p>Creates a new secondary index on a table or view. The index will be automatically kept in sync with the table as the data changes. At query time, the optimizer will use the index if it contains all columns referenced in the query and produces the most efficient execution plan. If a table has rows that are write-once and append-only, then the table may set the <code>IMMUTABLE_ROWS</code> property to true (either up-front in the <code>CREATE TABLE</code> statement or afterwards in an <code>ALTER TABLE</code> statement). This reduces the overhead at write time to maintain the index. Otherwise, if this property is not set on the table, then incremental index maintenance will be performed on the server side when the data changes.</p>
 <p>Example:</p>
 <p class="notranslate">
 CREATE INDEX my_idx ON sales.opportunity(last_updated_date DESC)<br />CREATE INDEX my_idx ON log.event(created_date DESC) INCLUDE (name, payload) SALT_BUCKETS=10<br />CREATE INDEX IF NOT EXISTS my_comp_idx ON server_metrics ( gc_time DESC, created_date DESC )<br />&nbsp;&nbsp;&nbsp;&nbsp;DATA_BLOCK_ENCODING=&#39;NONE&#39;,VERSIONS=?,MAX_FILESIZE=2000000 split on (?, ?, ?)</p>
@@ -432,21 +436,21 @@ DROP INDEX my_idx ON sales.opportunity<br />DROP INDEX IF EXISTS my_idx ON serve
 <h3 id="alter_index" class="notranslate">ALTER INDEX</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-ALTER INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a> { ENABLE | DISABLE }
+ALTER INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a> { DISABLE | REBUILD | UNUSABLE | USABLE }
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ALTER INDEX</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ENABLE</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DISABLE</code></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ALTER INDEX</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">IF EXISTS</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">DISABLE</code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c">REBUILD</code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c">UNUSABLE</code></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">USABLE</code></td><td class="le"></td></tr></table></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-ALTER INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a> { ENABLE | DISABLE }
+ALTER INDEX [IF EXISTS] <a href="index.html#name">indexName</a> ON <a href="index.html#table_ref">tableRef</a> { DISABLE | REBUILD | UNUSABLE | USABLE }
 </pre>
 syntax-end -->
-<p>Disables or enables an index. An index that is disabled will not be used at query time. This has no affect on index maintenance - an index that is disabled will continue to be maintained.</p>
+<p>Alters the state of an existing index. &nbsp;<code>DISABLE</code> will cause the no further index maintenance to be performed on the index and it will no longer be considered for use in queries. <code>REBUILD</code> will completely rebuild the index and upon completion will enable the index to be used in queries again. <code>UNUSABLE</code> will cause the index to no longer be considered for use in queries, however index maintenance will continue to be performed. <code>USABLE</code> will cause the index to again be considered for use in queries. Note that a disabled index must be rebuild and cannot be set as <code>USABLE</code>.</p>
 <p>Example:</p>
 <p class="notranslate">
-ALTER INDEX my_idx ON sales.opportunity DISABLE<br />ALTER INDEX IF EXISTS my_idx ON server_metrics ENABLE</p>
+ALTER INDEX my_idx ON sales.opportunity DISABLE<br />ALTER INDEX IF EXISTS my_idx ON server_metrics REBUILD</p>
 
 <h3 id="explain" class="notranslate">EXPLAIN</h3>
 <!-- railroad-start -->
@@ -503,7 +507,7 @@ syntax-end -->
 <a href="index.html#name">name</a> [,...]
 </pre>
 syntax-end -->
-<p>Advanced features that overrides default query processing behavior. The five supported hints are 1) <code>SKIP_SCAN</code> to force a skip scan to be performed on the query when it otherwise would not. This option may improve performance if a query does not include the leading primary key column, but does include other, very selective primary key columns. 2) <code>RANGE_SCAN</code> to force a range scan to be performed on the query. This option may improve performance if a query filters on a range for non selective leading primary key column along with other primary key columns 3) <code>NO_INTRA_REGION_PARALLELIZATION</code> to prevent the spawning of multiple threads to process data within a single region. This option is useful when the overall data set being queries is known to be small. 4) <code>NO_INDEX</code> to force the data table to be used for a query, and 5) <code>INDEX</code>(&lt;table_name&gt; &lt;index_name&gt;...) to suggest which index to use for a given query. Double quotes may be used to surround a table_name and/or index_name that is case sensitive.</p>
+<p>Advanced features that overrides default query processing behavior. The supported hints include 1) <code>SKIP_SCAN</code> to force a skip scan to be performed on the query when it otherwise would not be. This option may improve performance if a query does not include the leading primary key column, but does include other, very selective primary key columns. 2) <code>RANGE_SCAN</code> to force a range scan to be performed on the query. This option may improve performance if a query filters on a range for non selective leading primary key column along with other primary key columns 3) <code>NO_INTRA_REGION_PARALLELIZATION</code> to prevent the spawning of multiple threads to process data within a single region. This option is useful when the overall data set being queries is known to be small. 4) <code>NO_INDEX</code> to force the data table to be used for a query, and 5) <code>INDEX</code>(&lt;table_name&gt; &lt;index_name&gt;...) to suggest which index to use for a given query. Double quotes may be used to surround a table_name and/or index_name that is case sensitive.</p>
 <p>Example:</p>
 <p class="notranslate">/*+ SKIP_SCAN */<br />/*+ RANGE_SCAN */<br />/*+ NO_INTRA_REGION_PARALLELIZATION */<br />/*+ NO_INDEX */<br />/*+ INDEX(employee emp_name_idx emp_start_date_idx) */</p>
 
@@ -594,7 +598,7 @@ syntax-end -->
 { <a href="index.html#expression">expression</a> } [ ASC | DESC ] [ NULLS { FIRST | LAST } ]
 </pre>
 syntax-end -->
-<p>Sorts the result by an expression. Only supported for queries that use <code>GROUP BY</code>.</p>
+<p>Sorts the result by an expression.</p>
 <p>Example:</p>
 <p class="notranslate">NAME DESC NULLS LAST</p>
 
@@ -697,7 +701,7 @@ syntax-end -->
 
 <h3 id="term" class="notranslate">Term</h3>
 <!-- railroad-start -->
-<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#value">value</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="functions.html">Function</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case">case</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case_when">caseWhen</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#operand">operand</a> )</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#alias">tableAlias</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td></tr></table></td><td class="le"></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c"><a href="index.html#value">value</a></code></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#bind_parameter">bindParameter</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="functions.html">Function</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case">case</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><code class="c"><a href="index.html#case_when">caseWhen</a></code></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#operand">operand</a> )</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#alias">tableAlias</a> .</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c"><a href="index.html#column_ref">columnRef</a></code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#row_value_constructor">rowValueConstructor</a></code></td><td class="le"></td></tr></table>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
@@ -708,11 +712,25 @@ syntax-end -->
 | <a href="index.html#case_when">caseWhen</a>
 | ( <a href="index.html#operand">operand</a> )
 | [ <a href="index.html#alias">tableAlias</a>. ] <a href="index.html#column_ref">columnRef</a>
+| <a href="index.html#row_value_constructor">rowValueConstructor</a>
 </pre>
 syntax-end -->
 <p>A value.</p>
 <p>Example:</p>
 <p class="notranslate">&#39;Hello&#39;</p>
+
+<h3 id="row_value_constructor" class="notranslate">Row Value Constructor</h3>
+<!-- railroad-start -->
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#term">term</a> , <a href="index.html#term">term</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">...</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+( <a href="index.html#term">term</a> { ,<a href="index.html#term">term</a> } [...] )
+</pre>
+syntax-end -->
+<p>A row value constructor is a list of other terms which are treated together as a kind of composite structure. They may be compared to each other or to other other terms. The main use case is 1) to enable efficiently stepping through a set of rows in support of query-more type functionality, or 2) to allow <code>IN</code> clause to perform point gets on composite row keys.</p>
+<p>Example:</p>
+<p class="notranslate">(col1, col2, 5)</p>
 
 <h3 id="bind_parameter" class="notranslate">Bind Parameter</h3>
 <!-- railroad-start -->

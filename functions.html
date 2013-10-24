@@ -40,7 +40,7 @@ The top level commands, SQL syntax, built-in functions, and supported data types
 
     <a href="#percentile_disc" >PERCENTILE_DISC</a><br />
 
-    <a href="#percentile_rank" >PERCENT_RANK</a><br />
+    <a href="#percent_rank" >PERCENT_RANK</a><br />
 
     <a href="#stddev_pop" >STDDEV_POP</a><br />
 
@@ -67,7 +67,7 @@ syntax-end -->
             
                 <a href="#percentile_disc" >PERCENTILE_DISC</a><br />
             
-                <a href="#percentile_rank" >PERCENT_RANK</a><br />
+                <a href="#percent_rank" >PERCENT_RANK</a><br />
                     </td><td class="index">
             
                 <a href="#stddev_pop" >STDDEV_POP</a><br />
@@ -178,6 +178,10 @@ syntax-end -->
 <!-- syntax-start
 <p class="notranslate">
 
+    <a href="#md5" >MD5</a><br />
+
+    <a href="#invert" >INVERT</a><br />
+
     <a href="#to_number" >TO_NUMBER</a><br />
 
     <a href="#coalesce" >COALESCE</a><br />
@@ -188,8 +192,12 @@ syntax-end -->
     <tr>
         <td class="index">
             
-                <a href="#to_number" >TO_NUMBER</a><br />
+                <a href="#md5" >MD5</a><br />
+            
+                <a href="#invert" >INVERT</a><br />
                     </td><td class="index">
+            
+                <a href="#to_number" >TO_NUMBER</a><br />
             
                 <a href="#coalesce" >COALESCE</a><br />
                     </td><td class="index">
@@ -326,7 +334,7 @@ syntax-end -->
 <p>Example:</p>
 <p class="notranslate">PERCENTILE_DISC( 0.9 ) WITHIN GROUP (ORDER BY X DESC)</p>
 
-<h3 id="percentile_rank" class="notranslate">PERCENT_RANK</h3>
+<h3 id="percent_rank" class="notranslate">PERCENT_RANK</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
 PERCENT_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
@@ -379,6 +387,42 @@ syntax-end -->
 <p>The sample standard deviation of all values. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
 <p>Example:</p>
 <p class="notranslate">STDDEV_SAMP( X )</p>
+
+<h3 id="md5" class="notranslate">MD5</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+MD5( <a href="index.html#term">term</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MD5 ( <a href="index.html#term">term</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+MD5( <a href="index.html#term">term</a> )
+</pre>
+syntax-end -->
+<p>Computes the <code>MD5</code> hash of the argument, returning the result as a <code>BINARY</code>(16).</p>
+<p>Example:</p>
+<p class="notranslate">MD5(my_column)</p>
+
+<h3 id="invert" class="notranslate">INVERT</h3>
+<!-- railroad-start -->
+<pre name="bnf" style="display: none">
+INVERT( <a href="index.html#term">term</a> )
+</pre>
+<div name="railroad">
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">INVERT ( <a href="index.html#term">term</a> )</code></td></tr></table>
+</div>
+<!-- railroad-end -->
+<!-- syntax-start
+<pre>
+INVERT( <a href="index.html#term">term</a> )
+</pre>
+syntax-end -->
+<p>Inverts the bits of the argument. The return type will be the same as the argument.</p>
+<p>Example:</p>
+<p class="notranslate">INVERT(my_column)</p>
 
 <h3 id="to_number" class="notranslate">TO_NUMBER</h3>
 <!-- railroad-start -->
