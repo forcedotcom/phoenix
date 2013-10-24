@@ -146,53 +146,59 @@ public class Indexer extends BaseRegionObserver {
   private IndexWriter recoveryWriter;
 
   private boolean stopped;
+  private boolean disabled;
 
   public static final String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
-    final RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) e;
-    String serverName = env.getRegionServerServices().getServerName().getServerName();
-    if (env.getConfiguration().getBoolean(CHECK_VERSION_CONF_KEY, true)) {
-      // make sure the right version <-> combinations are allowed.
-      String errormsg = Indexer.validateVersion(env.getHBaseVersion(), env.getConfiguration());
-      if (errormsg != null) {
-        IOException ioe = new IOException(errormsg);
-        env.getRegionServerServices().abort(errormsg, ioe);
-        throw ioe;
+      try {
+        final RegionCoprocessorEnvironment env = (RegionCoprocessorEnvironment) e;
+        String serverName = env.getRegionServerServices().getServerName().getServerName();
+        if (env.getConfiguration().getBoolean(CHECK_VERSION_CONF_KEY, true)) {
+          // make sure the right version <-> combinations are allowed.
+          String errormsg = Indexer.validateVersion(env.getHBaseVersion(), env.getConfiguration());
+          if (errormsg != null) {
+            IOException ioe = new IOException(errormsg);
+            env.getRegionServerServices().abort(errormsg, ioe);
+            throw ioe;
+          }
+        }
+    
+        this.builder = new IndexBuildManager(env);
+    
+        // get a reference to the WAL
+        log = env.getRegionServerServices().getWAL();
+        // add a synchronizer so we don't archive a WAL that we need
+        log.registerWALActionsListener(new IndexLogRollSynchronizer(INDEX_READ_WRITE_LOCK.writeLock()));
+    
+        // setup the actual index writer
+        this.writer = new IndexWriter(env, serverName + "-index-writer");
+    
+        // setup the recovery writer that does retries on the failed edits
+        TrackingParallelWriterIndexCommitter recoveryCommmiter =
+            new TrackingParallelWriterIndexCommitter();
+    
+        try {
+          // get the specified failure policy. We only ever override it in tests, but we need to do it
+          // here
+          Class<? extends IndexFailurePolicy> policyClass =
+              env.getConfiguration().getClass(INDEX_RECOVERY_FAILURE_POLICY_KEY,
+                StoreFailuresInCachePolicy.class, IndexFailurePolicy.class);
+          IndexFailurePolicy policy =
+              policyClass.getConstructor(PerRegionIndexWriteCache.class).newInstance(failedIndexEdits);
+          LOG.debug("Setting up recovery writter with committer: " + recoveryCommmiter.getClass()
+              + " and failure policy: " + policy.getClass());
+          recoveryWriter =
+              new IndexWriter(recoveryCommmiter, policy, env, serverName + "-recovery-writer");
+        } catch (Exception ex) {
+          throw new IOException("Could not instantiate recovery failure policy!", ex);
+        }
+      } catch (NoSuchMethodError ex) {
+          disabled = true;
+          super.start(e);
+          LOG.error("Must be too early a version of HBase. Disabled coprocessor ", ex);
       }
-    }
-
-    this.builder = new IndexBuildManager(env);
-
-    // get a reference to the WAL
-    log = env.getRegionServerServices().getWAL();
-    // add a synchronizer so we don't archive a WAL that we need
-    log.registerWALActionsListener(new IndexLogRollSynchronizer(INDEX_READ_WRITE_LOCK.writeLock()));
-
-    // setup the actual index writer
-    this.writer = new IndexWriter(env, serverName + "-index-writer");
-
-    // setup the recovery writer that does retries on the failed edits
-    TrackingParallelWriterIndexCommitter recoveryCommmiter =
-        new TrackingParallelWriterIndexCommitter();
-
-    try {
-      // get the specified failure policy. We only ever override it in tests, but we need to do it
-      // here
-      Class<? extends IndexFailurePolicy> policyClass =
-          env.getConfiguration().getClass(INDEX_RECOVERY_FAILURE_POLICY_KEY,
-            StoreFailuresInCachePolicy.class, IndexFailurePolicy.class);
-      IndexFailurePolicy policy =
-          policyClass.getConstructor(PerRegionIndexWriteCache.class).newInstance(failedIndexEdits);
-      LOG.debug("Setting up recovery writter with committer: " + recoveryCommmiter.getClass()
-          + " and failure policy: " + policy.getClass());
-      recoveryWriter =
-          new IndexWriter(recoveryCommmiter, policy, env, serverName + "-recovery-writer");
-    } catch (Exception ex) {
-      throw new IOException("Could not instantiate recovery failure policy!", ex);
-    }
-
   }
 
   @Override
@@ -200,6 +206,10 @@ public class Indexer extends BaseRegionObserver {
     if (this.stopped) {
       return;
     }
+    if (this.disabled) {
+        super.stop(e);
+        return;
+      }
     this.stopped = true;
     String msg = "Indexer is being stopped";
     this.builder.stop(msg);
@@ -210,6 +220,10 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void prePut(final ObserverContext<RegionCoprocessorEnvironment> c, final Put put,
       final WALEdit edit, final boolean writeToWAL) throws IOException {
+      if (this.disabled) {
+          super.prePut(c, put, edit, writeToWAL);
+          return;
+        }
     // just have to add a batch marker to the WALEdit so we get the edit again in the batch
     // processing step. We let it throw an exception here because something terrible has happened.
     edit.add(BATCH_MARKER);
@@ -218,6 +232,10 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void preDelete(ObserverContext<RegionCoprocessorEnvironment> e, Delete delete,
       WALEdit edit, boolean writeToWAL) throws IOException {
+      if (this.disabled) {
+          super.preDelete(e, delete, edit, writeToWAL);
+          return;
+        }
     try {
       preDeleteWithExceptions(e, delete, edit, writeToWAL);
       return;
@@ -248,6 +266,10 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void preBatchMutate(ObserverContext<RegionCoprocessorEnvironment> c,
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
+      if (this.disabled) {
+          super.preBatchMutate(c, miniBatchOp);
+          return;
+        }
     try {
       preBatchMutateWithExceptions(c, miniBatchOp);
       return;
@@ -449,18 +471,30 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void postPut(ObserverContext<RegionCoprocessorEnvironment> e, Put put, WALEdit edit,
       boolean writeToWAL) throws IOException {
+      if (this.disabled) {
+          super.postPut(e, put, edit, writeToWAL);
+          return;
+        }
     doPost(edit, put, writeToWAL);
   }
 
   @Override
   public void postDelete(ObserverContext<RegionCoprocessorEnvironment> e, Delete delete,
       WALEdit edit, boolean writeToWAL) throws IOException {
+      if (this.disabled) {
+          super.postDelete(e, delete, edit, writeToWAL);
+          return;
+        }
     doPost(edit,delete, writeToWAL);
   }
 
   @Override
   public void postBatchMutate(ObserverContext<RegionCoprocessorEnvironment> c,
       MiniBatchOperationInProgress<Pair<Mutation, Integer>> miniBatchOp) throws IOException {
+      if (this.disabled) {
+          super.postBatchMutate(c, miniBatchOp);
+          return;
+        }
     this.builder.batchCompleted(miniBatchOp);
     // noop for the rest of the indexer - its handled by the first call to put/delete
   }
@@ -564,6 +598,10 @@ public class Indexer extends BaseRegionObserver {
   public void postOpen(final ObserverContext<RegionCoprocessorEnvironment> c) {
     Multimap<HTableInterfaceReference, Mutation> updates = failedIndexEdits.getEdits(c.getEnvironment().getRegion());
     
+    if (this.disabled) {
+        super.postOpen(c);
+        return;
+      }
     LOG.info("Found some outstanding index updates that didn't succeed during"
         + " WAL replay - attempting to replay now.");
     //if we have no pending edits to complete, then we are done
@@ -583,6 +621,10 @@ public class Indexer extends BaseRegionObserver {
   @Override
   public void preWALRestore(ObserverContext<RegionCoprocessorEnvironment> env, HRegionInfo info,
       HLogKey logKey, WALEdit logEdit) throws IOException {
+      if (this.disabled) {
+          super.preWALRestore(env, info, logKey, logEdit);
+          return;
+        }
     // TODO check the regions in transition. If the server on which the region lives is this one,
     // then we should rety that write later in postOpen.
     // we might be able to get even smarter here and pre-split the edits that are server-local
