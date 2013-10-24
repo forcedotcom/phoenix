@@ -89,6 +89,6 @@ public class IndexMetaDataCacheClient {
         /**
          * Serialize and compress hashCacheTable
          */
-        return serverCache.addServerCache(ranges, ptr, new IndexMetaDataCacheFactory());
+        return serverCache.addServerCache(ranges, ptr, new IndexMetaDataCacheFactory(), cacheUsingTableRef);
     }
 }
